@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from source.api.schemas import AccountCreate, AccountRead
+from source.api.schemas import AccountCreate, AccountRead, AccountUpdate
 from source.db import get_session
 from source.models.account import Account
 from source.services import account_service
@@ -24,9 +24,11 @@ def create_account(payload: AccountCreate, session: Session = Depends(get_sessio
     )
 
 
-@router.post("/sync/{user_id}", status_code=204)
-def sync_accounts_of_user(user_id: int, session: Session = Depends(get_session)) -> None:
-    accounts = account_service.list_accounts(session, user_id=user_id)
-    for account in accounts:
-        account.sync()
-    session.commit()
+@router.patch("/{account_id}", response_model=AccountRead)
+def update_account(account_id: int, payload: AccountUpdate, session: Session = Depends(get_session)) -> Account:
+    return account_service.update_account(session, account_id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete("/{account_id}", status_code=204)
+def delete_account(account_id: int, session: Session = Depends(get_session)) -> None:
+    account_service.delete_account(session, account_id)

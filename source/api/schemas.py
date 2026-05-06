@@ -12,6 +12,13 @@ class TransactionRead(BaseModel):
     timestamp: datetime
 
 
+class AccountCreate(BaseModel):
+    user_id: int
+    provider: BankProvider
+    username: str
+    password: str
+
+
 class AccountRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -22,11 +29,13 @@ class AccountRead(BaseModel):
     transactions: list[TransactionRead] = []
 
 
-class AccountCreate(BaseModel):
-    user_id: int
-    provider: BankProvider
-    username: str
-    password: str
+class AccountUpdate(BaseModel):
+    username: str | None = None
+    password: str | None = None
+
+
+class UserCreate(BaseModel):
+    name: str
 
 
 class UserRead(BaseModel):
@@ -38,5 +47,5 @@ class UserRead(BaseModel):
     accounts: list[AccountRead] = []
 
 
-class UserCreate(BaseModel):
-    name: str
+class UserUpdate(BaseModel):
+    name: str | None = None
