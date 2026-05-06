@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict
+from source.bank_handlers import BankProvider
 
 
 class AccountRead(BaseModel):
@@ -6,7 +7,15 @@ class AccountRead(BaseModel):
 
     id: int
     balance: float
-    merchant_name: str
+    provider: BankProvider
+    username: str
+
+
+class AccountCreate(BaseModel):
+    user_id: int
+    provider: BankProvider
+    username: str
+    password: str
 
 
 class UserRead(BaseModel):

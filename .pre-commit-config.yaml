@@ -17,7 +17,9 @@ repos:
     rev: 7.3.0
     hooks:
       - id: flake8
-        additional_dependencies: [ flake8-annotations, flake8-type-checking ]
+        additional_dependencies:
+          - flake8-annotations
+          - flake8-type-checking
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.0
     hooks:
