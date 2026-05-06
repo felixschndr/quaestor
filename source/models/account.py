@@ -34,6 +34,7 @@ class Account(Base):
 
     def sync(self) -> None:
         handler = handler_for(self.provider, self.username, self.password)
+        self.balance = handler.get_balance()
         new_transactions = handler.fetch_new_transactions(self.last_fetching_timestamp)
         for transaction in new_transactions:
             self.transactions.append(Transaction(amount=transaction.amount, timestamp=transaction.timestamp))
