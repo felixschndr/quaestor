@@ -16,5 +16,9 @@ class BankHandler(ABC):
         self.password = password
 
     @abstractmethod
+    def get_balance(self) -> float:
+        raise NotImplementedError
+
+    @abstractmethod
     def fetch_new_transactions(self, last_synced_at: datetime | None) -> list[FetchedTransaction]:
         raise NotImplementedError
