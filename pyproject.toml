@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "Finanzguru Clone"
+version = "0.0.1"
+description = "A selfhosted clone of finanzguru"
+authors = ["Felix Schneider <mail@fschneider.me>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.14"
+sqlalchemy = "^2.0.49"
+fastapi = "^0.115.0"
+uvicorn = {extras = ["standard"], version = "^0.32.0"}
+pydantic = "^2.9.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0.3"
+
+[tool.isort]
+profile = "black"
+src_paths = ["src", "tests"]
+
+[tool.bandit]
+exclude_dirs = [".venv"]
