@@ -26,3 +26,9 @@ def create_account(
     session.add(account)
     session.commit()
     return account
+
+
+def sync_accounts(session: Session, user_id: int) -> None:
+    accounts = list_accounts(session=session, user_id=user_id)
+    for account in accounts:
+        account.sync()

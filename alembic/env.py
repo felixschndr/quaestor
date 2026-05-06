@@ -17,7 +17,7 @@ target_metadata: MetaData = Base.metadata
 
 
 def _describe_operation(op: MigrateOperation) -> str:
-    name = type(op).__name__.removesuffix("Op").lower()
+    name = type(op).__name__.lower().removesuffix("ops")
     parts = [name]
     column = getattr(op, "column_name", None)
     table = getattr(op, "table_name", None)
