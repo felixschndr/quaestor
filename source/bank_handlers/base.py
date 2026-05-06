@@ -1,9 +1,20 @@
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from datetime import datetime
 
 
-class BankHandler:
-    def __init__(self, name: str):
-        self.name = name
+@dataclass(frozen=True)
+class FetchedTransaction:
+    amount: float
+    timestamp: datetime
 
-    def fetch_new_transactions(self) -> dict:
-        return {"amount": 1, "timestamp": datetime.now()}
+
+class BankHandler(ABC):
+    def __init__(self, name: str, username: str, password: str):
+        self.name = name
+        self.username = username
+        self.password = password
+
+    @abstractmethod
+    def fetch_new_transactions(self, last_synced_at: datetime | None) -> list[FetchedTransaction]:
+        raise NotImplementedError

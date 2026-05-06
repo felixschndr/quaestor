@@ -22,3 +22,11 @@ def create_account(payload: AccountCreate, session: Session = Depends(get_sessio
         username=payload.username,
         password=payload.password,
     )
+
+
+@router.post("/sync/{user_id}", status_code=204)
+def sync_accounts_of_user(user_id: int, session: Session = Depends(get_session)) -> None:
+    accounts = account_service.list_accounts(session, user_id=user_id)
+    for account in accounts:
+        account.sync()
+    session.commit()
