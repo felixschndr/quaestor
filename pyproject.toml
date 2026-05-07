@@ -12,6 +12,8 @@ fastapi = "^0.136.1"
 pydantic = "^2.13.4"
 alembic = "^1.18.4"
 uvicorn = "^0.46.0"
+cryptography = "^48.0.0"
+python-dotenv = "^1.2.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.3"

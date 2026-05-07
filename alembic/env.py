@@ -1,11 +1,14 @@
 from logging.config import fileConfig
+from typing import Any, Literal
 
 from alembic import context
+from alembic.autogenerate.api import AutogenContext
 from alembic.operations.ops import MigrateOperation, MigrationScript
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from source.db import engine
 from source.models import Base
+from source.models.types import EncryptedString
 from sqlalchemy import MetaData
 
 config = context.config
@@ -26,6 +29,12 @@ def _describe_operation(op: MigrateOperation) -> str:
     if table:
         parts.append(table)
     return "_".join(parts)
+
+
+def render_item(type_: str, obj: Any, autogen_context: AutogenContext) -> str | Literal[False]:
+    if type_ == "type" and isinstance(obj, EncryptedString):
+        return "sa.LargeBinary()"
+    return False
 
 
 def process_revision_directives(
@@ -53,6 +62,7 @@ with engine.connect() as connection:
         connection=connection,
         target_metadata=target_metadata,
         render_as_batch=True,
+        render_item=render_item,
         process_revision_directives=process_revision_directives,
     )
     with context.begin_transaction():
