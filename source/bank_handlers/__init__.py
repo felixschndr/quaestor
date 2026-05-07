@@ -1,7 +1,7 @@
 from enum import Enum
 
 from source.bank_handlers.base import BankHandler, FetchedTransaction
-from source.bank_handlers.ing import INGBankHandler
+from source.bank_handlers.ING.ing import INGBankHandler
 
 
 class BankProvider(Enum):
