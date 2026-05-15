@@ -12,24 +12,34 @@ class TransactionRead(BaseModel):
     timestamp: datetime
 
 
-class AccountCreate(BaseModel):
-    user_id: int
-    provider: BankProvider
-    username: str
-    password: str
-
-
 class AccountRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    external_id: str
+    name: str
     balance: float
-    provider: BankProvider
-    username: str
     transactions: list[TransactionRead] = []
 
 
-class AccountUpdate(BaseModel):
+class CredentialCreate(BaseModel):
+    user_id: int
+    bank: BankProvider
+    username: str
+    password: str
+
+
+class CredentialRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    bank: BankProvider
+    username: str
+    accounts: list[AccountRead] = []
+
+
+class CredentialUpdate(BaseModel):
+    bank: BankProvider | None = None
     username: str | None = None
     password: str | None = None
 
@@ -44,7 +54,7 @@ class UserRead(BaseModel):
     id: int
     name: str
     balance: float
-    accounts: list[AccountRead] = []
+    credentials: list[CredentialRead] = []
 
 
 class UserUpdate(BaseModel):
