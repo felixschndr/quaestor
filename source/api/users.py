@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from source.api.schemas import UserCreate, UserRead, UserUpdate
 from source.db import get_session
 from source.models import User
-from source.services import account_service, user_service
+from source.services import credential_service, user_service
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -33,10 +33,10 @@ def delete_user(user_id: int, session: Session = Depends(get_session)) -> None:
     user_service.delete_user(session, user_id)
 
 
-@router.post("/{user_id}/accounts/sync", status_code=204)
-def sync_accounts(user_id: int, session: Session = Depends(get_session)) -> None:
+@router.post("/{user_id}/sync", status_code=204)
+def sync_user(user_id: int, session: Session = Depends(get_session)) -> None:
+    """Sync every credential the user has, refreshing all their accounts."""
     user = user_service.get_user(session, user_id)
-    accounts = account_service.list_accounts(session, user_id=user.id)
-    for account in accounts:
-        account.sync()
+    for credential in credential_service.list_credentials(session, user_id=user.id):
+        credential.sync()
     session.commit()

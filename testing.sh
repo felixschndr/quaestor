@@ -17,6 +17,8 @@ echo -e "\n\n"
 
 curl ${URL}users
 
+curl ${URL}credentials/list_all_possible | jq
+
 curl -X POST ${URL}users -H "Content-Type: application/json" -d '{"name": "Felix"}'
 
 echo -e "\n\nKilling process"
