@@ -1,17 +1,28 @@
+from typing import Callable
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from source.exceptions import NotFoundError, UnknownInternalError, ValidationError
+from source.exceptions import (
+    InvalidCredentialsError,
+    NotFoundError,
+    UnknownInternalError,
+    ValidationError,
+)
+
+EXCEPTIONS_TO_CATCH_AND_THEIR_STATUS_CODES: dict[type[Exception], int] = {
+    NotFoundError: 404,
+    ValidationError: 422,
+    InvalidCredentialsError: 401,
+    UnknownInternalError: 500,
+}
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    @app.exception_handler(NotFoundError)
-    def _not_found(_request: Request, exc: NotFoundError) -> JSONResponse:
-        return JSONResponse(status_code=404, content={"detail": str(exc)})
+    def make_handler(code: int) -> Callable:
+        def handler(_request: Request, exc: Exception) -> JSONResponse:
+            return JSONResponse(status_code=code, content={"detail": str(exc)})
 
-    @app.exception_handler(ValidationError)
-    def _validation_error(_request: Request, exc: ValidationError) -> JSONResponse:
-        return JSONResponse(status_code=422, content={"detail": str(exc)})
+        return handler
 
-    @app.exception_handler(UnknownInternalError)
-    def _unknown_error(_request: Request, exc: UnknownInternalError) -> JSONResponse:
-        return JSONResponse(status_code=500, content={"detail": str(exc)})
+    for exc_type, status_code in EXCEPTIONS_TO_CATCH_AND_THEIR_STATUS_CODES.items():
+        app.add_exception_handler(exc_type, make_handler(status_code))
