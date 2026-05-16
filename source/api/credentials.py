@@ -10,7 +10,6 @@ router = APIRouter(prefix="/credentials", tags=["credentials"])
 
 @router.get("/list_all_possible")
 def list_all_possible() -> list[dict]:
-    """Which credentials can be created and what each one requires."""
     return credential_service.list_all_possible()
 
 

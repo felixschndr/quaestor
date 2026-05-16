@@ -59,3 +59,15 @@ class UserRead(BaseModel):
 
 class UserUpdate(BaseModel):
     name: str | None = None
+
+
+class ApplicationSecretCreate(BaseModel):
+    name: str
+    value: str
+
+
+class ApplicationSecretRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
