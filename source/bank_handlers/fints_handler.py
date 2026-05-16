@@ -1,22 +1,16 @@
 from contextlib import contextmanager
-from datetime import datetime
 from typing import Iterator
 
 from fints.client import FinTS3PinTanClient
 from fints.models import SEPAAccount
-from source.bank_handlers.base import (
-    BankHandler,
-    BankSession,
-    FetchedAccount,
-    FetchedTransaction,
-)
+from source.bank_handlers.base import BankHandler, BankSession, FetchedAccount
 
 
 class _FinTSSession(BankSession):
-    """One open FinTS dialog, reused for accounts, balances and transactions.
+    """One open FinTS dialog, reused for accounts and balances.
 
     The raw ``SEPAAccount`` namedtuples returned by ``get_sepa_accounts()`` are
-    cached on the session so that balance/transaction lookups resolve them by
+    cached on the session so that balance lookups resolve them by
     IBAN instead of re-fetching the account list.
     """
 
@@ -37,9 +31,6 @@ class _FinTSSession(BankSession):
     def get_balance(self, account: FetchedAccount) -> float:
         balance = self._client.get_balance(self._resolve_account_to_sepa_account(account))
         return float(balance.amount.amount)
-
-    def get_transactions(self, account: FetchedAccount, since: datetime | None) -> list[FetchedTransaction]:
-        raise NotImplementedError
 
 
 class FinTSHandler(BankHandler):

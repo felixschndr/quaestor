@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from datetime import datetime
 
 
 @dataclass(frozen=True)
@@ -10,17 +9,11 @@ class FetchedAccount:
     name: str
 
 
-@dataclass(frozen=True)
-class FetchedTransaction:
-    amount: float
-    timestamp: datetime
-
-
 class BankSession(ABC):
     """A single open connection/dialog to a bank.
 
     Created via ``BankHandler.session()`` and used as a context manager so that
-    accounts, balances and transactions can all be fetched within one dialog
+    accounts and balances can all be fetched within one dialog
     instead of opening a fresh connection per call.
     """
 
@@ -30,10 +23,6 @@ class BankSession(ABC):
 
     @abstractmethod
     def get_balance(self, account: FetchedAccount) -> float:
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_transactions(self, account: FetchedAccount, since: datetime | None) -> list[FetchedTransaction]:
         raise NotImplementedError
 
 

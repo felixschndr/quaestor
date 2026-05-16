@@ -1,15 +1,5 @@
-from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict
 from source.bank_handlers import BankProvider
-
-
-class TransactionRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    amount: float
-    timestamp: datetime
 
 
 class AccountRead(BaseModel):
@@ -19,7 +9,6 @@ class AccountRead(BaseModel):
     external_id: str
     name: str
     balance: float
-    transactions: list[TransactionRead] = []
 
 
 class CredentialCreate(BaseModel):
