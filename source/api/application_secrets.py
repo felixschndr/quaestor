@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import Depends
+from source.api._create_router import create_router
 from source.api.schemas import ApplicationSecretRead, ApplicationSecretUpdate
 from source.db import get_session
 from source.services import application_secret_service
 from sqlalchemy.orm import Session
 
-router = APIRouter(prefix="/application_secrets", tags=["application_secrets"])
+router = create_router()
 
 
 @router.get("", response_model=list[ApplicationSecretRead])

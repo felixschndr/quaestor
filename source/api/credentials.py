@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends
+from fastapi import Depends
+from source.api._create_router import create_router
 from source.api.schemas import CredentialCreate, CredentialRead, CredentialUpdate
 from source.db import get_session
 from source.models.credential import Credential
 from source.services import credential_service
 from sqlalchemy.orm import Session
 
-router = APIRouter(prefix="/credentials", tags=["credentials"])
+router = create_router()
 
 
 @router.get("/list_all_possible")
@@ -14,7 +15,7 @@ def list_all_possible() -> list[dict]:
 
 
 @router.get("/{credential_id}", response_model=CredentialRead)
-def list_credentials(credential_id: int, session: Session = Depends(get_session)) -> Credential:
+def get_credential(credential_id: int, session: Session = Depends(get_session)) -> Credential:
     return credential_service.get_credential(session, credential_id=credential_id)
 
 
