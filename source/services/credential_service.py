@@ -1,5 +1,4 @@
-from source.bank_handlers import BankProvider
-from source.bank_handlers import list_all_possible as _list_all_possible
+from source.bank_handlers import SUPPORTED_BANKS, BankProvider
 from source.exceptions import CredentialNotFoundError
 from source.models.credential import Credential
 from source.services import user_service
@@ -7,9 +6,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 
-def list_all_possible() -> dict[str, dict]:
-    """Every credential option and what is required to create it."""
-    return _list_all_possible()
+def list_all_possible() -> list[dict]:
+    return [
+        {
+            "Bank Name": bank.name,
+            "Bank Identifier": bank.bank_identifier,
+            "Required Fields": bank.required_fields,
+        }
+        for bank in SUPPORTED_BANKS
+    ]
 
 
 def list_credentials(session: Session, user_id: int) -> list[Credential]:

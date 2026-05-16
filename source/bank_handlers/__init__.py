@@ -47,25 +47,12 @@ def handler_for(provider: BankProvider, username: str, password: str) -> BankHan
     return bank_info.handler(bank_info, username, password)
 
 
-def list_all_possible() -> dict[str, dict]:
-    """Describe every credential option and what is required to create it."""
-    return {
-        bank.name: {
-            "bank": bank.name,
-            "handler": bank.handler.__name__,
-            "required_fields": bank.required_fields,
-        }
-        for bank in SUPPORTED_BANKS
-    }
-
-
 __all__ = [
     "BankHandler",
     "BankInfo",
     "BankProvider",
     "SUPPORTED_BANKS",
     "handler_for",
-    "list_all_possible",
     "FetchedAccount",
     "FetchedTransaction",
 ]
