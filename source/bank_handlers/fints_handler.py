@@ -49,7 +49,7 @@ class FinTSHandler(BankHandler):
             user_id=user_id,
             pin=pin,
             server=self.bank_info.fints_url,
-            product_id="XXX",  # TODO: Load application secret
+            product_id="",  # TODO: Load application secret
         )
 
     @contextmanager
