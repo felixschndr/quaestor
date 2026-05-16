@@ -8,3 +8,7 @@ class CredentialNotFoundError(Exception):
 
 class AccountNotFoundError(Exception):
     pass
+
+
+class ApplicationSecretNotFoundError(Exception):
+    pass
