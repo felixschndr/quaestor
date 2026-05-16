@@ -1,4 +1,13 @@
+[config]
+extend = true
+
+[[rules]]
+id = "custom-product-id"
+description = "Check for fints product_id"
+regex = '''(?i)product_id\s*[:=]\s*['"]([^$\{\s][^'"\n]{2,})['"]'''
+secretGroup = 1
+
 [allowlist]
 paths = [
-    "source/bank_handlers/ING/certs/*"
+    '''(^|/)\.venv/''',
 ]
