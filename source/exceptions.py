@@ -1,14 +1,18 @@
-class UserNotFoundError(Exception):
+class NotFoundError(Exception):
     pass
 
 
-class CredentialNotFoundError(Exception):
+class UserNotFoundError(NotFoundError):
     pass
 
 
-class AccountNotFoundError(Exception):
+class CredentialNotFoundError(NotFoundError):
     pass
 
 
-class ApplicationSecretNotFoundError(Exception):
+class AccountNotFoundError(NotFoundError):
+    pass
+
+
+class ApplicationSecretNotFoundError(NotFoundError):
     pass
