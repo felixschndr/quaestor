@@ -43,6 +43,8 @@ class _FinTSSession(BankSession):
 
 
 class FinTSHandler(BankHandler):
+    PRODUCT_ID_SECRET_NAME = "fints_product_id"  # nosec B105
+
     def client(self, user_id: str, pin: str) -> FinTS3PinTanClient:
         return FinTS3PinTanClient(
             bank_identifier=self.bank_info.bank_identifier,

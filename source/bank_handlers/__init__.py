@@ -52,6 +52,7 @@ __all__ = [
     "BankInfo",
     "BankProvider",
     "SUPPORTED_BANKS",
+    "FinTSHandler",
     "handler_for",
     "FetchedAccount",
     "FetchedTransaction",
