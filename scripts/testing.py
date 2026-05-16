@@ -2,10 +2,17 @@
 
 import json
 import os
+import sys
+from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
 from requests import Response
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from source.bank_handlers import FinTSHandler  # noqa: E402
 
 URL = "http://localhost:8000"
 
@@ -20,13 +27,14 @@ def print_request_and_response(sent_data: dict, response: Response) -> None:
         else:
             response_text = f"Empty Response ({response.status_code})"
     print(f"{response_text}\n\n\n")
+    response.raise_for_status()
 
 
 load_dotenv()
 ING_USERNAME = os.environ.get("ING_USERNAME", "")
 ING_PASSWORD = os.environ.get("ING_PASSWORD", "")
 
-data = {"url": f"{URL}/application_secrets"}
+data = {"url": f"{URL}/application_secrets", "json": {"name": FinTSHandler.PRODUCT_ID_SECRET_NAME, "value": "test"}}
 r = requests.post(**data)
 print_request_and_response(data, r)
 
