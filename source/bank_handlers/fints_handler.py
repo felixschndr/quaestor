@@ -17,10 +17,10 @@ class _FinTSSession(BankSession):
     def get_accounts(self) -> list[FetchedAccount]:
         accounts = self._client.get_sepa_accounts()
         self._account_mapping = {account.iban: account for account in accounts}
-        return [FetchedAccount(external_id=account.iban, name=account.accountnumber) for account in accounts]
+        return [FetchedAccount(name=account.iban) for account in accounts]
 
     def get_balance(self, account: FetchedAccount) -> float:
-        balance = self._client.get_balance(self._account_mapping[account.external_id])
+        balance = self._client.get_balance(self._account_mapping[account.name])
         return float(balance.amount.amount)
 
 

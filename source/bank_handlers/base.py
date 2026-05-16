@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class FetchedAccount:
-    external_id: str
     name: str
 
 
@@ -14,12 +13,10 @@ class BankSession(ABC):
         self._account_mapping = {}
 
     @abstractmethod
-    def get_accounts(self) -> list[FetchedAccount]:
-        raise NotImplementedError
+    def get_accounts(self) -> list[FetchedAccount]: ...
 
     @abstractmethod
-    def get_balance(self, account: FetchedAccount) -> float:
-        raise NotImplementedError
+    def get_balance(self, account: FetchedAccount) -> float: ...
 
 
 class BankHandler(ABC):
@@ -32,19 +29,11 @@ class BankHandler(ABC):
         self.extra = extra or {}
 
     @abstractmethod
-    def session(self) -> AbstractContextManager[BankSession]:
-        raise NotImplementedError
+    def session(self) -> AbstractContextManager[BankSession]: ...
 
 
 @dataclass(frozen=True)
 class BankInfo:
-    """The single source of truth for one supported bank provider.
-
-    Defines what the provider is called, which handler talks to it, and the
-    FinTS connection parameters (if any). The fields a user must supply are
-    derived from the handler so they stay in one place.
-    """
-
     name: str
     handler: type[BankHandler]
     bank_identifier: str | None
