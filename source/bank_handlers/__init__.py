@@ -1,11 +1,6 @@
 from enum import Enum
 
-from source.bank_handlers.base import (
-    BankHandler,
-    BankInfo,
-    FetchedAccount,
-    FetchedTransaction,
-)
+from source.bank_handlers.base import BankHandler, BankInfo, FetchedAccount
 from source.bank_handlers.dfs_handler import DFSHandler
 from source.bank_handlers.fints_handler import FinTSHandler
 
@@ -55,5 +50,4 @@ __all__ = [
     "FinTSHandler",
     "handler_for",
     "FetchedAccount",
-    "FetchedTransaction",
 ]

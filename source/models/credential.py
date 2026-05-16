@@ -42,7 +42,4 @@ class Credential(Base):
                 else:
                     account.name = fetched.name
                 account.balance = bank.get_balance(fetched)
-                # later, without re-fetching the account list:
-                # account.transactions += bank.get_transactions(
-                #     fetched, since=self.last_fetching_timestamp)
         self.last_fetching_timestamp = datetime.now()
