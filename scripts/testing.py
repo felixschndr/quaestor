@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import json
 import os
 
@@ -11,11 +12,14 @@ URL = "http://localhost:8000"
 
 def print_request_and_response(sent_data: dict, response: Response) -> None:
     print("Request:", sent_data)
-    if response.text:
-        print("Response:", json.dumps(response.json(), indent=4))
-    else:
-        print("Empty Response")
-    print("\n\n\n")
+    try:
+        response_text = f"Response ({response.status_code}): {json.dumps(response.json(), indent=4)}"
+    except json.JSONDecodeError:
+        if response.text:
+            response_text = f"Response ({response.status_code}): {response.text}"
+        else:
+            response_text = f"Empty Response ({response.status_code})"
+    print(f"{response_text}\n\n\n")
 
 
 load_dotenv()
