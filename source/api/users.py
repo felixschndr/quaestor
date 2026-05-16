@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends
+from fastapi import Depends
+from source.api._create_router import create_router
 from source.api.schemas import UserCreate, UserRead, UserUpdate
 from source.db import get_session
 from source.models import User
 from source.services import credential_service, user_service
 from sqlalchemy.orm import Session
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = create_router()
 
 
 @router.get("", response_model=list[UserRead])
