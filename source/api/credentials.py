@@ -14,9 +14,9 @@ def list_all_possible() -> dict[str, dict]:
     return credential_service.list_all_possible()
 
 
-@router.get("/{user_id}", response_model=list[CredentialRead])
-def list_credentials(user_id: int, session: Session = Depends(get_session)) -> list[Credential]:
-    return credential_service.list_credentials(session, user_id=user_id)
+@router.get("/{credential_id}", response_model=CredentialRead)
+def list_credentials(credential_id: int, session: Session = Depends(get_session)) -> Credential:
+    return credential_service.get_credential(session, credential_id=credential_id)
 
 
 @router.post("", response_model=CredentialRead, status_code=201)
@@ -42,6 +42,6 @@ def delete_credential(credential_id: int, session: Session = Depends(get_session
     credential_service.delete_credential(session, credential_id)
 
 
-@router.post("/{credential_id}/sync", response_model=CredentialRead)
-def sync_credential(credential_id: int, session: Session = Depends(get_session)) -> Credential:
-    return credential_service.sync_credential(session, credential_id)
+@router.post("/{credential_id}/sync", status_code=204)
+def sync_credential(credential_id: int, session: Session = Depends(get_session)) -> None:
+    credential_service.sync_credential(session, credential_id)

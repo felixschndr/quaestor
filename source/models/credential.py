@@ -32,15 +32,17 @@ class Credential(Base):
         return handler_for(self.bank, self.username, self.password)
 
     def sync(self) -> None:
-        """Discover/refresh the accounts reachable with this credential."""
-        handler = self.handler
         by_external_id = {account.external_id: account for account in self.accounts}
-        for fetched in handler.get_accounts():
-            account = by_external_id.get(fetched.external_id)
-            if account is None:
-                account = Account(external_id=fetched.external_id, name=fetched.name)
-                self.accounts.append(account)
-            else:
-                account.name = fetched.name
-            account.balance = handler.get_balance(fetched)
+        with self.handler.session() as bank:
+            for fetched in bank.get_accounts():
+                account = by_external_id.get(fetched.external_id)
+                if account is None:
+                    account = Account(external_id=fetched.external_id, name=fetched.name)
+                    self.accounts.append(account)
+                else:
+                    account.name = fetched.name
+                account.balance = bank.get_balance(fetched)
+                # later, without re-fetching the account list:
+                # account.transactions += bank.get_transactions(
+                #     fetched, since=self.last_fetching_timestamp)
         self.last_fetching_timestamp = datetime.now()

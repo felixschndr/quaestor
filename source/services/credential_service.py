@@ -45,8 +45,7 @@ def delete_credential(session: Session, credential_id: int) -> None:
     session.commit()
 
 
-def sync_credential(session: Session, credential_id: int) -> Credential:
+def sync_credential(session: Session, credential_id: int) -> None:
     credential = get_credential(session, credential_id)
     credential.sync()
     session.commit()
-    return credential
