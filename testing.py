@@ -22,6 +22,10 @@ load_dotenv()
 ING_USERNAME = os.environ.get("ING_USERNAME", "")
 ING_PASSWORD = os.environ.get("ING_PASSWORD", "")
 
+data = {"url": f"{URL}/credentials/list_all_possible"}
+r = requests.get(**data)
+print_request_and_response(data, r)
+
 data = {"url": f"{URL}/users", "json": {"name": "Felix"}}
 r = requests.post(**data)
 print_request_and_response(data, r)
