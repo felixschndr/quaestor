@@ -31,10 +31,10 @@ def print_request_and_response(sent_data: dict, response: Response) -> None:
 
 
 load_dotenv()
-ING_USERNAME = os.environ.get("ING_USERNAME", "")
-ING_PASSWORD = os.environ.get("ING_PASSWORD", "")
-
-data = {"url": f"{URL}/application_secrets", "json": {"name": FinTSHandler.PRODUCT_ID_SECRET_NAME, "value": "test"}}
+data = {
+    "url": f"{URL}/application_secrets",
+    "json": {"name": FinTSHandler.PRODUCT_ID_SECRET_NAME, "value": os.environ["FINTS_PRODUCT_NUMBER"]},
+}
 r = requests.post(**data)
 print_request_and_response(data, r)
 
@@ -51,10 +51,14 @@ r = requests.post(**data)
 print_request_and_response(data, r)
 user_id = r.json()["id"]
 
-
 data = {
     "url": f"{URL}/credentials",
-    "json": {"user_id": user_id, "bank": "ing", "username": ING_USERNAME, "password": ING_PASSWORD},
+    "json": {
+        "user_id": user_id,
+        "bank": "ing",
+        "username": os.environ["ING_USERNAME"],
+        "password": os.environ["ING_PASSWORD"],
+    },
 }
 r = requests.post(**data)
 print_request_and_response(data, r)

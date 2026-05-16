@@ -44,6 +44,7 @@ class _FinTSSession(BankSession):
 
 class FinTSHandler(BankHandler):
     PRODUCT_ID_SECRET_NAME = "fints_product_id"  # nosec B105
+    product_id: str = ""  # set by the service layer from the application secret before syncing
 
     def client(self, user_id: str, pin: str) -> FinTS3PinTanClient:
         return FinTS3PinTanClient(
@@ -51,7 +52,7 @@ class FinTSHandler(BankHandler):
             user_id=user_id,
             pin=pin,
             server=self.bank_info.fints_url,
-            product_id="",  # TODO: Load application secret
+            product_id=self.product_id,
         )
 
     @contextmanager

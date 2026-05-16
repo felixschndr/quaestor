@@ -36,8 +36,7 @@ def delete_user(user_id: int, session: Session = Depends(get_session)) -> None:
 
 @router.post("/{user_id}/sync", status_code=204)
 def sync_user(user_id: int, session: Session = Depends(get_session)) -> None:
-    """Sync every credential the user has, refreshing all their accounts."""
     user = user_service.get_user(session, user_id)
     for credential in credential_service.list_credentials(session, user_id=user.id):
-        credential.sync()
+        credential_service.sync_credential_object(session, credential)
     session.commit()

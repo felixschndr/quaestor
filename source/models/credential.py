@@ -31,9 +31,9 @@ class Credential(Base):
     def handler(self) -> BankHandler:
         return handler_for(self.bank, self.username, self.password)
 
-    def sync(self) -> None:
+    def sync(self, handler: BankHandler) -> None:
         by_external_id = {account.external_id: account for account in self.accounts}
-        with self.handler.session() as bank:
+        with handler.session() as bank:
             for fetched in bank.get_accounts():
                 account = by_external_id.get(fetched.external_id)
                 if account is None:

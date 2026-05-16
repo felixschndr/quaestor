@@ -11,6 +11,10 @@ def _get_application_secret_by_name(name: str, session: Session) -> ApplicationS
     return secret
 
 
+def get_value_of_application_secret_by_name(name: str, session: Session) -> str:
+    return _get_application_secret_by_name(name, session).value
+
+
 def list_all_application_secrets(session: Session) -> list[dict]:
     all_secrets = session.execute(select(ApplicationSecret.id, ApplicationSecret.name)).all()
     return [{"id": secret.id, "name": secret.name} for secret in all_secrets]

@@ -1,7 +1,8 @@
 from source.bank_handlers import SUPPORTED_BANKS, BankProvider
+from source.bank_handlers.fints_handler import FinTSHandler
 from source.exceptions import CredentialNotFoundError
 from source.models.credential import Credential
-from source.services import user_service
+from source.services import application_secret_service, user_service
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -52,5 +53,14 @@ def delete_credential(session: Session, credential_id: int) -> None:
 
 def sync_credential(session: Session, credential_id: int) -> None:
     credential = get_credential(session, credential_id)
-    credential.sync()
+    sync_credential_object(session, credential)
     session.commit()
+
+
+def sync_credential_object(session: Session, credential: Credential) -> None:
+    handler = credential.handler
+    if isinstance(handler, FinTSHandler):
+        handler.product_id = application_secret_service.get_value_of_application_secret_by_name(
+            FinTSHandler.PRODUCT_ID_SECRET_NAME, session
+        )
+    credential.sync(handler)
