@@ -23,14 +23,10 @@ from sqlalchemy.orm.attributes import flag_modified
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-# isort: off
 import source.crypto as crypto_mod  # noqa: E402
-import source.models  # noqa: E402, F401  -- populates Base.registry
+import source.models  # noqa: E402, F401 (populates Base.registry)
 from source.models.base import Base  # noqa: E402
 from source.models.types import EncryptedString  # noqa: E402
-
-# isort: on
-
 
 DB_PATH = ROOT / "bank_app.db"
 ENV_PATH = ROOT / ".env"
