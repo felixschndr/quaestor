@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-05-16 23:01:12.647308
+Create Date: 2026-05-16 23:35:12.855505
 
 """
 
@@ -39,9 +39,9 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("bank", sa.Enum("ING", "DKB", "DFS", name="bankprovider"), nullable=False),
-        sa.Column("username", sa.LargeBinary(), nullable=False),
-        sa.Column("password", sa.LargeBinary(), nullable=False),
-        sa.Column("extra", sa.LargeBinary(), nullable=False),
+        sa.Column("username", sa.String(), nullable=False),
+        sa.Column("password", sa.String(), nullable=False),
+        sa.Column("extra", sa.JSON(), nullable=False),
         sa.Column("last_fetching_timestamp", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
             ["user_id"],
