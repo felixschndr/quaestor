@@ -25,12 +25,12 @@ class _DFSSession(BankSession):
         accounts = []
         konto_modell_list = self._get_content()["snapshotWidget"]["kontoModellList"]
         for account_raw in konto_modell_list:
-            accounts.append(FetchedAccount(external_id=account_raw["modellName"], name=account_raw["modellName"]))
+            accounts.append(FetchedAccount(name=account_raw["modellName"]))
             self._account_mapping[account_raw["modellName"]] = account_raw
         return accounts
 
     def get_balance(self, account: FetchedAccount) -> float:
-        return self._account_mapping[account.external_id]["aktuellesDecorator"]["kapitalItem"]["guthaben"]
+        return self._account_mapping[account.name]["aktuellesDecorator"]["kapitalItem"]["guthaben"]
 
     def _get_content(self) -> dict:
         session = Session()

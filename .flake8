@@ -1,12 +1,12 @@
 [flake8]
-ignore = E203, E501, W503, ANN101, ANN204, ANN401
+ignore = E501,  ANN101, ANN204, ANN401, E704
 max-line-length = 80
 max-complexity = 18
 select = A,B,C,E,F,W,T4,B9
 suppress-non-returning = true
 kwargs-ignore-function-pattern-extend = (options|load_only)$
 per-file-ignores =
-    tests/*:ANN001,ANN201, ANN401
+    tests/*:ANN001,ANN201
     test_*:ANN001,ANN201
 extend-exclude =
     .venv/

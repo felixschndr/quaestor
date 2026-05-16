@@ -6,7 +6,6 @@ class AccountRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    external_id: str
     name: str
     balance: float
 
