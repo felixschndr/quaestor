@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-05-16 20:56:35.466292
+Create Date: 2026-05-16 21:17:14.765392
 
 """
 
@@ -41,6 +41,7 @@ def upgrade() -> None:
         sa.Column("bank", sa.Enum("ING", "DKB", "DFS", name="bankprovider"), nullable=False),
         sa.Column("username", sa.LargeBinary(), nullable=False),
         sa.Column("password", sa.LargeBinary(), nullable=False),
+        sa.Column("extra", sa.LargeBinary(), nullable=False),
         sa.Column("last_fetching_timestamp", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
             ["user_id"],

@@ -64,10 +64,6 @@ r = requests.post(**data)
 print_request_and_response(data, r)
 credential_id = r.json()["id"]
 
-data = {"url": f"{URL}/credentials/{credential_id}"}
-r = requests.get(**data)
-print_request_and_response(data, r)
-
 data = {"url": f"{URL}/credentials/{credential_id}/sync"}
 r = requests.post(**data)
 print_request_and_response(data, r)
@@ -75,6 +71,26 @@ print_request_and_response(data, r)
 data = {"url": f"{URL}/credentials/{credential_id}"}
 r = requests.get(**data)
 print_request_and_response(data, r)
+
+data = {
+    "url": f"{URL}/credentials",
+    "json": {
+        "user_id": user_id,
+        "bank": "dfs",
+        "username": os.environ["DFS_USERNAME"],
+        "password": os.environ["DFS_PASSWORD"],
+        "mandat": os.environ["DFS_MANDAT"],
+        "customer": os.environ["DFS_CUSTOMER"],
+    },
+}
+r = requests.post(**data)
+print_request_and_response(data, r)
+credential_id = r.json()["id"]
+
+data = {"url": f"{URL}/credentials/{credential_id}/sync"}
+r = requests.post(**data)
+print_request_and_response(data, r)
+
 
 data = {"url": f"{URL}/users/{user_id}"}
 r = requests.get(**data)

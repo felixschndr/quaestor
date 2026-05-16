@@ -27,6 +27,7 @@ def create_credential(payload: CredentialCreate, session: Session = Depends(get_
         bank=payload.bank,
         username=payload.username,
         password=payload.password,
+        extra=payload.extra,
     )
 
 
