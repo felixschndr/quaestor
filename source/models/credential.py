@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, List
 from source.bank_handlers import BankHandler, BankProvider, handler_for
 from source.models.account import Account
 from source.models.base import Base
-from source.models.types import EncryptedString
+from source.models.types import EncryptedJSON, EncryptedString
 from sqlalchemy import DateTime
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey
@@ -22,6 +22,7 @@ class Credential(Base):
     bank: Mapped[BankProvider] = mapped_column(SQLEnum(BankProvider))
     username: Mapped[str] = mapped_column(EncryptedString)
     password: Mapped[str] = mapped_column(EncryptedString)
+    extra: Mapped[dict[str, str]] = mapped_column(EncryptedJSON, default=dict)
     last_fetching_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="credentials")
@@ -29,7 +30,7 @@ class Credential(Base):
 
     @property
     def handler(self) -> BankHandler:
-        return handler_for(self.bank, self.username, self.password)
+        return handler_for(self.bank, self.username, self.password, self.extra)
 
     def sync(self, handler: BankHandler) -> None:
         by_external_id = {account.external_id: account for account in self.accounts}

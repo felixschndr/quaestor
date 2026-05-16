@@ -27,10 +27,13 @@ class BankSession(ABC):
 
 
 class BankHandler(ABC):
-    def __init__(self, bank_info: "BankInfo", username: str, password: str):
+    EXTRA_CREDENTIAL_FIELDS: tuple[str, ...] = ()
+
+    def __init__(self, bank_info: "BankInfo", username: str, password: str, extra: dict[str, str] | None = None):
         self.bank_info = bank_info
         self.username = username
         self.password = password
+        self.extra = extra or {}
 
     @abstractmethod
     def session(self) -> AbstractContextManager[BankSession]:
@@ -41,12 +44,16 @@ class BankHandler(ABC):
 class BankInfo:
     """The single source of truth for one supported bank provider.
 
-    Defines what the provider is called, which handler talks to it, which
-    fields a user must supply, and the FinTS connection parameters (if any).
+    Defines what the provider is called, which handler talks to it, and the
+    FinTS connection parameters (if any). The fields a user must supply are
+    derived from the handler so they stay in one place.
     """
 
     name: str
     handler: type[BankHandler]
-    required_fields: list[str]
     bank_identifier: str | None
     fints_url: str | None
+
+    @property
+    def required_fields(self) -> list[str]:
+        return ["username", "password", *self.handler.EXTRA_CREDENTIAL_FIELDS]

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from source.bank_handlers import BankProvider
 
 
@@ -16,6 +16,7 @@ class CredentialCreate(BaseModel):
     bank: BankProvider
     username: str
     password: str
+    extra: dict[str, str] = Field(default_factory=dict)
 
 
 class CredentialRead(BaseModel):

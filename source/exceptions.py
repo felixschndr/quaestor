@@ -16,3 +16,15 @@ class AccountNotFoundError(NotFoundError):
 
 class ApplicationSecretNotFoundError(NotFoundError):
     pass
+
+
+class ValidationError(Exception):
+    pass
+
+
+class MissingCredentialFieldError(ValidationError):
+    pass
+
+
+class InvalidCredentialsError(Exception):
+    pass

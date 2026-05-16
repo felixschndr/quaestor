@@ -1,6 +1,6 @@
-from source.bank_handlers import SUPPORTED_BANKS, BankProvider
+from source.bank_handlers import BANKS_BY_NAME, SUPPORTED_BANKS, BankProvider
 from source.bank_handlers.fints_handler import FinTSHandler
-from source.exceptions import CredentialNotFoundError
+from source.exceptions import CredentialNotFoundError, MissingCredentialFieldError
 from source.models.credential import Credential
 from source.services import application_secret_service, user_service
 from sqlalchemy import select
@@ -29,9 +29,30 @@ def get_credential(session: Session, credential_id: int) -> Credential:
     return credential
 
 
-def create_credential(session: Session, user_id: int, bank: BankProvider, username: str, password: str) -> Credential:
+def _validated_extra(bank: BankProvider, extra: dict[str, str]) -> dict[str, str]:
+    required = BANKS_BY_NAME[bank.value].handler.EXTRA_CREDENTIAL_FIELDS
+    missing = [field for field in required if not extra.get(field)]
+    if missing:
+        raise MissingCredentialFieldError(f"Missing required field(s) for {bank.value}: {', '.join(missing)}")
+    return {field: extra[field] for field in required}
+
+
+def create_credential(
+    session: Session,
+    user_id: int,
+    bank: BankProvider,
+    username: str,
+    password: str,
+    extra: dict[str, str] | None = None,
+) -> Credential:
     user = user_service.get_user(session, user_id)
-    credential = Credential(user=user, bank=bank, username=username, password=password)
+    credential = Credential(
+        user=user,
+        bank=bank,
+        username=username,
+        password=password,
+        extra=_validated_extra(bank, extra or {}),
+    )
     session.add(credential)
     session.commit()
     return credential

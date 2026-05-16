@@ -8,7 +8,7 @@ from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from source.db import engine
 from source.models import Base
-from source.models.types import EncryptedString
+from source.models.types import EncryptedJSON, EncryptedString
 from sqlalchemy import MetaData
 
 config = context.config
@@ -32,7 +32,7 @@ def _describe_operation(op: MigrateOperation) -> str:
 
 
 def render_item(type_: str, obj: Any, autogen_context: AutogenContext) -> str | Literal[False]:
-    if type_ == "type" and isinstance(obj, EncryptedString):
+    if type_ == "type" and isinstance(obj, EncryptedString) or isinstance(obj, EncryptedJSON):
         return "sa.LargeBinary()"
     return False
 

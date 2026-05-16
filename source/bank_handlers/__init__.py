@@ -8,21 +8,18 @@ SUPPORTED_BANKS: list[BankInfo] = [
     BankInfo(
         name="ing",
         handler=FinTSHandler,
-        required_fields=["username", "password"],
         bank_identifier="50010517",
         fints_url="https://fints.ing.de/fints/",
     ),
     BankInfo(
         name="dkb",
         handler=FinTSHandler,
-        required_fields=["username", "password"],
         bank_identifier="12030000",
         fints_url="https://fints.dkb.de/fints",
     ),
     BankInfo(
         name="dfs",
         handler=DFSHandler,
-        required_fields=["username", "password"],
         bank_identifier=None,
         fints_url=None,
     ),
@@ -37,13 +34,16 @@ BankProvider = Enum(
 )
 
 
-def handler_for(provider: BankProvider, username: str, password: str) -> BankHandler:
+def handler_for(
+    provider: BankProvider, username: str, password: str, extra: dict[str, str] | None = None
+) -> BankHandler:
     bank_info = BANKS_BY_NAME[provider.value]
-    return bank_info.handler(bank_info, username, password)
+    return bank_info.handler(bank_info, username, password, extra)
 
 
 __all__ = [
     "BankHandler",
+    "BANKS_BY_NAME",
     "BankInfo",
     "BankProvider",
     "SUPPORTED_BANKS",
