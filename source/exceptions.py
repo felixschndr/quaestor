@@ -28,3 +28,7 @@ class MissingCredentialFieldError(ValidationError):
 
 class InvalidCredentialsError(Exception):
     pass
+
+
+class UnknownInternalError(Exception):
+    pass

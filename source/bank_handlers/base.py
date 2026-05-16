@@ -10,12 +10,8 @@ class FetchedAccount:
 
 
 class BankSession(ABC):
-    """A single open connection/dialog to a bank.
-
-    Created via ``BankHandler.session()`` and used as a context manager so that
-    accounts and balances can all be fetched within one dialog
-    instead of opening a fresh connection per call.
-    """
+    def __init__(self):
+        self._account_mapping = {}
 
     @abstractmethod
     def get_accounts(self) -> list[FetchedAccount]:

@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from source.exceptions import NotFoundError, ValidationError
+from source.exceptions import NotFoundError, UnknownInternalError, ValidationError
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -11,3 +11,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(ValidationError)
     def _validation_error(_request: Request, exc: ValidationError) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+    @app.exception_handler(UnknownInternalError)
+    def _unknown_error(_request: Request, exc: UnknownInternalError) -> JSONResponse:
+        return JSONResponse(status_code=500, content={"detail": str(exc)})

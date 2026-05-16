@@ -79,8 +79,10 @@ data = {
         "bank": "dfs",
         "username": os.environ["DFS_USERNAME"],
         "password": os.environ["DFS_PASSWORD"],
-        "mandat": os.environ["DFS_MANDAT"],
-        "customer": os.environ["DFS_CUSTOMER"],
+        "extra": {
+            "mandat": os.environ["DFS_MANDAT"],
+            "customer": os.environ["DFS_CUSTOMER"],
+        },
     },
 }
 r = requests.post(**data)

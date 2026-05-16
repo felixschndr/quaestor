@@ -7,29 +7,20 @@ from source.bank_handlers.base import BankHandler, BankSession, FetchedAccount
 
 
 class _FinTSSession(BankSession):
-    """One open FinTS dialog, reused for accounts and balances.
-
-    The raw ``SEPAAccount`` namedtuples returned by ``get_sepa_accounts()`` are
-    cached on the session so that balance lookups resolve them by
-    IBAN instead of re-fetching the account list.
-    """
-
     def __init__(self, client: FinTS3PinTanClient):
-        self._client = client
-        self._iban_to_sepa_account_mapping: dict[str, SEPAAccount] = {}
+        super().__init__()
 
-    def _resolve_account_to_sepa_account(self, account: FetchedAccount) -> SEPAAccount:
-        if not self._iban_to_sepa_account_mapping:
-            self.get_accounts()
-        return self._iban_to_sepa_account_mapping[account.external_id]
+        self._client = client
+
+        self._account_mapping: dict[str, SEPAAccount]
 
     def get_accounts(self) -> list[FetchedAccount]:
         accounts = self._client.get_sepa_accounts()
-        self._iban_to_sepa_account_mapping = {account.iban: account for account in accounts}
+        self._account_mapping = {account.iban: account for account in accounts}
         return [FetchedAccount(external_id=account.iban, name=account.accountnumber) for account in accounts]
 
     def get_balance(self, account: FetchedAccount) -> float:
-        balance = self._client.get_balance(self._resolve_account_to_sepa_account(account))
+        balance = self._client.get_balance(self._account_mapping[account.external_id])
         return float(balance.amount.amount)
 
 
