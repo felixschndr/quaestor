@@ -4,10 +4,9 @@ from typing import TYPE_CHECKING, List
 from source.bank_handlers import BankHandler, BankProvider, handler_for
 from source.models.account import Account
 from source.models.base import Base
-from source.models.types import EncryptedJSON, EncryptedString
-from sqlalchemy import DateTime
+from sqlalchemy import JSON, DateTime
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -20,9 +19,9 @@ class Credential(Base):
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     bank: Mapped[BankProvider] = mapped_column(SQLEnum(BankProvider))
-    username: Mapped[str] = mapped_column(EncryptedString)
-    password: Mapped[str] = mapped_column(EncryptedString)
-    extra: Mapped[dict[str, str]] = mapped_column(EncryptedJSON, default=dict)
+    username: Mapped[str] = mapped_column(String)
+    password: Mapped[str] = mapped_column(String)
+    extra: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
     last_fetching_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="credentials")
