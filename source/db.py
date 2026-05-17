@@ -1,14 +1,18 @@
 import os
 from collections.abc import Iterator
+from pathlib import Path
 
 import sqlcipher3
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
-load_dotenv()
-
 KEY_ENV_VARIABLE_NAME = "DATABASE_ENCRYPTION_KEY"
+ROOT = Path(__file__).resolve().parent.parent
+ENV_FILE_PATH = ROOT / ".env"
+DB_PATH = ROOT / "bank_app.db"
+
+load_dotenv(dotenv_path=ENV_FILE_PATH)
 
 
 def _database_key() -> str:
@@ -23,7 +27,7 @@ def _database_key() -> str:
 
 
 # Plain sqlite dialect, but driven by the SQLCipher DBAPI so the whole database file is AES-encrypted at rest
-engine = create_engine("sqlite:///bank_app.db", module=sqlcipher3.dbapi2)
+engine = create_engine(f"sqlite:///{DB_PATH}", module=sqlcipher3.dbapi2)
 
 
 @event.listens_for(engine, "connect")
