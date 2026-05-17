@@ -6,7 +6,7 @@ from source.api import application_secrets, credentials, users
 from source.api.exception_handlers import register_exception_handlers
 from source.bank_handlers import FinTSHandler
 from source.db import SessionLocal
-from source.models import ApplicationSecret
+from source.models.application_secret import ApplicationSecret
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
