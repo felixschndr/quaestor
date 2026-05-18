@@ -1,3 +1,4 @@
+import logging
 from typing import Callable
 
 from fastapi import FastAPI, Request
@@ -9,6 +10,8 @@ from source.exceptions import (
     ValidationError,
 )
 
+logger = logging.getLogger(__name__)
+
 EXCEPTIONS_TO_CATCH_AND_THEIR_STATUS_CODES: dict[type[Exception], int] = {
     NotFoundError: 404,
     ValidationError: 422,
@@ -19,7 +22,12 @@ EXCEPTIONS_TO_CATCH_AND_THEIR_STATUS_CODES: dict[type[Exception], int] = {
 
 def register_exception_handlers(app: FastAPI) -> None:
     def make_handler(code: int) -> Callable:
-        def handler(_request: Request, exc: Exception) -> JSONResponse:
+        def handler(request: Request, exc: Exception) -> JSONResponse:
+            message = f"{type(exc).__name__} on {request.method} {request.url.path} -> {code}"
+            if code >= 500:
+                logger.exception(message)
+            else:
+                logger.warning(message, exc_info=exc)
             return JSONResponse(status_code=code, content={"detail": str(exc)})
 
         return handler

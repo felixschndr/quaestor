@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -18,6 +19,8 @@ from source.services import (
 )
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 
 class SyncStatus(str, Enum):
@@ -44,13 +47,18 @@ def list_all_possible() -> list[dict]:
 
 
 def list_credentials(session: Session, user_id: int) -> list[Credential]:
-    return list(session.scalars(select(Credential).where(Credential.user_id == user_id)))
+    credentials = list(session.scalars(select(Credential).where(Credential.user_id == user_id)))
+    logger.debug(f"Found {len(credentials)} credential(s) for user {user_id}")
+    return credentials
 
 
 def get_credential(session: Session, credential_id: int) -> Credential:
     credential = session.get(Credential, credential_id)
     if credential is None:
-        raise CredentialNotFoundError(f"Credential with the id {credential_id} not found")
+        error_message = f"Credential with the ID {credential_id} not found"
+        logger.warning(error_message)
+        raise CredentialNotFoundError(error_message)
+    logger.debug(f"Loaded credential with the ID {credential_id} ({credential.bank.value})")
     return credential
 
 
@@ -58,7 +66,9 @@ def _validated_extra(bank: BankProvider, extra: dict[str, str]) -> dict[str, str
     required = BANKS_BY_NAME[bank.value].handler.EXTRA_CREDENTIAL_FIELDS
     missing = [field for field in required if not extra.get(field)]
     if missing:
-        raise MissingCredentialFieldError(f"Missing required field(s) for {bank.value}: {', '.join(missing)}")
+        error_message = f"Missing required field(s) for {bank.value}: {', '.join(missing)}"
+        logger.warning(error_message)
+        raise MissingCredentialFieldError(error_message)
     return {field: extra[field] for field in required}
 
 
@@ -80,6 +90,7 @@ def create_credential(
     )
     session.add(credential)
     session.commit()
+    logger.info(f"Created credential with the ID {credential.id} ({bank.value}) for user {user_id}")
     return credential
 
 
@@ -88,6 +99,7 @@ def update_credential(session: Session, credential_id: int, fields: dict) -> Cre
     for key, value in fields.items():
         setattr(credential, key, value)
     session.commit()
+    logger.info(f"Updated credential with the ID {credential_id}, fields: {sorted(fields)}")
     return credential
 
 
@@ -95,6 +107,7 @@ def delete_credential(session: Session, credential_id: int) -> None:
     credential = get_credential(session, credential_id)
     session.delete(credential)
     session.commit()
+    logger.info(f"Deleted credential with the ID {credential_id}")
 
 
 def sync_credential(session: Session, credential_id: int) -> SyncResult:
@@ -105,27 +118,37 @@ def sync_credential(session: Session, credential_id: int) -> SyncResult:
 
 
 def sync_credential_object(session: Session, credential: Credential) -> SyncResult:
+    logger.info(f"Syncing credential with the ID {credential.id} ({credential.bank.value})")
     handler = credential.handler
+    logger.debug(f"Using {type(handler).__name__} for credential {credential.id}")
     if isinstance(handler, FinTSHandler):
         handler.product_id = application_secret_service.get_value_of_application_secret_by_name(
             FinTSHandler.PRODUCT_ID_SECRET_NAME, session
         )
+        logger.debug(f"Loaded FinTS product id from application secret for credential {credential.id}")
     if isinstance(handler, TradeRepublicHandler):
         handler.session_state = credential.session_state
+        logger.debug(
+            f"Credential {credential.id} has {'a stored' if credential.session_state else 'no'} Trade Republic session"
+        )
         try:
             credential.sync(handler)
         except ReauthenticationRequiredError:
+            logger.info(f"Credential {credential.id} requires 2FA re-authentication; starting Trade Republic login")
             token, expires_at = trade_republic_login.start(credential.id, handler.username, handler.password)
             credential.requires_two_factor_authentication = True
             return SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=token, expires_at=expires_at)
         credential.session_state = handler.session_state
+        logger.info(f"Credential with the ID {credential.id} synced (Trade Republic, resumed session)")
         return SyncResult(status=SyncStatus.COMPLETED)
 
     credential.sync(handler)
+    logger.info(f"Credential with the ID {credential.id} synced ({credential.bank.value})")
     return SyncResult(status=SyncStatus.COMPLETED)
 
 
 def confirm_two_factor(session: Session, credential_id: int, challenge_token: str, code: str) -> SyncResult:
+    logger.info(f"Confirming 2FA for credential {credential_id}")
     credential = get_credential(session, credential_id)
     cookies = trade_republic_login.complete(challenge_token, credential_id, code)
     credential.session_state = {"cookies": cookies}
