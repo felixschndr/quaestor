@@ -21,6 +21,7 @@
 - Sparkasse Login
 - DKB Login
 - Tests
+- Handling for wrong banking credentials
 - Make timestamps TZ aware?
 - Make credentials auto-sync
 - FIXMEs in code

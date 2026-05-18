@@ -17,55 +17,53 @@ from source.bank_handlers import FinTSHandler  # noqa: E402
 URL = "http://localhost:8000"
 
 
-def print_request_and_response(sent_data: dict, response: Response) -> None:
-    print("Request:", sent_data)
+def make_request_and_send_response(data_of_request: dict) -> Response:
+    print(f"Request: {data_of_request}")
+
+    method = data_of_request.pop("method").lower()
+    _response = getattr(requests, method)(**data_of_request)
+
     try:
-        response_text = f"Response ({response.status_code}): {json.dumps(response.json(), indent=4)}"
+        response_text = f"Response ({_response.status_code}): {json.dumps(_response.json(), indent=4)}"
     except json.JSONDecodeError:
-        if response.text:
-            response_text = f"Response ({response.status_code}): {response.text}"
+        if _response.text:
+            response_text = f"Response ({_response.status_code}): {_response.text}"
         else:
-            response_text = f"Empty Response ({response.status_code})"
+            response_text = f"Empty Response ({_response.status_code})"
     print(f"{response_text}\n\n\n")
-    response.raise_for_status()
+    _response.raise_for_status()
+
+    return _response
 
 
 load_dotenv()
 data = {
+    "method": "POST",
     "url": f"{URL}/application_secrets",
     "json": {"name": FinTSHandler.PRODUCT_ID_SECRET_NAME, "value": os.environ["FINTS_PRODUCT_NUMBER"]},
 }
-r = requests.post(**data)
-print_request_and_response(data, r)
+make_request_and_send_response(data)
 
-data = {"url": f"{URL}/application_secrets"}
-r = requests.get(**data)
-print_request_and_response(data, r)
+data = {"method": "GET", "url": f"{URL}/application_secrets"}
+make_request_and_send_response(data)
 
-data = {"url": f"{URL}/credentials/list_all_possible"}
-r = requests.get(**data)
-print_request_and_response(data, r)
+data = {"method": "GET", "url": f"{URL}/credentials/list_all_possible"}
+make_request_and_send_response(data)
 
-data = {"url": f"{URL}/users", "json": {"name": "Felix", "password": "1234567890534345Aa!"}}
-r = requests.post(**data)
-print_request_and_response(data, r)
-user_id = r.json()["id"]
+data = {"method": "POST", "url": f"{URL}/users", "json": {"name": "Felix", "password": "1234567890534345Aa!"}}
+response = make_request_and_send_response(data)
+user_id = response.json()["id"]
 
-data = {"url": f"{URL}/users", "json": {"name": "Second user", "password": "45678987655678Aa!"}}
-r = requests.post(**data)
-print_request_and_response(data, r)
-second_user_id_ = r.json()["id"]
+data = {"method": "POST", "url": f"{URL}/users", "json": {"name": "Second user", "password": "45678987655678Aa!"}}
+response = make_request_and_send_response(data)
+second_user_id = response.json()["id"]
 
-data = {"url": f"{URL}/users/{second_user_id_}/elevate", "json": {"acting_admin_id": user_id}}
-r = requests.patch(**data)
-print_request_and_response(data, r)
-
-data = {"url": f"{URL}/users/"}
-r = requests.get(**data)
-print_request_and_response(data, r)
+data = {"method": "PATCH", "url": f"{URL}/users/{second_user_id}/elevate", "json": {"acting_admin_id": user_id}}
+make_request_and_send_response(data)
 
 
 data = {
+    "method": "POST",
     "url": f"{URL}/credentials",
     "json": {
         "user_id": user_id,
@@ -74,24 +72,25 @@ data = {
         "password": os.environ["TR_PIN"],
     },
 }
-r = requests.post(**data)
-print_request_and_response(data, r)
-credential_id = r.json()["id"]
+response = make_request_and_send_response(data)
+trade_republic_credential_id = response.json()["id"]
 
-data = {"url": f"{URL}/credentials/{credential_id}/sync"}
-r = requests.post(**data)
-print_request_and_response(data, r)
+data = {"method": "POST", "url": f"{URL}/credentials/{trade_republic_credential_id}/sync"}
+response = make_request_and_send_response(data)
+trade_republic_challenge_token = response.json()["challenge_token"]
+
 
 code = input("2FA-Code: ")
 data = {
-    "url": f"{URL}/credentials/{credential_id}/sync/2fa",
-    "json": {"challenge_token": r.json()["challenge_token"], "code": code},
+    "method": "POST",
+    "url": f"{URL}/credentials/{trade_republic_credential_id}/sync/2fa",
+    "json": {"challenge_token": trade_republic_challenge_token, "code": code},
 }
-r = requests.post(**data)
-print_request_and_response(data, r)
+make_request_and_send_response(data)
 
 
 data = {
+    "method": "POST",
     "url": f"{URL}/credentials",
     "json": {
         "user_id": user_id,
@@ -100,19 +99,14 @@ data = {
         "password": os.environ["ING_PASSWORD"],
     },
 }
-r = requests.post(**data)
-print_request_and_response(data, r)
-credential_id = r.json()["id"]
+response = make_request_and_send_response(data)
+ing_credential_id = response.json()["id"]
 
-data = {"url": f"{URL}/credentials/{credential_id}/sync"}
-r = requests.post(**data)
-print_request_and_response(data, r)
-
-data = {"url": f"{URL}/credentials/{credential_id}"}
-r = requests.get(**data)
-print_request_and_response(data, r)
+data = {"method": "POST", "url": f"{URL}/credentials/{ing_credential_id}/sync"}
+make_request_and_send_response(data)
 
 data = {
+    "method": "POST",
     "url": f"{URL}/credentials",
     "json": {
         "user_id": user_id,
@@ -123,15 +117,11 @@ data = {
         "customer": os.environ["DFS_CUSTOMER"],
     },
 }
-r = requests.post(**data)
-print_request_and_response(data, r)
-credential_id = r.json()["id"]
+response = make_request_and_send_response(data)
+dfs_credential_id = response.json()["id"]
 
-data = {"url": f"{URL}/credentials/{credential_id}/sync"}
-r = requests.post(**data)
-print_request_and_response(data, r)
+data = {"method": "POST", "url": f"{URL}/credentials/{dfs_credential_id}/sync"}
+make_request_and_send_response(data)
 
-
-data = {"url": f"{URL}/users/{user_id}"}
-r = requests.get(**data)
-print_request_and_response(data, r)
+data = {"method": "GET", "url": f"{URL}/users"}
+make_request_and_send_response(data)
