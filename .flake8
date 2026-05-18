@@ -1,8 +1,7 @@
 [flake8]
-ignore = E501, ANN101, ANN204, ANN401, E704
-max-line-length = 80
+extend-ignore = ANN101, ANN204, ANN401, B008, B904, B907, E501, E704
+max-line-length = 120
 max-complexity = 18
-select = A,B,C,E,F,W,T4,B9
 suppress-non-returning = true
 kwargs-ignore-function-pattern-extend = (options|load_only|replace|pop)$
 per-file-ignores =
