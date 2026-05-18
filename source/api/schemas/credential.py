@@ -10,7 +10,6 @@ class CredentialCreate(BaseModel):
     # Handler-specific fields (="extra"s) are sent flat alongside username/password
     model_config = ConfigDict(extra="allow")
 
-    user_id: int
     bank: BankProvider
     username: str
     password: str

@@ -1,6 +1,6 @@
 import logging
 
-from source.exceptions import PermissionDeniedError, UserNotFoundError
+from source.exceptions import UserNotFoundError
 from source.models.user import User
 from source.services.password_service import hash_password
 from sqlalchemy import select
@@ -54,18 +54,11 @@ def update_user(db_session: Session, user_id: int, fields: dict) -> User:
     return user
 
 
-def elevate_user(db_session: Session, acting_admin_id: int, target_user_id: int) -> User:
-    # TODO: Implement usage of session handling
-    acting_admin = get_user_by_id(db_session, acting_admin_id)
-    if not acting_admin.admin:
-        error_message = f"User with the ID {acting_admin_id} is not an admin and cannot elevate other users"
-        logger.warning(error_message)
-        raise PermissionDeniedError(error_message)
-
+def elevate_user(db_session: Session, acting_admin: User, target_user_id: int) -> User:
     target_user = get_user_by_id(db_session, target_user_id)
     target_user.admin = True
     db_session.commit()
-    logger.info(f"User with the ID {target_user_id} elevated to admin by admin {acting_admin_id}")
+    logger.info(f"User with the ID {target_user_id} elevated to admin by admin {acting_admin.id} ({acting_admin.name})")
     return target_user
 
 

@@ -45,8 +45,3 @@ class UserLogin(BaseModel):
 
 class UserUpdate(BaseModel):
     name: str | None = None
-
-
-class UserElevate(BaseModel):
-    # Temporary: identifies the acting admin until session management replaces this
-    acting_admin_id: int

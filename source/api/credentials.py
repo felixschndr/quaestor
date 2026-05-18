@@ -9,7 +9,8 @@ from source.api.schemas.credential import (
 )
 from source.db import get_session
 from source.models.credential import Credential
-from source.services import credential_service
+from source.models.user import User
+from source.services import credential_service, session_service
 from source.services.credential_service import SyncStatus
 from sqlalchemy.orm import Session
 
@@ -17,20 +18,19 @@ router = create_router()
 
 
 @router.get("/list_all_possible")
-def list_all_possible() -> list[dict]:
+def list_all_possible(_: User = Depends(session_service.get_current_user_from_request)) -> list[dict]:
     return credential_service.list_all_possible()
 
 
-@router.get("/{credential_id}", response_model=CredentialRead)
-def get_credential(credential_id: int, db_session: Session = Depends(get_session)) -> Credential:
-    return credential_service.get_credential(db_session, credential_id=credential_id)
-
-
 @router.post("", response_model=CredentialRead, status_code=201)
-def create_credential(payload: CredentialCreate, db_session: Session = Depends(get_session)) -> Credential:
+def create_credential(
+    payload: CredentialCreate,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> Credential:
     return credential_service.create_credential(
         db_session,
-        user_id=payload.user_id,
+        user_id=current_user.id,
         bank=payload.bank,
         username=payload.username,
         password=payload.password,
@@ -38,20 +38,47 @@ def create_credential(payload: CredentialCreate, db_session: Session = Depends(g
     )
 
 
+@router.get("/{credential_id}", response_model=CredentialRead)
+def get_credential(
+    credential_id: int,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> Credential:
+    return credential_service.get_credential_for_user(db_session, credential_id, current_user.id)
+
+
+# TODO: List all my credentials
+
+
 @router.patch("/{credential_id}", response_model=CredentialRead)
 def update_credential(
-    credential_id: int, payload: CredentialUpdate, db_session: Session = Depends(get_session)
+    credential_id: int,
+    payload: CredentialUpdate,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
 ) -> Credential:
+    credential_service.get_credential_for_user(db_session, credential_id, current_user.id)
     return credential_service.update_credential(db_session, credential_id, payload.model_dump(exclude_unset=True))
 
 
 @router.delete("/{credential_id}", status_code=204)
-def delete_credential(credential_id: int, db_session: Session = Depends(get_session)) -> None:
+def delete_credential(
+    credential_id: int,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> None:
+    credential_service.get_credential_for_user(db_session, credential_id, current_user.id)
     credential_service.delete_credential(db_session, credential_id)
 
 
 @router.post("/{credential_id}/sync", response_model=SyncResponse)
-def sync_credential(credential_id: int, response: Response, db_session: Session = Depends(get_session)) -> SyncResponse:
+def sync_credential(
+    credential_id: int,
+    response: Response,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> SyncResponse:
+    credential_service.get_credential_for_user(db_session, credential_id, current_user.id)
     result = credential_service.sync_credential(db_session, credential_id)
     if result.status == SyncStatus.TWO_FACTOR_REQUIRED:
         response.status_code = status.HTTP_202_ACCEPTED
@@ -60,7 +87,11 @@ def sync_credential(credential_id: int, response: Response, db_session: Session 
 
 @router.post("/{credential_id}/sync/2fa", response_model=SyncResponse)
 def sync_complete_two_factor(
-    credential_id: int, payload: TwoFactorConfirm, db_session: Session = Depends(get_session)
+    credential_id: int,
+    payload: TwoFactorConfirm,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
 ) -> SyncResponse:
+    credential_service.get_credential_for_user(db_session, credential_id, current_user.id)
     result = credential_service.confirm_two_factor(db_session, credential_id, payload.challenge_token, payload.code)
     return SyncResponse(status=result.status, challenge_token=result.challenge_token, expires_at=result.expires_at)

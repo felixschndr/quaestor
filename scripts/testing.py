@@ -17,14 +17,14 @@ URL = "http://localhost:8000"
 USER1_NAME = "Felix"
 USER1_PW = "1234567890534345Aa!"
 
-client = Session()
+http_session = Session()
 
 
-def make_request_and_send_response(data_of_request: dict, http_client: Session = client) -> Response:
+def make_request_and_send_response(data_of_request: dict, _http_session: Session = http_session) -> Response:
     print(f"Request: {data_of_request}")
 
     method = data_of_request.pop("method").lower()
-    _response = getattr(http_client, method)(**data_of_request)
+    _response = getattr(_http_session, method)(**data_of_request)
 
     try:
         response_text = f"Response ({_response.status_code}): {json.dumps(_response.json(), indent=4)}"
@@ -40,6 +40,18 @@ def make_request_and_send_response(data_of_request: dict, http_client: Session =
 
 
 load_dotenv()
+
+data = {"method": "POST", "url": f"{URL}/register", "json": {"name": USER1_NAME, "password": USER1_PW}}
+response = make_request_and_send_response(data)
+user_id = response.json()["id"]
+
+data = {"method": "POST", "url": f"{URL}/register", "json": {"name": "Second user", "password": "45678987655678Aa!"}}
+response = make_request_and_send_response(data, _http_session=Session())
+second_user_id = response.json()["id"]
+
+data = {"method": "PATCH", "url": f"{URL}/users/{second_user_id}/elevate"}
+make_request_and_send_response(data)
+
 data = {
     "method": "POST",
     "url": f"{URL}/application_secrets",
@@ -53,24 +65,11 @@ make_request_and_send_response(data)
 data = {"method": "GET", "url": f"{URL}/credentials/list_all_possible"}
 make_request_and_send_response(data)
 
-data = {"method": "POST", "url": f"{URL}/register", "json": {"name": USER1_NAME, "password": USER1_PW}}
-response = make_request_and_send_response(data)
-user_id = response.json()["id"]
-
-# Register the second user with a throwaway client so first users session is not overwritten.
-data = {"method": "POST", "url": f"{URL}/register", "json": {"name": "Second user", "password": "45678987655678Aa!"}}
-response = make_request_and_send_response(data, http_client=Session())
-second_user_id = response.json()["id"]
-
-data = {"method": "PATCH", "url": f"{URL}/users/{second_user_id}/elevate", "json": {"acting_admin_id": user_id}}
-make_request_and_send_response(data)
-
 
 data = {
     "method": "POST",
     "url": f"{URL}/credentials",
     "json": {
-        "user_id": user_id,
         "bank": "trade_republic",
         "username": os.environ["TR_PHONE"],
         "password": os.environ["TR_PIN"],
@@ -97,7 +96,6 @@ data = {
     "method": "POST",
     "url": f"{URL}/credentials",
     "json": {
-        "user_id": user_id,
         "bank": "ing",
         "username": os.environ["ING_USERNAME"],
         "password": os.environ["ING_PASSWORD"],
@@ -113,7 +111,6 @@ data = {
     "method": "POST",
     "url": f"{URL}/credentials",
     "json": {
-        "user_id": user_id,
         "bank": "dfs",
         "username": os.environ["DFS_USERNAME"],
         "password": os.environ["DFS_PASSWORD"],
@@ -132,7 +129,7 @@ make_request_and_send_response(data)
 
 auth_client = Session()
 data = {"method": "POST", "url": f"{URL}/login", "json": {"name": USER1_NAME, "password": USER1_PW}}
-make_request_and_send_response(data, http_client=auth_client)
+make_request_and_send_response(data, _http_session=auth_client)
 
 data = {"method": "POST", "url": f"{URL}/logout"}
-make_request_and_send_response(data, http_client=auth_client)
+make_request_and_send_response(data, _http_session=auth_client)

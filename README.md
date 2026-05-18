@@ -28,3 +28,7 @@
 - Make credentials auto-sync
 - FIXMEs in code
 - The trade republic session state COULD include the information about how long until a new 2FA is required (.traderepublic.com	TRUE	/	TRUE	1779099997	aws-waf-token)
+- Dependabot auto merge after 3 days and release new version
+- Add application configuration (e.g. disable new user registration)
+- Beautify tags in router
+- Enforce kwargs

@@ -62,6 +62,16 @@ def get_credential(db_session: Session, credential_id: int) -> Credential:
     return credential
 
 
+def get_credential_for_user(db_session: Session, credential_id: int, user_id: int) -> Credential:
+    credential = get_credential(db_session, credential_id)
+    if credential.user_id != user_id:
+        logger.warning(
+            f"User {user_id} attempted to access credential {credential_id} owned by user {credential.user_id}"
+        )
+        raise CredentialNotFoundError(f"Credential with the ID {credential_id} not found")
+    return credential
+
+
 def _validated_extra(bank: BankProvider, extra: dict[str, str]) -> dict[str, str]:
     required = BANKS_BY_NAME[bank.value].handler.EXTRA_CREDENTIAL_FIELDS
     missing = [field for field in required if not extra.get(field)]

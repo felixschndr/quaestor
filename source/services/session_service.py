@@ -4,7 +4,9 @@ import os
 import secrets
 from datetime import datetime, timedelta
 
-from fastapi import Response
+from fastapi import Depends, Request, Response
+from source.db import get_session
+from source.exceptions import InvalidCredentialsError, PermissionDeniedError
 from source.models.session import UserSession
 from source.models.user import User
 from sqlalchemy import select
@@ -86,3 +88,17 @@ def set_session_cookie(response: Response, raw_token: str) -> None:
 
 def clear_session_cookie(response: Response) -> None:
     response.delete_cookie(COOKIE_NAME, path="/")
+
+
+def get_current_user_from_request(request: Request, db_session: Session = Depends(get_session)) -> User:
+    raw_token = request.cookies.get(COOKIE_NAME)
+    user = get_user_by_raw_token(db_session, raw_token) if raw_token else None
+    if user is None:
+        raise InvalidCredentialsError("Authentication required")
+    return user
+
+
+def get_current_user_from_request_if_is_admin(user: User = Depends(get_current_user_from_request)) -> User:
+    if not user.admin:
+        raise PermissionDeniedError("Admin privileges required")
+    return user
