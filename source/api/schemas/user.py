@@ -1,9 +1,31 @@
-from pydantic import BaseModel, ConfigDict
+import re
+from typing import TYPE_CHECKING
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from source.api.schemas.credential import CredentialRead
+
+if TYPE_CHECKING:
+    from pydantic.v1.main import ModelMetaclass
+
+_PASSWORD_RULES = [
+    (re.compile(r"[a-z]"), "a lowercase letter"),
+    (re.compile(r"[A-Z]"), "an uppercase letter"),
+    (re.compile(r"\d"), "a digit"),
+    (re.compile(r"[^A-Za-z0-9]"), "a special character"),
+]
 
 
 class UserCreate(BaseModel):
     name: str
+    password: str = Field(min_length=15)
+
+    @field_validator("password")
+    @classmethod
+    def _validate_password_complexity(cls: ModelMetaclass, value: str) -> str:
+        missing = [description for pattern, description in _PASSWORD_RULES if not pattern.search(value)]
+        if missing:
+            raise ValueError(f"Password must contain at least {', '.join(missing)}")
+        return value
 
 
 class UserRead(BaseModel):
@@ -21,5 +43,5 @@ class UserUpdate(BaseModel):
 
 
 class UserElevate(BaseModel):
-    # Temporary: identifies the acting admin until session management replaces this.
+    # Temporary: identifies the acting admin until session management replaces this
     acting_admin_id: int

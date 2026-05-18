@@ -2,6 +2,7 @@ import logging
 
 from source.exceptions import PermissionDeniedError, UserNotFoundError
 from source.models.user import User
+from source.services.password_service import hash_password
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
@@ -15,9 +16,9 @@ def list_users(session: Session) -> list[User]:
     return users
 
 
-def create_user(session: Session, name: str) -> User:
+def create_user(session: Session, name: str, password: str) -> User:
     is_first_user = session.scalar(select(User.id).limit(1)) is None
-    user = User(name=name, admin=is_first_user)
+    user = User(name=name, password_hash=hash_password(password), admin=is_first_user)
     session.add(user)
     session.commit()
     logger.info(f"Created user with the ID {user.id} as {'admin' if user.admin else 'normal user'}")

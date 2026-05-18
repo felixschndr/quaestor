@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-05-18 13:41:05.016729
+Create Date: 2026-05-18 13:59:21.331646
 
 """
 
@@ -32,6 +32,7 @@ def upgrade() -> None:
         "users",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=50), nullable=False),
+        sa.Column("password_hash", sa.String(), nullable=False),
         sa.Column("admin", sa.Boolean(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )

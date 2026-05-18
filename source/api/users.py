@@ -21,7 +21,7 @@ def get_user(user_id: int, session: Session = Depends(get_session)) -> User:
 
 @router.post("", response_model=UserRead, status_code=201)
 def create_user(payload: UserCreate, session: Session = Depends(get_session)) -> User:
-    return user_service.create_user(session, payload.name)
+    return user_service.create_user(session, payload.name, payload.password)
 
 
 @router.patch("/{user_id}", response_model=UserRead)

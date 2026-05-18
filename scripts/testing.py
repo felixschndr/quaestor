@@ -46,13 +46,12 @@ data = {"url": f"{URL}/credentials/list_all_possible"}
 r = requests.get(**data)
 print_request_and_response(data, r)
 
-data = {"url": f"{URL}/users", "json": {"name": "Felix"}}
+data = {"url": f"{URL}/users", "json": {"name": "Felix", "password": "1234567890534345Aa!"}}
 r = requests.post(**data)
 print_request_and_response(data, r)
 user_id = r.json()["id"]
 
-
-data = {"url": f"{URL}/users", "json": {"name": "Second user"}}
+data = {"url": f"{URL}/users", "json": {"name": "Second user", "password": "45678987655678Aa!"}}
 r = requests.post(**data)
 print_request_and_response(data, r)
 second_user_id_ = r.json()["id"]
