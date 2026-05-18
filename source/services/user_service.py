@@ -16,10 +16,11 @@ def list_users(session: Session) -> list[User]:
 
 
 def create_user(session: Session, name: str) -> User:
-    user = User(name=name)
+    is_first_user = session.scalar(select(User.id).limit(1)) is None
+    user = User(name=name, admin=is_first_user)
     session.add(user)
     session.commit()
-    logger.info(f"Created user with the ID {user.id}")
+    logger.info(f"Created user with the ID {user.id} as {'admin' if user.admin else 'normal user'}")
     return user
 
 

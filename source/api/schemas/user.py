@@ -11,6 +11,7 @@ class UserRead(BaseModel):
 
     id: int
     name: str
+    admin: bool
     balance: float
     credentials: list[CredentialRead] = []
 
