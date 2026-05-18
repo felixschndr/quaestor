@@ -25,6 +25,7 @@ class Credential(Base):
 
     session_state: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     last_fetching_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    requires_two_factor_authentication: Mapped[bool] = mapped_column(default=False)
 
     user: Mapped["User"] = relationship(back_populates="credentials")
     accounts: Mapped[List["Account"]] = relationship(back_populates="credential", cascade="all, delete-orphan")

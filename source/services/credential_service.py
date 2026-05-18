@@ -116,6 +116,7 @@ def sync_credential_object(session: Session, credential: Credential) -> SyncResu
             credential.sync(handler)
         except ReauthenticationRequiredError:
             token, expires_at = trade_republic_login.start(credential.id, handler.username, handler.password)
+            credential.requires_two_factor_authentication = True
             return SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=token, expires_at=expires_at)
         credential.session_state = handler.session_state
         return SyncResult(status=SyncStatus.COMPLETED)
