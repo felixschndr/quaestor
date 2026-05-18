@@ -46,14 +46,14 @@ def list_all_possible() -> list[dict]:
     ]
 
 
-def list_credentials(session: Session, user_id: int) -> list[Credential]:
-    credentials = list(session.scalars(select(Credential).where(Credential.user_id == user_id)))
+def list_credentials(db_session: Session, user_id: int) -> list[Credential]:
+    credentials = list(db_session.scalars(select(Credential).where(Credential.user_id == user_id)))
     logger.debug(f"Found {len(credentials)} credential(s) for user {user_id}")
     return credentials
 
 
-def get_credential(session: Session, credential_id: int) -> Credential:
-    credential = session.get(Credential, credential_id)
+def get_credential(db_session: Session, credential_id: int) -> Credential:
+    credential = db_session.get(Credential, credential_id)
     if credential is None:
         error_message = f"Credential with the ID {credential_id} not found"
         logger.warning(error_message)
@@ -73,14 +73,14 @@ def _validated_extra(bank: BankProvider, extra: dict[str, str]) -> dict[str, str
 
 
 def create_credential(
-    session: Session,
+    db_session: Session,
     user_id: int,
     bank: BankProvider,
     username: str,
     password: str,
     extra: dict[str, str] | None = None,
 ) -> Credential:
-    user = user_service.get_user_by_id(session, user_id)
+    user = user_service.get_user_by_id(db_session, user_id)
     credential = Credential(
         user=user,
         bank=bank,
@@ -88,42 +88,42 @@ def create_credential(
         password=password,
         extra=_validated_extra(bank, extra or {}),
     )
-    session.add(credential)
-    session.commit()
+    db_session.add(credential)
+    db_session.commit()
     logger.info(f"Created credential with the ID {credential.id} ({bank.value}) for user {user_id}")
     return credential
 
 
-def update_credential(session: Session, credential_id: int, fields: dict) -> Credential:
-    credential = get_credential(session, credential_id)
+def update_credential(db_session: Session, credential_id: int, fields: dict) -> Credential:
+    credential = get_credential(db_session, credential_id)
     for key, value in fields.items():
         setattr(credential, key, value)
-    session.commit()
+    db_session.commit()
     logger.info(f"Updated credential with the ID {credential_id}, fields: {sorted(fields)}")
     return credential
 
 
-def delete_credential(session: Session, credential_id: int) -> None:
-    credential = get_credential(session, credential_id)
-    session.delete(credential)
-    session.commit()
+def delete_credential(db_session: Session, credential_id: int) -> None:
+    credential = get_credential(db_session, credential_id)
+    db_session.delete(credential)
+    db_session.commit()
     logger.info(f"Deleted credential with the ID {credential_id}")
 
 
-def sync_credential(session: Session, credential_id: int) -> SyncResult:
-    credential = get_credential(session, credential_id)
-    result = sync_credential_object(session, credential)
-    session.commit()
+def sync_credential(db_session: Session, credential_id: int) -> SyncResult:
+    credential = get_credential(db_session, credential_id)
+    result = sync_credential_object(db_session, credential)
+    db_session.commit()
     return result
 
 
-def sync_credential_object(session: Session, credential: Credential) -> SyncResult:
+def sync_credential_object(db_session: Session, credential: Credential) -> SyncResult:
     logger.info(f"Syncing credential with the ID {credential.id} ({credential.bank.value})")
     handler = credential.handler
     logger.debug(f"Using {type(handler).__name__} for credential {credential.id}")
     if isinstance(handler, FinTSHandler):
         handler.product_id = application_secret_service.get_value_of_application_secret_by_name(
-            FinTSHandler.PRODUCT_ID_SECRET_NAME, session
+            FinTSHandler.PRODUCT_ID_SECRET_NAME, db_session
         )
         logger.debug(f"Loaded FinTS product id from application secret for credential {credential.id}")
     if isinstance(handler, TradeRepublicHandler):
@@ -147,11 +147,11 @@ def sync_credential_object(session: Session, credential: Credential) -> SyncResu
     return SyncResult(status=SyncStatus.COMPLETED)
 
 
-def confirm_two_factor(session: Session, credential_id: int, challenge_token: str, code: str) -> SyncResult:
+def confirm_two_factor(db_session: Session, credential_id: int, challenge_token: str, code: str) -> SyncResult:
     logger.info(f"Confirming 2FA for credential {credential_id}")
-    credential = get_credential(session, credential_id)
+    credential = get_credential(db_session, credential_id)
     cookies = trade_republic_login.complete(challenge_token, credential_id, code)
     credential.session_state = {"cookies": cookies}
-    result = sync_credential_object(session, credential)
-    session.commit()
+    result = sync_credential_object(db_session, credential)
+    db_session.commit()
     return result

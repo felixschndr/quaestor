@@ -22,14 +22,14 @@ def list_all_possible() -> list[dict]:
 
 
 @router.get("/{credential_id}", response_model=CredentialRead)
-def get_credential(credential_id: int, session: Session = Depends(get_session)) -> Credential:
-    return credential_service.get_credential(session, credential_id=credential_id)
+def get_credential(credential_id: int, db_session: Session = Depends(get_session)) -> Credential:
+    return credential_service.get_credential(db_session, credential_id=credential_id)
 
 
 @router.post("", response_model=CredentialRead, status_code=201)
-def create_credential(payload: CredentialCreate, session: Session = Depends(get_session)) -> Credential:
+def create_credential(payload: CredentialCreate, db_session: Session = Depends(get_session)) -> Credential:
     return credential_service.create_credential(
-        session,
+        db_session,
         user_id=payload.user_id,
         bank=payload.bank,
         username=payload.username,
@@ -40,19 +40,19 @@ def create_credential(payload: CredentialCreate, session: Session = Depends(get_
 
 @router.patch("/{credential_id}", response_model=CredentialRead)
 def update_credential(
-    credential_id: int, payload: CredentialUpdate, session: Session = Depends(get_session)
+    credential_id: int, payload: CredentialUpdate, db_session: Session = Depends(get_session)
 ) -> Credential:
-    return credential_service.update_credential(session, credential_id, payload.model_dump(exclude_unset=True))
+    return credential_service.update_credential(db_session, credential_id, payload.model_dump(exclude_unset=True))
 
 
 @router.delete("/{credential_id}", status_code=204)
-def delete_credential(credential_id: int, session: Session = Depends(get_session)) -> None:
-    credential_service.delete_credential(session, credential_id)
+def delete_credential(credential_id: int, db_session: Session = Depends(get_session)) -> None:
+    credential_service.delete_credential(db_session, credential_id)
 
 
 @router.post("/{credential_id}/sync", response_model=SyncResponse)
-def sync_credential(credential_id: int, response: Response, session: Session = Depends(get_session)) -> SyncResponse:
-    result = credential_service.sync_credential(session, credential_id)
+def sync_credential(credential_id: int, response: Response, db_session: Session = Depends(get_session)) -> SyncResponse:
+    result = credential_service.sync_credential(db_session, credential_id)
     if result.status == SyncStatus.TWO_FACTOR_REQUIRED:
         response.status_code = status.HTTP_202_ACCEPTED
     return SyncResponse(status=result.status, challenge_token=result.challenge_token, expires_at=result.expires_at)
@@ -60,7 +60,7 @@ def sync_credential(credential_id: int, response: Response, session: Session = D
 
 @router.post("/{credential_id}/sync/2fa", response_model=SyncResponse)
 def sync_complete_two_factor(
-    credential_id: int, payload: TwoFactorConfirm, session: Session = Depends(get_session)
+    credential_id: int, payload: TwoFactorConfirm, db_session: Session = Depends(get_session)
 ) -> SyncResponse:
-    result = credential_service.confirm_two_factor(session, credential_id, payload.challenge_token, payload.code)
+    result = credential_service.confirm_two_factor(db_session, credential_id, payload.challenge_token, payload.code)
     return SyncResponse(status=result.status, challenge_token=result.challenge_token, expires_at=result.expires_at)

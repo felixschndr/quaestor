@@ -47,5 +47,5 @@ SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 
 def get_session() -> Iterator[Session]:
-    with SessionLocal() as session:
-        yield session
+    with SessionLocal() as db_session:
+        yield db_session
