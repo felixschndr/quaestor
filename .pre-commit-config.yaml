@@ -19,8 +19,13 @@ repos:
       - id: flake8
         additional_dependencies:
           - flake8-annotations
-          - flake8-type-checking
           - flake8-force-keyword-arguments
+          - flake8-bugbear
+          - flake8-comprehensions
+          - flake8-async
+          - flake8-timeout
+          - flake8-tidy-imports
+          - pep8-naming
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.0
     hooks:

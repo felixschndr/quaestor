@@ -40,7 +40,8 @@ class _TradeRepublicSession(BankSession):
             self._account_mapping[position["name"]] = {"balance": float(position["netValue"])}
 
         logger.debug(
-            f"Trade Republic portfolio fetched: {len(portfolio.cash)} cash account(s), {len(portfolio.portfolio)} portfolio position(s)"
+            f"Trade Republic portfolio fetched: {len(portfolio.cash)} cash account(s), "
+            f"{len(portfolio.portfolio)} portfolio position(s)"
         )
 
 

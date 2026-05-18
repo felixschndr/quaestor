@@ -67,7 +67,7 @@ class _DFSSession(BankSession):
         except HTTPError as e:
             error_message = f"Failed to initialize DFS dashboard: {e}"
             logger.error(error_message)
-            raise UnknownInternalError(error_message)
+            raise UnknownInternalError(error_message) from e
 
     def _get_dashboard_snapshot(self, http_session: Session) -> dict:
         response = http_session.post(f"{self.BASE_URL}/acaphc/rest/dashboard/getDashboardSnapshot")
@@ -76,7 +76,7 @@ class _DFSSession(BankSession):
         except HTTPError as e:
             error_message = f"Failed to load DFS dashboard snapshot: {e}"
             logger.error(error_message)
-            raise UnknownInternalError(error_message)
+            raise UnknownInternalError(error_message) from e
 
         return response.json()
 
