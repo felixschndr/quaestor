@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from source.exceptions import (
     InvalidCredentialsError,
     NotFoundError,
+    PermissionDeniedError,
     UnknownInternalError,
     ValidationError,
 )
@@ -16,6 +17,7 @@ EXCEPTIONS_TO_CATCH_AND_THEIR_STATUS_CODES: dict[type[Exception], int] = {
     NotFoundError: 404,
     ValidationError: 422,
     InvalidCredentialsError: 401,
+    PermissionDeniedError: 403,
     UnknownInternalError: 500,
 }
 
