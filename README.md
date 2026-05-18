@@ -17,6 +17,8 @@
 
 ## TODO
 - Logging with fields
+- Transaction
+- Transaction Categorization
 - Web Frontend
 - Sparkasse Login
 - DKB Login

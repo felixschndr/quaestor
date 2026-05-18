@@ -11,24 +11,24 @@ from sqlalchemy.sql.elements import ColumnElement
 logger = logging.getLogger(__name__)
 
 
-def list_users(session: Session) -> list[User]:
-    users = list(session.scalars(select(User)))
+def list_users(db_session: Session) -> list[User]:
+    users = list(db_session.scalars(select(User)))
     logger.debug(f"Found {len(users)} user(s)")
     return users
 
 
-def create_user(session: Session, name: str, password: str) -> User:
-    is_first_user = session.scalar(select(User.id).limit(1)) is None
+def create_user(db_session: Session, name: str, password: str) -> User:
+    is_first_user = db_session.scalar(select(User.id).limit(1)) is None
     user = User(name=name, password_hash=hash_password(password), admin=is_first_user)
-    session.add(user)
-    session.commit()
+    db_session.add(user)
+    db_session.commit()
     logger.info(f"Created user with the ID {user.id} as {'admin' if user.admin else 'normal user'}")
     return user
 
 
-def _get_user(session: Session, condition: ColumnElement[bool], identifier_description: str) -> User:
+def _get_user(db_session: Session, condition: ColumnElement[bool], identifier_description: str) -> User:
     try:
-        user = session.scalars(select(User).where(condition)).one()
+        user = db_session.scalars(select(User).where(condition)).one()
     except NoResultFound:
         error_message = f"User with the {identifier_description} not found"
         logger.warning(error_message)
@@ -37,40 +37,40 @@ def _get_user(session: Session, condition: ColumnElement[bool], identifier_descr
     return user
 
 
-def get_user_by_id(session: Session, user_id: int) -> User:
-    return _get_user(session, User.id == user_id, f"ID {user_id}")
+def get_user_by_id(db_session: Session, user_id: int) -> User:
+    return _get_user(db_session, User.id == user_id, f"ID {user_id}")
 
 
-def get_user_by_name(session: Session, name: str) -> User:
-    return _get_user(session, User.name == name, f'name "{name}"')
+def get_user_by_name(db_session: Session, name: str) -> User:
+    return _get_user(db_session, User.name == name, f'name "{name}"')
 
 
-def update_user(session: Session, user_id: int, fields: dict) -> User:
-    user = get_user_by_id(session, user_id)
+def update_user(db_session: Session, user_id: int, fields: dict) -> User:
+    user = get_user_by_id(db_session, user_id)
     for key, value in fields.items():
         setattr(user, key, value)
-    session.commit()
+    db_session.commit()
     logger.info(f"Updated user {user_id}, fields: {sorted(fields)}")
     return user
 
 
-def elevate_user(session: Session, acting_admin_id: int, target_user_id: int) -> User:
+def elevate_user(db_session: Session, acting_admin_id: int, target_user_id: int) -> User:
     # TODO: Implement usage of session handling
-    acting_admin = get_user_by_id(session, acting_admin_id)
+    acting_admin = get_user_by_id(db_session, acting_admin_id)
     if not acting_admin.admin:
         error_message = f"User with the ID {acting_admin_id} is not an admin and cannot elevate other users"
         logger.warning(error_message)
         raise PermissionDeniedError(error_message)
 
-    target_user = get_user_by_id(session, target_user_id)
+    target_user = get_user_by_id(db_session, target_user_id)
     target_user.admin = True
-    session.commit()
+    db_session.commit()
     logger.info(f"User with the ID {target_user_id} elevated to admin by admin {acting_admin_id}")
     return target_user
 
 
-def delete_user(session: Session, user_id: int) -> None:
-    user = get_user_by_id(session, user_id)
-    session.delete(user)
-    session.commit()
+def delete_user(db_session: Session, user_id: int) -> None:
+    user = get_user_by_id(db_session, user_id)
+    db_session.delete(user)
+    db_session.commit()
     logger.info(f"Deleted user {user_id}")

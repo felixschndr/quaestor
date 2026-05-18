@@ -18,30 +18,30 @@ from sqlalchemy.orm import Session
 load_dotenv()
 
 
-def create_db_entries_if_not_exists(session: Session) -> None:
+def create_db_entries_if_not_exists(db_session: Session) -> None:
     objects_to_create = [ApplicationSecret(name=FinTSHandler.PRODUCT_ID_SECRET_NAME, value="")]
 
     for object_to_create in objects_to_create:
         model = type(object_to_create)
         unique_column_of_model = next(col.name for col in model.__table__.columns if col.unique)
 
-        already_exists = session.execute(
+        already_exists = db_session.execute(
             select(model).where(
                 getattr(model, unique_column_of_model) == getattr(object_to_create, unique_column_of_model)
             )
         ).first()
         if not already_exists:
             logging.info(f"Adding {object_to_create} to the database as it does not exist yet.")
-            session.add(object_to_create)
+            db_session.add(object_to_create)
 
-    session.commit()
+    db_session.commit()
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator:
     _route_third_party_loggers_to_root()
-    with SessionLocal() as session:
-        create_db_entries_if_not_exists(session)
+    with SessionLocal() as db_session:
+        create_db_entries_if_not_exists(db_session)
     yield
 
 

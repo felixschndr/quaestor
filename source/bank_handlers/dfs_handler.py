@@ -37,19 +37,19 @@ class _DFSSession(BankSession):
         return self._account_mapping[account.name]["aktuellesDecorator"]["kapitalItem"]["guthaben"]
 
     def _get_content(self) -> dict:
-        session = Session()
-        self._login(session)
-        self._initialize_dashboard(session)
+        http_session = Session()
+        self._login(http_session)
+        self._initialize_dashboard(http_session)
 
-        return self._get_dashboard_snapshot(session)
+        return self._get_dashboard_snapshot(http_session)
 
-    def _login(self, session: Session) -> None:
+    def _login(self, http_session: Session) -> None:
         login_data = {
             "benutzername": self.username,
             "passwort": self.password,
             "return_url": self._login_url,  # Required to catch invalid credentials
         }
-        response = session.post(
+        response = http_session.post(
             f"{self.BASE_URL}/ssoportal/login.action",
             data=login_data,
         )
@@ -60,8 +60,8 @@ class _DFSSession(BankSession):
             raise InvalidCredentialsError(error_message)
         logger.debug(f"DFS login succeeded for user {self.username}")
 
-    def _initialize_dashboard(self, session: Session) -> None:
-        response = session.get(f"{self.BASE_URL}/acaphc/Dashboard.action")
+    def _initialize_dashboard(self, http_session: Session) -> None:
+        response = http_session.get(f"{self.BASE_URL}/acaphc/Dashboard.action")
         try:
             response.raise_for_status()
         except HTTPError as e:
@@ -69,8 +69,8 @@ class _DFSSession(BankSession):
             logger.error(error_message)
             raise UnknownInternalError(error_message)
 
-    def _get_dashboard_snapshot(self, session: Session) -> dict:
-        response = session.post(f"{self.BASE_URL}/acaphc/rest/dashboard/getDashboardSnapshot")
+    def _get_dashboard_snapshot(self, http_session: Session) -> dict:
+        response = http_session.post(f"{self.BASE_URL}/acaphc/rest/dashboard/getDashboardSnapshot")
         try:
             response.raise_for_status()
         except HTTPError as e:
