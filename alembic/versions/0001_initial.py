@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-05-18 10:18:02.924286
+Create Date: 2026-05-18 10:57:28.336341
 
 """
 
@@ -44,6 +44,7 @@ def upgrade() -> None:
         sa.Column("extra", sa.JSON(), nullable=False),
         sa.Column("session_state", sa.JSON(), nullable=True),
         sa.Column("last_fetching_timestamp", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("requires_two_factor_authentication", sa.Boolean(), nullable=False),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],

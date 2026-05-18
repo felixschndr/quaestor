@@ -30,6 +30,8 @@ class CredentialRead(BaseModel):
     bank: BankProvider
     username: str
     accounts: list[AccountRead] = []
+    last_fetching_timestamp: datetime | None = None
+    requires_two_factor_authentication: bool
 
 
 class CredentialUpdate(BaseModel):
