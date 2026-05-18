@@ -1,9 +1,12 @@
+import logging
 from contextlib import contextmanager
 from typing import Iterator
 
 from fints.client import FinTS3PinTanClient
 from fints.models import SEPAAccount
 from source.bank_handlers.base import BankHandler, BankSession, FetchedAccount
+
+logger = logging.getLogger(__name__)
 
 
 class _FinTSSession(BankSession):
@@ -17,6 +20,7 @@ class _FinTSSession(BankSession):
     def get_accounts(self) -> list[FetchedAccount]:
         accounts = self._client.get_sepa_accounts()
         self._account_mapping = {account.iban: account for account in accounts}
+        logger.debug(f"FinTS returned {len(accounts)} SEPA account(s)")
         return [FetchedAccount(name=account.iban) for account in accounts]
 
     def get_balance(self, account: FetchedAccount) -> float:
@@ -39,6 +43,7 @@ class FinTSHandler(BankHandler):
 
     @contextmanager
     def session(self) -> Iterator[_FinTSSession]:
+        logger.debug(f"Opening FinTS session for bank {self.bank_info.bank_identifier}")
         client = self.client(self.username, self.password)
         with client:
             yield _FinTSSession(client)

@@ -1,18 +1,26 @@
+import logging
+
 from source.exceptions import AccountNotFoundError
 from source.models.account import Account
 from source.models.credential import Credential
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+logger = logging.getLogger(__name__)
+
 
 def list_accounts(session: Session, user_id: int) -> list[Account]:
-    """All accounts a user owns, across every credential."""
     stmt = select(Account).join(Credential, Account.credential_id == Credential.id).where(Credential.user_id == user_id)
-    return list(session.scalars(stmt))
+    accounts = list(session.scalars(stmt))
+    logger.debug(f"Found {len(accounts)} account(s) for user {user_id}")
+    return accounts
 
 
 def get_account(session: Session, account_id: int) -> Account:
     account = session.get(Account, account_id)
     if account is None:
-        raise AccountNotFoundError(f"Account with the id {account_id} not found")
+        error_message = f"Account with the ID {account_id} not found"
+        logger.warning(error_message)
+        raise AccountNotFoundError(error_message)
+    logger.debug(f"Loaded account with the ID {account_id}")
     return account

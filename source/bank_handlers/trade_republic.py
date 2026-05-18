@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
@@ -8,6 +9,8 @@ from pytr.api import TradeRepublicApi
 from pytr.portfolio import Portfolio
 from source.bank_handlers.base import BankHandler, BankSession, FetchedAccount
 from source.exceptions import ReauthenticationRequiredError
+
+logger = logging.getLogger(__name__)
 
 
 class _TradeRepublicSession(BankSession):
@@ -36,6 +39,10 @@ class _TradeRepublicSession(BankSession):
         for position in portfolio.portfolio:
             self._account_mapping[position["name"]] = {"balance": float(position["netValue"])}
 
+        logger.debug(
+            f"Trade Republic portfolio fetched: {len(portfolio.cash)} cash account(s), {len(portfolio.portfolio)} portfolio position(s)"
+        )
+
 
 class TradeRepublicHandler(BankHandler):
     session_state: dict | None = None
@@ -56,10 +63,12 @@ class TradeRepublicHandler(BankHandler):
             except Exception:
                 resumed = False
             if not resumed:
+                logger.info("Trade Republic websession could not be resumed; 2FA re-authentication required")
                 raise ReauthenticationRequiredError(
                     "Trade Republic websession expired; 2FA re-authentication required."
                 )
 
+            logger.debug("Trade Republic websession resumed")
             yield _TradeRepublicSession(trade_republic_client)
 
             self.session_state = {"cookies": cookies_path.read_text()}

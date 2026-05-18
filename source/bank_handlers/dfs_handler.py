@@ -1,9 +1,12 @@
+import logging
 from contextlib import contextmanager
 from typing import Iterator
 
 from requests import HTTPError, Session
 from source.bank_handlers.base import BankHandler, BankSession, FetchedAccount
 from source.exceptions import InvalidCredentialsError, UnknownInternalError
+
+logger = logging.getLogger(__name__)
 
 
 class _DFSSession(BankSession):
@@ -27,6 +30,7 @@ class _DFSSession(BankSession):
         for account_raw in konto_modell_list:
             accounts.append(FetchedAccount(name=account_raw["modellName"]))
             self._account_mapping[account_raw["modellName"]] = account_raw
+        logger.debug(f"DFS returned {len(accounts)} account(s)")
         return accounts
 
     def get_balance(self, account: FetchedAccount) -> float:
@@ -51,21 +55,28 @@ class _DFSSession(BankSession):
         )
         # Always returns a 200, even if login failed
         if response.url.startswith(self._login_url):
-            raise InvalidCredentialsError(f"Invalid credentials for {self.username}")
+            error_message = f"DFS login failed: invalid credentials for {self.username}"
+            logger.warning(error_message)
+            raise InvalidCredentialsError(error_message)
+        logger.debug(f"DFS login succeeded for user {self.username}")
 
     def _initialize_dashboard(self, session: Session) -> None:
         response = session.get(f"{self.BASE_URL}/acaphc/Dashboard.action")
         try:
             response.raise_for_status()
         except HTTPError as e:
-            raise UnknownInternalError(f"Failed to initialize dashboard: {e}")
+            error_message = f"Failed to initialize DFS dashboard: {e}"
+            logger.error(error_message)
+            raise UnknownInternalError(error_message)
 
     def _get_dashboard_snapshot(self, session: Session) -> dict:
         response = session.post(f"{self.BASE_URL}/acaphc/rest/dashboard/getDashboardSnapshot")
         try:
             response.raise_for_status()
         except HTTPError as e:
-            raise UnknownInternalError(f"Failed to load dashboard: {e}")
+            error_message = f"Failed to load DFS dashboard snapshot: {e}"
+            logger.error(error_message)
+            raise UnknownInternalError(error_message)
 
         return response.json()
 

@@ -44,18 +44,6 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator:
     yield
 
 
-def _add_trace_log_level() -> None:
-    trace_log_level = logging.DEBUG - 5
-
-    logging.addLevelName(trace_log_level, "TRACE")
-
-    def trace(self, message, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN201
-        if self.isEnabledFor(trace_log_level):
-            self._log(trace_log_level, message, args, **kwargs)
-
-    logging.Logger.trace = trace
-
-
 class _RenameUvicornError(logging.Filter):
     """
     Rename uvicorn logs for all non-access messages from `uvicorn.error` to `uvicorn`
@@ -66,7 +54,6 @@ class _RenameUvicornError(logging.Filter):
             record.name = "uvicorn"
         if record.name == "uvicorn.access":
             record.name = "HTTP Request"
-        record.name = record.name[0].upper() + record.name[1:]
         return True
 
 
@@ -79,7 +66,6 @@ def _route_third_party_loggers_to_root() -> None:
 
 
 def setup_logging() -> None:
-    _add_trace_log_level()
     logging.basicConfig(
         stream=sys.stdout,
         format="[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s",

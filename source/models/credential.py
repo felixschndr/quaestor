@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, List
 
@@ -8,6 +9,8 @@ from sqlalchemy import JSON, DateTime
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from source.models.user import User
@@ -36,13 +39,20 @@ class Credential(Base):
 
     def sync(self, handler: BankHandler) -> None:
         by_name = {account.name: account for account in self.accounts}
+        created_accounts = 0
+        updated_accounts = 0
         with handler.session() as bank:
             for fetched_account in bank.get_accounts():
                 account = by_name.get(fetched_account.name)
                 if account is None:
                     account = Account(name=fetched_account.name)
                     self.accounts.append(account)
-                else:
+                    created_accounts += 1
+                elif account.name != fetched_account.name:
                     account.name = fetched_account.name
+                    updated_accounts += 1
                 account.balance = bank.get_balance(fetched_account)
         self.last_fetching_timestamp = datetime.now()
+        logger.info(
+            f"Credential {self.id}: {created_accounts} account(s) created, {updated_accounts} account(s) updated"
+        )
