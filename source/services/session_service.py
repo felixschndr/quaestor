@@ -23,7 +23,7 @@ def _hash_token(raw_token: str) -> str:
 
 
 def _cookie_is_secure() -> bool:
-    return os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
+    return os.environ.get(key="SESSION_COOKIE_SECURE", default="false").lower() == "true"
 
 
 def create_session(db_session: Session, user: User) -> str:
@@ -53,7 +53,7 @@ def _get_session_by_raw_token(db_session: Session, raw_token: str) -> UserSessio
 
 
 def renew_session(db_session: Session, raw_token: str) -> UserSession | None:
-    user_session = _get_session_by_raw_token(db_session, raw_token)
+    user_session = _get_session_by_raw_token(db_session=db_session, raw_token=raw_token)
     if user_session is None:
         return None
     user_session.expires_at = datetime.now() + SESSION_DURATION
@@ -62,12 +62,12 @@ def renew_session(db_session: Session, raw_token: str) -> UserSession | None:
 
 
 def get_user_by_raw_token(db_session: Session, raw_token: str) -> User | None:
-    user_session = _get_session_by_raw_token(db_session, raw_token)
+    user_session = _get_session_by_raw_token(db_session=db_session, raw_token=raw_token)
     return user_session.user if user_session else None
 
 
 def delete_session(db_session: Session, raw_token: str) -> None:
-    user_session = _get_session_by_raw_token(db_session, raw_token)
+    user_session = _get_session_by_raw_token(db_session=db_session, raw_token=raw_token)
     if user_session is not None:
         logger.info(f"Deleting session for user with the ID {user_session.user_id}")
         db_session.delete(user_session)
@@ -92,7 +92,7 @@ def clear_session_cookie(response: Response) -> None:
 
 def get_current_user_from_request(request: Request, db_session: Session = Depends(get_session)) -> User:
     raw_token = request.cookies.get(COOKIE_NAME)
-    user = get_user_by_raw_token(db_session, raw_token) if raw_token else None
+    user = get_user_by_raw_token(db_session=db_session, raw_token=raw_token) if raw_token else None
     if user is None:
         raise InvalidCredentialsError("Authentication required")
     return user

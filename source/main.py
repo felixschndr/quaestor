@@ -71,7 +71,7 @@ def setup_logging() -> None:
         stream=sys.stdout,
         format="[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s",
         encoding="utf-8",
-        level=os.environ.get("LOG_LEVEL", "INFO"),
+        level=os.environ.get(key="LOG_LEVEL", default="INFO"),
         force=True,
     )
     for handler in logging.root.handlers:
@@ -89,10 +89,10 @@ async def refresh_session(request: Request, call_next: Callable[[Request], Await
     raw_token = request.cookies.get(session_service.COOKIE_NAME)
     if raw_token:
         with SessionLocal() as db_session:
-            if session_service.renew_session(db_session, raw_token) is None:
+            if session_service.renew_session(db_session=db_session, raw_token=raw_token) is None:
                 session_service.clear_session_cookie(response)
             else:
-                session_service.set_session_cookie(response, raw_token)
+                session_service.set_session_cookie(response=response, raw_token=raw_token)
     return response
 
 

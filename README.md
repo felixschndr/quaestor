@@ -31,4 +31,3 @@
 - Dependabot auto merge after 3 days and release new version
 - Add application configuration (e.g. disable new user registration)
 - Beautify tags in router
-- Enforce kwargs

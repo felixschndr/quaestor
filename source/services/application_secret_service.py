@@ -20,17 +20,17 @@ def _get_application_secret_by_name(name: str, db_session: Session) -> Applicati
 
 def get_value_of_application_secret_by_name(name: str, db_session: Session) -> str:
     logger.debug(f'Reading value of application secret "{name}"')
-    return _get_application_secret_by_name(name, db_session).value
+    return _get_application_secret_by_name(name=name, db_session=db_session).value
 
 
 def list_all_application_secrets(db_session: Session) -> list[dict]:
-    all_secrets = db_session.execute(select(ApplicationSecret.id, ApplicationSecret.name)).all()
+    all_secrets = db_session.execute(select(ApplicationSecret.id, ApplicationSecret.name)).all()  # noqa: FKA100
     logger.debug(f"Found {len(all_secrets)} application secret(s)")
     return [{"id": secret.id, "name": secret.name} for secret in all_secrets]
 
 
 def update_application_secret(name: str, value: str, db_session: Session) -> dict:
-    application_secret = _get_application_secret_by_name(name, db_session)
+    application_secret = _get_application_secret_by_name(name=name, db_session=db_session)
     application_secret.value = value
     db_session.commit()
     logger.info(f'Updated application secret "{name}"')

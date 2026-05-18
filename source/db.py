@@ -30,7 +30,7 @@ def _database_key() -> str:
 engine = create_engine(f"sqlite:///{DB_PATH}", module=sqlcipher3.dbapi2)
 
 
-@event.listens_for(engine, "connect")
+@event.listens_for(target=engine, identifier="connect")
 def _configure_sqlcipher(dbapi_connection: object, _connection_record: object) -> None:
     cursor = dbapi_connection.cursor()  # type: ignore[attr-defined]
     try:

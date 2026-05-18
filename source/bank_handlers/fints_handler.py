@@ -44,6 +44,6 @@ class FinTSHandler(BankHandler):
     @contextmanager
     def session(self) -> Iterator[_FinTSSession]:
         logger.debug(f"Opening FinTS session for bank {self.bank_info.bank_identifier}")
-        client = self.client(self.username, self.password)
+        client = self.client(user_id=self.username, pin=self.password)
         with client:
             yield _FinTSSession(client)

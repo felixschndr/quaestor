@@ -17,7 +17,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Automatically import every model module so each table registers on Base.metadata for autogenerate.
-for _module in pkgutil.iter_modules(source.models.__path__, "source.models."):
+for _module in pkgutil.iter_modules(path=source.models.__path__, prefix="source.models."):
     importlib.import_module(_module.name)
 
 target_metadata: MetaData = Base.metadata

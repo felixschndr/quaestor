@@ -19,5 +19,5 @@ class Account(Base):
     credential: Mapped["Credential"] = relationship(back_populates="accounts")
 
     def __init__(self, **kw: Any) -> None:
-        kw.setdefault("balance", 0.0)
+        kw.setdefault("balance", 0.0)  # noqa: FKA100
         super().__init__(**kw)

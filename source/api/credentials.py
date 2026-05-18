@@ -44,7 +44,9 @@ def get_credential(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> Credential:
-    return credential_service.get_credential_for_user(db_session, credential_id, current_user.id)
+    return credential_service.get_credential_for_user(
+        db_session=db_session, credential_id=credential_id, user_id=current_user.id
+    )
 
 
 # TODO: List all my credentials
@@ -57,8 +59,12 @@ def update_credential(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> Credential:
-    credential_service.get_credential_for_user(db_session, credential_id, current_user.id)
-    return credential_service.update_credential(db_session, credential_id, payload.model_dump(exclude_unset=True))
+    credential_service.get_credential_for_user(
+        db_session=db_session, credential_id=credential_id, user_id=current_user.id
+    )
+    return credential_service.update_credential(
+        db_session=db_session, credential_id=credential_id, fields=payload.model_dump(exclude_unset=True)
+    )
 
 
 @router.delete("/{credential_id}", status_code=204)
@@ -67,8 +73,10 @@ def delete_credential(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> None:
-    credential_service.get_credential_for_user(db_session, credential_id, current_user.id)
-    credential_service.delete_credential(db_session, credential_id)
+    credential_service.get_credential_for_user(
+        db_session=db_session, credential_id=credential_id, user_id=current_user.id
+    )
+    credential_service.delete_credential(db_session=db_session, credential_id=credential_id)
 
 
 @router.post("/{credential_id}/sync", response_model=SyncResponse)
@@ -78,8 +86,10 @@ def sync_credential(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> SyncResponse:
-    credential_service.get_credential_for_user(db_session, credential_id, current_user.id)
-    result = credential_service.sync_credential(db_session, credential_id)
+    credential_service.get_credential_for_user(
+        db_session=db_session, credential_id=credential_id, user_id=current_user.id
+    )
+    result = credential_service.sync_credential(db_session=db_session, credential_id=credential_id)
     if result.status == SyncStatus.TWO_FACTOR_REQUIRED:
         response.status_code = status.HTTP_202_ACCEPTED
     return SyncResponse(status=result.status, challenge_token=result.challenge_token, expires_at=result.expires_at)
@@ -92,6 +102,10 @@ def sync_complete_two_factor(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> SyncResponse:
-    credential_service.get_credential_for_user(db_session, credential_id, current_user.id)
-    result = credential_service.confirm_two_factor(db_session, credential_id, payload.challenge_token, payload.code)
+    credential_service.get_credential_for_user(
+        db_session=db_session, credential_id=credential_id, user_id=current_user.id
+    )
+    result = credential_service.confirm_two_factor(
+        db_session=db_session, credential_id=credential_id, challenge_token=payload.challenge_token, code=payload.code
+    )
     return SyncResponse(status=result.status, challenge_token=result.challenge_token, expires_at=result.expires_at)

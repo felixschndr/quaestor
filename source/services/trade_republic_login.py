@@ -60,7 +60,12 @@ def start(credential_id: int, phone_no: str, pin: str) -> tuple[str, datetime]:
 
     token = secrets.token_urlsafe(24)
     expires_at = datetime.now() + DURATION_FOR_VALID_2FA_CODE
-    _pending_logins[token] = _PendingLogin(trade_republic_client, cookies_path, credential_id, expires_at)
+    _pending_logins[token] = _PendingLogin(
+        trade_republic_client=trade_republic_client,
+        cookies_path=cookies_path,
+        credential_id=credential_id,
+        expires_at=expires_at,
+    )
     logger.info(f"2FA challenge issued for credential {credential_id}, expires at {expires_at:%Y-%m-%d %H:%M:%S}")
     return token, expires_at
 
