@@ -38,15 +38,15 @@ def _get_user(db_session: Session, condition: ColumnElement[bool], identifier_de
 
 
 def get_user_by_id(db_session: Session, user_id: int) -> User:
-    return _get_user(db_session, User.id == user_id, f"ID {user_id}")
+    return _get_user(db_session=db_session, condition=User.id == user_id, identifier_description=f"ID {user_id}")
 
 
 def get_user_by_name(db_session: Session, name: str) -> User:
-    return _get_user(db_session, User.name == name, f'name "{name}"')
+    return _get_user(db_session=db_session, condition=User.name == name, identifier_description=f'name "{name}"')
 
 
 def update_user(db_session: Session, user_id: int, fields: dict) -> User:
-    user = get_user_by_id(db_session, user_id)
+    user = get_user_by_id(db_session=db_session, user_id=user_id)
     for key, value in fields.items():
         setattr(user, key, value)
     db_session.commit()
@@ -55,7 +55,7 @@ def update_user(db_session: Session, user_id: int, fields: dict) -> User:
 
 
 def elevate_user(db_session: Session, acting_admin: User, target_user_id: int) -> User:
-    target_user = get_user_by_id(db_session, target_user_id)
+    target_user = get_user_by_id(db_session=db_session, user_id=target_user_id)
     target_user.admin = True
     db_session.commit()
     logger.info(f"User with the ID {target_user_id} elevated to admin by admin {acting_admin.id} ({acting_admin.name})")
@@ -63,7 +63,7 @@ def elevate_user(db_session: Session, acting_admin: User, target_user_id: int) -
 
 
 def delete_user(db_session: Session, user_id: int) -> None:
-    user = get_user_by_id(db_session, user_id)
+    user = get_user_by_id(db_session=db_session, user_id=user_id)
     db_session.delete(user)
     db_session.commit()
     logger.info(f"Deleted user {user_id}")

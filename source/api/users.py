@@ -17,7 +17,7 @@ def list_users(current_user: User = Depends(session_service.get_current_user_fro
 
 @router.get("/{user_id}", response_model=UserRead)
 def get_user(user_id: int, current_user: User = Depends(session_service.get_current_user_from_request)) -> User:
-    _require_self(user_id, current_user)
+    _require_self(user_id=user_id, current_user=current_user)
     return current_user
 
 
@@ -28,8 +28,10 @@ def update_user(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> User:
-    _require_self(user_id, current_user)
-    return user_service.update_user(db_session, current_user.id, payload.model_dump(exclude_unset=True))
+    _require_self(user_id=user_id, current_user=current_user)
+    return user_service.update_user(
+        db_session=db_session, user_id=current_user.id, fields=payload.model_dump(exclude_unset=True)
+    )
 
 
 @router.patch("/{user_id}/elevate", response_model=UserRead)
@@ -49,7 +51,7 @@ def sync_credentials(
     for credential in credential_service.list_credentials(db_session, user_id=current_user.id):
         if credential.requires_two_factor_authentication:
             continue  # FIXME: Add support for 2FA credentials
-        credential_service.sync_credential_object(db_session, credential)
+        credential_service.sync_credential_object(db_session=db_session, credential=credential)
     db_session.commit()
 
 
@@ -59,8 +61,8 @@ def delete_user(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> None:
-    _require_self(user_id, current_user)
-    user_service.delete_user(db_session, current_user.id)
+    _require_self(user_id=user_id, current_user=current_user)
+    user_service.delete_user(db_session=db_session, user_id=current_user.id)
 
 
 def _require_self(user_id: int, current_user: User) -> None:

@@ -53,7 +53,7 @@ def list_credentials(db_session: Session, user_id: int) -> list[Credential]:
 
 
 def get_credential(db_session: Session, credential_id: int) -> Credential:
-    credential = db_session.get(Credential, credential_id)
+    credential = db_session.get(entity=Credential, ident=credential_id)
     if credential is None:
         error_message = f"Credential with the ID {credential_id} not found"
         logger.warning(error_message)
@@ -63,7 +63,7 @@ def get_credential(db_session: Session, credential_id: int) -> Credential:
 
 
 def get_credential_for_user(db_session: Session, credential_id: int, user_id: int) -> Credential:
-    credential = get_credential(db_session, credential_id)
+    credential = get_credential(db_session=db_session, credential_id=credential_id)
     if credential.user_id != user_id:
         logger.warning(
             f"User {user_id} attempted to access credential {credential_id} owned by user {credential.user_id}"
@@ -90,13 +90,13 @@ def create_credential(
     password: str,
     extra: dict[str, str] | None = None,
 ) -> Credential:
-    user = user_service.get_user_by_id(db_session, user_id)
+    user = user_service.get_user_by_id(db_session=db_session, user_id=user_id)
     credential = Credential(
         user=user,
         bank=bank,
         username=username,
         password=password,
-        extra=_validated_extra(bank, extra or {}),
+        extra=_validated_extra(bank=bank, extra=extra or {}),
     )
     db_session.add(credential)
     db_session.commit()
@@ -105,7 +105,7 @@ def create_credential(
 
 
 def update_credential(db_session: Session, credential_id: int, fields: dict) -> Credential:
-    credential = get_credential(db_session, credential_id)
+    credential = get_credential(db_session=db_session, credential_id=credential_id)
     for key, value in fields.items():
         setattr(credential, key, value)
     db_session.commit()
@@ -114,15 +114,15 @@ def update_credential(db_session: Session, credential_id: int, fields: dict) -> 
 
 
 def delete_credential(db_session: Session, credential_id: int) -> None:
-    credential = get_credential(db_session, credential_id)
+    credential = get_credential(db_session=db_session, credential_id=credential_id)
     db_session.delete(credential)
     db_session.commit()
     logger.info(f"Deleted credential with the ID {credential_id}")
 
 
 def sync_credential(db_session: Session, credential_id: int) -> SyncResult:
-    credential = get_credential(db_session, credential_id)
-    result = sync_credential_object(db_session, credential)
+    credential = get_credential(db_session=db_session, credential_id=credential_id)
+    result = sync_credential_object(db_session=db_session, credential=credential)
     db_session.commit()
     return result
 
@@ -133,7 +133,7 @@ def sync_credential_object(db_session: Session, credential: Credential) -> SyncR
     logger.debug(f"Using {type(handler).__name__} for credential {credential.id}")
     if isinstance(handler, FinTSHandler):
         handler.product_id = application_secret_service.get_value_of_application_secret_by_name(
-            FinTSHandler.PRODUCT_ID_SECRET_NAME, db_session
+            name=FinTSHandler.PRODUCT_ID_SECRET_NAME, db_session=db_session
         )
         logger.debug(f"Loaded FinTS product id from application secret for credential {credential.id}")
     if isinstance(handler, TradeRepublicHandler):
@@ -145,7 +145,9 @@ def sync_credential_object(db_session: Session, credential: Credential) -> SyncR
             credential.sync(handler)
         except ReauthenticationRequiredError:
             logger.info(f"Credential {credential.id} requires 2FA re-authentication; starting Trade Republic login")
-            token, expires_at = trade_republic_login.start(credential.id, handler.username, handler.password)
+            token, expires_at = trade_republic_login.start(
+                credential_id=credential.id, phone_no=handler.username, pin=handler.password
+            )
             credential.requires_two_factor_authentication = True
             return SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=token, expires_at=expires_at)
         credential.session_state = handler.session_state
@@ -159,9 +161,9 @@ def sync_credential_object(db_session: Session, credential: Credential) -> SyncR
 
 def confirm_two_factor(db_session: Session, credential_id: int, challenge_token: str, code: str) -> SyncResult:
     logger.info(f"Confirming 2FA for credential {credential_id}")
-    credential = get_credential(db_session, credential_id)
-    cookies = trade_republic_login.complete(challenge_token, credential_id, code)
+    credential = get_credential(db_session=db_session, credential_id=credential_id)
+    cookies = trade_republic_login.complete(challenge_token=challenge_token, credential_id=credential_id, code=code)
     credential.session_state = {"cookies": cookies}
-    result = sync_credential_object(db_session, credential)
+    result = sync_credential_object(db_session=db_session, credential=credential)
     db_session.commit()
     return result

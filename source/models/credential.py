@@ -35,7 +35,7 @@ class Credential(Base):
 
     @property
     def handler(self) -> BankHandler:
-        return handler_for(self.bank, self.username, self.password, self.extra)
+        return handler_for(provider=self.bank, username=self.username, password=self.password, extra=self.extra)
 
     def sync(self, handler: BankHandler) -> None:
         by_name = {account.name: account for account in self.accounts}

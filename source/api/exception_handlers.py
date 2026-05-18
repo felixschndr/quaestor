@@ -35,4 +35,4 @@ def register_exception_handlers(app: FastAPI) -> None:
         return handler
 
     for exc_type, status_code in EXCEPTIONS_TO_CATCH_AND_THEIR_STATUS_CODES.items():
-        app.add_exception_handler(exc_type, make_handler(status_code))
+        app.add_exception_handler(exc_class_or_status_code=exc_type, handler=make_handler(status_code))

@@ -35,8 +35,8 @@ SUPPORTED_BANKS: list[BankInfo] = [
 BANKS_BY_NAME: dict[str, BankInfo] = {bank.name: bank for bank in SUPPORTED_BANKS}
 
 BankProvider = Enum(
-    "BankProvider",
-    {bank.name.upper(): bank.name for bank in SUPPORTED_BANKS},
+    value="BankProvider",
+    names={bank.name.upper(): bank.name for bank in SUPPORTED_BANKS},
     type=str,
 )
 
@@ -45,4 +45,4 @@ def handler_for(
     provider: BankProvider, username: str, password: str, extra: dict[str, str] | None = None
 ) -> BankHandler:
     bank_info = BANKS_BY_NAME[provider.value]
-    return bank_info.handler(bank_info, username, password, extra)
+    return bank_info.handler(bank_info=bank_info, username=username, password=password, extra=extra)
