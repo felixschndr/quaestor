@@ -80,7 +80,7 @@ def create_credential(
     password: str,
     extra: dict[str, str] | None = None,
 ) -> Credential:
-    user = user_service.get_user(session, user_id)
+    user = user_service.get_user_by_id(session, user_id)
     credential = Credential(
         user=user,
         bank=bank,

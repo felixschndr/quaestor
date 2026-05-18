@@ -38,6 +38,11 @@ class UserRead(BaseModel):
     credentials: list[CredentialRead] = []
 
 
+class UserLogin(BaseModel):
+    name: str
+    password: str
+
+
 class UserUpdate(BaseModel):
     name: str | None = None
 

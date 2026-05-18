@@ -5,9 +5,8 @@ import os
 import sys
 from pathlib import Path
 
-import requests
 from dotenv import load_dotenv
-from requests import Response
+from requests import Response, Session
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -15,13 +14,17 @@ sys.path.insert(0, str(ROOT))
 from source.bank_handlers import FinTSHandler  # noqa: E402
 
 URL = "http://localhost:8000"
+USER1_NAME = "Felix"
+USER1_PW = "1234567890534345Aa!"
+
+client = Session()
 
 
-def make_request_and_send_response(data_of_request: dict) -> Response:
+def make_request_and_send_response(data_of_request: dict, http_client: Session = client) -> Response:
     print(f"Request: {data_of_request}")
 
     method = data_of_request.pop("method").lower()
-    _response = getattr(requests, method)(**data_of_request)
+    _response = getattr(http_client, method)(**data_of_request)
 
     try:
         response_text = f"Response ({_response.status_code}): {json.dumps(_response.json(), indent=4)}"
@@ -50,12 +53,13 @@ make_request_and_send_response(data)
 data = {"method": "GET", "url": f"{URL}/credentials/list_all_possible"}
 make_request_and_send_response(data)
 
-data = {"method": "POST", "url": f"{URL}/users", "json": {"name": "Felix", "password": "1234567890534345Aa!"}}
+data = {"method": "POST", "url": f"{URL}/register", "json": {"name": USER1_NAME, "password": USER1_PW}}
 response = make_request_and_send_response(data)
 user_id = response.json()["id"]
 
-data = {"method": "POST", "url": f"{URL}/users", "json": {"name": "Second user", "password": "45678987655678Aa!"}}
-response = make_request_and_send_response(data)
+# Register the second user with a throwaway client so first users session is not overwritten.
+data = {"method": "POST", "url": f"{URL}/register", "json": {"name": "Second user", "password": "45678987655678Aa!"}}
+response = make_request_and_send_response(data, http_client=Session())
 second_user_id = response.json()["id"]
 
 data = {"method": "PATCH", "url": f"{URL}/users/{second_user_id}/elevate", "json": {"acting_admin_id": user_id}}
@@ -125,3 +129,10 @@ make_request_and_send_response(data)
 
 data = {"method": "GET", "url": f"{URL}/users"}
 make_request_and_send_response(data)
+
+auth_client = Session()
+data = {"method": "POST", "url": f"{URL}/login", "json": {"name": USER1_NAME, "password": USER1_PW}}
+make_request_and_send_response(data, http_client=auth_client)
+
+data = {"method": "POST", "url": f"{URL}/logout"}
+make_request_and_send_response(data, http_client=auth_client)

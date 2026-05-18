@@ -2,15 +2,16 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Awaitable, Callable
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
-from source.api import application_secrets, credentials, users
+from fastapi import FastAPI, Request, Response
+from source.api import application_secrets, auth, credentials, users
 from source.api.exception_handlers import register_exception_handlers
 from source.bank_handlers import FinTSHandler
 from source.db import SessionLocal
 from source.models.application_secret import ApplicationSecret
+from source.services import session_service
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -80,6 +81,21 @@ def setup_logging() -> None:
 setup_logging()
 
 app = FastAPI(title="Finanzguru Clone", lifespan=lifespan)
-for api_object in [application_secrets, credentials, users]:
+
+
+@app.middleware("http")
+async def refresh_session(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    response = await call_next(request)
+    raw_token = request.cookies.get(session_service.COOKIE_NAME)
+    if raw_token:
+        with SessionLocal() as db_session:
+            if session_service.renew_session(db_session, raw_token) is None:
+                session_service.clear_session_cookie(response)
+            else:
+                session_service.set_session_cookie(response, raw_token)
+    return response
+
+
+for api_object in [application_secrets, auth, credentials, users]:
     app.include_router(api_object.router)
 register_exception_handlers(app)

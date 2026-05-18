@@ -6,6 +6,7 @@ from source.services.password_service import hash_password
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 logger = logging.getLogger(__name__)
 
@@ -25,19 +26,27 @@ def create_user(session: Session, name: str, password: str) -> User:
     return user
 
 
-def get_user(session: Session, user_id: int) -> User:
+def _get_user(session: Session, condition: ColumnElement[bool], identifier_description: str) -> User:
     try:
-        user = session.scalars(select(User).where(User.id == user_id)).one()
+        user = session.scalars(select(User).where(condition)).one()
     except NoResultFound:
-        error_message = f"User with the ID {user_id} not found"
+        error_message = f"User with the {identifier_description} not found"
         logger.warning(error_message)
         raise UserNotFoundError(error_message)
-    logger.debug(f"Loaded user with the ID {user_id}")
+    logger.debug(f"Loaded user with the {identifier_description}")
     return user
 
 
+def get_user_by_id(session: Session, user_id: int) -> User:
+    return _get_user(session, User.id == user_id, f"ID {user_id}")
+
+
+def get_user_by_name(session: Session, name: str) -> User:
+    return _get_user(session, User.name == name, f'name "{name}"')
+
+
 def update_user(session: Session, user_id: int, fields: dict) -> User:
-    user = get_user(session, user_id)
+    user = get_user_by_id(session, user_id)
     for key, value in fields.items():
         setattr(user, key, value)
     session.commit()
@@ -46,13 +55,14 @@ def update_user(session: Session, user_id: int, fields: dict) -> User:
 
 
 def elevate_user(session: Session, acting_admin_id: int, target_user_id: int) -> User:
-    acting_admin = get_user(session, acting_admin_id)
+    # TODO: Implement usage of session handling
+    acting_admin = get_user_by_id(session, acting_admin_id)
     if not acting_admin.admin:
         error_message = f"User with the ID {acting_admin_id} is not an admin and cannot elevate other users"
         logger.warning(error_message)
         raise PermissionDeniedError(error_message)
 
-    target_user = get_user(session, target_user_id)
+    target_user = get_user_by_id(session, target_user_id)
     target_user.admin = True
     session.commit()
     logger.info(f"User with the ID {target_user_id} elevated to admin by admin {acting_admin_id}")
@@ -60,7 +70,7 @@ def elevate_user(session: Session, acting_admin_id: int, target_user_id: int) ->
 
 
 def delete_user(session: Session, user_id: int) -> None:
-    user = get_user(session, user_id)
+    user = get_user_by_id(session, user_id)
     session.delete(user)
     session.commit()
     logger.info(f"Deleted user {user_id}")

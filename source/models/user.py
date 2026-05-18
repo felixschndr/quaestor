@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from source.models.credential import Credential
+    from source.models.session import UserSession
 
 
 class User(Base):
@@ -16,6 +17,7 @@ class User(Base):
     admin: Mapped[bool] = mapped_column(default=False)
 
     credentials: Mapped[List["Credential"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    sessions: Mapped[List["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
     @property
     def balance(self) -> float:
