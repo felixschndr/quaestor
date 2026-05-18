@@ -16,7 +16,7 @@
     - Apply DB migration: `poetry run alembic upgrade head`
 
 ## TODO
-- Logging
+- Logging with fields
 - Web Frontend
 - Sparkasse Login
 - DKB Login
