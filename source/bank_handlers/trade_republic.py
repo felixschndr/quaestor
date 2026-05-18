@@ -5,14 +5,16 @@ from pathlib import Path
 from typing import Iterator
 
 from pytr.api import TradeRepublicApi
+from pytr.portfolio import Portfolio
 from source.bank_handlers.base import BankHandler, BankSession, FetchedAccount
 from source.exceptions import ReauthenticationRequiredError
 
 
 class _TradeRepublicSession(BankSession):
-    def __init__(self, tr: TradeRepublicApi):
+    def __init__(self, trade_republic_client: TradeRepublicApi):
         super().__init__()
-        self._tr = tr
+
+        self._trade_republic_client = trade_republic_client
 
     def get_accounts(self) -> list[FetchedAccount]:
         asyncio.run(self._fetch())
@@ -22,26 +24,17 @@ class _TradeRepublicSession(BankSession):
         return round(number=self._account_mapping[account.name]["balance"], ndigits=2)
 
     async def _fetch(self) -> None:
-        calls = {"cash", "compact_portfolio"}
-        for call in calls:
-            await getattr(self._tr, call)()
-
+        portfolio = Portfolio(self._trade_republic_client, lang="de")
         try:
-            responses_received = 0
-            while responses_received < len(calls):
-                _sub_id, subscription, response = await self._tr.recv()
-                subscription_type = subscription["type"]
-                if subscription_type == "cash":
-                    for entry in response:
-                        self._account_mapping[entry["accountNumber"]] = {"balance": float(entry["amount"])}
-                elif subscription_type == "compactPortfolio":
-                    for position in response["positions"]:
-                        self._account_mapping[position["instrumentId"]] = {
-                            "balance": float(position["averageBuyIn"]) * float(position["netSize"])
-                        }
-                responses_received += 1
+            await portfolio.portfolio_loop()
         finally:
-            await self._tr.close()
+            await self._trade_republic_client.close()
+
+        for entry in portfolio.cash:
+            self._account_mapping[entry["accountNumber"]] = {"balance": float(entry["amount"])}
+
+        for position in portfolio.portfolio:
+            self._account_mapping[position["name"]] = {"balance": float(position["netValue"])}
 
 
 class TradeRepublicHandler(BankHandler):
