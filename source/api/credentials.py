@@ -1,6 +1,6 @@
 from fastapi import Depends, Response, status
 from source.api._create_router import create_router
-from source.api.schemas import (
+from source.api.schemas.credential import (
     CredentialCreate,
     CredentialRead,
     CredentialUpdate,

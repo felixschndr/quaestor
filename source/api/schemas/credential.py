@@ -1,16 +1,9 @@
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
+from source.api.schemas.account import AccountRead
 from source.bank_handlers import BankProvider
 from source.services.credential_service import SyncStatus
-
-
-class AccountRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    name: str
-    balance: float
 
 
 class CredentialCreate(BaseModel):
@@ -49,34 +42,3 @@ class SyncResponse(BaseModel):
 class TwoFactorConfirm(BaseModel):
     challenge_token: str
     code: str
-
-
-class UserCreate(BaseModel):
-    name: str
-
-
-class UserRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    name: str
-    balance: float
-    credentials: list[CredentialRead] = []
-
-
-class UserUpdate(BaseModel):
-    name: str | None = None
-
-
-class ApplicationSecretRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    name: str
-
-
-class ApplicationSecretUpdate(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    name: str
-    value: str

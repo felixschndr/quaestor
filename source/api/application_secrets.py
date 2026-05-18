@@ -1,6 +1,9 @@
 from fastapi import Depends
 from source.api._create_router import create_router
-from source.api.schemas import ApplicationSecretRead, ApplicationSecretUpdate
+from source.api.schemas.application_secret import (
+    ApplicationSecretRead,
+    ApplicationSecretUpdate,
+)
 from source.db import get_session
 from source.services import application_secret_service
 from sqlalchemy.orm import Session

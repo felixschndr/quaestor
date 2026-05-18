@@ -1,6 +1,6 @@
 from fastapi import Depends
 from source.api._create_router import create_router
-from source.api.schemas import UserCreate, UserRead, UserUpdate
+from source.api.schemas.user import UserCreate, UserRead, UserUpdate
 from source.db import get_session
 from source.models.user import User
 from source.services import credential_service, user_service
@@ -35,7 +35,7 @@ def delete_user(user_id: int, session: Session = Depends(get_session)) -> None:
 
 
 @router.post("/{user_id}/sync", status_code=204)
-def sync_user(user_id: int, session: Session = Depends(get_session)) -> None:
+def sync_accounts(user_id: int, session: Session = Depends(get_session)) -> None:
     user = user_service.get_user(session, user_id)
     for credential in credential_service.list_credentials(session, user_id=user.id):
         credential_service.sync_credential_object(session, credential)
