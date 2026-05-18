@@ -22,6 +22,8 @@ class Credential(Base):
     username: Mapped[str] = mapped_column(String)
     password: Mapped[str] = mapped_column(String)
     extra: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
+
+    session_state: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     last_fetching_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="credentials")
@@ -34,12 +36,12 @@ class Credential(Base):
     def sync(self, handler: BankHandler) -> None:
         by_name = {account.name: account for account in self.accounts}
         with handler.session() as bank:
-            for fetched in bank.get_accounts():
-                account = by_name.get(fetched.name)
+            for fetched_account in bank.get_accounts():
+                account = by_name.get(fetched_account.name)
                 if account is None:
-                    account = Account(name=fetched.name)
+                    account = Account(name=fetched_account.name)
                     self.accounts.append(account)
                 else:
-                    account.name = fetched.name
-                account.balance = bank.get_balance(fetched)
+                    account.name = fetched_account.name
+                account.balance = bank.get_balance(fetched_account)
         self.last_fetching_timestamp = datetime.now()

@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-05-17 12:41:11.089973
+Create Date: 2026-05-18 09:52:36.667571
 
 """
 
@@ -38,10 +38,11 @@ def upgrade() -> None:
         "credentials",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("bank", sa.Enum("ING", "DKB", "DFS", name="bankprovider"), nullable=False),
+        sa.Column("bank", sa.Enum("ING", "DKB", "DFS", "TRADE_REPUBLIC", name="bankprovider"), nullable=False),
         sa.Column("username", sa.String(), nullable=False),
         sa.Column("password", sa.String(), nullable=False),
         sa.Column("extra", sa.JSON(), nullable=False),
+        sa.Column("session_state", sa.JSON(), nullable=True),
         sa.Column("last_fetching_timestamp", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
             ["user_id"],

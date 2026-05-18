@@ -1,5 +1,8 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 from source.bank_handlers import BankProvider
+from source.services.credential_service import SyncStatus
 
 
 class AccountRead(BaseModel):
@@ -33,6 +36,17 @@ class CredentialUpdate(BaseModel):
     bank: BankProvider | None = None
     username: str | None = None
     password: str | None = None
+
+
+class SyncResponse(BaseModel):
+    status: SyncStatus
+    challenge_token: str | None = None
+    expires_at: datetime | None = None
+
+
+class TwoFactorConfirm(BaseModel):
+    challenge_token: str
+    code: str
 
 
 class UserCreate(BaseModel):

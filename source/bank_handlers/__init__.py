@@ -3,6 +3,7 @@ from enum import Enum
 from source.bank_handlers.base import BankHandler, BankInfo
 from source.bank_handlers.dfs_handler import DFSHandler
 from source.bank_handlers.fints_handler import FinTSHandler
+from source.bank_handlers.trade_republic import TradeRepublicHandler
 
 SUPPORTED_BANKS: list[BankInfo] = [
     BankInfo(
@@ -20,6 +21,12 @@ SUPPORTED_BANKS: list[BankInfo] = [
     BankInfo(
         name="dfs",
         handler=DFSHandler,
+        bank_identifier=None,
+        fints_url=None,
+    ),
+    BankInfo(
+        name="trade_republic",
+        handler=TradeRepublicHandler,
         bank_identifier=None,
         fints_url=None,
     ),

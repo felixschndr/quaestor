@@ -6,3 +6,11 @@
     - With message: `poetry run alembic revision --autogenerate`
     - Without message: `poetry run alembic revision --autogenerate -m "<message>"`
   - Apply DB migration: `poetry run alembic upgrade head`
+
+## TODO
+- Logging
+- Web Frontend
+- Sparkasse Login
+- DKB Login
+- Tests
+- Make timestamps TZ aware?

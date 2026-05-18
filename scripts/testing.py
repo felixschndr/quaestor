@@ -55,6 +55,32 @@ data = {
     "url": f"{URL}/credentials",
     "json": {
         "user_id": user_id,
+        "bank": "trade_republic",
+        "username": os.environ["TR_PHONE"],
+        "password": os.environ["TR_PIN"],
+    },
+}
+r = requests.post(**data)
+print_request_and_response(data, r)
+credential_id = r.json()["id"]
+
+data = {"url": f"{URL}/credentials/{credential_id}/sync"}
+r = requests.post(**data)
+print_request_and_response(data, r)
+
+code = input("2FA-Code: ")
+data = {
+    "url": f"{URL}/credentials/{credential_id}/sync/2fa",
+    "json": {"challenge_token": r.json()["challenge_token"], "code": code},
+}
+r = requests.post(**data)
+print_request_and_response(data, r)
+
+
+data = {
+    "url": f"{URL}/credentials",
+    "json": {
+        "user_id": user_id,
         "bank": "ing",
         "username": os.environ["ING_USERNAME"],
         "password": os.environ["ING_PASSWORD"],

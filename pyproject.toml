@@ -16,6 +16,7 @@ sqlcipher3 = "^0.5.4"
 python-dotenv = "^1.2.2"
 requests = "^2.33.1"
 fints = "^5.0.0"
+pytr = "^0.4.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.3"

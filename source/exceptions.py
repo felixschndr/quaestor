@@ -26,6 +26,14 @@ class MissingCredentialFieldError(ValidationError):
     pass
 
 
+class InvalidTwoFactorError(ValidationError):
+    pass
+
+
+class ReauthenticationRequiredError(Exception):
+    pass
+
+
 class InvalidCredentialsError(Exception):
     pass
 

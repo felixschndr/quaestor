@@ -1,9 +1,16 @@
-from fastapi import Depends
+from fastapi import Depends, Response, status
 from source.api._create_router import create_router
-from source.api.schemas import CredentialCreate, CredentialRead, CredentialUpdate
+from source.api.schemas import (
+    CredentialCreate,
+    CredentialRead,
+    CredentialUpdate,
+    SyncResponse,
+    TwoFactorConfirm,
+)
 from source.db import get_session
 from source.models.credential import Credential
 from source.services import credential_service
+from source.services.credential_service import SyncStatus
 from sqlalchemy.orm import Session
 
 router = create_router()
@@ -43,6 +50,17 @@ def delete_credential(credential_id: int, session: Session = Depends(get_session
     credential_service.delete_credential(session, credential_id)
 
 
-@router.post("/{credential_id}/sync", status_code=204)
-def sync_credential(credential_id: int, session: Session = Depends(get_session)) -> None:
-    credential_service.sync_credential(session, credential_id)
+@router.post("/{credential_id}/sync", response_model=SyncResponse)
+def sync_credential(credential_id: int, response: Response, session: Session = Depends(get_session)) -> SyncResponse:
+    result = credential_service.sync_credential(session, credential_id)
+    if result.status == SyncStatus.TWO_FACTOR_REQUIRED:
+        response.status_code = status.HTTP_202_ACCEPTED
+    return SyncResponse(status=result.status, challenge_token=result.challenge_token, expires_at=result.expires_at)
+
+
+@router.post("/{credential_id}/sync/2fa", response_model=SyncResponse)
+def sync_complete_two_factor(
+    credential_id: int, payload: TwoFactorConfirm, session: Session = Depends(get_session)
+) -> SyncResponse:
+    result = credential_service.confirm_two_factor(session, credential_id, payload.challenge_token, payload.code)
+    return SyncResponse(status=result.status, challenge_token=result.challenge_token, expires_at=result.expires_at)
