@@ -51,6 +51,21 @@ r = requests.post(**data)
 print_request_and_response(data, r)
 user_id = r.json()["id"]
 
+
+data = {"url": f"{URL}/users", "json": {"name": "Second user"}}
+r = requests.post(**data)
+print_request_and_response(data, r)
+second_user_id_ = r.json()["id"]
+
+data = {"url": f"{URL}/users/{second_user_id_}/elevate", "json": {"acting_admin_id": user_id}}
+r = requests.patch(**data)
+print_request_and_response(data, r)
+
+data = {"url": f"{URL}/users/"}
+r = requests.get(**data)
+print_request_and_response(data, r)
+
+
 data = {
     "url": f"{URL}/credentials",
     "json": {

@@ -40,3 +40,7 @@ class InvalidCredentialsError(Exception):
 
 class UnknownInternalError(Exception):
     pass
+
+
+class PermissionDeniedError(Exception):
+    pass
