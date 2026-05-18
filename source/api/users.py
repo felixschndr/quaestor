@@ -38,5 +38,7 @@ def delete_user(user_id: int, session: Session = Depends(get_session)) -> None:
 def sync_accounts(user_id: int, session: Session = Depends(get_session)) -> None:
     user = user_service.get_user(session, user_id)
     for credential in credential_service.list_credentials(session, user_id=user.id):
+        if credential.requires_two_factor_authentication:
+            continue  # FIXME: Add support for 2FA credentials
         credential_service.sync_credential_object(session, credential)
     session.commit()
