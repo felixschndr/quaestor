@@ -16,7 +16,7 @@ def list_users(session: Session = Depends(get_session)) -> list[User]:
 
 @router.get("/{user_id}", response_model=UserRead)
 def get_user(user_id: int, session: Session = Depends(get_session)) -> User:
-    return user_service.get_user(session, user_id)
+    return user_service.get_user_by_id(session, user_id)
 
 
 @router.post("", response_model=UserRead, status_code=201)
@@ -41,7 +41,7 @@ def elevate_user(user_id: int, payload: UserElevate, session: Session = Depends(
 
 @router.post("/{user_id}/sync", status_code=204)
 def sync_accounts(user_id: int, session: Session = Depends(get_session)) -> None:
-    user = user_service.get_user(session, user_id)
+    user = user_service.get_user_by_id(session, user_id)
     for credential in credential_service.list_credentials(session, user_id=user.id):
         if credential.requires_two_factor_authentication:
             continue  # FIXME: Add support for 2FA credentials
