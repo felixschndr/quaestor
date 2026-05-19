@@ -1,4 +1,5 @@
 import logging
+import os
 
 from source.backend.exceptions import UserNotFoundError
 from source.backend.models.user import User
@@ -9,6 +10,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
 logger = logging.getLogger(__name__)
+
+ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME = "ALLOW_NEW_USER_REGISTRATION"
+
+
+def new_user_registration_allowed() -> bool:
+    return os.environ.get(key=ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME, default="true").lower() == "true"
 
 
 def list_users(db_session: Session) -> list[User]:

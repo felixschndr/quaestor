@@ -10,10 +10,6 @@ class ApplicationSecretNotFoundError(NotFoundError):
     pass
 
 
-class ApplicationSettingNotFoundError(NotFoundError):
-    pass
-
-
 class AccountNotFoundError(NotFoundError):
     pass
 

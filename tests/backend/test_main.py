@@ -3,12 +3,10 @@ from fastapi.testclient import TestClient
 from source.backend import main
 from source.backend.bank_handlers import FinTSHandler
 from source.backend.models.application_secret import ApplicationSecret
-from source.backend.models.application_settings import ApplicationSetting
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 SECRET_NAME = FinTSHandler.PRODUCT_ID_SECRET_NAME
-SETTING_NAME = "Allow new user registration"
 
 
 def test_app_startup_creates_db_objects_when_missing(
@@ -18,17 +16,14 @@ def test_app_startup_creates_db_objects_when_missing(
 
     with session_factory() as session:
         assert session.scalars(select(ApplicationSecret)).all() == []
-        assert session.scalars(select(ApplicationSetting)).all() == []
 
     with TestClient(main.app):
         pass  # entering the context runs the lifespan (--> the app startup)
 
     with session_factory() as session:
         secret = session.scalar(select(ApplicationSecret).where(ApplicationSecret.name == SECRET_NAME))
-        setting = session.scalar(select(ApplicationSetting).where(ApplicationSetting.name == SETTING_NAME))
 
     assert secret is not None and secret.value == ""
-    assert setting is not None and setting.value == "true"
 
 
 def test_app_restart_does_not_duplicate_or_overwrite_db_existing_entries(
@@ -40,7 +35,7 @@ def test_app_restart_does_not_duplicate_or_overwrite_db_existing_entries(
         pass  # first start creates the entries
 
     with session_factory() as session:
-        session.scalar(select(ApplicationSetting).where(ApplicationSetting.name == SETTING_NAME)).value = "false"
+        session.scalar(select(ApplicationSecret).where(ApplicationSecret.name == SECRET_NAME)).value = "custom"
         session.commit()
 
     with TestClient(main.app):
@@ -48,8 +43,6 @@ def test_app_restart_does_not_duplicate_or_overwrite_db_existing_entries(
 
     with session_factory() as session:
         secrets = session.scalars(select(ApplicationSecret)).all()
-        settings = session.scalars(select(ApplicationSetting)).all()
 
     assert len(secrets) == 1
-    assert len(settings) == 1
-    assert settings[0].value == "false"
+    assert secrets[0].value == "custom"

@@ -35,12 +35,13 @@ Security measures in place:
 
 ## Environment Variables
 
-| Name           | Description                                                                              | Default value |
-|----------------|------------------------------------------------------------------------------------------|---------------|
-| `HOST`         | The host the server is listening on                                                      | `127.0.0.1`   |
-| `PORT`         | The port the server is listening on                                                      | `8000`        |
-| `SSL_CERTFILE` | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_KEYFILE`  | None          |
-| `SSL_KEYFILE`  | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_CERTFILE` | None          |
+| Name                          | Description                                                                              | Default value |
+|-------------------------------|------------------------------------------------------------------------------------------|---------------|
+| `HOST`                        | The host the server is listening on                                                      | `127.0.0.1`   |
+| `PORT`                        | The port the server is listening on                                                      | `8000`        |
+| `SSL_CERTFILE`                | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_KEYFILE`  | None          |
+| `SSL_KEYFILE`                 | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_CERTFILE` | None          |
+| `ALLOW_NEW_USER_REGISTRATION` | Whether new users may register; set to anything other than `true` to disable             | `true`        |
 
 
 ## TODO
