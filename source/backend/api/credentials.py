@@ -36,6 +36,14 @@ def create_credential(
     )
 
 
+@router.get("", response_model=list[CredentialRead])
+def list_credentials(
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> list[Credential]:
+    return credential_service.list_credentials(db_session=db_session, user_id=current_user.id)
+
+
 @router.get("/{credential_id}", response_model=CredentialRead)
 def get_credential(
     credential_id: int,
@@ -45,9 +53,6 @@ def get_credential(
     return credential_service.get_credential_for_user(
         db_session=db_session, credential_id=credential_id, user_id=current_user.id
     )
-
-
-# TODO: List all my credentials
 
 
 @router.patch("/{credential_id}", response_model=CredentialRead)

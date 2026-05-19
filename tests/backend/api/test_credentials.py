@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from tests.backend.conftest import create_credential, register
+from tests.backend.conftest import create_credential, login_as, register
 
 
 def test_create_credential_returns_created_credential(http_client: TestClient):
@@ -13,6 +13,50 @@ def test_create_credential_returns_created_credential(http_client: TestClient):
     assert body["bank"] == "ing"
     assert body["accounts"] == []
     assert body["requires_two_factor_authentication"] is False
+
+
+def test_list_credentials_returns_empty_when_none_exist(http_client: TestClient):
+    register(http_client)
+
+    response = http_client.get("/credentials")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_credentials_returns_own_credentials(http_client: TestClient):
+    register(http_client)
+    first_id = create_credential(http_client).json()["id"]
+    second_id = create_credential(
+        http_client, bank="trade_republic", credentials={"phone": "+49", "pin": "1234"}
+    ).json()["id"]
+
+    response = http_client.get("/credentials")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert {credential["id"] for credential in body} == {first_id, second_id}
+    assert {credential["bank"] for credential in body} == {"ing", "trade_republic"}
+
+
+def test_list_credentials_excludes_other_users_credentials(http_client: TestClient):
+    register(http_client, name="alice")
+    alice_credential_id = create_credential(http_client).json()["id"]
+
+    register(http_client, name="bob")
+    login_as(http_client, name="bob")
+    bob_credential_id = create_credential(http_client).json()["id"]
+
+    response = http_client.get("/credentials")
+
+    assert response.status_code == 200
+    ids = {credential["id"] for credential in response.json()}
+    assert ids == {bob_credential_id}
+    assert alice_credential_id not in ids
+
+
+def test_list_credentials_requires_authentication(http_client: TestClient):
+    assert http_client.get("/credentials").status_code == 401
 
 
 def test_get_credential_returns_own_credential(http_client: TestClient):
