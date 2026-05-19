@@ -29,7 +29,7 @@ def register_exception_handlers(app: FastAPI) -> None:
             if code >= 500:
                 logger.exception(message)
             else:
-                logger.warning(message, exc_info=exc)
+                logger.warning(message)
             return JSONResponse(status_code=code, content={"detail": str(exc)})
 
         return handler

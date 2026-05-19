@@ -36,9 +36,22 @@ class BankHandler(ABC):
 class BankInfo:
     name: str
     handler: type[BankHandler]
-    bank_identifier: str | None
-    fints_url: str | None
+    bank_identifier: str | None = None
+    fints_url: str | None = None
+    note: str | None = None
 
     @property
     def required_fields(self) -> list[str]:
         return list(self.handler.CREDENTIAL_FIELDS)
+
+    @property
+    def information_for_user(self) -> dict:
+        info = {
+            "Bank Name": self.name,
+            "Required Fields": self.required_fields,
+        }
+        if self.bank_identifier is not None:
+            info["Bank Identifier"] = self.bank_identifier
+        if self.note is not None:
+            info["Note"] = self.note
+        return info

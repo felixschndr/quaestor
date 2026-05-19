@@ -36,14 +36,7 @@ class SyncResult:
 
 
 def list_all_possible() -> list[dict]:
-    return [
-        {
-            "Bank Name": bank.name,
-            "Bank Identifier": bank.bank_identifier,
-            "Required Fields": bank.required_fields,
-        }
-        for bank in SUPPORTED_BANKS
-    ]
+    return [bank.information_for_user for bank in SUPPORTED_BANKS]
 
 
 def list_credentials(db_session: Session, user_id: int) -> list[Credential]:

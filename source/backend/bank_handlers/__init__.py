@@ -21,14 +21,11 @@ SUPPORTED_BANKS: list[BankInfo] = [
     BankInfo(
         name="dfs",
         handler=DFSHandler,
-        bank_identifier=None,
-        fints_url=None,
     ),
     BankInfo(
         name="trade_republic",
         handler=TradeRepublicHandler,
-        bank_identifier=None,
-        fints_url=None,
+        note="The phone number has to be in the format +491234567890 (with '+' and country code and no spaces).",
     ),
 ]
 

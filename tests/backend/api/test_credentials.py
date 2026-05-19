@@ -65,6 +65,36 @@ def test_list_all_possible_includes_supported_banks(http_client: TestClient):
     assert {"ing", "dkb", "dfs", "trade_republic"} == {bank["Bank Name"] for bank in response.json()}
 
 
+def test_list_all_possible_only_includes_non_null_fields(http_client: TestClient):
+    register(http_client)
+
+    response = http_client.get("/credentials/list_all_possible")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "Bank Name": "ing",
+            "Required Fields": ["username", "password"],
+            "Bank Identifier": "50010517",
+        },
+        {
+            "Bank Name": "dkb",
+            "Required Fields": ["username", "password"],
+            "Bank Identifier": "12030000",
+        },
+        {
+            "Bank Name": "dfs",
+            "Required Fields": ["username", "password", "mandat", "customer"],
+        },
+        {
+            "Bank Name": "trade_republic",
+            "Required Fields": ["phone", "pin"],
+            "Note": "The phone number has to be in the format +491234567890 "
+            "(with '+' and country code and no spaces).",
+        },
+    ]
+
+
 def test_create_credential_rejects_unknown_bank(http_client: TestClient):
     register(http_client)
 

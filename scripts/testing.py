@@ -65,7 +65,6 @@ make_request_and_send_response(data)
 data = {"method": "GET", "url": f"{URL}/credentials/list_all_possible"}
 make_request_and_send_response(data)
 
-
 data = {
     "method": "POST",
     "url": f"{URL}/credentials",
