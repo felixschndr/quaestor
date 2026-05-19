@@ -21,7 +21,11 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from source.db import DB_PATH, ENV_FILE_PATH, KEY_ENV_VARIABLE_NAME  # noqa: E402
+from source.backend.db import (  # noqa: E402
+    DB_PATH,
+    ENV_FILE_PATH,
+    KEY_ENV_VARIABLE_NAME,
+)
 
 
 def _env_lines_and_line_index_of_key(env_path: Path) -> tuple[list[str], int]:

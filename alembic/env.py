@@ -2,13 +2,13 @@ import importlib
 import pkgutil
 from logging.config import fileConfig
 
-import source.models
+import source.backend.models
 from alembic import context
 from alembic.operations.ops import MigrateOperation, MigrationScript
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from source.db import engine
-from source.models.base import Base
+from source.backend.db import engine
+from source.backend.models.base import Base
 from sqlalchemy import MetaData
 
 config = context.config
@@ -17,7 +17,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Automatically import every model module so each table registers on Base.metadata for autogenerate.
-for _module in pkgutil.iter_modules(path=source.models.__path__, prefix="source.models."):
+for _module in pkgutil.iter_modules(path=source.backend.models.__path__, prefix="source.backend.models."):
     importlib.import_module(_module.name)
 
 target_metadata: MetaData = Base.metadata
