@@ -1,5 +1,4 @@
 import hashlib
-import logging
 import os
 import secrets
 from datetime import datetime, timedelta
@@ -7,12 +6,13 @@ from datetime import datetime, timedelta
 from fastapi import Depends, Request, Response
 from source.backend.db import get_session
 from source.backend.exceptions import InvalidCredentialsError, PermissionDeniedError
+from source.backend.logging_utils import get_logger
 from source.backend.models.session import UserSession
 from source.backend.models.user import User
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 SESSION_DURATION = timedelta(days=14)
 COOKIE_NAME = "session"

@@ -1,11 +1,10 @@
-import logging
-
 from source.backend.exceptions import ApplicationSecretNotFoundError
+from source.backend.logging_utils import get_logger
 from source.backend.models.application_secret import ApplicationSecret
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _get_application_secret_by_name(name: str, db_session: Session) -> ApplicationSecret:

@@ -1,8 +1,8 @@
-import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, List
 
 from source.backend.bank_handlers import BankHandler, BankProvider, handler_for
+from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.base import Base
 from sqlalchemy import JSON, DateTime
@@ -10,7 +10,7 @@ from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from source.backend.models.user import User

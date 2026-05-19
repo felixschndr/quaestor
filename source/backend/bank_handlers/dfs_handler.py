@@ -1,12 +1,12 @@
-import logging
 from contextlib import contextmanager
 from typing import Iterator
 
 from requests import HTTPError, Session
 from source.backend.bank_handlers.base import BankHandler, BankSession, FetchedAccount
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
+from source.backend.logging_utils import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class _DFSSession(BankSession):

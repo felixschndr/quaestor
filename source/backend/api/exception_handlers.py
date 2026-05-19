@@ -1,4 +1,3 @@
-import logging
 from typing import Callable
 
 from fastapi import FastAPI, Request
@@ -10,8 +9,9 @@ from source.backend.exceptions import (
     UnknownInternalError,
     ValidationError,
 )
+from source.backend.logging_utils import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 EXCEPTIONS_TO_CATCH_AND_THEIR_STATUS_CODES: dict[type[Exception], int] = {
     NotFoundError: 404,

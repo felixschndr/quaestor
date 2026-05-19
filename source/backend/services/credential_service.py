@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -11,6 +10,7 @@ from source.backend.exceptions import (
     MissingCredentialFieldError,
     ReauthenticationRequiredError,
 )
+from source.backend.logging_utils import get_logger
 from source.backend.models.credential import Credential
 from source.backend.services import (
     application_secret_service,
@@ -20,7 +20,7 @@ from source.backend.services import (
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SyncStatus(str, Enum):

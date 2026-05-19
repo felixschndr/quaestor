@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
@@ -9,8 +8,9 @@ from pytr.api import TradeRepublicApi
 from pytr.portfolio import Portfolio
 from source.backend.bank_handlers.base import BankHandler, BankSession, FetchedAccount
 from source.backend.exceptions import ReauthenticationRequiredError
+from source.backend.logging_utils import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class _TradeRepublicSession(BankSession):
