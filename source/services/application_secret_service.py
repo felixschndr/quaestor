@@ -9,13 +9,13 @@ logger = logging.getLogger(__name__)
 
 
 def _get_application_secret_by_name(name: str, db_session: Session) -> ApplicationSecret:
-    secret = db_session.scalar(select(ApplicationSecret).where(ApplicationSecret.name == name))
-    if secret is None:
+    application_secret = db_session.scalar(select(ApplicationSecret).where(ApplicationSecret.name == name))
+    if application_secret is None:
         error_message = f"Application secret with the name {name} not found"
         logger.warning(error_message)
         raise ApplicationSecretNotFoundError(error_message)
     logger.debug(f'Loaded application secret "{name}"')
-    return secret
+    return application_secret
 
 
 def get_value_of_application_secret_by_name(name: str, db_session: Session) -> str:

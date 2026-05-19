@@ -6,7 +6,11 @@ class UserNotFoundError(NotFoundError):
     pass
 
 
-class CredentialNotFoundError(NotFoundError):
+class ApplicationSecretNotFoundError(NotFoundError):
+    pass
+
+
+class ApplicationSettingNotFoundError(NotFoundError):
     pass
 
 
@@ -14,7 +18,7 @@ class AccountNotFoundError(NotFoundError):
     pass
 
 
-class ApplicationSecretNotFoundError(NotFoundError):
+class CredentialNotFoundError(NotFoundError):
     pass
 
 
