@@ -8,7 +8,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from requests import Response, Session
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from source.backend.bank_handlers import FinTSHandler  # noqa: E402
