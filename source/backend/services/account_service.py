@@ -27,3 +27,13 @@ def get_account(db_session: Session, account_id: int) -> Account:
         raise AccountNotFoundError(error_message)
     logger.debug(f"Loaded account with the ID {account_id}")
     return account
+
+
+def get_account_for_user(db_session: Session, account_id: int, user_id: int) -> Account:
+    account = get_account(db_session=db_session, account_id=account_id)
+    if account.credential.user_id != user_id:
+        logger.warning(
+            f"User {user_id} attempted to access account {account_id} owned by user {account.credential.user_id}"
+        )
+        raise AccountNotFoundError(f"Account with the ID {account_id} not found")
+    return account

@@ -48,6 +48,8 @@ Security measures in place:
 
 ## TODO
 - Transactions
+  - Trade Republic
+  - DFS
 - Transaction Categorization
 - Web Frontend
 - Sparkasse Login
