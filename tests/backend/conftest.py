@@ -7,6 +7,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+VALID_PASSWORD = "Sup3rSecret!Pass"  # nosec: B105
+
 
 @pytest.fixture
 def session_factory():
@@ -21,7 +23,7 @@ def session_factory():
 
 
 @pytest.fixture
-def http_client(session_factory, monkeypatch):
+def http_client(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     def override_get_session():
         with session_factory() as session:
             yield session
