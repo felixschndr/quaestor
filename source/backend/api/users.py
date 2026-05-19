@@ -1,5 +1,5 @@
 from fastapi import Depends
-from source.backend.api._create_router import create_router
+from source.backend.api.create_router import create_router
 from source.backend.api.schemas.user import UserRead, UserUpdate
 from source.backend.db import get_session
 from source.backend.exceptions import UserNotFoundError
