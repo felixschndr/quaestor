@@ -20,7 +20,7 @@ class Transaction(Base):
     amount: Mapped[float] = mapped_column(Float)
     purpose: Mapped[str | None] = mapped_column(String, nullable=True)
     date: Mapped[datetime.date] = mapped_column(Date)
-    recipient: Mapped[str | None] = mapped_column(String, nullable=True)
+    other_party: Mapped[str | None] = mapped_column(String, nullable=True)
     portfolio_transaction_type: Mapped[PPEventType | None] = mapped_column(SQLEnum(PPEventType), nullable=True)
 
     account: Mapped["Account"] = relationship(back_populates="transactions")

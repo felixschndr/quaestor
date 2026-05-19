@@ -16,7 +16,7 @@ class FetchedTransaction:
     amount: float
     purpose: str | None
     date: date
-    recipient: str | None
+    other_party: str | None
     # Portfolio/brokerage classification of the transaction. None when the bank
     # does not classify transactions (e.g. plain FinTS checking accounts).
     portfolio_transaction_type: PPEventType | None = None
@@ -24,8 +24,8 @@ class FetchedTransaction:
     def __post_init__(self) -> None:
         if self.purpose:
             object.__setattr__(self, "purpose", self.purpose.strip())
-        if self.recipient:
-            object.__setattr__(self, "recipient", self.recipient.strip())
+        if self.other_party:
+            object.__setattr__(self, "other_party", self.other_party.strip())
 
 
 class BankSession(ABC):

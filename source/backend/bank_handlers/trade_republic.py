@@ -134,7 +134,7 @@ class _TradeRepublicSession(BankSession):
                         amount=float(value),
                         purpose=None,
                         date=date.fromisoformat(str(row[date_field])),
-                        recipient=row[note_field],
+                        other_party=row[note_field],
                         portfolio_transaction_type=_LABEL_TO_EVENT_TYPE.get(row[type_field]),
                     )
                 )

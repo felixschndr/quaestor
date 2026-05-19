@@ -11,7 +11,7 @@ class TransactionRead(BaseModel):
     amount: float
     purpose: str | None
     date: datetime.date
-    recipient: str | None
+    other_party: str | None
     portfolio_transaction_type: PPEventType | None
 
 

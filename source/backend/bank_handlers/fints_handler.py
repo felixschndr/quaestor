@@ -40,12 +40,14 @@ class _FinTSSession(BankSession):
         for raw_transaction in raw_transactions:
             data = raw_transaction.data
             amount = data["amount"]
+            if float(amount.amount) == 6.0:
+                print()
             transactions.append(
                 FetchedTransaction(
                     amount=float(amount.amount),
                     purpose=data.get("purpose"),
                     date=data["date"],
-                    recipient=data.get("applicant_name"),
+                    other_party=data.get("applicant_name"),
                 )
             )
         logger.debug(f"FinTS returned {len(transactions)} transaction(s) for {account.name} since {start_date}")

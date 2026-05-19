@@ -21,7 +21,7 @@ def _create_account_and_fill_with_transactions(session_factory: sessionmaker, cr
                     amount=float(index),
                     purpose=f"purpose {index}",
                     date=base - timedelta(days=index),
-                    recipient=f"recipient {index}",
+                    other_party=f"recipient {index}",
                 )
             )
         session.commit()
