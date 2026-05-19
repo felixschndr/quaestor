@@ -18,7 +18,7 @@ from source.backend.bank_handlers import FinTSHandler
 from source.backend.db import SessionLocal, log_database_location
 from source.backend.models.application_secret import ApplicationSecret
 from source.backend.models.application_settings import ApplicationSetting
-from source.backend.services import session_service
+from source.backend.services import application_setting_service, session_service
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -28,7 +28,7 @@ load_dotenv()
 def create_db_entries_if_not_exists(db_session: Session) -> None:
     objects_to_create = [
         ApplicationSecret(name=FinTSHandler.PRODUCT_ID_SECRET_NAME, value=""),
-        ApplicationSetting(name="Allow new user registration", value="true"),
+        ApplicationSetting(name=application_setting_service.ALLOW_NEW_USER_REGISTRATION_SETTING_NAME, value="true"),
     ]
 
     for object_to_create in objects_to_create:
