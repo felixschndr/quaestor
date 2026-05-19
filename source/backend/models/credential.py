@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 # How far back transactions are fetched for a credential that has never been
 # synced (set as the initial last_fetching_timestamp on creation).
-INITIAL_FETCH_LOOKBACK = timedelta(days=60)
+INITIAL_FETCH_LOOKBACK = timedelta(days=365)
 
 if TYPE_CHECKING:
     from source.backend.models.user import User
