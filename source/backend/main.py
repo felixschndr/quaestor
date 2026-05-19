@@ -15,7 +15,7 @@ from source.backend.api import (
 )
 from source.backend.api.exception_handlers import register_exception_handlers
 from source.backend.bank_handlers import FinTSHandler
-from source.backend.db import SessionLocal
+from source.backend.db import SessionLocal, log_database_location
 from source.backend.models.application_secret import ApplicationSecret
 from source.backend.models.application_settings import ApplicationSetting
 from source.backend.services import session_service
@@ -50,6 +50,7 @@ def create_db_entries_if_not_exists(db_session: Session) -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator:
     _route_third_party_loggers_to_root()
+    log_database_location()
     with SessionLocal() as db_session:
         create_db_entries_if_not_exists(db_session)
     yield

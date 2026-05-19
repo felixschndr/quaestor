@@ -18,7 +18,7 @@ Security measures in place:
 
 ## Commands
 
-- Run the application: `poetry run uvicorn main:app --reload`
+- Run the application: `poetry run uvicorn source.backend.main:app --reload`
 - DB
   - CLI-Access:
     ````shell

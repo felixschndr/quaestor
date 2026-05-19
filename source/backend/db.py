@@ -1,3 +1,4 @@
+import logging
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -13,6 +14,7 @@ ENV_FILE_PATH = ROOT / ".env"
 DB_PATH = ROOT / "bank_app.db"
 
 load_dotenv(dotenv_path=ENV_FILE_PATH)
+logger = logging.getLogger(__name__)
 
 
 def _database_key() -> str:
@@ -28,6 +30,11 @@ def _database_key() -> str:
 
 # Plain sqlite dialect, but driven by the SQLCipher DBAPI, so the whole database file is AES-encrypted at rest
 engine = create_engine(f"sqlite:///{DB_PATH}", module=sqlcipher3.dbapi2)
+
+
+def log_database_location() -> None:
+    # Called from the app lifespan so it runs after logging is configured
+    logger.info(f"Using database at {DB_PATH}")
 
 
 @event.listens_for(target=engine, identifier="connect")
