@@ -95,13 +95,6 @@ def test_e2e_full_flow() -> None:
     }
     make_request_and_send_response(data, http_session)
 
-    data = {"method": "GET", "url": f"{URL}/credentials/{trade_republic_credential_id}"}
-    response = make_request_and_send_response(data, http_session)
-
-    for accounts in response.json()["accounts"]:
-        data = {"method": "GET", "url": f"{URL}/transactions/{accounts['id']}"}
-        make_request_and_send_response(data, http_session)
-
     data = {
         "method": "POST",
         "url": f"{URL}/credentials",
@@ -139,7 +132,12 @@ def test_e2e_full_flow() -> None:
     make_request_and_send_response(data, http_session)
 
     data = {"method": "GET", "url": f"{URL}/users"}
-    make_request_and_send_response(data, http_session)
+    response = make_request_and_send_response(data, http_session)
+
+    for credential in response.json()[0]["credentials"]:
+        for account in credential["accounts"]:
+            data = {"method": "GET", "url": f"{URL}/transactions/{account['id']}"}
+            make_request_and_send_response(data, http_session)
 
     auth_client = Session()
     data = {"method": "POST", "url": f"{URL}/login", "json": {"name": USER1_NAME, "password": USER1_PW}}
