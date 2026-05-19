@@ -21,6 +21,12 @@ class FetchedTransaction:
     # does not classify transactions (e.g. plain FinTS checking accounts).
     portfolio_transaction_type: PPEventType | None = None
 
+    def __post_init__(self) -> None:
+        if self.purpose:
+            object.__setattr__(self, "purpose", self.purpose.strip())
+        if self.recipient:
+            object.__setattr__(self, "recipient", self.recipient.strip())
+
 
 class BankSession(ABC):
     def __init__(self):
