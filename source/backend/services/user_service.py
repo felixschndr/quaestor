@@ -1,7 +1,7 @@
-import logging
 import os
 
 from source.backend.exceptions import UserNotFoundError
+from source.backend.logging_utils import get_logger
 from source.backend.models.user import User
 from source.backend.services.password_service import hash_password
 from sqlalchemy import select
@@ -9,7 +9,7 @@ from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME = "ALLOW_NEW_USER_REGISTRATION"
 

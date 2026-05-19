@@ -1,12 +1,12 @@
-import logging
 from contextlib import contextmanager
 from typing import Iterator
 
 from fints.client import FinTS3PinTanClient
 from fints.models import SEPAAccount
 from source.backend.bank_handlers.base import BankHandler, BankSession, FetchedAccount
+from source.backend.logging_utils import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class _FinTSSession(BankSession):

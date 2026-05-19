@@ -1,9 +1,8 @@
-import logging
-
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
+from source.backend.logging_utils import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _password_hasher = PasswordHasher()
 

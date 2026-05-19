@@ -35,18 +35,18 @@ Security measures in place:
 
 ## Environment Variables
 
-| Name                          | Description                                                                              | Default value |
-|-------------------------------|------------------------------------------------------------------------------------------|---------------|
-| `HOST`                        | The host the server is listening on                                                      | `127.0.0.1`   |
-| `PORT`                        | The port the server is listening on                                                      | `8000`        |
-| `SSL_CERTFILE`                | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_KEYFILE`  | None          |
-| `SSL_KEYFILE`                 | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_CERTFILE` | None          |
-| `ALLOW_NEW_USER_REGISTRATION` | Whether new users may register; set to anything other than `true` to disable             | `true`        |
+| Name                          | Description                                                                                                                                                                                                 | Default value |
+|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| `HOST`                        | The host the server is listening on                                                                                                                                                                         | `127.0.0.1`   |
+| `PORT`                        | The port the server is listening on                                                                                                                                                                         | `8000`        |
+| `SSL_CERTFILE`                | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_KEYFILE`                                                                                                                     | None          |
+| `SSL_KEYFILE`                 | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_CERTFILE`                                                                                                                    | None          |
+| `ALLOW_NEW_USER_REGISTRATION` | Whether new users may register; set to anything other than `true` to disable                                                                                                                                | `true`        |
+| `LOG_LEVEL`                   | The level to log at. When set to `DEBUG` all the http request and response data is logged. The app tries (but not ensures) to redact all sensible data. Don't set the `LOG_LEVEL` to `DEBUG` in production. | `true`        |
 
 
 ## TODO
-- Logging with fields
-- Transaction
+- Transactions
 - Transaction Categorization
 - Web Frontend
 - Sparkasse Login

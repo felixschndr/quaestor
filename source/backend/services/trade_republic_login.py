@@ -1,4 +1,3 @@
-import logging
 import secrets
 import tempfile
 from dataclasses import dataclass
@@ -8,8 +7,9 @@ from pathlib import Path
 import requests
 from pytr.api import TradeRepublicApi
 from source.backend.exceptions import InvalidCredentialsError, InvalidTwoFactorError
+from source.backend.logging_utils import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 DURATION_FOR_VALID_2FA_CODE = timedelta(minutes=5)
 

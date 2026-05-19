@@ -1,8 +1,9 @@
+import json
 import logging
 import os
 import sys
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Awaitable, Callable
+from typing import Any, AsyncGenerator, Awaitable, Callable
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
@@ -10,10 +11,15 @@ from source.backend.api import application_secrets, auth, credentials, users
 from source.backend.api.exception_handlers import register_exception_handlers
 from source.backend.bank_handlers import FinTSHandler
 from source.backend.db import SessionLocal, log_database_location
+from source.backend.logging_utils import get_logger, redact_headers
 from source.backend.models.application_secret import ApplicationSecret
 from source.backend.services import session_service
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+logger = get_logger(__name__)
+
+MAX_LOGGED_BODY_BYTES = 4096
 
 load_dotenv()
 
@@ -33,7 +39,7 @@ def create_db_entries_if_not_exists(db_session: Session) -> None:
             )
         ).first()
         if not already_exists:
-            logging.info(f"Adding {object_to_create} to the database as it does not exist yet.")
+            logger.info(f"Adding {object_to_create} to the database as it does not exist yet.")
             db_session.add(object_to_create)
 
     db_session.commit()
@@ -56,8 +62,6 @@ class _RenameUvicornError(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         if record.name == "uvicorn.error":
             record.name = "uvicorn"
-        if record.name == "uvicorn.access":
-            record.name = "HTTP Request"
         return True
 
 
@@ -66,7 +70,13 @@ def _route_third_party_loggers_to_root() -> None:
         if name.startswith("uvicorn"):
             third_party_logger = logging.getLogger(name)
             third_party_logger.handlers.clear()
-            third_party_logger.propagate = True
+            # The log_requests middleware logs every request itself, so the
+            # uvicorn access log would only be a duplicate.
+            if name == "uvicorn.access":
+                third_party_logger.disabled = True
+                third_party_logger.propagate = False
+            else:
+                third_party_logger.propagate = True
 
 
 def setup_logging() -> None:
@@ -97,6 +107,56 @@ async def refresh_session(request: Request, call_next: Callable[[Request], Await
             else:
                 session_service.set_session_cookie(response=response, raw_token=raw_token)
     return response
+
+
+def _loggable_json_body(raw: bytes, content_type: str) -> Any:
+    if not raw or "application/json" not in content_type or len(raw) > MAX_LOGGED_BODY_BYTES:
+        return None
+    try:
+        return json.loads(raw)
+    except Exception:
+        return None
+
+
+@app.middleware("http")
+async def log_http_requests(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    log_level_is_debug = logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
+
+    request_body = b""
+    if log_level_is_debug:
+        try:
+            request_body = await request.body()
+        except Exception:
+            request_body = b""
+
+    response = await call_next(request)
+    summary = f"{request.method} {request.url.path} -> {response.status_code}"
+
+    if not log_level_is_debug:
+        logger.info(summary)
+        return response
+
+    response_body = b"".join([chunk async for chunk in response.body_iterator])
+    rebuilt = Response(content=response_body, status_code=response.status_code, media_type=response.media_type)
+    rebuilt.raw_headers = response.raw_headers
+
+    extra = {
+        "request": {
+            "query": dict(request.query_params),
+            "headers": redact_headers(dict(request.headers)),
+            "body": _loggable_json_body(
+                raw=request_body, content_type=request.headers.get(key="content-type", default="")
+            ),
+        },
+        "response": {
+            "headers": redact_headers(dict(response.headers)),
+            "body": _loggable_json_body(
+                raw=response_body, content_type=response.headers.get(key="content-type", default="")
+            ),
+        },
+    }
+    logger.info(summary, extra=extra)
+    return rebuilt
 
 
 for api_object in [application_secrets, auth, credentials, users]:

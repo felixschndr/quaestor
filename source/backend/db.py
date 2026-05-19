@@ -1,10 +1,10 @@
-import logging
 import os
 from collections.abc import Iterator
 from pathlib import Path
 
 import sqlcipher3
 from dotenv import load_dotenv
+from source.backend.logging_utils import get_logger
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -14,7 +14,7 @@ ENV_FILE_PATH = ROOT / ".env"
 DB_PATH = ROOT / "bank_app.db"
 
 load_dotenv(dotenv_path=ENV_FILE_PATH)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _database_key() -> str:

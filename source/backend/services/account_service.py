@@ -1,12 +1,11 @@
-import logging
-
 from source.backend.exceptions import AccountNotFoundError
+from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.credential import Credential
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def list_accounts(db_session: Session, user_id: int) -> list[Account]:
