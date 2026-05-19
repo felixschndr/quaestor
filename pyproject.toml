@@ -21,6 +21,11 @@ argon2-cffi = "^25.1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.3"
+httpx = "^0.28.1"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
 
 [tool.isort]
 profile = "black"
