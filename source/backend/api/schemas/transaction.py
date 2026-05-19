@@ -1,6 +1,7 @@
 import datetime
 
 from pydantic import BaseModel, ConfigDict
+from pytr.event import PPEventType
 
 
 class TransactionRead(BaseModel):
@@ -11,6 +12,7 @@ class TransactionRead(BaseModel):
     purpose: str | None
     date: datetime.date
     recipient: str | None
+    portfolio_transaction_type: PPEventType | None
 
 
 class TransactionPage(BaseModel):

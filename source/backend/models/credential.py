@@ -60,9 +60,18 @@ class Credential(Base):
                     updated_accounts += 1
                 account.balance = bank.get_balance(fetched_account)
 
-                existing = {(t.date, t.amount, t.purpose, t.recipient) for t in account.transactions}
+                existing = {
+                    (t.date, t.amount, t.purpose, t.recipient, t.portfolio_transaction_type)
+                    for t in account.transactions
+                }
                 for fetched in bank.get_transactions(fetched_account, start_date=transactions_since):
-                    key = (fetched.date, fetched.amount, fetched.purpose, fetched.recipient)
+                    key = (
+                        fetched.date,
+                        fetched.amount,
+                        fetched.purpose,
+                        fetched.recipient,
+                        fetched.portfolio_transaction_type,
+                    )
                     if key in existing:
                         continue
                     account.transactions.append(
@@ -71,6 +80,7 @@ class Credential(Base):
                             purpose=fetched.purpose,
                             date=fetched.date,
                             recipient=fetched.recipient,
+                            portfolio_transaction_type=fetched.portfolio_transaction_type,
                         )
                     )
                     existing.add(key)
