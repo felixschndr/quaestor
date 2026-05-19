@@ -6,11 +6,18 @@ from typing import AsyncGenerator, Awaitable, Callable
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
-from source.api import application_secrets, auth, credentials, users
+from source.api import (
+    application_secrets,
+    application_settings,
+    auth,
+    credentials,
+    users,
+)
 from source.api.exception_handlers import register_exception_handlers
 from source.bank_handlers import FinTSHandler
 from source.db import SessionLocal
 from source.models.application_secret import ApplicationSecret
+from source.models.application_settings import ApplicationSetting
 from source.services import session_service
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -19,7 +26,10 @@ load_dotenv()
 
 
 def create_db_entries_if_not_exists(db_session: Session) -> None:
-    objects_to_create = [ApplicationSecret(name=FinTSHandler.PRODUCT_ID_SECRET_NAME, value="")]
+    objects_to_create = [
+        ApplicationSecret(name=FinTSHandler.PRODUCT_ID_SECRET_NAME, value=""),
+        ApplicationSetting(name="Allow new user registration", value="true"),
+    ]
 
     for object_to_create in objects_to_create:
         model = type(object_to_create)
@@ -96,6 +106,6 @@ async def refresh_session(request: Request, call_next: Callable[[Request], Await
     return response
 
 
-for api_object in [application_secrets, auth, credentials, users]:
+for api_object in [application_secrets, application_settings, auth, credentials, users]:
     app.include_router(api_object.router)
 register_exception_handlers(app)
