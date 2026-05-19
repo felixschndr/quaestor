@@ -1,16 +1,46 @@
 import asyncio
 import tempfile
 from contextlib import contextmanager
+from datetime import date, datetime
 from pathlib import Path
 from typing import Iterator
 
 from pytr.api import TradeRepublicApi
+from pytr.event import Event, PPEventType
 from pytr.portfolio import Portfolio
-from source.backend.bank_handlers.base import BankHandler, BankSession, FetchedAccount
+from pytr.timeline import Timeline
+from pytr.transactions import TransactionExporter
+from source.backend.bank_handlers.base import (
+    BankHandler,
+    BankSession,
+    FetchedAccount,
+    FetchedTransaction,
+)
 from source.backend.exceptions import ReauthenticationRequiredError
 from source.backend.logging_utils import get_logger
 
 logger = get_logger(__name__)
+
+# We need an own mapping since the pytr exporter does not output the enums but text instead
+# Thus, we have to convert it back
+_LABEL_TO_EVENT_TYPE: dict[str, PPEventType] = {
+    "Buy": PPEventType.BUY,
+    "Sell": PPEventType.SELL,
+    "Deposit": PPEventType.DEPOSIT,
+    "Removal": PPEventType.REMOVAL,
+    "Dividend": PPEventType.DIVIDEND,
+    "Interest": PPEventType.INTEREST,
+    "Interest Charge": PPEventType.INTEREST_CHARGE,
+    "Taxes": PPEventType.TAXES,
+    "Tax Refund": PPEventType.TAX_REFUND,
+    "Fees": PPEventType.FEES,
+    "Fees Refund": PPEventType.FEES_REFUND,
+    "Spinoff": PPEventType.SPINOFF,
+    "Split": PPEventType.SPLIT,
+    "Swap": PPEventType.SWAP,
+    "Transfer (Inbound)": PPEventType.TRANSFER_IN,
+    "Transfer (Outbound)": PPEventType.TRANSFER_OUT,
+}
 
 
 class _TradeRepublicSession(BankSession):
@@ -19,12 +49,35 @@ class _TradeRepublicSession(BankSession):
 
         self._trade_republic_client = trade_republic_client
 
+        self._accounts: dict[str, dict] = {}
+        self._cash_account_name: str | None = None
+
+        self._transactions_loaded = False
+
+    def _account(self, name: str) -> dict:
+        if name not in self._accounts:
+            self._accounts[name] = {"balance": 0.0, "transactions": [], "isin": None}
+        return self._accounts[name]
+
+    def _account_name_for_isin(self, isin: str) -> str | None:
+        return next((name for name, state in self._accounts.items() if state["isin"] == isin), None)
+
     def get_accounts(self) -> list[FetchedAccount]:
         asyncio.run(self._fetch())
-        return [FetchedAccount(name=account_name) for account_name in self._account_mapping.keys()]
+        return [FetchedAccount(name=account_name) for account_name in self._accounts]
 
     def get_balance(self, account: FetchedAccount) -> float:
-        return round(number=self._account_mapping[account.name]["balance"], ndigits=2)
+        return round(number=self._account(account.name)["balance"], ndigits=2)
+
+    def get_transactions(self, account: FetchedAccount, start_date: date) -> list[FetchedTransaction]:
+        if not self._transactions_loaded:
+            asyncio.run(self._fetch_transactions(start_date))
+            self._transactions_loaded = True
+        transactions = self._account(account.name)["transactions"]
+        logger.debug(
+            f"Trade Republic returned {len(transactions)} transaction(s) for {account.name} since {start_date}"
+        )
+        return transactions
 
     async def _fetch(self) -> None:
         portfolio = Portfolio(self._trade_republic_client, lang="de")
@@ -33,15 +86,62 @@ class _TradeRepublicSession(BankSession):
         finally:
             await self._trade_republic_client.close()
 
-        for entry in portfolio.cash:
-            self._account_mapping[entry["accountNumber"]] = {"balance": float(entry["amount"])}
+        cash = portfolio.cash[0]
+        self._cash_account_name = cash["accountNumber"]
+        self._account(self._cash_account_name)["balance"] = float(cash["amount"])
 
         for position in portfolio.portfolio:
-            self._account_mapping[position["name"]] = {"balance": float(position["netValue"])}
+            account = self._account(position["name"])
+            account["balance"] = float(position["netValue"])
+            account["isin"] = position["instrumentId"]
 
         logger.debug(
             f"Trade Republic portfolio fetched: {len(portfolio.cash)} cash account(s), "
             f"{len(portfolio.portfolio)} portfolio position(s)"
+        )
+
+    async def _fetch_transactions(self, start_date: date) -> None:
+        # Mirrors `pytr export_transactions`: pull the timeline, then convert each
+        # event into one or more FetchedTransaction objects
+        not_before = datetime.combine(date=start_date, time=datetime.min.time()).astimezone().timestamp()
+        with tempfile.TemporaryDirectory() as output_dir:
+            timeline = Timeline(
+                tr=self._trade_republic_client,
+                output_path=Path(output_dir),
+                not_before=not_before,
+                store_event_database=False,
+                scan_for_duplicates=False,
+                dump_raw_data=False,
+            )
+            await timeline.tl_loop()
+
+        exporter = TransactionExporter(lang="en", date_with_time=False, decimal_localization=False)
+        date_field, type_field, value_field, note_field, isin_field = exporter.fields()[0:5]
+
+        for raw_event in timeline.events:
+            for row in exporter.from_event(Event.from_dict(raw_event)):
+                value = row[value_field]
+                if value is None:
+                    continue
+                isin = row[isin_field]
+                account_name = self._account_name_for_isin(isin) if isin else None
+                if account_name is None:
+                    account_name = self._cash_account_name
+                if account_name is None:
+                    continue
+                self._account(account_name)["transactions"].append(
+                    FetchedTransaction(
+                        amount=float(value),
+                        purpose=None,
+                        date=date.fromisoformat(str(row[date_field])),
+                        recipient=row[note_field],
+                        portfolio_transaction_type=_LABEL_TO_EVENT_TYPE.get(row[type_field]),
+                    )
+                )
+
+        logger.debug(
+            f"Trade Republic timeline fetched: {len(timeline.events)} event(s) since {start_date} "
+            f"across {len(self._accounts)} account(s)"
         )
 
 

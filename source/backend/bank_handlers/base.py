@@ -3,6 +3,8 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import date
 
+from pytr.event import PPEventType
+
 
 @dataclass(frozen=True)
 class FetchedAccount:
@@ -15,6 +17,9 @@ class FetchedTransaction:
     purpose: str | None
     date: date
     recipient: str | None
+    # Portfolio/brokerage classification of the transaction. None when the bank
+    # does not classify transactions (e.g. plain FinTS checking accounts).
+    portfolio_transaction_type: PPEventType | None = None
 
 
 class BankSession(ABC):

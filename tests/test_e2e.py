@@ -15,7 +15,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 URL = "http://localhost:8000"
-USER1_NAME = "Felix"
+USER1_NAME = "supercoolusername"
 USER1_PW = "1234567890534345Aa!"  # nosec: B105
 
 
@@ -94,6 +94,13 @@ def test_e2e_full_flow() -> None:
         "json": {"challenge_token": trade_republic_challenge_token, "code": code},
     }
     make_request_and_send_response(data, http_session)
+
+    data = {"method": "GET", "url": f"{URL}/credentials/{trade_republic_credential_id}"}
+    response = make_request_and_send_response(data, http_session)
+
+    for accounts in response.json()["accounts"]:
+        data = {"method": "GET", "url": f"{URL}/transactions/{accounts['id']}"}
+        make_request_and_send_response(data, http_session)
 
     data = {
         "method": "POST",
