@@ -1,8 +1,20 @@
 import pytest
 from fastapi.testclient import TestClient
+from source.backend.services.application_setting_service import (
+    ALLOW_NEW_USER_REGISTRATION_SETTING_NAME,
+)
 from source.backend.services.session_service import COOKIE_NAME
 
 from tests.backend.conftest import VALID_PASSWORD, register
+
+
+def _set_registration_enabled(http_client: TestClient, enabled: bool) -> None:
+    value = "true" if enabled else "false"
+    response = http_client.post(
+        "/application_settings", json={"name": ALLOW_NEW_USER_REGISTRATION_SETTING_NAME, "value": value}
+    )
+
+    assert response.status_code == 201
 
 
 def test_register_returns_created_user_and_sets_session_cookie(http_client: TestClient):
@@ -85,3 +97,22 @@ def test_logout_without_session_cookie_is_idempotent(http_client: TestClient):
     response = http_client.post("/logout")
 
     assert response.status_code == 204
+
+
+def test_register_is_blocked_when_registration_is_disabled(http_client: TestClient):
+    register(http_client, name="admin")
+    _set_registration_enabled(http_client, enabled=False)
+
+    response = register(http_client, name="late")
+
+    assert response.status_code == 403
+
+
+def test_register_works_again_after_registration_is_re_enabled(http_client: TestClient):
+    register(http_client, name="admin")
+    _set_registration_enabled(http_client, enabled=False)
+    _set_registration_enabled(http_client, enabled=True)
+
+    response = register(http_client, name="late")
+
+    assert response.status_code == 201

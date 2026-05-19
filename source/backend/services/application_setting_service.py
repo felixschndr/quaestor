@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
+ALLOW_NEW_USER_REGISTRATION_SETTING_NAME = "Allow new user registration"
+
 
 def _get_application_setting_by_name(name: str, db_session: Session) -> ApplicationSetting:
     application_setting = db_session.scalar(select(ApplicationSetting).where(ApplicationSetting.name == name))
