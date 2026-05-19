@@ -5,8 +5,8 @@ max-complexity = 18
 suppress-non-returning = true
 kwargs-ignore-function-pattern-extend = (options|load_only|replace|pop)$
 per-file-ignores =
-    tests/*:ANN001,ANN201
-    test_*:ANN001,ANN201
+    tests/*:ANN201
+    test_*:ANN201
     alembic/versions/*:FKA100
     scripts/*:FKA100
 extend-exclude =
