@@ -11,7 +11,6 @@ def test_create_credential_returns_created_credential(http_client: TestClient):
     assert response.status_code == 201
     body = response.json()
     assert body["bank"] == "ing"
-    assert body["username"] == "bankuser"
     assert body["accounts"] == []
     assert body["requires_two_factor_authentication"] is False
 
@@ -26,14 +25,17 @@ def test_get_credential_returns_own_credential(http_client: TestClient):
     assert response.json()["id"] == credential_id
 
 
-def test_update_credential_changes_username(http_client: TestClient):
+def test_update_credential_changes_credentials(http_client: TestClient):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
 
-    response = http_client.patch(f"/credentials/{credential_id}", json={"username": "renamed"})
+    response = http_client.patch(
+        f"/credentials/{credential_id}",
+        json={"credentials": {"username": "renamed", "password": "bankpass"}},  # nosec: B105
+    )
 
     assert response.status_code == 200
-    assert response.json()["username"] == "renamed"
+    assert response.json()["id"] == credential_id
 
 
 def test_delete_credential_removes_it(http_client: TestClient):

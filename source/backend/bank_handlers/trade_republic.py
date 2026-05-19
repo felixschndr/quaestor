@@ -46,6 +46,8 @@ class _TradeRepublicSession(BankSession):
 
 
 class TradeRepublicHandler(BankHandler):
+    CREDENTIAL_FIELDS = ("phone", "pin")
+
     session_state: dict | None = None
 
     @contextmanager
@@ -57,7 +59,10 @@ class TradeRepublicHandler(BankHandler):
                 temp_file.write(stored)
         try:
             trade_republic_client = TradeRepublicApi(
-                phone_no=self.username, pin=self.password, save_cookies=True, cookies_file=str(cookies_path)
+                phone_no=self.credentials["phone"],
+                pin=self.credentials["pin"],
+                save_cookies=True,
+                cookies_file=str(cookies_path),
             )
             try:
                 resumed = bool(stored) and trade_republic_client.resume_websession()

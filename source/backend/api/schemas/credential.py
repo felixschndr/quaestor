@@ -7,12 +7,8 @@ from source.backend.services.credential_service import SyncStatus
 
 
 class CredentialCreate(BaseModel):
-    # Handler-specific fields (="extra"s) are sent flat alongside username/password
-    model_config = ConfigDict(extra="allow")
-
     bank: BankProvider
-    username: str
-    password: str
+    credentials: dict[str, str]
 
 
 class CredentialRead(BaseModel):
@@ -20,7 +16,6 @@ class CredentialRead(BaseModel):
 
     id: int
     bank: BankProvider
-    username: str
     accounts: list[AccountRead] = []
     last_fetching_timestamp: datetime | None = None
     requires_two_factor_authentication: bool
@@ -28,8 +23,7 @@ class CredentialRead(BaseModel):
 
 class CredentialUpdate(BaseModel):
     bank: BankProvider | None = None
-    username: str | None = None
-    password: str | None = None
+    credentials: dict[str, str] | None = None
 
 
 class SyncResponse(BaseModel):

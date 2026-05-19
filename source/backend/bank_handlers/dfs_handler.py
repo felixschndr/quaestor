@@ -82,13 +82,13 @@ class _DFSSession(BankSession):
 
 
 class DFSHandler(BankHandler):
-    EXTRA_CREDENTIAL_FIELDS = ("mandat", "customer")
+    CREDENTIAL_FIELDS = ("username", "password", "mandat", "customer")
 
     @contextmanager
     def session(self) -> Iterator[_DFSSession]:
         yield _DFSSession(
-            username=self.username,
-            password=self.password,
-            mandat=self.extra["mandat"],
-            customer=self.extra["customer"],
+            username=self.credentials["username"],
+            password=self.credentials["password"],
+            mandat=self.credentials["mandat"],
+            customer=self.credentials["customer"],
         )

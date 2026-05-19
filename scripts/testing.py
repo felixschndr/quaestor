@@ -71,8 +71,10 @@ data = {
     "url": f"{URL}/credentials",
     "json": {
         "bank": "trade_republic",
-        "username": os.environ["TR_PHONE"],
-        "password": os.environ["TR_PIN"],
+        "credentials": {
+            "phone": os.environ["TR_PHONE"],
+            "pin": os.environ["TR_PIN"],
+        },
     },
 }
 response = make_request_and_send_response(data)
@@ -97,8 +99,10 @@ data = {
     "url": f"{URL}/credentials",
     "json": {
         "bank": "ing",
-        "username": os.environ["ING_USERNAME"],
-        "password": os.environ["ING_PASSWORD"],
+        "credentials": {
+            "username": os.environ["ING_USERNAME"],
+            "password": os.environ["ING_PASSWORD"],
+        },
     },
 }
 response = make_request_and_send_response(data)
@@ -112,10 +116,12 @@ data = {
     "url": f"{URL}/credentials",
     "json": {
         "bank": "dfs",
-        "username": os.environ["DFS_USERNAME"],
-        "password": os.environ["DFS_PASSWORD"],
-        "mandat": os.environ["DFS_MANDAT"],
-        "customer": os.environ["DFS_CUSTOMER"],
+        "credentials": {
+            "username": os.environ["DFS_USERNAME"],
+            "password": os.environ["DFS_PASSWORD"],
+            "mandat": os.environ["DFS_MANDAT"],
+            "customer": os.environ["DFS_CUSTOMER"],
+        },
     },
 }
 response = make_request_and_send_response(data)

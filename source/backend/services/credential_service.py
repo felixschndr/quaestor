@@ -72,31 +72,32 @@ def get_credential_for_user(db_session: Session, credential_id: int, user_id: in
     return credential
 
 
-def _validated_extra(bank: BankProvider, extra: dict[str, str]) -> dict[str, str]:
-    required = BANKS_BY_NAME[bank.value].handler.EXTRA_CREDENTIAL_FIELDS
-    missing = [field for field in required if not extra.get(field)]
+def _validated_credentials(bank: BankProvider, credentials: dict[str, str]) -> dict[str, str]:
+    required = BANKS_BY_NAME[bank.value].handler.CREDENTIAL_FIELDS
+    missing = [field for field in required if not credentials.get(field)]
     if missing:
         error_message = f"Missing required field(s) for {bank.value}: {', '.join(missing)}"
         logger.warning(error_message)
         raise MissingCredentialFieldError(error_message)
-    return {field: extra[field] for field in required}
+    unexpected = [field for field in credentials if field not in required]
+    if unexpected:
+        error_message = f"Unexpected field(s) for {bank.value}: {', '.join(sorted(unexpected))}"
+        logger.warning(error_message)
+        raise MissingCredentialFieldError(error_message)
+    return {field: credentials[field] for field in required}
 
 
 def create_credential(
     db_session: Session,
     user_id: int,
     bank: BankProvider,
-    username: str,
-    password: str,
-    extra: dict[str, str] | None = None,
+    credentials: dict[str, str],
 ) -> Credential:
     user = user_service.get_user_by_id(db_session=db_session, user_id=user_id)
     credential = Credential(
         user=user,
         bank=bank,
-        username=username,
-        password=password,
-        extra=_validated_extra(bank=bank, extra=extra or {}),
+        credentials=_validated_credentials(bank=bank, credentials=credentials),
     )
     db_session.add(credential)
     db_session.commit()
@@ -146,7 +147,9 @@ def sync_credential_object(db_session: Session, credential: Credential) -> SyncR
         except ReauthenticationRequiredError:
             logger.info(f"Credential {credential.id} requires 2FA re-authentication; starting Trade Republic login")
             token, expires_at = trade_republic_login.start(
-                credential_id=credential.id, phone_no=handler.username, pin=handler.password
+                credential_id=credential.id,
+                phone_no=handler.credentials["phone"],
+                pin=handler.credentials["pin"],
             )
             credential.requires_two_factor_authentication = True
             return SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=token, expires_at=expires_at)

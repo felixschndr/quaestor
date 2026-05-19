@@ -7,7 +7,7 @@ from source.backend.models.account import Account
 from source.backend.models.base import Base
 from sqlalchemy import JSON, DateTime
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 logger = get_logger(__name__)
@@ -22,9 +22,9 @@ class Credential(Base):
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     bank: Mapped[BankProvider] = mapped_column(SQLEnum(BankProvider))
-    username: Mapped[str] = mapped_column(String)
-    password: Mapped[str] = mapped_column(String)
-    extra: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
+    # "credentials" saves all information required to access the information
+    # e.g., username, password, phone number, pin, ...
+    credentials: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
 
     session_state: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     last_fetching_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -35,7 +35,7 @@ class Credential(Base):
 
     @property
     def handler(self) -> BankHandler:
-        return handler_for(provider=self.bank, username=self.username, password=self.password, extra=self.extra)
+        return handler_for(provider=self.bank, credentials=self.credentials)
 
     def sync(self, handler: BankHandler) -> None:
         by_name = {account.name: account for account in self.accounts}

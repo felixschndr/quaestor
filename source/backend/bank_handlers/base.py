@@ -20,13 +20,13 @@ class BankSession(ABC):
 
 
 class BankHandler(ABC):
-    EXTRA_CREDENTIAL_FIELDS: tuple[str, ...] = ()
+    # Each handler declares exactly which credential keys it needs. Not every bank
+    # uses username/password (e.g., Trade Republic uses phone/pin).
+    CREDENTIAL_FIELDS: tuple[str, ...]
 
-    def __init__(self, bank_info: "BankInfo", username: str, password: str, extra: dict[str, str] | None = None):
+    def __init__(self, bank_info: "BankInfo", credentials: dict[str, str]):
         self.bank_info = bank_info
-        self.username = username
-        self.password = password
-        self.extra = extra or {}
+        self.credentials = credentials
 
     @abstractmethod
     def session(self) -> AbstractContextManager[BankSession]: ...
@@ -41,4 +41,4 @@ class BankInfo:
 
     @property
     def required_fields(self) -> list[str]:
-        return ["username", "password", *self.handler.EXTRA_CREDENTIAL_FIELDS]
+        return list(self.handler.CREDENTIAL_FIELDS)

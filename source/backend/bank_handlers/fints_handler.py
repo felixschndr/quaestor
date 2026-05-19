@@ -29,6 +29,8 @@ class _FinTSSession(BankSession):
 
 
 class FinTSHandler(BankHandler):
+    CREDENTIAL_FIELDS = ("username", "password")
+
     PRODUCT_ID_SECRET_NAME = "fints_product_id"  # nosec B105
     product_id: str = ""  # set by the service layer from the application secret before syncing
 
@@ -44,6 +46,6 @@ class FinTSHandler(BankHandler):
     @contextmanager
     def session(self) -> Iterator[_FinTSSession]:
         logger.debug(f"Opening FinTS session for bank {self.bank_info.bank_identifier}")
-        client = self.client(user_id=self.username, pin=self.password)
+        client = self.client(user_id=self.credentials["username"], pin=self.credentials["password"])
         with client:
             yield _FinTSSession(client)

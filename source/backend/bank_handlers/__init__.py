@@ -41,8 +41,6 @@ BankProvider = Enum(
 )
 
 
-def handler_for(
-    provider: BankProvider, username: str, password: str, extra: dict[str, str] | None = None
-) -> BankHandler:
+def handler_for(provider: BankProvider, credentials: dict[str, str]) -> BankHandler:
     bank_info = BANKS_BY_NAME[provider.value]
-    return bank_info.handler(bank_info=bank_info, username=username, password=password, extra=extra)
+    return bank_info.handler(bank_info=bank_info, credentials=credentials)

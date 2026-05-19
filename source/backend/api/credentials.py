@@ -32,9 +32,7 @@ def create_credential(
         db_session,
         user_id=current_user.id,
         bank=payload.bank,
-        username=payload.username,
-        password=payload.password,
-        extra=payload.model_extra or {},
+        credentials=payload.credentials,
     )
 
 
