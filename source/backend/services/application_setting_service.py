@@ -23,15 +23,15 @@ def get_value_of_application_setting_by_name(name: str, db_session: Session) -> 
     return _get_application_setting_by_name(name=name, db_session=db_session).value
 
 
-def list_all_application_settings(db_session: Session) -> list[dict]:
+def list_all_application_settings(db_session: Session) -> list[ApplicationSetting]:
     all_settings = list(db_session.scalars(select(ApplicationSetting)))
     logger.debug(f"Found {len(all_settings)} application setting(s)")
     return all_settings
 
 
-def update_application_setting(name: str, value: str, db_session: Session) -> dict:
+def update_application_setting(name: str, value: str, db_session: Session) -> ApplicationSetting:
     application_setting = _get_application_setting_by_name(name=name, db_session=db_session)
     application_setting.value = value
     db_session.commit()
     logger.info(f'Updated application setting "{name}"')
-    return {"id": application_setting.id, "name": application_setting.name}
+    return application_setting
