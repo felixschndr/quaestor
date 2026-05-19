@@ -2,11 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from source.backend.services.session_service import COOKIE_NAME
 
-from tests.backend.conftest import VALID_PASSWORD
-
-
-def register(client: TestClient, name: str = "alice", password: str = VALID_PASSWORD):
-    return client.post("/register", json={"name": name, "password": password})
+from tests.backend.conftest import VALID_PASSWORD, register
 
 
 def test_register_returns_created_user_and_sets_session_cookie(http_client: TestClient):

@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from httpx import Response
 from source.backend import main
 from source.backend.db import get_session
 from source.backend.models.base import Base
@@ -33,3 +34,18 @@ def http_client(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     with TestClient(main.app) as test_client:
         yield test_client
     main.app.dependency_overrides.clear()
+
+
+def register(http_client: TestClient, name: str = "alice", password: str = VALID_PASSWORD) -> Response:
+    return http_client.post("/register", json={"name": name, "password": password})
+
+
+def login_as(http_client: TestClient, name: str, password: str = VALID_PASSWORD) -> Response:
+    http_client.cookies.clear()
+    return http_client.post("/login", json={"name": name, "password": password})
+
+
+def create_credential(
+    http_client: TestClient, bank: str = "ing", username: str = "bankuser", password: str = "bankpass"  # nosec: B107
+) -> Response:
+    return http_client.post("/credentials", json={"bank": bank, "username": username, "password": password})

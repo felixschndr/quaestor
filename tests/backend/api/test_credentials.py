@@ -1,16 +1,6 @@
 from fastapi.testclient import TestClient
 
-from tests.backend.conftest import VALID_PASSWORD
-
-
-def register(http_client: TestClient, name: str = "owner"):
-    return http_client.post("/register", json={"name": name, "password": VALID_PASSWORD})
-
-
-def create_credential(
-    http_client: TestClient, bank: str = "ing", username: str = "bankuser", password: str = "bankpass"  # nosec: B107
-):
-    return http_client.post("/credentials", json={"bank": bank, "username": username, "password": password})
+from tests.backend.conftest import create_credential, register
 
 
 def test_create_credential_returns_created_credential(http_client: TestClient):
