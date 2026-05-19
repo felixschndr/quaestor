@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, List
 
+from source.backend.api.helpers import get_key_of_transaction
 from source.backend.bank_handlers import BankHandler, BankProvider, handler_for
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
@@ -60,27 +61,20 @@ class Credential(Base):
                     updated_accounts += 1
                 account.balance = bank.get_balance(fetched_account)
 
-                existing = {
-                    (t.date, t.amount, t.purpose, t.other_party, t.portfolio_transaction_type)
-                    for t in account.transactions
-                }
-                for fetched in bank.get_transactions(fetched_account, start_date=transactions_since):
-                    key = (
-                        fetched.date,
-                        fetched.amount,
-                        fetched.purpose,
-                        fetched.other_party,
-                        fetched.portfolio_transaction_type,
-                    )
+                existing = {get_key_of_transaction(transaction) for transaction in account.transactions}
+                for fetched_transaction in bank.get_transactions(
+                    account=fetched_account, start_date=transactions_since
+                ):
+                    key = get_key_of_transaction(fetched_transaction)
                     if key in existing:
                         continue
                     account.transactions.append(
                         Transaction(
-                            amount=fetched.amount,
-                            purpose=fetched.purpose,
-                            date=fetched.date,
-                            other_party=fetched.other_party,
-                            portfolio_transaction_type=fetched.portfolio_transaction_type,
+                            amount=fetched_transaction.amount,
+                            purpose=fetched_transaction.purpose,
+                            date=fetched_transaction.date,
+                            other_party=fetched_transaction.other_party,
+                            portfolio_transaction_type=fetched_transaction.portfolio_transaction_type,
                         )
                     )
                     existing.add(key)
