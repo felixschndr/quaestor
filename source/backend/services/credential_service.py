@@ -11,7 +11,7 @@ from source.backend.exceptions import (
     ReauthenticationRequiredError,
 )
 from source.backend.logging_utils import get_logger
-from source.backend.models.credential import Credential
+from source.backend.models.credential import INITIAL_FETCH_LOOKBACK, Credential
 from source.backend.services import (
     application_secret_service,
     trade_republic_login,
@@ -91,6 +91,7 @@ def create_credential(
         user=user,
         bank=bank,
         credentials=_validated_credentials(bank=bank, credentials=credentials),
+        last_fetching_timestamp=datetime.now() - INITIAL_FETCH_LOOKBACK,
     )
     db_session.add(credential)
     db_session.commit()

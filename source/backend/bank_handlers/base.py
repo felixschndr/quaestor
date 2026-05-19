@@ -1,11 +1,20 @@
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
+from datetime import date
 
 
 @dataclass(frozen=True)
 class FetchedAccount:
     name: str
+
+
+@dataclass(frozen=True)
+class FetchedTransaction:
+    amount: float
+    purpose: str | None
+    date: date
+    recipient: str | None
 
 
 class BankSession(ABC):
@@ -17,6 +26,9 @@ class BankSession(ABC):
 
     @abstractmethod
     def get_balance(self, account: FetchedAccount) -> float: ...
+
+    def get_transactions(self, account: FetchedAccount, start_date: date) -> list[FetchedTransaction]:
+        return []
 
 
 class BankHandler(ABC):
