@@ -7,11 +7,7 @@ from source.backend.exceptions import (
     UserNotFoundError,
 )
 from source.backend.models.user import User
-from source.backend.services import (
-    application_setting_service,
-    session_service,
-    user_service,
-)
+from source.backend.services import session_service, user_service
 from source.backend.services.password_service import verify_password
 from sqlalchemy.orm import Session
 
@@ -20,10 +16,7 @@ router = APIRouter(tags=["auth"])
 
 @router.post("/register", response_model=UserRead, status_code=201)
 def register(payload: UserCreate, response: Response, db_session: Session = Depends(get_session)) -> User:
-    registration_allowed = application_setting_service.get_value_of_application_setting_by_name(
-        name=application_setting_service.ALLOW_NEW_USER_REGISTRATION_SETTING_NAME, db_session=db_session
-    )
-    if registration_allowed.lower() != "true":
+    if not user_service.new_user_registration_allowed():
         raise PermissionDeniedError("New user registration is currently disabled")
 
     user = user_service.create_user(db_session=db_session, name=payload.name, password=payload.password)
