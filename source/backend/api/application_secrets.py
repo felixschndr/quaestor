@@ -1,5 +1,5 @@
 from fastapi import Depends
-from source.backend.api._create_router import create_router
+from source.backend.api.create_router import create_router
 from source.backend.api.schemas.application_secret import (
     ApplicationSecretRead,
     ApplicationSecretUpdate,

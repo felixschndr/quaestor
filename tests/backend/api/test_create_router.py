@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from source.backend.api._create_router import create_router
+from source.backend.api.create_router import create_router
 
 
 def test_router_prefix_and_tags_are_derived_from_caller_filename() -> None:
