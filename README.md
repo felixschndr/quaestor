@@ -14,6 +14,7 @@ Security measures in place:
  - Secure communication with banks: All communication with banking servers is exclusively done via HTTP**S**. 
  - Secure access to the server: I strongly recommend accessing the server only via HTTP**S** as well. Currently, HTTPS support is not yet implemented (see TODOs), please use a reverse proxy. 
  - Read-only operations: The software only performs read requests; it **never** writes, updates, or deletes any resources on your accounts.
+ - All the dependencies are pinned and automatically updated via Dependabot. All the updates for dependencies do have to be at least 3 days old to prevent supply chain attacks before being automatically merged.
 
 ## Commands
 
@@ -41,10 +42,8 @@ Security measures in place:
 - DKB Login
 - Tests
 - Handling for wrong banking credentials
-- Make timestamps TZ aware?
 - Make credentials auto-sync
 - FIXMEs in code
 - The trade republic session state COULD include the information about how long until a new 2FA is required (.traderepublic.com	TRUE	/	TRUE	1779099997	aws-waf-token)
-- Dependabot auto merge after 3 days and release new version
 - Add application configuration (e.g. disable new user registration)
 - HTTPS support 
