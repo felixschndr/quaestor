@@ -155,6 +155,29 @@ def sync_credential_object(db_session: Session, credential: Credential) -> SyncR
     return SyncResult(status=SyncStatus.COMPLETED)
 
 
+def sync_all_due_credentials(db_session: Session) -> None:
+    logger.info("Starting periodic sync of all due credentials")
+    credentials = list(db_session.scalars(select(Credential)))
+    synced = 0
+    skipped = 0
+    failed = 0
+    for credential in credentials:
+        if credential.requires_two_factor_authentication:
+            skipped += 1
+            continue  # FIXME: Add support for 2FA credentials
+        try:
+            sync_credential_object(db_session=db_session, credential=credential)
+            synced += 1
+        except Exception:
+            failed += 1
+            logger.exception(f"Periodic sync failed for credential {credential.id}")
+    db_session.commit()
+    logger.info(
+        f"Periodic sync finished: {synced} synced, {skipped} skipped (2FA), "
+        f"{failed} failed out of {len(credentials)} credential(s)"
+    )
+
+
 def confirm_two_factor(db_session: Session, credential_id: int, challenge_token: str, code: str) -> SyncResult:
     logger.info(f"Confirming 2FA for credential {credential_id}")
     credential = get_credential(db_session=db_session, credential_id=credential_id)

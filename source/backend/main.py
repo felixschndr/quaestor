@@ -1,8 +1,9 @@
+import asyncio
 import json
 import logging
 import os
 import sys
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Any, AsyncGenerator, Awaitable, Callable
 
 from dotenv import load_dotenv
@@ -13,7 +14,7 @@ from source.backend.bank_handlers import FinTSHandler
 from source.backend.db import SessionLocal, log_database_location
 from source.backend.logging_utils import get_logger, redact_headers
 from source.backend.models.application_secret import ApplicationSecret
-from source.backend.services import session_service
+from source.backend.services import session_service, sync_scheduler
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -51,7 +52,13 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator:
     log_database_location()
     with SessionLocal() as db_session:
         create_db_entries_if_not_exists(db_session)
-    yield
+    sync_task = asyncio.create_task(sync_scheduler.run_periodic_sync())
+    try:
+        yield
+    finally:
+        sync_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await sync_task
 
 
 class _RenameUvicornError(logging.Filter):

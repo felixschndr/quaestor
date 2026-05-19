@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock
+
 import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
@@ -9,6 +11,12 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 VALID_PASSWORD = "Sup3rSecret!Pass"  # nosec: B105
+
+
+@pytest.fixture(autouse=True)
+def disable_periodic_sync(monkeypatch: pytest.MonkeyPatch):
+    # Remove periodic sync for testing
+    monkeypatch.setattr(target=main.sync_scheduler, name="run_periodic_sync", value=AsyncMock())
 
 
 @pytest.fixture
