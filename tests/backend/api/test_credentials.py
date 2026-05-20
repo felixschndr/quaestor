@@ -128,7 +128,7 @@ def test_list_all_possible_only_includes_non_null_fields(http_client: TestClient
         },
         {
             "Bank Name": "dfs",
-            "Required Fields": ["username", "password", "mandat", "customer"],
+            "Required Fields": ["username", "password", "customer"],
         },
         {
             "Bank Name": "trade_republic",

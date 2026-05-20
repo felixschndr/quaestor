@@ -120,7 +120,6 @@ def test_e2e_full_flow() -> None:
             "credentials": {
                 "username": os.environ["DFS_USERNAME"],
                 "password": os.environ["DFS_PASSWORD"],
-                "mandat": os.environ["DFS_MANDAT"],
                 "customer": os.environ["DFS_CUSTOMER"],
             },
         },

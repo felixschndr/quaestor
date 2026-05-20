@@ -26,12 +26,11 @@ _VORGANG_TO_EVENT_TYPE: dict[str, PPEventType] = {  # TODO: make own enum
 class _DFSSession(BankSession):
     BASE_URL = "https://www.value-account.eu"
 
-    def __init__(self, username: str, password: str, mandat: str, customer: str):
+    def __init__(self, username: str, password: str, customer: str):
         super().__init__()
 
         self.username = username
         self.password = password
-        self.mandat = mandat  # TODO: Unused
         self.customer = customer
 
         self._login_url = f"{self.BASE_URL}/acapif/portal-{self.customer}/public_login.prt"
@@ -142,13 +141,12 @@ class _DFSSession(BankSession):
 
 
 class DFSHandler(BankHandler):
-    CREDENTIAL_FIELDS = ("username", "password", "mandat", "customer")
+    CREDENTIAL_FIELDS = ("username", "password", "customer")
 
     @contextmanager
     def session(self) -> Iterator[_DFSSession]:
         yield _DFSSession(
             username=self.credentials["username"],
             password=self.credentials["password"],
-            mandat=self.credentials["mandat"],
             customer=self.credentials["customer"],
         )
