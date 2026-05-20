@@ -94,15 +94,6 @@ def update_user(
     return user_service.update_user(db_session=db_session, user_id=current_user.id, fields=fields)
 
 
-@router.patch("/{user_id}/elevate", response_model=UserRead)
-def elevate_user(
-    user_id: int,
-    current_admin: User = Depends(session_service.get_current_user_from_request_if_is_admin),
-    db_session: Session = Depends(get_session),
-) -> User:
-    return user_service.elevate_user(db_session, acting_admin=current_admin, target_user_id=user_id)
-
-
 @router.post("/sync", status_code=204)
 def sync_credentials(
     current_user: User = Depends(session_service.get_current_user_from_request),
@@ -111,7 +102,7 @@ def sync_credentials(
     for credential in credential_service.list_credentials(db_session, user_id=current_user.id):
         if credential.requires_two_factor_authentication:
             continue  # FIXME: Add support for 2FA credentials
-        credential_service.sync_credential_object(db_session=db_session, credential=credential)
+        credential_service.sync_credential_object(credential=credential)
     db_session.commit()
 
 

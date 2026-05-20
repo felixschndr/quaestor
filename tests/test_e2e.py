@@ -7,7 +7,6 @@ import os
 import pytest
 from dotenv import load_dotenv
 from requests import Response, Session
-from source.backend.bank_handlers import FinTSHandler
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("RUN_E2E"),
@@ -47,31 +46,6 @@ def test_e2e_full_flow() -> None:
         "url": f"{URL}/api/auth/register",
         "json": {"user_name": USER1_NAME, "display_name": "My first user", "password": USER1_PW},
     }
-    make_request_and_send_response(data, http_session)
-
-    data = {
-        "method": "POST",
-        "url": f"{URL}/api/auth/register",
-        "json": {
-            "user_name": "second_user",
-            "display_name": "Second User",
-            "password": "45678987655678Aa!",  # nosec B106
-        },
-    }
-    response = make_request_and_send_response(data, Session())
-    second_user_id = response.json()["id"]
-
-    data = {"method": "PATCH", "url": f"{URL}/api/users/{second_user_id}/elevate"}
-    make_request_and_send_response(data, http_session)
-
-    data = {
-        "method": "POST",
-        "url": f"{URL}/api/application_secrets",
-        "json": {"name": FinTSHandler.PRODUCT_ID_SECRET_NAME, "value": os.environ["FINTS_PRODUCT_NUMBER"]},
-    }
-    make_request_and_send_response(data, http_session)
-
-    data = {"method": "GET", "url": f"{URL}/api/application_secrets"}
     make_request_and_send_response(data, http_session)
 
     data = {"method": "GET", "url": f"{URL}/api/credentials/supported_banks"}

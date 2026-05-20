@@ -8,7 +8,6 @@ from source.backend.db import get_session
 from source.backend.exceptions import (
     CannotRevokeCurrentSessionError,
     InvalidCredentialsError,
-    PermissionDeniedError,
     SessionNotFoundError,
 )
 from source.backend.logging_utils import get_logger
@@ -170,12 +169,4 @@ def get_current_user_from_request(request: Request, db_session: Session = Depend
         )
         raise InvalidCredentialsError("Authentication required")
     logger.debug(f"{request.method} {request.url.path}: authenticated as user {user}")
-    return user
-
-
-def get_current_user_from_request_if_is_admin(user: User = Depends(get_current_user_from_request)) -> User:
-    if not user.admin:
-        logger.debug(f"User {user} attempted an admin-only action without admin rights")
-        raise PermissionDeniedError("Admin privileges required")
-    logger.debug(f"Authorized admin {user} for an admin-only action")
     return user

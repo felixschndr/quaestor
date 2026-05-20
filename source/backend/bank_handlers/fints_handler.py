@@ -65,8 +65,8 @@ def _transaction_type_from_amount(amount: float) -> TransactionType:
 class FinTSHandler(BankHandler):
     CREDENTIAL_FIELDS = ("username", "password")
 
-    PRODUCT_ID_SECRET_NAME = "fints_product_id"  # nosec B105
-    product_id: str = ""  # set by the service layer from the application secret before syncing
+    # This is a generic/public product ID I found in the FinTS GitHub repo
+    FINTS_PRODUCT_ID = "6151256F3D4F9975B877BD4A2"
 
     def client(self, user_id: str, pin: str) -> FinTS3PinTanClient:
         return FinTS3PinTanClient(
@@ -74,7 +74,7 @@ class FinTSHandler(BankHandler):
             user_id=user_id,
             pin=pin,
             server=self.bank_info.fints_url,
-            product_id=self.product_id,
+            product_id=self.FINTS_PRODUCT_ID,
         )
 
     @contextmanager

@@ -3,7 +3,6 @@ from datetime import datetime
 from enum import Enum
 
 from source.backend.bank_handlers import BANKS_BY_NAME, SUPPORTED_BANKS, BankProvider
-from source.backend.bank_handlers.fints_handler import FinTSHandler
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 from source.backend.exceptions import (
     CredentialNotFoundError,
@@ -12,11 +11,7 @@ from source.backend.exceptions import (
 )
 from source.backend.logging_utils import get_logger
 from source.backend.models.credential import INITIAL_FETCH_LOOKBACK, Credential
-from source.backend.services import (
-    application_secret_service,
-    trade_republic_login,
-    user_service,
-)
+from source.backend.services import trade_republic_login, user_service
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -117,20 +112,15 @@ def delete_credential(db_session: Session, credential_id: int) -> None:
 def sync_credential(db_session: Session, credential_id: int) -> SyncResult:
     logger.debug(f"Sync requested for credential {credential_id}")
     credential = get_credential(db_session=db_session, credential_id=credential_id)
-    result = sync_credential_object(db_session=db_session, credential=credential)
+    result = sync_credential_object(credential=credential)
     db_session.commit()
     return result
 
 
-def sync_credential_object(db_session: Session, credential: Credential) -> SyncResult:
+def sync_credential_object(credential: Credential) -> SyncResult:
     logger.info(f"Syncing {credential}")
     handler = credential.handler
     logger.debug(f"Using {type(handler).__name__} for {credential}")
-    if isinstance(handler, FinTSHandler):
-        handler.product_id = application_secret_service.get_value_of_application_secret_by_name(
-            name=FinTSHandler.PRODUCT_ID_SECRET_NAME, db_session=db_session
-        )
-        logger.debug(f"Loaded FinTS product id from application secret for {credential}")
     if isinstance(handler, TradeRepublicHandler):
         handler.session_state = credential.session_state
         logger.debug(f"{credential} has {'a stored' if credential.session_state else 'no'} Trade Republic session")
@@ -165,7 +155,7 @@ def sync_all_due_credentials(db_session: Session) -> None:
             skipped += 1
             continue  # FIXME: Add support for 2FA credentials
         try:
-            sync_credential_object(db_session=db_session, credential=credential)
+            sync_credential_object(credential=credential)
             synced += 1
         except Exception:
             failed += 1
@@ -182,6 +172,6 @@ def confirm_two_factor(db_session: Session, credential_id: int, challenge_token:
     credential = get_credential(db_session=db_session, credential_id=credential_id)
     cookies = trade_republic_login.complete(challenge_token=challenge_token, credential_id=credential_id, code=code)
     credential.session_state = {"cookies": cookies}
-    result = sync_credential_object(db_session=db_session, credential=credential)
+    result = sync_credential_object(credential=credential)
     db_session.commit()
     return result

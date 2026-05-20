@@ -8,19 +8,17 @@ from tests.backend.conftest import BANK_PASSWORD, BANK_USERNAME, DISPLAY_NAME, U
 
 
 def test_user_repr_contains_identifying_fields_but_not_password():
-    user = User(
-        id=1, user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash="secret_hash", admin=True
-    )  # nosec B106
+    user = User(id=1, user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash="secret_hash")  # nosec B106
 
     representation = repr(user)
 
-    assert representation == f"<User(id=1, user_name={USER_NAME}, display_name={DISPLAY_NAME}, admin=True)>"
+    assert representation == f"<User(id=1, user_name={USER_NAME}, display_name={DISPLAY_NAME})>"
     assert "secret_hash" not in representation
 
 
 def test_user_balance_scales_each_account_by_its_balance_factor(session_factory: sessionmaker):
     with session_factory() as session:
-        user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash="hash", admin=False)  # nosec B106
+        user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash="hash")  # nosec B106
         credential = Credential(
             user=user,
             bank=BankProvider.ING,

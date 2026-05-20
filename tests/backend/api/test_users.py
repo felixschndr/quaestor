@@ -150,11 +150,11 @@ def test_list_user_sessions_returns_multiple_sessions_with_only_current_flagged(
 
 
 def test_list_user_sessions_for_other_user_returns_404(http_client: TestClient):
-    admin_id = register(http_client, user_name="admin").json()["id"]
+    first_user_id = register(http_client, user_name=USER_NAME).json()["id"]
     register(http_client, user_name="other")
     login_as(http_client, user_name="other")
 
-    response = http_client.get(f"/api/users/{admin_id}/sessions")
+    response = http_client.get(f"/api/users/{first_user_id}/sessions")
 
     assert response.status_code == 404
 
@@ -206,23 +206,23 @@ def test_revoke_unknown_session_returns_404(http_client: TestClient):
 
 
 def test_revoke_other_users_session_returns_404(http_client: TestClient):
-    admin_id = register(http_client, user_name="admin").json()["id"]
-    admin_session_id = http_client.get(f"/api/users/{admin_id}/sessions").json()[0]["id"]
+    first_user_id = register(http_client, user_name=USER_NAME).json()["id"]
+    first_user_session_id = http_client.get(f"/api/users/{first_user_id}/sessions").json()[0]["id"]
 
     register(http_client, user_name="other")
     other_user_id = login_as(http_client, user_name="other").json()["id"]
 
-    response = http_client.delete(f"/api/users/{other_user_id}/sessions/{admin_session_id}")
+    response = http_client.delete(f"/api/users/{other_user_id}/sessions/{first_user_session_id}")
 
     assert response.status_code == 404
 
 
 def test_revoke_session_for_other_user_id_returns_404(http_client: TestClient):
-    admin_id = register(http_client, user_name="admin").json()["id"]
+    first_user_id = register(http_client, user_name=USER_NAME).json()["id"]
     register(http_client, user_name="other")
     login_as(http_client, user_name="other")
 
-    response = http_client.delete(f"/api/users/{admin_id}/sessions/1")
+    response = http_client.delete(f"/api/users/{first_user_id}/sessions/1")
 
     assert response.status_code == 404
 
@@ -263,11 +263,11 @@ def test_revoke_all_other_sessions_requires_exclude_current_true(http_client: Te
 
 
 def test_revoke_all_other_sessions_for_other_user_returns_404(http_client: TestClient):
-    admin_id = register(http_client, user_name="admin").json()["id"]
+    first_user_id = register(http_client, user_name=USER_NAME).json()["id"]
     register(http_client, user_name="other")
     login_as(http_client, user_name="other")
 
-    response = http_client.delete(f"/api/users/{admin_id}/sessions?exclude_current=true")
+    response = http_client.delete(f"/api/users/{first_user_id}/sessions?exclude_current=true")
 
     assert response.status_code == 404
 

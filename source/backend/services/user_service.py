@@ -25,10 +25,7 @@ def list_users(db_session: Session) -> list[User]:
 
 
 def create_user(db_session: Session, user_name: str, display_name: str, password: str) -> User:
-    is_first_user = db_session.scalar(select(User.id).limit(1)) is None
-    user = User(
-        user_name=user_name, display_name=display_name, password_hash=hash_password(password), admin=is_first_user
-    )
+    user = User(user_name=user_name, display_name=display_name, password_hash=hash_password(password))
     db_session.add(user)
     db_session.commit()
     logger.info(f"Created user {user}")
@@ -64,14 +61,6 @@ def update_user(db_session: Session, user_id: int, fields: dict) -> User:
     db_session.commit()
     logger.info(f"Updated user {user_before_change} --> {user}")
     return user
-
-
-def elevate_user(db_session: Session, acting_admin: User, target_user_id: int) -> User:
-    target_user = get_user_by_id(db_session=db_session, user_id=target_user_id)
-    target_user.admin = True
-    db_session.commit()
-    logger.info(f"Elevated {target_user} to admin (acting admin: {acting_admin})")
-    return target_user
 
 
 def delete_user(db_session: Session, user_id: int) -> None:
