@@ -224,18 +224,18 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `GET /api/users/{id}/sessions`
 - [x] `DELETE /api/users/{id}/sessions/{session_id}` (every session possible except the current one, use `/logout` for this)
 - [x] `DELETE /api/users/{id}/sessions?exclude_current=true`
-- [ ] `PATCH /api/account/{aid}` — accept `balance_factor`.
+- [x] `PATCH /api/account/{aid}` — accept `balance_factor`.
 - [ ] `GET /api/account/{aid}/transactions/{tid}`
 - [ ] `PATCH /api/account/{aid}/transactions/{tid}` — `{ note }`.
 - [ ] `GET /api/credentials/banks` — wrap `list_all_possible`, include `icon` field per bank.
 
 ## Backend — models & migrations
 - [x] `User.display_name: str | None` — Alembic migration.
-- [ ] `Account.balance_factor: int` default 100, range 0–100 — Alembic migration.
+- [x] `Account.balance_factor: int` default 100, range 0–100 — Alembic migration.
 - [ ] `Transaction.note: str | None` — Alembic migration.
 - [x] `Session.ip`, `Session.user_agent`, `Session.last_used_at` — Alembic migration; update `last_used_at` in the auth dependency.
 - [ ] `BankProvider`: add an `icon` property to the `BANKS` data records. **Do not change Enum member names** (must stay UPPER, per MEMORY).
-- [ ] Update `User.balance` computation to apply `balance_factor`.
+- [x] Update `User.balance` computation to apply `balance_factor`.
 
 ## Backend — security
 - [ ] CSRF middleware (double-submit token: `csrf_token` cookie + `X-CSRF-Token` header for mutations).

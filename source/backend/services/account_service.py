@@ -44,6 +44,15 @@ def get_account_for_user(db_session: Session, account_id: int, user_id: int) -> 
     return account
 
 
+def update_account(db_session: Session, account: Account, fields: dict) -> Account:
+    account_before_change = str(account)
+    for key, value in fields.items():
+        setattr(account, key, value)
+    db_session.commit()
+    logger.info(f"Updated account {account_before_change} --> {account}")
+    return account
+
+
 def get_history_page(
     db_session: Session,
     account_id: int,

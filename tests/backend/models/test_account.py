@@ -34,9 +34,9 @@ def _get_persisted_snapshots(session: Session, account: Account) -> dict[date, f
 
 
 def test_account_repr_contains_identifying_fields():
-    account = Account(id=42, credential_id=7, name="Checking", balance=123.45)
+    account = Account(id=42, credential_id=7, name="Checking", balance=123.45, balance_factor=80)
 
-    assert repr(account) == "<Account(id=42, credential_id=7, name=Checking, balance=123.45)>"
+    assert repr(account) == "<Account(id=42, credential_id=7, name=Checking, balance=123.45, balance_factor=80)>"
 
 
 def test_update_balance_at_date_persists_back_calculated_snapshots(session_factory: sessionmaker):

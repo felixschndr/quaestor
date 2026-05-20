@@ -1,13 +1,33 @@
 from fastapi import Depends, Query
 from source.backend.api.create_router import create_router
-from source.backend.api.schemas.account import AccountHistory
+from source.backend.api.schemas.account import (
+    AccountHistory,
+    AccountRead,
+    AccountUpdate,
+)
 from source.backend.api.schemas.transaction import TransactionRead
 from source.backend.db import get_session
+from source.backend.models.account import Account
 from source.backend.models.user import User
 from source.backend.services import account_service, session_service
 from sqlalchemy.orm import Session
 
 router = create_router()
+
+
+@router.patch("/{account_id}", response_model=AccountRead)
+def update_account(
+    account_id: int,
+    payload: AccountUpdate,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> Account:
+    account = account_service.get_account_for_user(
+        db_session=db_session, account_id=account_id, user_id=current_user.id
+    )
+    return account_service.update_account(
+        db_session=db_session, account=account, fields=payload.model_dump(exclude_unset=True)
+    )
 
 
 @router.get("/{account_id}/history", response_model=AccountHistory)

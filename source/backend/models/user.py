@@ -24,4 +24,8 @@ class User(Base):
 
     @property
     def balance(self) -> float:
-        return sum(account.balance for credential in self.credentials for account in credential.accounts)
+        return sum(
+            account.balance * account.balance_factor / 100
+            for credential in self.credentials
+            for account in credential.accounts
+        )

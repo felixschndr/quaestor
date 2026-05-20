@@ -1,6 +1,6 @@
 import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from source.backend.api.schemas.transaction import TransactionRead
 
 
@@ -10,6 +10,11 @@ class AccountRead(BaseModel):
     id: int
     name: str
     balance: float
+    balance_factor: int
+
+
+class AccountUpdate(BaseModel):
+    balance_factor: int = Field(ge=0, le=100)
 
 
 class AccountHistory(BaseModel):
