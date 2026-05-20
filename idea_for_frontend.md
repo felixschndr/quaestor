@@ -1,0 +1,46 @@
+- Move all existing pages to /api
+- Routes
+  - /
+    - Check for session token
+      - If no token → redirect to login page
+    - Overview of all accounts
+      - Top 1/3 of page with "Hello, <name>" (need to add display name of user)
+      - Bottom 2/3: List of accounts
+        - Left: Name of account
+        - Right: Balance
+      - Top right: cogwheel icon (→ settings)
+  - /login
+    - Allows to switch between registration and login
+    - Has to check whether registration is allowed (need to add api endpoint)
+  - /account/<id>
+    - Top: Current balance of account
+    - Below: Show transactions of account
+      - Left: Other party
+      - Right: Amount (red for sending, green for receiving)
+      - Transactions are grouped by date, above the transactions of the date shall be a small header with the account balance at that date
+  - /account/<id>/transactions/<id>
+    - Show transaction details
+    - Top 1/3: Amount (colored)
+    - Bottom 2/3: Rest of information
+      - Also be able to add note to transaction (need to add api endpoint and model)
+  - /settings
+    - Credential settings
+  - /settings/credentials
+    - Add new credentials
+    - List credentials
+    - Delete credentials
+  - /settings/credentials/<id>
+    - List accounts
+    - Set balance factor (need to add api endpoint)
+      - How much of the account is calculated into the user balance, e.g, only 50% of a shared bank account
+  - /settings/user
+    - Change display name
+    - Change password
+  - /settings/user/sessions
+    - List of active http sessions
+    - Ability to invalidate session
+- Design
+  - Modern
+  - Dark mode (dark background with white text)
+  - Responsive
+  - Mobile and desktop friendly
