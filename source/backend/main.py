@@ -4,10 +4,12 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager, suppress
+from pathlib import Path
 from typing import Any, AsyncGenerator, Awaitable, Callable
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
+from fastapi.staticfiles import StaticFiles
 from source.backend.api import (
     account,
     application_secrets,
@@ -194,3 +196,6 @@ API_PREFIX = "/api"
 for api_object in [account, application_secrets, auth, credentials, users]:
     app.include_router(api_object.router, prefix=API_PREFIX)
 register_exception_handlers(app)
+
+_STATIC_DIRECTORY = Path(__file__).parent / "static"
+app.mount(path="/static", app=StaticFiles(directory=_STATIC_DIRECTORY), name="static")

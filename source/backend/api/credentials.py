@@ -17,8 +17,8 @@ from sqlalchemy.orm import Session
 router = create_router()
 
 
-@router.get("/list_all_possible")
-def list_all_possible(_: User = Depends(session_service.get_current_user_from_request)) -> list[dict]:
+@router.get("/supported_banks")
+def list_supported_banks(_: User = Depends(session_service.get_current_user_from_request)) -> list[dict]:
     return credential_service.list_all_possible()
 
 
