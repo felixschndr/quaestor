@@ -1,7 +1,7 @@
 import re
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from source.backend.api.schemas.credential import CredentialRead
 
 if TYPE_CHECKING:
@@ -16,6 +16,13 @@ PASSWORD_RULES = {
 }
 
 
+def _validate_password_complexity(value: str) -> str:
+    missing = [description for pattern, description in PASSWORD_RULES.values() if not pattern.search(value)]
+    if missing:
+        raise ValueError(f"Password must contain at least {', '.join(missing)}")
+    return value
+
+
 class UserCreate(BaseModel):
     user_name: str
     display_name: str
@@ -23,11 +30,8 @@ class UserCreate(BaseModel):
 
     @field_validator("password")
     @classmethod
-    def _validate_password_complexity(cls: ModelMetaclass, value: str) -> str:
-        missing = [description for pattern, description in PASSWORD_RULES.values() if not pattern.search(value)]
-        if missing:
-            raise ValueError(f"Password must contain at least {', '.join(missing)}")
-        return value
+    def _check_password(cls: "ModelMetaclass", value: str) -> str:
+        return _validate_password_complexity(value)
 
 
 class PasswordRule(BaseModel):
@@ -63,4 +67,17 @@ class UserLogin(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    display_name: str
+    display_name: str | None = None
+    current_password: str | None = None
+    new_password: str | None = Field(default=None, min_length=MIN_PASSWORD_LENGTH)
+
+    @field_validator("new_password")
+    @classmethod
+    def _check_new_password(cls: "ModelMetaclass", value: str | None) -> str | None:
+        return _validate_password_complexity(value) if value is not None else None
+
+    @model_validator(mode="after")
+    def _password_change_requires_current(self) -> "UserUpdate":
+        if self.new_password is not None and not self.current_password:
+            raise ValueError("Changing the password requires the current password")
+        return self

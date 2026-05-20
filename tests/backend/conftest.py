@@ -13,6 +13,7 @@ from sqlalchemy.pool import StaticPool
 USER_NAME = "alice"
 DISPLAY_NAME = "Alice"
 VALID_PASSWORD = "Sup3rSecret!Pass"  # nosec B105
+NEW_VALID_PASSWORD = "BrandNewPa55word!"  # nosec B105
 WRONG_PASSWORD = "Wr0ngPassword!!"  # nosec B105
 BANK_USERNAME = "bankuser"
 BANK_PASSWORD = "bankpass"  # nosec B105
