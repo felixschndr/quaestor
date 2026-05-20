@@ -5,7 +5,12 @@ from datetime import datetime, timedelta
 
 from fastapi import Depends, Request, Response
 from source.backend.db import get_session
-from source.backend.exceptions import InvalidCredentialsError, PermissionDeniedError
+from source.backend.exceptions import (
+    CannotRevokeCurrentSessionError,
+    InvalidCredentialsError,
+    PermissionDeniedError,
+    SessionNotFoundError,
+)
 from source.backend.logging_utils import get_logger
 from source.backend.models.session import UserSession
 from source.backend.models.user import User
@@ -84,6 +89,22 @@ def list_sessions_for_user(db_session: Session, user_id: int) -> list[UserSessio
 
 def is_current_session(user_session: UserSession, raw_token: str | None) -> bool:
     return raw_token is not None and user_session.token_hash == _hash_token(raw_token)
+
+
+def revoke_user_session(db_session: Session, user_id: int, session_id: int, current_raw_token: str | None) -> None:
+    user_session = db_session.get(entity=UserSession, ident=session_id)
+    not_found_error = SessionNotFoundError(f"Session with the ID {session_id} not found")
+    if user_session is None or user_session.user_id != user_id:
+        logger.warning(f"User {user_id} attempted to revoke session {session_id} which does not belong to them")
+        raise not_found_error
+    if is_current_session(user_session=user_session, raw_token=current_raw_token):
+        logger.debug(f"User {user_id} attempted to revoke their current session {user_session} via the revoke endpoint")
+        raise CannotRevokeCurrentSessionError(
+            "Cannot revoke the current session via this endpoint; use POST /api/auth/logout instead"
+        )
+    db_session.delete(user_session)
+    db_session.commit()
+    logger.info(f"Revoked session {user_session}")
 
 
 def get_user_by_raw_token(db_session: Session, raw_token: str) -> User | None:

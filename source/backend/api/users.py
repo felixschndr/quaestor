@@ -34,6 +34,23 @@ def list_user_sessions(
     ]
 
 
+@router.delete("/{user_id}/sessions/{session_id}", status_code=204)
+def revoke_user_session(
+    user_id: int,
+    session_id: int,
+    request: Request,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> None:
+    _require_self(user_id=user_id, current_user=current_user)
+    session_service.revoke_user_session(
+        db_session=db_session,
+        user_id=current_user.id,
+        session_id=session_id,
+        current_raw_token=request.cookies.get(session_service.COOKIE_NAME),
+    )
+
+
 @router.patch("/{user_id}", response_model=UserRead)
 def update_user(
     user_id: int,
