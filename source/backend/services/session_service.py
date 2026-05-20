@@ -26,7 +26,13 @@ def _cookie_is_secure() -> bool:
     return os.environ.get(key="SESSION_COOKIE_SECURE", default="false").lower() == "true"
 
 
-def create_session(db_session: Session, user: User, remember_me: bool = False) -> str:
+def create_session(
+    db_session: Session,
+    user: User,
+    remember_me: bool = False,
+    ip: str | None = None,
+    user_agent: str | None = None,
+) -> str:
     raw_token = secrets.token_urlsafe(32)
     now = datetime.now()
     user_session = UserSession(
@@ -34,6 +40,9 @@ def create_session(db_session: Session, user: User, remember_me: bool = False) -
         token_hash=_hash_token(raw_token),
         created_at=now,
         expires_at=now + SESSION_DURATION,
+        last_used_at=now,
+        ip=ip,
+        user_agent=user_agent,
         remember_me=remember_me,
     )
     db_session.add(user_session)
@@ -58,11 +67,23 @@ def renew_session(db_session: Session, raw_token: str) -> UserSession | None:
     user_session = _get_session_by_raw_token(db_session=db_session, raw_token=raw_token)
     if user_session is None:
         return None
-    new_expiry = datetime.now() + SESSION_DURATION
+    now = datetime.now()
+    new_expiry = now + SESSION_DURATION
     logger.debug(f"Renewing session {user_session} expiry: {user_session.expires_at} --> {new_expiry}")
     user_session.expires_at = new_expiry
+    user_session.last_used_at = now
     db_session.commit()
     return user_session
+
+
+def list_sessions_for_user(db_session: Session, user_id: int) -> list[UserSession]:
+    sessions = list(db_session.scalars(select(UserSession).where(UserSession.user_id == user_id)))
+    logger.debug(f"Found {len(sessions)} session(s) for user {user_id}")
+    return sessions
+
+
+def is_current_session(user_session: UserSession, raw_token: str | None) -> bool:
+    return raw_token is not None and user_session.token_hash == _hash_token(raw_token)
 
 
 def get_user_by_raw_token(db_session: Session, raw_token: str) -> User | None:

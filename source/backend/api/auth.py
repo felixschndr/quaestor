@@ -27,8 +27,18 @@ router = create_router()
 logger = get_logger(__name__)
 
 
+def _get_client_ip(request: Request) -> str | None:
+    return request.client.host if request.client else None
+
+
+def _get_client_user_agent(request: Request) -> str | None:
+    return request.headers.get("user-agent")
+
+
 @router.post("/register", response_model=UserRead, status_code=201)
-def register(payload: UserCreate, response: Response, db_session: Session = Depends(get_session)) -> User:
+def register(
+    payload: UserCreate, request: Request, response: Response, db_session: Session = Depends(get_session)
+) -> User:
     if not user_service.new_user_registration_allowed():
         raise PermissionDeniedError("New user registration is currently disabled")
 
@@ -36,13 +46,19 @@ def register(payload: UserCreate, response: Response, db_session: Session = Depe
         db_session=db_session, user_name=payload.user_name, display_name=payload.display_name, password=payload.password
     )
     logger.info(f"Registered {user}")
-    raw_token = session_service.create_session(db_session=db_session, user=user, remember_me=True)
+    raw_token = session_service.create_session(
+        db_session=db_session,
+        user=user,
+        remember_me=True,
+        ip=_get_client_ip(request),
+        user_agent=_get_client_user_agent(request),
+    )
     session_service.set_session_cookie(response=response, raw_token=raw_token, remember_me=True)
     return user
 
 
 @router.post("/login", response_model=UserRead)
-def login(payload: UserLogin, response: Response, db_session: Session = Depends(get_session)) -> User:
+def login(payload: UserLogin, request: Request, response: Response, db_session: Session = Depends(get_session)) -> User:
     error_message_in_case_of_invalid_credentials = "Invalid name or password"
     try:
         user = user_service.get_user_by_user_name(db_session=db_session, user_name=payload.user_name)
@@ -51,7 +67,13 @@ def login(payload: UserLogin, response: Response, db_session: Session = Depends(
     if not verify_password(password_hash=user.password_hash, password_to_verify=payload.password):
         raise InvalidCredentialsError(error_message_in_case_of_invalid_credentials)
 
-    raw_token = session_service.create_session(db_session=db_session, user=user, remember_me=payload.remember_me)
+    raw_token = session_service.create_session(
+        db_session=db_session,
+        user=user,
+        remember_me=payload.remember_me,
+        ip=_get_client_ip(request),
+        user_agent=_get_client_user_agent(request),
+    )
     session_service.set_session_cookie(response=response, raw_token=raw_token, remember_me=payload.remember_me)
     return user
 

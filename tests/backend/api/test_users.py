@@ -109,3 +109,65 @@ def test_sync_without_credentials_returns_no_content(http_client: TestClient):
     response = http_client.post("/api/users/sync")
 
     assert response.status_code == 204
+
+
+def test_list_user_sessions_returns_current_session_marked(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+
+    response = http_client.get(f"/api/users/{user_id}/sessions")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["is_current"] is True
+    assert body[0]["ip"] is not None
+    assert body[0]["user_agent"] is not None
+
+
+def test_list_user_sessions_captures_custom_user_agent(http_client: TestClient):
+    http_client.headers["user-agent"] = "MyTestAgent/1.0"
+    user_id = register(http_client).json()["id"]
+
+    response = http_client.get(f"/api/users/{user_id}/sessions")
+
+    assert response.status_code == 200
+    assert response.json()[0]["user_agent"] == "MyTestAgent/1.0"
+
+
+def test_list_user_sessions_returns_multiple_sessions_with_only_current_flagged(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+    other_client_response = http_client.post(
+        "/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD}
+    )
+    assert other_client_response.status_code == 200
+
+    response = http_client.get(f"/api/users/{user_id}/sessions")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 2
+    assert sum(s["is_current"] for s in body) == 1
+
+
+def test_list_user_sessions_for_other_user_returns_404(http_client: TestClient):
+    admin_id = register(http_client, user_name="admin").json()["id"]
+    register(http_client, user_name="other")
+    login_as(http_client, user_name="other")
+
+    response = http_client.get(f"/api/users/{admin_id}/sessions")
+
+    assert response.status_code == 404
+
+
+def test_list_user_sessions_requires_authentication(http_client: TestClient):
+    assert http_client.get("/api/users/1/sessions").status_code == 401
+
+
+def test_last_used_at_is_bumped_on_authenticated_request(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+    initial = http_client.get(f"/api/users/{user_id}/sessions").json()[0]["last_used_at"]
+
+    http_client.get("/api/auth/me")
+    bumped = http_client.get(f"/api/users/{user_id}/sessions").json()[0]["last_used_at"]
+
+    assert bumped >= initial

@@ -221,7 +221,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `POST /api/auth/login` — add `remember_me` field; 14-day cookie when true, session cookie otherwise.
 - [x] `PATCH /api/users/{id}` — accept `display_name`, `current_password`, `new_password`.
 - [x] `DELETE /api/users/{id}` — delete own account.
-- [ ] `GET /api/users/{id}/sessions`
+- [x] `GET /api/users/{id}/sessions`
 - [ ] `DELETE /api/users/{id}/sessions/{session_id}` (every session possible except the current one, use `/logout` for this)
 - [ ] `PATCH /api/account/{aid}` — accept `balance_factor`.
 - [ ] `GET /api/account/{aid}/transactions/{tid}`
@@ -232,7 +232,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `User.display_name: str | None` — Alembic migration.
 - [ ] `Account.balance_factor: int` default 100, range 0–100 — Alembic migration.
 - [ ] `Transaction.note: str | None` — Alembic migration.
-- [ ] `Session.ip`, `Session.user_agent`, `Session.last_used_at` — Alembic migration; update `last_used_at` in the auth dependency.
+- [x] `Session.ip`, `Session.user_agent`, `Session.last_used_at` — Alembic migration; update `last_used_at` in the auth dependency.
 - [ ] `BankProvider`: add an `icon` property to the `BANKS` data records. **Do not change Enum member names** (must stay UPPER, per MEMORY).
 - [ ] Update `User.balance` computation to apply `balance_factor`.
 
