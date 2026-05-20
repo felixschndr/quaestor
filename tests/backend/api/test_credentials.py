@@ -105,43 +105,50 @@ def test_get_unknown_credential_returns_not_found(http_client: TestClient):
     assert response.status_code == 404
 
 
-def test_list_all_possible_includes_supported_banks(http_client: TestClient):
+def test_supported_banks_returns_bank_metadata(http_client: TestClient):
     register(http_client)
 
-    response = http_client.get("/api/credentials/list_all_possible")
-
-    assert response.status_code == 200
-    assert {"ing", "dkb", "dfs", "trade_republic"} == {bank["Bank Name"] for bank in response.json()}
-
-
-def test_list_all_possible_only_includes_non_null_fields(http_client: TestClient):
-    register(http_client)
-
-    response = http_client.get("/api/credentials/list_all_possible")
+    response = http_client.get("/api/credentials/supported_banks")
 
     assert response.status_code == 200
     assert response.json() == [
         {
-            "Bank Name": "ing",
-            "Required Fields": ["username", "password"],
-            "Bank Identifier": "50010517",
+            "name": "ing",
+            "required_fields": ["username", "password"],
+            "icon": "/static/banks/ing.png",
+            "bank_identifier": "50010517",
         },
         {
-            "Bank Name": "dkb",
-            "Required Fields": ["username", "password"],
-            "Bank Identifier": "12030000",
+            "name": "dkb",
+            "required_fields": ["username", "password"],
+            "icon": "/static/banks/dkb.png",
+            "bank_identifier": "12030000",
         },
         {
-            "Bank Name": "dfs",
-            "Required Fields": ["username", "password", "customer"],
+            "name": "dfs",
+            "required_fields": ["username", "password", "customer"],
+            "icon": "/static/banks/dfs.png",
         },
         {
-            "Bank Name": "trade_republic",
-            "Required Fields": ["phone", "pin"],
-            "Note": "The phone number has to be in the format +491234567890 "
+            "name": "trade_republic",
+            "required_fields": ["phone", "pin"],
+            "icon": "/static/banks/trade_republic.png",
+            "note": "The phone number has to be in the format +491234567890 "
             "(with '+' and country code and no spaces).",
         },
     ]
+
+
+def test_supported_banks_requires_authentication(http_client: TestClient):
+    assert http_client.get("/api/credentials/supported_banks").status_code == 401
+
+
+def test_bank_icons_are_served_as_static_files(http_client: TestClient):
+    for bank in ["ing", "dkb", "dfs", "trade_republic"]:
+        response = http_client.get(f"/static/banks/{bank}.png")
+        assert response.status_code == 200, bank
+        assert response.headers["content-type"] == "image/png"
+        assert len(response.content) > 0
 
 
 def test_create_credential_rejects_unknown_bank(http_client: TestClient):

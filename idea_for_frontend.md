@@ -83,7 +83,7 @@ All existing routers move under the `/api` prefix:
 - `PATCH  /api/account/{aid}` — extended to accept `balance_factor` (int, 0–100).
 - `GET    /api/account/{aid}/transactions/{tid}` — single transaction.
 - `PATCH  /api/account/{aid}/transactions/{tid}` — accepts `{ note: str | null }`. `null` deletes the note.
-- `GET    /api/credentials/banks` — wraps the existing `list_all_possible` output, **including a new `icon` field** per `BankProvider`.
+- `GET    /api/credentials/supported_banks` — wraps the existing `list_all_possible` output, **including a new `icon` field** per `BankProvider`.
 
 ### 2.3 Model changes
 
@@ -227,14 +227,14 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `PATCH /api/account/{aid}` — accept `balance_factor`.
 - [x] `GET /api/account/{aid}/transactions/{tid}`
 - [ ] `PATCH /api/account/{aid}/transactions/{tid}` — `{ note }`.
-- [ ] `GET /api/credentials/banks` — wrap `list_all_possible`, include `icon` field per bank.
+- [x] `GET /api/credentials/supported_banks` — wrap `list_all_possible`, include `icon` field per bank.
 
 ## Backend — models & migrations
 - [x] `User.display_name: str | None` — Alembic migration.
 - [x] `Account.balance_factor: int` default 100, range 0–100 — Alembic migration.
 - [ ] `Transaction.note: str | None` — Alembic migration.
 - [x] `Session.ip`, `Session.user_agent`, `Session.last_used_at` — Alembic migration; update `last_used_at` in the auth dependency.
-- [ ] `BankProvider`: add an `icon` property to the `BANKS` data records. **Do not change Enum member names** (must stay UPPER, per MEMORY).
+- [x] `BankProvider`: add an `icon` property to the `BANKS` data records. **Do not change Enum member names** (must stay UPPER, per MEMORY).
 - [x] Update `User.balance` computation to apply `balance_factor`.
 
 ## Backend — security
@@ -247,7 +247,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 ## Backend — static & serving
 - [ ] Mount `source/frontend/dist/` as `StaticFiles` at `/`.
 - [ ] Add a catch-all route that serves `index.html` for any non-`/api`, non-`/static` path (so HTML5 History routes work on refresh / deep link).
-- [ ] Serve `/static/banks/<slug>.svg` for bank icons.
+- [x] Serve `/static/banks/<slug>.png` for bank icons.
 
 ## Frontend — scaffolding
 - [ ] Initialize `source/frontend/` with Vite + React + TS + pnpm.

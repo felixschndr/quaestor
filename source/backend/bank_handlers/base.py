@@ -66,13 +66,18 @@ class BankInfo:
         return list(self.handler.CREDENTIAL_FIELDS)
 
     @property
+    def icon(self) -> str:
+        return f"/static/banks/{self.name}.png"
+
+    @property
     def information_for_user(self) -> dict:
         info = {
-            "Bank Name": self.name,
-            "Required Fields": self.required_fields,
+            "name": self.name,
+            "required_fields": self.required_fields,
+            "icon": self.icon,
         }
         if self.bank_identifier is not None:
-            info["Bank Identifier"] = self.bank_identifier
+            info["bank_identifier"] = self.bank_identifier
         if self.note is not None:
-            info["Note"] = self.note
+            info["note"] = self.note
         return info

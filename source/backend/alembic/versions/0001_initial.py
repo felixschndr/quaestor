@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-05-20 15:27:59.166038
+Create Date: 2026-05-20 17:56:46.883290
 
 """
 
@@ -59,6 +59,10 @@ def upgrade() -> None:
         sa.Column("token_hash", sa.String(length=64), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("last_used_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("ip", sa.String(), nullable=True),
+        sa.Column("user_agent", sa.String(), nullable=True),
+        sa.Column("remember_me", sa.Boolean(), nullable=False),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],
@@ -74,6 +78,7 @@ def upgrade() -> None:
         sa.Column("credential_id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=120), nullable=False),
         sa.Column("balance", sa.Float(), nullable=False),
+        sa.Column("balance_factor", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(
             ["credential_id"],
             ["credentials.id"],

@@ -74,7 +74,7 @@ def test_e2e_full_flow() -> None:
     data = {"method": "GET", "url": f"{URL}/api/application_secrets"}
     make_request_and_send_response(data, http_session)
 
-    data = {"method": "GET", "url": f"{URL}/api/credentials/list_all_possible"}
+    data = {"method": "GET", "url": f"{URL}/api/credentials/supported_banks"}
     make_request_and_send_response(data, http_session)
 
     data = {
