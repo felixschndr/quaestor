@@ -50,7 +50,6 @@ Security measures in place:
 - Transactions
   - DFS
 - Transaction Categorization
-- Account balance at transaction time
 - Web Frontend
 - Sparkasse Login
 - DKB Login

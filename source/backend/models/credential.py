@@ -85,6 +85,7 @@ class Credential(Base):
                 fetched_account=fetched_account,
                 transactions_since=transactions_since,
             )
+            account.update_balance_at_date()
         return created_accounts, updated_accounts, created_transactions
 
     @staticmethod
