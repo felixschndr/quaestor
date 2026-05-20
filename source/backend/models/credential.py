@@ -1,8 +1,9 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, List
 
 from source.backend.api.helpers import get_key_of_transaction
 from source.backend.bank_handlers import BankHandler, BankProvider, handler_for
+from source.backend.bank_handlers.base import BankSession, FetchedAccount
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.base import Base
@@ -45,42 +46,73 @@ class Credential(Base):
 
     def sync(self, handler: BankHandler) -> None:
         by_name = {account.name: account for account in self.accounts}
-        created_accounts = 0
-        updated_accounts = 0
-        created_transactions = 0
+
         transactions_since = (self.last_fetching_timestamp or datetime.now() - INITIAL_FETCH_LOOKBACK).date()
         with handler.session() as bank:
-            for fetched_account in bank.get_accounts():
-                account = by_name.get(fetched_account.name)
-                if account is None:
-                    account = Account(name=fetched_account.name)
-                    self.accounts.append(account)
-                    created_accounts += 1
-                elif account.name != fetched_account.name:
-                    account.name = fetched_account.name
-                    updated_accounts += 1
-                account.balance = bank.get_balance(fetched_account)
-
-                existing = {get_key_of_transaction(transaction) for transaction in account.transactions}
-                for fetched_transaction in bank.get_transactions(
-                    account=fetched_account, start_date=transactions_since
-                ):
-                    key = get_key_of_transaction(fetched_transaction)
-                    if key in existing:
-                        continue
-                    account.transactions.append(
-                        Transaction(
-                            amount=fetched_transaction.amount,
-                            purpose=fetched_transaction.purpose,
-                            date=fetched_transaction.date,
-                            other_party=fetched_transaction.other_party,
-                            portfolio_transaction_type=fetched_transaction.portfolio_transaction_type,
-                        )
-                    )
-                    existing.add(key)
-                    created_transactions += 1
+            created_accounts, updated_accounts, created_transactions = self._sync_accounts_of_credential(
+                bank_session=bank, by_name=by_name, transactions_since=transactions_since
+            )
         self.last_fetching_timestamp = datetime.now()
         logger.info(
             f"Credential {self.id}: {created_accounts} account(s) created, "
             f"{updated_accounts} account(s) updated, {created_transactions} transaction(s) created"
         )
+
+    def _sync_accounts_of_credential(
+        self,
+        bank_session: BankSession,
+        by_name: dict[str, Account],
+        transactions_since: date,
+    ) -> tuple[int, int, int]:
+        created_accounts = 0
+        updated_accounts = 0
+        created_transactions = 0
+
+        for fetched_account in bank_session.get_accounts():
+            account = by_name.get(fetched_account.name)
+            if account is None:
+                account = Account(name=fetched_account.name)
+                self.accounts.append(account)
+                created_accounts += 1
+            elif account.name != fetched_account.name:
+                account.name = fetched_account.name
+                updated_accounts += 1
+            account.balance = bank_session.get_balance(fetched_account)
+
+            created_transactions += self._sync_transactions_of_account(
+                account=account,
+                bank_session=bank_session,
+                fetched_account=fetched_account,
+                transactions_since=transactions_since,
+            )
+        return created_accounts, updated_accounts, created_transactions
+
+    @staticmethod
+    def _sync_transactions_of_account(
+        account: Account,
+        bank_session: BankSession,
+        fetched_account: FetchedAccount,
+        transactions_since: date,
+    ) -> int:
+        existing_transactions = {get_key_of_transaction(transaction) for transaction in account.transactions}
+        created_transactions = 0
+
+        for fetched_transaction in bank_session.get_transactions(
+            account=fetched_account, start_date=transactions_since
+        ):
+            key = get_key_of_transaction(fetched_transaction)
+            if key in existing_transactions:
+                continue
+
+            account.transactions.append(
+                Transaction(
+                    amount=fetched_transaction.amount,
+                    purpose=fetched_transaction.purpose,
+                    date=fetched_transaction.date,
+                    other_party=fetched_transaction.other_party,
+                    portfolio_transaction_type=fetched_transaction.portfolio_transaction_type,
+                )
+            )
+            existing_transactions.add(key)
+            created_transactions += 1
+        return created_transactions

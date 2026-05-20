@@ -48,9 +48,9 @@ Security measures in place:
 
 ## TODO
 - Transactions
-  - Trade Republic
   - DFS
 - Transaction Categorization
+- Account balance at transaction time
 - Web Frontend
 - Sparkasse Login
 - DKB Login
