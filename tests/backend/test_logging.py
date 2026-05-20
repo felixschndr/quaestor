@@ -82,12 +82,12 @@ def test_request_middleware_redacts_password_and_auth_header(http_client: TestCl
     with caplog.at_level(logging.DEBUG):
         response = register(http_client, user_name="logged")
         http_client.post(
-            "/login",
-            json={"name": "logged", "password": VALID_PASSWORD},
+            "/api/auth/login",
+            json={"user_name": "logged", "password": VALID_PASSWORD},
             headers={"Authorization": "Bearer leaktest"},
         )
 
     assert response.status_code == 201
     assert VALID_PASSWORD not in caplog.text
     assert "leaktest" not in caplog.text
-    assert "POST /register -> 201" in caplog.text
+    assert "POST /api/auth/register -> 201" in caplog.text

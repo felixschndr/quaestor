@@ -5,7 +5,7 @@ from source.backend.services.user_service import (
     ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME,
 )
 
-from tests.backend.conftest import VALID_PASSWORD, register
+from tests.backend.conftest import VALID_PASSWORD, WRONG_PASSWORD, register
 
 
 def test_register_returns_created_user_and_sets_session_cookie(http_client: TestClient):
@@ -52,7 +52,7 @@ def test_register_rejects_invalid_password(http_client: TestClient, password: st
 def test_login_succeeds_with_correct_credentials(http_client: TestClient):
     register(http_client, user_name="bob")
 
-    response = http_client.post("/login", json={"user_name": "bob", "password": VALID_PASSWORD})
+    response = http_client.post("/api/auth/login", json={"user_name": "bob", "password": VALID_PASSWORD})
 
     assert response.status_code == 200
     assert response.json()["user_name"] == "bob"
@@ -63,30 +63,30 @@ def test_login_fails_with_wrong_password(http_client: TestClient):
     register(http_client, user_name="carol")
     http_client.cookies.clear()
 
-    response = http_client.post("/login", json={"user_name": "carol", "password": "Wr0ngPassword!!"})  # nosec B105
+    response = http_client.post("/api/auth/login", json={"user_name": "carol", "password": WRONG_PASSWORD})
 
     assert response.status_code == 401
     assert "set-cookie" not in response.headers
 
 
 def test_login_fails_for_unknown_user(http_client: TestClient):
-    response = http_client.post("/login", json={"user_name": "ghost", "password": VALID_PASSWORD})
+    response = http_client.post("/api/auth/login", json={"user_name": "ghost", "password": VALID_PASSWORD})
 
     assert response.status_code == 401
 
 
 def test_logout_returns_no_content_and_invalidates_session(http_client: TestClient):
     register(http_client, user_name="dave")
-    assert http_client.get("/users").status_code == 200
+    assert http_client.get("/api/users").status_code == 200
 
-    logout_response = http_client.post("/logout")
+    logout_response = http_client.post("/api/auth/logout")
 
     assert logout_response.status_code == 204
-    assert http_client.get("/users").status_code == 401
+    assert http_client.get("/api/users").status_code == 401
 
 
 def test_logout_without_session_cookie_is_idempotent(http_client: TestClient):
-    response = http_client.post("/logout")
+    response = http_client.post("/api/auth/logout")
 
     assert response.status_code == 204
 

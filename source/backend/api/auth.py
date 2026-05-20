@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import Depends, Request, Response
+from source.backend.api.create_router import create_router
 from source.backend.api.schemas.user import UserCreate, UserLogin, UserRead
 from source.backend.db import get_session
 from source.backend.exceptions import (
@@ -12,7 +13,7 @@ from source.backend.services import session_service, user_service
 from source.backend.services.password_service import verify_password
 from sqlalchemy.orm import Session
 
-router = APIRouter(tags=["auth"])
+router = create_router()
 
 logger = get_logger(__name__)
 

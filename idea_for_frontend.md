@@ -210,9 +210,9 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 # TODO
 
 ## Backend — route move
-- [ ] Move all existing routers under the `/api` prefix.
-- [ ] Move `/login`, `/register`, `/logout` to `/api/auth/login`, `/api/auth/register`, `/api/auth/logout`.
-- [ ] Update all tests and scripts referencing the old paths.
+- [x] Move all existing routers under the `/api` prefix.
+- [x] Move `/login`, `/register`, `/logout` to `/api/auth/login`, `/api/auth/register`, `/api/auth/logout`.
+- [x] Update all tests and scripts referencing the old paths.
 
 ## Backend — new endpoints
 - [ ] `GET /api/auth/me`

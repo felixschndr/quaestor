@@ -42,7 +42,7 @@ def test_history_default_page_returns_first_thirty_days_newest_first(
     credential_id = create_credential(http_client).json()["id"]
     account_id = _account_with_history(session_factory=session_factory, credential_id=credential_id, day_count=40)
 
-    body = http_client.get(f"/account/{account_id}/history").json()
+    body = http_client.get(f"/api/account/{account_id}/history").json()
 
     assert body["page"] == 1
     assert body["page_size"] == 30
@@ -67,7 +67,7 @@ def test_history_page_size_controls_day_window(http_client: TestClient, session_
         transactions_per_day=3,
     )
 
-    body = http_client.get(f"/account/{account_id}/history", params={"page_size": 2}).json()
+    body = http_client.get(f"/api/account/{account_id}/history", params={"page_size": 2}).json()
 
     assert body["total_days"] == 5
     assert body["page_size"] == 2
@@ -89,8 +89,8 @@ def test_history_second_page_returns_next_day_window(http_client: TestClient, se
     credential_id = create_credential(http_client).json()["id"]
     account_id = _account_with_history(session_factory=session_factory, credential_id=credential_id, day_count=5)
 
-    page_one = http_client.get(f"/account/{account_id}/history", params={"page_size": 2}).json()
-    page_two = http_client.get(f"/account/{account_id}/history", params={"page": 2, "page_size": 2}).json()
+    page_one = http_client.get(f"/api/account/{account_id}/history", params={"page_size": 2}).json()
+    page_two = http_client.get(f"/api/account/{account_id}/history", params={"page": 2, "page_size": 2}).json()
 
     assert set(page_one["balance_at_date"]) == {"2026-05-01", "2026-04-30"}
     assert set(page_two["balance_at_date"]) == {"2026-04-29", "2026-04-28"}
@@ -102,7 +102,7 @@ def test_history_page_beyond_data_is_empty(http_client: TestClient, session_fact
     credential_id = create_credential(http_client).json()["id"]
     account_id = _account_with_history(session_factory=session_factory, credential_id=credential_id, day_count=3)
 
-    body = http_client.get(f"/account/{account_id}/history", params={"page": 5, "page_size": 10}).json()
+    body = http_client.get(f"/api/account/{account_id}/history", params={"page": 5, "page_size": 10}).json()
 
     assert body["total_days"] == 3
     assert body["transactions"] == []
@@ -118,7 +118,7 @@ def test_history_empty_account_returns_zero_total_days(http_client: TestClient, 
         session.commit()
         account_id = account.id
 
-    body = http_client.get(f"/account/{account_id}/history").json()
+    body = http_client.get(f"/api/account/{account_id}/history").json()
 
     assert body == {"transactions": [], "balance_at_date": {}, "page": 1, "page_size": 30, "total_days": 0}
 
@@ -128,13 +128,13 @@ def test_history_rejects_invalid_pagination_parameters(http_client: TestClient, 
     credential_id = create_credential(http_client).json()["id"]
     account_id = _account_with_history(session_factory=session_factory, credential_id=credential_id, day_count=1)
 
-    assert http_client.get(f"/account/{account_id}/history", params={"page": 0}).status_code == 422
-    assert http_client.get(f"/account/{account_id}/history", params={"page_size": 0}).status_code == 422
-    assert http_client.get(f"/account/{account_id}/history", params={"page_size": 9999}).status_code == 422
+    assert http_client.get(f"/api/account/{account_id}/history", params={"page": 0}).status_code == 422
+    assert http_client.get(f"/api/account/{account_id}/history", params={"page_size": 0}).status_code == 422
+    assert http_client.get(f"/api/account/{account_id}/history", params={"page_size": 9999}).status_code == 422
 
 
 def test_history_requires_authentication(http_client: TestClient):
-    assert http_client.get("/account/1/history").status_code == 401
+    assert http_client.get("/api/account/1/history").status_code == 401
 
 
 def test_user_cannot_read_other_users_history(http_client: TestClient, session_factory: sessionmaker):
@@ -145,4 +145,4 @@ def test_user_cannot_read_other_users_history(http_client: TestClient, session_f
     register(http_client, user_name="bob")
     login_as(http_client, user_name="bob")
 
-    assert http_client.get(f"/account/{account_id}/history").status_code == 404
+    assert http_client.get(f"/api/account/{account_id}/history").status_code == 404

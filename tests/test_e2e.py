@@ -44,14 +44,14 @@ def test_e2e_full_flow() -> None:
 
     data = {
         "method": "POST",
-        "url": f"{URL}/register",
+        "url": f"{URL}/api/auth/register",
         "json": {"user_name": USER1_NAME, "display_name": "My first user", "password": USER1_PW},
     }
     make_request_and_send_response(data, http_session)
 
     data = {
         "method": "POST",
-        "url": f"{URL}/register",
+        "url": f"{URL}/api/auth/register",
         "json": {
             "user_name": "second_user",
             "display_name": "Second User",
@@ -61,25 +61,25 @@ def test_e2e_full_flow() -> None:
     response = make_request_and_send_response(data, Session())
     second_user_id = response.json()["id"]
 
-    data = {"method": "PATCH", "url": f"{URL}/users/{second_user_id}/elevate"}
+    data = {"method": "PATCH", "url": f"{URL}/api/users/{second_user_id}/elevate"}
     make_request_and_send_response(data, http_session)
 
     data = {
         "method": "POST",
-        "url": f"{URL}/application_secrets",
+        "url": f"{URL}/api/application_secrets",
         "json": {"name": FinTSHandler.PRODUCT_ID_SECRET_NAME, "value": os.environ["FINTS_PRODUCT_NUMBER"]},
     }
     make_request_and_send_response(data, http_session)
 
-    data = {"method": "GET", "url": f"{URL}/application_secrets"}
+    data = {"method": "GET", "url": f"{URL}/api/application_secrets"}
     make_request_and_send_response(data, http_session)
 
-    data = {"method": "GET", "url": f"{URL}/credentials/list_all_possible"}
+    data = {"method": "GET", "url": f"{URL}/api/credentials/list_all_possible"}
     make_request_and_send_response(data, http_session)
 
     data = {
         "method": "POST",
-        "url": f"{URL}/credentials",
+        "url": f"{URL}/api/credentials",
         "json": {
             "bank": "trade_republic",
             "credentials": {
@@ -91,21 +91,21 @@ def test_e2e_full_flow() -> None:
     response = make_request_and_send_response(data, http_session)
     trade_republic_credential_id = response.json()["id"]
 
-    data = {"method": "POST", "url": f"{URL}/credentials/{trade_republic_credential_id}/sync"}
+    data = {"method": "POST", "url": f"{URL}/api/credentials/{trade_republic_credential_id}/sync"}
     response = make_request_and_send_response(data, http_session)
     trade_republic_challenge_token = response.json()["challenge_token"]
 
     code = input("2FA-Code: ")
     data = {
         "method": "POST",
-        "url": f"{URL}/credentials/{trade_republic_credential_id}/sync/2fa",
+        "url": f"{URL}/api/credentials/{trade_republic_credential_id}/sync/2fa",
         "json": {"challenge_token": trade_republic_challenge_token, "code": code},
     }
     make_request_and_send_response(data, http_session)
 
     data = {
         "method": "POST",
-        "url": f"{URL}/credentials",
+        "url": f"{URL}/api/credentials",
         "json": {
             "bank": "ing",
             "credentials": {
@@ -117,12 +117,12 @@ def test_e2e_full_flow() -> None:
     response = make_request_and_send_response(data, http_session)
     ing_credential_id = response.json()["id"]
 
-    data = {"method": "POST", "url": f"{URL}/credentials/{ing_credential_id}/sync"}
+    data = {"method": "POST", "url": f"{URL}/api/credentials/{ing_credential_id}/sync"}
     make_request_and_send_response(data, http_session)
 
     data = {
         "method": "POST",
-        "url": f"{URL}/credentials",
+        "url": f"{URL}/api/credentials",
         "json": {
             "bank": "dfs",
             "credentials": {
@@ -135,20 +135,20 @@ def test_e2e_full_flow() -> None:
     response = make_request_and_send_response(data, http_session)
     dfs_credential_id = response.json()["id"]
 
-    data = {"method": "POST", "url": f"{URL}/credentials/{dfs_credential_id}/sync"}
+    data = {"method": "POST", "url": f"{URL}/api/credentials/{dfs_credential_id}/sync"}
     make_request_and_send_response(data, http_session)
 
-    data = {"method": "GET", "url": f"{URL}/users"}
+    data = {"method": "GET", "url": f"{URL}/api/users"}
     response = make_request_and_send_response(data, http_session)
 
     for credential in response.json()[0]["credentials"]:
         for account in credential["accounts"]:
-            data = {"method": "GET", "url": f"{URL}/account/{account['id']}/history"}
+            data = {"method": "GET", "url": f"{URL}/api/account/{account['id']}/history"}
             make_request_and_send_response(data, http_session)
 
     auth_client = Session()
-    data = {"method": "POST", "url": f"{URL}/login", "json": {"name": USER1_NAME, "password": USER1_PW}}
+    data = {"method": "POST", "url": f"{URL}/api/auth/login", "json": {"user_name": USER1_NAME, "password": USER1_PW}}
     make_request_and_send_response(data, auth_client)
 
-    data = {"method": "POST", "url": f"{URL}/logout"}
+    data = {"method": "POST", "url": f"{URL}/api/auth/logout"}
     make_request_and_send_response(data, auth_client)

@@ -172,6 +172,8 @@ async def log_http_requests(request: Request, call_next: Callable[[Request], Awa
     return rebuilt
 
 
+API_PREFIX = "/api"
+
 for api_object in [account, application_secrets, auth, credentials, users]:
-    app.include_router(api_object.router)
+    app.include_router(api_object.router, prefix=API_PREFIX)
 register_exception_handlers(app)
