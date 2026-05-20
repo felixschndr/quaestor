@@ -26,7 +26,7 @@ def _cookie_is_secure() -> bool:
     return os.environ.get(key="SESSION_COOKIE_SECURE", default="false").lower() == "true"
 
 
-def create_session(db_session: Session, user: User) -> str:
+def create_session(db_session: Session, user: User, remember_me: bool = False) -> str:
     raw_token = secrets.token_urlsafe(32)
     now = datetime.now()
     user_session = UserSession(
@@ -34,6 +34,7 @@ def create_session(db_session: Session, user: User) -> str:
         token_hash=_hash_token(raw_token),
         created_at=now,
         expires_at=now + SESSION_DURATION,
+        remember_me=remember_me,
     )
     db_session.add(user_session)
     db_session.commit()
@@ -73,11 +74,11 @@ def delete_session(db_session: Session, raw_token: str) -> None:
         logger.info(f"Deleted session {user_session}")
 
 
-def set_session_cookie(response: Response, raw_token: str) -> None:
+def set_session_cookie(response: Response, raw_token: str, remember_me: bool = False) -> None:
     response.set_cookie(
         key=COOKIE_NAME,
         value=raw_token,
-        max_age=int(SESSION_DURATION.total_seconds()),
+        max_age=int(SESSION_DURATION.total_seconds()) if remember_me else None,
         httponly=True,
         samesite="strict",
         secure=_cookie_is_secure(),

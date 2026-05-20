@@ -82,6 +82,52 @@ def test_login_fails_for_unknown_user(http_client: TestClient):
     assert response.status_code == 401
 
 
+def _set_cookie_attributes(response: TestClient) -> dict[str, str]:
+    raw_cookie = response.headers["set-cookie"]
+    parts = [part.strip() for part in raw_cookie.split(";")]
+    attributes: dict[str, str] = {}
+    for part in parts[1:]:
+        if "=" in part:
+            key, value = part.split(sep="=", maxsplit=1)
+            attributes[key.strip().lower()] = value.strip()
+        else:
+            attributes[part.lower()] = ""
+    return attributes
+
+
+def test_login_without_remember_me_sets_session_only_cookie(http_client: TestClient):
+    register(http_client, user_name="bob")
+    http_client.cookies.clear()
+
+    response = http_client.post("/api/auth/login", json={"user_name": "bob", "password": VALID_PASSWORD})
+
+    assert response.status_code == 200
+    assert "max-age" not in _set_cookie_attributes(response)
+
+
+def test_login_with_remember_me_sets_persistent_cookie(http_client: TestClient):
+    register(http_client, user_name="bob")
+    http_client.cookies.clear()
+
+    response = http_client.post(
+        "/api/auth/login", json={"user_name": "bob", "password": VALID_PASSWORD, "remember_me": True}
+    )
+
+    assert response.status_code == 200
+    assert _set_cookie_attributes(response)["max-age"] == str(14 * 24 * 60 * 60)
+
+
+def test_session_refresh_preserves_remember_me_flag(http_client: TestClient):
+    register(http_client, user_name="bob")
+    http_client.cookies.clear()
+    http_client.post("/api/auth/login", json={"user_name": "bob", "password": VALID_PASSWORD, "remember_me": False})
+
+    response = http_client.get("/api/auth/me")
+
+    assert response.status_code == 200
+    assert "max-age" not in _set_cookie_attributes(response)
+
+
 def test_me_returns_current_user_when_authenticated(http_client: TestClient):
     register(http_client)
 

@@ -36,9 +36,9 @@ def register(payload: UserCreate, response: Response, db_session: Session = Depe
         db_session=db_session, user_name=payload.user_name, display_name=payload.display_name, password=payload.password
     )
     logger.info(f"Registered user {user}")
-    raw_token = session_service.create_session(db_session=db_session, user=user)
+    raw_token = session_service.create_session(db_session=db_session, user=user, remember_me=True)
     logger.info(f"Created session for user {user} with the ID {user.id}")
-    session_service.set_session_cookie(response=response, raw_token=raw_token)
+    session_service.set_session_cookie(response=response, raw_token=raw_token, remember_me=True)
     return user
 
 
@@ -52,8 +52,8 @@ def login(payload: UserLogin, response: Response, db_session: Session = Depends(
     if not verify_password(password_hash=user.password_hash, password_to_verify=payload.password):
         raise InvalidCredentialsError(error_message_in_case_of_invalid_credentials)
 
-    raw_token = session_service.create_session(db_session=db_session, user=user)
-    session_service.set_session_cookie(response=response, raw_token=raw_token)
+    raw_token = session_service.create_session(db_session=db_session, user=user, remember_me=payload.remember_me)
+    session_service.set_session_cookie(response=response, raw_token=raw_token, remember_me=payload.remember_me)
     return user
 
 

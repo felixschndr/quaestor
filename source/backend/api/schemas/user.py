@@ -59,6 +59,7 @@ class UserRead(BaseModel):
 class UserLogin(BaseModel):
     user_name: str
     password: str
+    remember_me: bool = False
 
 
 class UserUpdate(BaseModel):

@@ -19,5 +19,6 @@ class UserSession(Base):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    remember_me: Mapped[bool] = mapped_column(default=False)
 
     user: Mapped["User"] = relationship(back_populates="sessions")
