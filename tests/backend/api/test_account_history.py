@@ -138,11 +138,11 @@ def test_history_requires_authentication(http_client: TestClient):
 
 
 def test_user_cannot_read_other_users_history(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client, name="alice")
+    register(http_client, user_name="alice")
     credential_id = create_credential(http_client).json()["id"]
     account_id = _account_with_history(session_factory=session_factory, credential_id=credential_id, day_count=1)
 
-    register(http_client, name="bob")
-    login_as(http_client, name="bob")
+    register(http_client, user_name="bob")
+    login_as(http_client, user_name="bob")
 
     assert http_client.get(f"/account/{account_id}/history").status_code == 404

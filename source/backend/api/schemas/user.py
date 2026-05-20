@@ -16,7 +16,8 @@ _PASSWORD_RULES = [
 
 
 class UserCreate(BaseModel):
-    name: str
+    user_name: str
+    display_name: str
     password: str = Field(min_length=15)
 
     @field_validator("password")
@@ -32,16 +33,17 @@ class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    name: str
+    user_name: str
+    display_name: str
     admin: bool
     balance: float
     credentials: list[CredentialRead] = []
 
 
 class UserLogin(BaseModel):
-    name: str
+    user_name: str
     password: str
 
 
 class UserUpdate(BaseModel):
-    name: str | None = None
+    display_name: str

@@ -42,13 +42,21 @@ def test_e2e_full_flow() -> None:
     load_dotenv()
     http_session = Session()
 
-    data = {"method": "POST", "url": f"{URL}/register", "json": {"name": USER1_NAME, "password": USER1_PW}}
+    data = {
+        "method": "POST",
+        "url": f"{URL}/register",
+        "json": {"user_name": USER1_NAME, "display_name": "My first user", "password": USER1_PW},
+    }
     make_request_and_send_response(data, http_session)
 
     data = {
         "method": "POST",
         "url": f"{URL}/register",
-        "json": {"name": "Second user", "password": "45678987655678Aa!"},  # nosec: B106
+        "json": {
+            "user_name": "second_user",
+            "display_name": "Second User",
+            "password": "45678987655678Aa!",  # nosec: B106
+        },
     }
     response = make_request_and_send_response(data, Session())
     second_user_id = response.json()["id"]

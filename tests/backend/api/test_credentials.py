@@ -40,11 +40,11 @@ def test_list_credentials_returns_own_credentials(http_client: TestClient):
 
 
 def test_list_credentials_excludes_other_users_credentials(http_client: TestClient):
-    register(http_client, name="alice")
+    register(http_client, user_name="alice")
     alice_credential_id = create_credential(http_client).json()["id"]
 
-    register(http_client, name="bob")
-    login_as(http_client, name="bob")
+    register(http_client, user_name="bob")
+    login_as(http_client, user_name="bob")
     bob_credential_id = create_credential(http_client).json()["id"]
 
     response = http_client.get("/credentials")

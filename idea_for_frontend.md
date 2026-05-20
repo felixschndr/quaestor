@@ -222,15 +222,14 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [ ] `PATCH /api/users/{id}` — accept `display_name`, `current_password`, `new_password`.
 - [ ] `DELETE /api/users/{id}` — delete own account.
 - [ ] `GET /api/users/{id}/sessions`
-- [ ] `DELETE /api/users/{id}/sessions/{session_id}`
-- [ ] `DELETE /api/users/{id}/sessions?exclude_current=true`
+- [ ] `DELETE /api/users/{id}/sessions/{session_id}` (every session possible except the current one, use `/logout` for this)
 - [ ] `PATCH /api/account/{aid}` — accept `balance_factor`.
 - [ ] `GET /api/account/{aid}/transactions/{tid}`
 - [ ] `PATCH /api/account/{aid}/transactions/{tid}` — `{ note }`.
 - [ ] `GET /api/credentials/banks` — wrap `list_all_possible`, include `icon` field per bank.
 
 ## Backend — models & migrations
-- [ ] `User.display_name: str | None` — Alembic migration.
+- [x] `User.display_name: str | None` — Alembic migration.
 - [ ] `Account.balance_factor: int` default 100, range 0–100 — Alembic migration.
 - [ ] `Transaction.note: str | None` — Alembic migration.
 - [ ] `Session.ip`, `Session.user_agent`, `Session.last_used_at` — Alembic migration; update `last_used_at` in the auth dependency.

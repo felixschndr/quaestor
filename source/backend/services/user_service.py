@@ -24,12 +24,14 @@ def list_users(db_session: Session) -> list[User]:
     return users
 
 
-def create_user(db_session: Session, name: str, password: str) -> User:
+def create_user(db_session: Session, user_name: str, display_name: str, password: str) -> User:
     is_first_user = db_session.scalar(select(User.id).limit(1)) is None
-    user = User(name=name, password_hash=hash_password(password), admin=is_first_user)
+    user = User(
+        user_name=user_name, display_name=display_name, password_hash=hash_password(password), admin=is_first_user
+    )
     db_session.add(user)
     db_session.commit()
-    logger.info(f"Created user with the ID {user.id} as {'admin' if user.admin else 'normal user'}")
+    logger.info(f"Created user {user}")
     return user
 
 
@@ -48,16 +50,19 @@ def get_user_by_id(db_session: Session, user_id: int) -> User:
     return _get_user(db_session=db_session, condition=User.id == user_id, identifier_description=f"ID {user_id}")
 
 
-def get_user_by_name(db_session: Session, name: str) -> User:
-    return _get_user(db_session=db_session, condition=User.name == name, identifier_description=f'name "{name}"')
+def get_user_by_user_name(db_session: Session, user_name: str) -> User:
+    return _get_user(
+        db_session=db_session, condition=User.user_name == user_name, identifier_description=f'user_name "{user_name}"'
+    )
 
 
 def update_user(db_session: Session, user_id: int, fields: dict) -> User:
     user = get_user_by_id(db_session=db_session, user_id=user_id)
+    user_before_change = str(user)
     for key, value in fields.items():
         setattr(user, key, value)
     db_session.commit()
-    logger.info(f"Updated user {user_id}, fields: {sorted(fields)}")
+    logger.info(f"Updated user {user_before_change} --> {user}")
     return user
 
 
@@ -65,7 +70,9 @@ def elevate_user(db_session: Session, acting_admin: User, target_user_id: int) -
     target_user = get_user_by_id(db_session=db_session, user_id=target_user_id)
     target_user.admin = True
     db_session.commit()
-    logger.info(f"User with the ID {target_user_id} elevated to admin by admin {acting_admin.id} ({acting_admin.name})")
+    logger.info(
+        f"User with the ID {target_user_id} elevated to admin by admin {acting_admin.id} ({acting_admin.user_name})"
+    )
     return target_user
 
 
@@ -73,4 +80,4 @@ def delete_user(db_session: Session, user_id: int) -> None:
     user = get_user_by_id(db_session=db_session, user_id=user_id)
     db_session.delete(user)
     db_session.commit()
-    logger.info(f"Deleted user {user_id}")
+    logger.info(f"Deleted user {user}")

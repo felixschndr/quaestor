@@ -80,7 +80,7 @@ def test_debug_extra_is_dropped_when_logger_below_debug(caplog: pytest.LogCaptur
 
 def test_request_middleware_redacts_password_and_auth_header(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     with caplog.at_level(logging.DEBUG):
-        response = register(http_client, name="logged")
+        response = register(http_client, user_name="logged")
         http_client.post(
             "/login",
             json={"name": "logged", "password": VALID_PASSWORD},

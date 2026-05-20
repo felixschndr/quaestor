@@ -17,43 +17,43 @@ def test_user_endpoints_require_authentication(http_client: TestClient):
 
 
 def test_user_cannot_read_other_users_credential(http_client: TestClient):
-    register(http_client, name="admin")
-    register(http_client, name="owner")
-    login_as(http_client, name="owner")
+    register(http_client, user_name="admin")
+    register(http_client, user_name="owner")
+    login_as(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
 
-    register(http_client, name="intruder")
-    login_as(http_client, name="intruder")
+    register(http_client, user_name="intruder")
+    login_as(http_client, user_name="intruder")
 
     assert http_client.get(f"/credentials/{credential_id}").status_code == 404
 
 
 def test_user_cannot_modify_or_delete_other_users_credential(http_client: TestClient):
-    register(http_client, name="admin")
-    register(http_client, name="owner")
-    login_as(http_client, name="owner")
+    register(http_client, user_name="admin")
+    register(http_client, user_name="owner")
+    login_as(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
 
-    register(http_client, name="intruder")
-    login_as(http_client, name="intruder")
+    register(http_client, user_name="intruder")
+    login_as(http_client, user_name="intruder")
 
     assert http_client.patch(f"/credentials/{credential_id}", json={"username": "x"}).status_code == 404
     assert http_client.delete(f"/credentials/{credential_id}").status_code == 404
 
 
 def test_user_can_access_only_their_own_user_resource(http_client: TestClient):
-    admin = register(http_client, name="admin").json()
-    other = register(http_client, name="other").json()
-    login_as(http_client, name="other")
+    admin = register(http_client, user_name="admin").json()
+    other = register(http_client, user_name="other").json()
+    login_as(http_client, user_name="other")
 
     assert http_client.get(f"/users/{other['id']}").status_code == 200
     assert http_client.get(f"/users/{admin['id']}").status_code == 404
 
 
 def test_non_admin_cannot_elevate_users(http_client: TestClient):
-    register(http_client, name="admin")
-    target = register(http_client, name="normal").json()
-    login_as(http_client, name="normal")
+    register(http_client, user_name="admin")
+    target = register(http_client, user_name="normal").json()
+    login_as(http_client, user_name="normal")
 
     response = http_client.patch(f"/users/{target['id']}/elevate")
 
@@ -61,9 +61,9 @@ def test_non_admin_cannot_elevate_users(http_client: TestClient):
 
 
 def test_admin_can_elevate_user(http_client: TestClient):
-    register(http_client, name="admin")
-    target = register(http_client, name="normal").json()
-    login_as(http_client, name="admin")
+    register(http_client, user_name="admin")
+    target = register(http_client, user_name="normal").json()
+    login_as(http_client, user_name="admin")
 
     response = http_client.patch(f"/users/{target['id']}/elevate")
 
@@ -72,8 +72,8 @@ def test_admin_can_elevate_user(http_client: TestClient):
 
 
 def test_first_registered_user_is_admin_and_others_are_not(http_client: TestClient):
-    first = register(http_client, name="admin").json()
-    second = register(http_client, name="normal").json()
+    first = register(http_client, user_name="admin").json()
+    second = register(http_client, user_name="normal").json()
 
     assert first["admin"] is True
     assert second["admin"] is False
