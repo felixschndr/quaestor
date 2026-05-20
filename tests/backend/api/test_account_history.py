@@ -138,7 +138,7 @@ def test_history_requires_authentication(http_client: TestClient):
 
 
 def test_user_cannot_read_other_users_history(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client, user_name="alice")
+    register(http_client)
     credential_id = create_credential(http_client).json()["id"]
     account_id = _account_with_history(session_factory=session_factory, credential_id=credential_id, day_count=1)
 

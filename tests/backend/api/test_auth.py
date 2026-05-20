@@ -5,7 +5,13 @@ from source.backend.services.user_service import (
     ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME,
 )
 
-from tests.backend.conftest import VALID_PASSWORD, WRONG_PASSWORD, register
+from tests.backend.conftest import (
+    DISPLAY_NAME,
+    USER_NAME,
+    VALID_PASSWORD,
+    WRONG_PASSWORD,
+    register,
+)
 
 
 def test_register_returns_created_user_and_sets_session_cookie(http_client: TestClient):
@@ -13,8 +19,8 @@ def test_register_returns_created_user_and_sets_session_cookie(http_client: Test
 
     assert response.status_code == 201
     body = response.json()
-    assert body["user_name"] == "alice"
-    assert body["display_name"] == "Alice"
+    assert body["user_name"] == USER_NAME
+    assert body["display_name"] == DISPLAY_NAME
     assert body["balance"] == 0.0
     assert COOKIE_NAME in response.cookies
 
@@ -76,14 +82,14 @@ def test_login_fails_for_unknown_user(http_client: TestClient):
 
 
 def test_me_returns_current_user_when_authenticated(http_client: TestClient):
-    register(http_client, user_name="eve", display_name="Eve")
+    register(http_client)
 
     response = http_client.get("/api/auth/me")
 
     assert response.status_code == 200
     body = response.json()
-    assert body["user_name"] == "eve"
-    assert body["display_name"] == "Eve"
+    assert body["user_name"] == USER_NAME
+    assert body["display_name"] == DISPLAY_NAME
 
 
 def test_me_returns_401_when_unauthenticated(http_client: TestClient):

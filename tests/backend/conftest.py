@@ -10,6 +10,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+USER_NAME = "alice"
+DISPLAY_NAME = "Alice"
 VALID_PASSWORD = "Sup3rSecret!Pass"  # nosec B105
 WRONG_PASSWORD = "Wr0ngPassword!!"  # nosec B105
 BANK_USERNAME = "bankuser"
@@ -48,7 +50,10 @@ def http_client(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
 
 
 def register(
-    http_client: TestClient, user_name: str = "alice", display_name: str = "Alice", password: str = VALID_PASSWORD
+    http_client: TestClient,
+    user_name: str = USER_NAME,
+    display_name: str = DISPLAY_NAME,
+    password: str = VALID_PASSWORD,
 ) -> Response:
     return http_client.post(
         "/api/auth/register", json={"user_name": user_name, "display_name": display_name, "password": password}
