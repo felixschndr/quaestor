@@ -23,6 +23,7 @@ class Transaction(Base):
     date: Mapped[datetime.date] = mapped_column(Date)
     other_party: Mapped[str | None] = mapped_column(String, nullable=True)
     transaction_type: Mapped[TransactionType | None] = mapped_column(SQLEnum(TransactionType), nullable=True)
+    note: Mapped[str | None] = mapped_column(String, nullable=True)
 
     account: Mapped["Account"] = relationship(back_populates="transactions")
 

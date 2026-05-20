@@ -13,3 +13,8 @@ class TransactionRead(BaseModel):
     date: datetime.date
     other_party: str | None
     transaction_type: TransactionType | None
+    note: str | None
+
+
+class TransactionUpdate(BaseModel):
+    note: str | None = None

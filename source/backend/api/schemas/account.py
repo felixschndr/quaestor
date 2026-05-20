@@ -22,6 +22,6 @@ class AccountHistory(BaseModel):
     balance_at_date: dict[datetime.date, float]
     page: int
     page_size: int
-    # Total number of distinct transaction days for the account; lets the
-    # client know whether there is another page worth requesting.
+    # Total number of distinct transaction days for the account
+    # lets the client know whether there is another page worth requesting
     total_days: int

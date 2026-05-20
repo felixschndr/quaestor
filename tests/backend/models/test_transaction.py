@@ -13,9 +13,10 @@ def test_transaction_repr_contains_identifying_fields():
         date=date(year=2026, month=5, day=20),
         other_party="Café",
         transaction_type=TransactionType.OUTGOING,
+        note="Birthday gift",
     )
 
     assert repr(transaction) == (
         "<Transaction(id=99, account_id=42, amount=-19.99, purpose=Coffee, "
-        "date=2026-05-20, other_party=Café, transaction_type=OUTGOING)>"
+        "date=2026-05-20, other_party=Café, transaction_type=OUTGOING, note=Birthday gift)>"
     )

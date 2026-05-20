@@ -57,6 +57,15 @@ def get_transaction_for_account(db_session: Session, account: Account, transacti
     return transaction
 
 
+def update_transaction(db_session: Session, transaction: Transaction, fields: dict) -> Transaction:
+    transaction_before_change = str(transaction)
+    for key, value in fields.items():
+        setattr(transaction, key, value)
+    db_session.commit()
+    logger.info(f"Updated transaction {transaction_before_change} --> {transaction}")
+    return transaction
+
+
 def update_account(db_session: Session, account: Account, fields: dict) -> Account:
     account_before_change = str(account)
     for key, value in fields.items():

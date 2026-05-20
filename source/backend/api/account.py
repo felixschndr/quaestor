@@ -5,9 +5,10 @@ from source.backend.api.schemas.account import (
     AccountRead,
     AccountUpdate,
 )
-from source.backend.api.schemas.transaction import TransactionRead
+from source.backend.api.schemas.transaction import TransactionRead, TransactionUpdate
 from source.backend.db import get_session
 from source.backend.models.account import Account
+from source.backend.models.transaction import Transaction
 from source.backend.models.user import User
 from source.backend.services import account_service, session_service
 from sqlalchemy.orm import Session
@@ -36,14 +37,32 @@ def get_transaction(
     transaction_id: int,
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
-) -> TransactionRead:
+) -> Transaction:
+    account = account_service.get_account_for_user(
+        db_session=db_session, account_id=account_id, user_id=current_user.id
+    )
+    return account_service.get_transaction_for_account(
+        db_session=db_session, account=account, transaction_id=transaction_id
+    )
+
+
+@router.patch("/{account_id}/transactions/{transaction_id}", response_model=TransactionRead)
+def update_transaction(
+    account_id: int,
+    transaction_id: int,
+    payload: TransactionUpdate,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> Transaction:
     account = account_service.get_account_for_user(
         db_session=db_session, account_id=account_id, user_id=current_user.id
     )
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
-    return TransactionRead.model_validate(transaction)
+    return account_service.update_transaction(
+        db_session=db_session, transaction=transaction, fields=payload.model_dump(exclude_unset=True)
+    )
 
 
 @router.get("/{account_id}/history", response_model=AccountHistory)

@@ -226,13 +226,13 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `DELETE /api/users/{id}/sessions?exclude_current=true`
 - [x] `PATCH /api/account/{aid}` — accept `balance_factor`.
 - [x] `GET /api/account/{aid}/transactions/{tid}`
-- [ ] `PATCH /api/account/{aid}/transactions/{tid}` — `{ note }`.
+- [x] `PATCH /api/account/{aid}/transactions/{tid}` — `{ note }`.
 - [x] `GET /api/credentials/supported_banks` — wrap `list_all_possible`, include `icon` field per bank.
 
 ## Backend — models & migrations
 - [x] `User.display_name: str | None` — Alembic migration.
 - [x] `Account.balance_factor: int` default 100, range 0–100 — Alembic migration.
-- [ ] `Transaction.note: str | None` — Alembic migration.
+- [x] `Transaction.note: str | None` — Alembic migration.
 - [x] `Session.ip`, `Session.user_agent`, `Session.last_used_at` — Alembic migration; update `last_used_at` in the auth dependency.
 - [x] `BankProvider`: add an `icon` property to the `BANKS` data records. **Do not change Enum member names** (must stay UPPER, per MEMORY).
 - [x] Update `User.balance` computation to apply `balance_factor`.

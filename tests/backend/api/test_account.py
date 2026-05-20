@@ -140,3 +140,77 @@ def test_get_transaction_for_other_users_account_returns_404(http_client: TestCl
 
 def test_get_transaction_requires_authentication(http_client: TestClient):
     assert http_client.get("/api/account/1/transactions/1").status_code == 401
+
+
+def test_update_transaction_set_note(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.patch(
+        f"/api/account/{account_id}/transactions/{transaction_id}", json={"note": "Birthday gift"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["note"] == "Birthday gift"
+
+
+def test_update_transaction_persists_note(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_id)
+    http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"note": "Persisted"})
+
+    with session_factory() as session:
+        stored = session.get(entity=Transaction, ident=transaction_id)
+        assert stored is not None
+        assert stored.note == "Persisted"
+
+
+def test_update_transaction_null_note_clears_existing_note(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_id)
+    http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"note": "to be cleared"})
+
+    response = http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"note": None})
+
+    assert response.status_code == 200
+    assert response.json()["note"] is None
+
+
+def test_update_transaction_returns_404_when_transaction_does_not_belong_to_account(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_a = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_b = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_a)
+
+    assert (
+        http_client.patch(f"/api/account/{account_b}/transactions/{transaction_id}", json={"note": "x"}).status_code
+        == 404
+    )
+
+
+def test_update_transaction_for_other_users_account_returns_404(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client, user_name="owner")
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_id)
+
+    register(http_client, user_name="intruder")
+    login_as(http_client, user_name="intruder")
+
+    assert (
+        http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"note": "x"}).status_code
+        == 404
+    )
+
+
+def test_update_transaction_requires_authentication(http_client: TestClient):
+    assert http_client.patch("/api/account/1/transactions/1", json={"note": "x"}).status_code == 401
