@@ -41,6 +41,26 @@ def test_user_cannot_modify_or_delete_other_users_credential(http_client: TestCl
     assert http_client.delete(f"/api/credentials/{credential_id}").status_code == 404
 
 
+def test_user_cannot_delete_other_users_account(http_client: TestClient):
+    admin_id = register(http_client, user_name="admin").json()["id"]
+    register(http_client, user_name="other")
+    login_as(http_client, user_name="other")
+
+    response = http_client.delete(f"/api/users/{admin_id}")
+
+    assert response.status_code == 404
+
+
+def test_user_cannot_patch_other_users_account(http_client: TestClient):
+    admin_id = register(http_client, user_name="admin").json()["id"]
+    register(http_client, user_name="other")
+    login_as(http_client, user_name="other")
+
+    response = http_client.patch(f"/api/users/{admin_id}", json={"display_name": "Hacked"})
+
+    assert response.status_code == 404
+
+
 def test_non_admin_cannot_elevate_users(http_client: TestClient):
     register(http_client, user_name="admin")
     target = register(http_client, user_name="normal").json()

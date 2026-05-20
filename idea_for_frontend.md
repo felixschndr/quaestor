@@ -220,7 +220,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `GET /api/auth/password_requirements`
 - [x] `POST /api/auth/login` — add `remember_me` field; 14-day cookie when true, session cookie otherwise.
 - [x] `PATCH /api/users/{id}` — accept `display_name`, `current_password`, `new_password`.
-- [ ] `DELETE /api/users/{id}` — delete own account.
+- [x] `DELETE /api/users/{id}` — delete own account.
 - [ ] `GET /api/users/{id}/sessions`
 - [ ] `DELETE /api/users/{id}/sessions/{session_id}` (every session possible except the current one, use `/logout` for this)
 - [ ] `PATCH /api/account/{aid}` — accept `balance_factor`.
