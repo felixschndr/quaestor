@@ -42,4 +42,4 @@ class Account(Base):
         for day in sorted(daily_totals, reverse=True):
             if day not in self.balance_at_date:
                 self.balance_at_date[day] = AccountBalanceSnapshot(date=day, balance=running_balance)
-            running_balance -= daily_totals[day]
+            running_balance = round(number=running_balance - daily_totals[day], ndigits=2)

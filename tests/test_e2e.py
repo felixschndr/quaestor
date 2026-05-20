@@ -69,31 +69,31 @@ def test_e2e_full_flow() -> None:
     data = {"method": "GET", "url": f"{URL}/credentials/list_all_possible"}
     make_request_and_send_response(data, http_session)
 
-    # data = {
-    #     "method": "POST",
-    #     "url": f"{URL}/credentials",
-    #     "json": {
-    #         "bank": "trade_republic",
-    #         "credentials": {
-    #             "phone": os.environ["TR_PHONE"],
-    #             "pin": os.environ["TR_PIN"],
-    #         },
-    #     },
-    # }
-    # response = make_request_and_send_response(data, http_session)
-    # trade_republic_credential_id = response.json()["id"]
-    #
-    # data = {"method": "POST", "url": f"{URL}/credentials/{trade_republic_credential_id}/sync"}
-    # response = make_request_and_send_response(data, http_session)
-    # trade_republic_challenge_token = response.json()["challenge_token"]
-    #
-    # code = input("2FA-Code: ")
-    # data = {
-    #     "method": "POST",
-    #     "url": f"{URL}/credentials/{trade_republic_credential_id}/sync/2fa",
-    #     "json": {"challenge_token": trade_republic_challenge_token, "code": code},
-    # }
-    # make_request_and_send_response(data, http_session)
+    data = {
+        "method": "POST",
+        "url": f"{URL}/credentials",
+        "json": {
+            "bank": "trade_republic",
+            "credentials": {
+                "phone": os.environ["TR_PHONE"],
+                "pin": os.environ["TR_PIN"],
+            },
+        },
+    }
+    response = make_request_and_send_response(data, http_session)
+    trade_republic_credential_id = response.json()["id"]
+
+    data = {"method": "POST", "url": f"{URL}/credentials/{trade_republic_credential_id}/sync"}
+    response = make_request_and_send_response(data, http_session)
+    trade_republic_challenge_token = response.json()["challenge_token"]
+
+    code = input("2FA-Code: ")
+    data = {
+        "method": "POST",
+        "url": f"{URL}/credentials/{trade_republic_credential_id}/sync/2fa",
+        "json": {"challenge_token": trade_republic_challenge_token, "code": code},
+    }
+    make_request_and_send_response(data, http_session)
 
     data = {
         "method": "POST",
@@ -136,7 +136,7 @@ def test_e2e_full_flow() -> None:
 
     for credential in response.json()[0]["credentials"]:
         for account in credential["accounts"]:
-            data = {"method": "GET", "url": f"{URL}/transactions/{account['id']}"}
+            data = {"method": "GET", "url": f"{URL}/account/{account['id']}/history"}
             make_request_and_send_response(data, http_session)
 
     auth_client = Session()
