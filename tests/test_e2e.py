@@ -138,10 +138,10 @@ def test_e2e_full_flow() -> None:
     data = {"method": "POST", "url": f"{URL}/api/credentials/{dfs_credential_id}/sync"}
     make_request_and_send_response(data, http_session)
 
-    data = {"method": "GET", "url": f"{URL}/api/users"}
+    data = {"method": "GET", "url": f"{URL}/api/auth/me"}
     response = make_request_and_send_response(data, http_session)
 
-    for credential in response.json()[0]["credentials"]:
+    for credential in response.json()["credentials"]:
         for account in credential["accounts"]:
             data = {"method": "GET", "url": f"{URL}/api/account/{account['id']}/history"}
             make_request_and_send_response(data, http_session)

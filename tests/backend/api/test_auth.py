@@ -10,6 +10,7 @@ from tests.backend.conftest import (
     USER_NAME,
     VALID_PASSWORD,
     WRONG_PASSWORD,
+    create_credential,
     register,
 )
 
@@ -92,6 +93,18 @@ def test_me_returns_current_user_when_authenticated(http_client: TestClient):
     assert body["display_name"] == DISPLAY_NAME
 
 
+def test_me_includes_credentials_and_balance(http_client: TestClient):
+    register(http_client)
+    create_credential(http_client)
+
+    response = http_client.get("/api/auth/me")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["balance"] == 0.0
+    assert [credential["bank"] for credential in body["credentials"]] == ["ing"]
+
+
 def test_me_returns_401_when_unauthenticated(http_client: TestClient):
     response = http_client.get("/api/auth/me")
 
@@ -139,12 +152,12 @@ def test_password_requirements_is_public(http_client: TestClient):
 
 def test_logout_returns_no_content_and_invalidates_session(http_client: TestClient):
     register(http_client, user_name="dave")
-    assert http_client.get("/api/users").status_code == 200
+    assert http_client.get("/api/auth/me").status_code == 200
 
     logout_response = http_client.post("/api/auth/logout")
 
     assert logout_response.status_code == 204
-    assert http_client.get("/api/users").status_code == 401
+    assert http_client.get("/api/auth/me").status_code == 401
 
 
 def test_logout_without_session_cookie_is_idempotent(http_client: TestClient):

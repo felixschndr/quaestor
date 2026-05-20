@@ -10,17 +10,6 @@ from sqlalchemy.orm import Session
 router = create_router()
 
 
-@router.get("", response_model=list[UserRead])
-def list_users(current_user: User = Depends(session_service.get_current_user_from_request)) -> list[User]:
-    return [current_user]
-
-
-@router.get("/{user_id}", response_model=UserRead)
-def get_user(user_id: int, current_user: User = Depends(session_service.get_current_user_from_request)) -> User:
-    _require_self(user_id=user_id, current_user=current_user)
-    return current_user
-
-
 @router.patch("/{user_id}", response_model=UserRead)
 def update_user(
     user_id: int,
