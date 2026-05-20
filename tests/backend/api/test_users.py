@@ -229,3 +229,48 @@ def test_revoke_session_for_other_user_id_returns_404(http_client: TestClient):
 
 def test_revoke_session_requires_authentication(http_client: TestClient):
     assert http_client.delete("/api/users/1/sessions/1").status_code == 401
+
+
+def test_revoke_all_other_sessions_keeps_only_current(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+    http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
+    http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
+    assert len(http_client.get(f"/api/users/{user_id}/sessions").json()) == 3
+
+    response = http_client.delete(f"/api/users/{user_id}/sessions?exclude_current=true")
+
+    assert response.status_code == 204
+    remaining = http_client.get(f"/api/users/{user_id}/sessions").json()
+    assert len(remaining) == 1
+    assert remaining[0]["is_current"] is True
+
+
+def test_revoke_all_other_sessions_with_only_current_session_is_noop(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+
+    response = http_client.delete(f"/api/users/{user_id}/sessions?exclude_current=true")
+
+    assert response.status_code == 204
+    assert http_client.get("/api/auth/me").status_code == 200
+
+
+def test_revoke_all_other_sessions_requires_exclude_current_true(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+
+    assert http_client.delete(f"/api/users/{user_id}/sessions").status_code == 422
+    assert http_client.delete(f"/api/users/{user_id}/sessions?exclude_current=false").status_code == 422
+    assert http_client.get("/api/auth/me").status_code == 200
+
+
+def test_revoke_all_other_sessions_for_other_user_returns_404(http_client: TestClient):
+    admin_id = register(http_client, user_name="admin").json()["id"]
+    register(http_client, user_name="other")
+    login_as(http_client, user_name="other")
+
+    response = http_client.delete(f"/api/users/{admin_id}/sessions?exclude_current=true")
+
+    assert response.status_code == 404
+
+
+def test_revoke_all_other_sessions_requires_authentication(http_client: TestClient):
+    assert http_client.delete("/api/users/1/sessions?exclude_current=true").status_code == 401

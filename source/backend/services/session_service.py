@@ -91,6 +91,20 @@ def is_current_session(user_session: UserSession, raw_token: str | None) -> bool
     return raw_token is not None and user_session.token_hash == _hash_token(raw_token)
 
 
+def revoke_all_other_sessions_for_user(db_session: Session, user_id: int, current_raw_token: str | None) -> int:
+    sessions = list_sessions_for_user(db_session=db_session, user_id=user_id)
+    revoked = 0
+    for user_session in sessions:
+        if is_current_session(user_session=user_session, raw_token=current_raw_token):
+            continue
+        db_session.delete(user_session)
+        revoked += 1
+    if revoked:
+        db_session.commit()
+    logger.info(f"Revoked {revoked} other session(s) for user {user_id}")
+    return revoked
+
+
 def revoke_user_session(db_session: Session, user_id: int, session_id: int, current_raw_token: str | None) -> None:
     user_session = db_session.get(entity=UserSession, ident=session_id)
     not_found_error = SessionNotFoundError(f"Session with the ID {session_id} not found")

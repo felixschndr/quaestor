@@ -3,7 +3,11 @@ from source.backend.api.create_router import create_router
 from source.backend.api.schemas.session import SessionRead
 from source.backend.api.schemas.user import UserRead, UserUpdate
 from source.backend.db import get_session
-from source.backend.exceptions import InvalidCredentialsError, UserNotFoundError
+from source.backend.exceptions import (
+    InvalidCredentialsError,
+    UserNotFoundError,
+    ValidationError,
+)
 from source.backend.models.user import User
 from source.backend.services import credential_service, session_service, user_service
 from source.backend.services.password_service import hash_password, verify_password
@@ -32,6 +36,27 @@ def list_user_sessions(
         )
         for user_session in session_service.list_sessions_for_user(db_session=db_session, user_id=current_user.id)
     ]
+
+
+@router.delete("/{user_id}/sessions", status_code=204)
+def revoke_all_other_user_sessions(
+    user_id: int,
+    request: Request,
+    exclude_current: bool = False,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> None:
+    _require_self(user_id=user_id, current_user=current_user)
+    if not exclude_current:
+        raise ValidationError(
+            "This endpoint only supports exclude_current=true; "
+            "use DELETE /api/users/{id}/sessions/{session_id} or POST /api/auth/logout for other cases"
+        )
+    session_service.revoke_all_other_sessions_for_user(
+        db_session=db_session,
+        user_id=current_user.id,
+        current_raw_token=request.cookies.get(session_service.COOKIE_NAME),
+    )
 
 
 @router.delete("/{user_id}/sessions/{session_id}", status_code=204)
