@@ -7,7 +7,7 @@ kwargs-ignore-function-pattern-extend = (options|load_only|replace|pop)$
 per-file-ignores =
     tests/*:ANN201
     test_*:ANN201
-    alembic/versions/*:FKA100
+    source/backend/alembic/versions/*:FKA100
     scripts/*:FKA100
     tests/test_e2e.py:FKA100
 extend-exclude =
