@@ -13,7 +13,7 @@ def test_credential_endpoints_require_authentication(http_client: TestClient):
 def test_user_endpoints_require_authentication(http_client: TestClient):
     http_client.cookies.clear()
 
-    assert http_client.get("/api/users").status_code == 401
+    assert http_client.get("/api/auth/me").status_code == 401
 
 
 def test_user_cannot_read_other_users_credential(http_client: TestClient):
@@ -39,15 +39,6 @@ def test_user_cannot_modify_or_delete_other_users_credential(http_client: TestCl
 
     assert http_client.patch(f"/api/credentials/{credential_id}", json={"username": "x"}).status_code == 404
     assert http_client.delete(f"/api/credentials/{credential_id}").status_code == 404
-
-
-def test_user_can_access_only_their_own_user_resource(http_client: TestClient):
-    admin = register(http_client, user_name="admin").json()
-    other = register(http_client, user_name="other").json()
-    login_as(http_client, user_name="other")
-
-    assert http_client.get(f"/api/users/{other['id']}").status_code == 200
-    assert http_client.get(f"/api/users/{admin['id']}").status_code == 404
 
 
 def test_non_admin_cannot_elevate_users(http_client: TestClient):

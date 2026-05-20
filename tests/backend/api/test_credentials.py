@@ -1,4 +1,9 @@
+from datetime import datetime
+
+import pytest
 from fastapi.testclient import TestClient
+from source.backend.services import credential_service
+from source.backend.services.credential_service import SyncResult, SyncStatus
 
 from tests.backend.conftest import BANK_PASSWORD, create_credential, login_as, register
 
@@ -153,3 +158,79 @@ def test_create_credential_for_dfs_requires_extra_fields(http_client: TestClient
     response = create_credential(http_client, bank="dfs")
 
     assert response.status_code == 422
+
+
+def test_sync_credential_returns_completed(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    monkeypatch.setattr(
+        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
+    )
+
+    response = http_client.post(f"/api/credentials/{credential_id}/sync")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "completed", "challenge_token": None, "expires_at": None}  # nosec B105
+
+
+def test_sync_credential_returns_202_and_challenge_when_two_factor_required(
+    http_client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    expires_at = datetime(year=2026, month=6, day=1, hour=12)
+    monkeypatch.setattr(
+        target=credential_service,
+        name="sync_credential",
+        value=lambda **_: SyncResult(
+            status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token="tok", expires_at=expires_at
+        ),  # nosec B106
+    )
+
+    response = http_client.post(f"/api/credentials/{credential_id}/sync")
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "2fa_required"
+    assert body["challenge_token"] == "tok"
+
+
+def test_sync_credential_returns_404_for_other_users_credential(http_client: TestClient):
+    register(http_client, user_name="owner")
+    credential_id = create_credential(http_client).json()["id"]
+
+    register(http_client, user_name="intruder")
+    login_as(http_client, user_name="intruder")
+
+    assert http_client.post(f"/api/credentials/{credential_id}/sync").status_code == 404
+
+
+def test_sync_2fa_completes_login(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    monkeypatch.setattr(
+        target=credential_service, name="confirm_two_factor", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
+    )
+
+    response = http_client.post(
+        f"/api/credentials/{credential_id}/sync/2fa",
+        json={"challenge_token": "tok", "code": "1234"},  # nosec B105
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "completed"
+
+
+def test_sync_2fa_returns_404_for_other_users_credential(http_client: TestClient):
+    register(http_client, user_name="owner")
+    credential_id = create_credential(http_client).json()["id"]
+
+    register(http_client, user_name="intruder")
+    login_as(http_client, user_name="intruder")
+
+    response = http_client.post(
+        f"/api/credentials/{credential_id}/sync/2fa",
+        json={"challenge_token": "tok", "code": "1234"},  # nosec B105
+    )
+
+    assert response.status_code == 404
