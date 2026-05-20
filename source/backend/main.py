@@ -35,6 +35,7 @@ def create_db_entries_if_not_exists(db_session: Session) -> None:
     objects_to_create = [
         ApplicationSecret(name=FinTSHandler.PRODUCT_ID_SECRET_NAME, value=""),
     ]
+    logger.debug(f"Creating {len(objects_to_create)} default object(s) into the database if missing")
 
     for object_to_create in objects_to_create:
         model = type(object_to_create)
@@ -48,6 +49,8 @@ def create_db_entries_if_not_exists(db_session: Session) -> None:
         if not already_exists:
             logger.info(f"Adding {object_to_create} to the database as it does not exist yet.")
             db_session.add(object_to_create)
+        else:
+            logger.debug(f"Skipping creations for {object_to_create} (already exists)")
 
     db_session.commit()
 
@@ -65,6 +68,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator:
         sync_task.cancel()
         with suppress(asyncio.CancelledError):
             await sync_task
+        logger.info("Shutdown complete")
 
 
 class _RenameUvicornError(logging.Filter):
@@ -93,15 +97,17 @@ def _route_third_party_loggers_to_root() -> None:
 
 
 def setup_logging() -> None:
+    log_level = os.environ.get(key="LOG_LEVEL", default="INFO")
     logging.basicConfig(
         stream=sys.stdout,
         format="[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s",
         encoding="utf-8",
-        level=os.environ.get(key="LOG_LEVEL", default="INFO"),
+        level=log_level,
         force=True,
     )
     for handler in logging.root.handlers:
         handler.addFilter(_RenameUvicornError())
+    logger.debug(f"Logging configured at level {log_level}")
 
 
 setup_logging()
@@ -113,12 +119,25 @@ app = FastAPI(title="Finanzguru Clone", lifespan=lifespan)
 async def refresh_session(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     response = await call_next(request)
     raw_token = request.cookies.get(session_service.COOKIE_NAME)
-    if raw_token:
-        with SessionLocal() as db_session:
-            if session_service.renew_session(db_session=db_session, raw_token=raw_token) is None:
-                session_service.clear_session_cookie(response)
-            else:
-                session_service.set_session_cookie(response=response, raw_token=raw_token)
+    if not raw_token:
+        logger.debug(f"{request.method} {request.url.path}: no session cookie, skipping session refresh")
+        return response
+    with SessionLocal() as db_session:
+        user_session = session_service.renew_session(db_session=db_session, raw_token=raw_token)
+        if user_session is None:
+            logger.debug(
+                f"{request.method} {request.url.path}: presented session cookie is invalid or expired, "
+                "clearing it from the response"
+            )
+            session_service.clear_session_cookie(response)
+        else:
+            logger.debug(
+                f"{request.method} {request.url.path}: refreshed session {user_session.id} for user "
+                f"{user_session.user_id} (remember_me={user_session.remember_me})"
+            )
+            session_service.set_session_cookie(
+                response=response, raw_token=raw_token, remember_me=user_session.remember_me
+            )
     return response
 
 
@@ -139,7 +158,8 @@ async def log_http_requests(request: Request, call_next: Callable[[Request], Awa
     if log_level_is_debug:
         try:
             request_body = await request.body()
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Could not read request body for {request.method} {request.url.path}: {e}")
             request_body = b""
 
     response = await call_next(request)
