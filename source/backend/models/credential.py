@@ -71,7 +71,7 @@ class Credential(Base):
         for fetched_account in bank_session.get_accounts():
             account = by_name.get(fetched_account.name)
             if account is None:
-                account = Account(name=fetched_account.name)
+                account = Account.from_fetched(fetched_account)
                 self.accounts.append(account)
                 created_accounts += 1
             elif account.name != fetched_account.name:
@@ -104,15 +104,7 @@ class Credential(Base):
             if key in existing_transactions:
                 continue
 
-            account.transactions.append(
-                Transaction(
-                    amount=fetched_transaction.amount,
-                    purpose=fetched_transaction.purpose,
-                    date=fetched_transaction.date,
-                    other_party=fetched_transaction.other_party,
-                    portfolio_transaction_type=fetched_transaction.portfolio_transaction_type,
-                )
-            )
+            account.transactions.append(Transaction.from_fetched(fetched_transaction))
             existing_transactions.add(key)
             created_transactions += 1
         return created_transactions
