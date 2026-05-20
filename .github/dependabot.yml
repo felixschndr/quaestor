@@ -6,6 +6,8 @@ updates:
       interval: "daily"
     cooldown:
       default-days: 3 # Updates have to be at least 3 days old to prevent supply chain attacks.
+    assignees:
+      - "felixschndr"
     labels:
       - "dependencies"
     groups:
@@ -20,6 +22,8 @@ updates:
       interval: "daily"
     cooldown:
       default-days: 3
+    assignees:
+      - "felixschndr"
     labels:
       - "dependencies"
       - "github-actions"
