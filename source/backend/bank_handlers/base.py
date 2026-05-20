@@ -38,8 +38,8 @@ class BankSession(ABC):
     @abstractmethod
     def get_balance(self, account: FetchedAccount) -> float: ...
 
-    def get_transactions(self, account: FetchedAccount, start_date: date) -> list[FetchedTransaction]:
-        return []
+    @abstractmethod
+    def get_transactions(self, account: FetchedAccount, start_date: date) -> list[FetchedTransaction]: ...
 
 
 class BankHandler(ABC):

@@ -1,9 +1,9 @@
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, List
 
-from source.backend.api.helpers import get_key_of_transaction
 from source.backend.bank_handlers import BankHandler, BankProvider, handler_for
 from source.backend.bank_handlers.base import BankSession, FetchedAccount
+from source.backend.helpers import get_key_of_transaction
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.base import Base
