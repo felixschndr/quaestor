@@ -4,7 +4,7 @@ from tests.backend.conftest import create_credential, login_as, register
 
 
 def test_list_users_returns_only_the_current_user(http_client: TestClient):
-    register(http_client, user_name="alice")
+    register(http_client)
     register(http_client, user_name="bob")
     login_as(http_client, user_name="bob")
 
@@ -15,7 +15,7 @@ def test_list_users_returns_only_the_current_user(http_client: TestClient):
 
 
 def test_get_own_user_includes_credentials_and_balance(http_client: TestClient):
-    user_id = register(http_client, user_name="alice").json()["id"]
+    user_id = register(http_client).json()["id"]
     create_credential(http_client)
 
     response = http_client.get(f"/api/users/{user_id}")
@@ -27,7 +27,7 @@ def test_get_own_user_includes_credentials_and_balance(http_client: TestClient):
 
 
 def test_update_user_changes_display_name(http_client: TestClient):
-    user_id = register(http_client, user_name="alice").json()["id"]
+    user_id = register(http_client).json()["id"]
 
     response = http_client.patch(f"/api/users/{user_id}", json={"display_name": "Renamed"})
 
@@ -36,7 +36,7 @@ def test_update_user_changes_display_name(http_client: TestClient):
 
 
 def test_delete_user_removes_account_and_invalidates_session(http_client: TestClient):
-    user_id = register(http_client, user_name="alice").json()["id"]
+    user_id = register(http_client).json()["id"]
 
     delete_response = http_client.delete(f"/api/users/{user_id}")
 
@@ -45,7 +45,7 @@ def test_delete_user_removes_account_and_invalidates_session(http_client: TestCl
 
 
 def test_sync_without_credentials_returns_no_content(http_client: TestClient):
-    register(http_client, user_name="alice")
+    register(http_client)
 
     response = http_client.post("/api/users/sync")
 

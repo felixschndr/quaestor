@@ -9,13 +9,15 @@ from source.backend.models.user import User
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from tests.backend.conftest import BANK_PASSWORD, BANK_USERNAME, DISPLAY_NAME, USER_NAME
+
 
 def _persist_account(session: Session, balance: float, transactions: list[tuple[date, float]]) -> Account:
-    user = User(user_name="alice", display_name="Alice", password_hash="hash", admin=False)  # nosec B106
+    user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash="hash", admin=False)  # nosec B106
     credential = Credential(
         user=user,
         bank=BankProvider.ING,
-        credentials={"username": "u", "password": "p"},  # nosec B105
+        credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD},
         requires_two_factor_authentication=False,
     )
     account = Account(name="x", balance=balance, credential=credential)
