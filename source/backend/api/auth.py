@@ -1,6 +1,15 @@
 from fastapi import Depends, Request, Response
 from source.backend.api.create_router import create_router
-from source.backend.api.schemas.user import UserCreate, UserLogin, UserRead
+from source.backend.api.schemas.user import (
+    MIN_PASSWORD_LENGTH,
+    PASSWORD_RULES,
+    PasswordRequirements,
+    PasswordRule,
+    RegistrationAllowed,
+    UserCreate,
+    UserLogin,
+    UserRead,
+)
 from source.backend.db import get_session
 from source.backend.exceptions import (
     InvalidCredentialsError,
@@ -51,6 +60,22 @@ def login(payload: UserLogin, response: Response, db_session: Session = Depends(
 @router.get("/me", response_model=UserRead)
 def me(current_user: User = Depends(session_service.get_current_user_from_request)) -> User:
     return current_user
+
+
+@router.get("/registration_allowed", response_model=RegistrationAllowed)
+def registration_allowed() -> RegistrationAllowed:
+    return RegistrationAllowed(allowed=user_service.new_user_registration_allowed())
+
+
+@router.get("/password_requirements", response_model=PasswordRequirements)
+def password_requirements() -> PasswordRequirements:
+    return PasswordRequirements(
+        min_length=MIN_PASSWORD_LENGTH,
+        rules=[
+            PasswordRule(name=name, regex=pattern.pattern, description=description)
+            for name, (pattern, description) in PASSWORD_RULES.items()
+        ],
+    )
 
 
 @router.post("/logout", status_code=204)

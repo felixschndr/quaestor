@@ -98,6 +98,45 @@ def test_me_returns_401_when_unauthenticated(http_client: TestClient):
     assert response.status_code == 401
 
 
+def test_registration_allowed_returns_true_by_default(http_client: TestClient):
+    response = http_client.get("/api/auth/registration_allowed")
+
+    assert response.status_code == 200
+    assert response.json() == {"allowed": True}
+
+
+def test_registration_allowed_reflects_env_variable(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(name=ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME, value="false")
+
+    response = http_client.get("/api/auth/registration_allowed")
+
+    assert response.status_code == 200
+    assert response.json() == {"allowed": False}
+
+
+def test_registration_allowed_is_public(http_client: TestClient):
+    assert http_client.get("/api/auth/registration_allowed").status_code == 200
+
+
+def test_password_requirements_returns_current_rules(http_client: TestClient):
+    response = http_client.get("/api/auth/password_requirements")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "min_length": 15,
+        "rules": [
+            {"name": "lower", "regex": "[a-z]", "description": "a lowercase letter"},
+            {"name": "upper", "regex": "[A-Z]", "description": "an uppercase letter"},
+            {"name": "digit", "regex": r"\d", "description": "a digit"},
+            {"name": "symbol", "regex": "[^A-Za-z0-9]", "description": "a special character"},
+        ],
+    }
+
+
+def test_password_requirements_is_public(http_client: TestClient):
+    assert http_client.get("/api/auth/password_requirements").status_code == 200
+
+
 def test_logout_returns_no_content_and_invalidates_session(http_client: TestClient):
     register(http_client, user_name="dave")
     assert http_client.get("/api/users").status_code == 200

@@ -216,8 +216,8 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 
 ## Backend — new endpoints
 - [x] `GET /api/auth/me`
-- [ ] `GET /api/auth/registration_allowed`
-- [ ] `GET /api/auth/password_requirements`
+- [x] `GET /api/auth/registration_allowed`
+- [x] `GET /api/auth/password_requirements`
 - [ ] `POST /api/auth/login` — add `remember_me` field; 14-day cookie when true, session cookie otherwise.
 - [ ] `PATCH /api/users/{id}` — accept `display_name`, `current_password`, `new_password`.
 - [ ] `DELETE /api/users/{id}` — delete own account.
