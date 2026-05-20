@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, List
 
 from source.backend.models.base import Base
 from sqlalchemy import Float, ForeignKey, String
@@ -19,7 +19,3 @@ class Account(Base):
 
     credential: Mapped["Credential"] = relationship(back_populates="accounts")
     transactions: Mapped[List["Transaction"]] = relationship(back_populates="account", cascade="all, delete-orphan")
-
-    def __init__(self, **kw: Any) -> None:  # TODO: Can we remove this somehow?
-        kw.setdefault("balance", 0.0)  # noqa: FKA100
-        super().__init__(**kw)
