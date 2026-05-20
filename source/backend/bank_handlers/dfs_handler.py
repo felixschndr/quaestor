@@ -2,7 +2,6 @@ from contextlib import contextmanager
 from datetime import date
 from typing import Any, Iterator
 
-from pytr.event import PPEventType
 from requests import HTTPError, Session
 from source.backend.bank_handlers.base import (
     BankHandler,
@@ -13,13 +12,14 @@ from source.backend.bank_handlers.base import (
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
 from source.backend.helpers import epoch_ms_to_date
 from source.backend.logging_utils import get_logger
+from source.backend.models.transaction_type import TransactionType
 
 logger = get_logger(__name__)
 
 
-_VORGANG_TO_EVENT_TYPE: dict[str, PPEventType] = {  # TODO: make own enum
-    "Einzahlung": PPEventType.DEPOSIT,
-    "Auszahlung": PPEventType.REMOVAL,
+_VORGANG_TO_TRANSACTION_TYPE: dict[str, TransactionType] = {
+    "Einzahlung": TransactionType.DEPOSIT,
+    "Auszahlung": TransactionType.REMOVAL,
 }
 
 
@@ -87,7 +87,7 @@ class _DFSSession(BankSession):
                             purpose=raw_transaction.get("lohnart"),
                             date=epoch_ms_to_date(raw_transaction["belegdatum"]),
                             other_party=None,
-                            portfolio_transaction_type=_VORGANG_TO_EVENT_TYPE.get(vorgang),
+                            transaction_type=_VORGANG_TO_TRANSACTION_TYPE.get(vorgang),
                         )
                     )
         self._fetched = True
