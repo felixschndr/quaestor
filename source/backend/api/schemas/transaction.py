@@ -13,10 +13,3 @@ class TransactionRead(BaseModel):
     date: datetime.date
     other_party: str | None
     portfolio_transaction_type: PPEventType | None
-
-
-class TransactionPage(BaseModel):
-    items: list[TransactionRead]
-    page: int
-    page_size: int
-    total: int

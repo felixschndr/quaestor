@@ -1,11 +1,18 @@
+from datetime import date
+
 from source.backend.exceptions import AccountNotFoundError
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
+from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
 from source.backend.models.credential import Credential
-from sqlalchemy import select
+from source.backend.models.transaction import Transaction
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
+
+DEFAULT_DAYS_PER_PAGE = 30
+MAX_DAYS_PER_PAGE = 365
 
 
 def list_accounts(db_session: Session, user_id: int) -> list[Account]:
@@ -37,3 +44,49 @@ def get_account_for_user(db_session: Session, account_id: int, user_id: int) -> 
         )
         raise AccountNotFoundError(f"Account with the ID {account_id} not found")
     return account
+
+
+def get_history_page(
+    db_session: Session,
+    account_id: int,
+    page: int = 1,
+    page_size: int = DEFAULT_DAYS_PER_PAGE,
+) -> tuple[list[Transaction], dict[date, float], int]:
+    # `page_size` is the number of distinct transaction days per page (not the number of transactions)
+    total_days = (
+        db_session.scalar(select(func.count(Transaction.date.distinct())).where(Transaction.account_id == account_id))
+        or 0
+    )
+    page_dates = list(
+        db_session.scalars(
+            select(Transaction.date)
+            .where(Transaction.account_id == account_id)
+            .group_by(Transaction.date)
+            .order_by(Transaction.date.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    )
+    if not page_dates:
+        return [], {}, total_days
+
+    transactions = list(
+        db_session.scalars(
+            select(Transaction)
+            .where(Transaction.account_id == account_id)
+            .where(Transaction.date.in_(page_dates))
+            .order_by(Transaction.date.desc())
+            .order_by(Transaction.id.desc())
+        )
+    )
+    snapshots = db_session.scalars(
+        select(AccountBalanceSnapshot)
+        .where(AccountBalanceSnapshot.account_id == account_id)
+        .where(AccountBalanceSnapshot.date.in_(page_dates))
+    )
+    balance_at_date = {snapshot.date: snapshot.balance for snapshot in snapshots}
+    logger.debug(
+        f"Account {account_id} history page {page} (size {page_size}): "
+        f"{len(page_dates)} day(s), {len(transactions)} transaction(s) of {total_days} total day(s)"
+    )
+    return transactions, balance_at_date, total_days

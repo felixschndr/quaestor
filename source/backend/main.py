@@ -9,10 +9,10 @@ from typing import Any, AsyncGenerator, Awaitable, Callable
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
 from source.backend.api import (
+    account,
     application_secrets,
     auth,
     credentials,
-    transactions,
     users,
 )
 from source.backend.api.exception_handlers import register_exception_handlers
@@ -172,6 +172,6 @@ async def log_http_requests(request: Request, call_next: Callable[[Request], Awa
     return rebuilt
 
 
-for api_object in [application_secrets, auth, credentials, transactions, users]:
+for api_object in [account, application_secrets, auth, credentials, users]:
     app.include_router(api_object.router)
 register_exception_handlers(app)
