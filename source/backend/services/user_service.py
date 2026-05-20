@@ -70,9 +70,7 @@ def elevate_user(db_session: Session, acting_admin: User, target_user_id: int) -
     target_user = get_user_by_id(db_session=db_session, user_id=target_user_id)
     target_user.admin = True
     db_session.commit()
-    logger.info(
-        f"User with the ID {target_user_id} elevated to admin by admin {acting_admin.id} ({acting_admin.user_name})"
-    )
+    logger.info(f"Elevated {target_user} to admin (acting admin: {acting_admin})")
     return target_user
 
 

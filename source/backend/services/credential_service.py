@@ -51,16 +51,14 @@ def get_credential(db_session: Session, credential_id: int) -> Credential:
         error_message = f"Credential with the ID {credential_id} not found"
         logger.warning(error_message)
         raise CredentialNotFoundError(error_message)
-    logger.debug(f"Loaded credential with the ID {credential_id} ({credential.bank.value})")
+    logger.debug(f"Loaded {credential}")
     return credential
 
 
 def get_credential_for_user(db_session: Session, credential_id: int, user_id: int) -> Credential:
     credential = get_credential(db_session=db_session, credential_id=credential_id)
     if credential.user_id != user_id:
-        logger.warning(
-            f"User {user_id} attempted to access credential {credential_id} owned by user {credential.user_id}"
-        )
+        logger.warning(f"User {user_id} attempted to access {credential} owned by user {credential.user_id}")
         raise CredentialNotFoundError(f"Credential with the ID {credential_id} not found")
     return credential
 
@@ -117,6 +115,7 @@ def delete_credential(db_session: Session, credential_id: int) -> None:
 
 
 def sync_credential(db_session: Session, credential_id: int) -> SyncResult:
+    logger.debug(f"Sync requested for credential {credential_id}")
     credential = get_credential(db_session=db_session, credential_id=credential_id)
     result = sync_credential_object(db_session=db_session, credential=credential)
     db_session.commit()
@@ -124,23 +123,21 @@ def sync_credential(db_session: Session, credential_id: int) -> SyncResult:
 
 
 def sync_credential_object(db_session: Session, credential: Credential) -> SyncResult:
-    logger.info(f"Syncing credential with the ID {credential.id} ({credential.bank.value})")
+    logger.info(f"Syncing {credential}")
     handler = credential.handler
-    logger.debug(f"Using {type(handler).__name__} for credential {credential.id}")
+    logger.debug(f"Using {type(handler).__name__} for {credential}")
     if isinstance(handler, FinTSHandler):
         handler.product_id = application_secret_service.get_value_of_application_secret_by_name(
             name=FinTSHandler.PRODUCT_ID_SECRET_NAME, db_session=db_session
         )
-        logger.debug(f"Loaded FinTS product id from application secret for credential {credential.id}")
+        logger.debug(f"Loaded FinTS product id from application secret for {credential}")
     if isinstance(handler, TradeRepublicHandler):
         handler.session_state = credential.session_state
-        logger.debug(
-            f"Credential {credential.id} has {'a stored' if credential.session_state else 'no'} Trade Republic session"
-        )
+        logger.debug(f"{credential} has {'a stored' if credential.session_state else 'no'} Trade Republic session")
         try:
             credential.sync(handler)
         except ReauthenticationRequiredError:
-            logger.info(f"Credential {credential.id} requires 2FA re-authentication; starting Trade Republic login")
+            logger.info(f"{credential} requires 2FA re-authentication; starting Trade Republic login")
             token, expires_at = trade_republic_login.start(
                 credential_id=credential.id,
                 phone_no=handler.credentials["phone"],
@@ -149,11 +146,11 @@ def sync_credential_object(db_session: Session, credential: Credential) -> SyncR
             credential.requires_two_factor_authentication = True
             return SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=token, expires_at=expires_at)
         credential.session_state = handler.session_state
-        logger.info(f"Credential with the ID {credential.id} synced (Trade Republic, resumed session)")
+        logger.info(f"Synced {credential} (Trade Republic, resumed session)")
         return SyncResult(status=SyncStatus.COMPLETED)
 
     credential.sync(handler)
-    logger.info(f"Credential with the ID {credential.id} synced ({credential.bank.value})")
+    logger.info(f"Synced {credential}")
     return SyncResult(status=SyncStatus.COMPLETED)
 
 
@@ -172,7 +169,7 @@ def sync_all_due_credentials(db_session: Session) -> None:
             synced += 1
         except Exception:
             failed += 1
-            logger.exception(f"Periodic sync failed for credential {credential.id}")
+            logger.exception(f"Periodic sync failed for {credential}")
     db_session.commit()
     logger.info(
         f"Periodic sync finished: {synced} synced, {skipped} skipped (2FA), "

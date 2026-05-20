@@ -45,10 +45,12 @@ def create_session(db_session: Session, user: User, remember_me: bool = False) -
 def _get_session_by_raw_token(db_session: Session, raw_token: str) -> UserSession | None:
     user_session = db_session.scalar(select(UserSession).where(UserSession.token_hash == _hash_token(raw_token)))
     if user_session is None:
+        logger.debug("Presented session token does not match any known session")
         return None
     if user_session.expires_at < datetime.now():
-        logger.debug(f"Session {user_session.id} expired")
+        logger.debug(f"Session {user_session} expired at {user_session.expires_at:%Y-%m-%d %H:%M:%S}")
         return None
+    logger.debug(f"Matched session {user_session}")
     return user_session
 
 
@@ -56,7 +58,9 @@ def renew_session(db_session: Session, raw_token: str) -> UserSession | None:
     user_session = _get_session_by_raw_token(db_session=db_session, raw_token=raw_token)
     if user_session is None:
         return None
-    user_session.expires_at = datetime.now() + SESSION_DURATION
+    new_expiry = datetime.now() + SESSION_DURATION
+    logger.debug(f"Renewing session {user_session} expiry: {user_session.expires_at} --> {new_expiry}")
+    user_session.expires_at = new_expiry
     db_session.commit()
     return user_session
 
@@ -68,17 +72,24 @@ def get_user_by_raw_token(db_session: Session, raw_token: str) -> User | None:
 
 def delete_session(db_session: Session, raw_token: str) -> None:
     user_session = _get_session_by_raw_token(db_session=db_session, raw_token=raw_token)
-    if user_session is not None:
-        db_session.delete(user_session)
-        db_session.commit()
-        logger.info(f"Deleted session {user_session}")
+    if user_session is None:
+        logger.warning("Asked to delete a session but no matching session was found")
+        return
+    db_session.delete(user_session)
+    db_session.commit()
+    logger.info(f"Deleted session {user_session}")
 
 
 def set_session_cookie(response: Response, raw_token: str, remember_me: bool = False) -> None:
+    max_age = int(SESSION_DURATION.total_seconds()) if remember_me else None
+    logger.debug(
+        f"Setting session cookie ({'persistent, max_age=' + str(max_age) + 's' if remember_me else 'session-only'}, "
+        f"secure={_cookie_is_secure()})"
+    )
     response.set_cookie(
         key=COOKIE_NAME,
         value=raw_token,
-        max_age=int(SESSION_DURATION.total_seconds()) if remember_me else None,
+        max_age=max_age,
         httponly=True,
         samesite="strict",
         secure=_cookie_is_secure(),
@@ -87,18 +98,28 @@ def set_session_cookie(response: Response, raw_token: str, remember_me: bool = F
 
 
 def clear_session_cookie(response: Response) -> None:
+    logger.debug("Clearing session cookie from response")
     response.delete_cookie(COOKIE_NAME, path="/")
 
 
 def get_current_user_from_request(request: Request, db_session: Session = Depends(get_session)) -> User:
     raw_token = request.cookies.get(COOKIE_NAME)
-    user = get_user_by_raw_token(db_session=db_session, raw_token=raw_token) if raw_token else None
-    if user is None:
+    if not raw_token:
+        logger.debug(f"{request.method} {request.url.path}: no session cookie, authentication failed")
         raise InvalidCredentialsError("Authentication required")
+    user = get_user_by_raw_token(db_session=db_session, raw_token=raw_token)
+    if user is None:
+        logger.debug(
+            f"{request.method} {request.url.path}: session cookie did not resolve to a user, authentication failed"
+        )
+        raise InvalidCredentialsError("Authentication required")
+    logger.debug(f"{request.method} {request.url.path}: authenticated as user {user}")
     return user
 
 
 def get_current_user_from_request_if_is_admin(user: User = Depends(get_current_user_from_request)) -> User:
     if not user.admin:
+        logger.debug(f"User {user} attempted an admin-only action without admin rights")
         raise PermissionDeniedError("Admin privileges required")
+    logger.debug(f"Authorized admin {user} for an admin-only action")
     return user

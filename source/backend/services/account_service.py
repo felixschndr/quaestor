@@ -32,16 +32,14 @@ def get_account(db_session: Session, account_id: int) -> Account:
         error_message = f"Account with the ID {account_id} not found"
         logger.warning(error_message)
         raise AccountNotFoundError(error_message)
-    logger.debug(f"Loaded account with the ID {account_id}")
+    logger.debug(f"Loaded {account}")
     return account
 
 
 def get_account_for_user(db_session: Session, account_id: int, user_id: int) -> Account:
     account = get_account(db_session=db_session, account_id=account_id)
     if account.credential.user_id != user_id:
-        logger.warning(
-            f"User {user_id} attempted to access account {account_id} owned by user {account.credential.user_id}"
-        )
+        logger.warning(f"User {user_id} attempted to access {account} owned by user {account.credential.user_id}")
         raise AccountNotFoundError(f"Account with the ID {account_id} not found")
     return account
 
@@ -68,6 +66,7 @@ def get_history_page(
         )
     )
     if not page_dates:
+        logger.debug(f"Account {account_id} history page {page} (size {page_size}): no transactions on this page")
         return [], {}, total_days
 
     transactions = list(

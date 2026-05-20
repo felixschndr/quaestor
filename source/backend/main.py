@@ -131,10 +131,7 @@ async def refresh_session(request: Request, call_next: Callable[[Request], Await
             )
             session_service.clear_session_cookie(response)
         else:
-            logger.debug(
-                f"{request.method} {request.url.path}: refreshed session {user_session.id} for user "
-                f"{user_session.user_id} (remember_me={user_session.remember_me})"
-            )
+            logger.debug(f"{request.method} {request.url.path}: refreshed {user_session}")
             session_service.set_session_cookie(
                 response=response, raw_token=raw_token, remember_me=user_session.remember_me
             )

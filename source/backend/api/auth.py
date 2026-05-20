@@ -35,9 +35,8 @@ def register(payload: UserCreate, response: Response, db_session: Session = Depe
     user = user_service.create_user(
         db_session=db_session, user_name=payload.user_name, display_name=payload.display_name, password=payload.password
     )
-    logger.info(f"Registered user {user}")
+    logger.info(f"Registered {user}")
     raw_token = session_service.create_session(db_session=db_session, user=user, remember_me=True)
-    logger.info(f"Created session for user {user} with the ID {user.id}")
     session_service.set_session_cookie(response=response, raw_token=raw_token, remember_me=True)
     return user
 
