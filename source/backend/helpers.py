@@ -7,7 +7,7 @@ from source.backend.models.transaction import Transaction
 def get_key_of_transaction(transaction: Transaction | FetchedTransaction) -> str:
     return (
         f"{transaction.date} {transaction.purpose} {transaction.other_party} {transaction.amount} "
-        f"{transaction.portfolio_transaction_type}"
+        f"{transaction.transaction_type}"
     )
 
 

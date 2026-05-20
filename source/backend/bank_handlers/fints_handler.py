@@ -11,6 +11,7 @@ from source.backend.bank_handlers.base import (
     FetchedTransaction,
 )
 from source.backend.logging_utils import get_logger
+from source.backend.models.transaction_type import TransactionType
 
 logger = get_logger(__name__)
 
@@ -39,19 +40,26 @@ class _FinTSSession(BankSession):
         transactions = []
         for raw_transaction in raw_transactions:
             data = raw_transaction.data
-            amount = data["amount"]
-            if float(amount.amount) == 6.0:
-                print()
+            amount = float(data["amount"].amount)
             transactions.append(
                 FetchedTransaction(
-                    amount=float(amount.amount),
+                    amount=amount,
                     purpose=data.get("purpose"),
                     date=data["date"],
                     other_party=data.get("applicant_name"),
+                    transaction_type=_transaction_type_from_amount(amount=amount),
                 )
             )
         logger.debug(f"FinTS returned {len(transactions)} transaction(s) for {account.name} since {start_date}")
         return transactions
+
+
+def _transaction_type_from_amount(amount: float) -> TransactionType:
+    if amount > 0:
+        return TransactionType.INCOMING
+    if amount < 0:
+        return TransactionType.OUTGOING
+    return TransactionType.UNKNOWN
 
 
 class FinTSHandler(BankHandler):

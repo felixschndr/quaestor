@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Iterator
 
 from pytr.api import TradeRepublicApi
-from pytr.event import Event, PPEventType
+from pytr.event import Event
 from pytr.portfolio import Portfolio
 from pytr.timeline import Timeline
 from pytr.transactions import TransactionExporter
@@ -18,28 +18,29 @@ from source.backend.bank_handlers.base import (
 )
 from source.backend.exceptions import ReauthenticationRequiredError
 from source.backend.logging_utils import get_logger
+from source.backend.models.transaction_type import TransactionType
 
 logger = get_logger(__name__)
 
 # We need an own mapping since the pytr exporter does not output the enums but text instead
 # Thus, we have to convert it back
-_LABEL_TO_EVENT_TYPE: dict[str, PPEventType] = {
-    "Buy": PPEventType.BUY,
-    "Sell": PPEventType.SELL,
-    "Deposit": PPEventType.DEPOSIT,
-    "Removal": PPEventType.REMOVAL,
-    "Dividend": PPEventType.DIVIDEND,
-    "Interest": PPEventType.INTEREST,
-    "Interest Charge": PPEventType.INTEREST_CHARGE,
-    "Taxes": PPEventType.TAXES,
-    "Tax Refund": PPEventType.TAX_REFUND,
-    "Fees": PPEventType.FEES,
-    "Fees Refund": PPEventType.FEES_REFUND,
-    "Spinoff": PPEventType.SPINOFF,
-    "Split": PPEventType.SPLIT,
-    "Swap": PPEventType.SWAP,
-    "Transfer (Inbound)": PPEventType.TRANSFER_IN,
-    "Transfer (Outbound)": PPEventType.TRANSFER_OUT,
+_LABEL_TO_TRANSACTION_TYPE: dict[str, TransactionType] = {
+    "Buy": TransactionType.BUY,
+    "Sell": TransactionType.SELL,
+    "Deposit": TransactionType.DEPOSIT,
+    "Removal": TransactionType.REMOVAL,
+    "Dividend": TransactionType.DIVIDEND,
+    "Interest": TransactionType.INTEREST,
+    "Interest Charge": TransactionType.INTEREST_CHARGE,
+    "Taxes": TransactionType.TAXES,
+    "Tax Refund": TransactionType.TAX_REFUND,
+    "Fees": TransactionType.FEES,
+    "Fees Refund": TransactionType.FEES_REFUND,
+    "Spinoff": TransactionType.SPINOFF,
+    "Split": TransactionType.SPLIT,
+    "Swap": TransactionType.SWAP,
+    "Transfer (Inbound)": TransactionType.TRANSFER_IN,
+    "Transfer (Outbound)": TransactionType.TRANSFER_OUT,
 }
 
 
@@ -135,7 +136,7 @@ class _TradeRepublicSession(BankSession):
                         purpose=None,
                         date=date.fromisoformat(str(row[date_field])),
                         other_party=row[note_field],
-                        portfolio_transaction_type=_LABEL_TO_EVENT_TYPE.get(row[type_field]),
+                        transaction_type=_LABEL_TO_TRANSACTION_TYPE.get(row[type_field]),
                     )
                 )
 

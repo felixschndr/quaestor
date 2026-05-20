@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-05-20 10:18:42.586414
+Create Date: 2026-05-20 10:45:02.010392
 
 """
 
@@ -104,25 +104,28 @@ def upgrade() -> None:
         sa.Column("date", sa.Date(), nullable=False),
         sa.Column("other_party", sa.String(), nullable=True),
         sa.Column(
-            "portfolio_transaction_type",
+            "transaction_type",
             sa.Enum(
+                "INCOMING",
+                "OUTGOING",
                 "BUY",
+                "SELL",
                 "DEPOSIT",
+                "REMOVAL",
                 "DIVIDEND",
-                "FEES",
-                "FEES_REFUND",
                 "INTEREST",
                 "INTEREST_CHARGE",
-                "REMOVAL",
-                "SELL",
+                "TAXES",
+                "TAX_REFUND",
+                "FEES",
+                "FEES_REFUND",
                 "SPINOFF",
                 "SPLIT",
                 "SWAP",
-                "TAXES",
-                "TAX_REFUND",
                 "TRANSFER_IN",
                 "TRANSFER_OUT",
-                name="ppeventtype",
+                "UNKNOWN",
+                name="transactiontype",
             ),
             nullable=True,
         ),

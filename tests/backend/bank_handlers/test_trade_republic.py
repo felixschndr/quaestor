@@ -1,10 +1,10 @@
 from datetime import date, datetime
 
 import pytest
-from pytr.event import PPEventType
 from source.backend.bank_handlers import trade_republic
 from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.bank_handlers.trade_republic import _TradeRepublicSession
+from source.backend.models.transaction_type import TransactionType
 
 
 class _FakeExporter:
@@ -61,11 +61,11 @@ def test_cash_and_position_transactions_are_routed_to_the_right_account(monkeypa
         FetchedAccount(name="Core MSCI World USD (Acc)"), start_date=date(year=2025, month=1, day=1)
     )
 
-    assert [(t.amount, t.portfolio_transaction_type, t.date) for t in cash] == [
-        (-500.0, PPEventType.REMOVAL, date(year=2026, month=5, day=13))
+    assert [(t.amount, t.transaction_type, t.date) for t in cash] == [
+        (-500.0, TransactionType.REMOVAL, date(year=2026, month=5, day=13))
     ]
-    assert [(t.amount, t.portfolio_transaction_type, t.date) for t in position] == [
-        (-54801.0, PPEventType.BUY, date(year=2025, month=3, day=24))
+    assert [(t.amount, t.transaction_type, t.date) for t in position] == [
+        (-54801.0, TransactionType.BUY, date(year=2025, month=3, day=24))
     ]
 
 
