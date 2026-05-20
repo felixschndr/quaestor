@@ -48,6 +48,11 @@ def login(payload: UserLogin, response: Response, db_session: Session = Depends(
     return user
 
 
+@router.get("/me", response_model=UserRead)
+def me(current_user: User = Depends(session_service.get_current_user_from_request)) -> User:
+    return current_user
+
+
 @router.post("/logout", status_code=204)
 def logout(request: Request, response: Response, db_session: Session = Depends(get_session)) -> None:
     raw_token = request.cookies.get(session_service.COOKIE_NAME)

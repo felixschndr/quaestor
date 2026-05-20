@@ -215,7 +215,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] Update all tests and scripts referencing the old paths.
 
 ## Backend — new endpoints
-- [ ] `GET /api/auth/me`
+- [x] `GET /api/auth/me`
 - [ ] `GET /api/auth/registration_allowed`
 - [ ] `GET /api/auth/password_requirements`
 - [ ] `POST /api/auth/login` — add `remember_me` field; 14-day cookie when true, session cookie otherwise.

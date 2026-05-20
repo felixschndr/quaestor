@@ -75,6 +75,23 @@ def test_login_fails_for_unknown_user(http_client: TestClient):
     assert response.status_code == 401
 
 
+def test_me_returns_current_user_when_authenticated(http_client: TestClient):
+    register(http_client, user_name="eve", display_name="Eve")
+
+    response = http_client.get("/api/auth/me")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["user_name"] == "eve"
+    assert body["display_name"] == "Eve"
+
+
+def test_me_returns_401_when_unauthenticated(http_client: TestClient):
+    response = http_client.get("/api/auth/me")
+
+    assert response.status_code == 401
+
+
 def test_logout_returns_no_content_and_invalidates_session(http_client: TestClient):
     register(http_client, user_name="dave")
     assert http_client.get("/api/users").status_code == 200
