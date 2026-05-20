@@ -29,16 +29,15 @@ def _cookie_is_secure() -> bool:
 def create_session(db_session: Session, user: User) -> str:
     raw_token = secrets.token_urlsafe(32)
     now = datetime.now()
-    db_session.add(
-        UserSession(
-            user_id=user.id,
-            token_hash=_hash_token(raw_token),
-            created_at=now,
-            expires_at=now + SESSION_DURATION,
-        )
+    user_session = UserSession(
+        user_id=user.id,
+        token_hash=_hash_token(raw_token),
+        created_at=now,
+        expires_at=now + SESSION_DURATION,
     )
+    db_session.add(user_session)
     db_session.commit()
-    logger.info(f"Created session for user with the ID {user.id}")
+    logger.info(f"Created session {user_session}")
     return raw_token
 
 
@@ -69,9 +68,9 @@ def get_user_by_raw_token(db_session: Session, raw_token: str) -> User | None:
 def delete_session(db_session: Session, raw_token: str) -> None:
     user_session = _get_session_by_raw_token(db_session=db_session, raw_token=raw_token)
     if user_session is not None:
-        logger.info(f"Deleting session for user with the ID {user_session.user_id}")
         db_session.delete(user_session)
         db_session.commit()
+        logger.info(f"Deleted session {user_session}")
 
 
 def set_session_cookie(response: Response, raw_token: str) -> None:

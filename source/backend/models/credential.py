@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 
 class Credential(Base):
     __tablename__ = "credentials"
+    __repr_exclude__ = frozenset({"credentials", "session_state"})
+
     id: Mapped[int] = mapped_column(primary_key=True)
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))

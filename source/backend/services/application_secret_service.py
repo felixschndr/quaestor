@@ -30,7 +30,8 @@ def list_all_application_secrets(db_session: Session) -> list[dict]:
 
 def update_application_secret(name: str, value: str, db_session: Session) -> dict:
     application_secret = _get_application_secret_by_name(name=name, db_session=db_session)
+    application_secret_before_change = str(application_secret)
     application_secret.value = value
     db_session.commit()
-    logger.info(f'Updated application secret "{name}"')
+    logger.info(f"Updated application secret {application_secret_before_change} --> {application_secret}")
     return {"id": application_secret.id, "name": application_secret.name}

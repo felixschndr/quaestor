@@ -75,7 +75,7 @@ def test_update_credential_changes_credentials(http_client: TestClient):
 
     response = http_client.patch(
         f"/credentials/{credential_id}",
-        json={"credentials": {"username": "renamed", "password": "bankpass"}},  # nosec: B105
+        json={"credentials": {"username": "renamed", "password": "bankpass"}},  # nosec B105
     )
 
     assert response.status_code == 200

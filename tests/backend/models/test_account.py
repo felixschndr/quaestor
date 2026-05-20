@@ -11,11 +11,11 @@ from sqlalchemy.orm import Session, sessionmaker
 
 
 def _persist_account(session: Session, balance: float, transactions: list[tuple[date, float]]) -> Account:
-    user = User(name="alice", password_hash="hash", admin=False)  # nosec B106
+    user = User(user_name="alice", display_name="Alice", password_hash="hash", admin=False)  # nosec B106
     credential = Credential(
         user=user,
         bank=BankProvider.ING,
-        credentials={"username": "u", "password": "p"},  # nosec: B105
+        credentials={"username": "u", "password": "p"},  # nosec B105
         requires_two_factor_authentication=False,
     )
     account = Account(name="x", balance=balance, credential=credential)
@@ -29,6 +29,12 @@ def _persist_account(session: Session, balance: float, transactions: list[tuple[
 def _get_persisted_snapshots(session: Session, account: Account) -> dict[date, float]:
     rows = session.scalars(select(AccountBalanceSnapshot).where(AccountBalanceSnapshot.account_id == account.id)).all()
     return {row.date: row.balance for row in rows}
+
+
+def test_account_repr_contains_identifying_fields():
+    account = Account(id=42, credential_id=7, name="Checking", balance=123.45)
+
+    assert repr(account) == "<Account(id=42, credential_id=7, name=Checking, balance=123.45)>"
 
 
 def test_update_balance_at_date_persists_back_calculated_snapshots(session_factory: sessionmaker):

@@ -15,8 +15,8 @@ from tests.backend.conftest import VALID_PASSWORD, register
 @pytest.mark.parametrize(
     argnames="data,expected",
     argvalues=[
-        ({"password": "secret"}, {"password": REDACTION_PLACEHOLDER}),  # nosec: B105
-        ({"PassWord": "secret"}, {"PassWord": REDACTION_PLACEHOLDER}),  # nosec: B105
+        ({"password": "secret"}, {"password": REDACTION_PLACEHOLDER}),  # nosec B105
+        ({"PassWord": "secret"}, {"PassWord": REDACTION_PLACEHOLDER}),  # nosec B105
         ({"username": "bob", "id": 3}, {"username": "bob", "id": 3}),
         ({"outer": {"api_key": "k", "ok": 1}}, {"outer": {"api_key": REDACTION_PLACEHOLDER, "ok": 1}}),
         ({"items": [{"pin": "1234"}, {"keep": "v"}]}, {"items": [{"pin": REDACTION_PLACEHOLDER}, {"keep": "v"}]}),

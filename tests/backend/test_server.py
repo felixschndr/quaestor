@@ -128,6 +128,6 @@ def test_server_accepts_https_connection(isolated_app: None, monkeypatch: pytest
     monkeypatch.setenv(name="SSL_KEYFILE", value=keyfile)
 
     with running_server():
-        response = httpx.get(f"https://127.0.0.1:{port}/openapi.json", verify=False)  # nosec: B501
+        response = httpx.get(f"https://127.0.0.1:{port}/openapi.json", verify=False)  # nosec B501
 
     assert response.status_code == 200

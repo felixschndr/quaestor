@@ -16,7 +16,7 @@ pytestmark = pytest.mark.skipif(
 
 URL = "http://localhost:8000"
 USER1_NAME = "supercoolusername"
-USER1_PW = "1234567890534345Aa!"  # nosec: B105
+USER1_PW = "1234567890534345Aa!"  # nosec B105
 
 
 def make_request_and_send_response(data_of_request: dict, _http_session: Session) -> Response:
@@ -55,7 +55,7 @@ def test_e2e_full_flow() -> None:
         "json": {
             "user_name": "second_user",
             "display_name": "Second User",
-            "password": "45678987655678Aa!",  # nosec: B106
+            "password": "45678987655678Aa!",  # nosec B106
         },
     }
     response = make_request_and_send_response(data, Session())

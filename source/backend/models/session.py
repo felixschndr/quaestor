@@ -11,6 +11,8 @@ if TYPE_CHECKING:
 
 class UserSession(Base):
     __tablename__ = "sessions"
+    __repr_exclude__ = frozenset({"token_hash"})
+
     id: Mapped[int] = mapped_column(primary_key=True)
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))

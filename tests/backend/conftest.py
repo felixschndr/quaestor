@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-VALID_PASSWORD = "Sup3rSecret!Pass"  # nosec: B105
+VALID_PASSWORD = "Sup3rSecret!Pass"  # nosec B105
 
 
 @pytest.fixture(autouse=True)
@@ -44,18 +44,22 @@ def http_client(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     main.app.dependency_overrides.clear()
 
 
-def register(http_client: TestClient, name: str = "alice", password: str = VALID_PASSWORD) -> Response:
-    return http_client.post("/register", json={"name": name, "password": password})
+def register(
+    http_client: TestClient, user_name: str = "alice", display_name: str = "Alice", password: str = VALID_PASSWORD
+) -> Response:
+    return http_client.post(
+        "/register", json={"user_name": user_name, "display_name": display_name, "password": password}
+    )
 
 
-def login_as(http_client: TestClient, name: str, password: str = VALID_PASSWORD) -> Response:
+def login_as(http_client: TestClient, user_name: str, password: str = VALID_PASSWORD) -> Response:
     http_client.cookies.clear()
-    return http_client.post("/login", json={"name": name, "password": password})
+    return http_client.post("/login", json={"user_name": user_name, "password": password})
 
 
 def create_credential(
     http_client: TestClient, bank: str = "ing", credentials: dict[str, str] | None = None
 ) -> Response:
     if credentials is None:
-        credentials = {"username": "bankuser", "password": "bankpass"}  # nosec: B105
+        credentials = {"username": "bankuser", "password": "bankpass"}  # nosec B105
     return http_client.post("/credentials", json={"bank": bank, "credentials": credentials})

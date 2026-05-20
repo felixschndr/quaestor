@@ -63,7 +63,7 @@ def test_login_fails_with_wrong_password(http_client: TestClient):
     register(http_client, user_name="carol")
     http_client.cookies.clear()
 
-    response = http_client.post("/login", json={"user_name": "carol", "password": "Wr0ngPassword!!"})  # nosec: B105
+    response = http_client.post("/login", json={"user_name": "carol", "password": "Wr0ngPassword!!"})  # nosec B105
 
     assert response.status_code == 401
     assert "set-cookie" not in response.headers

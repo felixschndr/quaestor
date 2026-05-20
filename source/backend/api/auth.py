@@ -36,7 +36,7 @@ def register(payload: UserCreate, response: Response, db_session: Session = Depe
 def login(payload: UserLogin, response: Response, db_session: Session = Depends(get_session)) -> User:
     error_message_in_case_of_invalid_credentials = "Invalid name or password"
     try:
-        user = user_service.get_user_by_user_name(db_session=db_session, user_name=payload.name)
+        user = user_service.get_user_by_user_name(db_session=db_session, user_name=payload.user_name)
     except UserNotFoundError:
         raise InvalidCredentialsError(error_message_in_case_of_invalid_credentials)
     if not verify_password(password_hash=user.password_hash, password_to_verify=payload.password):

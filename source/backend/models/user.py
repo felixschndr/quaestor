@@ -11,6 +11,8 @@ if TYPE_CHECKING:
 
 class User(Base):
     __tablename__ = "users"
+    __repr_exclude__ = frozenset({"password_hash"})
+
     id: Mapped[int] = mapped_column(primary_key=True)
     user_name: Mapped[str] = mapped_column(String(length=50))
     display_name: Mapped[str] = mapped_column(String)
@@ -23,6 +25,3 @@ class User(Base):
     @property
     def balance(self) -> float:
         return sum(account.balance for credential in self.credentials for account in credential.accounts)
-
-    def __repr__(self) -> str:
-        return f"<User(id={self.id}, user_name={self.user_name}, display_name={self.display_name}, admin={self.admin})>"

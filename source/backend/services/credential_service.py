@@ -95,16 +95,17 @@ def create_credential(
     )
     db_session.add(credential)
     db_session.commit()
-    logger.info(f"Created credential with the ID {credential.id} ({bank.value}) for user {user_id}")
+    logger.info(f"Created credential {credential}")
     return credential
 
 
 def update_credential(db_session: Session, credential_id: int, fields: dict) -> Credential:
     credential = get_credential(db_session=db_session, credential_id=credential_id)
+    credential_before_change = str(credential)
     for key, value in fields.items():
         setattr(credential, key, value)
     db_session.commit()
-    logger.info(f"Updated credential with the ID {credential_id}, fields: {sorted(fields)}")
+    logger.info(f"Updated credential {credential_before_change} --> {credential}")
     return credential
 
 
@@ -112,7 +113,7 @@ def delete_credential(db_session: Session, credential_id: int) -> None:
     credential = get_credential(db_session=db_session, credential_id=credential_id)
     db_session.delete(credential)
     db_session.commit()
-    logger.info(f"Deleted credential with the ID {credential_id}")
+    logger.info(f"Deleted credential {credential}")
 
 
 def sync_credential(db_session: Session, credential_id: int) -> SyncResult:
