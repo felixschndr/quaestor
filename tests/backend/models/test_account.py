@@ -13,7 +13,7 @@ from tests.backend.conftest import BANK_PASSWORD, BANK_USERNAME, DISPLAY_NAME, U
 
 
 def _persist_account(session: Session, balance: float, transactions: list[tuple[date, float]]) -> Account:
-    user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash="hash", admin=False)  # nosec B106
+    user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash="hash")  # nosec B106
     credential = Credential(
         user=user,
         bank=BankProvider.ING,

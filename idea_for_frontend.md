@@ -64,7 +64,6 @@ All existing routers move under the `/api` prefix:
 | `/users`                  | `/api/users`                     |
 | `/credentials`            | `/api/credentials`               |
 | `/account`                | `/api/account`                   |
-| `/application_secrets`    | `/api/application_secrets`       |
 | `/login`                  | `/api/auth/login`                |
 | `/register`               | `/api/auth/register`             |
 | `/logout`                 | `/api/auth/logout`               |
@@ -154,7 +153,6 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
   - User settings → `/settings/user`
   - Credentials → `/settings/credentials`
   - Sessions → `/settings/user/sessions`
-  - Application secrets (admins only) → `/settings/application_secrets`
 - At the bottom: **Logout** button.
 
 ### 3.6 `/settings/credentials` and `/settings/credentials/<id>`
@@ -175,11 +173,6 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - Columns: Created, Last used, User-Agent (truncated, hover for full), IP, `Current` badge for the current session, action button.
 - Action: "End session" — only available for non-current sessions.
 - Top-right: "Sign out everywhere else" button.
-
-### 3.9 `/settings/application_secrets`
-
-- Admin-only. Frontend UI for managing `ApplicationSecret`s (CRUD).
-- Hidden in the navigation for non-admin users; backend returns 403 if a non-admin hits the API.
 
 ---
 
@@ -270,7 +263,6 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [ ] `/settings/user/sessions` (list + revoke + "sign out everywhere else").
 - [ ] `/settings/credentials` (list, add via bank picker → dynamic form, delete with modal, sync button, last-sync timestamp).
 - [ ] `/settings/credentials/<id>` (account list with `balance_factor` editor).
-- [ ] `/settings/application_secrets` (admin-only CRUD).
 
 ## Deferred / later
 - [ ] 2FA UI flow (modal during sync when `TWO_FACTOR_REQUIRED`).

@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from tests.backend.conftest import create_credential, login_as, register
+from tests.backend.conftest import USER_NAME, create_credential, login_as, register
 
 
 def test_credential_endpoints_require_authentication(http_client: TestClient):
@@ -17,7 +17,6 @@ def test_user_endpoints_require_authentication(http_client: TestClient):
 
 
 def test_user_cannot_read_other_users_credential(http_client: TestClient):
-    register(http_client, user_name="admin")
     register(http_client, user_name="owner")
     login_as(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
@@ -29,7 +28,6 @@ def test_user_cannot_read_other_users_credential(http_client: TestClient):
 
 
 def test_user_cannot_modify_or_delete_other_users_credential(http_client: TestClient):
-    register(http_client, user_name="admin")
     register(http_client, user_name="owner")
     login_as(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
@@ -42,49 +40,20 @@ def test_user_cannot_modify_or_delete_other_users_credential(http_client: TestCl
 
 
 def test_user_cannot_delete_other_users_account(http_client: TestClient):
-    admin_id = register(http_client, user_name="admin").json()["id"]
+    first_user_id = register(http_client, user_name=USER_NAME).json()["id"]
     register(http_client, user_name="other")
     login_as(http_client, user_name="other")
 
-    response = http_client.delete(f"/api/users/{admin_id}")
+    response = http_client.delete(f"/api/users/{first_user_id}")
 
     assert response.status_code == 404
 
 
 def test_user_cannot_patch_other_users_account(http_client: TestClient):
-    admin_id = register(http_client, user_name="admin").json()["id"]
+    first_user_id = register(http_client, user_name=USER_NAME).json()["id"]
     register(http_client, user_name="other")
     login_as(http_client, user_name="other")
 
-    response = http_client.patch(f"/api/users/{admin_id}", json={"display_name": "Hacked"})
+    response = http_client.patch(f"/api/users/{first_user_id}", json={"display_name": "Hacked"})
 
     assert response.status_code == 404
-
-
-def test_non_admin_cannot_elevate_users(http_client: TestClient):
-    register(http_client, user_name="admin")
-    target = register(http_client, user_name="normal").json()
-    login_as(http_client, user_name="normal")
-
-    response = http_client.patch(f"/api/users/{target['id']}/elevate")
-
-    assert response.status_code == 403
-
-
-def test_admin_can_elevate_user(http_client: TestClient):
-    register(http_client, user_name="admin")
-    target = register(http_client, user_name="normal").json()
-    login_as(http_client, user_name="admin")
-
-    response = http_client.patch(f"/api/users/{target['id']}/elevate")
-
-    assert response.status_code == 200
-    assert response.json()["admin"] is True
-
-
-def test_first_registered_user_is_admin_and_others_are_not(http_client: TestClient):
-    first = register(http_client, user_name="admin").json()
-    second = register(http_client, user_name="normal").json()
-
-    assert first["admin"] is True
-    assert second["admin"] is False

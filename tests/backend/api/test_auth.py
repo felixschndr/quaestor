@@ -26,14 +26,6 @@ def test_register_returns_created_user_and_sets_session_cookie(http_client: Test
     assert COOKIE_NAME in response.cookies
 
 
-def test_register_makes_first_user_admin_and_following_users_non_admin(http_client: TestClient):
-    first = register(http_client, user_name="first")
-    second = register(http_client, user_name="second")
-
-    assert first.json()["admin"] is True
-    assert second.json()["admin"] is False
-
-
 @pytest.mark.parametrize(
     argnames="password",
     argvalues=[

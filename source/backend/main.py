@@ -12,19 +12,14 @@ from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from source.backend.api import (
     account,
-    application_secrets,
     auth,
     credentials,
     users,
 )
 from source.backend.api.exception_handlers import register_exception_handlers
-from source.backend.bank_handlers import FinTSHandler
 from source.backend.db import SessionLocal, log_database_location
 from source.backend.logging_utils import get_logger, redact_headers
-from source.backend.models.application_secret import ApplicationSecret
 from source.backend.services import session_service, sync_scheduler
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 
@@ -33,36 +28,10 @@ MAX_LOGGED_BODY_BYTES = 4096
 load_dotenv()
 
 
-def create_db_entries_if_not_exists(db_session: Session) -> None:
-    objects_to_create = [
-        ApplicationSecret(name=FinTSHandler.PRODUCT_ID_SECRET_NAME, value=""),
-    ]
-    logger.debug(f"Creating {len(objects_to_create)} default object(s) into the database if missing")
-
-    for object_to_create in objects_to_create:
-        model = type(object_to_create)
-        unique_column_of_model = next(col.name for col in model.__table__.columns if col.unique)
-
-        already_exists = db_session.execute(
-            select(model).where(
-                getattr(model, unique_column_of_model) == getattr(object_to_create, unique_column_of_model)
-            )
-        ).first()
-        if not already_exists:
-            logger.info(f"Adding {object_to_create} to the database as it does not exist yet.")
-            db_session.add(object_to_create)
-        else:
-            logger.debug(f"Skipping creations for {object_to_create} (already exists)")
-
-    db_session.commit()
-
-
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator:
     _route_third_party_loggers_to_root()
     log_database_location()
-    with SessionLocal() as db_session:
-        create_db_entries_if_not_exists(db_session)
     sync_task = asyncio.create_task(sync_scheduler.run_periodic_sync())
     try:
         yield
@@ -193,7 +162,7 @@ async def log_http_requests(request: Request, call_next: Callable[[Request], Awa
 
 API_PREFIX = "/api"
 
-for api_object in [account, application_secrets, auth, credentials, users]:
+for api_object in [account, auth, credentials, users]:
     app.include_router(api_object.router, prefix=API_PREFIX)
 register_exception_handlers(app)
 
