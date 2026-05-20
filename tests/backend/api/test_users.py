@@ -171,3 +171,61 @@ def test_last_used_at_is_bumped_on_authenticated_request(http_client: TestClient
     bumped = http_client.get(f"/api/users/{user_id}/sessions").json()[0]["last_used_at"]
 
     assert bumped >= initial
+
+
+def test_revoke_other_session_deletes_it(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+    http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
+    sessions = http_client.get(f"/api/users/{user_id}/sessions").json()
+    other_session_id = next(s["id"] for s in sessions if not s["is_current"])
+
+    response = http_client.delete(f"/api/users/{user_id}/sessions/{other_session_id}")
+
+    assert response.status_code == 204
+    remaining = http_client.get(f"/api/users/{user_id}/sessions").json()
+    assert [s["id"] for s in remaining] != [other_session_id]
+    assert all(s["id"] != other_session_id for s in remaining)
+
+
+def test_revoke_current_session_returns_422(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+    current_session_id = http_client.get(f"/api/users/{user_id}/sessions").json()[0]["id"]
+
+    response = http_client.delete(f"/api/users/{user_id}/sessions/{current_session_id}")
+
+    assert response.status_code == 422
+    assert http_client.get("/api/auth/me").status_code == 200
+
+
+def test_revoke_unknown_session_returns_404(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+
+    response = http_client.delete(f"/api/users/{user_id}/sessions/999999")
+
+    assert response.status_code == 404
+
+
+def test_revoke_other_users_session_returns_404(http_client: TestClient):
+    admin_id = register(http_client, user_name="admin").json()["id"]
+    admin_session_id = http_client.get(f"/api/users/{admin_id}/sessions").json()[0]["id"]
+
+    register(http_client, user_name="other")
+    other_user_id = login_as(http_client, user_name="other").json()["id"]
+
+    response = http_client.delete(f"/api/users/{other_user_id}/sessions/{admin_session_id}")
+
+    assert response.status_code == 404
+
+
+def test_revoke_session_for_other_user_id_returns_404(http_client: TestClient):
+    admin_id = register(http_client, user_name="admin").json()["id"]
+    register(http_client, user_name="other")
+    login_as(http_client, user_name="other")
+
+    response = http_client.delete(f"/api/users/{admin_id}/sessions/1")
+
+    assert response.status_code == 404
+
+
+def test_revoke_session_requires_authentication(http_client: TestClient):
+    assert http_client.delete("/api/users/1/sessions/1").status_code == 401

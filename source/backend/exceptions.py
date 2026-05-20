@@ -18,6 +18,10 @@ class CredentialNotFoundError(NotFoundError):
     pass
 
 
+class SessionNotFoundError(NotFoundError):
+    pass
+
+
 class ValidationError(Exception):
     pass
 
@@ -27,6 +31,10 @@ class MissingCredentialFieldError(ValidationError):
 
 
 class InvalidTwoFactorError(ValidationError):
+    pass
+
+
+class CannotRevokeCurrentSessionError(ValidationError):
     pass
 
 

@@ -222,7 +222,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `PATCH /api/users/{id}` — accept `display_name`, `current_password`, `new_password`.
 - [x] `DELETE /api/users/{id}` — delete own account.
 - [x] `GET /api/users/{id}/sessions`
-- [ ] `DELETE /api/users/{id}/sessions/{session_id}` (every session possible except the current one, use `/logout` for this)
+- [x] `DELETE /api/users/{id}/sessions/{session_id}` (every session possible except the current one, use `/logout` for this)
 - [ ] `PATCH /api/account/{aid}` — accept `balance_factor`.
 - [ ] `GET /api/account/{aid}/transactions/{tid}`
 - [ ] `PATCH /api/account/{aid}/transactions/{tid}` — `{ note }`.
