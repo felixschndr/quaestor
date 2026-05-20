@@ -1,5 +1,6 @@
-from fastapi import Depends
+from fastapi import Depends, Request
 from source.backend.api.create_router import create_router
+from source.backend.api.schemas.session import SessionRead
 from source.backend.api.schemas.user import UserRead, UserUpdate
 from source.backend.db import get_session
 from source.backend.exceptions import InvalidCredentialsError, UserNotFoundError
@@ -9,6 +10,28 @@ from source.backend.services.password_service import hash_password, verify_passw
 from sqlalchemy.orm import Session
 
 router = create_router()
+
+
+@router.get("/{user_id}/sessions", response_model=list[SessionRead])
+def list_user_sessions(
+    user_id: int,
+    request: Request,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> list[SessionRead]:
+    _require_self(user_id=user_id, current_user=current_user)
+    raw_token = request.cookies.get(session_service.COOKIE_NAME)
+    return [
+        SessionRead(
+            id=user_session.id,
+            created_at=user_session.created_at,
+            last_used_at=user_session.last_used_at,
+            ip=user_session.ip,
+            user_agent=user_session.user_agent,
+            is_current=session_service.is_current_session(user_session=user_session, raw_token=raw_token),
+        )
+        for user_session in session_service.list_sessions_for_user(db_session=db_session, user_id=current_user.id)
+    ]
 
 
 @router.patch("/{user_id}", response_model=UserRead)
