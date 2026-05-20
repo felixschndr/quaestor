@@ -1,5 +1,8 @@
+from datetime import date
+
 from fastapi.testclient import TestClient
 from source.backend.models.account import Account
+from source.backend.models.transaction import Transaction
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import create_credential, login_as, register
@@ -11,6 +14,26 @@ def _persist_account(session_factory: sessionmaker, credential_id: int, balance:
         session.add(account)
         session.commit()
         return account.id
+
+
+def _persist_transaction(
+    session_factory: sessionmaker,
+    account_id: int,
+    amount: float = 12.34,
+    purpose: str = "groceries",
+    other_party: str = "Supermarket",
+) -> int:
+    with session_factory() as session:
+        transaction = Transaction(
+            account_id=account_id,
+            amount=amount,
+            purpose=purpose,
+            other_party=other_party,
+            date=date(year=2026, month=5, day=20),
+        )
+        session.add(transaction)
+        session.commit()
+        return transaction.id
 
 
 def test_update_account_changes_balance_factor(http_client: TestClient, session_factory: sessionmaker):
@@ -65,3 +88,55 @@ def test_update_account_for_other_users_account_returns_404(http_client: TestCli
 
 def test_update_account_requires_authentication(http_client: TestClient):
     assert http_client.patch("/api/account/1", json={"balance_factor": 50}).status_code == 401
+
+
+def test_get_transaction_returns_transaction(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == transaction_id
+    assert body["amount"] == 12.34
+    assert body["purpose"] == "groceries"
+    assert body["other_party"] == "Supermarket"
+
+
+def test_get_transaction_returns_404_when_transaction_does_not_belong_to_account(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_a = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_b = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_a)
+
+    assert http_client.get(f"/api/account/{account_b}/transactions/{transaction_id}").status_code == 404
+
+
+def test_get_transaction_returns_404_for_unknown_transaction(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+
+    assert http_client.get(f"/api/account/{account_id}/transactions/999999").status_code == 404
+
+
+def test_get_transaction_for_other_users_account_returns_404(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client, user_name="owner")
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_id)
+
+    register(http_client, user_name="intruder")
+    login_as(http_client, user_name="intruder")
+
+    assert http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}").status_code == 404
+
+
+def test_get_transaction_requires_authentication(http_client: TestClient):
+    assert http_client.get("/api/account/1/transactions/1").status_code == 401

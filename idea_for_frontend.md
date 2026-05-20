@@ -225,7 +225,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `DELETE /api/users/{id}/sessions/{session_id}` (every session possible except the current one, use `/logout` for this)
 - [x] `DELETE /api/users/{id}/sessions?exclude_current=true`
 - [x] `PATCH /api/account/{aid}` — accept `balance_factor`.
-- [ ] `GET /api/account/{aid}/transactions/{tid}`
+- [x] `GET /api/account/{aid}/transactions/{tid}`
 - [ ] `PATCH /api/account/{aid}/transactions/{tid}` — `{ note }`.
 - [ ] `GET /api/credentials/banks` — wrap `list_all_possible`, include `icon` field per bank.
 

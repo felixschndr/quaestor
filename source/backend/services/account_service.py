@@ -1,6 +1,6 @@
 from datetime import date
 
-from source.backend.exceptions import AccountNotFoundError
+from source.backend.exceptions import AccountNotFoundError, TransactionNotFoundError
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
@@ -42,6 +42,19 @@ def get_account_for_user(db_session: Session, account_id: int, user_id: int) -> 
         logger.warning(f"User {user_id} attempted to access {account} owned by user {account.credential.user_id}")
         raise AccountNotFoundError(f"Account with the ID {account_id} not found")
     return account
+
+
+def get_transaction_for_account(db_session: Session, account: Account, transaction_id: int) -> Transaction:
+    not_found_error = TransactionNotFoundError(f"Transaction with the ID {transaction_id} not found")
+    transaction = db_session.get(entity=Transaction, ident=transaction_id)
+    if transaction is None:
+        logger.warning(f"Transaction with the ID {transaction_id} not found")
+        raise not_found_error
+    if transaction.account_id != account.id:
+        logger.warning(f"{transaction} does not belong to {account}")
+        raise not_found_error
+    logger.debug(f"Loaded {transaction}")
+    return transaction
 
 
 def update_account(db_session: Session, account: Account, fields: dict) -> Account:

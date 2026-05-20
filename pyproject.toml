@@ -27,6 +27,7 @@ httpx = "^0.28.1"
 pythonpath = ["."]
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]
+addopts = ["--import-mode=importlib"]
 
 [tool.isort]
 profile = "black"

@@ -22,6 +22,10 @@ class SessionNotFoundError(NotFoundError):
     pass
 
 
+class TransactionNotFoundError(NotFoundError):
+    pass
+
+
 class ValidationError(Exception):
     pass
 

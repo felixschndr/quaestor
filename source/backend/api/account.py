@@ -30,6 +30,22 @@ def update_account(
     )
 
 
+@router.get("/{account_id}/transactions/{transaction_id}", response_model=TransactionRead)
+def get_transaction(
+    account_id: int,
+    transaction_id: int,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> TransactionRead:
+    account = account_service.get_account_for_user(
+        db_session=db_session, account_id=account_id, user_id=current_user.id
+    )
+    transaction = account_service.get_transaction_for_account(
+        db_session=db_session, account=account, transaction_id=transaction_id
+    )
+    return TransactionRead.model_validate(transaction)
+
+
 @router.get("/{account_id}/history", response_model=AccountHistory)
 def get_account_history(
     account_id: int,
