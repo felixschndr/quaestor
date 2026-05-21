@@ -58,11 +58,8 @@ def test_login_succeeds_with_correct_credentials(http_client: TestClient):
     assert COOKIE_NAME in response.cookies
 
 
-def test_login_fails_with_wrong_password(http_client: TestClient):
-    register(http_client, user_name="carol")
-    http_client.cookies.clear()
-
-    response = http_client.post("/api/auth/login", json={"user_name": "carol", "password": WRONG_PASSWORD})
+def test_login_fails_with_wrong_password(http_client_logged_out: TestClient):
+    response = http_client_logged_out.post("/api/auth/login", json={"user_name": USER_NAME, "password": WRONG_PASSWORD})
 
     assert response.status_code == 401
     assert "set-cookie" not in response.headers
@@ -87,34 +84,28 @@ def _set_cookie_attributes(response: TestClient) -> dict[str, str]:
     return attributes
 
 
-def test_login_without_remember_me_sets_session_only_cookie(http_client: TestClient):
-    register(http_client, user_name="bob")
-    http_client.cookies.clear()
-
-    response = http_client.post("/api/auth/login", json={"user_name": "bob", "password": VALID_PASSWORD})
+def test_login_without_remember_me_sets_session_only_cookie(http_client_logged_out: TestClient):
+    response = http_client_logged_out.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
 
     assert response.status_code == 200
     assert "max-age" not in _set_cookie_attributes(response)
 
 
-def test_login_with_remember_me_sets_persistent_cookie(http_client: TestClient):
-    register(http_client, user_name="bob")
-    http_client.cookies.clear()
-
-    response = http_client.post(
-        "/api/auth/login", json={"user_name": "bob", "password": VALID_PASSWORD, "remember_me": True}
+def test_login_with_remember_me_sets_persistent_cookie(http_client_logged_out: TestClient):
+    response = http_client_logged_out.post(
+        "/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD, "remember_me": True}
     )
 
     assert response.status_code == 200
     assert _set_cookie_attributes(response)["max-age"] == str(14 * 24 * 60 * 60)
 
 
-def test_session_refresh_preserves_remember_me_flag(http_client: TestClient):
-    register(http_client, user_name="bob")
-    http_client.cookies.clear()
-    http_client.post("/api/auth/login", json={"user_name": "bob", "password": VALID_PASSWORD, "remember_me": False})
+def test_session_refresh_preserves_remember_me_flag(http_client_logged_out: TestClient):
+    http_client_logged_out.post(
+        "/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD, "remember_me": False}
+    )
 
-    response = http_client.get("/api/auth/me")
+    response = http_client_logged_out.get("/api/auth/me")
 
     assert response.status_code == 200
     assert "max-age" not in _set_cookie_attributes(response)

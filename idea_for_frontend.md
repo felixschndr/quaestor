@@ -260,7 +260,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] On manual override via `PATCH .../transactions/{tid}`: persist the new category, log at `INFO` the previous + new category + full `Transaction` object. Re-scan skips non-UNKNOWN rows (only `category == UNKNOWN` are revisited), so manual choices are never overwritten.
 
 ## Backend — security
-- [ ] CSRF middleware (double-submit token: `csrf_token` cookie + `X-CSRF-Token` header for mutations).
+- [x] CSRF middleware (double-submit token: `csrf_token` cookie + `X-CSRF-Token` header for mutations).
 - [ ] Set session cookie flags: `HttpOnly`, `Secure` (prod), `SameSite=Lax`.
 - [ ] Rate limiting middleware. Strict on `/api/auth/login`, `/api/auth/register`, `/api/auth/2fa`; looser global default. In-process token bucket, designed to be swappable for Redis later.
 - [ ] CSP response header.

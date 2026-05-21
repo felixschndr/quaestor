@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
-from source.backend import main
+from source.backend import csrf, main
 from source.backend.db import get_session
 from source.backend.models.base import Base
 from sqlalchemy import create_engine
@@ -48,8 +48,22 @@ def http_client(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=main, name="SessionLocal", value=session_factory)
     main.app.dependency_overrides[get_session] = override_get_session
     with TestClient(main.app) as test_client:
+        # Mimic what a real SPA does: prime the csrf_token cookie via a GET, then echo it
+        # back in the X-CSRF-Token header on every subsequent request. Without this every
+        # POST/PATCH/PUT/DELETE in the test suite would 403 on the CSRF middleware.
+        test_client.get("/api/auth/registration_allowed")
+        csrf_token = test_client.cookies.get(csrf.COOKIE_NAME)
+        if csrf_token:
+            test_client.headers[csrf.HEADER_NAME] = csrf_token
         yield test_client
     main.app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def http_client_logged_out(http_client: TestClient) -> TestClient:
+    register(http_client)
+    http_client.cookies.delete("session")
+    return http_client
 
 
 def register(
@@ -64,7 +78,8 @@ def register(
 
 
 def login_as(http_client: TestClient, user_name: str, password: str = VALID_PASSWORD) -> Response:
-    http_client.cookies.clear()
+    # Drop only the session cookie; the csrf_token must stay so the POST is accepted.
+    http_client.cookies.delete("session")
     return http_client.post("/api/auth/login", json={"user_name": user_name, "password": password})
 
 

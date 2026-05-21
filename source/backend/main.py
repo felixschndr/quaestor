@@ -18,6 +18,7 @@ from source.backend.api import (
     users,
 )
 from source.backend.api.exception_handlers import register_exception_handlers
+from source.backend.csrf import csrf_middleware
 from source.backend.db import SessionLocal, log_database_location
 from source.backend.logging_utils import get_logger, redact_headers
 from source.backend.services import category_rescan, session_service, sync_scheduler
@@ -91,6 +92,8 @@ def setup_logging() -> None:
 setup_logging()
 
 app = FastAPI(title="Finanzguru Clone", lifespan=lifespan)
+
+app.middleware("http")(csrf_middleware)
 
 
 @app.middleware("http")

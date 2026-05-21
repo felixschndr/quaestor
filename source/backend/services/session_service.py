@@ -26,7 +26,7 @@ def _hash_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode()).hexdigest()
 
 
-def _cookie_is_secure() -> bool:
+def cookie_is_secure() -> bool:
     return os.environ.get(key="SESSION_COOKIE_SECURE", default="false").lower() == "true"
 
 
@@ -139,7 +139,7 @@ def set_session_cookie(response: Response, raw_token: str, remember_me: bool = F
     max_age = int(SESSION_DURATION.total_seconds()) if remember_me else None
     logger.debug(
         f"Setting session cookie ({'persistent, max_age=' + str(max_age) + 's' if remember_me else 'session-only'}, "
-        f"secure={_cookie_is_secure()})"
+        f"secure={cookie_is_secure()})"
     )
     response.set_cookie(
         key=COOKIE_NAME,
@@ -147,7 +147,7 @@ def set_session_cookie(response: Response, raw_token: str, remember_me: bool = F
         max_age=max_age,
         httponly=True,
         samesite="strict",
-        secure=_cookie_is_secure(),
+        secure=cookie_is_secure(),
         path="/",
     )
 

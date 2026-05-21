@@ -4,15 +4,11 @@ from tests.backend.conftest import USER_NAME, create_credential, login_as, regis
 
 
 def test_credential_endpoints_require_authentication(http_client: TestClient):
-    http_client.cookies.clear()
-
     assert http_client.get("/api/credentials/1").status_code == 401
     assert http_client.post("/api/credentials", json={}).status_code == 401
 
 
 def test_user_endpoints_require_authentication(http_client: TestClient):
-    http_client.cookies.clear()
-
     assert http_client.get("/api/auth/me").status_code == 401
 
 
