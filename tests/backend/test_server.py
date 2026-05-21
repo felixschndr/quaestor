@@ -19,12 +19,26 @@ from sqlalchemy.orm import sessionmaker
 
 
 def test_uvicorn_options_defaults_to_http(monkeypatch: pytest.MonkeyPatch):
-    for variable in ("HOST", "PORT", "SSL_CERTFILE", "SSL_KEYFILE"):
-        monkeypatch.delenv(variable, raising=False)
+    for variable in ("HOST", "PORT", "SSL_CERTFILE", "SSL_KEYFILE", "FORWARDED_ALLOW_IPS"):
+        monkeypatch.delenv(name=variable, raising=False)
 
     options = server.uvicorn_options()
 
-    assert options == {"host": server.DEFAULT_HOST, "port": server.DEFAULT_PORT}
+    assert options == {
+        "host": server.DEFAULT_HOST,
+        "port": server.DEFAULT_PORT,
+        "proxy_headers": True,
+        "forwarded_allow_ips": server.DEFAULT_FORWARDED_ALLOW_IPS,
+    }
+
+
+def test_uvicorn_options_forwarded_allow_ips_is_overridable(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(name="FORWARDED_ALLOW_IPS", value="10.0.0.1,10.0.0.2")
+
+    options = server.uvicorn_options()
+
+    assert options["forwarded_allow_ips"] == "10.0.0.1,10.0.0.2"
+    assert options["proxy_headers"] is True
 
 
 def test_uvicorn_options_includes_ssl_when_both_files_set(monkeypatch: pytest.MonkeyPatch):
@@ -112,12 +126,41 @@ def test_server_accepts_plain_http_connection(isolated_app: None, monkeypatch: p
     port = _get_free_port()
     monkeypatch.setenv(name="PORT", value=str(port))
     for variable in ("SSL_CERTFILE", "SSL_KEYFILE"):
-        monkeypatch.delenv(variable, raising=False)
+        monkeypatch.delenv(name=variable, raising=False)
 
     with running_server():
         response = httpx.get(f"http://127.0.0.1:{port}/openapi.json")
 
     assert response.status_code == 200
+
+
+def test_server_honors_x_forwarded_for_when_proxy_is_trusted(isolated_app: None, monkeypatch: pytest.MonkeyPatch):
+    port = _get_free_port()
+    monkeypatch.setenv(name="PORT", value=str(port))
+    for variable in ("SSL_CERTFILE", "SSL_KEYFILE"):
+        monkeypatch.delenv(name=variable, raising=False)
+
+    with running_server():
+        # First prime the csrf_token cookie with an honest GET.
+        with httpx.Client(base_url=f"http://127.0.0.1:{port}") as client:
+            client.get("/api/auth/registration_allowed")
+            csrf_token = client.cookies.get("csrf_token")
+            client.headers["X-CSRF-Token"] = csrf_token
+            # Now pretend to be a reverse proxy forwarding a real client at 203.0.113.7.
+            client.headers["X-Forwarded-For"] = "203.0.113.7"
+            registered = client.post(
+                "/api/auth/register",
+                json={
+                    "user_name": "proxied",
+                    "display_name": "Proxied",
+                    "password": "Sup3rSecret!Pass",  # nosec B105
+                },
+            )
+            user_id = registered.json()["id"]
+            sessions = client.get(f"/api/users/{user_id}/sessions").json()
+
+    # The session row should reflect the forwarded IP, not the proxy's 127.0.0.1.
+    assert any(s["ip"] == "203.0.113.7" for s in sessions), sessions
 
 
 def test_server_accepts_https_connection(isolated_app: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
