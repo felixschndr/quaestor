@@ -1,0 +1,46 @@
+{
+  "common": {
+    "loading": "Lädt …",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "logout": "Abmelden"
+  },
+  "overview": {
+    "hello": "Hallo, {{name}}",
+    "totalBalance": "Gesamtsaldo",
+    "emptyTitle": "Noch keine Konten",
+    "emptyCta": "Erste Bank verbinden"
+  },
+  "login": {
+    "loginTab": "Anmelden",
+    "registerTab": "Registrieren",
+    "name": "Name",
+    "password": "Passwort",
+    "passwordConfirm": "Passwort bestätigen",
+    "displayName": "Anzeigename",
+    "rememberMe": "Angemeldet bleiben",
+    "submitLogin": "Anmelden",
+    "submitRegister": "Konto erstellen",
+    "registrationDisabled": "Registrierung ist aktuell durch den Administrator deaktiviert."
+  },
+  "category": {
+    "UNKNOWN": "Unbekannt",
+    "GROCERIES": "Lebensmittel",
+    "RESTAURANTS": "Restaurants",
+    "TRANSPORT": "Transport",
+    "FUEL": "Tanken",
+    "RENT": "Miete",
+    "UTILITIES": "Nebenkosten",
+    "INSURANCE": "Versicherung",
+    "SALARY": "Gehalt",
+    "SUBSCRIPTIONS": "Abos",
+    "SHOPPING": "Einkäufe",
+    "HEALTH": "Gesundheit",
+    "ENTERTAINMENT": "Unterhaltung",
+    "TRANSFER": "Überweisung",
+    "CASH": "Bargeld",
+    "FEES": "Gebühren",
+    "OTHER": "Sonstiges"
+  }
+}

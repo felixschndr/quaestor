@@ -1,0 +1,46 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "logout": "Log out"
+  },
+  "overview": {
+    "hello": "Hello, {{name}}",
+    "totalBalance": "Total balance",
+    "emptyTitle": "No accounts yet",
+    "emptyCta": "Connect your first bank"
+  },
+  "login": {
+    "loginTab": "Log in",
+    "registerTab": "Register",
+    "name": "Name",
+    "password": "Password",
+    "passwordConfirm": "Confirm password",
+    "displayName": "Display name",
+    "rememberMe": "Remember me",
+    "submitLogin": "Log in",
+    "submitRegister": "Create account",
+    "registrationDisabled": "Registration is currently disabled by the administrator."
+  },
+  "category": {
+    "UNKNOWN": "Unknown",
+    "GROCERIES": "Groceries",
+    "RESTAURANTS": "Restaurants",
+    "TRANSPORT": "Transport",
+    "FUEL": "Fuel",
+    "RENT": "Rent",
+    "UTILITIES": "Utilities",
+    "INSURANCE": "Insurance",
+    "SALARY": "Salary",
+    "SUBSCRIPTIONS": "Subscriptions",
+    "SHOPPING": "Shopping",
+    "HEALTH": "Health",
+    "ENTERTAINMENT": "Entertainment",
+    "TRANSFER": "Transfer",
+    "CASH": "Cash",
+    "FEES": "Fees",
+    "OTHER": "Other"
+  }
+}
