@@ -8,20 +8,28 @@ import pytest
 from dotenv import load_dotenv
 from requests import Response, Session
 
+from tests.backend.conftest import USER_NAME, VALID_PASSWORD
+
 pytestmark = pytest.mark.skipif(
     not os.environ.get("RUN_E2E"),
     reason="End-to-end test",
 )
 
 URL = "http://localhost:8000"
-USER1_NAME = "supercoolusername"
-USER1_PW = "1234567890534345Aa!"  # nosec B105
+
+
+MUTATING_METHODS = {"post", "patch", "put", "delete"}
 
 
 def make_request_and_send_response(data_of_request: dict, _http_session: Session) -> Response:
     print(f"Request: {data_of_request}")
 
     method = data_of_request.pop("method").lower()
+    if method in MUTATING_METHODS:
+        csrf_token = _http_session.cookies.get("csrf_token")
+        if csrf_token:
+            headers = data_of_request.setdefault("headers", {})
+            headers.setdefault("X-CSRF-Token", csrf_token)
     _response = getattr(_http_session, method)(**data_of_request)
 
     try:
@@ -37,14 +45,19 @@ def make_request_and_send_response(data_of_request: dict, _http_session: Session
     return _response
 
 
+def _bootstrap_csrf(_http_session: Session) -> None:
+    make_request_and_send_response({"method": "GET", "url": f"{URL}/api/auth/registration_allowed"}, _http_session)
+
+
 def test_e2e_full_flow() -> None:
     load_dotenv()
     http_session = Session()
+    _bootstrap_csrf(http_session)
 
     data = {
         "method": "POST",
         "url": f"{URL}/api/auth/register",
-        "json": {"user_name": USER1_NAME, "display_name": "My first user", "password": USER1_PW},
+        "json": {"user_name": USER_NAME, "display_name": "My first user", "password": VALID_PASSWORD},
     }
     make_request_and_send_response(data, http_session)
 
@@ -121,7 +134,12 @@ def test_e2e_full_flow() -> None:
             make_request_and_send_response(data, http_session)
 
     auth_client = Session()
-    data = {"method": "POST", "url": f"{URL}/api/auth/login", "json": {"user_name": USER1_NAME, "password": USER1_PW}}
+    _bootstrap_csrf(auth_client)
+    data = {
+        "method": "POST",
+        "url": f"{URL}/api/auth/login",
+        "json": {"user_name": USER_NAME, "password": VALID_PASSWORD},
+    }
     make_request_and_send_response(data, auth_client)
 
     data = {"method": "POST", "url": f"{URL}/api/auth/logout"}

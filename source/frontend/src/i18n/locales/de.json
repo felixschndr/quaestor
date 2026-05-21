@@ -7,10 +7,11 @@
     "logout": "Abmelden"
   },
   "overview": {
-    "hello": "Hallo, {{name}}",
+    "hello": "Hallo, <name>{{name}}</name>",
     "totalBalance": "Gesamtsaldo",
     "emptyTitle": "Noch keine Konten",
-    "emptyCta": "Erste Bank verbinden"
+    "emptyCta": "Erste Bank verbinden",
+    "settings": "Einstellungen"
   },
   "login": {
     "loginTab": "Anmelden",

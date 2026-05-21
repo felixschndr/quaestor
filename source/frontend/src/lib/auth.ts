@@ -2,12 +2,28 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { redirect } from '@tanstack/react-router'
 import { api, ApiError } from './api'
 
+export interface AccountRead {
+  id: number
+  name: string
+  balance: number
+  balance_factor: number
+}
+
+export interface CredentialRead {
+  id: number
+  bank: string
+  accounts: AccountRead[]
+  last_fetching_timestamp: string | null
+  requires_two_factor_authentication: boolean
+}
+
 export interface UserRead {
   id: number
   user_name: string
   display_name: string
   language: string
   balance: number
+  credentials: CredentialRead[]
 }
 
 export interface RegistrationAllowed {
@@ -126,6 +142,19 @@ export function useRegister() {
     onSuccess: (user) => {
       queryClient.setQueryData(authQueryKeys.me, user)
     },
+  })
+}
+
+/**
+ * Trigger a sync of every credential of the current user. After the backend
+ * returns, refresh /api/auth/me so the balance + transaction snapshot the
+ * page renders is the post-sync state.
+ */
+export function useGlobalSync() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => api<void>('/users/sync', { method: 'POST' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: authQueryKeys.me }),
   })
 }
 
