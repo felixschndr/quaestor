@@ -18,9 +18,11 @@ from source.backend.api import (
     users,
 )
 from source.backend.api.exception_handlers import register_exception_handlers
+from source.backend.constants import API_PREFIX
 from source.backend.csrf import csrf_middleware
 from source.backend.db import SessionLocal, log_database_location
 from source.backend.logging_utils import get_logger, redact_headers
+from source.backend.rate_limit import rate_limit_middleware
 from source.backend.services import category_rescan, session_service, sync_scheduler
 
 logger = get_logger(__name__)
@@ -128,6 +130,9 @@ def _loggable_json_body(raw: bytes, content_type: str) -> Any:
         return None
 
 
+app.middleware("http")(rate_limit_middleware)
+
+
 @app.middleware("http")
 async def log_http_requests(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     log_level_is_debug = logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
@@ -169,8 +174,6 @@ async def log_http_requests(request: Request, call_next: Callable[[Request], Awa
     logger.info(summary, extra=extra)
     return rebuilt
 
-
-API_PREFIX = "/api"
 
 for api_object in [account, auth, credentials, i18n, users]:
     app.include_router(api_object.router, prefix=API_PREFIX)

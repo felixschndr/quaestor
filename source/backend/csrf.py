@@ -3,6 +3,7 @@ from typing import Awaitable, Callable
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
+from source.backend.constants import API_PREFIX
 from source.backend.logging_utils import get_logger
 from source.backend.services.session_service import cookie_is_secure
 
@@ -11,7 +12,6 @@ logger = get_logger(__name__)
 COOKIE_NAME = "csrf_token"
 HEADER_NAME = "X-CSRF-Token"
 MUTATING_METHODS: frozenset[str] = frozenset({"POST", "PATCH", "PUT", "DELETE"})
-API_PREFIX = "/api"
 
 
 def _requires_validation(request: Request) -> bool:

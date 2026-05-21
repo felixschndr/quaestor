@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
-from source.backend import csrf, main
+from source.backend import csrf, main, rate_limit
 from source.backend.db import get_session
 from source.backend.models.base import Base
 from sqlalchemy import create_engine
@@ -25,6 +25,12 @@ UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"
 def disable_background_tasks(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=main.sync_scheduler, name="run_periodic_sync", value=AsyncMock())
     monkeypatch.setattr(target=main.category_rescan, name="run_startup_rescan", value=AsyncMock())
+
+
+@pytest.fixture(autouse=True)
+def isolate_rate_limiter(monkeypatch: pytest.MonkeyPatch):
+    # Each test gets a fresh limiter instance so request counts don't leak across tests.
+    monkeypatch.setattr(target=rate_limit, name="limiter", value=rate_limit.InMemoryTokenBucketLimiter())
 
 
 @pytest.fixture
