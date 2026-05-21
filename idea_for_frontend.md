@@ -92,7 +92,7 @@ All existing routers move under the `/api` prefix:
 - `Account`: add `balance_factor: int` (default 100, range 0–100).
 - `Transaction`: add `note: str | None`, `category: TransactionCategory` (enum, default `UNKNOWN`).
 - `Session`: add `ip: str | None`, `user_agent: str | None`, `last_used_at: datetime` (update on every authenticated request). `created_at` should already exist; if not, add.
-- `BankProvider` (the data structure backing the `BANKS` SoT, per MEMORY): add an `icon` property (path to a static asset served by FastAPI under `/static/banks/<slug>.svg`). **Enum member names stay UPPER** — only the data record gains a field; no DB migration of enum values.
+- `BankProvider` (the data structure backing the `BANKS` SoT, per MEMORY): add an `icon` property (path to a static asset served by FastAPI under `/static/banks/<slug>.png`). **Enum member names stay UPPER** — only the data record gains a field; no DB migration of enum values.
 - `TransactionCategory` (new enum): `UNKNOWN`, `GROCERIES`, `RESTAURANTS`, `TRANSPORT`, `FUEL`, `RENT`, `UTILITIES`, `INSURANCE`, `SALARY`, `SUBSCRIPTIONS`, `SHOPPING`, `HEALTH`, `ENTERTAINMENT`, `TRANSFER`, `CASH`, `FEES`, `OTHER`. Member names stay UPPER (same rule as `BankProvider`, per MEMORY — no DB migration of enum values once shipped).
 
 ### 2.4 Balance factor semantics
@@ -174,7 +174,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 ### 3.6 `/settings/credentials` and `/settings/credentials/<id>`
 
 - **List page:** all credentials of the user, each row shows bank icon, bank name, last sync timestamp, a sync button, and a delete button (delete opens a confirmation modal).
-- **Add flow:** "Add credential" button → first a bank picker (from `GET /api/credentials/banks`, rendered with icons), then a dynamically generated form whose fields come from `list_all_possible` for that bank. Submit → `POST /api/credentials`.
+- **Add flow:** "Add credential" button → first a bank picker (from `GET /api/credentials/supported_banks`, rendered with icons), then a dynamically generated form whose fields come from `list_all_possible` for that bank. Submit → `POST /api/credentials`.
 - **2FA flow:** when sync returns `TWO_FACTOR_REQUIRED`, a modal asks for the code. **TODO: full 2FA UX still to be designed.**
 - **Detail page (`/settings/credentials/<id>`):** for now, only the **accounts** belonging to that credential are editable, and only the **balance_factor** per account. (Editing the credential's own bank password/etc. is out of scope for v1.)
 
