@@ -146,7 +146,7 @@ def set_session_cookie(response: Response, raw_token: str, remember_me: bool = F
         value=raw_token,
         max_age=max_age,
         httponly=True,
-        samesite="strict",
+        samesite="lax",
         secure=cookie_is_secure(),
         path="/",
     )
