@@ -14,6 +14,7 @@ from tests.backend.conftest import (
     BANK_PASSWORD,
     BANK_USERNAME,
     DISPLAY_NAME,
+    UNKNOWN_TRANSACTION_OTHER_PARTY,
     USER_NAME,
     VALID_PASSWORD_HASH,
 )
@@ -86,7 +87,7 @@ def test_rescan_leaves_truly_unknown_transactions_alone(session_factory: session
         session_factory=session_factory,
         account_id=account_id,
         category=TransactionCategory.UNKNOWN,
-        other_party="Some Tiny Cafe",
+        other_party=UNKNOWN_TRANSACTION_OTHER_PARTY,
     )
 
     category_rescan.rescan_unknown_categories_sync()
@@ -128,7 +129,7 @@ def test_rescan_logs_summary_at_info(
         session_factory=session_factory,
         account_id=account_id,
         category=TransactionCategory.UNKNOWN,
-        other_party="Some Tiny Cafe",
+        other_party=UNKNOWN_TRANSACTION_OTHER_PARTY,
     )
 
     with caplog.at_level("INFO", logger="source.backend.services.category_rescan"):

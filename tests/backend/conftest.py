@@ -18,6 +18,7 @@ NEW_VALID_PASSWORD = "BrandNewPa55word!"  # nosec B105
 WRONG_PASSWORD = "Wr0ngPassword!!"  # nosec B105
 BANK_USERNAME = "bankuser"
 BANK_PASSWORD = "bankpass"  # nosec B105
+UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"
 
 
 @pytest.fixture(autouse=True)
