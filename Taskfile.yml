@@ -17,6 +17,8 @@ tasks:
 
   backend:test:
     desc: Run backend pytest suite
+    env:
+      ALLOW_MISSING_FRONTEND: 'true'
     cmds:
       - poetry run pytest --cov={{.BACKEND_COV_SRC}} --cov-report=term-missing
 
@@ -24,6 +26,7 @@ tasks:
     desc: Run end to end test
     env:
       RUN_E2E: 1
+      ALLOW_MISSING_FRONTEND: 'true'
     cmds:
       - poetry run pytest tests/backend/test_e2e.py
 
