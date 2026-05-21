@@ -264,7 +264,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] Set session cookie flags: `HttpOnly`, `Secure` (prod), `SameSite=Lax`.
 - [x] Rate limiting middleware. Strict on `/api/auth/login`, `/api/auth/register`, `/api/auth/2fa`; looser global default. In-process token bucket, designed to be swappable for Redis later.
 - [x] CSP response header.
-- [ ] Trust proxy headers (`uvicorn --proxy-headers`) so deployments behind a reverse proxy work correctly.
+- [x] Trust proxy headers (`uvicorn --proxy-headers`) so deployments behind a reverse proxy work correctly.
 
 ## Backend — static & serving
 - [ ] Mount `source/frontend/dist/` as `StaticFiles` at `/`.
