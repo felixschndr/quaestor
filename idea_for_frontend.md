@@ -238,8 +238,8 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `GET /api/account/{aid}/transactions/{tid}`
 - [x] `PATCH /api/account/{aid}/transactions/{tid}` — `{ note }`.
 - [x] `GET /api/credentials/supported_banks` — wrap `list_all_possible`, include `icon` field per bank.
-- [ ] `GET /api/i18n/languages` — derived from the translation files actually shipped.
-- [ ] `PATCH /api/users/{id}` — additionally accept `language` (validated against the implemented locales).
+- [x] `GET /api/i18n/languages` — derived from the translation files actually shipped.
+- [x] `PATCH /api/users/{id}` — additionally accept `language` (validated against the implemented locales).
 - [ ] `PATCH /api/account/{aid}/transactions/{tid}` — additionally accept `category`; log the override per §2.5.
 
 ## Backend — models & migrations
@@ -249,7 +249,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `Session.ip`, `Session.user_agent`, `Session.last_used_at` — Alembic migration; update `last_used_at` in the auth dependency.
 - [x] `BankProvider`: add an `icon` property to the `BANKS` data records. **Do not change Enum member names** (must stay UPPER, per MEMORY).
 - [x] Update `User.balance` computation to apply `balance_factor`.
-- [ ] `User.language: str` default `"en"` — Alembic migration; validate against the implemented locales on write.
+- [x] `User.language: str` default `"en"` — Alembic migration; validate against the implemented locales on write.
 - [ ] `TransactionCategory` enum + `Transaction.category` column (default `UNKNOWN`) — Alembic migration. Member names UPPER (per MEMORY); do not rename later.
 
 ## Backend — categorization

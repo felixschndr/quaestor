@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-05-20 21:04:18.202028
+Create Date: 2026-05-21 08:40:07.296472
 
 """
 
@@ -26,6 +26,7 @@ def upgrade() -> None:
         sa.Column("user_name", sa.String(length=50), nullable=False),
         sa.Column("display_name", sa.String(), nullable=False),
         sa.Column("password_hash", sa.String(), nullable=False),
+        sa.Column("language", sa.String(length=10), server_default="en", nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(

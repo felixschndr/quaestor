@@ -17,6 +17,7 @@ class User(Base):
     user_name: Mapped[str] = mapped_column(String(length=50))
     display_name: Mapped[str] = mapped_column(String)
     password_hash: Mapped[str] = mapped_column(String)
+    language: Mapped[str] = mapped_column(String(length=10), default="en", server_default="en")
 
     credentials: Mapped[List["Credential"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[List["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")

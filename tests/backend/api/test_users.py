@@ -19,6 +19,25 @@ def test_update_user_changes_display_name(http_client: TestClient):
     assert response.json()["display_name"] == "Renamed"
 
 
+def test_update_user_changes_language(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"language": "de"})
+
+    assert response.status_code == 200
+    assert response.json()["language"] == "de"
+    assert http_client.get("/api/auth/me").json()["language"] == "de"
+
+
+def test_update_user_rejects_unsupported_language(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"language": "klingon"})
+
+    assert response.status_code == 422
+    assert http_client.get("/api/auth/me").json()["language"] == "en"
+
+
 def test_update_user_changes_password_with_correct_current_password(http_client: TestClient):
     user_id = register(http_client).json()["id"]
 
