@@ -1,0 +1,87 @@
+{
+    "antwort": null,
+    "daten": {
+        "messageType": null,
+        "messageDialogTitle": null,
+        "messageDialogContent": null,
+        "buttonTexts": null,
+        "validationErrors": false,
+        "persistUserSaveEvent": false,
+        "modul": "_tlg123456",
+        "popup": null,
+        "text": {},
+        "name": "transaktionen",
+        "id": "transaktionen",
+        "grid": {
+            "tableKeys": null,
+            "dataSource": [
+                {
+                    "anlage": "Stock A",
+                    "belegdatum": "1777500000000",
+                    "anteile": "1",
+                    "betrag": "10",
+                    "modell": "",
+                    "kurs": "15",
+                    "kaufdatum": "1777500000000",
+                    "vorgang": "Einzahlung",
+                    "lohnart": "AG-Beitrag laufend"
+                },
+                {
+                    "anlage": "Stock B",
+                    "belegdatum": "1777500000000",
+                    "anteile": "2",
+                    "betrag": "20",
+                    "modell": "",
+                    "kurs": "25",
+                    "kaufdatum": "1777500000000",
+                    "vorgang": "Einzahlung",
+                    "lohnart": "AG-Beitrag laufend"
+                },
+                {
+                    "anlage": "Stock A",
+                    "belegdatum": "1774908000000",
+                    "anteile": "3",
+                    "betrag": "30",
+                    "modell": "",
+                    "kurs": "35",
+                    "kaufdatum": "1774908000000",
+                    "vorgang": "Einzahlung",
+                    "lohnart": "AG-Beitrag laufend"
+                },
+                {
+                    "anlage": "Stock B",
+                    "belegdatum": "1774908000000",
+                    "anteile": "4",
+                    "betrag": "40",
+                    "modell": "",
+                    "kurs": "45",
+                    "kaufdatum": "1774908000000",
+                    "vorgang": "Einzahlung",
+                    "lohnart": "AG-Beitrag laufend"
+                }
+            ],
+            "key": null,
+            "caption": null,
+            "rowsToBeMarked": null,
+            "tableClass": null
+        },
+        "values": null,
+        "valueHeader": null,
+        "valueUnits": null,
+        "order": null,
+        "title1": null,
+        "title2": null,
+        "title3": null,
+        "parent": null,
+        "beans": {},
+        "versicherungsBean": [],
+        "auszahlungsBean": null,
+        "infoModalTitle": null,
+        "infoModalText": null,
+        "infoModalButton": null,
+        "modellKey": "STANDARD_BAV",
+        "sorting": true,
+        "transaktionenConfigModul": "_tlg23456",
+        "customFunctionData": null
+    }
+}
