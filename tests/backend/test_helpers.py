@@ -2,25 +2,15 @@ from datetime import date
 from typing import Any
 
 import pytest
-from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.helpers import epoch_ms_to_date, get_key_of_transaction
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_type import TransactionType
 
-
-def _make_fetched(**overrides: dict[str, Any]) -> FetchedTransaction:
-    base = {
-        "amount": -12.34,
-        "purpose": "Coffee",
-        "date": date(year=2026, month=5, day=21),
-        "other_party": "Cafe",
-        "transaction_type": TransactionType.OUTGOING,
-    }
-    return FetchedTransaction(**{**base, **overrides})
+from tests.backend.conftest import create_fetched_transaction
 
 
 def test_key_is_identical_for_two_identical_transactions():
-    assert get_key_of_transaction(_make_fetched()) == get_key_of_transaction(_make_fetched())
+    assert get_key_of_transaction(create_fetched_transaction()) == get_key_of_transaction(create_fetched_transaction())
 
 
 @pytest.mark.parametrize(
@@ -34,14 +24,14 @@ def test_key_is_identical_for_two_identical_transactions():
     ],
 )
 def test_key_differs_when_any_identifying_field_differs(changed_key: str, changed_value: Any):
-    base_key = get_key_of_transaction(_make_fetched())
-    changed_transaction = _make_fetched(**{changed_key: changed_value})
+    base_key = get_key_of_transaction(create_fetched_transaction())
+    changed_transaction = create_fetched_transaction(**{changed_key: changed_value})
 
     assert get_key_of_transaction(changed_transaction) != base_key
 
 
 def test_key_matches_between_transaction_and_fetched_transaction():
-    fetched_transaction = _make_fetched()
+    fetched_transaction = create_fetched_transaction(purpose="Coffee", other_party="Cafe")
     persisted_transaction = Transaction(
         account_id=1,
         amount=fetched_transaction.amount,

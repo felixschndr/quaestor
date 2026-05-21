@@ -1,27 +1,12 @@
-from datetime import date
-
 import pytest
-from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 
-from tests.backend.conftest import UNKNOWN_TRANSACTION_OTHER_PARTY
-
-
-def _make_fetched(
-    *,
-    other_party: str | None = None,
-    purpose: str | None = None,
-    transaction_type: TransactionType | None = TransactionType.OUTGOING,
-) -> FetchedTransaction:
-    return FetchedTransaction(
-        amount=-12.34,
-        purpose=purpose,
-        date=date(year=2026, month=5, day=21),
-        other_party=other_party,
-        transaction_type=transaction_type,
-    )
+from tests.backend.conftest import (
+    UNKNOWN_TRANSACTION_OTHER_PARTY,
+    create_fetched_transaction,
+)
 
 
 @pytest.mark.parametrize(
@@ -107,13 +92,13 @@ def _make_fetched(
 def test_from_transaction_matches_other_party_and_purpose(
     other_party: str | None, purpose: str | None, expected: TransactionCategory
 ):
-    fetched = _make_fetched(other_party=other_party, purpose=purpose)
+    fetched = create_fetched_transaction(other_party=other_party, purpose=purpose)
 
     assert TransactionCategory.from_transaction(transaction=fetched) == expected
 
 
 def test_from_fetched_assigns_matching_category():
-    fetched = _make_fetched(other_party="Amazon EU", purpose="Order")
+    fetched = create_fetched_transaction(other_party="Amazon EU", purpose="Order")
 
     transaction = Transaction.from_fetched(fetched_transaction=fetched)
 
@@ -121,7 +106,7 @@ def test_from_fetched_assigns_matching_category():
 
 
 def test_from_fetched_logs_unknown_with_other_party_and_purpose(caplog: pytest.LogCaptureFixture):
-    fetched = _make_fetched(other_party=UNKNOWN_TRANSACTION_OTHER_PARTY, purpose="Miscellaneous")
+    fetched = create_fetched_transaction(other_party=UNKNOWN_TRANSACTION_OTHER_PARTY, purpose="Miscellaneous")
 
     with caplog.at_level("INFO", logger="source.backend.models.transaction"):
         Transaction.from_fetched(fetched_transaction=fetched)
@@ -135,7 +120,7 @@ def test_from_fetched_logs_unknown_with_other_party_and_purpose(caplog: pytest.L
 
 
 def test_from_fetched_does_not_log_unknown_for_matched_transaction(caplog: pytest.LogCaptureFixture):
-    fetched = _make_fetched(other_party="REWE Markt")
+    fetched = create_fetched_transaction(other_party="REWE Markt")
 
     with caplog.at_level("INFO", logger="source.backend.models.transaction"):
         Transaction.from_fetched(fetched_transaction=fetched)
@@ -144,13 +129,17 @@ def test_from_fetched_does_not_log_unknown_for_matched_transaction(caplog: pytes
 
 
 def test_deposit_type_yields_savings_regardless_of_text():
-    fetched = _make_fetched(other_party="Felix Schneider", purpose=None, transaction_type=TransactionType.DEPOSIT)
+    fetched = create_fetched_transaction(
+        other_party="Felix Schneider", purpose=None, transaction_type=TransactionType.DEPOSIT
+    )
 
     assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.SAVINGS
 
 
 def test_removal_type_yields_withdrawal_regardless_of_text():
-    fetched = _make_fetched(other_party="Felix Schneider", purpose=None, transaction_type=TransactionType.REMOVAL)
+    fetched = create_fetched_transaction(
+        other_party="Felix Schneider", purpose=None, transaction_type=TransactionType.REMOVAL
+    )
 
     assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.WITHDRAWAL
 
@@ -158,19 +147,23 @@ def test_removal_type_yields_withdrawal_regardless_of_text():
 def test_ag_beitrag_with_deposit_type_yields_savings():
     # AG-Beitrag laufend is the employer's recurring contribution (VL) — recorded as a DEPOSIT
     # onto the savings account. It must end up in SAVINGS via the type pre-check, not PENSION.
-    fetched = _make_fetched(other_party=None, purpose="AG-Beitrag laufend", transaction_type=TransactionType.DEPOSIT)
+    fetched = create_fetched_transaction(
+        other_party=None, purpose="AG-Beitrag laufend", transaction_type=TransactionType.DEPOSIT
+    )
 
     assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.SAVINGS
 
 
 def test_outgoing_type_does_not_short_circuit():
     # Only DEPOSIT/REMOVAL are type-based; OUTGOING still goes through the text matchers.
-    fetched = _make_fetched(other_party="REWE Markt", purpose=None, transaction_type=TransactionType.OUTGOING)
+    fetched = create_fetched_transaction(
+        other_party="REWE Markt", purpose=None, transaction_type=TransactionType.OUTGOING
+    )
 
     assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.SUPERMARKET
 
 
 def test_unknown_type_does_not_short_circuit():
-    fetched = _make_fetched(other_party="REWE Markt", purpose=None, transaction_type=None)
+    fetched = create_fetched_transaction(other_party="REWE Markt", purpose=None, transaction_type=None)
 
     assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.SUPERMARKET
