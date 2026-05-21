@@ -111,6 +111,35 @@ def test_session_refresh_preserves_remember_me_flag(http_client_logged_out: Test
     assert "max-age" not in _set_cookie_attributes(response)
 
 
+def test_session_cookie_is_httponly_lax_and_path_root(http_client_logged_out: TestClient):
+    response = http_client_logged_out.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
+
+    attrs = _set_cookie_attributes(response)
+    assert "httponly" in attrs
+    assert attrs["samesite"].lower() == "lax"
+    assert attrs["path"] == "/"
+
+
+def test_session_cookie_is_not_secure_when_env_var_unset(
+    http_client_logged_out: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.delenv(name="SESSION_COOKIE_SECURE", raising=False)
+
+    response = http_client_logged_out.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
+
+    assert "secure" not in _set_cookie_attributes(response)
+
+
+def test_session_cookie_is_secure_when_env_var_true(
+    http_client_logged_out: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv(name="SESSION_COOKIE_SECURE", value="true")
+
+    response = http_client_logged_out.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
+
+    assert "secure" in _set_cookie_attributes(response)
+
+
 def test_me_returns_current_user_when_authenticated(http_client: TestClient):
     register(http_client)
 
