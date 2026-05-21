@@ -3,9 +3,10 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
-from source.backend import csrf, main, rate_limit
+from source.backend import main
 from source.backend.db import get_session
 from source.backend.models.base import Base
+from source.backend.security import csrf, rate_limit
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
