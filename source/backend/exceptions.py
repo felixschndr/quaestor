@@ -52,3 +52,11 @@ class UnknownInternalError(Exception):
 
 class PermissionDeniedError(Exception):
     pass
+
+
+class ConflictError(Exception):
+    pass
+
+
+class UserNameAlreadyExistsError(ConflictError):
+    pass

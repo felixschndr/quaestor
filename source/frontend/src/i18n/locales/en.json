@@ -15,14 +15,28 @@
   "login": {
     "loginTab": "Log in",
     "registerTab": "Register",
-    "name": "Name",
+    "username": "Username",
     "password": "Password",
     "passwordConfirm": "Confirm password",
+    "passwordMismatch": "Passwords do not match",
     "displayName": "Display name",
     "rememberMe": "Remember me",
     "submitLogin": "Log in",
     "submitRegister": "Create account",
-    "registrationDisabled": "Registration is currently disabled by the administrator."
+    "required": "This field is required",
+    "registrationDisabled": "Registration is currently disabled by the administrator.",
+    "invalidCredentials": "Invalid username or password",
+    "userNameTaken": "This username is already taken",
+    "rateLimited": "Too many attempts. Please wait a moment and try again.",
+    "passwordRules": "Password must contain:",
+    "passwordRuleMinLength": "at least {{count}} characters",
+    "passwordRule": {
+      "lower": "a lowercase letter",
+      "upper": "an uppercase letter",
+      "digit": "a digit",
+      "symbol": "a special character"
+    },
+    "genericError": "Something went wrong. Please try again."
   },
   "category": {
     "UNKNOWN": "Unknown",

@@ -3,6 +3,7 @@ from typing import Callable
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from source.backend.exceptions import (
+    ConflictError,
     InvalidCredentialsError,
     NotFoundError,
     PermissionDeniedError,
@@ -18,6 +19,7 @@ EXCEPTIONS_TO_CATCH_AND_THEIR_STATUS_CODES: dict[type[Exception], int] = {
     ValidationError: 422,
     InvalidCredentialsError: 401,
     PermissionDeniedError: 403,
+    ConflictError: 409,
     UnknownInternalError: 500,
 }
 

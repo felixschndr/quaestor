@@ -195,7 +195,11 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 
 ## 4. Design
 
-- **Theme:** dark mode only (for now). Modern, clean. No specific color palette dictated — designer's choice within Tailwind defaults, with a strong pleasant red and green for amounts. Accessibility for color-blindness deferred.
+- **Theme:** dark mode only (for now). Modern, clean.
+  - **Background:** `#1e1e1e`.
+  - **Foreground (text):** white (`#ffffff`).
+  - **Primary accent:** `#03ecfc` (cyan). Used for primary buttons, focus rings, links, and other "interactive emphasis" affordances.
+  - Strong pleasant red and green are still used for negative/positive amounts. Accessibility for color-blindness deferred.
 - **Typography:** TBD (modern system stack until decided — `Inter`, `Geist`, or similar).
 - **Responsiveness:** mobile-first. Bottom-of-page actions on mobile, top-aligned controls on desktop. No hamburger; back navigation is either the top-left back button or the device's native back gesture.
 - **Locale:** display locale is **`de-DE`** for numbers and dates (e.g. `1.234,56 €`, `20. Mai 2026`). i18n strings default to **English** (`en`), translations to German (`de`) provided. Language is auto-detected from the browser on first load (when `User.language` is not yet set), then overridable via `/settings/user` (see §3.7). The list of selectable languages comes from `GET /api/i18n/languages`.

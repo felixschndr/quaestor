@@ -14,7 +14,7 @@ class User(Base):
     __repr_exclude__ = frozenset({"password_hash"})
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_name: Mapped[str] = mapped_column(String(length=50))
+    user_name: Mapped[str] = mapped_column(String(length=100), unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String)
     password_hash: Mapped[str] = mapped_column(String)
     language: Mapped[str] = mapped_column(String(length=10), default="en", server_default="en")

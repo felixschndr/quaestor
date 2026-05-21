@@ -29,6 +29,11 @@ class UserCreate(BaseModel):
     display_name: str
     password: str = Field(min_length=MIN_PASSWORD_LENGTH)
 
+    @field_validator("user_name")
+    @classmethod
+    def _normalize_user_name(cls: "ModelMetaclass", value: str) -> str:
+        return value.strip().lower()
+
     @field_validator("password")
     @classmethod
     def _check_password(cls: "ModelMetaclass", value: str) -> str:
@@ -65,6 +70,11 @@ class UserLogin(BaseModel):
     user_name: str
     password: str
     remember_me: bool = False
+
+    @field_validator("user_name")
+    @classmethod
+    def _normalize_user_name(cls: "ModelMetaclass", value: str) -> str:
+        return value.strip().lower()
 
 
 class UserUpdate(BaseModel):

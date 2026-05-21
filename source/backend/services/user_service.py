@@ -1,11 +1,11 @@
 import os
 
-from source.backend.exceptions import UserNotFoundError
+from source.backend.exceptions import UserNameAlreadyExistsError, UserNotFoundError
 from source.backend.logging_utils import get_logger
 from source.backend.models.user import User
 from source.backend.services.password_service import hash_password
 from sqlalchemy import select
-from sqlalchemy.exc import NoResultFound
+from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -25,9 +25,22 @@ def list_users(db_session: Session) -> list[User]:
 
 
 def create_user(db_session: Session, user_name: str, display_name: str, password: str) -> User:
-    user = User(user_name=user_name, display_name=display_name, password_hash=hash_password(password))
+    # user_name is stored case-insensitively (always lowercase) so that
+    # "Alice" and "alice" refer to the same user.
+    normalized_user_name = user_name.strip().lower()
+
+    # Pre-check gives a clean error message; the DB UNIQUE constraint is the
+    # actual safety net against a concurrent race between two requests.
+    if db_session.scalar(select(User.id).where(User.user_name == normalized_user_name)) is not None:
+        raise UserNameAlreadyExistsError(f"User name {normalized_user_name!r} is already taken")
+
+    user = User(user_name=normalized_user_name, display_name=display_name, password_hash=hash_password(password))
     db_session.add(user)
-    db_session.commit()
+    try:
+        db_session.commit()
+    except IntegrityError:
+        db_session.rollback()
+        raise UserNameAlreadyExistsError(f"User name {normalized_user_name!r} is already taken")
     logger.info(f"Created user {user}")
     return user
 
@@ -48,8 +61,11 @@ def get_user_by_id(db_session: Session, user_id: int) -> User:
 
 
 def get_user_by_user_name(db_session: Session, user_name: str) -> User:
+    normalized_user_name = user_name.strip().lower()
     return _get_user(
-        db_session=db_session, condition=User.user_name == user_name, identifier_description=f'user_name "{user_name}"'
+        db_session=db_session,
+        condition=User.user_name == normalized_user_name,
+        identifier_description=f'user_name "{normalized_user_name}"',
     )
 
 

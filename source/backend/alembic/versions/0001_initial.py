@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-05-21 11:23:13.597110
+Create Date: 2026-05-21 20:58:55.725954
 
 """
 
@@ -23,12 +23,15 @@ def upgrade() -> None:
     op.create_table(
         "users",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("user_name", sa.String(length=50), nullable=False),
+        sa.Column("user_name", sa.String(length=100), nullable=False),
         sa.Column("display_name", sa.String(), nullable=False),
         sa.Column("password_hash", sa.String(), nullable=False),
         sa.Column("language", sa.String(length=10), server_default="en", nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
+    with op.batch_alter_table("users", schema=None) as batch_op:
+        batch_op.create_index(batch_op.f("ix_users_user_name"), ["user_name"], unique=True)
+
     op.create_table(
         "credentials",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -183,5 +186,8 @@ def downgrade() -> None:
 
     op.drop_table("sessions")
     op.drop_table("credentials")
+    with op.batch_alter_table("users", schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f("ix_users_user_name"))
+
     op.drop_table("users")
     # ### end Alembic commands ###

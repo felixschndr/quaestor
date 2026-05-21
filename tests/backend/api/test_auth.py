@@ -26,6 +26,42 @@ def test_register_returns_created_user_and_sets_session_cookie(http_client: Test
     assert COOKIE_NAME in response.cookies
 
 
+def test_register_rejects_duplicate_user_name(http_client: TestClient):
+    first = register(http_client)
+    assert first.status_code == 201
+
+    second = register(http_client, display_name="Someone Else")
+
+    assert second.status_code == 409
+    assert "already taken" in second.json()["detail"].lower()
+
+
+def test_register_treats_user_name_case_insensitively(http_client: TestClient):
+    first = register(http_client, user_name="Alice")
+    assert first.status_code == 201
+    assert first.json()["user_name"] == "alice"  # stored lower-cased
+
+    second = register(http_client, user_name="ALICE", display_name="Other Alice")
+
+    assert second.status_code == 409
+
+
+def test_login_accepts_mixed_case_user_name(http_client: TestClient):
+    register(http_client, user_name="alice")
+
+    response = http_client.post("/api/auth/login", json={"user_name": "AlIcE", "password": VALID_PASSWORD})
+
+    assert response.status_code == 200
+    assert response.json()["user_name"] == "alice"
+
+
+def test_register_strips_whitespace_around_user_name(http_client: TestClient):
+    response = register(http_client, user_name="   alice   ")
+
+    assert response.status_code == 201
+    assert response.json()["user_name"] == "alice"
+
+
 @pytest.mark.parametrize(
     argnames="password",
     argvalues=[

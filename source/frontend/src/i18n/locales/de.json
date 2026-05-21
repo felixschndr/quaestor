@@ -15,14 +15,28 @@
   "login": {
     "loginTab": "Anmelden",
     "registerTab": "Registrieren",
-    "name": "Name",
+    "username": "Benutzername",
     "password": "Passwort",
     "passwordConfirm": "Passwort bestätigen",
+    "passwordMismatch": "Passwörter stimmen nicht überein",
     "displayName": "Anzeigename",
     "rememberMe": "Angemeldet bleiben",
     "submitLogin": "Anmelden",
     "submitRegister": "Konto erstellen",
-    "registrationDisabled": "Registrierung ist aktuell durch den Administrator deaktiviert."
+    "required": "Dieses Feld ist erforderlich",
+    "registrationDisabled": "Registrierung ist aktuell durch den Administrator deaktiviert.",
+    "invalidCredentials": "Ungültiger Benutzername oder Passwort",
+    "userNameTaken": "Dieser Benutzername ist bereits vergeben",
+    "rateLimited": "Zu viele Versuche. Bitte kurz warten und erneut versuchen.",
+    "passwordRules": "Passwort muss enthalten:",
+    "passwordRuleMinLength": "mindestens {{count}} Zeichen",
+    "passwordRule": {
+      "lower": "einen Kleinbuchstaben",
+      "upper": "einen Großbuchstaben",
+      "digit": "eine Ziffer",
+      "symbol": "ein Sonderzeichen"
+    },
+    "genericError": "Etwas ist schiefgelaufen. Bitte erneut versuchen."
   },
   "category": {
     "UNKNOWN": "Unbekannt",
