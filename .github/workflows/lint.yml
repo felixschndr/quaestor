@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  pre-commit:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -18,4 +18,32 @@ jobs:
         with:
           python-version: "3.14"
 
-      - uses: pre-commit/action@v3.0.1
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: source/frontend/pnpm-lock.yaml
+
+      - name: Install frontend deps
+        working-directory: source/frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache pre-commit envs between CI runs
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Install pre-commit
+        run: pipx install pre-commit
+
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
+      - name: task lint
+        run: task lint
