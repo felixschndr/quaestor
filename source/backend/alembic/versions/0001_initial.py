@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-05-21 09:36:52.382965
+Create Date: 2026-05-21 11:23:13.597110
 
 """
 
@@ -129,7 +129,34 @@ def upgrade() -> None:
         ),
         sa.Column(
             "category",
-            sa.Enum("ONLINE_SHOPPING", "DRUGSTORE", "SUPERMARKET", "UNKNOWN", name="transactioncategory"),
+            sa.Enum(
+                "SALARY",
+                "ALLOWANCE",
+                "PENSION",
+                "REIMBURSEMENT",
+                "INTEREST",
+                "INVESTMENT",
+                "SUBSCRIPTIONS",
+                "RENT",
+                "UTILITIES",
+                "CAR",
+                "FUEL",
+                "FITNESS",
+                "ONLINE_SHOPPING",
+                "SUPERMARKET",
+                "DRUGSTORE",
+                "RESTAURANTS",
+                "PERSONAL_CARE",
+                "CLOTHING",
+                "GIFTS",
+                "ENTERTAINMENT",
+                "FEES",
+                "SAVINGS",
+                "WITHDRAWAL",
+                "TRANSFER",
+                "UNKNOWN",
+                name="transactioncategory",
+            ),
             server_default="UNKNOWN",
             nullable=False,
         ),
