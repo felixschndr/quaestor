@@ -286,8 +286,8 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [ ] Vite dev proxy for `/api` → `localhost:8000`.
 
 ## Frontend — pages (in build order)
-- [ ] Auth boot flow: call `GET /api/auth/me` on app start; redirect to `/login?next=…` on 401.
-- [ ] `/login` page (toggle login/register; remember me; live password validation; inline errors).
+- [x] Auth boot flow: call `GET /api/auth/me` on app start; redirect to `/login?next=…` on 401.
+- [x] `/login` page (toggle login/register; remember me; live password validation; inline errors).
 - [ ] `/` overview (hello + total balance + accounts grouped by bank, alphabetical; pull-to-refresh triggers global sync).
 - [ ] `/account/<id>` (back button; balance header; transactions grouped by date with day-end balance; infinite scroll; magnifier icon placeholder).
 - [ ] `/account/<id>/transactions/<id>` (amount header; borderless table; inline-editable auto-saved note; **category dropdown** that PATCHes `category`).

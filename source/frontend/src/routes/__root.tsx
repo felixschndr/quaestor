@@ -4,9 +4,17 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'sonner'
 import type { QueryClient } from '@tanstack/react-query'
 
+import { ensureAuthenticated } from '@/lib/auth'
+
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
+  beforeLoad: ({ context, location }) =>
+    ensureAuthenticated({
+      queryClient: context.queryClient,
+      pathname: location.pathname,
+      search: location.searchStr,
+    }),
   component: RootComponent,
 })
 

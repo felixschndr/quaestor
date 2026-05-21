@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from './api'
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { redirect } from '@tanstack/react-router'
+import { api, ApiError } from './api'
 
 export interface UserRead {
   id: number
@@ -28,6 +29,55 @@ export const authQueryKeys = {
   me: ['auth', 'me'] as const,
   registrationAllowed: ['auth', 'registration_allowed'] as const,
   passwordRequirements: ['auth', 'password_requirements'] as const,
+}
+
+export function useAuthMe() {
+  return useQuery({
+    queryKey: authQueryKeys.me,
+    queryFn: () => api<UserRead>('/auth/me'),
+    retry: false,
+  })
+}
+
+/**
+ * `next` paths come from the URL — guard against open redirects to external
+ * sites (`//evil.com`, `http://evil.com`, etc.). Only honour same-origin
+ * absolute paths.
+ */
+export function safeNext(next: string | undefined): string {
+  if (!next) return '/'
+  if (!next.startsWith('/') || next.startsWith('//')) return '/'
+  return next
+}
+
+/**
+ * Used by the root route's `beforeLoad` to gate every page on a valid session.
+ * Side-effect on 401: throws a TanStack Router `redirect()` to /login with the
+ * intended destination preserved as `?next=`.
+ */
+export async function ensureAuthenticated(args: {
+  queryClient: QueryClient
+  pathname: string
+  search: string
+}): Promise<void> {
+  // /login itself must be reachable while unauthenticated — otherwise we'd
+  // loop forever between the guard and the redirect target.
+  if (args.pathname === '/login') return
+  try {
+    await args.queryClient.ensureQueryData({
+      queryKey: authQueryKeys.me,
+      queryFn: () => api<UserRead>('/auth/me'),
+      retry: false,
+    })
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) {
+      throw redirect({
+        to: '/login',
+        search: { next: args.pathname + (args.search ?? '') },
+      })
+    }
+    throw err
+  }
 }
 
 export function useRegistrationAllowed() {

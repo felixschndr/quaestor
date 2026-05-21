@@ -1,5 +1,5 @@
 import { forwardRef, useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ApiError } from '@/lib/api'
 import {
   evaluatePassword,
+  safeNext,
   useLogin,
   usePasswordRequirements,
   useRegister,
@@ -34,8 +35,15 @@ type Mode = 'login' | 'register'
 
 function LoginPage() {
   const { next } = Route.useSearch()
-  const navigate = useNavigate()
-  return <LoginPageContent next={next} onSuccess={(to) => navigate({ to })} />
+  const router = useRouter()
+  return (
+    <LoginPageContent
+      next={next}
+      // history.push accepts arbitrary in-app paths (e.g. /account/42/transactions/7)
+      // that the typed navigate() API can't represent generically.
+      onSuccess={(to) => router.history.push(to)}
+    />
+  )
 }
 
 export function LoginPageContent({
@@ -50,7 +58,7 @@ export function LoginPageContent({
   const { data: registrationAllowed } = useRegistrationAllowed()
 
   const handleSuccess = () => {
-    onSuccess(next ?? '/')
+    onSuccess(safeNext(next))
   }
 
   return (
