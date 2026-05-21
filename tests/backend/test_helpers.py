@@ -1,0 +1,60 @@
+from datetime import date
+from typing import Any
+
+import pytest
+from source.backend.bank_handlers.base import FetchedTransaction
+from source.backend.helpers import epoch_ms_to_date, get_key_of_transaction
+from source.backend.models.transaction import Transaction
+from source.backend.models.transaction_type import TransactionType
+
+
+def _make_fetched(**overrides: dict[str, Any]) -> FetchedTransaction:
+    base = {
+        "amount": -12.34,
+        "purpose": "Coffee",
+        "date": date(year=2026, month=5, day=21),
+        "other_party": "Cafe",
+        "transaction_type": TransactionType.OUTGOING,
+    }
+    return FetchedTransaction(**{**base, **overrides})
+
+
+def test_key_is_identical_for_two_identical_transactions():
+    assert get_key_of_transaction(_make_fetched()) == get_key_of_transaction(_make_fetched())
+
+
+@pytest.mark.parametrize(
+    argnames="changed_key, changed_value",
+    argvalues=[
+        ("amount", -12.35),
+        ("purpose", "Tea"),
+        ("other_party", "Other Cafe"),
+        ("date", date(year=2026, month=5, day=22)),
+        ("transaction_type", TransactionType.INCOMING),
+    ],
+)
+def test_key_differs_when_any_identifying_field_differs(changed_key: str, changed_value: Any):
+    base_key = get_key_of_transaction(_make_fetched())
+    changed_transaction = _make_fetched(**{changed_key: changed_value})
+
+    assert get_key_of_transaction(changed_transaction) != base_key
+
+
+def test_key_matches_between_transaction_and_fetched_transaction():
+    fetched_transaction = _make_fetched()
+    persisted_transaction = Transaction(
+        account_id=1,
+        amount=fetched_transaction.amount,
+        purpose=fetched_transaction.purpose,
+        date=fetched_transaction.date,
+        other_party=fetched_transaction.other_party,
+        transaction_type=fetched_transaction.transaction_type,
+    )
+
+    assert get_key_of_transaction(persisted_transaction) == get_key_of_transaction(fetched_transaction)
+
+
+@pytest.mark.parametrize(argnames="epoch_input", argvalues=[1700000000000, "1700000000000"])
+def test_epoch_ms_to_date_accepts_int_and_str(epoch_input: str | int):
+    # 1700000000000 ms = 2023-11-14 22:13:20 UTC
+    assert epoch_ms_to_date(epoch_input) == date(year=2023, month=11, day=14)
