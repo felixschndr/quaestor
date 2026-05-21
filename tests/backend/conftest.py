@@ -1,11 +1,14 @@
+from datetime import date as _date
 from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
 from source.backend import main
+from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.db import get_session
 from source.backend.models.base import Base
+from source.backend.models.transaction_type import TransactionType
 from source.backend.security import csrf, rate_limit
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -99,3 +102,19 @@ def create_credential(
     if credentials is None:
         credentials = {"username": BANK_USERNAME, "password": BANK_PASSWORD}
     return http_client.post("/api/credentials", json={"bank": bank, "credentials": credentials})
+
+
+def create_fetched_transaction(
+    amount: float = -12.34,
+    purpose: str | None = None,
+    date: _date = _date(year=2026, month=5, day=21),
+    other_party: str | None = None,
+    transaction_type: TransactionType | None = TransactionType.OUTGOING,
+) -> FetchedTransaction:
+    return FetchedTransaction(
+        amount=amount,
+        purpose=purpose,
+        date=date,
+        other_party=other_party,
+        transaction_type=transaction_type,
+    )
