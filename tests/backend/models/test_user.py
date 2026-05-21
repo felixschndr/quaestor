@@ -4,23 +4,27 @@ from source.backend.models.credential import Credential
 from source.backend.models.user import User
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import BANK_PASSWORD, BANK_USERNAME, DISPLAY_NAME, USER_NAME
+from tests.backend.conftest import (
+    BANK_PASSWORD,
+    BANK_USERNAME,
+    DISPLAY_NAME,
+    USER_NAME,
+    VALID_PASSWORD_HASH,
+)
 
 
 def test_user_repr_contains_identifying_fields_but_not_password():
-    user = User(
-        id=1, user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash="secret_hash", language="en"  # nosec B106
-    )
+    user = User(id=1, user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH, language="en")
 
     representation = repr(user)
 
     assert representation == f"<User(id=1, user_name={USER_NAME}, display_name={DISPLAY_NAME}, language=en)>"
-    assert "secret_hash" not in representation
+    assert VALID_PASSWORD_HASH not in representation
 
 
 def test_user_language_defaults_to_en(session_factory: sessionmaker):
     with session_factory() as session:
-        user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash="hash")  # nosec B106
+        user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH)
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -30,7 +34,7 @@ def test_user_language_defaults_to_en(session_factory: sessionmaker):
 
 def test_user_balance_scales_each_account_by_its_balance_factor(session_factory: sessionmaker):
     with session_factory() as session:
-        user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash="hash")  # nosec B106
+        user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH)
         credential = Credential(
             user=user,
             bank=BankProvider.ING,

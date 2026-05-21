@@ -20,7 +20,7 @@ from source.backend.api import (
 from source.backend.api.exception_handlers import register_exception_handlers
 from source.backend.db import SessionLocal, log_database_location
 from source.backend.logging_utils import get_logger, redact_headers
-from source.backend.services import session_service, sync_scheduler
+from source.backend.services import category_rescan, session_service, sync_scheduler
 
 logger = get_logger(__name__)
 
@@ -33,13 +33,19 @@ load_dotenv()
 async def lifespan(_app: FastAPI) -> AsyncGenerator:
     _route_third_party_loggers_to_root()
     log_database_location()
-    sync_task = asyncio.create_task(sync_scheduler.run_periodic_sync())
+
+    background_tasks = [
+        asyncio.create_task(category_rescan.run_startup_rescan()),
+        asyncio.create_task(sync_scheduler.run_periodic_sync()),
+    ]
     try:
         yield
     finally:
-        sync_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await sync_task
+        for task in background_tasks:
+            task.cancel()
+        for task in background_tasks:
+            with suppress(asyncio.CancelledError):
+                await task
         logger.info("Shutdown complete")
 
 

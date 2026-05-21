@@ -13,6 +13,7 @@ from sqlalchemy.pool import StaticPool
 USER_NAME = "alice"
 DISPLAY_NAME = "Alice"
 VALID_PASSWORD = "Sup3rSecret!Pass"  # nosec B105
+VALID_PASSWORD_HASH = "Sup3rSecret!Pass2"  # nosec B105
 NEW_VALID_PASSWORD = "BrandNewPa55word!"  # nosec B105
 WRONG_PASSWORD = "Wr0ngPassword!!"  # nosec B105
 BANK_USERNAME = "bankuser"
@@ -20,9 +21,9 @@ BANK_PASSWORD = "bankpass"  # nosec B105
 
 
 @pytest.fixture(autouse=True)
-def disable_periodic_sync(monkeypatch: pytest.MonkeyPatch):
-    # Remove periodic sync for testing
+def disable_background_tasks(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=main.sync_scheduler, name="run_periodic_sync", value=AsyncMock())
+    monkeypatch.setattr(target=main.category_rescan, name="run_startup_rescan", value=AsyncMock())
 
 
 @pytest.fixture

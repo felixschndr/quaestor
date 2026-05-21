@@ -240,7 +240,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `GET /api/credentials/supported_banks` — wrap `list_all_possible`, include `icon` field per bank.
 - [x] `GET /api/i18n/languages` — derived from the translation files actually shipped.
 - [x] `PATCH /api/users/{id}` — additionally accept `language` (validated against the implemented locales).
-- [ ] `PATCH /api/account/{aid}/transactions/{tid}` — additionally accept `category`; log the override per §2.5.
+- [x] `PATCH /api/account/{aid}/transactions/{tid}` — additionally accept `category`; log the override per §2.5.
 
 ## Backend — models & migrations
 - [x] `User.display_name: str | None` — Alembic migration.
@@ -250,14 +250,14 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `BankProvider`: add an `icon` property to the `BANKS` data records. **Do not change Enum member names** (must stay UPPER, per MEMORY).
 - [x] Update `User.balance` computation to apply `balance_factor`.
 - [x] `User.language: str` default `"en"` — Alembic migration; validate against the implemented locales on write.
-- [ ] `TransactionCategory` enum + `Transaction.category` column (default `UNKNOWN`) — Alembic migration. Member names UPPER (per MEMORY); do not rename later.
+- [x] `TransactionCategory` enum + `Transaction.category` column (default `UNKNOWN`) — Alembic migration. Member names UPPER (per MEMORY); do not rename later.
 
 ## Backend — categorization
-- [ ] `source/backend/services/categorization.py`: pure `categorize(other_party, purpose) -> TransactionCategory` with declarative rules; case-insensitive substring or regex per rule. Single source of truth for ingest + re-scan.
-- [ ] Call `categorize(...)` on every newly persisted `Transaction` (initial sync + incremental).
-- [ ] FastAPI startup background task: iterate `Transaction.category == UNKNOWN` in batches (~500), re-run `categorize`, update matched rows in place. Log `"category re-scan: checked N, updated M"` at the end.
-- [ ] Log at `INFO` whenever `categorize` returns `UNKNOWN` — log the full `Transaction` object (per [[feedback_log_objects]]), so `other_party` + `purpose` are visible.
-- [ ] On manual override via `PATCH .../transactions/{tid}`: persist the new category, log at `INFO` the previous + new category + full `Transaction` object. Re-scan must skip non-`UNKNOWN` rows so manual choices are never overwritten.
+- [x] `TransactionCategory.from_transaction(...)` (in `source/backend/models/transaction_category.py`) with `TRANSACTION_TYPE_MAPPING: dict[TransactionCategory, list[str]]`; case-insensitive substring matching. Single source of truth for ingest + re-scan.
+- [x] Call `from_transaction(...)` on every newly persisted `Transaction` (initial sync + incremental) via `Transaction.from_fetched`.
+- [x] FastAPI startup background task: iterate `Transaction.category == UNKNOWN` in batches (~500), re-run categorization, update matched rows in place. Log `"category re-scan: checked N, updated M"` at the end.
+- [x] Log at `INFO` whenever categorization returns `UNKNOWN` at ingest — logs the full `Transaction` object (per [[feedback_log_objects]]), so `other_party` + `purpose` are visible.
+- [x] On manual override via `PATCH .../transactions/{tid}`: persist the new category, log at `INFO` the previous + new category + full `Transaction` object. Re-scan skips non-UNKNOWN rows (only `category == UNKNOWN` are revisited), so manual choices are never overwritten.
 
 ## Backend — security
 - [ ] CSRF middleware (double-submit token: `csrf_token` cookie + `X-CSRF-Token` header for mutations).

@@ -58,11 +58,16 @@ def get_transaction_for_account(db_session: Session, account: Account, transacti
 
 
 def update_transaction(db_session: Session, transaction: Transaction, fields: dict) -> Transaction:
+    previous_category = transaction.category
     transaction_before_change = str(transaction)
     for key, value in fields.items():
         setattr(transaction, key, value)
     db_session.commit()
     logger.info(f"Updated transaction {transaction_before_change} --> {transaction}")
+    if "category" in fields and fields["category"] != previous_category:
+        logger.info(
+            f"Category override on {transaction}: previous={previous_category.value} new={transaction.category.value}"
+        )
     return transaction
 
 

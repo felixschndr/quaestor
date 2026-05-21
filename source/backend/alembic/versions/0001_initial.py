@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-05-21 08:40:07.296472
+Create Date: 2026-05-21 09:36:52.382965
 
 """
 
@@ -126,6 +126,12 @@ def upgrade() -> None:
                 name="transactiontype",
             ),
             nullable=True,
+        ),
+        sa.Column(
+            "category",
+            sa.Enum("ONLINE_SHOPPING", "DRUGSTORE", "SUPERMARKET", "UNKNOWN", name="transactioncategory"),
+            server_default="UNKNOWN",
+            nullable=False,
         ),
         sa.Column("note", sa.String(), nullable=True),
         sa.ForeignKeyConstraint(
