@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from source.backend.api.schemas.credential import CredentialRead
+from source.backend.services import i18n_service
 
 if TYPE_CHECKING:
     from pydantic.v1.main import ModelMetaclass
@@ -55,6 +56,7 @@ class UserRead(BaseModel):
     id: int
     user_name: str
     display_name: str
+    language: str
     balance: float
     credentials: list[CredentialRead] = []
 
@@ -67,6 +69,7 @@ class UserLogin(BaseModel):
 
 class UserUpdate(BaseModel):
     display_name: str | None = None
+    language: str | None = None
     current_password: str | None = None
     new_password: str | None = Field(default=None, min_length=MIN_PASSWORD_LENGTH)
 
@@ -74,6 +77,16 @@ class UserUpdate(BaseModel):
     @classmethod
     def _check_new_password(cls: "ModelMetaclass", value: str | None) -> str | None:
         return _validate_password_complexity(value) if value is not None else None
+
+    @field_validator("language")
+    @classmethod
+    def _check_language(cls: "ModelMetaclass", value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not i18n_service.is_supported(value):
+            supported = ", ".join(i18n_service.list_supported_languages())
+            raise ValueError(f"Language {value!r} is not supported (supported: {supported})")
+        return value
 
     @model_validator(mode="after")
     def _password_change_requires_current(self) -> "UserUpdate":
