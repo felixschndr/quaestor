@@ -52,10 +52,20 @@ export default defineConfig({
     }),
   ],
   server: {
+    // Bind to 0.0.0.0 so the dev server is reachable from other devices on the
+    // LAN (phone, tablet) for PWA testing. The backend still only listens on
+    // 127.0.0.1; LAN clients reach it through this server's /api proxy.
+    host: true,
     port: FRONTEND_PORT,
     strictPort: true,
     proxy: {
       '/api': {
+        target: `http://localhost:${BACKEND_DEV_PORT}`,
+        changeOrigin: false,
+      },
+      // Bank icons + any other backend-served static assets. Without this,
+      // Vite's SPA fallback would return index.html for /static/banks/*.png.
+      '/static': {
         target: `http://localhost:${BACKEND_DEV_PORT}`,
         changeOrigin: false,
       },
