@@ -3,3 +3,8 @@
 .env
 **/__pycache__/
 scripts/wip/
+
+# pytest-cov
+.coverage
+htmlcov/
+coverage.xml
