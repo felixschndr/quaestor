@@ -9,6 +9,6 @@ per-file-ignores =
     test_*:ANN201
     source/backend/alembic/versions/*:FKA100
     scripts/*:FKA100
-    tests/test_e2e.py:FKA100
+    tests/backend/test_e2e.py:FKA100
 extend-exclude =
     .venv/

@@ -1,0 +1,55 @@
+version: '3'
+
+
+silent: true
+
+vars:
+  FRONTEND_DIR: source/frontend
+  BACKEND_COV_SRC: source/backend
+
+tasks:
+  lint:
+    desc: Run pre-commit on all non-git-ignored files
+    cmds:
+      - git ls-files --cached --others --exclude-standard -z | xargs -0 pre-commit run --files
+
+  backend:test:
+    desc: Run backend pytest suite
+    cmds:
+      - poetry run pytest --cov={{.BACKEND_COV_SRC}} --cov-report=term-missing
+
+  backend:test_e2e:
+    desc: Run end to end test
+    env:
+      RUN_E2E: 1
+    cmds:
+      - poetry run pytest tests/backend/test_e2e.py
+
+  frontend:test:
+    desc: Run frontend Vitest suite
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - pnpm test
+
+  test:
+    desc: Run both backend and frontend test suites
+    cmds:
+      - task: backend:test
+      - task: frontend:test
+
+  run:dev:backend:
+    desc: Run the backend dev server
+    cmds:
+      - poetry run python -m source.backend.server --reload
+
+  run:dev:frontend:
+    desc: Run the frontend dev server
+    dir: '{{ .FRONTEND_DIR }}'
+    cmds:
+      - pnpm dev
+
+  run:prod:
+    desc: Run the prod server
+    cmds:
+      - pnpm -C {{ .FRONTEND_DIR }} build
+      - task: run:dev:frontend
