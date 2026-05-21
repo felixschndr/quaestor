@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from source.backend import rate_limit
+from source.backend.security import rate_limit
 
 from tests.backend.conftest import USER_NAME, VALID_PASSWORD
 

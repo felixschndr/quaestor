@@ -1,6 +1,6 @@
 import pytest
-from source.backend import rate_limit
-from source.backend.rate_limit import InMemoryTokenBucketLimiter
+from source.backend.security import rate_limit
+from source.backend.security.rate_limit import InMemoryTokenBucketLimiter
 
 
 def test_bucket_allows_up_to_capacity_then_blocks():
