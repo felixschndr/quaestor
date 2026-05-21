@@ -43,6 +43,47 @@ def test_app_startup_schedules_periodic_sync(session_factory: sessionmaker, monk
     run_periodic_sync.assert_called_once_with()
 
 
+def test_sync_all_due_credentials_helper_uses_session_local(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(target=sync_scheduler, name="SessionLocal", value=session_factory)
+    called_with: list = []
+
+    def sync_mock(db_session: object) -> None:
+        called_with.append(db_session)
+
+    monkeypatch.setattr(target=sync_scheduler.credential_service, name="sync_all_due_credentials", value=sync_mock)
+
+    sync_scheduler._sync_all_due_credentials()
+
+    assert len(called_with) == 1
+
+
+def test_run_periodic_sync_logs_and_keeps_running_on_exception(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    class _StopLoop(Exception):
+        pass
+
+    monkeypatch.setattr(
+        target=sync_scheduler,
+        name="_sync_all_due_credentials",
+        value=Mock(side_effect=RuntimeError("sync exploded")),
+    )
+
+    async def fake_sleep(_seconds: float) -> None:  # noqa: ASYNC124
+        raise _StopLoop
+
+    monkeypatch.setattr(target=sync_scheduler.asyncio, name="sleep", value=fake_sleep)
+
+    with caplog.at_level("ERROR", logger="source.backend.services.sync_scheduler"):
+        with pytest.raises(_StopLoop):
+            asyncio.run(real_run_periodic_sync())
+
+    error_messages = [r.message for r in caplog.records if r.levelname == "ERROR"]
+    assert any("Periodic credential sync run crashed" in msg for msg in error_messages), error_messages
+
+
 def test_run_periodic_sync_calls_the_sync_function(monkeypatch: pytest.MonkeyPatch):
     class _StopLoop(Exception):
         pass

@@ -1,0 +1,27 @@
+import pytest
+from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider, handler_for
+from source.backend.bank_handlers.base import BankHandler
+from source.backend.bank_handlers.dfs_handler import DFSHandler
+from source.backend.bank_handlers.fints_handler import FinTSHandler
+from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
+
+
+@pytest.mark.parametrize(
+    argnames="provider, expected_handler_class",
+    argvalues=[
+        (BankProvider.ING, FinTSHandler),
+        (BankProvider.DKB, FinTSHandler),
+        (BankProvider.DFS, DFSHandler),
+        (BankProvider.TRADE_REPUBLIC, TradeRepublicHandler),
+    ],
+)
+def test_handler_for_returns_handler_with_matching_bank_info(
+    provider: BankProvider, expected_handler_class: type[BankHandler]
+) -> None:
+    credentials = {field: "x" for field in BANKS_BY_NAME[provider.value].handler.CREDENTIAL_FIELDS}  # noqa: C420
+
+    handler = handler_for(provider=provider, credentials=credentials)
+
+    assert isinstance(handler, expected_handler_class)
+    assert handler.bank_info is BANKS_BY_NAME[provider.value]
+    assert handler.credentials == credentials

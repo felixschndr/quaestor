@@ -18,6 +18,7 @@ from sqlalchemy.pool import StaticPool
 os.environ.setdefault(key="ALLOW_MISSING_FRONTEND", value="true")
 
 USER_NAME = "alice"
+SECOND_USER_NAME = "bob"
 DISPLAY_NAME = "Alice"
 VALID_PASSWORD = "Sup3rSecret!Pass"  # nosec B105
 VALID_PASSWORD_HASH = (

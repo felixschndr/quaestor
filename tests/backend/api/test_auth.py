@@ -7,6 +7,7 @@ from source.backend.services.user_service import (
 
 from tests.backend.conftest import (
     DISPLAY_NAME,
+    SECOND_USER_NAME,
     USER_NAME,
     VALID_PASSWORD,
     WRONG_PASSWORD,
@@ -85,12 +86,12 @@ def test_register_rejects_invalid_password(http_client: TestClient, password: st
 
 
 def test_login_succeeds_with_correct_credentials(http_client: TestClient):
-    register(http_client, user_name="bob")
+    register(http_client, user_name=USER_NAME)
 
-    response = http_client.post("/api/auth/login", json={"user_name": "bob", "password": VALID_PASSWORD})
+    response = http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
 
     assert response.status_code == 200
-    assert response.json()["user_name"] == "bob"
+    assert response.json()["user_name"] == USER_NAME
     assert COOKIE_NAME in response.cookies
 
 
@@ -102,7 +103,7 @@ def test_login_fails_with_wrong_password(http_client_logged_out: TestClient):
 
 
 def test_login_fails_for_unknown_user(http_client: TestClient):
-    response = http_client.post("/api/auth/login", json={"user_name": "ghost", "password": VALID_PASSWORD})
+    response = http_client.post("/api/auth/login", json={"user_name": SECOND_USER_NAME, "password": VALID_PASSWORD})
 
     assert response.status_code == 401
 

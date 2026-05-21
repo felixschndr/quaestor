@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import threading
 from datetime import date
 from unittest.mock import AsyncMock
@@ -8,6 +10,9 @@ from source.backend import main
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.services import category_rescan
+from source.backend.services.category_rescan import (
+    run_startup_rescan as real_run_startup_rescan,
+)
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
@@ -138,6 +143,38 @@ def test_rescan_logs_summary_at_info(
     assert any(
         "Category re-scan: checked 2, updated 1, still unknown 1" in record.message for record in caplog.records
     ), [r.message for r in caplog.records]
+
+
+def test_run_startup_rescan_logs_exception_instead_of_crashing(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    def category_rescan_mock() -> None:
+        raise RuntimeError("Something went wrong.")
+
+    monkeypatch.setattr(target=category_rescan, name="rescan_unknown_categories_sync", value=category_rescan_mock)
+
+    # propagate=True isn't enough for caplog to pick up records from the worker
+    # thread spawned by asyncio.to_thread --> install a direct handler on the
+    # source logger instead.
+    captured: list[logging.LogRecord] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            captured.append(record)
+
+    handler = _Capture(level=logging.ERROR)
+    logging.getLogger("source.backend.services.category_rescan").addHandler(handler)
+    try:
+        asyncio.run(real_run_startup_rescan())
+    finally:
+        logging.getLogger("source.backend.services.category_rescan").removeHandler(handler)
+
+    assert any(
+        "Startup category re-scan crashed" in record.getMessage() and record.exc_info is not None for record in captured
+    ), [record.getMessage() for record in captured]
+    assert (
+        caplog is not None
+    )  # caplog is referenced to keep pytest's fixture happy even though we handled capture ourselves.
 
 
 def test_app_startup_schedules_category_rescan(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):

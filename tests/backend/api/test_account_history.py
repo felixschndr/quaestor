@@ -6,7 +6,12 @@ from source.backend.models.account_balance_snapshot import AccountBalanceSnapsho
 from source.backend.models.transaction import Transaction
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import create_credential, login_as, register
+from tests.backend.conftest import (
+    SECOND_USER_NAME,
+    create_credential,
+    login_as,
+    register,
+)
 
 
 def _account_with_history(
@@ -142,7 +147,7 @@ def test_user_cannot_read_other_users_history(http_client: TestClient, session_f
     credential_id = create_credential(http_client).json()["id"]
     account_id = _account_with_history(session_factory=session_factory, credential_id=credential_id, day_count=1)
 
-    register(http_client, user_name="bob")
-    login_as(http_client, user_name="bob")
+    register(http_client, user_name=SECOND_USER_NAME)
+    login_as(http_client, user_name=SECOND_USER_NAME)
 
     assert http_client.get(f"/api/account/{account_id}/history").status_code == 404
