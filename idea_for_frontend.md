@@ -81,21 +81,36 @@ All existing routers move under the `/api` prefix:
 - `DELETE /api/users/{id}/sessions?exclude_current=true` — "sign out everywhere else".
 - `PATCH  /api/account/{aid}` — extended to accept `balance_factor` (int, 0–100).
 - `GET    /api/account/{aid}/transactions/{tid}` — single transaction.
-- `PATCH  /api/account/{aid}/transactions/{tid}` — accepts `{ note: str | null }`. `null` deletes the note.
+- `PATCH  /api/account/{aid}/transactions/{tid}` — accepts `{ note: str | null, category: TransactionCategory | null }`. `null` on `note` deletes the note. Setting `category` is treated as a **manual override** and is logged (see §2.5).
 - `GET    /api/credentials/supported_banks` — wraps the existing `list_all_possible` output, **including a new `icon` field** per `BankProvider`.
+- `PATCH  /api/users/{id}` — additionally accepts `language: "en" | "de"` (any locale that has a translation file shipped).
+- `GET    /api/i18n/languages` — `{ languages: ["en", "de", ...] }`. Public. Returned list is derived from the translation files that actually ship with the backend, so the frontend selector is always in sync with what's implemented.
 
 ### 2.3 Model changes
 
-- `User`: add `display_name: str | None`.
+- `User`: add `display_name: str | None`, `language: str` (default `"en"`, must be one of the implemented locales — validated against the translation files at write time).
 - `Account`: add `balance_factor: int` (default 100, range 0–100).
-- `Transaction`: add `note: str | None`.
+- `Transaction`: add `note: str | None`, `category: TransactionCategory` (enum, default `UNKNOWN`).
 - `Session`: add `ip: str | None`, `user_agent: str | None`, `last_used_at: datetime` (update on every authenticated request). `created_at` should already exist; if not, add.
 - `BankProvider` (the data structure backing the `BANKS` SoT, per MEMORY): add an `icon` property (path to a static asset served by FastAPI under `/static/banks/<slug>.svg`). **Enum member names stay UPPER** — only the data record gains a field; no DB migration of enum values.
+- `TransactionCategory` (new enum): `UNKNOWN`, `GROCERIES`, `RESTAURANTS`, `TRANSPORT`, `FUEL`, `RENT`, `UTILITIES`, `INSURANCE`, `SALARY`, `SUBSCRIPTIONS`, `SHOPPING`, `HEALTH`, `ENTERTAINMENT`, `TRANSFER`, `CASH`, `FEES`, `OTHER`. Member names stay UPPER (same rule as `BankProvider`, per MEMORY — no DB migration of enum values once shipped).
 
 ### 2.4 Balance factor semantics
 
 - `User.balance` becomes `sum(account.balance * account.balance_factor / 100 for account in user.accounts)`.
 - The per-account daily balance history (used by `GET /api/account/{aid}/history`) is **not** scaled by `balance_factor` — it represents the real account balance over time.
+
+### 2.5 Transaction category matching
+
+- A pure function `categorize(other_party: str | None, purpose: str | None) -> TransactionCategory` lives in the backend (e.g. `source/backend/services/categorization.py`). It is the **single source of truth** for matching rules — used both at ingest time and during the startup re-scan.
+- **Rules** are defined declaratively: a list of `(category, patterns)` where patterns match against `other_party` first, then `purpose`. Initial set is small and grows over time as the logs reveal new merchants. Matching is case-insensitive substring (or regex per rule — to be decided per rule).
+- **At ingest time:** when a `Transaction` is persisted (initial sync or incremental), `category` is set via `categorize(...)`. No `UNKNOWN` rows are created intentionally — they only exist when no rule matched.
+- **Startup re-scan:** on FastAPI startup, a background task iterates over all `Transaction` rows where `category == UNKNOWN` and re-runs `categorize(...)`. Any newly matched rows are updated in-place (no event/notification — silent backfill).
+  - Runs once per process start. Streams in batches (e.g. 500 rows) to avoid loading everything at once.
+  - Logged at `INFO`: `"category re-scan: checked N, updated M"` at the end.
+- **Logging unknowns:** when `categorize(...)` returns `UNKNOWN` (both at ingest and during the re-scan), log at `INFO` the full `Transaction` object (per `[[feedback_log_objects]]` — every model has a safe `__repr__`, prefer `{tx}` over `{tx.id}`). The log line must make `other_party` and `purpose` directly visible so I can grep the logs for missing rules.
+- **Manual override:** `PATCH /api/account/{aid}/transactions/{tid}` accepts `category`. When set, the transaction's `category` is updated and the override is logged at `INFO` with: the previous category, the new category, and the full `Transaction` object (so `other_party` + `purpose` are visible — same reasoning as above, this is what feeds new rules).
+- Once manually set, a transaction's category is **not** touched by the startup re-scan (only `UNKNOWN` rows are revisited). A future "reset to auto" action can be added if needed (deferred).
 
 ---
 
@@ -145,6 +160,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
   - Date
   - Purpose
   - Type (raw enum value for now — **TODO: nicer labels via i18n**; an icon per type is rendered next to it)
+  - Category — rendered with the localized label of the `TransactionCategory` enum. Clickable / dropdown-style editor: user can pick any category from the enum. Change is persisted via `PATCH /api/account/{aid}/transactions/{tid}` with `{ category }`. Backend logs the override (see §2.5).
   - Note — **inline editable**, auto-saved (debounced ~500 ms) via `PATCH /api/account/{aid}/transactions/{tid}`. Empty string ⇒ note is deleted (`null`).
 
 ### 3.5 `/settings`
@@ -166,6 +182,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 
 - Change display name.
 - Change password (requires current password + new password + confirm). Live-validated against the backend rules.
+- **Language selector**: dropdown populated from `GET /api/i18n/languages` (so only languages that actually have a translation file are offered — currently `en`, `de`). Selection persisted via `PATCH /api/users/{id}` with `{ language }`. On success, i18next's active language is switched immediately (no reload).
 - Delete account (with confirmation modal). **Requires a new API endpoint, see TODO.**
 
 ### 3.8 `/settings/user/sessions`
@@ -181,7 +198,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - **Theme:** dark mode only (for now). Modern, clean. No specific color palette dictated — designer's choice within Tailwind defaults, with a strong pleasant red and green for amounts. Accessibility for color-blindness deferred.
 - **Typography:** TBD (modern system stack until decided — `Inter`, `Geist`, or similar).
 - **Responsiveness:** mobile-first. Bottom-of-page actions on mobile, top-aligned controls on desktop. No hamburger; back navigation is either the top-left back button or the device's native back gesture.
-- **Locale:** display locale is **`de-DE`** for numbers and dates (e.g. `1.234,56 €`, `20. Mai 2026`). i18n strings default to **English** (`en`), translations to German (`de`) provided. Language is auto-detected from the browser, override via settings (later).
+- **Locale:** display locale is **`de-DE`** for numbers and dates (e.g. `1.234,56 €`, `20. Mai 2026`). i18n strings default to **English** (`en`), translations to German (`de`) provided. Language is auto-detected from the browser on first load (when `User.language` is not yet set), then overridable via `/settings/user` (see §3.7). The list of selectable languages comes from `GET /api/i18n/languages`.
 - **Loading states:** skeletons (not spinners) for everything that has known layout.
 - **Feedback:** toasts via `sonner` — small, bottom of the screen, green check on success, auto-dismiss after ~3 s.
 - **Browser support:** modern evergreen only (last 2 versions of Chromium, Firefox, Safari).
@@ -221,6 +238,9 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `GET /api/account/{aid}/transactions/{tid}`
 - [x] `PATCH /api/account/{aid}/transactions/{tid}` — `{ note }`.
 - [x] `GET /api/credentials/supported_banks` — wrap `list_all_possible`, include `icon` field per bank.
+- [ ] `GET /api/i18n/languages` — derived from the translation files actually shipped.
+- [ ] `PATCH /api/users/{id}` — additionally accept `language` (validated against the implemented locales).
+- [ ] `PATCH /api/account/{aid}/transactions/{tid}` — additionally accept `category`; log the override per §2.5.
 
 ## Backend — models & migrations
 - [x] `User.display_name: str | None` — Alembic migration.
@@ -229,6 +249,15 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `Session.ip`, `Session.user_agent`, `Session.last_used_at` — Alembic migration; update `last_used_at` in the auth dependency.
 - [x] `BankProvider`: add an `icon` property to the `BANKS` data records. **Do not change Enum member names** (must stay UPPER, per MEMORY).
 - [x] Update `User.balance` computation to apply `balance_factor`.
+- [ ] `User.language: str` default `"en"` — Alembic migration; validate against the implemented locales on write.
+- [ ] `TransactionCategory` enum + `Transaction.category` column (default `UNKNOWN`) — Alembic migration. Member names UPPER (per MEMORY); do not rename later.
+
+## Backend — categorization
+- [ ] `source/backend/services/categorization.py`: pure `categorize(other_party, purpose) -> TransactionCategory` with declarative rules; case-insensitive substring or regex per rule. Single source of truth for ingest + re-scan.
+- [ ] Call `categorize(...)` on every newly persisted `Transaction` (initial sync + incremental).
+- [ ] FastAPI startup background task: iterate `Transaction.category == UNKNOWN` in batches (~500), re-run `categorize`, update matched rows in place. Log `"category re-scan: checked N, updated M"` at the end.
+- [ ] Log at `INFO` whenever `categorize` returns `UNKNOWN` — log the full `Transaction` object (per [[feedback_log_objects]]), so `other_party` + `purpose` are visible.
+- [ ] On manual override via `PATCH .../transactions/{tid}`: persist the new category, log at `INFO` the previous + new category + full `Transaction` object. Re-scan must skip non-`UNKNOWN` rows so manual choices are never overwritten.
 
 ## Backend — security
 - [ ] CSRF middleware (double-submit token: `csrf_token` cookie + `X-CSRF-Token` header for mutations).
@@ -257,9 +286,9 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [ ] `/login` page (toggle login/register; remember me; live password validation; inline errors).
 - [ ] `/` overview (hello + total balance + accounts grouped by bank, alphabetical; pull-to-refresh triggers global sync).
 - [ ] `/account/<id>` (back button; balance header; transactions grouped by date with day-end balance; infinite scroll; magnifier icon placeholder).
-- [ ] `/account/<id>/transactions/<id>` (amount header; borderless table; inline-editable auto-saved note).
+- [ ] `/account/<id>/transactions/<id>` (amount header; borderless table; inline-editable auto-saved note; **category dropdown** that PATCHes `category`).
 - [ ] `/settings` index with logout.
-- [ ] `/settings/user` (display name, password change, delete account).
+- [ ] `/settings/user` (display name, password change, **language selector populated from `GET /api/i18n/languages`**, delete account).
 - [ ] `/settings/user/sessions` (list + revoke + "sign out everywhere else").
 - [ ] `/settings/credentials` (list, add via bank picker → dynamic form, delete with modal, sync button, last-sync timestamp).
 - [ ] `/settings/credentials/<id>` (account list with `balance_factor` editor).
