@@ -25,10 +25,13 @@ from source.backend.security.csp import csp_middleware
 from source.backend.security.csrf import csrf_middleware
 from source.backend.security.rate_limit import rate_limit_middleware
 from source.backend.services import category_rescan, session_service, sync_scheduler
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import Scope
 
 logger = get_logger(__name__)
 
 MAX_LOGGED_BODY_BYTES = 4096
+ALLOW_MISSING_FRONTEND_ENV = "ALLOW_MISSING_FRONTEND"
 
 load_dotenv()
 
@@ -181,5 +184,37 @@ for api_object in [account, auth, credentials, i18n, users]:
     app.include_router(api_object.router, prefix=API_PREFIX)
 register_exception_handlers(app)
 
-_STATIC_DIRECTORY = Path(__file__).parent / "static"
-app.mount(path="/static", app=StaticFiles(directory=_STATIC_DIRECTORY), name="static")
+app.mount(path="/static", app=StaticFiles(directory=(Path(__file__).parent / "static")), name="static")
+
+
+class _SpaStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        try:
+            return await super().get_response(path=path, scope=scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code != 404:
+                raise
+
+        return await super().get_response(path="index.html", scope=scope)
+
+
+def resolve_frontend_dist(dist_path: Path) -> Path | None:
+    if dist_path.is_dir():
+        return dist_path
+
+    allow_missing = os.environ.get(key=ALLOW_MISSING_FRONTEND_ENV, default="false").lower() == "true"
+    if allow_missing:
+        logger.info(f"Frontend dist not found at {dist_path}; SPA not served ({ALLOW_MISSING_FRONTEND_ENV}=true).")
+        return None
+
+    raise RuntimeError(
+        f"Frontend dist not found at {dist_path}. "
+        f"Run `pnpm -C source/frontend build` (or `task run:prod`) first, "
+        f"or set {ALLOW_MISSING_FRONTEND_ENV}=true to run the backend without a built frontend."
+    )
+
+
+_FRONTEND_DIST = resolve_frontend_dist(Path(__file__).resolve().parent.parent / "frontend" / "dist")
+if _FRONTEND_DIST is not None:
+    app.mount(path="/", app=_SpaStaticFiles(directory=_FRONTEND_DIST, html=True), name="frontend")
+    logger.info(f"Serving SPA from {_FRONTEND_DIST}")

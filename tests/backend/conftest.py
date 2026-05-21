@@ -1,3 +1,4 @@
+import os
 from datetime import date as _date
 from unittest.mock import AsyncMock
 
@@ -13,6 +14,8 @@ from source.backend.security import csrf, rate_limit
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+
+os.environ.setdefault(key="ALLOW_MISSING_FRONTEND", value="true")
 
 USER_NAME = "alice"
 DISPLAY_NAME = "Alice"

@@ -37,19 +37,31 @@ tasks:
       - task: backend:test
       - task: frontend:test
 
-  run:dev:backend:
-    desc: Run the backend dev server
+  frontend:build:
+    desc: Production-build the frontend into source/frontend/dist/
+    dir: '{{ .FRONTEND_DIR }}'
     cmds:
-      - poetry run python -m source.backend.server --reload
+      - pnpm build
+
+  run:dev:backend:
+    desc: Run the backend with autoreload (without a built frontend)
+    env:
+      ALLOW_MISSING_FRONTEND: 'true'
+    cmds:
+      - poetry run uvicorn source.backend.main:app --reload --host 127.0.0.1 --port 8000
 
   run:dev:frontend:
-    desc: Run the frontend dev server
+    desc: Run the Vite dev server (proxies /api → :8000)
     dir: '{{ .FRONTEND_DIR }}'
     cmds:
       - pnpm dev
 
+  run:dev:
+    desc: Run backend (autoreload) and Vite dev server in parallel
+    deps: [run:dev:backend, run:dev:frontend]
+
   run:prod:
-    desc: Run the prod server
+    desc: Build the frontend, then start the backend
     cmds:
-      - pnpm -C {{ .FRONTEND_DIR }} build
-      - task: run:dev:frontend
+      - task: frontend:build
+      - poetry run python -m source.backend.server

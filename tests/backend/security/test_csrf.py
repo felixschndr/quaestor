@@ -87,10 +87,11 @@ def test_mutation_with_matching_token_succeeds(raw_http_client: TestClient):
 
 def test_non_api_mutation_is_not_validated(raw_http_client: TestClient):
     # Hit a URL outside /api — even without CSRF data, the middleware should pass it through.
-    # The route does not exist, so we expect 404 from the router, not 403 from CSRF.
+    # The exact response code depends on whether the SPA static mount is active (405 for POST)
+    # or not (404); what matters is that CSRF never rejects with 403.
     response = raw_http_client.post("/not-the-api/something")
 
-    assert response.status_code == 404
+    assert response.status_code != 403
 
 
 def test_csrf_cookie_is_not_httponly_so_the_spa_can_read_it(raw_http_client: TestClient):
