@@ -14,9 +14,12 @@ from sqlalchemy.pool import StaticPool
 USER_NAME = "alice"
 DISPLAY_NAME = "Alice"
 VALID_PASSWORD = "Sup3rSecret!Pass"  # nosec B105
-VALID_PASSWORD_HASH = "Sup3rSecret!Pass2"  # nosec B105
+VALID_PASSWORD_HASH = (
+    "$argon2id$v=19$m=65536,t=3,p=4$SHe1II5FiMI7z+lVd6e6Ig$+liPtR4Uu7MjpiMGPMLmkvmaWai+KehP9tPOmQllTfE"  # nosec B105
+)
 NEW_VALID_PASSWORD = "BrandNewPa55word!"  # nosec B105
 WRONG_PASSWORD = "Wr0ngPassword!!"  # nosec B105
+HTTP_SESSION_TOKEN = "not-a-real-token"  # nosec B105
 BANK_USERNAME = "bankuser"
 BANK_PASSWORD = "bankpass"  # nosec B105
 UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"
