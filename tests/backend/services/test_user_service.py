@@ -1,0 +1,50 @@
+from unittest.mock import MagicMock
+
+import pytest
+from source.backend.exceptions import UserNameAlreadyExistsError
+from source.backend.models.user import User
+from source.backend.services import user_service
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import sessionmaker
+
+from tests.backend.conftest import (
+    DISPLAY_NAME,
+    SECOND_USER_NAME,
+    USER_NAME,
+    VALID_PASSWORD,
+    VALID_PASSWORD_HASH,
+)
+
+
+def _create_user(session_factory: sessionmaker, user_name: str) -> None:
+    with session_factory() as session:
+        session.add(User(user_name=user_name, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH))
+        session.commit()
+
+
+def test_list_users_returns_all_users(session_factory: sessionmaker):
+    _create_user(session_factory, user_name=USER_NAME)
+    _create_user(session_factory, user_name=SECOND_USER_NAME)
+
+    with session_factory() as session:
+        users = user_service.list_users(db_session=session)
+
+    assert {user.user_name for user in users} == {USER_NAME, SECOND_USER_NAME}
+
+
+def test_list_users_returns_empty_when_no_rows(session_factory: sessionmaker):
+    with session_factory() as session:
+        assert user_service.list_users(db_session=session) == []
+
+
+def test_create_user_translates_integrity_error_to_user_name_already_exists(monkeypatch: pytest.MonkeyPatch):
+    session = MagicMock()
+    session.scalar.return_value = None  # pre-check sees no existing row
+    session.commit.side_effect = IntegrityError(statement="INSERT", params=None, orig=Exception("UNIQUE"))
+
+    with pytest.raises(UserNameAlreadyExistsError, match="already taken"):
+        user_service.create_user(
+            db_session=session, user_name=USER_NAME, display_name=DISPLAY_NAME, password=VALID_PASSWORD
+        )
+
+    session.rollback.assert_called_once()

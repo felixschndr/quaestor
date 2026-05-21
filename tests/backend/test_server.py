@@ -18,6 +18,19 @@ from source.backend.db import get_session
 from sqlalchemy.orm import sessionmaker
 
 
+def test_run_invokes_uvicorn_with_resolved_options(monkeypatch: pytest.MonkeyPatch):
+    from unittest.mock import MagicMock
+
+    uvicorn_run = MagicMock()
+    monkeypatch.setattr(target=server.uvicorn, name="run", value=uvicorn_run)
+    fake_options = {"host": "0.0.0.0", "port": 1234, "proxy_headers": True, "forwarded_allow_ips": "*"}  # nosec B104
+    monkeypatch.setattr(target=server, name="uvicorn_options", value=lambda: fake_options)
+
+    server.run()
+
+    uvicorn_run.assert_called_once_with(main.app, **fake_options)
+
+
 def test_uvicorn_options_defaults_to_http(monkeypatch: pytest.MonkeyPatch):
     for variable in ("HOST", "PORT", "SSL_CERTFILE", "SSL_KEYFILE", "FORWARDED_ALLOW_IPS"):
         monkeypatch.delenv(name=variable, raising=False)

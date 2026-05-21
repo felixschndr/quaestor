@@ -5,7 +5,13 @@ from fastapi.testclient import TestClient
 from source.backend.services import credential_service
 from source.backend.services.credential_service import SyncResult, SyncStatus
 
-from tests.backend.conftest import BANK_PASSWORD, create_credential, login_as, register
+from tests.backend.conftest import (
+    BANK_PASSWORD,
+    SECOND_USER_NAME,
+    create_credential,
+    login_as,
+    register,
+)
 
 
 def test_create_credential_returns_created_credential(http_client: TestClient):
@@ -48,8 +54,8 @@ def test_list_credentials_excludes_other_users_credentials(http_client: TestClie
     register(http_client)
     alice_credential_id = create_credential(http_client).json()["id"]
 
-    register(http_client, user_name="bob")
-    login_as(http_client, user_name="bob")
+    register(http_client, user_name=SECOND_USER_NAME)
+    login_as(http_client, user_name=SECOND_USER_NAME)
     bob_credential_id = create_credential(http_client).json()["id"]
 
     response = http_client.get("/api/credentials")
