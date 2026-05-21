@@ -6,6 +6,8 @@ silent: true
 vars:
   FRONTEND_DIR: source/frontend
   BACKEND_COV_SRC: source/backend
+  FRONTEND_PORT: '{{ .FRONTEND_PORT | default "8000" }}'
+  BACKEND_DEV_PORT: '{{ .BACKEND_DEV_PORT | default "8001" }}'
 
 tasks:
   lint:
@@ -44,15 +46,18 @@ tasks:
       - pnpm build
 
   run:dev:backend:
-    desc: Run the backend with autoreload (without a built frontend)
+    desc: Run the backend with autoreload
     env:
       ALLOW_MISSING_FRONTEND: 'true'
     cmds:
-      - poetry run uvicorn source.backend.main:app --reload --host 127.0.0.1 --port 8000
+      - poetry run uvicorn source.backend.main:app --reload --host 127.0.0.1 --port {{ .BACKEND_DEV_PORT }}
 
   run:dev:frontend:
     desc: Run the Vite dev server (proxies /api → :8000)
     dir: '{{ .FRONTEND_DIR }}'
+    env:
+      FRONTEND_PORT: '{{ .FRONTEND_PORT }}'
+      BACKEND_DEV_PORT: '{{ .BACKEND_DEV_PORT }}'
     cmds:
       - pnpm dev
 
@@ -62,6 +67,8 @@ tasks:
 
   run:prod:
     desc: Build the frontend, then start the backend
+    env:
+      PORT: '{{ .FRONTEND_PORT }}'
     cmds:
       - task: frontend:build
       - poetry run python -m source.backend.server

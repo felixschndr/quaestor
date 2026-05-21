@@ -5,6 +5,9 @@ import tailwindcss from '@tailwindcss/vite'
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const FRONTEND_PORT = Number(process.env.FRONTEND_PORT ?? 8000)
+const BACKEND_DEV_PORT = Number(process.env.BACKEND_DEV_PORT ?? 8001)
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -48,10 +51,11 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5173,
+    port: FRONTEND_PORT,
+    strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: `http://localhost:${BACKEND_DEV_PORT}`,
         changeOrigin: false,
       },
     },
