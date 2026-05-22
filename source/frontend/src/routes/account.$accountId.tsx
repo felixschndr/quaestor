@@ -124,8 +124,10 @@ export function AccountDetailView({
               // Magnifier placeholder per §3.3 — backend search endpoint TODO.
               // Same `text-primary` token as the back arrow, with no opacity
               // override so the rendered colour is exactly the same.
+              // translate-y nudge: optically the magnifier sits high vs. the
+              // chevron because its visual mass is in the lower half
               disabled
-              className="text-primary rounded-md p-1.5"
+              className="text-primary translate-y-[6px] rounded-md p-1.5"
             >
               <Search className="size-5" />
             </button>
