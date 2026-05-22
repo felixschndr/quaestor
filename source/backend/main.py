@@ -24,7 +24,12 @@ from source.backend.logging_utils import get_logger, redact_headers
 from source.backend.security.csp import csp_middleware
 from source.backend.security.csrf import csrf_middleware
 from source.backend.security.rate_limit import rate_limit_middleware
-from source.backend.services import category_rescan, session_service, sync_scheduler
+from source.backend.services import (
+    category_rescan,
+    migrations,
+    session_service,
+    sync_scheduler,
+)
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Scope
 
@@ -40,6 +45,7 @@ load_dotenv()
 async def lifespan(_app: FastAPI) -> AsyncGenerator:
     _route_third_party_loggers_to_root()
     log_database_location()
+    migrations.upgrade_to_head()
 
     background_tasks = [
         asyncio.create_task(category_rescan.run_startup_rescan()),

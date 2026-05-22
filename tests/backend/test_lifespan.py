@@ -1,10 +1,22 @@
 import asyncio
 import threading
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 from source.backend import main
 from sqlalchemy.orm import sessionmaker
+
+
+def test_lifespan_runs_alembic_upgrade_before_serving_requests(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(target=main, name="SessionLocal", value=session_factory)
+    upgrade = MagicMock()
+    monkeypatch.setattr(target=main.migrations, name="upgrade_to_head", value=upgrade)
+
+    with TestClient(main.app):
+        upgrade.assert_called_once_with()
 
 
 def test_lifespan_cancels_all_background_tasks_on_shutdown(
