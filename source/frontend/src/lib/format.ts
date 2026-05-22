@@ -6,6 +6,7 @@ const eurFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
 })
 
 const dateFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
+  weekday: 'long',
   day: 'numeric',
   month: 'long',
   year: 'numeric',
