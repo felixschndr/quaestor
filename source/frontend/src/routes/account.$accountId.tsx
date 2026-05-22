@@ -102,19 +102,14 @@ export function AccountDetailView({
   }, [])
 
   return (
-    // The outer <main> spans the full viewport width so the sticky header's
-    // background extends edge-to-edge — otherwise the overlay scrollbar sits
-    // *on top of* the centered content box and the eye reads it as a shift.
-    // Content inside is centered via inner max-w-2xl wrappers.
+    // The header is `position: fixed` (not sticky) so it's permanently on its
+    // own compositor layer pinned to the viewport. Sticky elements jitter
+    // sub-pixel during slow scrolls because the browser repositions them per
+    // frame relative to the scroll offset; fixed elements just stay put.
+    // Trade-off: the header is out of normal flow, so the content below gets
+    // an explicit padding-top equal to the measured header height.
     <main className="flex min-h-full flex-col">
-      <div
-        ref={stickyHeaderRef}
-        // `will-change: transform` forces the compositor layer up-front, so
-        // the layer-promotion that happens the first time a sticky element
-        // becomes "stuck" doesn't cause a sub-pixel horizontal jitter on the
-        // top scroll positions.
-        className="bg-background sticky top-0 z-20 will-change-transform"
-      >
+      <div ref={stickyHeaderRef} className="bg-background fixed top-0 right-0 left-0 z-20">
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 pt-4 pb-3">
           <header className="flex items-center justify-between gap-2">
             <BackLink />
@@ -149,7 +144,12 @@ export function AccountDetailView({
         </div>
       </div>
 
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-2 pb-4">
+      <div
+        className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pb-4"
+        // pt = measured header height + the visual gap (~0.5rem) the old
+        // `pt-2` provided between header and first transaction group.
+        style={{ paddingTop: `${stickyHeaderHeight + 8}px` }}
+      >
         {hasAnyTransactions ? (
           <TransactionGroupList
             accountId={account.id}
