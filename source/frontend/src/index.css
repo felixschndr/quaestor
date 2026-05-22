@@ -80,6 +80,10 @@
 @layer base {
   :root {
     color-scheme: dark;
+    /* Reserve scrollbar space so mx-auto'd content doesn't recenter (and
+       visibly shift) when a classic scrollbar appears mid-scroll. On
+       macOS with overlay scrollbars this is a no-op. */
+    scrollbar-gutter: stable;
   }
 
   html,
