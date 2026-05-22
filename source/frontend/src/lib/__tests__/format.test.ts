@@ -15,6 +15,11 @@ describe('formatDate', () => {
   it('formats an ISO date in long German form', () => {
     expect(formatDate('2026-05-20T12:00:00Z')).toMatch(/20\. Mai 2026/)
   })
+
+  it('prefixes the date with the weekday', () => {
+    // 2026-05-20 is a Wednesday → Mittwoch.
+    expect(formatDate('2026-05-20T12:00:00Z')).toMatch(/^Mittwoch, /)
+  })
 })
 
 describe('relativeDateKey', () => {
