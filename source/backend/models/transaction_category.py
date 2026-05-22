@@ -128,6 +128,7 @@ TRANSACTION_TYPE_MAPPING: dict[TransactionCategory, list[str]] = {
         "otto",
         "etsy",
         "kleinanzeigen",
+        "klarna",
         "apple store",
         "ikea",
         "paypal",
