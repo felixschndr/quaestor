@@ -19,7 +19,7 @@ from source.backend.api import (
 )
 from source.backend.api.exception_handlers import register_exception_handlers
 from source.backend.constants import API_PREFIX
-from source.backend.db import SessionLocal, log_database_location
+from source.backend.db import SessionLocal, close_engine, log_database_location
 from source.backend.helpers import get_backend_source_path, get_frontend_source_path
 from source.backend.logging_utils import get_logger, redact_headers
 from source.backend.security.csp import csp_middleware
@@ -60,6 +60,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator:
         for task in background_tasks:
             with suppress(asyncio.CancelledError):
                 await task
+        close_engine()
         logger.info("Shutdown complete")
 
 
