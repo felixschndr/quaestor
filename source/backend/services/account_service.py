@@ -72,6 +72,11 @@ def update_transaction(db_session: Session, transaction: Transaction, fields: di
 
 
 def update_account(db_session: Session, account: Account, fields: dict) -> Account:
+    # `balance_factor` is non-nullable; an explicit `null` in the PATCH body
+    # is treated as "no change" so the request doesn't 500 at commit time.
+    # `display_name` (nullable) keeps its explicit-null semantics (= clear).
+    if fields.get("balance_factor") is None:
+        fields.pop("balance_factor", None)
     account_before_change = str(account)
     for key, value in fields.items():
         setattr(account, key, value)

@@ -1,4 +1,5 @@
 import datetime
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 from source.backend.api.schemas.transaction import TransactionRead
@@ -9,12 +10,14 @@ class AccountRead(BaseModel):
 
     id: int
     name: str
+    display_name: str | None
     balance: float
     balance_factor: int
 
 
 class AccountUpdate(BaseModel):
-    balance_factor: int = Field(ge=0, le=100)
+    balance_factor: Annotated[int, Field(ge=0, le=100)] | None = None
+    display_name: Annotated[str, Field(max_length=150)] | None = None
 
 
 class AccountHistory(BaseModel):

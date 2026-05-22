@@ -19,6 +19,7 @@ class Account(Base):
 
     credential_id: Mapped[int] = mapped_column(ForeignKey("credentials.id"))
     name: Mapped[str] = mapped_column(String(120))
+    display_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
     balance: Mapped[float] = mapped_column(Float, default=0.0)
     balance_factor: Mapped[int] = mapped_column(default=100)
 

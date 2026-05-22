@@ -92,6 +92,115 @@ def test_update_account_requires_authentication(http_client: TestClient):
     assert http_client.patch("/api/account/1", json={"balance_factor": 50}).status_code == 401
 
 
+def test_account_response_has_null_display_name_by_default(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+
+    response = http_client.patch(f"/api/account/{account_id}", json={"balance_factor": 100})
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] is None
+
+
+def test_update_account_sets_display_name(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+
+    response = http_client.patch(f"/api/account/{account_id}", json={"display_name": "Hauptkonto"})
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] == "Hauptkonto"
+    with session_factory() as session:
+        stored = session.get(entity=Account, ident=account_id)
+        assert stored is not None
+        assert stored.display_name == "Hauptkonto"
+
+
+def test_update_account_clears_display_name_with_null(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    http_client.patch(f"/api/account/{account_id}", json={"display_name": "to be cleared"})
+
+    response = http_client.patch(f"/api/account/{account_id}", json={"display_name": None})
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] is None
+    with session_factory() as session:
+        stored = session.get(entity=Account, ident=account_id)
+        assert stored is not None
+        assert stored.display_name is None
+
+
+def test_update_account_rejects_overlong_display_name(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+
+    response = http_client.patch(f"/api/account/{account_id}", json={"display_name": "x" * 151})
+
+    assert response.status_code == 422
+
+
+def test_update_account_accepts_display_name_at_max_length(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+
+    response = http_client.patch(f"/api/account/{account_id}", json={"display_name": "x" * 150})
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] == "x" * 150
+
+
+def test_update_account_display_name_alone_leaves_balance_factor_untouched(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    http_client.patch(f"/api/account/{account_id}", json={"balance_factor": 42})
+
+    response = http_client.patch(f"/api/account/{account_id}", json={"display_name": "Sparkonto"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["display_name"] == "Sparkonto"
+    assert body["balance_factor"] == 42
+
+
+def test_update_account_balance_factor_alone_leaves_display_name_untouched(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    http_client.patch(f"/api/account/{account_id}", json={"display_name": "Bleibt"})
+
+    response = http_client.patch(f"/api/account/{account_id}", json={"balance_factor": 25})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["display_name"] == "Bleibt"
+    assert body["balance_factor"] == 25
+
+
+def test_update_account_null_balance_factor_is_ignored(http_client: TestClient, session_factory: sessionmaker):
+    # balance_factor is non-nullable in the DB; an explicit null must be a no-op
+    # rather than producing a 500 at commit time.
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    http_client.patch(f"/api/account/{account_id}", json={"balance_factor": 75})
+
+    response = http_client.patch(f"/api/account/{account_id}", json={"balance_factor": None})
+
+    assert response.status_code == 200
+    assert response.json()["balance_factor"] == 75
+
+
 def test_get_transaction_returns_transaction(http_client: TestClient, session_factory: sessionmaker):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
