@@ -289,7 +289,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] Auth boot flow: call `GET /api/auth/me` on app start; redirect to `/login?next=…` on 401.
 - [x] `/login` page (toggle login/register; remember me; live password validation; inline errors).
 - [ ] `/` overview (hello + total balance + accounts grouped by bank, alphabetical; pull-to-refresh triggers global sync).
-- [ ] `/account/<id>` (back button; balance header; transactions grouped by date with day-end balance; infinite scroll; magnifier icon placeholder).
+- [x] `/account/<id>` (back button; balance header; transactions grouped by date with day-end balance; infinite scroll; magnifier icon placeholder).
 - [ ] `/account/<id>/transactions/<id>` (amount header; borderless table; inline-editable auto-saved note; **category dropdown** that PATCHes `category`).
 - [ ] `/settings` index with logout.
 - [ ] `/settings/user` (display name, password change, **language selector populated from `GET /api/i18n/languages`**, delete account).
