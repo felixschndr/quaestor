@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Search } from 'lucide-react'
@@ -80,44 +80,89 @@ export function AccountDetailView({
   const hasAnyTransactions = groups.length > 0
   const negative = account.balance < 0
 
+  // The date headers below are sticky too — they need to stop at the bottom
+  // edge of this header, not at the viewport top. Measure synchronously
+  // before paint so date headers get the right offset on the very first
+  // render; ResizeObserver then keeps it in sync if the header reflows.
+  const stickyHeaderRef = useRef<HTMLDivElement>(null)
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0)
+  useLayoutEffect(() => {
+    const node = stickyHeaderRef.current
+    if (!node) return
+    setStickyHeaderHeight(node.getBoundingClientRect().height)
+  }, [])
+  useEffect(() => {
+    const node = stickyHeaderRef.current
+    if (!node) return
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setStickyHeaderHeight(entry.contentRect.height)
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-4">
-      <header className="flex items-center justify-between gap-2">
-        <BackLink />
-        <button
-          type="button"
-          aria-label={t('account.search')}
-          // Magnifier placeholder per §3.3 — backend search endpoint TODO.
-          disabled
-          className="text-muted-foreground rounded-md p-1.5 opacity-50"
-        >
-          <Search className="size-5" />
-        </button>
-      </header>
+    // The outer <main> spans the full viewport width so the sticky header's
+    // background extends edge-to-edge — otherwise the overlay scrollbar sits
+    // *on top of* the centered content box and the eye reads it as a shift.
+    // Content inside is centered via inner max-w-2xl wrappers.
+    <main className="flex min-h-full flex-col">
+      <div
+        ref={stickyHeaderRef}
+        // `will-change: transform` forces the compositor layer up-front, so
+        // the layer-promotion that happens the first time a sticky element
+        // becomes "stuck" doesn't cause a sub-pixel horizontal jitter on the
+        // top scroll positions.
+        className="bg-background sticky top-0 z-20 will-change-transform"
+      >
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 pt-4 pb-3">
+          <header className="flex items-center justify-between gap-2">
+            <BackLink />
+            <button
+              type="button"
+              aria-label={t('account.search')}
+              // Magnifier placeholder per §3.3 — backend search endpoint TODO.
+              // Same `text-primary` token as the back arrow, with no opacity
+              // override so the rendered colour is exactly the same.
+              disabled
+              className="text-primary rounded-md p-1.5"
+            >
+              <Search className="size-5" />
+            </button>
+          </header>
 
-      <section aria-labelledby="account-balance-label" className="flex flex-col gap-1">
-        <p id="account-balance-label" className="text-muted-foreground text-sm">
-          {account.name}
-        </p>
-        <p
-          className={cn(
-            'text-4xl font-bold tracking-tight tabular-nums',
-            negative ? 'text-destructive' : 'text-primary',
-          )}
-        >
-          {formatEuro(account.balance)}
-        </p>
-      </section>
+          <section aria-labelledby="account-balance-label" className="flex flex-col gap-1">
+            <p id="account-balance-label" className="text-muted-foreground text-sm">
+              {account.name}
+            </p>
+            <p
+              className={cn(
+                'text-4xl font-bold tracking-tight tabular-nums',
+                negative ? 'text-destructive' : 'text-primary',
+              )}
+            >
+              {formatEuro(account.balance)}
+            </p>
+          </section>
+        </div>
+      </div>
 
-      {hasAnyTransactions ? (
-        <TransactionGroupList accountId={account.id} groups={groups} today={today} />
-      ) : (
-        <p className="text-muted-foreground text-sm">{t('account.empty')}</p>
-      )}
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-2 pb-4">
+        {hasAnyTransactions ? (
+          <TransactionGroupList
+            accountId={account.id}
+            groups={groups}
+            today={today}
+            stickyTopOffset={stickyHeaderHeight}
+          />
+        ) : (
+          <p className="text-muted-foreground text-sm">{t('account.empty')}</p>
+        )}
 
-      {hasNextPage ? (
-        <InfiniteScrollSentinel onIntersect={onLoadMore} isFetching={isFetchingNextPage} />
-      ) : null}
+        {hasNextPage ? (
+          <InfiniteScrollSentinel onIntersect={onLoadMore} isFetching={isFetchingNextPage} />
+        ) : null}
+      </div>
     </main>
   )
 }
@@ -139,16 +184,24 @@ function TransactionGroupList({
   accountId,
   groups,
   today,
+  stickyTopOffset = 0,
 }: {
   accountId: number
   groups: ReturnType<typeof groupTransactionsByDate>
   today?: Date
+  /** Pixel offset where date headers should park (height of the page header). */
+  stickyTopOffset?: number
 }) {
   return (
     <ul className="flex flex-col gap-6">
       {groups.map((group) => (
         <li key={group.date} className="flex flex-col gap-2">
-          <DateHeader date={group.date} endOfDayBalance={group.endOfDayBalance} today={today} />
+          <DateHeader
+            date={group.date}
+            endOfDayBalance={group.endOfDayBalance}
+            today={today}
+            stickyTopOffset={stickyTopOffset}
+          />
           <ul className="flex flex-col">
             {group.transactions.map((transaction) => (
               <TransactionRow
@@ -168,10 +221,12 @@ function DateHeader({
   date,
   endOfDayBalance,
   today,
+  stickyTopOffset,
 }: {
   date: string
   endOfDayBalance: number | null
   today?: Date
+  stickyTopOffset: number
 }) {
   const { t } = useTranslation()
   // ISO yyyy-mm-dd is parsed as UTC by `new Date(...)`; pin to local midnight
@@ -181,7 +236,14 @@ function DateHeader({
   const relKey = relativeDateKey(local, today)
   const label = relKey ? t(`account.${relKey}`) : formatDate(local)
   return (
-    <header className="bg-background sticky top-0 z-[1] flex items-baseline justify-between gap-2 py-1">
+    // grid (not flex+justify-between) so the columns have fixed positions and
+    // don't reflow as the next sticky header pushes this one out. `top` is the
+    // measured page-header height so the date header parks just beneath it
+    // instead of fighting it at top:0.
+    <header
+      className="bg-background sticky z-[1] grid grid-cols-[1fr_auto] items-baseline gap-2 py-1"
+      style={{ top: `${stickyTopOffset}px` }}
+    >
       <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">{label}</h2>
       {endOfDayBalance !== null ? (
         <span className="text-muted-foreground text-xs tabular-nums">
