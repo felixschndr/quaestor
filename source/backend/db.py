@@ -56,3 +56,8 @@ SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 def get_session() -> Iterator[Session]:
     with SessionLocal() as db_session:
         yield db_session
+
+
+def close_engine() -> None:
+    logger.info("Closing the database")
+    engine.dispose()
