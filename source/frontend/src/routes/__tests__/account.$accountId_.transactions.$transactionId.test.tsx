@@ -135,6 +135,17 @@ describe('TransactionDetailView', () => {
     expect(options.some((option) => option.value === 'SUPERMARKET')).toBe(true)
   })
 
+  it('sorts categories alphabetically by their localised label, pinning UNKNOWN last', () => {
+    renderView()
+    const select = screen.getByRole('combobox', { name: 'Category' }) as HTMLSelectElement
+    const options = within(select).getAllByRole('option') as HTMLOptionElement[]
+    const labels = options.map((option) => option.textContent ?? '')
+    const labelsExceptLast = labels.slice(0, -1)
+    const sorted = [...labelsExceptLast].sort((a, b) => a.localeCompare(b))
+    expect(labelsExceptLast).toEqual(sorted)
+    expect(labels[labels.length - 1]).toBe('Unknown')
+  })
+
   it('calls onChangeCategory when the user picks a new category', async () => {
     const user = userEvent.setup()
     const { onChangeCategory } = renderView({ category: 'SUPERMARKET' })

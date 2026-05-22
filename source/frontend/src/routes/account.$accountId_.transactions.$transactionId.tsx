@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
@@ -209,8 +209,17 @@ function CategorySelect({
   value: TransactionCategory
   onChange: (category: TransactionCategory) => Promise<unknown>
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [pending, setPending] = useState(false)
+  // Sort categories alphabetically by their localised label; UNKNOWN is pinned
+  // last so it doesn't get accidentally picked when scrolling the dropdown.
+  const sortedOptions = useMemo(() => {
+    const localised = TRANSACTION_CATEGORIES.filter((category) => category !== 'UNKNOWN').map(
+      (category) => ({ value: category, label: t(`category.${category}`) }),
+    )
+    localised.sort((a, b) => a.label.localeCompare(b.label, i18n.language))
+    return [...localised, { value: 'UNKNOWN' as TransactionCategory, label: t('category.UNKNOWN') }]
+  }, [t, i18n.language])
   return (
     <select
       aria-label={t('transaction.category')}
@@ -230,9 +239,9 @@ function CategorySelect({
         'dark:bg-input/30',
       )}
     >
-      {TRANSACTION_CATEGORIES.map((category) => (
-        <option key={category} value={category}>
-          {t(`category.${category}`)}
+      {sortedOptions.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
         </option>
       ))}
     </select>
