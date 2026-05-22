@@ -1,15 +1,15 @@
 import os
 from collections.abc import Iterator
-from pathlib import Path
 
 import sqlcipher3
 from dotenv import load_dotenv
+from source.backend.helpers import get_root_path_of_repository
 from source.backend.logging_utils import get_logger
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 KEY_ENV_VARIABLE_NAME = "DATABASE_ENCRYPTION_KEY"
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = get_root_path_of_repository()
 ENV_FILE_PATH = ROOT / ".env"
 DB_PATH = ROOT / "bank_app.db"
 

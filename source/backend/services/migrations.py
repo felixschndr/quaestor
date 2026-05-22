@@ -1,12 +1,11 @@
-from pathlib import Path
-
 from alembic import command
 from alembic.config import Config
+from source.backend.helpers import get_root_path_of_repository
 from source.backend.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
-_ALEMBIC_INI = Path(__file__).resolve().parent.parent.parent.parent / "alembic.ini"
+_ALEMBIC_INI = get_root_path_of_repository() / "alembic.ini"
 
 
 def upgrade_to_head() -> None:

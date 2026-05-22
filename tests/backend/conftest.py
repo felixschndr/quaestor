@@ -1,5 +1,6 @@
 import os
 from datetime import date as _date
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -8,6 +9,7 @@ from httpx import Response
 from source.backend import main
 from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.db import get_session
+from source.backend.helpers import get_root_path_of_repository
 from source.backend.models.base import Base
 from source.backend.models.transaction_type import TransactionType
 from source.backend.security import csrf, rate_limit
@@ -123,3 +125,7 @@ def create_fetched_transaction(
         other_party=other_party,
         transaction_type=transaction_type,
     )
+
+
+def get_backend_test_path() -> Path:
+    return get_root_path_of_repository() / "tests" / "backend"

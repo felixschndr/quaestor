@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-05-21 21:59:56.047733
+Create Date: 2026-05-22 21:11:33.007445
 
 """
 
@@ -72,6 +72,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("credential_id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=120), nullable=False),
+        sa.Column("display_name", sa.String(length=150), nullable=True),
         sa.Column("balance", sa.Float(), nullable=False),
         sa.Column("balance_factor", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(

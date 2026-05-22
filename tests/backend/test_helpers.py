@@ -2,7 +2,13 @@ from datetime import date
 from typing import Any
 
 import pytest
-from source.backend.helpers import epoch_ms_to_date, get_key_of_transaction
+from source.backend.helpers import (
+    epoch_ms_to_date,
+    get_backend_source_path,
+    get_frontend_source_path,
+    get_key_of_transaction,
+    get_root_path_of_repository,
+)
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_type import TransactionType
 
@@ -48,3 +54,38 @@ def test_key_matches_between_transaction_and_fetched_transaction():
 def test_epoch_ms_to_date_accepts_int_and_str(epoch_input: str | int):
     # 1700000000000 ms = 2023-11-14 22:13:20 UTC
     assert epoch_ms_to_date(epoch_input) == date(year=2023, month=11, day=14)
+
+
+def test_get_root_path_of_repository_points_at_the_repo_root():
+    root = get_root_path_of_repository()
+
+    assert root.is_dir()
+    assert (root / "pyproject.toml").is_file()
+    assert (root / "alembic.ini").is_file()
+
+
+def test_get_backend_source_path_points_at_source_backend():
+    backend = get_backend_source_path()
+
+    assert backend.is_dir()
+    assert backend.name == "backend"
+    assert backend.parent.name == "source"
+    assert (backend / "main.py").is_file()
+
+
+def test_get_frontend_source_path_points_at_source_frontend():
+    frontend = get_frontend_source_path()
+
+    assert frontend.is_dir()
+    assert frontend.name == "frontend"
+    assert frontend.parent.name == "source"
+    assert (frontend / "package.json").is_file()
+
+
+def test_backend_and_frontend_are_siblings_under_the_repo_root():
+    root = get_root_path_of_repository()
+    backend = get_backend_source_path()
+    frontend = get_frontend_source_path()
+
+    assert backend.parent == frontend.parent
+    assert backend.parent.parent == root

@@ -20,6 +20,7 @@ from source.backend.api import (
 from source.backend.api.exception_handlers import register_exception_handlers
 from source.backend.constants import API_PREFIX
 from source.backend.db import SessionLocal, log_database_location
+from source.backend.helpers import get_backend_source_path, get_frontend_source_path
 from source.backend.logging_utils import get_logger, redact_headers
 from source.backend.security.csp import csp_middleware
 from source.backend.security.csrf import csrf_middleware
@@ -190,7 +191,7 @@ for api_object in [account, auth, credentials, i18n, users]:
     app.include_router(api_object.router, prefix=API_PREFIX)
 register_exception_handlers(app)
 
-app.mount(path="/static", app=StaticFiles(directory=(Path(__file__).parent / "static")), name="static")
+app.mount(path="/static", app=StaticFiles(directory=(get_backend_source_path() / "static")), name="static")
 
 
 class _SpaStaticFiles(StaticFiles):
@@ -220,7 +221,7 @@ def resolve_frontend_dist(dist_path: Path) -> Path | None:
     )
 
 
-_FRONTEND_DIST = resolve_frontend_dist(Path(__file__).resolve().parent.parent / "frontend" / "dist")
+_FRONTEND_DIST = resolve_frontend_dist(get_frontend_source_path() / "dist")
 if _FRONTEND_DIST is not None:
     app.mount(path="/", app=_SpaStaticFiles(directory=_FRONTEND_DIST, html=True), name="frontend")
     logger.info(f"Serving SPA from {_FRONTEND_DIST}")

@@ -1,6 +1,5 @@
 import json
 from datetime import date
-from pathlib import Path
 
 import pytest
 import requests
@@ -11,9 +10,9 @@ from source.backend.exceptions import InvalidCredentialsError, UnknownInternalEr
 from source.backend.helpers import epoch_ms_to_date
 from source.backend.models.transaction_type import TransactionType
 
-from tests.backend.conftest import USER_NAME, VALID_PASSWORD
+from tests.backend.conftest import USER_NAME, VALID_PASSWORD, get_backend_test_path
 
-FIXTURES = Path(__file__).parent.parent / "fixtures"
+FIXTURES = get_backend_test_path() / "fixtures"
 DASHBOARD_SNAPSHOT = json.loads((FIXTURES / "dfs_dashboard_snapshot_response.json").read_text())
 TRANSACTIONS = json.loads((FIXTURES / "dfs_transactions_response.json").read_text())
 
