@@ -13,6 +13,17 @@
     "emptyCta": "Connect your first bank",
     "settings": "Settings"
   },
+  "account": {
+    "back": "Back",
+    "search": "Search transactions",
+    "balance": "Current balance",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "unknownParty": "Unknown",
+    "empty": "No transactions yet.",
+    "notFound": "Account not found.",
+    "loadingMore": "Loading more transactions…"
+  },
   "login": {
     "loginTab": "Log in",
     "registerTab": "Register",

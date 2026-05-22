@@ -13,6 +13,17 @@
     "emptyCta": "Erste Bank verbinden",
     "settings": "Einstellungen"
   },
+  "account": {
+    "back": "Zurück",
+    "search": "Transaktionen durchsuchen",
+    "balance": "Aktueller Kontostand",
+    "today": "Heute",
+    "yesterday": "Gestern",
+    "unknownParty": "Unbekannt",
+    "empty": "Noch keine Transaktionen.",
+    "notFound": "Konto nicht gefunden.",
+    "loadingMore": "Weitere Transaktionen werden geladen …"
+  },
   "login": {
     "loginTab": "Anmelden",
     "registerTab": "Registrieren",
