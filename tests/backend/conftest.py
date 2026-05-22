@@ -1,6 +1,6 @@
 import os
 from datetime import date as _date
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -36,6 +36,7 @@ UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"
 def disable_background_tasks(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=main.sync_scheduler, name="run_periodic_sync", value=AsyncMock())
     monkeypatch.setattr(target=main.category_rescan, name="run_startup_rescan", value=AsyncMock())
+    monkeypatch.setattr(target=main.migrations, name="upgrade_to_head", value=MagicMock())
 
 
 @pytest.fixture(autouse=True)
