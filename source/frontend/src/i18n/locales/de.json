@@ -27,6 +27,13 @@
   "search": {
     "title": "Transaktionen suchen",
     "back": "Zurück",
+    "accountsLabel": "Konten",
+    "accountsNone": "Keine Konten ausgewählt",
+    "accountsAll": "Alle Konten",
+    "accountsCount_one": "{{count}} Konto",
+    "accountsCount_other": "{{count}} Konten",
+    "selectAll": "Alle",
+    "selectNone": "Keine",
     "text": "Suchtext",
     "textPlaceholder": "Empfänger / Absender / Zweck / Notiz",
     "amountFrom": "Betrag von",

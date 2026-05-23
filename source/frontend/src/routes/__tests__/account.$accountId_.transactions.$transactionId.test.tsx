@@ -39,6 +39,7 @@ import {
 function buildTransaction(overrides: Partial<TransactionRead> = {}): TransactionRead {
   return {
     id: 7,
+    account_id: 42,
     amount: -42.5,
     purpose: 'Weekly groceries',
     date: '2026-05-20',

@@ -5,6 +5,7 @@ import { api, ApiError } from './api'
 export interface AccountRead {
   id: number
   name: string
+  display_name: string | null
   balance: number
   balance_factor: number
 }

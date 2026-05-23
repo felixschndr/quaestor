@@ -20,8 +20,8 @@ function makeUser(): UserRead {
         id: 100,
         bank: 'ing',
         accounts: [
-          { id: 1, name: 'Giro', balance: 500, balance_factor: 100 },
-          { id: 2, name: 'Tagesgeld', balance: 1000, balance_factor: 100 },
+          { id: 1, name: 'Giro', display_name: null, balance: 500, balance_factor: 100 },
+          { id: 2, name: 'Tagesgeld', display_name: null, balance: 1000, balance_factor: 100 },
         ],
         last_fetching_timestamp: null,
         requires_two_factor_authentication: false,
@@ -29,7 +29,9 @@ function makeUser(): UserRead {
       {
         id: 101,
         bank: 'trade_republic',
-        accounts: [{ id: 3, name: 'TR Cash', balance: 50, balance_factor: 100 }],
+        accounts: [
+          { id: 3, name: 'TR Cash', display_name: null, balance: 50, balance_factor: 100 },
+        ],
         last_fetching_timestamp: null,
         requires_two_factor_authentication: false,
       },
@@ -62,6 +64,7 @@ describe('findAccountInUser', () => {
 function makeTransaction(overrides: Partial<TransactionRead>): TransactionRead {
   return {
     id: 1,
+    account_id: 1,
     amount: 0,
     purpose: null,
     date: '2026-05-22',

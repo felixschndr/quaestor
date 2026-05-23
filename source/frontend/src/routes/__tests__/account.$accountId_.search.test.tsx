@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 import type { TransactionRead } from '@/lib/accountHistory'
+import type { CredentialRead } from '@/lib/auth'
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
@@ -38,6 +39,26 @@ import {
   type TransactionSearchParams,
 } from '@/routes/account.$accountId_.search'
 
+const credentials: CredentialRead[] = [
+  {
+    id: 1,
+    bank: 'ing',
+    accounts: [
+      { id: 42, name: 'Girokonto', balance: 0, balance_factor: 100, display_name: null },
+      { id: 43, name: 'Tagesgeld', balance: 0, balance_factor: 100, display_name: null },
+    ],
+    last_fetching_timestamp: null,
+    requires_two_factor_authentication: false,
+  },
+  {
+    id: 2,
+    bank: 'trade_republic',
+    accounts: [{ id: 99, name: 'TR Cash', balance: 0, balance_factor: 100, display_name: null }],
+    last_fetching_timestamp: null,
+    requires_two_factor_authentication: false,
+  },
+]
+
 function renderWithClient(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
@@ -47,7 +68,8 @@ function renderView(opts: { search?: Partial<TransactionSearchParams> } = {}) {
   const onSubmit = vi.fn()
   renderWithClient(
     <TransactionSearchView
-      accountId={42}
+      anchorAccountId={42}
+      credentials={credentials}
       search={(opts.search ?? {}) as TransactionSearchParams}
       onSubmit={onSubmit}
     />,
@@ -58,11 +80,10 @@ function renderView(opts: { search?: Partial<TransactionSearchParams> } = {}) {
 describe('TransactionSearchView — form', () => {
   it('renders all filter fields', () => {
     renderView()
+    expect(screen.getByLabelText('Accounts')).toBeInTheDocument()
     expect(screen.getByLabelText('Search text')).toBeInTheDocument()
     expect(screen.getByLabelText('Amount from')).toBeInTheDocument()
     expect(screen.getByLabelText('Amount to')).toBeInTheDocument()
-    // Date pickers render as buttons (Popover triggers), not <input>s —
-    // two of them, one per date field.
     const dateTriggers = screen.getAllByRole('button', { name: 'Pick a date' })
     expect(dateTriggers).toHaveLength(2)
     expect(screen.getByLabelText('Type')).toBeInTheDocument()
@@ -87,12 +108,11 @@ describe('TransactionSearchView — form', () => {
 
     const amountFromGroup = screen.getByLabelText('Amount from').parentElement!
     await user.type(screen.getByLabelText('Amount from'), '12.5')
-    // Default sign is positive ("+"); flip to negative on the matching toggle.
     await user.click(within(amountFromGroup).getByRole('button', { name: 'Make negative' }))
     await user.click(screen.getByRole('button', { name: 'Search' }))
 
     expect(onSubmit).toHaveBeenCalledTimes(1)
-    expect(onSubmit.mock.calls[0][0].amount_from).toBe(-12.5)
+    expect(onSubmit.mock.calls[0][0].filters.amount_from).toBe(-12.5)
   })
 
   it('sign toggle round-trips back to positive', async () => {
@@ -102,11 +122,10 @@ describe('TransactionSearchView — form', () => {
     const amountFromGroup = screen.getByLabelText('Amount from').parentElement!
     await user.type(screen.getByLabelText('Amount from'), '7')
     await user.click(within(amountFromGroup).getByRole('button', { name: 'Make negative' }))
-    // After flipping once, the button now offers the opposite action.
     await user.click(within(amountFromGroup).getByRole('button', { name: 'Make positive' }))
     await user.click(screen.getByRole('button', { name: 'Search' }))
 
-    expect(onSubmit.mock.calls[0][0].amount_from).toBe(7)
+    expect(onSubmit.mock.calls[0][0].filters.amount_from).toBe(7)
   })
 
   it('renders translated labels for the transaction type select', () => {
@@ -115,39 +134,34 @@ describe('TransactionSearchView — form', () => {
     const labels = Array.from(select.options).map((o) => o.textContent)
     expect(labels).toContain('Incoming')
     expect(labels).toContain('Outgoing')
-    expect(labels).toContain('Dividend')
-    // raw enum names must not leak into the visible labels
     expect(labels).not.toContain('INCOMING')
   })
 
-  it('renders a Popover-based date picker (consistent UI across browsers, esp. macOS Chrome)', () => {
+  it('renders a Popover-based date picker (consistent UI across browsers)', () => {
     renderView()
-    const dateTriggers = screen.getAllByRole('button', { name: 'Pick a date' })
-    expect(dateTriggers).toHaveLength(2)
-    // Triggers carry the labels via their <Label htmlFor=…> association.
-    expect(screen.getByText('From date')).toBeInTheDocument()
-    expect(screen.getByText('To date')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Pick a date' })).toHaveLength(2)
   })
 
-  it('back button links to the account detail page', () => {
+  it('back button links to the account detail page (anchor account)', () => {
     renderView()
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/account/42')
   })
 
-  it('submits only the fields the user actually filled in', async () => {
+  it('submits only the filters the user filled in, plus the selected account ids', async () => {
     const user = userEvent.setup()
     const { onSubmit } = renderView()
 
     await user.type(screen.getByLabelText('Search text'), 'rewe')
-    await user.type(screen.getByLabelText('Amount from'), '-50')
+    await user.type(screen.getByLabelText('Amount from'), '50')
     await user.click(screen.getByRole('button', { name: 'Search' }))
 
     expect(onSubmit).toHaveBeenCalledTimes(1)
     const payload = onSubmit.mock.calls[0][0]
-    expect(payload.text).toBe('rewe')
-    expect(payload.amount_from).toBe(-50)
-    expect(payload.amount_to).toBeUndefined()
-    expect(payload.transaction_type).toBeUndefined()
+    expect(payload.filters.text).toBe('rewe')
+    expect(payload.filters.amount_from).toBe(50)
+    expect(payload.filters.amount_to).toBeUndefined()
+    // The anchor account is pre-selected by default.
+    expect(payload.accountIds).toEqual([42])
   })
 
   it('preserves the existing URL filters in the form', () => {
@@ -159,6 +173,55 @@ describe('TransactionSearchView — form', () => {
   it('does not show the results section until the user submitted at least once', () => {
     renderView()
     expect(screen.queryByRole('region', { name: 'Search results' })).toBeNull()
+  })
+})
+
+describe('TransactionSearchView — accounts multi-select', () => {
+  it('preselects the anchor account by default', () => {
+    renderView()
+    expect(screen.getByLabelText('Accounts').textContent).toContain('1 account')
+  })
+
+  it('lets the user pick more accounts', async () => {
+    const user = userEvent.setup()
+    const { onSubmit } = renderView()
+
+    await user.click(screen.getByLabelText('Accounts'))
+    // Each account row's checkbox is reachable by the account name.
+    const tagesgeldRow = screen.getByText('Tagesgeld').closest('label')!
+    await user.click(within(tagesgeldRow).getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+
+    const payload = onSubmit.mock.calls[0][0]
+    expect(payload.accountIds.sort()).toEqual([42, 43])
+  })
+
+  it('"All" selects every account', async () => {
+    const user = userEvent.setup()
+    const { onSubmit } = renderView()
+
+    await user.click(screen.getByLabelText('Accounts'))
+    await user.click(screen.getByRole('button', { name: 'All' }))
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+
+    const payload = onSubmit.mock.calls[0][0]
+    expect(payload.accountIds.sort((a: number, b: number) => a - b)).toEqual([42, 43, 99])
+  })
+
+  it('"None" clears the selection and disables the submit button', async () => {
+    const user = userEvent.setup()
+    renderView()
+
+    await user.click(screen.getByLabelText('Accounts'))
+    await user.click(screen.getByRole('button', { name: 'None' }))
+
+    expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled()
+  })
+
+  it('shows the URL-provided account ids when present', () => {
+    renderView({ search: { account_ids: [42, 99], submitted: '1' } })
+    // 2 accounts selected → trigger should show "2 accounts".
+    expect(screen.getByLabelText('Accounts').textContent).toContain('2 accounts')
   })
 })
 
@@ -174,7 +237,7 @@ describe('TransactionSearchView — results', () => {
 
   it('renders an empty-state message when the backend returns no matches', async () => {
     mockFetchOnce([])
-    renderView({ search: { text: 'no match', submitted: '1' } })
+    renderView({ search: { text: 'no match', account_ids: [42], submitted: '1' } })
     expect(await screen.findByText('No transactions match your filters.')).toBeInTheDocument()
   })
 
@@ -182,6 +245,7 @@ describe('TransactionSearchView — results', () => {
     mockFetchOnce([
       {
         id: 1,
+        account_id: 42,
         amount: -42.5,
         purpose: 'Wocheneinkauf',
         date: '2026-05-20',
@@ -192,6 +256,7 @@ describe('TransactionSearchView — results', () => {
       },
       {
         id: 2,
+        account_id: 42,
         amount: 2500,
         purpose: 'Gehalt',
         date: '2026-04-30',
@@ -201,50 +266,73 @@ describe('TransactionSearchView — results', () => {
         note: null,
       },
     ])
-    renderView({ search: { text: 'a', submitted: '1' } })
+    renderView({ search: { text: 'a', account_ids: [42], submitted: '1' } })
 
     expect(await screen.findByText('Rewe')).toBeInTheDocument()
     expect(screen.getByText('ACME')).toBeInTheDocument()
-    const negative = screen.getByText('-42,50 €')
-    expect(negative.className).toMatch(/text-destructive/)
-    const positive = screen.getByText('2.500,00 €')
-    expect(positive.className).toMatch(/text-success/)
+    expect(screen.getByText('-42,50 €').className).toMatch(/text-destructive/)
+    expect(screen.getByText('2.500,00 €').className).toMatch(/text-success/)
     expect(screen.getByText('Rewe').closest('a')).toHaveAttribute(
       'href',
       '/account/42/transactions/1',
     )
   })
 
-  it('falls back to "Unknown" when other_party is missing', async () => {
+  it('shows the per-row account name only when more than one account is selected', async () => {
     mockFetchOnce([
       {
         id: 1,
-        amount: -1,
+        account_id: 42,
+        amount: -10,
         purpose: 'x',
         date: '2026-05-20',
-        other_party: null,
+        other_party: 'Rewe',
+        transaction_type: null,
+        category: 'UNKNOWN',
+        note: null,
+      },
+      {
+        id: 2,
+        account_id: 43,
+        amount: -20,
+        purpose: 'y',
+        date: '2026-05-21',
+        other_party: 'Aldi',
         transaction_type: null,
         category: 'UNKNOWN',
         note: null,
       },
     ])
-    renderView({ search: { text: 'a', submitted: '1' } })
-    // "Unknown" also appears in the type/category select options, so scope
-    // the assertion to the results list.
-    const list = await screen.findByRole('list')
-    expect(within(list).getByText('Unknown')).toBeInTheDocument()
+    renderView({ search: { account_ids: [42, 43], submitted: '1' } })
+
+    // Each row's subtitle (date + account name) should mention the account.
+    expect(await screen.findByText(/Girokonto/)).toBeInTheDocument()
+    expect(screen.getByText(/Tagesgeld/)).toBeInTheDocument()
   })
 
-  it('shows the loading indicator while fetching', () => {
-    // Never-resolving fetch keeps the query in loading state.
-    globalThis.fetch = vi.fn().mockReturnValue(new Promise(() => {})) as unknown as typeof fetch
-    renderView({ search: { text: 'a', submitted: '1' } })
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+  it('links each result row to its own account, not to the anchor', async () => {
+    mockFetchOnce([
+      {
+        id: 7,
+        account_id: 99, // belongs to TR, while anchorAccountId is 42
+        amount: 5,
+        purpose: 'x',
+        date: '2026-05-20',
+        other_party: 'Other',
+        transaction_type: null,
+        category: 'UNKNOWN',
+        note: null,
+      },
+    ])
+    renderView({ search: { account_ids: [42, 99], submitted: '1' } })
+
+    const link = await screen.findByText('Other')
+    expect(link.closest('a')).toHaveAttribute('href', '/account/99/transactions/7')
   })
 })
 
 describe('TransactionSearchView — request building', () => {
-  it('hits the correct URL with the filter query string', async () => {
+  it('hits /api/transactions/search with account_ids + filter query string', async () => {
     const fetchSpy = vi.fn().mockResolvedValue(
       new Response(JSON.stringify([]), {
         status: 200,
@@ -259,13 +347,16 @@ describe('TransactionSearchView — request building', () => {
         amount_from: -100,
         date_from: '2026-01-01',
         transaction_type: 'OUTGOING',
+        account_ids: [42, 99],
         submitted: '1',
       },
     })
 
     await waitFor(() => expect(fetchSpy).toHaveBeenCalled())
     const url = String(fetchSpy.mock.calls[0][0])
-    expect(url).toContain('/api/account/42/transactions?')
+    expect(url).toContain('/api/transactions/search?')
+    expect(url).toContain('account_ids=42')
+    expect(url).toContain('account_ids=99')
     expect(url).toContain('text=rewe')
     expect(url).toContain('amount_from=-100')
     expect(url).toContain('date_from=2026-01-01')

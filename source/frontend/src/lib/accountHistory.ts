@@ -5,6 +5,7 @@ import type { AccountRead, UserRead } from './auth'
 
 export interface TransactionRead {
   id: number
+  account_id: number
   amount: number
   purpose: string | null
   date: string // ISO yyyy-mm-dd

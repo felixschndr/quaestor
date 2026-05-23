@@ -27,6 +27,13 @@
   "search": {
     "title": "Search transactions",
     "back": "Back",
+    "accountsLabel": "Accounts",
+    "accountsNone": "No accounts selected",
+    "accountsAll": "All accounts",
+    "accountsCount_one": "{{count}} account",
+    "accountsCount_other": "{{count}} accounts",
+    "selectAll": "All",
+    "selectNone": "None",
     "text": "Search text",
     "textPlaceholder": "Other party, purpose or note",
     "amountFrom": "Amount from",

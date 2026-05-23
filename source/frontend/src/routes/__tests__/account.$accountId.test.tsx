@@ -33,11 +33,18 @@ vi.mock('@tanstack/react-router', () => ({
 
 import { AccountDetailView } from '@/routes/account.$accountId'
 
-const account: AccountRead = { id: 42, name: 'Girokonto', balance: 1234.5, balance_factor: 100 }
+const account: AccountRead = {
+  id: 42,
+  name: 'Girokonto',
+  display_name: null,
+  balance: 1234.5,
+  balance_factor: 100,
+}
 
 function buildTransaction(overrides: Partial<TransactionRead> = {}): TransactionRead {
   return {
     id: 1,
+    account_id: 42,
     amount: 0,
     purpose: null,
     date: '2026-05-22',
