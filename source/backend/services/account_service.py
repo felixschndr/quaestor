@@ -130,3 +130,37 @@ def get_history_page(
         f"{len(page_dates)} day(s), {len(transactions)} transaction(s) of {total_days} total day(s)"
     )
     return transactions, balance_at_date, total_days
+
+
+def get_filtered_transactions(db_session: Session, account_id: int, filter_parameters: dict) -> list[Transaction]:
+    query = select(Transaction).where(Transaction.account_id == account_id)
+
+    if (text := filter_parameters.get("text")) is not None:
+        pattern = f"%{text}%"
+        query = query.where(
+            Transaction.purpose.ilike(pattern)
+            | Transaction.other_party.ilike(pattern)
+            | Transaction.note.ilike(pattern)
+        )
+
+    if (amount_from := filter_parameters.get("amount_from")) is not None:
+        query = query.where(Transaction.amount >= amount_from)
+    if (amount_to := filter_parameters.get("amount_to")) is not None:
+        query = query.where(Transaction.amount <= amount_to)
+
+    if (date_from := filter_parameters.get("date_from")) is not None:
+        query = query.where(Transaction.date >= date_from)
+    if (date_to := filter_parameters.get("date_to")) is not None:
+        query = query.where(Transaction.date <= date_to)
+
+    if transaction_type := filter_parameters.get("transaction_type"):
+        query = query.where(Transaction.transaction_type == transaction_type)
+    if category := filter_parameters.get("category"):
+        query = query.where(Transaction.category == category)
+
+    if note := filter_parameters.get("note"):
+        query = query.where(Transaction.note.ilike(f"%{note}%"))
+
+    transactions = list(db_session.execute(query).scalars())
+    logger.debug(f"Filtered {len(transactions)} transaction(s) for account {account_id} with {filter_parameters}")
+    return transactions

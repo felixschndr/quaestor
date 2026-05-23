@@ -1,8 +1,13 @@
+from datetime import date
+
 import pytest
 from source.backend.bank_handlers import BankProvider
 from source.backend.exceptions import AccountNotFoundError
 from source.backend.models.account import Account
 from source.backend.models.credential import Credential
+from source.backend.models.transaction import Transaction
+from source.backend.models.transaction_category import TransactionCategory
+from source.backend.models.transaction_type import TransactionType
 from source.backend.models.user import User
 from source.backend.services import account_service
 from sqlalchemy.orm import sessionmaker
@@ -65,3 +70,69 @@ def test_get_account_raises_when_id_unknown(session_factory: sessionmaker):
     with session_factory() as session:
         with pytest.raises(AccountNotFoundError, match="not found"):
             account_service.get_account(db_session=session, account_id=99999)
+
+
+@pytest.mark.parametrize(
+    argnames="filter_parameters, indexes_of_not_expected_transactions",
+    argvalues=[
+        ({}, []),
+        ({"text": "Supermarket"}, [1]),
+        ({"text": "Drug store"}, [0]),
+        ({"text": "Rewe"}, [1]),
+        ({"text": "rewe"}, [1]),
+        ({"text": "REWE"}, [1]),
+        ({"amount_from": 5}, []),
+        ({"amount_from": 5, "amount_to": 10}, []),
+        ({"amount_to": 10}, []),
+        ({"date_from": "2026-01-01"}, []),
+        ({"date_from": "2026-01-01", "date_to": "2026-01-31"}, []),
+        ({"date_to": "2026-01-31"}, []),
+        ({"transaction_type": "INCOMING"}, []),
+        ({"category": "INTEREST"}, []),
+        ({"note": "first car"}, []),
+        # `text` is the unified free-text search and must also cover note.
+        ({"text": "first car"}, []),
+        ({"text": "loan"}, []),
+        # Negative cases — fixtures don't match, so everything is excluded.
+        ({"amount_from": 11}, [0, 1]),
+        ({"amount_to": 9}, [0, 1]),
+        ({"date_from": "2026-01-02"}, [0, 1]),
+        ({"date_to": "2025-12-31"}, [0, 1]),
+        ({"transaction_type": "OUTGOING"}, [0, 1]),
+        ({"category": "SUPERMARKET"}, [0, 1]),
+        ({"note": "no such note"}, [0, 1]),
+        ({"text": "missing"}, [0, 1]),
+        # Combined filters must AND together.
+        ({"text": "Rewe", "amount_to": 9}, [0, 1]),
+        ({"text": "Rewe", "amount_from": 5}, [1]),
+    ],
+)
+def test_filter_transactions(
+    session_factory: sessionmaker, filter_parameters: dict, indexes_of_not_expected_transactions: list[int]
+):
+    common_attrs = {
+        "account_id": 1,
+        "amount": 10.0,
+        "date": date(year=2026, month=1, day=1),
+        "transaction_type": TransactionType.INCOMING,
+        "category": TransactionCategory.INTEREST,
+        "note": "first car loan",
+    }
+    with session_factory() as session:
+        all_transactions = [
+            Transaction(purpose="Supermarket", other_party="Rewe", **common_attrs),
+            Transaction(purpose="Drug store", other_party="DM", **common_attrs),
+        ]
+        for transaction in all_transactions:
+            session.add(transaction)
+        session.commit()
+    expected_transactions = [
+        all_transactions[i] for i in range(len(all_transactions)) if i not in indexes_of_not_expected_transactions
+    ]
+
+    with session_factory() as session:
+        filtered_transactions = account_service.get_filtered_transactions(
+            db_session=session, account_id=1, filter_parameters=filter_parameters
+        )
+
+        assert [t.id for t in filtered_transactions] == [t.id for t in expected_transactions]

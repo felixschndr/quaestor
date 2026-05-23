@@ -102,10 +102,10 @@ describe('AccountDetailView', () => {
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/')
   })
 
-  it('renders the magnifier placeholder as disabled', () => {
+  it('renders the magnifier as a link to the search page for the current account', () => {
     renderView([])
-    const search = screen.getByRole('button', { name: 'Search transactions' })
-    expect(search).toBeDisabled()
+    const search = screen.getByRole('link', { name: 'Search transactions' })
+    expect(search).toHaveAttribute('href', '/account/42/search')
   })
 
   it('shows the empty-state message when there are no transactions', () => {
