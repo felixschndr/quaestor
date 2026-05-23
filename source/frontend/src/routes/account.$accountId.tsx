@@ -113,19 +113,17 @@ export function AccountDetailView({
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 pt-4 pb-3">
           <header className="flex items-center justify-between gap-2">
             <BackLink />
-            <button
-              type="button"
+            <Link
+              to="/account/$accountId/search"
+              params={{ accountId: String(account.id) }}
               aria-label={t('account.search')}
-              // Magnifier placeholder per §3.3 — backend search endpoint TODO.
-              // Same `text-primary` token as the back arrow, with no opacity
-              // override so the rendered colour is exactly the same.
+              // Same `text-primary` token as the back arrow.
               // translate-y nudge: optically the magnifier sits high vs. the
-              // chevron because its visual mass is in the lower half
-              disabled
-              className="text-primary translate-y-[6px] rounded-md p-1.5"
+              // chevron because its visual mass is in the lower half.
+              className="text-primary hover:text-primary/80 translate-y-[6px] rounded-md p-1.5 transition-colors"
             >
               <Search className="size-5" />
-            </button>
+            </Link>
           </header>
 
           <section aria-labelledby="account-balance-label" className="flex flex-col gap-1">

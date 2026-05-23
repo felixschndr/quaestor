@@ -21,3 +21,17 @@ class TransactionRead(BaseModel):
 class TransactionUpdate(BaseModel):
     note: str | None = None
     category: TransactionCategory | None = None
+
+
+class TransactionFilter(BaseModel):
+    text: str | None = None
+    amount_from: float | None = None
+    amount_to: float | None = None
+    date_from: datetime.date | None = None
+    date_to: datetime.date | None = None
+    transaction_type: TransactionType | None = None
+    category: TransactionCategory | None = None
+    note: str | None = None
+
+    def to_filter_parameters(self) -> dict:
+        return {key: value for key, value in self.model_dump().items() if value is not None}

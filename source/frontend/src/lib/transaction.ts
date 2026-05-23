@@ -4,6 +4,35 @@ import { api } from './api'
 import { accountQueryKeys, type TransactionRead } from './accountHistory'
 
 /**
+ * Mirrors `TransactionType` in source/backend/models/transaction_type.py.
+ * UNKNOWN sits last so the search-form dropdown doesn't have it as the
+ * accidental first pick.
+ */
+export const TRANSACTION_TYPES = [
+  'INCOMING',
+  'OUTGOING',
+  'BUY',
+  'SELL',
+  'DEPOSIT',
+  'REMOVAL',
+  'DIVIDEND',
+  'INTEREST',
+  'INTEREST_CHARGE',
+  'TAXES',
+  'TAX_REFUND',
+  'FEES',
+  'FEES_REFUND',
+  'SPINOFF',
+  'SPLIT',
+  'SWAP',
+  'TRANSFER_IN',
+  'TRANSFER_OUT',
+  'UNKNOWN',
+] as const
+
+export type TransactionType = (typeof TRANSACTION_TYPES)[number]
+
+/**
  * Mirrors `TransactionCategory` in source/backend/models/transaction_category.py.
  * Order here is the order shown in the dropdown — by spec the list is the full
  * enum, with UNKNOWN last so it doesn't get accidentally chosen.
