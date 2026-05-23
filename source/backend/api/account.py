@@ -1,5 +1,3 @@
-from typing import Annotated
-
 from fastapi import Depends, Query
 from source.backend.api.create_router import create_router
 from source.backend.api.schemas.account import (
@@ -7,11 +5,7 @@ from source.backend.api.schemas.account import (
     AccountRead,
     AccountUpdate,
 )
-from source.backend.api.schemas.transaction import (
-    TransactionFilter,
-    TransactionRead,
-    TransactionUpdate,
-)
+from source.backend.api.schemas.transaction import TransactionRead, TransactionUpdate
 from source.backend.db import get_session
 from source.backend.models.account import Account
 from source.backend.models.transaction import Transaction
@@ -34,19 +28,6 @@ def update_account(
     )
     return account_service.update_account(
         db_session=db_session, account=account, fields=payload.model_dump(exclude_unset=True)
-    )
-
-
-@router.get("/{account_id}/transactions", response_model=list[TransactionRead])
-def search_transactions(
-    account_id: int,
-    filters: Annotated[TransactionFilter, Query()],
-    current_user: User = Depends(session_service.get_current_user_from_request),
-    db_session: Session = Depends(get_session),
-) -> list[Transaction]:
-    account_service.get_account_for_user(db_session=db_session, account_id=account_id, user_id=current_user.id)
-    return account_service.get_filtered_transactions(
-        db_session=db_session, account_id=account_id, filter_parameters=filters.to_filter_parameters()
     )
 
 

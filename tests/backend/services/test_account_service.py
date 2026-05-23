@@ -110,8 +110,13 @@ def test_get_account_raises_when_id_unknown(session_factory: sessionmaker):
 def test_filter_transactions(
     session_factory: sessionmaker, filter_parameters: dict, indexes_of_not_expected_transactions: list[int]
 ):
+    # Use the real public entry point — service-level ownership check + filter
+    # logic in one go. We persist a user + credential + account so the
+    # ownership guard inside `get_filtered_transactions_for_user` is happy.
+    user_id, account_ids = _create_user_with_accounts(session_factory)
+    account_id = account_ids[0]
     common_attrs = {
-        "account_id": 1,
+        "account_id": account_id,
         "amount": 10.0,
         "date": date(year=2026, month=1, day=1),
         "transaction_type": TransactionType.INCOMING,
@@ -126,13 +131,16 @@ def test_filter_transactions(
         for transaction in all_transactions:
             session.add(transaction)
         session.commit()
-    expected_transactions = [
-        all_transactions[i] for i in range(len(all_transactions)) if i not in indexes_of_not_expected_transactions
+    expected_ids = [
+        all_transactions[i].id for i in range(len(all_transactions)) if i not in indexes_of_not_expected_transactions
     ]
 
     with session_factory() as session:
-        filtered_transactions = account_service.get_filtered_transactions(
-            db_session=session, account_id=1, filter_parameters=filter_parameters
+        filtered_transactions = account_service.get_filtered_transactions_for_user(
+            db_session=session,
+            user_id=user_id,
+            account_ids_to_search_through=[account_id],
+            filter_parameters=filter_parameters,
         )
 
-        assert [t.id for t in filtered_transactions] == [t.id for t in expected_transactions]
+        assert [t.id for t in filtered_transactions] == expected_ids

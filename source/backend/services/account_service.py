@@ -132,8 +132,34 @@ def get_history_page(
     return transactions, balance_at_date, total_days
 
 
-def get_filtered_transactions(db_session: Session, account_id: int, filter_parameters: dict) -> list[Transaction]:
-    query = select(Transaction).where(Transaction.account_id == account_id)
+def get_filtered_transactions_for_user(
+    db_session: Session,
+    user_id: int,
+    account_ids_to_search_through: list[int],
+    filter_parameters: dict,
+) -> list[Transaction]:
+    if not account_ids_to_search_through:
+        return []
+    owned_account_ids = {
+        account.id
+        for account in db_session.scalars(
+            select(Account)
+            .join(Credential, onclause=Account.credential_id == Credential.id)
+            .where(Credential.user_id == user_id)
+            .where(Account.id.in_(account_ids_to_search_through))
+        )
+    }
+    unknown_account_ids = set(account_ids_to_search_through) - owned_account_ids
+    if unknown_account_ids:
+        logger.warning(f"User {user_id} attempted to search accounts they don't own: {sorted(unknown_account_ids)}")
+        raise AccountNotFoundError(f"Account(s) {sorted(unknown_account_ids)} not found")
+    return _filter_transactions(
+        db_session=db_session, account_ids=list(owned_account_ids), filter_parameters=filter_parameters
+    )
+
+
+def _filter_transactions(db_session: Session, account_ids: list[int], filter_parameters: dict) -> list[Transaction]:
+    query = select(Transaction).where(Transaction.account_id.in_(account_ids))
 
     if (text := filter_parameters.get("text")) is not None:
         pattern = f"%{text}%"
@@ -162,5 +188,5 @@ def get_filtered_transactions(db_session: Session, account_id: int, filter_param
         query = query.where(Transaction.note.ilike(f"%{note}%"))
 
     transactions = list(db_session.execute(query).scalars())
-    logger.debug(f"Filtered {len(transactions)} transaction(s) for account {account_id} with {filter_parameters}")
+    logger.debug(f"Filtered {len(transactions)} transaction(s) across accounts {account_ids} with {filter_parameters}")
     return transactions

@@ -3,12 +3,18 @@ import { describe, expect, it } from 'vitest'
 import { buildFilterQueryString } from '@/lib/transactionSearch'
 
 describe('buildFilterQueryString', () => {
-  it('returns an empty string when no filters are set', () => {
-    expect(buildFilterQueryString({})).toBe('')
+  it('emits one account_ids entry per id', () => {
+    const result = buildFilterQueryString([42, 99], {})
+    const params = new URLSearchParams(result)
+    expect(params.getAll('account_ids')).toEqual(['42', '99'])
+  })
+
+  it('emits an empty query when no accounts and no filters are set', () => {
+    expect(buildFilterQueryString([], {})).toBe('')
   })
 
   it('encodes every set filter as a query parameter', () => {
-    const result = buildFilterQueryString({
+    const result = buildFilterQueryString([42], {
       text: 'rewe',
       amount_from: -50,
       amount_to: 0,
@@ -18,6 +24,7 @@ describe('buildFilterQueryString', () => {
       category: 'SUPERMARKET',
     })
     const params = new URLSearchParams(result)
+    expect(params.get('account_ids')).toBe('42')
     expect(params.get('text')).toBe('rewe')
     expect(params.get('amount_from')).toBe('-50')
     expect(params.get('amount_to')).toBe('0')
@@ -28,17 +35,22 @@ describe('buildFilterQueryString', () => {
   })
 
   it('skips empty strings (treats them as "no filter")', () => {
-    const result = buildFilterQueryString({ text: '', category: 'SALARY' })
-    expect(result).toBe('category=SALARY')
+    const result = buildFilterQueryString([42], { text: '', category: 'SALARY' })
+    const params = new URLSearchParams(result)
+    expect(params.get('text')).toBeNull()
+    expect(params.get('category')).toBe('SALARY')
   })
 
   it('keeps the literal value 0 — `amount_from=0` is a real filter', () => {
-    const result = buildFilterQueryString({ amount_from: 0 })
-    expect(result).toBe('amount_from=0')
+    const result = buildFilterQueryString([42], { amount_from: 0 })
+    const params = new URLSearchParams(result)
+    expect(params.get('amount_from')).toBe('0')
   })
 
   it('skips undefined fields', () => {
-    const result = buildFilterQueryString({ text: 'foo', amount_from: undefined })
-    expect(result).toBe('text=foo')
+    const result = buildFilterQueryString([42], { text: 'foo', amount_from: undefined })
+    const params = new URLSearchParams(result)
+    expect(params.get('text')).toBe('foo')
+    expect(params.get('amount_from')).toBeNull()
   })
 })

@@ -86,7 +86,9 @@ describe('OverviewView', () => {
         {
           id: 10,
           bank: 'trade_republic',
-          accounts: [{ id: 1, name: 'TR Cash', balance: 50, balance_factor: 100 }],
+          accounts: [
+            { id: 1, name: 'TR Cash', display_name: null, balance: 50, balance_factor: 100 },
+          ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
         },
@@ -94,8 +96,8 @@ describe('OverviewView', () => {
           id: 11,
           bank: 'ing',
           accounts: [
-            { id: 2, name: 'Tagesgeld', balance: 1000, balance_factor: 100 },
-            { id: 3, name: 'Girokonto', balance: -200, balance_factor: 100 },
+            { id: 2, name: 'Tagesgeld', display_name: null, balance: 1000, balance_factor: 100 },
+            { id: 3, name: 'Girokonto', display_name: null, balance: -200, balance_factor: 100 },
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
@@ -127,7 +129,9 @@ describe('OverviewView', () => {
         {
           id: 1,
           bank: 'ing',
-          accounts: [{ id: 7, name: 'Overdrawn', balance: -150.5, balance_factor: 100 }],
+          accounts: [
+            { id: 7, name: 'Overdrawn', display_name: null, balance: -150.5, balance_factor: 100 },
+          ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
         },

@@ -15,6 +15,7 @@ from source.backend.api import (
     auth,
     credentials,
     i18n,
+    transactions,
     users,
 )
 from source.backend.api.exception_handlers import register_exception_handlers
@@ -188,7 +189,7 @@ async def log_http_requests(request: Request, call_next: Callable[[Request], Awa
     return rebuilt
 
 
-for api_object in [account, auth, credentials, i18n, users]:
+for api_object in [account, auth, credentials, i18n, transactions, users]:
     app.include_router(api_object.router, prefix=API_PREFIX)
 register_exception_handlers(app)
 

@@ -10,9 +10,9 @@ from sqlalchemy.orm import sessionmaker
 from tests.backend.conftest import create_credential, login_as, register
 
 
-def _persist_account(session_factory: sessionmaker, credential_id: int) -> int:
+def _persist_account(session_factory: sessionmaker, credential_id: int, name: str = "DE00 1234") -> int:
     with session_factory() as session:
-        account = Account(credential_id=credential_id, name="DE00 1234", balance=0.0)
+        account = Account(credential_id=credential_id, name=name, balance=0.0)
         session.add(account)
         session.commit()
         return account.id
@@ -55,16 +55,76 @@ def _seed_three_transactions(session_factory: sessionmaker, account_id: int) -> 
         return {"rewe": rewe.id, "salary": salary.id, "atm": atm.id}
 
 
-def test_search_without_filters_returns_all(http_client: TestClient, session_factory: sessionmaker):
+def _persist_transaction(session_factory: sessionmaker, account_id: int, *, purpose: str, amount: float = -1.0) -> int:
+    with session_factory() as session:
+        transaction = Transaction(
+            account_id=account_id,
+            amount=amount,
+            purpose=purpose,
+            other_party="x",
+            date=date(year=2026, month=5, day=2),
+        )
+        session.add(transaction)
+        session.commit()
+        return transaction.id
+
+
+def _ids_in_response(response_json: list[dict]) -> set[int]:
+    return {row["id"] for row in response_json}
+
+
+def test_search_returns_only_transactions_for_requested_account(http_client: TestClient, session_factory: sessionmaker):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
     account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
-    response = http_client.get(f"/api/account/{account_id}/transactions")
+    response = http_client.get("/api/transactions/search", params=[("account_ids", account_id)])
 
     assert response.status_code == 200
-    assert {row["id"] for row in response.json()} == set(ids.values())
+    assert _ids_in_response(response.json()) == set(ids.values())
+
+
+def test_search_returns_account_id_on_every_row(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    _seed_three_transactions(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.get("/api/transactions/search", params=[("account_ids", account_id)])
+
+    for row in response.json():
+        assert row["account_id"] == account_id
+
+
+def test_search_spans_multiple_accounts(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    giro_id = _persist_account(session_factory=session_factory, credential_id=credential_id, name="Giro")
+    spar_id = _persist_account(session_factory=session_factory, credential_id=credential_id, name="Sparkonto")
+    on_giro = _persist_transaction(session_factory=session_factory, account_id=giro_id, purpose="auf giro")
+    on_spar = _persist_transaction(session_factory=session_factory, account_id=spar_id, purpose="auf spar")
+
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", giro_id), ("account_ids", spar_id)],
+    )
+
+    assert response.status_code == 200
+    assert _ids_in_response(response.json()) == {on_giro, on_spar}
+
+
+def test_search_only_returns_selected_accounts(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    giro_id = _persist_account(session_factory=session_factory, credential_id=credential_id, name="Giro")
+    spar_id = _persist_account(session_factory=session_factory, credential_id=credential_id, name="Sparkonto")
+    on_giro = _persist_transaction(session_factory=session_factory, account_id=giro_id, purpose="auf giro")
+    _persist_transaction(session_factory=session_factory, account_id=spar_id, purpose="auf spar")
+
+    response = http_client.get("/api/transactions/search", params=[("account_ids", giro_id)])
+
+    assert _ids_in_response(response.json()) == {on_giro}
 
 
 def test_search_by_text_matches_purpose_case_insensitively(http_client: TestClient, session_factory: sessionmaker):
@@ -73,9 +133,11 @@ def test_search_by_text_matches_purpose_case_insensitively(http_client: TestClie
     account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
-    response = http_client.get(f"/api/account/{account_id}/transactions", params={"text": "GEHALT"})
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("text", "GEHALT")],
+    )
 
-    assert response.status_code == 200
     assert [row["id"] for row in response.json()] == [ids["salary"]]
 
 
@@ -85,21 +147,24 @@ def test_search_by_text_also_matches_other_party(http_client: TestClient, sessio
     account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
-    response = http_client.get(f"/api/account/{account_id}/transactions", params={"text": "rewe"})
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("text", "rewe")],
+    )
 
     assert [row["id"] for row in response.json()] == [ids["rewe"]]
 
 
 def test_search_by_text_also_matches_note(http_client: TestClient, session_factory: sessionmaker):
-    # Per UX spec: the free-text search should be the *one* search box that
-    # covers everything a human would scan — including the note. The atm
-    # fixture is the only row whose note contains "vacation".
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
     account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
-    response = http_client.get(f"/api/account/{account_id}/transactions", params={"text": "vacation"})
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("text", "vacation")],
+    )
 
     assert [row["id"] for row in response.json()] == [ids["atm"]]
 
@@ -110,7 +175,10 @@ def test_search_by_amount_range(http_client: TestClient, session_factory: sessio
     account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
-    response = http_client.get(f"/api/account/{account_id}/transactions", params={"amount_from": 0, "amount_to": 5000})
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("amount_from", 0), ("amount_to", 5000)],
+    )
 
     assert [row["id"] for row in response.json()] == [ids["salary"]]
 
@@ -122,8 +190,8 @@ def test_search_by_date_range(http_client: TestClient, session_factory: sessionm
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get(
-        f"/api/account/{account_id}/transactions",
-        params={"date_from": "2026-04-01", "date_to": "2026-04-30"},
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("date_from", "2026-04-01"), ("date_to", "2026-04-30")],
     )
 
     assert [row["id"] for row in response.json()] == [ids["salary"]]
@@ -135,9 +203,12 @@ def test_search_by_transaction_type(http_client: TestClient, session_factory: se
     account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
-    response = http_client.get(f"/api/account/{account_id}/transactions", params={"transaction_type": "OUTGOING"})
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("transaction_type", "OUTGOING")],
+    )
 
-    assert {row["id"] for row in response.json()} == {ids["rewe"], ids["atm"]}
+    assert _ids_in_response(response.json()) == {ids["rewe"], ids["atm"]}
 
 
 def test_search_by_category(http_client: TestClient, session_factory: sessionmaker):
@@ -146,18 +217,10 @@ def test_search_by_category(http_client: TestClient, session_factory: sessionmak
     account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
-    response = http_client.get(f"/api/account/{account_id}/transactions", params={"category": "WITHDRAWAL"})
-
-    assert [row["id"] for row in response.json()] == [ids["atm"]]
-
-
-def test_search_by_note_substring(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
-    ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
-
-    response = http_client.get(f"/api/account/{account_id}/transactions", params={"note": "vacation"})
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("category", "WITHDRAWAL")],
+    )
 
     assert [row["id"] for row in response.json()] == [ids["atm"]]
 
@@ -169,8 +232,12 @@ def test_search_combines_filters_with_and(http_client: TestClient, session_facto
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get(
-        f"/api/account/{account_id}/transactions",
-        params={"transaction_type": "OUTGOING", "amount_from": -50},
+        "/api/transactions/search",
+        params=[
+            ("account_ids", account_id),
+            ("transaction_type", "OUTGOING"),
+            ("amount_from", -50),
+        ],
     )
 
     assert [row["id"] for row in response.json()] == [ids["rewe"]]
@@ -182,7 +249,10 @@ def test_search_returns_empty_when_no_match(http_client: TestClient, session_fac
     account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
     _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
-    response = http_client.get(f"/api/account/{account_id}/transactions", params={"text": "no such transaction"})
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("text", "no such transaction")],
+    )
 
     assert response.status_code == 200
     assert response.json() == []
@@ -195,7 +265,8 @@ def test_search_rejects_unknown_transaction_type(http_client: TestClient, sessio
     _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get(
-        f"/api/account/{account_id}/transactions", params={"transaction_type": "NOT_A_REAL_TYPE"}
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("transaction_type", "NOT_A_REAL_TYPE")],
     )
 
     assert response.status_code == 422
@@ -207,12 +278,15 @@ def test_search_rejects_unknown_category(http_client: TestClient, session_factor
     account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
     _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
-    response = http_client.get(f"/api/account/{account_id}/transactions", params={"category": "NOT_A_REAL_CATEGORY"})
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("category", "NOT_A_REAL_CATEGORY")],
+    )
 
     assert response.status_code == 422
 
 
-def test_search_on_other_users_account_returns_404(http_client: TestClient, session_factory: sessionmaker):
+def test_search_rejects_account_owned_by_a_different_user(http_client: TestClient, session_factory: sessionmaker):
     register(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
     account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
@@ -221,8 +295,37 @@ def test_search_on_other_users_account_returns_404(http_client: TestClient, sess
     register(http_client, user_name="intruder")
     login_as(http_client, user_name="intruder")
 
-    assert http_client.get(f"/api/account/{account_id}/transactions").status_code == 404
+    response = http_client.get("/api/transactions/search", params=[("account_ids", account_id)])
+
+    assert response.status_code == 404
+
+
+def test_search_rejects_when_only_some_accounts_are_owned(http_client: TestClient, session_factory: sessionmaker):
+    # Owner has Account A, intruder has Account B. Intruder asks for both.
+    # The endpoint must refuse the whole request (not silently filter A out).
+    register(http_client, user_name="owner")
+    owner_cred = create_credential(http_client).json()["id"]
+    owner_account = _persist_account(session_factory=session_factory, credential_id=owner_cred, name="Owner")
+
+    register(http_client, user_name="intruder")
+    login_as(http_client, user_name="intruder")
+    intruder_cred = create_credential(http_client).json()["id"]
+    intruder_account = _persist_account(session_factory=session_factory, credential_id=intruder_cred, name="Intruder")
+
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", intruder_account), ("account_ids", owner_account)],
+    )
+
+    assert response.status_code == 404
+
+
+def test_search_requires_at_least_one_account_id(http_client: TestClient):
+    register(http_client)
+    response = http_client.get("/api/transactions/search")
+    assert response.status_code == 422
 
 
 def test_search_requires_authentication(http_client: TestClient):
-    assert http_client.get("/api/account/1/transactions").status_code == 401
+    response = http_client.get("/api/transactions/search", params=[("account_ids", 1)])
+    assert response.status_code == 401

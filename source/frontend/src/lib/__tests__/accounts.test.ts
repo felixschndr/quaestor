@@ -13,6 +13,7 @@ function makeCredential(
     accounts: accounts.map((a) => ({
       id: a.id,
       name: a.name,
+      display_name: null,
       balance: a.balance ?? 0,
       balance_factor: 100,
     })),
