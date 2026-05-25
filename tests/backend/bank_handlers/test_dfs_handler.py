@@ -122,7 +122,6 @@ def test_get_transactions_groups_rows_by_fund_and_maps_einzahlung(monkeypatch: p
         (20.0, "AG-Beitrag laufend", RECENT_DATE, TransactionType.DEPOSIT),
         (40.0, "AG-Beitrag laufend", OLDER_DATE, TransactionType.DEPOSIT),
     ]
-    assert all(t.other_party is None for t in stock_a + stock_b)
 
 
 def test_transactions_are_filtered_by_start_date(monkeypatch: pytest.MonkeyPatch):

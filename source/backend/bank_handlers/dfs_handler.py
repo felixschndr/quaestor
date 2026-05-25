@@ -86,7 +86,7 @@ class _DFSSession(BankSession):
                             amount=amount,
                             purpose=raw_transaction.get("lohnart"),
                             date=epoch_ms_to_date(raw_transaction["belegdatum"]),
-                            other_party=None,
+                            other_party="Deutsche Flugsicherung GmbH",
                             transaction_type=_VORGANG_TO_TRANSACTION_TYPE.get(vorgang),
                         )
                     )

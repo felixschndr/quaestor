@@ -7,7 +7,7 @@
     "logout": "Abmelden"
   },
   "overview": {
-    "hello": "Hallo, <name>{{name}}</name>",
+    "hello": "Hallo <name>{{name}}</name>",
     "totalBalance": "Gesamtsaldo",
     "emptyTitle": "Noch keine Konten",
     "emptyCta": "Erste Bank verbinden",
