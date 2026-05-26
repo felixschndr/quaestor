@@ -142,14 +142,11 @@ def test_supported_banks_returns_bank_metadata(http_client: TestClient):
             "name": "trade_republic",
             "required_fields": ["phone", "pin"],
             "icon": "/static/banks/trade_republic.png",
-            "note": "The phone number has to be in the format +491234567890 "
-            "(with '+' and country code and no spaces).",
         },
         {
             "name": "manual",
             "required_fields": [],
             "icon": "/static/banks/manual.png",
-            "note": "A manual account: balance and transactions are entered by hand.",
         },
     ]
 

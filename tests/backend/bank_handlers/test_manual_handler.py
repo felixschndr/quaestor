@@ -30,4 +30,3 @@ def test_manual_handler_is_registered_in_supported_banks():
     assert bank_info.handler is ManualHandler
     assert bank_info.required_fields == []
     assert bank_info.icon == "/static/banks/manual.png"
-    assert bank_info.note is not None

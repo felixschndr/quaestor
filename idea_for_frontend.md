@@ -294,7 +294,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `/settings` index with logout.
 - [x] `/settings/user` (display name, password change, **language selector populated from `GET /api/i18n/languages`**, delete account).
 - [x] `/settings/user/sessions` (list + revoke + "sign out everywhere else").
-- [ ] `/settings/credentials` (list, add via bank picker → dynamic form, delete with modal, sync button, last-sync timestamp).
+- [x] `/settings/credentials` (list, add via bank picker → dynamic form, last-sync timestamp). _Delete + on-demand sync from the list page still pending._
 - [ ] `/settings/credentials/<id>` (account list with `balance_factor` editor).
 
 ## Deferred / later

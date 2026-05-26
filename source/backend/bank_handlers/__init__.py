@@ -26,12 +26,10 @@ SUPPORTED_BANKS: list[BankInfo] = [
     BankInfo(
         name="trade_republic",
         handler=TradeRepublicHandler,
-        note="The phone number has to be in the format +491234567890 (with '+' and country code and no spaces).",
     ),
     BankInfo(
         name="manual",
         handler=ManualHandler,
-        note="A manual account: balance and transactions are entered by hand.",
     ),
 ]
 

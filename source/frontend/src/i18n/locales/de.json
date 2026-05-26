@@ -159,6 +159,43 @@
     "en": "Englisch",
     "de": "Deutsch"
   },
+  "banks": {
+    "ing": { "title": "ING" },
+    "dkb": { "title": "DKB" },
+    "dfs": { "title": "DFS" },
+    "trade_republic": {
+      "title": "Trade Republic",
+      "note": "Die Telefonnummer muss im Format +491234567890 sein (mit '+' und Ländervorwahl, ohne Leerzeichen)."
+    },
+    "manual": {
+      "title": "Manuelles Konto",
+      "note": "Ein manuelles Konto: Saldo und Transaktionen werden von Hand eingetragen."
+    },
+    "field": {
+      "username": "Benutzername",
+      "password": "Passwort",
+      "customer": "Kundennummer",
+      "phone": "Telefonnummer",
+      "pin": "PIN"
+    }
+  },
+  "credentials": {
+    "title": "Bankverbindungen",
+    "back": "Zurück",
+    "add": "Bank hinzufügen",
+    "empty": "Noch keine Banken verbunden.",
+    "pickerTitle": "Bank auswählen",
+    "pickerEmpty": "Keine Banken verfügbar.",
+    "formTitle": "{{bank}} verbinden",
+    "submit": "Verbinden und synchronisieren",
+    "submitting": "Wird verbunden …",
+    "syncing": "Wird synchronisiert …",
+    "connectFailed": "Verbindung zu {{bank}} fehlgeschlagen. Bitte Zugangsdaten prüfen.",
+    "syncFailed": "{{bank}} verbunden, aber die erste Synchronisierung ist fehlgeschlagen. Du kannst es später erneut versuchen.",
+    "twoFactorNotSupportedYet": "Zwei-Faktor-Authentifizierung wird in der UI noch nicht unterstützt. Die Zugangsdaten wurden gespeichert; bitte später erneut versuchen.",
+    "lastSynced": "Zuletzt synchronisiert",
+    "neverSynced": "Noch nie synchronisiert"
+  },
   "attributions": {
     "title": "Quellenangaben",
     "for": {

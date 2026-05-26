@@ -59,7 +59,6 @@ class BankInfo:
     handler: type[BankHandler]
     bank_identifier: str | None = None
     fints_url: str | None = None
-    note: str | None = None
 
     @property
     def required_fields(self) -> list[str]:
@@ -78,6 +77,4 @@ class BankInfo:
         }
         if self.bank_identifier is not None:
             info["bank_identifier"] = self.bank_identifier
-        if self.note is not None:
-            info["note"] = self.note
         return info

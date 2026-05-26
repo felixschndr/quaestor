@@ -159,6 +159,43 @@
     "en": "English",
     "de": "German"
   },
+  "banks": {
+    "ing": { "title": "ING" },
+    "dkb": { "title": "DKB" },
+    "dfs": { "title": "DFS" },
+    "trade_republic": {
+      "title": "Trade Republic",
+      "note": "The phone number has to be in the format +491234567890 (with '+' and country code and no spaces)."
+    },
+    "manual": {
+      "title": "Manual account",
+      "note": "A manual account: balance and transactions are entered by hand."
+    },
+    "field": {
+      "username": "Username",
+      "password": "Password",
+      "customer": "Customer number",
+      "phone": "Phone number",
+      "pin": "PIN"
+    }
+  },
+  "credentials": {
+    "title": "Bank connections",
+    "back": "Back",
+    "add": "Add bank",
+    "empty": "No banks connected yet.",
+    "pickerTitle": "Choose a bank",
+    "pickerEmpty": "No banks available.",
+    "formTitle": "Connect {{bank}}",
+    "submit": "Connect and sync",
+    "submitting": "Connecting…",
+    "syncing": "Syncing…",
+    "connectFailed": "Could not connect to {{bank}}. Please check the credentials.",
+    "syncFailed": "Connected to {{bank}}, but the first sync failed. You can retry the sync later.",
+    "twoFactorNotSupportedYet": "Two-factor authentication is not yet supported in the UI. The credential was saved; please retry later.",
+    "lastSynced": "Last synced",
+    "neverSynced": "Never synced"
+  },
   "attributions": {
     "title": "Attributions",
     "for": {
