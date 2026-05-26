@@ -15,9 +15,19 @@ class AccountRead(BaseModel):
     balance_factor: int
 
 
+class AccountCreate(BaseModel):  # Only allowed for manual accounts
+    credential_id: int
+    name: Annotated[str, Field(min_length=1, max_length=120)]
+    display_name: Annotated[str, Field(max_length=150)] | None = None
+    balance: float = 0.0
+    balance_factor: Annotated[int, Field(ge=0, le=100)] = 100
+
+
 class AccountUpdate(BaseModel):
     balance_factor: Annotated[int, Field(ge=0, le=100)] | None = None
     display_name: Annotated[str, Field(max_length=150)] | None = None
+
+    balance: float | None = None  # Only allowed for manual accounts
 
 
 class AccountHistory(BaseModel):

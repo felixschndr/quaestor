@@ -24,6 +24,16 @@ class TransactionUpdate(BaseModel):
     category: TransactionCategory | None = None
 
 
+class TransactionCreate(BaseModel):
+    amount: float
+    date: datetime.date
+    purpose: str | None = None
+    other_party: str | None = None
+    transaction_type: TransactionType | None = None
+    category: TransactionCategory | None = None
+    note: str | None = None
+
+
 class TransactionFilter(BaseModel):
     text: str | None = None
     amount_from: float | None = None

@@ -3,6 +3,7 @@ from enum import Enum
 from source.backend.bank_handlers.base import BankHandler, BankInfo
 from source.backend.bank_handlers.dfs_handler import DFSHandler
 from source.backend.bank_handlers.fints_handler import FinTSHandler
+from source.backend.bank_handlers.manual_handler import ManualHandler
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 
 SUPPORTED_BANKS: list[BankInfo] = [
@@ -26,6 +27,11 @@ SUPPORTED_BANKS: list[BankInfo] = [
         name="trade_republic",
         handler=TradeRepublicHandler,
         note="The phone number has to be in the format +491234567890 (with '+' and country code and no spaces).",
+    ),
+    BankInfo(
+        name="manual",
+        handler=ManualHandler,
+        note="A manual account: balance and transactions are entered by hand.",
     ),
 ]
 

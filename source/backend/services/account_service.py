@@ -1,15 +1,30 @@
 from datetime import date
 
-from source.backend.exceptions import AccountNotFoundError, TransactionNotFoundError
+from source.backend.bank_handlers import BankProvider
+from source.backend.exceptions import (
+    AccountNotFoundError,
+    PermissionDeniedError,
+    TransactionNotFoundError,
+)
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
 from source.backend.models.credential import Credential
 from source.backend.models.transaction import Transaction
+from source.backend.models.transaction_category import TransactionCategory
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
+
+
+def _require_manual_account(account: Account) -> None:
+    if account.credential.bank != BankProvider.MANUAL:
+        raise PermissionDeniedError(
+            f"This endpoint is only available for accounts on a manual credential; "
+            f"{account} belongs to {account.credential.bank.value}"
+        )
+
 
 DEFAULT_DAYS_PER_PAGE = 30
 MAX_DAYS_PER_PAGE = 365
@@ -77,12 +92,93 @@ def update_account(db_session: Session, account: Account, fields: dict) -> Accou
     # `display_name` (nullable) keeps its explicit-null semantics (= clear).
     if fields.get("balance_factor") is None:
         fields.pop("balance_factor", None)
+
+    balance_in_payload = "balance" in fields
+    if balance_in_payload:
+        _require_manual_account(account)
+        if fields.get("balance") is None:
+            fields.pop("balance")
+            balance_in_payload = False
     account_before_change = str(account)
     for key, value in fields.items():
         setattr(account, key, value)
+    if balance_in_payload:
+        account.recompute_balance_at_date()
     db_session.commit()
     logger.info(f"Updated account {account_before_change} --> {account}")
     return account
+
+
+def create_manual_account(
+    db_session: Session,
+    user_id: int,
+    credential_id: int,
+    name: str,
+    display_name: str | None,
+    balance: float,
+    balance_factor: int,
+) -> Account:
+    credential = db_session.get(entity=Credential, ident=credential_id)
+    if credential is None or credential.user_id != user_id:
+        logger.warning(f"User {user_id} attempted to create an account on unknown / foreign credential {credential_id}")
+        raise AccountNotFoundError(f"Credential with the ID {credential_id} not found")
+    if credential.bank != BankProvider.MANUAL:
+        raise PermissionDeniedError(
+            f"Accounts can only be created manually on a 'manual' credential; "
+            f"credential {credential_id} belongs to {credential.bank.value}"
+        )
+    account = Account(
+        credential=credential,
+        name=name,
+        display_name=display_name,
+        balance=balance,
+        balance_factor=balance_factor,
+    )
+    db_session.add(account)
+    db_session.commit()
+    logger.info(f"Created manual {account}")
+    return account
+
+
+def delete_account(db_session: Session, account: Account) -> None:
+    _require_manual_account(account)
+    db_session.delete(account)
+    db_session.commit()
+    logger.info(f"Deleted manual {account}")
+
+
+def create_manual_transaction(db_session: Session, account: Account, fields: dict) -> Transaction:
+    _require_manual_account(account)
+    transaction = Transaction(
+        account=account,
+        amount=fields["amount"],
+        date=fields["date"],
+        purpose=fields.get("purpose"),
+        other_party=fields.get("other_party"),
+        transaction_type=fields.get("transaction_type"),
+        note=fields.get("note"),
+    )
+    if fields.get("category") is not None:
+        transaction.category = fields["category"]
+    else:
+        transaction.category = TransactionCategory.from_transaction(transaction=transaction)
+    account.balance = round(number=account.balance + transaction.amount, ndigits=2)
+    db_session.add(transaction)
+    db_session.flush()
+    account.recompute_balance_at_date()
+    db_session.commit()
+    logger.info(f"Created manual {transaction} on {account}; new balance {account.balance}")
+    return transaction
+
+
+def delete_transaction(db_session: Session, account: Account, transaction: Transaction) -> None:
+    _require_manual_account(account)
+    account.balance = round(number=account.balance - transaction.amount, ndigits=2)
+    db_session.delete(transaction)
+    db_session.flush()
+    account.recompute_balance_at_date()
+    db_session.commit()
+    logger.info(f"Deleted manual {transaction} from {account}; new balance {account.balance}")
 
 
 def get_history_page(
