@@ -3,6 +3,7 @@ from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider, handler_fo
 from source.backend.bank_handlers.base import BankHandler
 from source.backend.bank_handlers.dfs_handler import DFSHandler
 from source.backend.bank_handlers.fints_handler import FinTSHandler
+from source.backend.bank_handlers.manual_handler import ManualHandler
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 
 
@@ -13,6 +14,7 @@ from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
         (BankProvider.DKB, FinTSHandler),
         (BankProvider.DFS, DFSHandler),
         (BankProvider.TRADE_REPUBLIC, TradeRepublicHandler),
+        (BankProvider.MANUAL, ManualHandler),
     ],
 )
 def test_handler_for_returns_handler_with_matching_bank_info(

@@ -45,3 +45,8 @@ class Account(Base):
             if day not in self.balance_at_date:
                 self.balance_at_date[day] = AccountBalanceSnapshot(date=day, balance=running_balance)
             running_balance = round(number=running_balance - daily_totals[day], ndigits=2)
+
+    def recompute_balance_at_date(self) -> None:
+        # Used after manual edits (balance change, transaction insert/delete)
+        self.balance_at_date.clear()
+        self.update_balance_at_date()

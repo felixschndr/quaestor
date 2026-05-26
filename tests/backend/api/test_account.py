@@ -8,6 +8,8 @@ from source.backend.models.transaction_category import TransactionCategory
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
+    SECOND_USER_NAME,
+    USER_NAME,
     create_credential,
     login_as,
     make_account,
@@ -405,3 +407,237 @@ def test_update_transaction_does_not_log_override_when_category_unchanged(
         http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"note": "just a note"})
 
     assert not any("Category override" in r.message for r in caplog.records)
+
+
+# --- Manual accounts -------------------------------------------------------
+
+
+def _create_manual_credential(http_client: TestClient) -> int:
+    return create_credential(http_client, bank="manual", credentials={}).json()["id"]
+
+
+def test_create_manual_account_returns_persisted_account(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = _create_manual_credential(http_client)
+
+    response = http_client.post(
+        "/api/account",
+        json={
+            "credential_id": credential_id,
+            "name": "Wallet",
+            "display_name": "Cash wallet",
+            "balance": 250.0,
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["name"] == "Wallet"
+    assert body["display_name"] == "Cash wallet"
+    assert body["balance"] == 250.0
+    assert body["balance_factor"] == 100
+    with session_factory() as session:
+        assert session.get(entity=Account, ident=body["id"]) is not None
+
+
+def test_create_manual_account_rejects_non_manual_credential(http_client: TestClient):
+    register(http_client)
+    ing_credential_id = create_credential(http_client).json()["id"]
+
+    response = http_client.post(
+        "/api/account",
+        json={"credential_id": ing_credential_id, "name": "Bogus"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_create_manual_account_rejects_credential_of_other_user(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client, user_name=USER_NAME)
+    first_user_credential_id = _create_manual_credential(http_client)
+
+    register(http_client, user_name=SECOND_USER_NAME)
+    login_as(http_client, user_name=SECOND_USER_NAME)
+
+    response = http_client.post(
+        "/api/account",
+        json={"credential_id": first_user_credential_id, "name": "Stolen"},
+    )
+
+    assert response.status_code == 404
+    with session_factory() as session:
+        assert (
+            len(
+                [
+                    account
+                    for account in session.query(Account).all()
+                    if account.credential_id == first_user_credential_id
+                ]
+            )
+            == 0
+        )
+
+
+def test_create_manual_account_requires_authentication(http_client: TestClient):
+    register(http_client)
+    credential_id = _create_manual_credential(http_client)
+    http_client.cookies.delete("session")
+
+    response = http_client.post("/api/account", json={"credential_id": credential_id, "name": "Wallet"})
+
+    assert response.status_code == 401
+
+
+def test_create_transaction_appends_to_manual_account_and_updates_balance(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    credential_id = _create_manual_credential(http_client)
+    account_id = http_client.post(
+        "/api/account",
+        json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0},
+    ).json()["id"]
+
+    response = http_client.post(
+        f"/api/account/{account_id}/transactions",
+        json={
+            "amount": -42.50,
+            "date": "2026-05-20",
+            "purpose": "Lunch",
+            "other_party": "Joe's Diner",
+            "transaction_type": "OUTGOING",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["amount"] == -42.50
+    assert body["other_party"] == "Joe's Diner"
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        assert account.balance == 100 + -42.50
+        assert len(account.transactions) == 1
+
+
+def test_create_transaction_rejects_non_manual_account(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    ing_credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=ing_credential_id)
+
+    response = http_client.post(
+        f"/api/account/{account_id}/transactions",
+        json={"amount": 10.0, "date": "2026-05-20"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_create_transaction_requires_account_to_belong_to_user(http_client: TestClient):
+    register(http_client, user_name=USER_NAME)
+    credential_id = _create_manual_credential(http_client)
+    first_account_account_id = http_client.post(
+        "/api/account",
+        json={"credential_id": credential_id, "name": f"{USER_NAME}'s Wallet"},
+    ).json()["id"]
+
+    register(http_client, user_name=SECOND_USER_NAME)
+    login_as(http_client, user_name=SECOND_USER_NAME)
+
+    response = http_client.post(
+        f"/api/account/{first_account_account_id}/transactions",
+        json={"amount": 10.0, "date": "2026-05-20"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_delete_transaction_removes_it_and_restores_balance(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = _create_manual_credential(http_client)
+    account_id = http_client.post(
+        "/api/account",
+        json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0},
+    ).json()["id"]
+    transaction_id = http_client.post(
+        f"/api/account/{account_id}/transactions",
+        json={"amount": -25.0, "date": "2026-05-20"},
+    ).json()["id"]
+
+    response = http_client.delete(f"/api/account/{account_id}/transactions/{transaction_id}")
+
+    assert response.status_code == 204
+    with session_factory() as session:
+        assert session.get(entity=Transaction, ident=transaction_id) is None
+        account = session.get(entity=Account, ident=account_id)
+        assert account.balance == 100.0
+
+
+def test_delete_transaction_rejects_non_manual_account(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    ing_credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=ing_credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.delete(f"/api/account/{account_id}/transactions/{transaction_id}")
+
+    assert response.status_code == 403
+
+
+def test_delete_account_removes_manual_account_with_its_transactions(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    credential_id = _create_manual_credential(http_client)
+    account_id = http_client.post(
+        "/api/account",
+        json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0},
+    ).json()["id"]
+    http_client.post(
+        f"/api/account/{account_id}/transactions",
+        json={"amount": -10.0, "date": "2026-05-20"},
+    )
+
+    response = http_client.delete(f"/api/account/{account_id}")
+
+    assert response.status_code == 204
+    with session_factory() as session:
+        assert session.get(entity=Account, ident=account_id) is None
+        assert session.query(Transaction).filter_by(account_id=account_id).count() == 0
+
+
+def test_delete_account_rejects_non_manual_account(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    ing_credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=ing_credential_id)
+
+    response = http_client.delete(f"/api/account/{account_id}")
+
+    assert response.status_code == 403
+    with session_factory() as session:
+        assert session.get(entity=Account, ident=account_id) is not None
+
+
+def test_update_account_balance_accepted_for_manual_account(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = _create_manual_credential(http_client)
+    account_id = http_client.post(
+        "/api/account",
+        json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0},
+    ).json()["id"]
+
+    response = http_client.patch(f"/api/account/{account_id}", json={"balance": 555.55})
+
+    assert response.status_code == 200
+    assert response.json()["balance"] == 555.55
+    with session_factory() as session:
+        assert session.get(entity=Account, ident=account_id).balance == 555.55
+
+
+def test_update_account_balance_rejected_for_non_manual_account(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    ing_credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=ing_credential_id)
+
+    response = http_client.patch(f"/api/account/{account_id}", json={"balance": 999.0})
+
+    assert response.status_code == 403

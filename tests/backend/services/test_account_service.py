@@ -1,7 +1,10 @@
 from datetime import date
 
 import pytest
-from source.backend.exceptions import AccountNotFoundError
+from source.backend.bank_handlers import BankProvider
+from source.backend.exceptions import AccountNotFoundError, PermissionDeniedError
+from source.backend.models.account import Account
+from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 from source.backend.services import account_service
@@ -54,6 +57,298 @@ def test_get_account_raises_when_id_unknown(session_factory: sessionmaker):
     with session_factory() as session:
         with pytest.raises(AccountNotFoundError, match="not found"):
             account_service.get_account(db_session=session, account_id=99999)
+
+
+def _create_user_with_manual_credential(session_factory: sessionmaker) -> tuple[int, int]:
+    with session_factory() as session:
+        user = make_user(session)
+        credential = make_credential(session, user_id=user.id, bank=BankProvider.MANUAL, credentials={})
+        session.commit()
+        return user.id, credential.id
+
+
+def test_create_manual_account_persists_account_with_caller_owned_credential(
+    session_factory: sessionmaker,
+):
+    user_id, credential_id = _create_user_with_manual_credential(session_factory)
+
+    with session_factory() as session:
+        account = account_service.create_manual_account(
+            db_session=session,
+            user_id=user_id,
+            credential_id=credential_id,
+            name="Wallet",
+            display_name="Cash wallet",
+            balance=123.45,
+            balance_factor=100,
+        )
+        account_id = account.id
+
+    with session_factory() as session:
+        loaded = session.get(entity=Account, ident=account_id)
+        assert loaded is not None
+        assert loaded.credential_id == credential_id
+        assert loaded.name == "Wallet"
+        assert loaded.balance == 123.45
+
+
+def test_create_manual_account_rejects_unknown_credential(session_factory: sessionmaker):
+    user_id, _ = _create_user_with_manual_credential(session_factory)
+
+    with session_factory() as session:
+        with pytest.raises(AccountNotFoundError, match="not found"):
+            account_service.create_manual_account(
+                db_session=session,
+                user_id=user_id,
+                credential_id=99999,
+                name="Wallet",
+                display_name=None,
+                balance=0.0,
+                balance_factor=100,
+            )
+
+
+def test_create_manual_account_rejects_credential_owned_by_other_user(session_factory: sessionmaker):
+    _, credential_id = _create_user_with_manual_credential(session_factory)
+    with session_factory() as session:
+        other = make_user(session, user_name=SECOND_USER_NAME, display_name="Other")
+        session.commit()
+        other_id = other.id
+
+    with session_factory() as session:
+        with pytest.raises(AccountNotFoundError):
+            account_service.create_manual_account(
+                db_session=session,
+                user_id=other_id,
+                credential_id=credential_id,
+                name="Wallet",
+                display_name=None,
+                balance=0.0,
+                balance_factor=100,
+            )
+
+
+def test_create_manual_account_rejects_credential_of_non_manual_bank(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        credential = make_credential(session, user_id=user.id, bank=BankProvider.ING)
+        session.commit()
+        user_id = user.id
+        credential_id = credential.id
+
+    with session_factory() as session:
+        with pytest.raises(PermissionDeniedError, match="manual"):
+            account_service.create_manual_account(
+                db_session=session,
+                user_id=user_id,
+                credential_id=credential_id,
+                name="Bogus",
+                display_name=None,
+                balance=0.0,
+                balance_factor=100,
+            )
+
+
+def test_create_manual_transaction_updates_balance_and_snapshots(session_factory: sessionmaker):
+    user_id, credential_id = _create_user_with_manual_credential(session_factory)
+    with session_factory() as session:
+        account = make_account(session, credential_id=credential_id, name="Wallet", balance=100.0)
+        session.commit()
+        account_id = account.id
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        transaction = account_service.create_manual_transaction(
+            db_session=session,
+            account=account,
+            fields={
+                "amount": -25.0,
+                "date": date(year=2026, month=5, day=20),
+                "purpose": "Coffee run",
+                "other_party": "Rewe",
+                "transaction_type": TransactionType.OUTGOING,
+            },
+        )
+        assert transaction.id is not None
+        assert account.balance == 75.0
+        assert account.balance_at_date[date(year=2026, month=5, day=20)].balance == 75.0
+
+    with session_factory() as session:
+        account_service.get_account_for_user(db_session=session, account_id=account_id, user_id=user_id)
+
+
+def test_create_manual_transaction_honours_explicit_category(session_factory: sessionmaker):
+    _, credential_id = _create_user_with_manual_credential(session_factory)
+    with session_factory() as session:
+        account = make_account(session, credential_id=credential_id, name="Wallet", balance=100.0)
+        session.commit()
+        account_id = account.id
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        transaction = account_service.create_manual_transaction(
+            db_session=session,
+            account=account,
+            fields={
+                "amount": -10.0,
+                "date": date(year=2026, month=5, day=20),
+                "other_party": "REWE",
+                "category": TransactionCategory.GIFTS,
+            },
+        )
+        assert transaction.category == TransactionCategory.GIFTS
+
+
+def test_update_account_treats_explicit_null_balance_as_no_change(session_factory: sessionmaker):
+    _, credential_id = _create_user_with_manual_credential(session_factory)
+    with session_factory() as session:
+        account = make_account(session, credential_id=credential_id, name="Wallet", balance=42.0)
+        session.commit()
+        account_id = account.id
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        account_service.update_account(
+            db_session=session,
+            account=account,
+            fields={"balance": None, "display_name": "Renamed"},
+        )
+
+    with session_factory() as session:
+        loaded = session.get(entity=Account, ident=account_id)
+        assert loaded.balance == 42.0
+        assert loaded.display_name == "Renamed"
+
+
+def test_create_manual_transaction_auto_categorises_when_no_category_given(
+    session_factory: sessionmaker,
+):
+    _, credential_id = _create_user_with_manual_credential(session_factory)
+    with session_factory() as session:
+        account = make_account(session, credential_id=credential_id, name="Wallet", balance=1000.0)
+        session.commit()
+        account_id = account.id
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        transaction = account_service.create_manual_transaction(
+            db_session=session,
+            account=account,
+            fields={
+                "amount": -19.99,
+                "date": date(year=2026, month=5, day=20),
+                "other_party": "REWE Markt",
+            },
+        )
+        assert transaction.category == TransactionCategory.SUPERMARKET
+
+
+def test_create_manual_transaction_rejects_non_manual_account(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        credential = make_credential(session, user_id=user.id, bank=BankProvider.ING)
+        account = make_account(session, credential_id=credential.id, name="Real", balance=100.0)
+        session.commit()
+        account_id = account.id
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        with pytest.raises(PermissionDeniedError, match="manual"):
+            account_service.create_manual_transaction(
+                db_session=session,
+                account=account,
+                fields={"amount": 10.0, "date": date(year=2026, month=5, day=20)},
+            )
+
+
+def test_delete_transaction_restores_balance(session_factory: sessionmaker):
+    _, credential_id = _create_user_with_manual_credential(session_factory)
+    with session_factory() as session:
+        account = make_account(session, credential_id=credential_id, name="Wallet", balance=200.0)
+        session.commit()
+        account_id = account.id
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        transaction = account_service.create_manual_transaction(
+            db_session=session,
+            account=account,
+            fields={"amount": -50.0, "date": date(year=2026, month=5, day=20)},
+        )
+        assert account.balance == 150.0
+        transaction_id = transaction.id
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        transaction = session.get(entity=Transaction, ident=transaction_id)
+        account_service.delete_transaction(db_session=session, account=account, transaction=transaction)
+        assert account.balance == 200.0
+
+    with session_factory() as session:
+        assert session.get(entity=Transaction, ident=transaction_id) is None
+
+
+def test_delete_account_only_works_for_manual_credential(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        real_credential = make_credential(session, user_id=user.id, bank=BankProvider.ING)
+        manual_credential = make_credential(session, user_id=user.id, bank=BankProvider.MANUAL, credentials={})
+        real_account = make_account(session, credential_id=real_credential.id, name="Real")
+        manual_account = make_account(session, credential_id=manual_credential.id, name="Manual")
+        session.commit()
+        real_account_id = real_account.id
+        manual_account_id = manual_account.id
+
+    with session_factory() as session:
+        with pytest.raises(PermissionDeniedError, match="manual"):
+            account_service.delete_account(
+                db_session=session, account=session.get(entity=Account, ident=real_account_id)
+            )
+
+    with session_factory() as session:
+        account_service.delete_account(db_session=session, account=session.get(entity=Account, ident=manual_account_id))
+
+    with session_factory() as session:
+        assert session.get(entity=Account, ident=manual_account_id) is None
+        assert session.get(entity=Account, ident=real_account_id) is not None
+
+
+def test_update_account_rejects_balance_change_on_non_manual_account(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        credential = make_credential(session, user_id=user.id, bank=BankProvider.ING)
+        account = make_account(session, credential_id=credential.id, name="Real", balance=42.0)
+        session.commit()
+        account_id = account.id
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        with pytest.raises(PermissionDeniedError, match="manual"):
+            account_service.update_account(db_session=session, account=account, fields={"balance": 100.0})
+
+
+def test_update_account_balance_recomputes_snapshots_on_manual_account(session_factory: sessionmaker):
+    _, credential_id = _create_user_with_manual_credential(session_factory)
+    with session_factory() as session:
+        account = make_account(session, credential_id=credential_id, name="Wallet", balance=100.0)
+        make_transaction(
+            session,
+            account_id=account.id,
+            amount=-20.0,
+            date=date(year=2026, month=5, day=20),
+        )
+        account.update_balance_at_date()
+        session.commit()
+        account_id = account.id
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        original_snapshot = account.balance_at_date[date(year=2026, month=5, day=20)].balance
+        assert original_snapshot == 100.0
+
+        account_service.update_account(db_session=session, account=account, fields={"balance": 500.0})
+        assert account.balance == 500.0
+        assert account.balance_at_date[date(year=2026, month=5, day=20)].balance == 500.0
 
 
 def test_get_filtered_transactions_for_user_returns_empty_when_no_account_ids(session_factory: sessionmaker):
