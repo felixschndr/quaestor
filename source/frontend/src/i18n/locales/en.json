@@ -136,6 +136,8 @@
     "sessionsDescription": "Devices that are signed in",
     "credentials": "Bank connections",
     "credentialsDescription": "Add or remove banks, sync now",
+    "attributions": "Attributions",
+    "attributionsDescription": "Credits and licences for third-party assets",
     "displayName": "Display name",
     "language": "Language",
     "password": "Password",
@@ -156,6 +158,18 @@
   "languages": {
     "en": "English",
     "de": "German"
+  },
+  "attributions": {
+    "title": "Attributions",
+    "for": {
+      "favicon": "Favicon"
+    },
+    "text": {
+      "faviconMoneyIcons": "Money icons created by Freepik - Flaticon"
+    },
+    "linkTitle": {
+      "moneyIcons": "money icons"
+    }
   },
   "sessions": {
     "currentBadge": "Current",

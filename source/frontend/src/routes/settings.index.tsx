@@ -1,6 +1,6 @@
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight, CreditCard, KeyRound, LogOut, User } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CreditCard, Info, KeyRound, LogOut, User } from 'lucide-react'
 import { toast } from 'sonner'
 import type { LucideIcon } from 'lucide-react'
 
@@ -42,7 +42,7 @@ export function SettingsIndexView({ logoutPending, onLogout }: SettingsIndexView
         <h1 className="text-foreground text-2xl font-semibold">{t('settings.title')}</h1>
       </header>
 
-      <nav aria-label={t('settings.title')}>
+      <nav aria-label={t('settings.title')} className="flex flex-col gap-4">
         <ul className="border-border bg-card flex flex-col rounded-lg border">
           <SettingsLink
             to="/settings/user"
@@ -61,6 +61,17 @@ export function SettingsIndexView({ logoutPending, onLogout }: SettingsIndexView
             icon={CreditCard}
             label={t('settings.credentials')}
             description={t('settings.credentialsDescription')}
+          />
+        </ul>
+        {/* Meta entries (about, legal, credits) sit in their own card below the
+            primary settings so they don't visually compete with the main
+            actions. */}
+        <ul className="border-border bg-card flex flex-col rounded-lg border">
+          <SettingsLink
+            to="/settings/attributions"
+            icon={Info}
+            label={t('settings.attributions')}
+            description={t('settings.attributionsDescription')}
           />
         </ul>
       </nav>
@@ -98,7 +109,11 @@ function SettingsLink({
   label,
   description,
 }: {
-  to: '/settings/user' | '/settings/user/sessions' | '/settings/credentials'
+  to:
+    | '/settings/user'
+    | '/settings/user/sessions'
+    | '/settings/credentials'
+    | '/settings/attributions'
   icon: LucideIcon
   label: string
   description: string

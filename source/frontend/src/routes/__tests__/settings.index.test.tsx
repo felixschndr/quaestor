@@ -34,6 +34,7 @@ describe('SettingsIndexView', () => {
       '/settings/user',
       '/settings/user/sessions',
       '/settings/credentials',
+      '/settings/attributions',
     ])
   })
 

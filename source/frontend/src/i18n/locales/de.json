@@ -136,6 +136,8 @@
     "sessionsDescription": "Geräte, die angemeldet sind",
     "credentials": "Bankverbindungen",
     "credentialsDescription": "Banken hinzufügen, entfernen oder synchronisieren",
+    "attributions": "Quellenangaben",
+    "attributionsDescription": "Credits und Lizenzen für externe Inhalte",
     "displayName": "Anzeigename",
     "language": "Sprache",
     "password": "Passwort",
@@ -156,6 +158,18 @@
   "languages": {
     "en": "Englisch",
     "de": "Deutsch"
+  },
+  "attributions": {
+    "title": "Quellenangaben",
+    "for": {
+      "favicon": "Favicon"
+    },
+    "text": {
+      "faviconMoneyIcons": "Money icons created by Freepik - Flaticon"
+    },
+    "linkTitle": {
+      "moneyIcons": "money icons"
+    }
   },
   "sessions": {
     "currentBadge": "Aktuell",
