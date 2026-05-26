@@ -39,7 +39,17 @@ export function SettingsIndexView({ logoutPending, onLogout }: SettingsIndexView
     <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
         <BackLink />
-        <h1 className="text-foreground text-2xl font-semibold">{t('settings.title')}</h1>
+        <h1 className="text-foreground flex-1 text-2xl font-semibold">{t('settings.title')}</h1>
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          onClick={onLogout}
+          disabled={logoutPending}
+        >
+          <LogOut className="size-3.5" aria-hidden="true" />
+          {t('common.logout')}
+        </Button>
       </header>
 
       <nav aria-label={t('settings.title')} className="flex flex-col gap-4">
@@ -75,17 +85,6 @@ export function SettingsIndexView({ logoutPending, onLogout }: SettingsIndexView
           />
         </ul>
       </nav>
-
-      <Button
-        type="button"
-        variant="destructive"
-        onClick={onLogout}
-        disabled={logoutPending}
-        className="self-start"
-      >
-        <LogOut className="size-4" aria-hidden="true" />
-        {t('common.logout')}
-      </Button>
     </main>
   )
 }
