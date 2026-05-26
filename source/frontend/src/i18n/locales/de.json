@@ -157,6 +157,21 @@
     "en": "Englisch",
     "de": "Deutsch"
   },
+  "sessions": {
+    "currentBadge": "Aktuell",
+    "created": "Erstellt",
+    "lastUsed": "Zuletzt genutzt",
+    "ip": "IP",
+    "unknownUserAgent": "Unbekanntes Gerät",
+    "unknownIp": "Unbekannt",
+    "endSession": "Sitzung beenden",
+    "signOutEverywhere": "Alle andere abmelden",
+    "signOutEverywhereConfirm": "Ja, überall sonst abmelden",
+    "revoked": "Sitzung beendet",
+    "revokedAll": "Andere Sitzungen wurden abgemeldet",
+    "loadError": "Sitzungen konnten nicht geladen werden.",
+    "empty": "Keine aktiven Sitzungen."
+  },
   "transaction": {
     "back": "Zurück",
     "otherParty": "Empfänger / Absender",

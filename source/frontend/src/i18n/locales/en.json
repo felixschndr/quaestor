@@ -157,6 +157,21 @@
     "en": "English",
     "de": "German"
   },
+  "sessions": {
+    "currentBadge": "Current",
+    "created": "Created",
+    "lastUsed": "Last used",
+    "ip": "IP",
+    "unknownUserAgent": "Unknown device",
+    "unknownIp": "Unknown",
+    "endSession": "End session",
+    "signOutEverywhere": "Sign out elsewhere",
+    "signOutEverywhereConfirm": "Yes, sign out everywhere else",
+    "revoked": "Session ended",
+    "revokedAll": "Other sessions signed out",
+    "loadError": "Could not load sessions.",
+    "empty": "No active sessions."
+  },
   "transaction": {
     "back": "Back",
     "otherParty": "Other party",

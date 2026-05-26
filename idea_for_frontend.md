@@ -293,7 +293,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] `/account/<id>/transactions/<id>` (amount header; borderless table; inline-editable auto-saved note; **category dropdown** that PATCHes `category`).
 - [x] `/settings` index with logout.
 - [x] `/settings/user` (display name, password change, **language selector populated from `GET /api/i18n/languages`**, delete account).
-- [ ] `/settings/user/sessions` (list + revoke + "sign out everywhere else").
+- [x] `/settings/user/sessions` (list + revoke + "sign out everywhere else").
 - [ ] `/settings/credentials` (list, add via bank picker → dynamic form, delete with modal, sync button, last-sync timestamp).
 - [ ] `/settings/credentials/<id>` (account list with `balance_factor` editor).
 
