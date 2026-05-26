@@ -30,6 +30,8 @@ def uvicorn_options() -> dict:
         "port": int(os.environ.get(key="PORT", default=DEFAULT_PORT)),
         "proxy_headers": True,
         "forwarded_allow_ips": os.environ.get(key="FORWARDED_ALLOW_IPS", default=DEFAULT_FORWARDED_ALLOW_IPS),
+        "ws_ping_interval": None,
+        "ws_ping_timeout": None,
         **_ssl_options(),
     }
 

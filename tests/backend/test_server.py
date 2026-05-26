@@ -42,6 +42,8 @@ def test_uvicorn_options_defaults_to_http(monkeypatch: pytest.MonkeyPatch):
         "port": server.DEFAULT_PORT,
         "proxy_headers": True,
         "forwarded_allow_ips": server.DEFAULT_FORWARDED_ALLOW_IPS,
+        "ws_ping_interval": None,
+        "ws_ping_timeout": None,
     }
 
 

@@ -59,5 +59,4 @@ Security measures in place:
 - Handling for wrong banking credentials
 - FIXMEs in code
 - The trade republic session state COULD include the information about how long until a new 2FA is required (.traderepublic.com	TRUE	/	TRUE	1779099997	aws-waf-token)
-- Make application async?
 - Detect transfer transactions

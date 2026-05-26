@@ -1,13 +1,17 @@
+import time
+from collections.abc import Iterator
 from datetime import datetime
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from source.backend.services import credential_service
+from source.backend.services import credential_service, sync_jobs
 from source.backend.services.credential_service import SyncResult, SyncStatus
+from source.backend.services.sync_jobs import JobStatus
+from starlette.websockets import WebSocketDisconnect
 
 from tests.backend.conftest import (
     BANK_PASSWORD,
-    HTTP_SESSION_TOKEN,
     PHONE_NUMBER,
     PIN,
     SECOND_USER_NAME,
@@ -15,6 +19,35 @@ from tests.backend.conftest import (
     login_as,
     register,
 )
+
+
+@pytest.fixture(autouse=True)
+def _reset_sync_jobs() -> Iterator[None]:
+    sync_jobs._jobs.clear()
+    sync_jobs._subscribers.clear()
+    yield
+    sync_jobs._jobs.clear()
+    sync_jobs._subscribers.clear()
+
+
+def _wait_for_status(
+    *,
+    http_client: TestClient,
+    credential_id: int,
+    job_id: str,
+    expected: str,
+    timeout: float = 2.0,
+) -> dict[str, Any]:
+    deadline = time.monotonic() + timeout
+    last: dict[str, Any] = {}
+    while time.monotonic() < deadline:
+        response = http_client.get(f"/api/credentials/{credential_id}/sync/{job_id}")
+        if response.status_code == 200:
+            last = response.json()
+            if last["status"] == expected:
+                return last
+        time.sleep(0.02)
+    raise AssertionError(f"Job {job_id} did not reach {expected!r}; last={last}")
 
 
 def test_create_credential_returns_created_credential(http_client: TestClient):
@@ -171,7 +204,7 @@ def test_create_credential_rejects_unknown_bank(http_client: TestClient):
     assert response.status_code == 422
 
 
-def test_sync_credential_returns_completed(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+def test_start_sync_returns_a_running_job(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
     monkeypatch.setattr(
@@ -180,33 +213,64 @@ def test_sync_credential_returns_completed(http_client: TestClient, monkeypatch:
 
     response = http_client.post(f"/api/credentials/{credential_id}/sync")
 
-    assert response.status_code == 200
-    assert response.json() == {"status": "completed", "challenge_token": None, "expires_at": None}  # nosec B105
+    assert response.status_code == 202
+    body = response.json()
+    assert body["job_id"]
+    assert body["status"] in {"running", "completed"}  # job may have finished before response is read
 
 
-def test_sync_credential_returns_202_and_challenge_when_two_factor_required(
-    http_client: TestClient, monkeypatch: pytest.MonkeyPatch
-):
+def test_sync_job_eventually_completes(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
+    monkeypatch.setattr(
+        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
+    )
+
+    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
+
+    body = _wait_for_status(http_client=http_client, credential_id=credential_id, job_id=job_id, expected="completed")
+    assert body["error"] is None
+
+
+def test_sync_job_reports_failure_when_the_sync_raises(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+
+    def _explode(**_: Any) -> SyncResult:
+        raise RuntimeError("Something went wrong")
+
+    monkeypatch.setattr(target=credential_service, name="sync_credential", value=_explode)
+
+    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
+
+    body = _wait_for_status(http_client=http_client, credential_id=credential_id, job_id=job_id, expected="failed")
+    assert "Something went wrong" in (body["error"] or "")
+
+
+def test_sync_job_transitions_to_awaiting_two_factor(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    register(http_client)
+    credential_id = create_credential(
+        http_client, bank="trade_republic", credentials={"phone": PHONE_NUMBER, "pin": PIN}
+    ).json()["id"]
     expires_at = datetime(year=2026, month=6, day=1, hour=12)
     monkeypatch.setattr(
         target=credential_service,
         name="sync_credential",
         value=lambda **_: SyncResult(
-            status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token="tok", expires_at=expires_at
-        ),  # nosec B106
+            status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token="tok", expires_at=expires_at  # nosec B106
+        ),
     )
 
-    response = http_client.post(f"/api/credentials/{credential_id}/sync")
+    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
 
-    assert response.status_code == 202
-    body = response.json()
-    assert body["status"] == "2fa_required"
-    assert body["challenge_token"] == "tok"
+    body = _wait_for_status(
+        http_client=http_client, credential_id=credential_id, job_id=job_id, expected="awaiting_2fa"
+    )
+    assert body["expires_at"] is not None
+    assert "challenge_token" not in body  # internal — must not leak to the client
 
 
-def test_sync_credential_returns_404_for_other_users_credential(http_client: TestClient):
+def test_start_sync_returns_404_for_other_users_credential(http_client: TestClient):
     register(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
 
@@ -216,30 +280,103 @@ def test_sync_credential_returns_404_for_other_users_credential(http_client: Tes
     assert http_client.post(f"/api/credentials/{credential_id}/sync").status_code == 404
 
 
-def test_sync_2fa_completes_login(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+def test_submit_two_factor_completes_the_sync(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    register(http_client)
+    credential_id = create_credential(
+        http_client, bank="trade_republic", credentials={"phone": PHONE_NUMBER, "pin": PIN}
+    ).json()["id"]
+    monkeypatch.setattr(
+        target=credential_service,
+        name="sync_credential",
+        value=lambda **_: SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token="tok"),  # nosec B106
+    )
+    monkeypatch.setattr(
+        target=credential_service,
+        name="confirm_two_factor",
+        value=lambda **_: SyncResult(status=SyncStatus.COMPLETED),
+    )
+
+    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
+    _wait_for_status(http_client=http_client, credential_id=credential_id, job_id=job_id, expected="awaiting_2fa")
+
+    response = http_client.post(f"/api/credentials/{credential_id}/sync/{job_id}/2fa", json={"code": "1234"})
+
+    assert response.status_code == 202
+    assert response.json()["status"] in {"running", "completed"}
+    _wait_for_status(http_client=http_client, credential_id=credential_id, job_id=job_id, expected="completed")
+
+
+def test_submit_two_factor_returns_404_for_unknown_job(http_client: TestClient):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+
+    response = http_client.post(f"/api/credentials/{credential_id}/sync/nonexistent/2fa", json={"code": "1234"})
+
+    assert response.status_code == 404
+
+
+def test_submit_two_factor_returns_422_when_job_not_awaiting_two_factor(
+    http_client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
     monkeypatch.setattr(
-        target=credential_service, name="confirm_two_factor", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
+        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
     )
 
-    response = http_client.post(
-        f"/api/credentials/{credential_id}/sync/2fa", json={"challenge_token": HTTP_SESSION_TOKEN, "code": PIN}
-    )
+    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
+    _wait_for_status(http_client=http_client, credential_id=credential_id, job_id=job_id, expected="completed")
 
-    assert response.status_code == 200
-    assert response.json()["status"] == "completed"
+    response = http_client.post(f"/api/credentials/{credential_id}/sync/{job_id}/2fa", json={"code": "1234"})
+
+    assert response.status_code == 422
 
 
-def test_sync_2fa_returns_404_for_other_users_credential(http_client: TestClient):
+def test_get_sync_job_returns_404_for_other_users_credential(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
     register(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
+    monkeypatch.setattr(
+        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
+    )
+    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
 
     register(http_client, user_name="intruder")
     login_as(http_client, user_name="intruder")
 
-    response = http_client.post(
-        f"/api/credentials/{credential_id}/sync/2fa", json={"challenge_token": HTTP_SESSION_TOKEN, "code": PIN}
+    assert http_client.get(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
+
+
+def test_sync_job_websocket_streams_terminal_state(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    monkeypatch.setattr(
+        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
     )
 
-    assert response.status_code == 404
+    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
+
+    with http_client.websocket_connect(f"/api/credentials/{credential_id}/sync/{job_id}/ws") as ws:
+        last = None
+        while True:
+            message = ws.receive_json()
+            last = message
+            if message["status"] in {JobStatus.COMPLETED.value, JobStatus.FAILED.value}:
+                break
+    assert last is not None
+    assert last["status"] == "completed"
+    assert "challenge_token" not in last
+
+
+def test_sync_job_websocket_rejects_unauthenticated_clients(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    monkeypatch.setattr(
+        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
+    )
+    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
+
+    http_client.cookies.delete("session")
+    with pytest.raises(WebSocketDisconnect) as excinfo:
+        with http_client.websocket_connect(f"/api/credentials/{credential_id}/sync/{job_id}/ws"):
+            pass
+    assert excinfo.value.code == 4401

@@ -27,7 +27,7 @@ def client() -> TestClient:
     @app.get("/raise/{case}")
     def raise_case(case: str) -> None:
         exception_type, _ = CASES[case]
-        raise exception_type(f"boom: {case}")
+        raise exception_type(f"Something went wrong: {case}")
 
     return TestClient(app)
 
@@ -39,7 +39,7 @@ def test_known_exceptions_map_to_status_code_and_detail(client: TestClient, case
     response = client.get(f"/raise/{case}")
 
     assert response.status_code == expected_status
-    assert response.json() == {"detail": f"boom: {case}"}
+    assert response.json() == {"detail": f"Something went wrong: {case}"}
 
 
 def test_unmapped_exception_is_not_swallowed(client: TestClient):

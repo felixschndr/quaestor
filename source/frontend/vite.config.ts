@@ -62,6 +62,7 @@ export default defineConfig({
       '/api': {
         target: `http://localhost:${BACKEND_DEV_PORT}`,
         changeOrigin: false,
+        ws: true,
       },
       // Bank icons + any other backend-served static assets. Without this,
       // Vite's SPA fallback would return index.html for /static/banks/*.png.
