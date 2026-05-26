@@ -1,37 +1,27 @@
 from datetime import date
 
 import pytest
-from source.backend.bank_handlers import BankProvider
 from source.backend.exceptions import AccountNotFoundError
-from source.backend.models.account import Account
-from source.backend.models.credential import Credential
-from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
-from source.backend.models.user import User
 from source.backend.services import account_service
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
-    BANK_PASSWORD,
-    BANK_USERNAME,
-    DISPLAY_NAME,
-    USER_NAME,
-    VALID_PASSWORD_HASH,
+    SECOND_USER_NAME,
+    make_account,
+    make_credential,
+    make_transaction,
+    make_user,
 )
 
 
 def _create_user_with_accounts(session_factory: sessionmaker) -> tuple[int, list[int]]:
     with session_factory() as session:
-        user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH)
-        credential = Credential(
-            user=user,
-            bank=BankProvider.ING,
-            credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD},
-        )
-        first = Account(credential=credential, name="DE-1", balance=10.0)
-        second = Account(credential=credential, name="DE-2", balance=20.0)
-        session.add(user)
+        user = make_user(session)
+        credential = make_credential(session, user_id=user.id)
+        first = make_account(session, credential_id=credential.id, name="DE-1", balance=10.0)
+        second = make_account(session, credential_id=credential.id, name="DE-2", balance=20.0)
         session.commit()
         return user.id, [first.id, second.id]
 
@@ -39,14 +29,9 @@ def _create_user_with_accounts(session_factory: sessionmaker) -> tuple[int, list
 def test_list_accounts_returns_only_accounts_belonging_to_the_user(session_factory: sessionmaker):
     user_id, expected_ids = _create_user_with_accounts(session_factory)
     with session_factory() as session:
-        other = User(user_name="other", display_name="Other", password_hash=VALID_PASSWORD_HASH)
-        other_credential = Credential(
-            user=other,
-            bank=BankProvider.ING,
-            credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD},
-        )
-        Account(credential=other_credential, name="OTHER", balance=0.0)
-        session.add(other)
+        other = make_user(session, user_name=SECOND_USER_NAME, display_name="Other")
+        other_credential = make_credential(session, user_id=other.id)
+        make_account(session, credential_id=other_credential.id, name="OTHER")
         session.commit()
 
     with session_factory() as session:
@@ -57,8 +42,7 @@ def test_list_accounts_returns_only_accounts_belonging_to_the_user(session_facto
 
 def test_list_accounts_empty_when_user_has_no_credentials(session_factory: sessionmaker):
     with session_factory() as session:
-        user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH)
-        session.add(user)
+        user = make_user(session)
         session.commit()
         user_id = user.id
 
@@ -125,11 +109,9 @@ def test_filter_transactions(
     }
     with session_factory() as session:
         all_transactions = [
-            Transaction(purpose="Supermarket", other_party="Rewe", **common_attrs),
-            Transaction(purpose="Drug store", other_party="DM", **common_attrs),
+            make_transaction(session, purpose="Supermarket", other_party="Rewe", **common_attrs),
+            make_transaction(session, purpose="Drug store", other_party="DM", **common_attrs),
         ]
-        for transaction in all_transactions:
-            session.add(transaction)
         session.commit()
     expected_ids = [
         all_transactions[i].id for i in range(len(all_transactions)) if i not in indexes_of_not_expected_transactions

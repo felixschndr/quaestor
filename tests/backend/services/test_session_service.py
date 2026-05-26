@@ -6,18 +6,12 @@ from source.backend.services import session_service
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import (
-    DISPLAY_NAME,
-    HTTP_SESSION_TOKEN,
-    USER_NAME,
-    VALID_PASSWORD_HASH,
-)
+from tests.backend.conftest import HTTP_SESSION_TOKEN, make_user
 
 
 def _create_user(session_factory: sessionmaker) -> User:
     with session_factory() as db_session:
-        user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH)
-        db_session.add(user)
+        user = make_user(db_session)
         db_session.commit()
         db_session.refresh(user)
         return user

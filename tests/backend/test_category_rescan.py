@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import threading
-from datetime import date
 from unittest.mock import AsyncMock
 
 import pytest
@@ -16,12 +15,11 @@ from source.backend.services.category_rescan import (
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
-    BANK_PASSWORD,
-    BANK_USERNAME,
-    DISPLAY_NAME,
     UNKNOWN_TRANSACTION_OTHER_PARTY,
-    USER_NAME,
-    VALID_PASSWORD_HASH,
+    make_account,
+    make_credential,
+    make_transaction,
+    make_user,
 )
 
 
@@ -34,35 +32,22 @@ def _persist_transaction(
     purpose: str | None = None,
 ) -> int:
     with session_factory() as session:
-        transaction = Transaction(
+        transaction = make_transaction(
+            session,
             account_id=account_id,
-            amount=-1.0,
-            purpose=purpose,
             other_party=other_party,
-            date=date(year=2026, month=5, day=21),
+            purpose=purpose,
             category=category,
         )
-        session.add(transaction)
         session.commit()
         return transaction.id
 
 
 def _persist_account(session_factory: sessionmaker) -> int:
-    from source.backend.bank_handlers import BankProvider
-    from source.backend.models.account import Account
-    from source.backend.models.credential import Credential
-    from source.backend.models.user import User
-
     with session_factory() as session:
-        user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH)
-        credential = Credential(
-            user=user,
-            bank=BankProvider.ING,
-            credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD},
-            requires_two_factor_authentication=False,
-        )
-        account = Account(credential=credential, name="DE00", balance=0.0)
-        session.add(user)
+        user = make_user(session)
+        credential = make_credential(session, user_id=user.id)
+        account = make_account(session, credential_id=credential.id, name="DE00")
         session.commit()
         return account.id
 

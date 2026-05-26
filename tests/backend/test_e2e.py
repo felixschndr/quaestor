@@ -8,7 +8,7 @@ import pytest
 from dotenv import load_dotenv
 from requests import Response, Session
 
-from tests.backend.conftest import USER_NAME, VALID_PASSWORD
+from tests.backend.conftest import DISPLAY_NAME, USER_NAME, VALID_PASSWORD
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("RUN_E2E"),
@@ -57,7 +57,7 @@ def test_e2e_full_flow() -> None:
     data = {
         "method": "POST",
         "url": f"{URL}/api/auth/register",
-        "json": {"user_name": USER_NAME, "display_name": "My first user", "password": VALID_PASSWORD},
+        "json": {"user_name": USER_NAME, "display_name": DISPLAY_NAME, "password": VALID_PASSWORD},
     }
     make_request_and_send_response(data, http_session)
 

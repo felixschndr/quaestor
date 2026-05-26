@@ -1,5 +1,6 @@
 import os
 from datetime import date as _date
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -7,21 +8,27 @@ import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
 from source.backend import main
+from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
 from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.db import get_session
 from source.backend.helpers import get_root_path_of_repository
+from source.backend.models.account import Account
 from source.backend.models.base import Base
+from source.backend.models.credential import Credential
+from source.backend.models.transaction import Transaction
+from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
+from source.backend.models.user import User
 from source.backend.security import csrf, rate_limit
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 os.environ.setdefault(key="ALLOW_MISSING_FRONTEND", value="true")
 
-USER_NAME = "alice"
+USER_NAME = "felix"
 SECOND_USER_NAME = "bob"
-DISPLAY_NAME = "Alice"
+DISPLAY_NAME = "Felix"
 VALID_PASSWORD = "Sup3rSecret!Pass"  # nosec B105
 VALID_PASSWORD_HASH = (
     "$argon2id$v=19$m=65536,t=3,p=4$SHe1II5FiMI7z+lVd6e6Ig$+liPtR4Uu7MjpiMGPMLmkvmaWai+KehP9tPOmQllTfE"  # nosec B105
@@ -125,6 +132,104 @@ def create_fetched_transaction(
         other_party=other_party,
         transaction_type=transaction_type,
     )
+
+
+def _default_credentials_for(bank: BankProvider) -> dict[str, str]:
+    fields = BANKS_BY_NAME[bank.value].handler.CREDENTIAL_FIELDS
+    defaults = {
+        "username": BANK_USERNAME,
+        "password": BANK_PASSWORD,
+        "customer": "customer-id",
+        "phone": "+491234567890",
+        "pin": "1234",
+    }
+    return {field: defaults.get(field, f"{field}-value") for field in fields}  # noqa FKA100
+
+
+def make_user(
+    db_session: Session,
+    *,
+    user_name: str = USER_NAME,
+    display_name: str = DISPLAY_NAME,
+    password_hash: str = VALID_PASSWORD_HASH,
+    language: str = "en",
+) -> User:
+    user = User(user_name=user_name, display_name=display_name, password_hash=password_hash, language=language)
+    db_session.add(user)
+    db_session.flush()
+    return user
+
+
+def make_credential(
+    db_session: Session,
+    *,
+    user_id: int,
+    bank: BankProvider = BankProvider.ING,
+    credentials: dict[str, str] | None = None,
+    requires_two_factor_authentication: bool = False,
+    last_fetching_timestamp: datetime | None = None,
+) -> Credential:
+    user = db_session.get(entity=User, ident=user_id)
+    credential = Credential(
+        user=user,
+        bank=bank,
+        credentials=credentials if credentials is not None else _default_credentials_for(bank),
+        requires_two_factor_authentication=requires_two_factor_authentication,
+        last_fetching_timestamp=last_fetching_timestamp,
+    )
+    db_session.add(credential)
+    db_session.flush()
+    return credential
+
+
+def make_account(
+    db_session: Session,
+    *,
+    credential_id: int,
+    name: str = "DE00 1234",
+    display_name: str | None = None,
+    balance: float = 0.0,
+    balance_factor: int = 100,
+) -> Account:
+    credential = db_session.get(entity=Credential, ident=credential_id)
+    account = Account(
+        credential=credential,
+        name=name,
+        display_name=display_name,
+        balance=balance,
+        balance_factor=balance_factor,
+    )
+    db_session.add(account)
+    db_session.flush()
+    return account
+
+
+def make_transaction(
+    db_session: Session,
+    *,
+    account_id: int,
+    amount: float = -1.0,
+    purpose: str | None = None,
+    other_party: str | None = None,
+    date: _date = _date(year=2026, month=5, day=21),
+    transaction_type: TransactionType | None = None,
+    category: TransactionCategory = TransactionCategory.UNKNOWN,
+    note: str | None = None,
+) -> Transaction:
+    account = db_session.get(entity=Account, ident=account_id)
+    transaction = Transaction(
+        account=account,
+        amount=amount,
+        purpose=purpose,
+        other_party=other_party,
+        date=date,
+        transaction_type=transaction_type,
+        category=category,
+        note=note,
+    )
+    db_session.add(transaction)
+    db_session.flush()
+    return transaction
 
 
 def get_backend_test_path() -> Path:

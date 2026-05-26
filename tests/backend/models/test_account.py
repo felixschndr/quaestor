@@ -1,36 +1,24 @@
 from datetime import date
 
-from source.backend.bank_handlers import BankProvider
 from source.backend.models.account import Account
 from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
-from source.backend.models.credential import Credential
-from source.backend.models.transaction import Transaction
-from source.backend.models.user import User
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from tests.backend.conftest import (
-    BANK_PASSWORD,
-    BANK_USERNAME,
-    DISPLAY_NAME,
-    USER_NAME,
-    VALID_PASSWORD_HASH,
+    make_account,
+    make_credential,
+    make_transaction,
+    make_user,
 )
 
 
 def _persist_account(session: Session, balance: float, transactions: list[tuple[date, float]]) -> Account:
-    user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH)  # nosec B106
-    credential = Credential(
-        user=user,
-        bank=BankProvider.ING,
-        credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD},
-        requires_two_factor_authentication=False,
-    )
-    account = Account(name="x", balance=balance, credential=credential)
+    user = make_user(session)
+    credential = make_credential(session, user_id=user.id)
+    account = make_account(session, credential_id=credential.id, name="x", balance=balance)
     for day, amount in transactions:
-        account.transactions.append(Transaction(amount=amount, date=day, purpose=None, other_party=None))
-    session.add(account)
-    session.flush()
+        make_transaction(session, account_id=account.id, amount=amount, date=day)
     return account
 
 
