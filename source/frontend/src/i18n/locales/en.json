@@ -161,6 +161,10 @@
   "banks": {
     "ing": { "title": "ING" },
     "dkb": { "title": "DKB" },
+    "sparkasse": {
+      "title": "Sparkasse",
+      "note": "After you connect, you'll get a push notification in your Sparkasse app — approve it there to let the sync continue."
+    },
     "dfs": { "title": "DFS" },
     "trade_republic": {
       "title": "Trade Republic",
@@ -171,6 +175,7 @@
       "note": "A manual account: balance and transactions are entered by hand."
     },
     "field": {
+      "blz": "Bank code (BLZ)",
       "username": "Username",
       "password": "Password",
       "phone": "Phone number",

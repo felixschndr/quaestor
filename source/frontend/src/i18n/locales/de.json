@@ -161,6 +161,10 @@
   "banks": {
     "ing": { "title": "ING" },
     "dkb": { "title": "DKB" },
+    "sparkasse": {
+      "title": "Sparkasse",
+      "note": "Nach dem Verbinden bekommst du eine Push-Benachrichtigung in deiner Sparkassen-App; diese bitte dort freigeben, damit die Synchronisierung weitergeht."
+    },
     "dfs": { "title": "DFS" },
     "trade_republic": {
       "title": "Trade Republic",
@@ -171,6 +175,7 @@
       "note": "Ein manuelles Konto: Saldo und Transaktionen werden von Hand eingetragen."
     },
     "field": {
+      "blz": "Bankleitzahl",
       "username": "Benutzername",
       "password": "Passwort",
       "phone": "Telefonnummer",
