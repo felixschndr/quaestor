@@ -42,6 +42,12 @@ const TR_BANK: SupportedBank = {
   icon: '/static/banks/trade_republic.png',
 }
 
+const SPARKASSE_BANK: SupportedBank = {
+  name: 'sparkasse',
+  required_fields: ['username', 'password', 'blz'],
+  icon: '/static/banks/sparkasse.png',
+}
+
 interface MockResponse {
   status: number
   body: unknown
@@ -555,6 +561,109 @@ describe('NewCredentialFormView', () => {
 
       await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
       expect(onConnected).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Sparkasse decoupled approval flow', () => {
+    function mockBackend(fetchMock: Mock, credentialId: number, jobId: string) {
+      fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+        if (url === '/api/credentials' && init?.method === 'POST') {
+          return Promise.resolve(
+            jsonResponse({
+              status: 201,
+              body: {
+                id: credentialId,
+                bank: 'sparkasse',
+                accounts: [],
+                last_fetching_timestamp: null,
+                requires_two_factor_authentication: false,
+              },
+            }),
+          )
+        }
+        if (url === `/api/credentials/${credentialId}/sync` && init?.method === 'POST') {
+          return Promise.resolve(
+            jsonResponse({
+              status: 202,
+              body: { job_id: jobId, status: 'running', expires_at: null, error: null },
+            }),
+          )
+        }
+        return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+      })
+    }
+
+    it('shows the approval message when the sync reports awaiting_decoupled_approval', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+      mockBackend(fetchMock, 13, 'job-spk')
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankName="sparkasse"
+          bank={SPARKASSE_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={vi.fn()}
+          onSyncFailed={vi.fn()}
+        />,
+      )
+
+      await user.type(screen.getByLabelText('Username'), 'felix')
+      await user.type(screen.getByLabelText('Password'), 'secret-password')
+      await user.type(screen.getByLabelText('Bank code (BLZ)'), '66050101')
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+      const ws = await nextWebSocket((s) => s.url.includes('/credentials/13/sync/job-spk/ws'))
+      ws.push({
+        job_id: 'job-spk',
+        status: 'awaiting_decoupled_approval',
+        expires_at: null,
+        error: null,
+      })
+
+      expect(await screen.findByText(/Please approve in your banking app/)).toBeInTheDocument()
+      // The form is replaced by the waiting panel.
+      expect(screen.queryByLabelText('Bank code (BLZ)')).not.toBeInTheDocument()
+    })
+
+    it('completes the sync after the approval transitions to running and then completed', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+      mockBackend(fetchMock, 13, 'job-spk')
+      const onConnected = vi.fn()
+      const onSyncFailed = vi.fn()
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankName="sparkasse"
+          bank={SPARKASSE_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={onConnected}
+          onSyncFailed={onSyncFailed}
+        />,
+      )
+
+      await user.type(screen.getByLabelText('Username'), 'felix')
+      await user.type(screen.getByLabelText('Password'), 'secret-password')
+      await user.type(screen.getByLabelText('Bank code (BLZ)'), '66050101')
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+      const ws = await nextWebSocket((s) => s.url.includes('/credentials/13/sync/job-spk/ws'))
+      ws.push({
+        job_id: 'job-spk',
+        status: 'awaiting_decoupled_approval',
+        expires_at: null,
+        error: null,
+      })
+      expect(await screen.findByText(/Please approve in your banking app/)).toBeInTheDocument()
+
+      ws.push({ job_id: 'job-spk', status: 'running', expires_at: null, error: null })
+      ws.push({ job_id: 'job-spk', status: 'completed', expires_at: null, error: null })
+
+      await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
+      expect(onSyncFailed).not.toHaveBeenCalled()
     })
   })
 })

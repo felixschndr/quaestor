@@ -168,7 +168,7 @@ def test_supported_banks_returns_bank_metadata(http_client: TestClient):
         },
         {
             "name": "sparkasse",
-            "required_fields": ["blz", "username", "password"],
+            "required_fields": ["username", "password", "blz"],
             "icon": "/static/banks/sparkasse.png",
         },
         {

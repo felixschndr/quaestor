@@ -3,6 +3,7 @@ from datetime import datetime
 from enum import Enum
 
 from source.backend.bank_handlers import BANKS_BY_NAME, SUPPORTED_BANKS, BankProvider
+from source.backend.bank_handlers.base import TwoFactorStateCallback
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 from source.backend.exceptions import (
     CredentialNotFoundError,
@@ -59,18 +60,19 @@ def get_credential_for_user(db_session: Session, credential_id: int, user_id: in
 
 
 def _validated_credentials(bank: BankProvider, credentials: dict[str, str]) -> dict[str, str]:
-    required = BANKS_BY_NAME[bank.value].handler.CREDENTIAL_FIELDS
-    missing = [field for field in required if not credentials.get(field)]
+    bank_info = BANKS_BY_NAME[bank.value]
+    required_fields = bank_info.handler.credential_fields(bank_info)
+    missing = [field for field in required_fields if not credentials.get(field)]
     if missing:
         error_message = f"Missing required field(s) for {bank.value}: {', '.join(missing)}"
         logger.warning(error_message)
         raise MissingCredentialFieldError(error_message)
-    unexpected = [field for field in credentials if field not in required]
+    unexpected = [field for field in credentials if field not in required_fields]
     if unexpected:
         error_message = f"Unexpected field(s) for {bank.value}: {', '.join(sorted(unexpected))}"
         logger.warning(error_message)
         raise MissingCredentialFieldError(error_message)
-    return {field: credentials[field] for field in required}
+    return {field: credentials[field] for field in required_fields}
 
 
 def create_credential(
@@ -109,17 +111,25 @@ def delete_credential(db_session: Session, credential_id: int) -> None:
     logger.info(f"Deleted credential {credential}")
 
 
-def sync_credential(db_session: Session, credential_id: int) -> SyncResult:
+def sync_credential(
+    db_session: Session,
+    credential_id: int,
+    notify_two_factor_state: TwoFactorStateCallback | None = None,
+) -> SyncResult:
     logger.debug(f"Sync requested for credential {credential_id}")
     credential = get_credential(db_session=db_session, credential_id=credential_id)
-    result = sync_credential_object(credential=credential)
+    result = sync_credential_object(credential=credential, notify_two_factor_state=notify_two_factor_state)
     db_session.commit()
     return result
 
 
-def sync_credential_object(credential: Credential) -> SyncResult:
+def sync_credential_object(
+    credential: Credential,
+    notify_two_factor_state: TwoFactorStateCallback | None = None,
+) -> SyncResult:
     logger.info(f"Syncing {credential}")
     handler = credential.handler
+    handler.notify_two_factor_state = notify_two_factor_state
     logger.debug(f"Using {type(handler).__name__} for {credential}")
     if isinstance(handler, TradeRepublicHandler):
         handler.session_state = credential.session_state

@@ -202,6 +202,10 @@
       "submitting": "Confirming…",
       "failed": "The code was invalid or has expired. Please start the sync again."
     },
+    "decoupledApproval": {
+      "title": "Please approve in your banking app",
+      "description": "We're waiting for you to approve the request in your banking app. Open the app and confirm to let the sync continue."
+    },
     "lastSynced": "Last synced",
     "neverSynced": "Never synced"
   },

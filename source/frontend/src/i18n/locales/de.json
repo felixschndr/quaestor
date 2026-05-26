@@ -202,6 +202,10 @@
       "submitting": "Wird bestätigt …",
       "failed": "Der Code war ungültig oder ist abgelaufen. Bitte starte die Synchronisierung neu."
     },
+    "decoupledApproval": {
+      "title": "Bitte in der App bestätigen",
+      "description": "Wir warten auf die Freigabe in deiner Banking-App. Öffne die App und bestätige die Anfrage, um die Synchronisierung fortzusetzen."
+    },
     "lastSynced": "Zuletzt synchronisiert",
     "neverSynced": "Noch nie synchronisiert"
   },

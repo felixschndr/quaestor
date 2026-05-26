@@ -190,7 +190,23 @@ function CredentialForm({
   }
 
   const showCodeForm = job?.status === 'awaiting_2fa'
-  const isSyncing = activeJob !== null && (job === null || job.status === 'running')
+  const showDecoupledApproval = job?.status === 'awaiting_decoupled_approval'
+  const isSyncing =
+    activeJob !== null &&
+    (job === null || job.status === 'running' || job.status === 'awaiting_decoupled_approval')
+
+  if (showDecoupledApproval) {
+    return (
+      <div role="status" aria-live="polite" className="flex flex-col gap-2">
+        <p className="text-foreground text-sm font-medium">
+          {t('credentials.decoupledApproval.title')}
+        </p>
+        <p className="text-muted-foreground text-sm">
+          {t('credentials.decoupledApproval.description')}
+        </p>
+      </div>
+    )
+  }
 
   if (showCodeForm) {
     return (

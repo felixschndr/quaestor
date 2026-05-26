@@ -4,7 +4,6 @@ from source.backend.bank_handlers.base import BankHandler
 from source.backend.bank_handlers.dfs_handler import DFSHandler
 from source.backend.bank_handlers.fints_handler import FinTSHandler
 from source.backend.bank_handlers.manual_handler import ManualHandler
-from source.backend.bank_handlers.sparkasse_handler import SparkasseHandler
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 
 
@@ -13,7 +12,7 @@ from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
     argvalues=[
         (BankProvider.ING, FinTSHandler),
         (BankProvider.DKB, FinTSHandler),
-        (BankProvider.SPARKASSE, SparkasseHandler),
+        (BankProvider.SPARKASSE, FinTSHandler),
         (BankProvider.DFS, DFSHandler),
         (BankProvider.TRADE_REPUBLIC, TradeRepublicHandler),
         (BankProvider.MANUAL, ManualHandler),
@@ -22,7 +21,8 @@ from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 def test_handler_for_returns_handler_with_matching_bank_info(
     provider: BankProvider, expected_handler_class: type[BankHandler]
 ) -> None:
-    credentials = {field: "x" for field in BANKS_BY_NAME[provider.value].handler.CREDENTIAL_FIELDS}  # noqa: C420
+    bank_info = BANKS_BY_NAME[provider.value]
+    credentials = {field: "x" for field in bank_info.handler.credential_fields(bank_info)}  # noqa: C420
 
     handler = handler_for(provider=provider, credentials=credentials)
 
