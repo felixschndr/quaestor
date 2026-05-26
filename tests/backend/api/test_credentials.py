@@ -167,6 +167,11 @@ def test_supported_banks_returns_bank_metadata(http_client: TestClient):
             "bank_identifier": "12030000",
         },
         {
+            "name": "sparkasse",
+            "required_fields": ["blz", "username", "password"],
+            "icon": "/static/banks/sparkasse.png",
+        },
+        {
             "name": "dfs",
             "required_fields": ["username", "password"],
             "icon": "/static/banks/dfs.png",

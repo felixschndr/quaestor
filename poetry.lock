@@ -117,6 +117,18 @@ files = [
 cffi = {version = ">=2.0.0b1", markers = "python_version >= \"3.14\""}
 
 [[package]]
+name = "argparse"
+version = "1.4.0"
+description = "Python command-line parsing library"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "argparse-1.4.0-py2.py3-none-any.whl", hash = "sha256:c31647edb69fd3d465a847ea3157d37bed1f95f19760b11a47aa91c04b666314"},
+    {file = "argparse-1.4.0.tar.gz", hash = "sha256:62b089a55be1d8949cd2bc7e0df0bddb9e028faefc8c32038cc84862aefdd6e4"},
+]
+
+[[package]]
 name = "babel"
 version = "2.18.0"
 description = "Internationalization utilities"
@@ -750,6 +762,24 @@ requests = "*"
 sepaxml = ">=2.7,<3.0"
 
 [[package]]
+name = "fints-url"
+version = "0.7"
+description = "FinTS URL Retriever"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "fints-url-0.7.tar.gz", hash = "sha256:33ec6bda34d47f3f9363f23a1a1a6e6ffd11b095e2d841c91a2a9e129cd62370"},
+    {file = "fints_url-0.7-py3-none-any.whl", hash = "sha256:711d89fbade2e9a5396c54ed72183b3e0fb522fdbc3d1107a88b9d594a9a6cbf"},
+]
+
+[package.dependencies]
+argparse = "*"
+lxml = "*"
+requests = "*"
+schwifty = "*"
+
+[[package]]
 name = "greenlet"
 version = "3.5.0"
 description = "Lightweight in-process concurrent programming"
@@ -1312,6 +1342,18 @@ dev = ["pre-commit", "tox"]
 testing = ["coverage", "pytest", "pytest-benchmark"]
 
 [[package]]
+name = "pycountry"
+version = "26.2.16"
+description = "ISO country, subdivision, language, currency and script definitions and their translations"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "pycountry-26.2.16-py3-none-any.whl", hash = "sha256:115c4baf7cceaa30f59a4694d79483c9167dbce7a9de4d3d571c5f3ea77c305a"},
+    {file = "pycountry-26.2.16.tar.gz", hash = "sha256:5b6027d453fcd6060112b951dd010f01f168b51b4bf8a1f1fc8c95c8d94a0801"},
+]
+
+[[package]]
 name = "pycparser"
 version = "3.0"
 description = "C parser in Python"
@@ -1669,6 +1711,37 @@ pygments = ">=2.13.0,<3.0.0"
 
 [package.extras]
 jupyter = ["ipywidgets (>=7.5.1,<9)"]
+
+[[package]]
+name = "rstr"
+version = "3.2.2"
+description = "Generate random strings in Python"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "rstr-3.2.2-py3-none-any.whl", hash = "sha256:f39195d38da1748331eeec52f1276e71eb6295e7949beea91a5e9af2340d7b3b"},
+    {file = "rstr-3.2.2.tar.gz", hash = "sha256:c4a564d4dfb4472d931d145c43d1cf1ad78c24592142e7755b8866179eeac012"},
+]
+
+[[package]]
+name = "schwifty"
+version = "2026.3.0"
+description = "IBAN parsing and validation"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "schwifty-2026.3.0-py3-none-any.whl", hash = "sha256:b3664ed82d0900857942f368729ab39079984b59cac728c486854844efe644f9"},
+    {file = "schwifty-2026.3.0.tar.gz", hash = "sha256:f0ee1b45c11847a9ddccaed95320e36d3d32200641014e98be60df246d16d6cd"},
+]
+
+[package.dependencies]
+pycountry = "*"
+rstr = "*"
+
+[package.extras]
+pydantic = ["pydantic (>=2.0)"]
 
 [[package]]
 name = "sepaxml"
@@ -2091,4 +2164,4 @@ docs = ["jinja2", "sphinx", "sphinx_rtd_theme"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.14"
-content-hash = "5c01e0ae1770ec48f05f5fb8308f2f6e005c7a793f817bfefd8d0be56926b75d"
+content-hash = "2866c1697092a983701948c609b2c3b47eeeb0b92cba7b5928ff4a06688096d9"
