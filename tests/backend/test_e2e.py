@@ -80,13 +80,13 @@ def test_e2e_full_flow() -> None:
 
     data = {"method": "POST", "url": f"{URL}/api/credentials/{trade_republic_credential_id}/sync"}
     response = make_request_and_send_response(data, http_session)
-    trade_republic_challenge_token = response.json()["challenge_token"]
+    trade_republic_job_id = response.json()["job_id"]
 
     code = input("2FA-Code: ")
     data = {
         "method": "POST",
-        "url": f"{URL}/api/credentials/{trade_republic_credential_id}/sync/2fa",
-        "json": {"challenge_token": trade_republic_challenge_token, "code": code},
+        "url": f"{URL}/api/credentials/{trade_republic_credential_id}/sync/{trade_republic_job_id}/2fa",
+        "json": {"code": code},
     }
     make_request_and_send_response(data, http_session)
 

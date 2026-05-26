@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 from source.backend.api.schemas.account import AccountRead
 from source.backend.bank_handlers import BankProvider
-from source.backend.services.credential_service import SyncStatus
+from source.backend.services.sync_jobs import JobStatus
 
 
 class CredentialCreate(BaseModel):
@@ -26,12 +26,12 @@ class CredentialUpdate(BaseModel):
     credentials: dict[str, str] | None = None
 
 
-class SyncResponse(BaseModel):
-    status: SyncStatus
-    challenge_token: str | None = None
+class SyncJobRead(BaseModel):
+    job_id: str
+    status: JobStatus
     expires_at: datetime | None = None
+    error: str | None = None
 
 
-class TwoFactorConfirm(BaseModel):
-    challenge_token: str
+class TwoFactorCode(BaseModel):
     code: str

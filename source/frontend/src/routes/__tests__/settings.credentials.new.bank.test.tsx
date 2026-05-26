@@ -21,7 +21,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 import { NewCredentialFormView } from '@/routes/settings.credentials.new.$bank'
-import type { SupportedBank } from '@/lib/credentials'
+import type { SupportedBank, SyncJob } from '@/lib/credentials'
 
 const ING_BANK: SupportedBank = {
   name: 'ing',
@@ -36,6 +36,12 @@ const DFS_BANK: SupportedBank = {
   icon: '/static/banks/dfs.png',
 }
 
+const TR_BANK: SupportedBank = {
+  name: 'trade_republic',
+  required_fields: ['phone', 'pin'],
+  icon: '/static/banks/trade_republic.png',
+}
+
 interface MockResponse {
   status: number
   body: unknown
@@ -45,6 +51,44 @@ function jsonResponse({ status, body }: MockResponse): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json' },
+  })
+}
+
+class MockWebSocket {
+  static instances: MockWebSocket[] = []
+  url: string
+  readyState = 0
+  onopen: ((event: unknown) => void) | null = null
+  onmessage: ((event: { data: string }) => void) | null = null
+  onclose: ((event: unknown) => void) | null = null
+  onerror: ((event: unknown) => void) | null = null
+
+  constructor(url: string) {
+    this.url = url
+    MockWebSocket.instances.push(this)
+    queueMicrotask(() => {
+      this.readyState = 1
+      this.onopen?.({})
+    })
+  }
+
+  send() {}
+
+  close() {
+    this.readyState = 3
+    this.onclose?.({})
+  }
+
+  push(message: SyncJob) {
+    this.onmessage?.({ data: JSON.stringify(message) })
+  }
+}
+
+async function nextWebSocket(predicate: (ws: MockWebSocket) => boolean): Promise<MockWebSocket> {
+  return waitFor(() => {
+    const ws = MockWebSocket.instances.find(predicate)
+    if (!ws) throw new Error('WebSocket not opened yet')
+    return ws
   })
 }
 
@@ -60,6 +104,8 @@ function renderWithQuery(ui: React.ReactNode) {
 
 beforeEach(() => {
   globalThis.fetch = vi.fn() as unknown as typeof fetch
+  MockWebSocket.instances = []
+  ;(globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket
   document.cookie = ''
 })
 
@@ -83,7 +129,6 @@ describe('NewCredentialFormView', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Connect ING')
     expect(screen.getByLabelText('Username')).toBeInTheDocument()
     expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
-    // ING has no "customer" requirement, so that field must not be rendered.
     expect(screen.queryByLabelText('Customer number')).not.toBeInTheDocument()
   })
 
@@ -135,7 +180,7 @@ describe('NewCredentialFormView', () => {
     expect(onCancel).toHaveBeenCalledTimes(1)
   })
 
-  it('submits the credentials, triggers a sync, and routes to / on success', async () => {
+  it('creates the credential, starts the sync, and routes to onConnected when the WS reports completed', async () => {
     const user = userEvent.setup()
     const fetchMock = globalThis.fetch as Mock
     fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
@@ -156,8 +201,8 @@ describe('NewCredentialFormView', () => {
       if (url === '/api/credentials/42/sync' && init?.method === 'POST') {
         return Promise.resolve(
           jsonResponse({
-            status: 200,
-            body: { status: 'completed', challenge_token: null, expires_at: null },
+            status: 202,
+            body: { job_id: 'job-abc', status: 'running', expires_at: null, error: null },
           }),
         )
       }
@@ -180,21 +225,14 @@ describe('NewCredentialFormView', () => {
     await user.type(screen.getByLabelText('Password'), 'hunter2')
     await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
+    const ws = await nextWebSocket((s) => s.url.includes('/credentials/42/sync/job-abc/ws'))
+    ws.push({ job_id: 'job-abc', status: 'completed', expires_at: null, error: null })
+
     await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
     expect(onSyncFailed).not.toHaveBeenCalled()
-
-    const postBody = JSON.parse(
-      fetchMock.mock.calls.find(
-        ([url, init]) => url === '/api/credentials' && init?.method === 'POST',
-      )![1].body,
-    )
-    expect(postBody).toEqual({
-      bank: 'ing',
-      credentials: { username: 'alice', password: 'hunter2' },
-    })
   })
 
-  it('keeps the credential and routes to onSyncFailed when the sync call errors', async () => {
+  it('bounces back to onSyncFailed when the WS reports failed', async () => {
     const user = userEvent.setup()
     const fetchMock = globalThis.fetch as Mock
     fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
@@ -213,6 +251,58 @@ describe('NewCredentialFormView', () => {
         )
       }
       if (url === '/api/credentials/11/sync' && init?.method === 'POST') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 202,
+            body: { job_id: 'job-x', status: 'running', expires_at: null, error: null },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+    })
+    const onConnected = vi.fn()
+    const onSyncFailed = vi.fn()
+
+    renderWithQuery(
+      <NewCredentialFormView
+        bankName="ing"
+        bank={ING_BANK}
+        isLoading={false}
+        onCancel={vi.fn()}
+        onConnected={onConnected}
+        onSyncFailed={onSyncFailed}
+      />,
+    )
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Password'), 'hunter2')
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+    const ws = await nextWebSocket((s) => s.url.includes('/credentials/11/sync/job-x/ws'))
+    ws.push({ job_id: 'job-x', status: 'failed', expires_at: null, error: 'bank unreachable' })
+
+    await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
+    expect(onConnected).not.toHaveBeenCalled()
+  })
+
+  it('bounces back to onSyncFailed when starting the sync itself errors', async () => {
+    const user = userEvent.setup()
+    const fetchMock = globalThis.fetch as Mock
+    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      if (url === '/api/credentials' && init?.method === 'POST') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 201,
+            body: {
+              id: 99,
+              bank: 'ing',
+              accounts: [],
+              last_fetching_timestamp: null,
+              requires_two_factor_authentication: false,
+            },
+          }),
+        )
+      }
+      if (url === '/api/credentials/99/sync' && init?.method === 'POST') {
         return Promise.resolve(jsonResponse({ status: 500, body: { detail: 'Internal' } }))
       }
       return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
@@ -254,13 +344,11 @@ describe('NewCredentialFormView', () => {
         onSyncFailed={vi.fn()}
       />,
     )
-    // Only fill the username; the password stays empty.
     await user.type(screen.getByLabelText('Username'), 'alice')
     await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
     expect(await screen.findByText('This field is required')).toBeInTheDocument()
     expect(onConnected).not.toHaveBeenCalled()
-    // No HTTP call was attempted because zod rejected the form first.
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -268,11 +356,7 @@ describe('NewCredentialFormView', () => {
     renderWithQuery(
       <NewCredentialFormView
         bankName="trade_republic"
-        bank={{
-          name: 'trade_republic',
-          required_fields: ['phone', 'pin'],
-          icon: '/static/banks/trade_republic.png',
-        }}
+        bank={TR_BANK}
         isLoading={false}
         onCancel={vi.fn()}
         onConnected={vi.fn()}
@@ -285,13 +369,7 @@ describe('NewCredentialFormView', () => {
   })
 
   describe('Trade Republic 2FA flow', () => {
-    const TR_BANK: SupportedBank = {
-      name: 'trade_republic',
-      required_fields: ['phone', 'pin'],
-      icon: '/static/banks/trade_republic.png',
-    }
-
-    function mockTwoFactorRequired(fetchMock: Mock, credentialId: number, token: string) {
+    function mockBackend(fetchMock: Mock, credentialId: number, jobId: string) {
       fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
         if (url === '/api/credentials' && init?.method === 'POST') {
           return Promise.resolve(
@@ -311,34 +389,29 @@ describe('NewCredentialFormView', () => {
           return Promise.resolve(
             jsonResponse({
               status: 202,
-              body: {
-                status: '2fa_required',
-                challenge_token: token,
-                expires_at: '2099-01-01T00:00:00Z',
-              },
+              body: { job_id: jobId, status: 'running', expires_at: null, error: null },
             }),
           )
         }
-        if (url === `/api/credentials/${credentialId}/sync/2fa` && init?.method === 'POST') {
-          const body = JSON.parse(init.body ?? '{}')
-          if (body.code === 'right') {
-            return Promise.resolve(
-              jsonResponse({
-                status: 200,
-                body: { status: 'completed', challenge_token: null, expires_at: null },
-              }),
-            )
-          }
-          return Promise.resolve(jsonResponse({ status: 422, body: { detail: 'Invalid 2FA' } }))
+        if (
+          url === `/api/credentials/${credentialId}/sync/${jobId}/2fa` &&
+          init?.method === 'POST'
+        ) {
+          return Promise.resolve(
+            jsonResponse({
+              status: 202,
+              body: { job_id: jobId, status: 'running', expires_at: null, error: null },
+            }),
+          )
         }
         return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
       })
     }
 
-    it('hides the code field until the sync returns 2fa_required', async () => {
+    it('hides the code field until the WS reports awaiting_2fa', async () => {
       const user = userEvent.setup()
       const fetchMock = globalThis.fetch as Mock
-      mockTwoFactorRequired(fetchMock, 7, 'tok')
+      mockBackend(fetchMock, 7, 'job-tr')
 
       renderWithQuery(
         <NewCredentialFormView
@@ -357,14 +430,27 @@ describe('NewCredentialFormView', () => {
       await user.type(screen.getByLabelText('PIN'), '1234')
       await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
+      const ws = await nextWebSocket((s) => s.url.includes('/credentials/7/sync/job-tr/ws'))
+
+      // Still no code field — we only got "running".
+      ws.push({ job_id: 'job-tr', status: 'running', expires_at: null, error: null })
+      expect(screen.queryByLabelText('Code')).not.toBeInTheDocument()
+
+      ws.push({
+        job_id: 'job-tr',
+        status: 'awaiting_2fa',
+        expires_at: '2099-01-01T00:00:00Z',
+        error: null,
+      })
+
       expect(await screen.findByLabelText('Code')).toBeInTheDocument()
       expect(screen.queryByLabelText('Phone number')).not.toBeInTheDocument()
     })
 
-    it('confirms the code and routes to onConnected on success', async () => {
+    it('confirms the code and routes to onConnected after the WS pushes completed', async () => {
       const user = userEvent.setup()
       const fetchMock = globalThis.fetch as Mock
-      mockTwoFactorRequired(fetchMock, 7, 'tok')
+      mockBackend(fetchMock, 7, 'job-tr')
       const onConnected = vi.fn()
       const onSyncFailed = vi.fn()
 
@@ -383,23 +469,60 @@ describe('NewCredentialFormView', () => {
       await user.type(screen.getByLabelText('PIN'), '1234')
       await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
+      const ws = await nextWebSocket((s) => s.url.includes('/credentials/7/sync/job-tr/ws'))
+      ws.push({
+        job_id: 'job-tr',
+        status: 'awaiting_2fa',
+        expires_at: '2099-01-01T00:00:00Z',
+        error: null,
+      })
+
       const codeInput = await screen.findByLabelText('Code')
-      await user.type(codeInput, 'right')
+      await user.type(codeInput, '4242')
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+      ws.push({ job_id: 'job-tr', status: 'completed', expires_at: null, error: null })
 
       await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
       expect(onSyncFailed).not.toHaveBeenCalled()
 
       const confirmCall = fetchMock.mock.calls.find(
-        ([url, init]) => url === '/api/credentials/7/sync/2fa' && init?.method === 'POST',
+        ([url, init]) => url === '/api/credentials/7/sync/job-tr/2fa' && init?.method === 'POST',
       )!
-      expect(JSON.parse(confirmCall[1].body)).toEqual({ challenge_token: 'tok', code: 'right' })
+      expect(JSON.parse(confirmCall[1].body)).toEqual({ code: '4242' })
     })
 
-    it('bounces back to onSyncFailed when the code is rejected', async () => {
+    it('bounces back to onSyncFailed when submitting the code errors', async () => {
       const user = userEvent.setup()
       const fetchMock = globalThis.fetch as Mock
-      mockTwoFactorRequired(fetchMock, 7, 'tok')
+      ;(fetchMock as Mock).mockImplementation((url: string, init?: { method?: string }) => {
+        if (url === '/api/credentials' && init?.method === 'POST') {
+          return Promise.resolve(
+            jsonResponse({
+              status: 201,
+              body: {
+                id: 7,
+                bank: 'trade_republic',
+                accounts: [],
+                last_fetching_timestamp: null,
+                requires_two_factor_authentication: false,
+              },
+            }),
+          )
+        }
+        if (url === '/api/credentials/7/sync' && init?.method === 'POST') {
+          return Promise.resolve(
+            jsonResponse({
+              status: 202,
+              body: { job_id: 'job-tr', status: 'running', expires_at: null, error: null },
+            }),
+          )
+        }
+        if (url === '/api/credentials/7/sync/job-tr/2fa' && init?.method === 'POST') {
+          return Promise.resolve(jsonResponse({ status: 422, body: { detail: 'expired' } }))
+        }
+        return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+      })
       const onConnected = vi.fn()
       const onSyncFailed = vi.fn()
 
@@ -417,6 +540,14 @@ describe('NewCredentialFormView', () => {
       await user.type(screen.getByLabelText('Phone number'), '+491234567890')
       await user.type(screen.getByLabelText('PIN'), '1234')
       await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+      const ws = await nextWebSocket((s) => s.url.includes('/credentials/7/sync/job-tr/ws'))
+      ws.push({
+        job_id: 'job-tr',
+        status: 'awaiting_2fa',
+        expires_at: '2099-01-01T00:00:00Z',
+        error: null,
+      })
 
       const codeInput = await screen.findByLabelText('Code')
       await user.type(codeInput, 'wrong')

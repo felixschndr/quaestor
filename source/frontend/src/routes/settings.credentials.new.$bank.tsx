@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
@@ -14,8 +14,9 @@ import { ApiError } from '@/lib/api'
 import {
   useConfirmTwoFactor,
   useCreateCredential,
+  useStartSync,
   useSupportedBanks,
-  useSyncCredential,
+  useSyncJob,
   type SupportedBank,
 } from '@/lib/credentials'
 
@@ -118,12 +119,26 @@ function CredentialForm({
 }) {
   const { t } = useTranslation()
   const create = useCreateCredential()
-  const sync = useSyncCredential()
+  const startSync = useStartSync()
   const confirm2fa = useConfirmTwoFactor()
   const note = t(`banks.${bank.name}.note`, { defaultValue: '' })
 
-  const [pending2fa, setPending2fa] = useState<{ credentialId: number; token: string } | null>(null)
+  const [activeJob, setActiveJob] = useState<{ credentialId: number; jobId: string } | null>(null)
   const [code, setCode] = useState('')
+  const { job } = useSyncJob(activeJob?.credentialId ?? null, activeJob?.jobId ?? null)
+  const terminalHandled = useRef(false)
+
+  useEffect(() => {
+    if (!job || terminalHandled.current) return
+    if (job.status === 'completed') {
+      terminalHandled.current = true
+      onConnected()
+    } else if (job.status === 'failed') {
+      terminalHandled.current = true
+      toast.error(t('credentials.syncFailed', { bank: bankTitle }))
+      onSyncFailed()
+    }
+  }, [job, onConnected, onSyncFailed, t, bankTitle])
 
   const schema = useMemo(() => {
     const shape: Record<string, z.ZodString> = {}
@@ -139,8 +154,6 @@ function CredentialForm({
     defaultValues: Object.fromEntries(bank.required_fields.map((field) => [field, ''])),
   })
 
-  const submitting = create.isPending || sync.isPending
-
   const onSubmit = form.handleSubmit(async (values) => {
     let createdId: number
     try {
@@ -152,17 +165,8 @@ function CredentialForm({
     }
 
     try {
-      const result = await sync.mutateAsync(createdId)
-      if (result.status === '2fa_required') {
-        if (!result.challenge_token) {
-          toast.error(t('credentials.syncFailed', { bank: bankTitle }))
-          onSyncFailed()
-          return
-        }
-        setPending2fa({ credentialId: createdId, token: result.challenge_token })
-        return
-      }
-      onConnected()
+      const started = await startSync.mutateAsync(createdId)
+      setActiveJob({ credentialId: createdId, jobId: started.job_id })
     } catch {
       toast.error(t('credentials.syncFailed', { bank: bankTitle }))
       onSyncFailed()
@@ -171,28 +175,24 @@ function CredentialForm({
 
   const onConfirm2fa = async (event: FormEvent) => {
     event.preventDefault()
-    if (!pending2fa) return
+    if (!activeJob) return
     try {
-      const result = await confirm2fa.mutateAsync({
-        credentialId: pending2fa.credentialId,
-        challengeToken: pending2fa.token,
+      await confirm2fa.mutateAsync({
+        credentialId: activeJob.credentialId,
+        jobId: activeJob.jobId,
         code,
       })
-      if (result.status === 'completed') {
-        onConnected()
-        return
-      }
-      // The server should not return another 2fa_required here — treat it as
-      // an exhausted challenge so the user can restart the sync.
-      toast.error(t('credentials.twoFactor.failed'))
-      onSyncFailed()
+      // Wait for the WebSocket to push the terminal state (handled in the effect above).
     } catch {
       toast.error(t('credentials.twoFactor.failed'))
       onSyncFailed()
     }
   }
 
-  if (pending2fa) {
+  const showCodeForm = job?.status === 'awaiting_2fa'
+  const isSyncing = activeJob !== null && (job === null || job.status === 'running')
+
+  if (showCodeForm) {
     return (
       <form onSubmit={onConfirm2fa} noValidate className="flex flex-col gap-4">
         <p className="text-muted-foreground text-sm">{t('credentials.twoFactor.description')}</p>
@@ -218,6 +218,8 @@ function CredentialForm({
     )
   }
 
+  const submitting = create.isPending || startSync.isPending || isSyncing
+
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       {note ? <p className="text-muted-foreground text-sm">{note}</p> : null}
@@ -234,9 +236,9 @@ function CredentialForm({
       ))}
 
       <Button type="submit" disabled={submitting} className="self-start">
-        {sync.isPending
+        {isSyncing
           ? t('credentials.syncing')
-          : create.isPending
+          : create.isPending || startSync.isPending
             ? t('credentials.submitting')
             : t('credentials.submit')}
       </Button>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
@@ -37,50 +38,96 @@ export function useCreateCredential() {
     mutationFn: (payload: CredentialCreatePayload) =>
       api<CredentialRead>('/credentials', { method: 'POST', body: payload }),
     onSuccess: () => {
-      // Refresh `me` so the new credential (and any accounts it spawns after
-      // the follow-up sync) shows up everywhere it's read from.
       queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     },
   })
 }
 
-export type SyncStatus = 'completed' | '2fa_required'
+export type SyncJobStatus = 'running' | 'awaiting_2fa' | 'completed' | 'failed'
 
-export interface SyncResponse {
-  status: SyncStatus
-  challenge_token: string | null
+export interface SyncJob {
+  job_id: string
+  status: SyncJobStatus
   expires_at: string | null
+  error: string | null
 }
 
-export function useSyncCredential() {
-  const queryClient = useQueryClient()
+export function useStartSync() {
   return useMutation({
     mutationFn: (credentialId: number) =>
-      api<SyncResponse>(`/credentials/${credentialId}/sync`, { method: 'POST' }),
-    onSuccess: () => {
-      // A successful sync may have created accounts and transactions — refresh
-      // the user snapshot so the overview reflects them.
-      queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
-    },
+      api<SyncJob>(`/credentials/${credentialId}/sync`, { method: 'POST' }),
   })
 }
 
-export interface TwoFactorConfirmPayload {
+export interface TwoFactorPayload {
   credentialId: number
-  challengeToken: string
+  jobId: string
   code: string
 }
 
 export function useConfirmTwoFactor() {
-  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ credentialId, challengeToken, code }: TwoFactorConfirmPayload) =>
-      api<SyncResponse>(`/credentials/${credentialId}/sync/2fa`, {
+    mutationFn: ({ credentialId, jobId, code }: TwoFactorPayload) =>
+      api<SyncJob>(`/credentials/${credentialId}/sync/${jobId}/2fa`, {
         method: 'POST',
-        body: { challenge_token: challengeToken, code },
+        body: { code },
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
-    },
   })
+}
+
+function syncJobWebSocketUrl(credentialId: number, jobId: string): string {
+  const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
+  return `${scheme}://${window.location.host}/api/credentials/${credentialId}/sync/${jobId}/ws`
+}
+
+export interface UseSyncJobState {
+  job: SyncJob | null
+  /** True after the server signalled a terminal state (completed/failed). */
+  isFinished: boolean
+  /** True while the WebSocket is still trying to connect or has dropped before terminal. */
+  isDisconnected: boolean
+}
+
+interface SubscriptionState {
+  key: string | null
+  job: SyncJob | null
+  isConnected: boolean
+}
+
+const IDLE_SUBSCRIPTION: SubscriptionState = { key: null, job: null, isConnected: false }
+
+/**
+ * Subscribes to a sync job over WebSocket and exposes the latest server-pushed
+ * state. The hook is a no-op (returns nulls) while {@link jobId} is null, which
+ * lets callers gate the subscription behind "have I actually started a job yet".
+ */
+export function useSyncJob(credentialId: number | null, jobId: string | null): UseSyncJobState {
+  const subscriptionKey =
+    credentialId !== null && jobId !== null ? `${credentialId}/${jobId}` : null
+  const [state, setState] = useState<SubscriptionState>(IDLE_SUBSCRIPTION)
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (credentialId === null || jobId === null) return
+
+    const socket = new WebSocket(syncJobWebSocketUrl(credentialId, jobId))
+    socket.onopen = () => setState((prev) => ({ ...prev, key: subscriptionKey, isConnected: true }))
+    socket.onmessage = (event) => {
+      const update = JSON.parse(event.data) as SyncJob
+      setState({ key: subscriptionKey, job: update, isConnected: true })
+      if (update.status === 'completed') {
+        queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+      }
+    }
+    socket.onclose = () => setState((prev) => ({ ...prev, isConnected: false }))
+
+    return () => socket.close()
+  }, [credentialId, jobId, subscriptionKey, queryClient])
+
+  // Stale state from a previous job is filtered out by matching keys, which
+  // sidesteps having to setState inside the effect just to reset.
+  const job = state.key === subscriptionKey ? state.job : null
+  const isConnected = state.key === subscriptionKey && state.isConnected
+  const isFinished = job?.status === 'completed' || job?.status === 'failed'
+  return { job, isFinished, isDisconnected: !isConnected }
 }
