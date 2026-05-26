@@ -162,13 +162,16 @@
   "attributions": {
     "title": "Attributions",
     "for": {
-      "favicon": "Favicon"
+      "favicon": "Favicon",
+      "manualBank": "Manual bank icon"
     },
     "text": {
-      "faviconMoneyIcons": "Money icons created by Freepik - Flaticon"
+      "faviconMoneyIcons": "Money icons created by Freepik - Flaticon",
+      "manualWritingIcons": "Writing icons created by Freepik - Flaticon"
     },
     "linkTitle": {
-      "moneyIcons": "money icons"
+      "moneyIcons": "money icons",
+      "writingIcons": "writing icons"
     }
   },
   "sessions": {

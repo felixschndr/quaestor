@@ -25,6 +25,12 @@ const ATTRIBUTIONS: Attribution[] = [
     titleKey: 'attributions.linkTitle.moneyIcons',
     href: 'https://www.flaticon.com/free-icons/money',
   },
+  {
+    forKey: 'attributions.for.manualBank',
+    textKey: 'attributions.text.manualWritingIcons',
+    titleKey: 'attributions.linkTitle.writingIcons',
+    href: 'https://www.flaticon.com/free-icons/writing',
+  },
 ]
 
 export function SettingsAttributionsPage() {
