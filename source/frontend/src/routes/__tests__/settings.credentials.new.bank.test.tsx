@@ -283,4 +283,147 @@ describe('NewCredentialFormView', () => {
       screen.getByText(/The phone number has to be in the format \+491234567890/),
     ).toBeInTheDocument()
   })
+
+  describe('Trade Republic 2FA flow', () => {
+    const TR_BANK: SupportedBank = {
+      name: 'trade_republic',
+      required_fields: ['phone', 'pin'],
+      icon: '/static/banks/trade_republic.png',
+    }
+
+    function mockTwoFactorRequired(fetchMock: Mock, credentialId: number, token: string) {
+      fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
+        if (url === '/api/credentials' && init?.method === 'POST') {
+          return Promise.resolve(
+            jsonResponse({
+              status: 201,
+              body: {
+                id: credentialId,
+                bank: 'trade_republic',
+                accounts: [],
+                last_fetching_timestamp: null,
+                requires_two_factor_authentication: false,
+              },
+            }),
+          )
+        }
+        if (url === `/api/credentials/${credentialId}/sync` && init?.method === 'POST') {
+          return Promise.resolve(
+            jsonResponse({
+              status: 202,
+              body: {
+                status: '2fa_required',
+                challenge_token: token,
+                expires_at: '2099-01-01T00:00:00Z',
+              },
+            }),
+          )
+        }
+        if (url === `/api/credentials/${credentialId}/sync/2fa` && init?.method === 'POST') {
+          const body = JSON.parse(init.body ?? '{}')
+          if (body.code === 'right') {
+            return Promise.resolve(
+              jsonResponse({
+                status: 200,
+                body: { status: 'completed', challenge_token: null, expires_at: null },
+              }),
+            )
+          }
+          return Promise.resolve(jsonResponse({ status: 422, body: { detail: 'Invalid 2FA' } }))
+        }
+        return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+      })
+    }
+
+    it('hides the code field until the sync returns 2fa_required', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+      mockTwoFactorRequired(fetchMock, 7, 'tok')
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankName="trade_republic"
+          bank={TR_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={vi.fn()}
+          onSyncFailed={vi.fn()}
+        />,
+      )
+
+      expect(screen.queryByLabelText('Code')).not.toBeInTheDocument()
+
+      await user.type(screen.getByLabelText('Phone number'), '+491234567890')
+      await user.type(screen.getByLabelText('PIN'), '1234')
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+      expect(await screen.findByLabelText('Code')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Phone number')).not.toBeInTheDocument()
+    })
+
+    it('confirms the code and routes to onConnected on success', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+      mockTwoFactorRequired(fetchMock, 7, 'tok')
+      const onConnected = vi.fn()
+      const onSyncFailed = vi.fn()
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankName="trade_republic"
+          bank={TR_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={onConnected}
+          onSyncFailed={onSyncFailed}
+        />,
+      )
+
+      await user.type(screen.getByLabelText('Phone number'), '+491234567890')
+      await user.type(screen.getByLabelText('PIN'), '1234')
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+      const codeInput = await screen.findByLabelText('Code')
+      await user.type(codeInput, 'right')
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+      await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
+      expect(onSyncFailed).not.toHaveBeenCalled()
+
+      const confirmCall = fetchMock.mock.calls.find(
+        ([url, init]) => url === '/api/credentials/7/sync/2fa' && init?.method === 'POST',
+      )!
+      expect(JSON.parse(confirmCall[1].body)).toEqual({ challenge_token: 'tok', code: 'right' })
+    })
+
+    it('bounces back to onSyncFailed when the code is rejected', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+      mockTwoFactorRequired(fetchMock, 7, 'tok')
+      const onConnected = vi.fn()
+      const onSyncFailed = vi.fn()
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankName="trade_republic"
+          bank={TR_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={onConnected}
+          onSyncFailed={onSyncFailed}
+        />,
+      )
+
+      await user.type(screen.getByLabelText('Phone number'), '+491234567890')
+      await user.type(screen.getByLabelText('PIN'), '1234')
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+      const codeInput = await screen.findByLabelText('Code')
+      await user.type(codeInput, 'wrong')
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+      await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
+      expect(onConnected).not.toHaveBeenCalled()
+    })
+  })
 })
