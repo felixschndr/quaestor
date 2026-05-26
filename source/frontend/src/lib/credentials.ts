@@ -64,3 +64,23 @@ export function useSyncCredential() {
     },
   })
 }
+
+export interface TwoFactorConfirmPayload {
+  credentialId: number
+  challengeToken: string
+  code: string
+}
+
+export function useConfirmTwoFactor() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ credentialId, challengeToken, code }: TwoFactorConfirmPayload) =>
+      api<SyncResponse>(`/credentials/${credentialId}/sync/2fa`, {
+        method: 'POST',
+        body: { challenge_token: challengeToken, code },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+    },
+  })
+}

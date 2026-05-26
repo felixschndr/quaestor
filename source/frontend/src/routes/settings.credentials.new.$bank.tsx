@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
 import {
+  useConfirmTwoFactor,
   useCreateCredential,
   useSupportedBanks,
   useSyncCredential,
@@ -118,10 +119,12 @@ function CredentialForm({
   const { t } = useTranslation()
   const create = useCreateCredential()
   const sync = useSyncCredential()
+  const confirm2fa = useConfirmTwoFactor()
   const note = t(`banks.${bank.name}.note`, { defaultValue: '' })
 
-  // Each required field becomes a non-empty string in zod, so a missing entry
-  // is surfaced inline instead of bubbling up as a 422 from the backend.
+  const [pending2fa, setPending2fa] = useState<{ credentialId: number; token: string } | null>(null)
+  const [code, setCode] = useState('')
+
   const schema = useMemo(() => {
     const shape: Record<string, z.ZodString> = {}
     for (const field of bank.required_fields) {
@@ -151,20 +154,69 @@ function CredentialForm({
     try {
       const result = await sync.mutateAsync(createdId)
       if (result.status === '2fa_required') {
-        // ING/DFS shouldn't hit this for now; if a 2FA-requiring bank ends
-        // up here later, leave the credential in place and tell the user.
-        toast.info(t('credentials.twoFactorNotSupportedYet'))
-        onSyncFailed()
+        if (!result.challenge_token) {
+          toast.error(t('credentials.syncFailed', { bank: bankTitle }))
+          onSyncFailed()
+          return
+        }
+        setPending2fa({ credentialId: createdId, token: result.challenge_token })
         return
       }
       onConnected()
     } catch {
-      // Per the agreed UX: keep the credential, surface a toast, and bounce
-      // back to the credentials list so the user can retry from there.
       toast.error(t('credentials.syncFailed', { bank: bankTitle }))
       onSyncFailed()
     }
   })
+
+  const onConfirm2fa = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!pending2fa) return
+    try {
+      const result = await confirm2fa.mutateAsync({
+        credentialId: pending2fa.credentialId,
+        challengeToken: pending2fa.token,
+        code,
+      })
+      if (result.status === 'completed') {
+        onConnected()
+        return
+      }
+      // The server should not return another 2fa_required here — treat it as
+      // an exhausted challenge so the user can restart the sync.
+      toast.error(t('credentials.twoFactor.failed'))
+      onSyncFailed()
+    } catch {
+      toast.error(t('credentials.twoFactor.failed'))
+      onSyncFailed()
+    }
+  }
+
+  if (pending2fa) {
+    return (
+      <form onSubmit={onConfirm2fa} noValidate className="flex flex-col gap-4">
+        <p className="text-muted-foreground text-sm">{t('credentials.twoFactor.description')}</p>
+        <FieldRow
+          id="credential-2fa-code"
+          label={t('credentials.twoFactor.codeLabel')}
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          autoFocus
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+        />
+        <Button
+          type="submit"
+          disabled={confirm2fa.isPending || code.length === 0}
+          className="self-start"
+        >
+          {confirm2fa.isPending
+            ? t('credentials.twoFactor.submitting')
+            : t('credentials.twoFactor.submit')}
+        </Button>
+      </form>
+    )
+  }
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">

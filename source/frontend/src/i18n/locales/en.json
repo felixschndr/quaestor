@@ -191,7 +191,13 @@
     "syncing": "Syncing…",
     "connectFailed": "Could not connect to {{bank}}. Please check the credentials.",
     "syncFailed": "Connected to {{bank}}, but the first sync failed. You can retry the sync later.",
-    "twoFactorNotSupportedYet": "Two-factor authentication is not yet supported in the UI. The credential was saved; please retry later.",
+    "twoFactor": {
+      "description": "A code was sent to your phone. Enter it to finish connecting.",
+      "codeLabel": "Code",
+      "submit": "Confirm",
+      "submitting": "Confirming…",
+      "failed": "The code was invalid or has expired. Please start the sync again."
+    },
     "lastSynced": "Last synced",
     "neverSynced": "Never synced"
   },
