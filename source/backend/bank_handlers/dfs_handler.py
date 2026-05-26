@@ -25,15 +25,15 @@ _VORGANG_TO_TRANSACTION_TYPE: dict[str, TransactionType] = {
 
 class _DFSSession(BankSession):
     BASE_URL = "https://www.value-account.eu"
+    CUSTOMER = "dfsbav"
 
-    def __init__(self, username: str, password: str, customer: str):
+    def __init__(self, username: str, password: str):
         super().__init__()
 
         self.username = username
         self.password = password
-        self.customer = customer
 
-        self._login_url = f"{self.BASE_URL}/acapif/portal-{self.customer}/public_login.prt"
+        self._login_url = f"{self.BASE_URL}/acapif/portal-{self.CUSTOMER}/public_login.prt"
 
         self._accounts: dict[str, dict[str, Any]] = {}
         self._fetched = False
@@ -141,12 +141,11 @@ class _DFSSession(BankSession):
 
 
 class DFSHandler(BankHandler):
-    CREDENTIAL_FIELDS = ("username", "password", "customer")
+    CREDENTIAL_FIELDS = ("username", "password")
 
     @contextmanager
     def session(self) -> Iterator[_DFSSession]:
         yield _DFSSession(
             username=self.credentials["username"],
             password=self.credentials["password"],
-            customer=self.credentials["customer"],
         )

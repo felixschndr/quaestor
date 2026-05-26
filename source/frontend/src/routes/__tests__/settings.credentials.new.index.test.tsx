@@ -43,7 +43,7 @@ describe('BankPickerView', () => {
           { name: 'ing', required_fields: ['username', 'password'], icon: '/static/banks/ing.png' },
           {
             name: 'dfs',
-            required_fields: ['username', 'password', 'customer'],
+            required_fields: ['username', 'password'],
             icon: '/static/banks/dfs.png',
           },
         ]}

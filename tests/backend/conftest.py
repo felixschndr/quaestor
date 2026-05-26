@@ -141,7 +141,6 @@ def _default_credentials_for(bank: BankProvider) -> dict[str, str]:
     defaults = {
         "username": BANK_USERNAME,
         "password": BANK_PASSWORD,
-        "customer": "customer-id",
         "phone": PHONE_NUMBER,
         "pin": PIN,
     }

@@ -32,7 +32,7 @@ const ING_BANK: SupportedBank = {
 
 const DFS_BANK: SupportedBank = {
   name: 'dfs',
-  required_fields: ['username', 'password', 'customer'],
+  required_fields: ['username', 'password'],
   icon: '/static/banks/dfs.png',
 }
 
@@ -87,7 +87,7 @@ describe('NewCredentialFormView', () => {
     expect(screen.queryByLabelText('Customer number')).not.toBeInTheDocument()
   })
 
-  it('renders the DFS-specific customer field as a plain text input', () => {
+  it('renders DFS with only username + password', () => {
     renderWithQuery(
       <NewCredentialFormView
         bankName="dfs"
@@ -99,7 +99,9 @@ describe('NewCredentialFormView', () => {
       />,
     )
 
-    expect(screen.getByLabelText('Customer number')).toHaveAttribute('type', 'text')
+    expect(screen.getByLabelText('Username')).toBeInTheDocument()
+    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
+    expect(screen.queryByLabelText('Customer number')).not.toBeInTheDocument()
   })
 
   it('renders the loading state while the supported_banks query is in flight', () => {

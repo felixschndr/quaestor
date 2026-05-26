@@ -135,7 +135,7 @@ def test_supported_banks_returns_bank_metadata(http_client: TestClient):
         },
         {
             "name": "dfs",
-            "required_fields": ["username", "password", "customer"],
+            "required_fields": ["username", "password"],
             "icon": "/static/banks/dfs.png",
         },
         {
@@ -167,14 +167,6 @@ def test_create_credential_rejects_unknown_bank(http_client: TestClient):
     register(http_client)
 
     response = create_credential(http_client, bank="not_a_bank")
-
-    assert response.status_code == 422
-
-
-def test_create_credential_for_dfs_requires_extra_fields(http_client: TestClient):
-    register(http_client)
-
-    response = create_credential(http_client, bank="dfs")
 
     assert response.status_code == 422
 

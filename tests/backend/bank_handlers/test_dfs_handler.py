@@ -16,11 +16,10 @@ FIXTURES = get_backend_test_path() / "fixtures"
 DASHBOARD_SNAPSHOT = json.loads((FIXTURES / "dfs_dashboard_snapshot_response.json").read_text())
 TRANSACTIONS = json.loads((FIXTURES / "dfs_transactions_response.json").read_text())
 
-CUSTOMER = "mycustomer"
 USERNAME = USER_NAME
 PASSWORD = VALID_PASSWORD
 
-LOGIN_URL = f"{_DFSSession.BASE_URL}/acapif/portal-{CUSTOMER}/public_login.prt"
+LOGIN_URL = f"{_DFSSession.BASE_URL}/acapif/portal-{_DFSSession.CUSTOMER}/public_login.prt"
 DASHBOARD_REDIRECT_URL = f"{_DFSSession.BASE_URL}/acaphc/Dashboard.action"
 # 1777500000000 ms ≈ 2026-04-29; 1774908000000 ms ≈ 2026-03-30
 RECENT_DATE = epoch_ms_to_date(1777500000000)
@@ -88,7 +87,7 @@ def patch_session(monkeypatch: pytest.MonkeyPatch, fake: FakeSession) -> None:
 
 
 def dfs_session() -> _DFSSession:
-    return _DFSSession(username=USERNAME, password=PASSWORD, customer=CUSTOMER)
+    return _DFSSession(username=USERNAME, password=PASSWORD)
 
 
 def test_get_accounts_returns_fund_names_from_dashboard_snapshot(monkeypatch: pytest.MonkeyPatch):
@@ -185,11 +184,11 @@ def test_login_request_sends_credentials_and_return_url(monkeypatch: pytest.Monk
 def test_handler_session_yields_session_with_credentials():
     handler = DFSHandler(
         bank_info=object(),
-        credentials={"username": USERNAME, "password": PASSWORD, "customer": CUSTOMER},
+        credentials={"username": USERNAME, "password": PASSWORD},
     )
     with handler.session() as session:
         assert isinstance(session, _DFSSession)
         assert session.username == USERNAME
         assert session.password == PASSWORD
-        assert session.customer == CUSTOMER
+        assert _DFSSession.CUSTOMER == "dfsbav"
         assert session._login_url == LOGIN_URL
