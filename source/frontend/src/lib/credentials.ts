@@ -43,7 +43,12 @@ export function useCreateCredential() {
   })
 }
 
-export type SyncJobStatus = 'running' | 'awaiting_2fa' | 'completed' | 'failed'
+export type SyncJobStatus =
+  | 'running'
+  | 'awaiting_2fa'
+  | 'awaiting_decoupled_approval'
+  | 'completed'
+  | 'failed'
 
 export interface SyncJob {
   job_id: string

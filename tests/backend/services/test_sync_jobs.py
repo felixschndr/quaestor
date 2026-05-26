@@ -25,7 +25,7 @@ def _reset_state() -> Iterator[None]:
 @pytest.fixture
 def patch_sync(monkeypatch: pytest.MonkeyPatch) -> PatchSync:
     def patch(outcome: SyncOutcome) -> None:
-        def _runner(credential_id: int) -> SyncResult:
+        def _runner(credential_id: int, notify_two_factor_state: object = None) -> SyncResult:
             if isinstance(outcome, Exception):
                 raise outcome
             return outcome

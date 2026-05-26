@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import date
 
 from source.backend.models.transaction_type import TransactionType
+
+TwoFactorStateCallback = Callable[[bool], None]
 
 
 @dataclass(frozen=True)
@@ -41,13 +44,18 @@ class BankSession(ABC):
 
 
 class BankHandler(ABC):
-    # Each handler declares exactly which credential keys it needs. Not every bank
-    # uses username/password (e.g., Trade Republic uses phone/pin).
     CREDENTIAL_FIELDS: tuple[str, ...]
 
     def __init__(self, bank_info: "BankInfo", credentials: dict[str, str]):
         self.bank_info = bank_info
         self.credentials = credentials
+        self.notify_two_factor_state: TwoFactorStateCallback | None = None
+
+    @classmethod
+    def credential_fields(cls: type["BankHandler"], bank_info: "BankInfo") -> tuple[str, ...]:
+        # Override when a handler needs different credentials depending on the BankInfo
+        # (e.g., FinTS asks for a BLZ when the BankInfo doesn't pin one).
+        return cls.CREDENTIAL_FIELDS
 
     @abstractmethod
     def session(self) -> AbstractContextManager[BankSession]: ...
@@ -62,7 +70,7 @@ class BankInfo:
 
     @property
     def required_fields(self) -> list[str]:
-        return list(self.handler.CREDENTIAL_FIELDS)
+        return list(self.handler.credential_fields(self))
 
     @property
     def icon(self) -> str:

@@ -137,7 +137,8 @@ def create_fetched_transaction(
 
 
 def _default_credentials_for(bank: BankProvider) -> dict[str, str]:
-    fields = BANKS_BY_NAME[bank.value].handler.CREDENTIAL_FIELDS
+    bank_info = BANKS_BY_NAME[bank.value]
+    fields = bank_info.handler.credential_fields(bank_info)
     defaults = {
         "username": BANK_USERNAME,
         "password": BANK_PASSWORD,

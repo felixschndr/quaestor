@@ -1,6 +1,6 @@
 import asyncio
 import secrets
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from enum import Enum
@@ -18,6 +18,7 @@ JOB_RETENTION_DURATION = timedelta(hours=1)
 class JobStatus(str, Enum):
     RUNNING = "running"
     AWAITING_TWO_FACTOR = "awaiting_2fa"
+    AWAITING_DECOUPLED_APPROVAL = "awaiting_decoupled_approval"
     COMPLETED = "completed"
     FAILED = "failed"
 
@@ -81,8 +82,9 @@ async def start_sync(credential_id: int) -> SyncJob:
 
 
 async def _run_sync(job: SyncJob) -> None:
+    notify_two_factor_state = _make_two_factor_state_notifier(job)
     try:
-        result = await asyncio.to_thread(_sync_in_thread, job.credential_id)  # noqa FKA100
+        result = await asyncio.to_thread(_sync_in_thread, job.credential_id, notify_two_factor_state)  # noqa FKA100
         _apply_result(job=job, result=result)
     except Exception as e:
         logger.exception(f"Sync job {job.id} failed for credential {job.credential_id}")
@@ -90,9 +92,31 @@ async def _run_sync(job: SyncJob) -> None:
     await _notify(job)
 
 
-def _sync_in_thread(credential_id: int) -> SyncResult:
+def _make_two_factor_state_notifier(job: SyncJob) -> "Callable[[bool], None]":
+    # Invoked from the worker thread that runs the blocking sync. Schedules a
+    # state update on the event loop so subscribers (e.g., the WebSocket) see
+    # the awaiting / running transition while the sync is still in flight.
+    loop = asyncio.get_running_loop()
+
+    def notify(awaiting: bool) -> None:
+        asyncio.run_coroutine_threadsafe(_update_decoupled_state(job=job, awaiting=awaiting), loop)  # noqa FKA100
+
+    return notify
+
+
+async def _update_decoupled_state(job: SyncJob, awaiting: bool) -> None:
+    # Don't override a terminal status (could race with completion).
+    if job.status in TERMINAL_JOB_STATUSSES:
+        return
+    job.status = JobStatus.AWAITING_DECOUPLED_APPROVAL if awaiting else JobStatus.RUNNING
+    await _notify(job)
+
+
+def _sync_in_thread(credential_id: int, notify_two_factor_state: "Callable[[bool], None] | None" = None) -> SyncResult:
     with SessionLocal() as db_session:
-        return credential_service.sync_credential(db_session=db_session, credential_id=credential_id)
+        return credential_service.sync_credential(
+            db_session=db_session, credential_id=credential_id, notify_two_factor_state=notify_two_factor_state
+        )
 
 
 def _apply_result(job: SyncJob, result: SyncResult) -> None:
