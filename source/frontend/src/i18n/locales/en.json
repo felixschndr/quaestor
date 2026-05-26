@@ -127,6 +127,36 @@
     "TRANSFER": "Transfer",
     "UNKNOWN": "Unknown"
   },
+  "settings": {
+    "title": "Settings",
+    "back": "Back",
+    "user": "User settings",
+    "userDescription": "Display name, password, language",
+    "sessions": "Sessions",
+    "sessionsDescription": "Devices that are signed in",
+    "credentials": "Bank connections",
+    "credentialsDescription": "Add or remove banks, sync now",
+    "displayName": "Display name",
+    "language": "Language",
+    "password": "Password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "changePassword": "Change password",
+    "passwordChanged": "Password changed",
+    "passwordTooWeak": "Password does not meet all requirements",
+    "wrongCurrentPassword": "Current password is incorrect",
+    "userSaved": "Saved",
+    "dangerZone": "Danger zone",
+    "deleteDescription": "Permanently delete your account and all associated data.",
+    "deleteAccount": "Delete account",
+    "deleteConfirm": "Are you sure? This cannot be undone.",
+    "deleteAccountConfirm": "Yes, delete my account",
+    "logoutFailed": "Logout failed. Please try again."
+  },
+  "languages": {
+    "en": "English",
+    "de": "German"
+  },
   "transaction": {
     "back": "Back",
     "otherParty": "Other party",

@@ -271,28 +271,28 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - [x] Trust proxy headers (`uvicorn --proxy-headers`) so deployments behind a reverse proxy work correctly.
 
 ## Backend — static & serving
-- [ ] Mount `source/frontend/dist/` as `StaticFiles` at `/`.
-- [ ] Add a catch-all route that serves `index.html` for any non-`/api`, non-`/static` path (so HTML5 History routes work on refresh / deep link).
+- [x] Mount `source/frontend/dist/` as `StaticFiles` at `/`.
+- [x] Add a catch-all route that serves `index.html` for any non-`/api`, non-`/static` path (so HTML5 History routes work on refresh / deep link).
 - [x] Serve `/static/banks/<slug>.png` for bank icons.
 
 ## Frontend — scaffolding
-- [ ] Initialize `source/frontend/` with Vite + React + TS + pnpm.
-- [ ] Configure Tailwind v4, shadcn/ui, ESLint, Prettier.
-- [ ] Set up TanStack Router with HTML5 History API.
-- [ ] Set up TanStack Query with a typed API client; CSRF header injection in mutations.
-- [ ] i18n with `en` (default) and `de`; locale for numbers/dates: `de-DE`.
-- [ ] PWA via `vite-plugin-pwa`: manifest, icons (192, 512), offline shell.
-- [ ] Vitest + Testing Library setup; Playwright e2e harness.
-- [ ] Vite dev proxy for `/api` → `localhost:8000`.
+- [x] Initialize `source/frontend/` with Vite + React + TS + pnpm.
+- [x] Configure Tailwind v4, shadcn/ui, ESLint, Prettier.
+- [x] Set up TanStack Router with HTML5 History API.
+- [x] Set up TanStack Query with a typed API client; CSRF header injection in mutations.
+- [x] i18n with `en` (default) and `de`; locale for numbers/dates: `de-DE`.
+- [x] PWA via `vite-plugin-pwa`: manifest, icons (192, 512), offline shell.
+- [x] Vitest + Testing Library setup; Playwright e2e harness.
+- [x] Vite dev proxy for `/api` → `localhost:8000`.
 
 ## Frontend — pages (in build order)
 - [x] Auth boot flow: call `GET /api/auth/me` on app start; redirect to `/login?next=…` on 401.
 - [x] `/login` page (toggle login/register; remember me; live password validation; inline errors).
-- [ ] `/` overview (hello + total balance + accounts grouped by bank, alphabetical; pull-to-refresh triggers global sync).
+- [x] `/` overview (hello + total balance + accounts grouped by bank, alphabetical; pull-to-refresh triggers global sync).
 - [x] `/account/<id>` (back button; balance header; transactions grouped by date with day-end balance; infinite scroll; magnifier icon placeholder).
 - [x] `/account/<id>/transactions/<id>` (amount header; borderless table; inline-editable auto-saved note; **category dropdown** that PATCHes `category`).
-- [ ] `/settings` index with logout.
-- [ ] `/settings/user` (display name, password change, **language selector populated from `GET /api/i18n/languages`**, delete account).
+- [x] `/settings` index with logout.
+- [x] `/settings/user` (display name, password change, **language selector populated from `GET /api/i18n/languages`**, delete account).
 - [ ] `/settings/user/sessions` (list + revoke + "sign out everywhere else").
 - [ ] `/settings/credentials` (list, add via bank picker → dynamic form, delete with modal, sync button, last-sync timestamp).
 - [ ] `/settings/credentials/<id>` (account list with `balance_factor` editor).

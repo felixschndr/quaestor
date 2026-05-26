@@ -127,6 +127,36 @@
     "TRANSFER": "Überweisung",
     "UNKNOWN": "Unbekannt"
   },
+  "settings": {
+    "title": "Einstellungen",
+    "back": "Zurück",
+    "user": "Benutzereinstellungen",
+    "userDescription": "Anzeigename, Passwort, Sprache",
+    "sessions": "Sitzungen",
+    "sessionsDescription": "Geräte, die angemeldet sind",
+    "credentials": "Bankverbindungen",
+    "credentialsDescription": "Banken hinzufügen, entfernen oder synchronisieren",
+    "displayName": "Anzeigename",
+    "language": "Sprache",
+    "password": "Passwort",
+    "currentPassword": "Aktuelles Passwort",
+    "newPassword": "Neues Passwort",
+    "changePassword": "Passwort ändern",
+    "passwordChanged": "Passwort geändert",
+    "passwordTooWeak": "Passwort erfüllt nicht alle Anforderungen",
+    "wrongCurrentPassword": "Das aktuelle Passwort ist falsch",
+    "userSaved": "Gespeichert",
+    "dangerZone": "Gefahrenzone",
+    "deleteDescription": "Lösche dein Konto und alle zugehörigen Daten unwiderruflich.",
+    "deleteAccount": "Konto löschen",
+    "deleteConfirm": "Bist du sicher? Das kann nicht rückgängig gemacht werden.",
+    "deleteAccountConfirm": "Ja, mein Konto löschen",
+    "logoutFailed": "Abmelden fehlgeschlagen. Bitte erneut versuchen."
+  },
+  "languages": {
+    "en": "Englisch",
+    "de": "Deutsch"
+  },
   "transaction": {
     "back": "Zurück",
     "otherParty": "Empfänger / Absender",
