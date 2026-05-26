@@ -7,13 +7,18 @@ from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import create_credential, login_as, register
+from tests.backend.conftest import (
+    create_credential,
+    login_as,
+    make_account,
+    make_transaction,
+    register,
+)
 
 
 def _persist_account(session_factory: sessionmaker, credential_id: int, balance: float = 100.0) -> int:
     with session_factory() as session:
-        account = Account(credential_id=credential_id, name="DE00 1234", balance=balance)
-        session.add(account)
+        account = make_account(session, credential_id=credential_id, balance=balance)
         session.commit()
         return account.id
 
@@ -26,14 +31,14 @@ def _persist_transaction(
     other_party: str = "Supermarket",
 ) -> int:
     with session_factory() as session:
-        transaction = Transaction(
+        transaction = make_transaction(
+            session,
             account_id=account_id,
             amount=amount,
             purpose=purpose,
             other_party=other_party,
             date=date(year=2026, month=5, day=20),
         )
-        session.add(transaction)
         session.commit()
         return transaction.id
 

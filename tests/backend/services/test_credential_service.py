@@ -4,36 +4,28 @@ import pytest
 from source.backend.bank_handlers import BankProvider
 from source.backend.exceptions import MissingCredentialFieldError
 from source.backend.models.credential import Credential
-from source.backend.models.user import User
 from source.backend.services import credential_service
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
     BANK_PASSWORD,
     BANK_USERNAME,
-    DISPLAY_NAME,
     USER_NAME,
-    VALID_PASSWORD_HASH,
+    make_credential,
+    make_user,
 )
 
 
 def _create_user(session_factory: sessionmaker, user_name: str = USER_NAME) -> int:
     with session_factory() as session:
-        user = User(user_name=user_name, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH)
-        session.add(user)
+        user = make_user(session, user_name=user_name)
         session.commit()
         return user.id
 
 
 def _create_ing_credential(session_factory: sessionmaker, user_id: int, requires_2fa: bool = False) -> int:
     with session_factory() as session:
-        credential = Credential(
-            user_id=user_id,
-            bank=BankProvider.ING,
-            credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD},
-            requires_two_factor_authentication=requires_2fa,
-        )
-        session.add(credential)
+        credential = make_credential(session, user_id=user_id, requires_two_factor_authentication=requires_2fa)
         session.commit()
         return credential.id
 

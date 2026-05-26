@@ -2,37 +2,24 @@ from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from unittest.mock import MagicMock
 
-from source.backend.bank_handlers import BankProvider
 from source.backend.bank_handlers.base import (
     BankSession,
     FetchedAccount,
     FetchedTransaction,
 )
-from source.backend.models.account import Account
 from source.backend.models.credential import INITIAL_FETCH_LOOKBACK, Credential
 from source.backend.models.transaction_type import TransactionType
-from source.backend.models.user import User
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import (
-    BANK_PASSWORD,
-    BANK_USERNAME,
-    DISPLAY_NAME,
-    USER_NAME,
-    VALID_PASSWORD_HASH,
-)
+from tests.backend.conftest import make_account, make_credential, make_user
 
 
 def _create_credential(session_factory: sessionmaker) -> int:
     with session_factory() as session:
-        user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH)
-        credential = Credential(
-            user=user,
-            bank=BankProvider.ING,
-            credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD},
-            last_fetching_timestamp=datetime(year=2026, month=1, day=1),
+        user = make_user(session)
+        credential = make_credential(
+            session, user_id=user.id, last_fetching_timestamp=datetime(year=2026, month=1, day=1)
         )
-        session.add(credential)
         session.commit()
         return credential.id
 
@@ -119,8 +106,7 @@ def test_sync_creates_new_account_with_balance_and_transactions(session_factory:
 def test_sync_matches_existing_account_by_name_and_adds_missing_ones(session_factory: sessionmaker):
     credential_id = _create_credential(session_factory)
     with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.accounts.append(Account(name="DE12 OLD", balance=0.0))
+        make_account(session, credential_id=credential_id, name="DE12 OLD")
         session.commit()
 
     handler = _build_handler(
@@ -174,14 +160,8 @@ def test_sync_does_not_duplicate_already_existing_transactions(session_factory: 
 
 def test_sync_falls_back_to_initial_lookback_when_credential_was_never_synced(session_factory: sessionmaker):
     with session_factory() as session:
-        user = User(user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH)
-        credential = Credential(
-            user=user,
-            bank=BankProvider.ING,
-            credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD},
-            last_fetching_timestamp=None,
-        )
-        session.add(credential)
+        user = make_user(session)
+        credential = make_credential(session, user_id=user.id, last_fetching_timestamp=None)
         session.commit()
         credential_id = credential.id
 

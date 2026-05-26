@@ -2,7 +2,6 @@ from unittest.mock import MagicMock
 
 import pytest
 from source.backend.exceptions import UserNameAlreadyExistsError
-from source.backend.models.user import User
 from source.backend.services import user_service
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -12,13 +11,13 @@ from tests.backend.conftest import (
     SECOND_USER_NAME,
     USER_NAME,
     VALID_PASSWORD,
-    VALID_PASSWORD_HASH,
+    make_user,
 )
 
 
 def _create_user(session_factory: sessionmaker, user_name: str) -> None:
     with session_factory() as session:
-        session.add(User(user_name=user_name, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH))
+        make_user(session, user_name=user_name)
         session.commit()
 
 

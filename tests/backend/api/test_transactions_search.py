@@ -1,26 +1,30 @@
 from datetime import date
 
 from fastapi.testclient import TestClient
-from source.backend.models.account import Account
-from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import create_credential, login_as, register
+from tests.backend.conftest import (
+    create_credential,
+    login_as,
+    make_account,
+    make_transaction,
+    register,
+)
 
 
 def _persist_account(session_factory: sessionmaker, credential_id: int, name: str = "DE00 1234") -> int:
     with session_factory() as session:
-        account = Account(credential_id=credential_id, name=name, balance=0.0)
-        session.add(account)
+        account = make_account(session, credential_id=credential_id, name=name)
         session.commit()
         return account.id
 
 
 def _seed_three_transactions(session_factory: sessionmaker, account_id: int) -> dict[str, int]:
     with session_factory() as session:
-        rewe = Transaction(
+        rewe = make_transaction(
+            session,
             account_id=account_id,
             amount=-12.50,
             purpose="Wocheneinkauf",
@@ -30,7 +34,8 @@ def _seed_three_transactions(session_factory: sessionmaker, account_id: int) -> 
             category=TransactionCategory.SUPERMARKET,
             note="weekly groceries",
         )
-        salary = Transaction(
+        salary = make_transaction(
+            session,
             account_id=account_id,
             amount=2500.00,
             purpose="Gehalt April",
@@ -38,9 +43,9 @@ def _seed_three_transactions(session_factory: sessionmaker, account_id: int) -> 
             date=date(year=2026, month=4, day=30),
             transaction_type=TransactionType.INCOMING,
             category=TransactionCategory.SALARY,
-            note=None,
         )
-        atm = Transaction(
+        atm = make_transaction(
+            session,
             account_id=account_id,
             amount=-200.00,
             purpose="ATM Berlin",
@@ -50,21 +55,20 @@ def _seed_three_transactions(session_factory: sessionmaker, account_id: int) -> 
             category=TransactionCategory.WITHDRAWAL,
             note="vacation cash",
         )
-        session.add_all([rewe, salary, atm])
         session.commit()
         return {"rewe": rewe.id, "salary": salary.id, "atm": atm.id}
 
 
 def _persist_transaction(session_factory: sessionmaker, account_id: int, *, purpose: str, amount: float = -1.0) -> int:
     with session_factory() as session:
-        transaction = Transaction(
+        transaction = make_transaction(
+            session,
             account_id=account_id,
             amount=amount,
             purpose=purpose,
             other_party="x",
             date=date(year=2026, month=5, day=2),
         )
-        session.add(transaction)
         session.commit()
         return transaction.id
 

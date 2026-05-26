@@ -1,15 +1,15 @@
 from datetime import date, timedelta
 
 from fastapi.testclient import TestClient
-from source.backend.models.account import Account
 from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
-from source.backend.models.transaction import Transaction
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
     SECOND_USER_NAME,
     create_credential,
     login_as,
+    make_account,
+    make_transaction,
     register,
 )
 
@@ -19,21 +19,17 @@ def _account_with_history(
 ) -> int:
     """Account with `day_count` distinct transaction days (newest = 2026-05-01)."""
     with session_factory() as session:
-        account = Account(credential_id=credential_id, name="DE00 1234", balance=0.0)
-        session.add(account)
-        session.flush()
+        account = make_account(session, credential_id=credential_id)
         base = date(year=2026, month=5, day=1)
         for day_offset in range(day_count):
             day = base - timedelta(days=day_offset)
             for index in range(transactions_per_day):
-                session.add(
-                    Transaction(
-                        account_id=account.id,
-                        amount=float(index + 1),
-                        purpose=f"d{day_offset}-t{index}",
-                        other_party=None,
-                        date=day,
-                    )
+                make_transaction(
+                    session,
+                    account_id=account.id,
+                    amount=float(index + 1),
+                    purpose=f"d{day_offset}-t{index}",
+                    date=day,
                 )
             session.add(AccountBalanceSnapshot(account_id=account.id, date=day, balance=100.0 - day_offset))
         session.commit()
@@ -118,8 +114,7 @@ def test_history_empty_account_returns_zero_total_days(http_client: TestClient, 
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
     with session_factory() as session:
-        account = Account(credential_id=credential_id, name="empty", balance=0.0)
-        session.add(account)
+        account = make_account(session, credential_id=credential_id, name="empty")
         session.commit()
         account_id = account.id
 
