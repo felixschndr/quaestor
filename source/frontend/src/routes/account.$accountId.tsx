@@ -11,7 +11,7 @@ import {
   type AccountHistoryPage,
   type TransactionRead,
 } from '@/lib/accountHistory'
-import { formatDate, formatEuro, relativeDateKey } from '@/lib/format'
+import { formatDate, formatEuro, formatIban, relativeDateKey } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/account/$accountId')({
@@ -128,7 +128,7 @@ export function AccountDetailView({
 
           <section aria-labelledby="account-balance-label" className="flex flex-col gap-1">
             <p id="account-balance-label" className="text-muted-foreground text-sm">
-              {account.name}
+              {formatIban(account.name)}
             </p>
             <p
               className={cn(
@@ -263,7 +263,7 @@ function TransactionRow({
 }) {
   const { t } = useTranslation()
   const negative = transaction.amount < 0
-  const otherParty = transaction.other_party?.trim() || t('account.unknownParty')
+  const otherParty = formatIban(transaction.other_party?.trim() || '') || t('account.unknownParty')
   return (
     <li>
       <Link

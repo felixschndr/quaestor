@@ -5,6 +5,7 @@ import { ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { bankIconUrl, groupAccountsByBank } from '@/lib/accounts'
+import { formatIban } from '@/lib/format'
 import type { CredentialRead } from '@/lib/auth'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -114,7 +115,7 @@ function AccountMultiSelect({
                         event.currentTarget.style.visibility = 'hidden'
                       }}
                     />
-                    <span className="flex-1 truncate">{account.name}</span>
+                    <span className="flex-1 truncate">{formatIban(account.name)}</span>
                     <Checkbox
                       id={checkboxId}
                       checked={checked}

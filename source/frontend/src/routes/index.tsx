@@ -5,7 +5,7 @@ import { Settings } from 'lucide-react'
 
 import { useAuthMe, useGlobalSync, type AccountRead, type UserRead } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
-import { formatEuro } from '@/lib/format'
+import { formatEuro, formatIban } from '@/lib/format'
 import { bankIconUrl, displayNameOrUserName, groupAccountsByBank } from '@/lib/accounts'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { cn } from '@/lib/utils'
@@ -128,7 +128,7 @@ function AccountRow({ bank, account }: { bank: string; account: AccountRead }) {
         className="hover:bg-muted/60 flex items-center gap-3 rounded-md px-2 py-3 transition-colors"
       >
         <BankIcon bank={bank} />
-        <span className="flex-1 truncate text-sm font-medium">{account.name}</span>
+        <span className="flex-1 truncate text-sm font-medium">{formatIban(account.name)}</span>
         <span className={cn('text-sm font-semibold tabular-nums', negative && 'text-destructive')}>
           {formatEuro(account.balance)}
         </span>

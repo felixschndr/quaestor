@@ -28,6 +28,21 @@ export function formatDate(d: Date | string): string {
   return dateFormatter.format(typeof d === 'string' ? new Date(d) : d)
 }
 
+const IBAN_PATTERN = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/
+
+/**
+ * If `value` is an IBAN (country code + checksum + 11–30 uppercase alnum,
+ * total length 15–34), return it in canonical 4-char groups separated by
+ * spaces. Otherwise return `value` untouched — important for freeform fields
+ * like `other_party`, which may incidentally start with two letters but be a
+ * name, not an IBAN.
+ */
+export function formatIban(value: string): string {
+  const compact = value.replace(/\s+/g, '')
+  if (!IBAN_PATTERN.test(compact)) return value
+  return compact.match(/.{1,4}/g)!.join(' ')
+}
+
 export function formatDateTime(d: Date | string): string {
   return dateTimeFormatter.format(typeof d === 'string' ? new Date(d) : d)
 }
