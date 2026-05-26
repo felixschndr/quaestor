@@ -173,7 +173,6 @@
     "field": {
       "username": "Username",
       "password": "Password",
-      "customer": "Customer number",
       "phone": "Phone number",
       "pin": "PIN"
     }
