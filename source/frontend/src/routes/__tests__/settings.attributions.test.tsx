@@ -39,4 +39,17 @@ describe('SettingsAttributionsPage', () => {
     // The credit is labelled with the asset it covers.
     expect(screen.getByText('Favicon')).toBeInTheDocument()
   })
+
+  it('lists the Freepik / Flaticon writing-icons credit for the manual bank', () => {
+    render(<SettingsAttributionsPage />)
+
+    const credit = screen.getByRole('link', {
+      name: 'Writing icons created by Freepik - Flaticon',
+    })
+    expect(credit).toHaveAttribute('href', 'https://www.flaticon.com/free-icons/writing')
+    expect(credit).toHaveAttribute('title', 'writing icons')
+    expect(credit).toHaveAttribute('target', '_blank')
+    expect(credit).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(screen.getByText('Manual bank icon')).toBeInTheDocument()
+  })
 })
