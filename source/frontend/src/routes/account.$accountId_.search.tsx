@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { TransactionRead } from '@/lib/accountHistory'
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
-import { formatDate, formatEuro } from '@/lib/format'
+import { formatDate, formatEuro, formatIban } from '@/lib/format'
 import {
   TRANSACTION_CATEGORIES,
   TRANSACTION_TYPES,
@@ -397,7 +397,7 @@ function SearchResults({
   const accountNameById = useMemo(() => {
     const map = new Map<number, string>()
     for (const credential of credentials) {
-      for (const account of credential.accounts) map.set(account.id, account.name)
+      for (const account of credential.accounts) map.set(account.id, formatIban(account.name))
     }
     return map
   }, [credentials])
@@ -440,7 +440,7 @@ function ResultRow({
 }) {
   const { t } = useTranslation()
   const negative = transaction.amount < 0
-  const otherParty = transaction.other_party?.trim() || t('account.unknownParty')
+  const otherParty = formatIban(transaction.other_party?.trim() || '') || t('account.unknownParty')
   return (
     <li>
       <Link

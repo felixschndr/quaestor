@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatEuro, formatDate, relativeDateKey } from '../format'
+import { formatEuro, formatDate, formatIban, relativeDateKey } from '../format'
 
 describe('formatEuro', () => {
   it('formats positive amounts in de-DE', () => {
@@ -19,6 +19,36 @@ describe('formatDate', () => {
   it('prefixes the date with the weekday', () => {
     // 2026-05-20 is a Wednesday → Mittwoch.
     expect(formatDate('2026-05-20T12:00:00Z')).toMatch(/^Mittwoch, /)
+  })
+})
+
+describe('formatIban', () => {
+  it('groups a German IBAN into 4-char blocks', () => {
+    expect(formatIban('DE89370400440532013000')).toBe('DE89 3704 0044 0532 0130 00')
+  })
+
+  it('accepts an already-spaced IBAN and re-emits canonical grouping', () => {
+    expect(formatIban('DE89 3704 0044 0532 0130 00')).toBe('DE89 3704 0044 0532 0130 00')
+  })
+
+  it('formats a 15-char Norwegian IBAN (minimum length)', () => {
+    expect(formatIban('NO9386011117947')).toBe('NO93 8601 1117 947')
+  })
+
+  it('leaves names unchanged', () => {
+    expect(formatIban('Max Mustermann')).toBe('Max Mustermann')
+  })
+
+  it('leaves the empty string unchanged', () => {
+    expect(formatIban('')).toBe('')
+  })
+
+  it('leaves mixed text unchanged even if it starts with a country code', () => {
+    expect(formatIban('DE82 Mustermann GmbH')).toBe('DE82 Mustermann GmbH')
+  })
+
+  it('leaves lowercase IBAN-shaped strings unchanged (backend emits uppercase)', () => {
+    expect(formatIban('de89370400440532013000')).toBe('de89370400440532013000')
   })
 })
 
