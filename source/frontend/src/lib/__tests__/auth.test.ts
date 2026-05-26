@@ -95,11 +95,29 @@ describe('ensureAuthenticated', () => {
     expect(search?.next).toBe('/account/42/transactions/7?from=overview')
   })
 
-  it('re-throws non-401 errors as-is', async () => {
+  it('re-throws non-401 ApiErrors as-is', async () => {
     const queryClient = buildQueryClient()
     const boom = new ApiError(500, { detail: 'Internal' }, 'GET /api/auth/me → 500')
     queryClient.ensureQueryData = vi.fn().mockRejectedValue(boom)
 
     await expect(ensureAuthenticated({ queryClient, pathname: '/', search: '' })).rejects.toBe(boom)
+  })
+
+  it('redirects to /login when the backend is unreachable (network error)', async () => {
+    const queryClient = buildQueryClient()
+    globalThis.fetch = vi
+      .fn()
+      .mockRejectedValue(new TypeError('Failed to fetch')) as unknown as typeof fetch
+
+    let thrown: unknown
+    try {
+      await ensureAuthenticated({ queryClient, pathname: '/account/3', search: '' })
+    } catch (err) {
+      thrown = err
+    }
+    expect(thrown).toBeTruthy()
+    const options = (thrown as { options?: { to?: string; search?: { next?: string } } }).options
+    expect(options?.to).toBe('/login')
+    expect(options?.search?.next).toBe('/account/3')
   })
 })

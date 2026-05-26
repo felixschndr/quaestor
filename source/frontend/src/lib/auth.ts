@@ -69,8 +69,11 @@ export function safeNext(next: string | undefined): string {
 
 /**
  * Used by the root route's `beforeLoad` to gate every page on a valid session.
- * Side-effect on 401: throws a TanStack Router `redirect()` to /login with the
- * intended destination preserved as `?next=`.
+ * On 401, or when /auth/me can't be reached at all (e.g. dev backend not yet
+ * up — `fetch` throws TypeError before any response), throws a TanStack Router
+ * `redirect()` to /login so the user lands on a usable screen instead of an
+ * empty page. Genuine server errors (5xx etc.) still propagate so a real bug
+ * surfaces in the router's error component rather than getting swallowed.
  */
 export async function ensureAuthenticated(args: {
   queryClient: QueryClient
@@ -87,13 +90,11 @@ export async function ensureAuthenticated(args: {
       retry: false,
     })
   } catch (err) {
-    if (err instanceof ApiError && err.status === 401) {
-      throw redirect({
-        to: '/login',
-        search: { next: args.pathname + (args.search ?? '') },
-      })
-    }
-    throw err
+    if (err instanceof ApiError && err.status !== 401) throw err
+    throw redirect({
+      to: '/login',
+      search: { next: args.pathname + (args.search ?? '') },
+    })
   }
 }
 
