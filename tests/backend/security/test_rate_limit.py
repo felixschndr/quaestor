@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 import pytest
 from source.backend.security import rate_limit
 from source.backend.security.rate_limit import InMemoryTokenBucketLimiter
@@ -36,6 +38,13 @@ def test_bucket_keys_are_isolated():
     # "a" is empty but "b" should still have full capacity.
     assert not bucket.try_consume(key="a", capacity=5, refill_per_second=1.0)[0]
     assert bucket.try_consume(key="b", capacity=5, refill_per_second=1.0)[0]
+
+
+def test_client_key_falls_back_to_unknown_when_client_is_missing():
+    request = MagicMock()
+    request.client = None
+
+    assert rate_limit._client_key(request) == "unknown"
 
 
 def test_bucket_does_not_exceed_capacity_on_refill(monkeypatch: pytest.MonkeyPatch):

@@ -35,6 +35,8 @@ VALID_PASSWORD_HASH = (
 )
 NEW_VALID_PASSWORD = "BrandNewPa55word!"  # nosec B105
 WRONG_PASSWORD = "Wr0ngPassword!!"  # nosec B105
+PHONE_NUMBER = "+491234567890"
+PIN = "1234"
 HTTP_SESSION_TOKEN = "not-a-real-token"  # nosec B105
 BANK_USERNAME = "bankuser"
 BANK_PASSWORD = "bankpass"  # nosec B105
@@ -140,8 +142,8 @@ def _default_credentials_for(bank: BankProvider) -> dict[str, str]:
         "username": BANK_USERNAME,
         "password": BANK_PASSWORD,
         "customer": "customer-id",
-        "phone": "+491234567890",
-        "pin": "1234",
+        "phone": PHONE_NUMBER,
+        "pin": PIN,
     }
     return {field: defaults.get(field, f"{field}-value") for field in fields}  # noqa FKA100
 

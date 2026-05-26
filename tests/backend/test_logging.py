@@ -2,6 +2,7 @@ import logging
 
 import pytest
 from fastapi.testclient import TestClient
+from source.backend import logging_utils
 from source.backend.logging_utils import (
     REDACTION_PLACEHOLDER,
     get_logger,
@@ -9,7 +10,7 @@ from source.backend.logging_utils import (
     redact_headers,
 )
 
-from tests.backend.conftest import VALID_PASSWORD, register
+from tests.backend.conftest import PIN, VALID_PASSWORD, register
 
 
 @pytest.mark.parametrize(
@@ -19,7 +20,7 @@ from tests.backend.conftest import VALID_PASSWORD, register
         ({"PassWord": "secret"}, {"PassWord": REDACTION_PLACEHOLDER}),  # nosec B105
         ({"username": "bob", "id": 3}, {"username": "bob", "id": 3}),
         ({"outer": {"api_key": "k", "ok": 1}}, {"outer": {"api_key": REDACTION_PLACEHOLDER, "ok": 1}}),
-        ({"items": [{"pin": "1234"}, {"keep": "v"}]}, {"items": [{"pin": REDACTION_PLACEHOLDER}, {"keep": "v"}]}),
+        ({"items": [{"pin": PIN}, {"keep": "v"}]}, {"items": [{"pin": REDACTION_PLACEHOLDER}, {"keep": "v"}]}),
         ("plain string", "plain string"),
         (42, 42),
     ],
@@ -76,6 +77,18 @@ def test_debug_extra_is_dropped_when_logger_below_debug(caplog: pytest.LogCaptur
         logger.debug("invisible", extra={"password": VALID_PASSWORD})
 
     assert caplog.records == []
+
+
+def test_redact_returns_placeholder_when_iteration_raises():
+    class BrokenDict(dict):
+        def items(self):
+            raise RuntimeError("Something went wrong")
+
+    assert redact(BrokenDict({"any": "value"})) == REDACTION_PLACEHOLDER
+
+
+def test_render_extra_returns_placeholder_when_serialization_fails():
+    assert logging_utils._render_extra({1: "a", "x": "y"}) == REDACTION_PLACEHOLDER
 
 
 def test_request_middleware_redacts_password_and_auth_header(http_client: TestClient, caplog: pytest.LogCaptureFixture):

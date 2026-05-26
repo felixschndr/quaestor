@@ -1,4 +1,10 @@
+from unittest.mock import MagicMock
+
+import pytest
 from fastapi.testclient import TestClient
+from source.backend.models.credential import Credential
+from source.backend.services import credential_service
+from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
     NEW_VALID_PASSWORD,
@@ -6,6 +12,7 @@ from tests.backend.conftest import (
     VALID_PASSWORD,
     WRONG_PASSWORD,
     login_as,
+    make_credential,
     register,
 )
 
@@ -128,6 +135,32 @@ def test_sync_without_credentials_returns_no_content(http_client: TestClient):
     response = http_client.post("/api/users/sync")
 
     assert response.status_code == 204
+
+
+def test_sync_syncs_normal_credentials_and_skips_two_factor_ones(
+    http_client: TestClient,
+    session_factory: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    user_id = register(http_client).json()["id"]
+    with session_factory() as session:
+        normal = make_credential(session, user_id=user_id)
+        skipped = make_credential(session, user_id=user_id, requires_two_factor_authentication=True)
+        session.commit()
+        normal_id = normal.id
+        skipped_id = skipped.id
+
+    sync_mock = MagicMock()
+    monkeypatch.setattr(target=credential_service, name="sync_credential_object", value=sync_mock)
+
+    response = http_client.post("/api/users/sync")
+
+    assert response.status_code == 204
+    synced_ids = [call.kwargs["credential"].id for call in sync_mock.call_args_list]
+    assert synced_ids == [normal_id]
+    assert skipped_id not in synced_ids
+    with session_factory() as session:
+        assert session.get(entity=Credential, ident=skipped_id) is not None
 
 
 def test_list_user_sessions_returns_current_session_marked(http_client: TestClient):

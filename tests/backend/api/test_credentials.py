@@ -7,6 +7,9 @@ from source.backend.services.credential_service import SyncResult, SyncStatus
 
 from tests.backend.conftest import (
     BANK_PASSWORD,
+    HTTP_SESSION_TOKEN,
+    PHONE_NUMBER,
+    PIN,
     SECOND_USER_NAME,
     create_credential,
     login_as,
@@ -39,7 +42,7 @@ def test_list_credentials_returns_own_credentials(http_client: TestClient):
     register(http_client)
     first_id = create_credential(http_client).json()["id"]
     second_id = create_credential(
-        http_client, bank="trade_republic", credentials={"phone": "+49", "pin": "1234"}
+        http_client, bank="trade_republic", credentials={"phone": PHONE_NUMBER, "pin": PIN}
     ).json()["id"]
 
     response = http_client.get("/api/credentials")
@@ -226,8 +229,7 @@ def test_sync_2fa_completes_login(http_client: TestClient, monkeypatch: pytest.M
     )
 
     response = http_client.post(
-        f"/api/credentials/{credential_id}/sync/2fa",
-        json={"challenge_token": "tok", "code": "1234"},  # nosec B105
+        f"/api/credentials/{credential_id}/sync/2fa", json={"challenge_token": HTTP_SESSION_TOKEN, "code": PIN}
     )
 
     assert response.status_code == 200
@@ -242,8 +244,7 @@ def test_sync_2fa_returns_404_for_other_users_credential(http_client: TestClient
     login_as(http_client, user_name="intruder")
 
     response = http_client.post(
-        f"/api/credentials/{credential_id}/sync/2fa",
-        json={"challenge_token": "tok", "code": "1234"},  # nosec B105
+        f"/api/credentials/{credential_id}/sync/2fa", json={"challenge_token": HTTP_SESSION_TOKEN, "code": PIN}
     )
 
     assert response.status_code == 404

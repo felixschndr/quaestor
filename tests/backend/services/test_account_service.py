@@ -56,6 +56,19 @@ def test_get_account_raises_when_id_unknown(session_factory: sessionmaker):
             account_service.get_account(db_session=session, account_id=99999)
 
 
+def test_get_filtered_transactions_for_user_returns_empty_when_no_account_ids(session_factory: sessionmaker):
+    user_id, _ = _create_user_with_accounts(session_factory)
+    with session_factory() as session:
+        result = account_service.get_filtered_transactions_for_user(
+            db_session=session,
+            user_id=user_id,
+            account_ids_to_search_through=[],
+            filter_parameters={"text": "anything"},
+        )
+
+    assert result == []
+
+
 @pytest.mark.parametrize(
     argnames="filter_parameters, indexes_of_not_expected_transactions",
     argvalues=[
