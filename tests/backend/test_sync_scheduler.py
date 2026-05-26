@@ -65,14 +65,16 @@ def test_run_periodic_sync_logs_and_keeps_running_on_exception(
     class _StopLoop(Exception):
         pass
 
-    monkeypatch.setattr(
-        target=sync_scheduler,
-        name="_sync_all_due_credentials",
-        value=Mock(side_effect=RuntimeError("sync exploded")),
-    )
+    sync_mock = Mock(side_effect=RuntimeError("sync failed"))
+    monkeypatch.setattr(target=sync_scheduler, name="_sync_all_due_credentials", value=sync_mock)
+
+    sleep_calls = 0
 
     async def fake_sleep(_seconds: float) -> None:  # noqa: ASYNC124
-        raise _StopLoop
+        nonlocal sleep_calls
+        sleep_calls += 1
+        if sleep_calls > 1:
+            raise _StopLoop
 
     monkeypatch.setattr(target=sync_scheduler.asyncio, name="sleep", value=fake_sleep)
 
@@ -92,7 +94,10 @@ def test_run_periodic_sync_calls_the_sync_function(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(target=sync_scheduler, name="_sync_all_due_credentials", value=sync)
 
     async def fake_sleep(_seconds: float) -> None:  # noqa: ASYNC124
-        raise _StopLoop  # break out of the otherwise-infinite loop after the first run
+        # The loop sleeps before each sync; trip the loop on the second sleep so
+        # exactly one sync runs in between.
+        if sync.called:
+            raise _StopLoop
 
     monkeypatch.setattr(target=sync_scheduler.asyncio, name="sleep", value=fake_sleep)
 

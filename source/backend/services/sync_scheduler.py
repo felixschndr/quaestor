@@ -34,9 +34,9 @@ async def run_periodic_sync() -> None:
     interval = _sync_interval()
     logger.info(f"Periodic credential sync scheduled every {interval}")
     while True:
+        await asyncio.sleep(interval.total_seconds())
         try:
             # The sync is blocking (HTTP/FinTS clients), so keep it off the event loop.
             await asyncio.to_thread(_sync_all_due_credentials)
         except Exception as e:
             logger.exception(message="Periodic credential sync run crashed", exc_info=e)
-        await asyncio.sleep(interval.total_seconds())
