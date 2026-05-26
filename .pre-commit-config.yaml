@@ -72,3 +72,10 @@ repos:
         entry: pnpm -C source/frontend typecheck
         files: '^source/frontend/.*\.(ts|tsx)$'
         pass_filenames: false
+
+      - id: check-i18n
+        name: check i18n keys
+        language: system
+        entry: python3 scripts/check_i18n.py
+        files: '^source/frontend/src/(.*\.(ts|tsx)|i18n/locales/.*\.json)$'
+        pass_filenames: false
