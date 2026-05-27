@@ -198,6 +198,7 @@
     "submit": "Connect and sync",
     "submitting": "Connecting…",
     "syncing": "Syncing…",
+    "alreadyExists": "A {{bank}} connection with these credentials already exists.",
     "connectFailed": "Could not connect to {{bank}}. Please check the credentials.",
     "syncFailed": "Connected to {{bank}}, but the first sync failed. You can retry the sync later.",
     "twoFactor": {

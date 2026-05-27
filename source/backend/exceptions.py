@@ -60,3 +60,7 @@ class ConflictError(Exception):
 
 class UserNameAlreadyExistsError(ConflictError):
     pass
+
+
+class CredentialAlreadyExistsError(ConflictError):
+    pass

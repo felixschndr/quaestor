@@ -334,6 +334,48 @@ describe('NewCredentialFormView', () => {
     expect(onConnected).not.toHaveBeenCalled()
   })
 
+  it('surfaces a dedicated toast and stays on the form when the backend returns 409', async () => {
+    const { toast } = await import('sonner')
+    const toastError = vi.spyOn(toast, 'error').mockImplementation(() => 'toast-id' as never)
+    const user = userEvent.setup()
+    const fetchMock = globalThis.fetch as Mock
+    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      if (url === '/api/credentials' && init?.method === 'POST') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 409,
+            body: { detail: 'User 1 already has an ing credential with the same login data' },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+    })
+    const onConnected = vi.fn()
+    const onSyncFailed = vi.fn()
+
+    renderWithQuery(
+      <NewCredentialFormView
+        bankName="ing"
+        bank={ING_BANK}
+        isLoading={false}
+        onCancel={vi.fn()}
+        onConnected={onConnected}
+        onSyncFailed={onSyncFailed}
+      />,
+    )
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Password'), 'hunter2')
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1))
+    expect(toastError.mock.calls[0][0]).toMatch(/already exists/i)
+    expect(onConnected).not.toHaveBeenCalled()
+    expect(onSyncFailed).not.toHaveBeenCalled()
+    // No sync was started — the form is the only POST we made.
+    const postCalls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
+    expect(postCalls).toHaveLength(1)
+  })
+
   it('blocks submission with an inline required-field error when a field is empty', async () => {
     const user = userEvent.setup()
     const fetchMock = globalThis.fetch as Mock
