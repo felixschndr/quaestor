@@ -1,10 +1,14 @@
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from source.backend.logging_utils import get_logger
 from source.backend.models.transaction_type import TransactionType
 
 if TYPE_CHECKING:
     from source.backend.bank_handlers.base import FetchedTransaction
+    from source.backend.models.transaction import Transaction
+
+logger = get_logger(__name__)
 
 
 class TransactionCategory(str, Enum):
@@ -37,7 +41,9 @@ class TransactionCategory(str, Enum):
     UNKNOWN = "UNKNOWN"
 
     @classmethod
-    def from_transaction(cls: type["TransactionCategory"], transaction: "FetchedTransaction") -> "TransactionCategory":
+    def from_transaction(
+        cls: type["TransactionCategory"], transaction: "FetchedTransaction | Transaction"
+    ) -> "TransactionCategory":
         if transaction.transaction_type is not None:
             type_based = CATEGORY_BY_TRANSACTION_TYPE.get(transaction.transaction_type)
             if type_based is not None:
@@ -49,6 +55,8 @@ class TransactionCategory(str, Enum):
                 needle = matcher.lower()
                 if any(needle in haystack.lower() for haystack in haystacks):
                     return category
+
+        logger.warning(f"No category matched for {transaction}")
         return cls.UNKNOWN
 
 
