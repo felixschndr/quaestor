@@ -74,4 +74,16 @@ describe('relativeDateKey', () => {
     const apr30 = new Date(2026, 3, 30)
     expect(relativeDateKey(apr30, may1)).toBe('yesterday')
   })
+
+  it('returns "future" for any date strictly after today', () => {
+    const tomorrow = new Date(2026, 4, 23)
+    const nextMonth = new Date(2026, 5, 1)
+    expect(relativeDateKey(tomorrow, today)).toBe('future')
+    expect(relativeDateKey(nextMonth, today)).toBe('future')
+  })
+
+  it('still returns "today" for a future-time-of-day on the same local day', () => {
+    // A txn dated "today" with an arbitrary time should not be classified as future.
+    expect(relativeDateKey(new Date(2026, 4, 22, 23, 59), today)).toBe('today')
+  })
 })

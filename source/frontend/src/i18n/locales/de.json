@@ -18,6 +18,7 @@
     "balance": "Aktueller Kontostand",
     "today": "Heute",
     "yesterday": "Gestern",
+    "future": "Geplant am {{date}}",
     "unknownParty": "Unbekannt",
     "empty": "Noch keine Transaktionen.",
     "notFound": "Konto nicht gefunden.",
