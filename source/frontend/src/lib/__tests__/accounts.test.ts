@@ -22,6 +22,7 @@ function makeCredential(
       display_name: null,
       balance: a.balance ?? 0,
       balance_factor: 100,
+      is_hidden: false,
     })),
     last_fetching_timestamp: null,
     requires_two_factor_authentication: false,

@@ -37,4 +37,5 @@ class User(Base):
             account.balance * account.balance_factor / 100
             for credential in self.credentials
             for account in credential.accounts
+            if not account.is_hidden
         )

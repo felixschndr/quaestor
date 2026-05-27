@@ -8,6 +8,9 @@ export interface AccountRead {
   display_name: string | null
   balance: number
   balance_factor: number
+  /** When true the account is filtered out of the overview and excluded from
+   *  user.balance + group totals. Stays visible in management views. */
+  is_hidden: boolean
 }
 
 export interface CredentialRead {

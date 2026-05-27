@@ -44,8 +44,22 @@ const credentials: CredentialRead[] = [
     id: 1,
     bank: 'ing',
     accounts: [
-      { id: 42, name: 'Girokonto', balance: 0, balance_factor: 100, display_name: null },
-      { id: 43, name: 'Tagesgeld', balance: 0, balance_factor: 100, display_name: null },
+      {
+        id: 42,
+        name: 'Girokonto',
+        balance: 0,
+        balance_factor: 100,
+        display_name: null,
+        is_hidden: false,
+      },
+      {
+        id: 43,
+        name: 'Tagesgeld',
+        balance: 0,
+        balance_factor: 100,
+        display_name: null,
+        is_hidden: false,
+      },
     ],
     last_fetching_timestamp: null,
     requires_two_factor_authentication: false,
@@ -53,7 +67,16 @@ const credentials: CredentialRead[] = [
   {
     id: 2,
     bank: 'trade_republic',
-    accounts: [{ id: 99, name: 'TR Cash', balance: 0, balance_factor: 100, display_name: null }],
+    accounts: [
+      {
+        id: 99,
+        name: 'TR Cash',
+        balance: 0,
+        balance_factor: 100,
+        display_name: null,
+        is_hidden: false,
+      },
+    ],
     last_fetching_timestamp: null,
     requires_two_factor_authentication: false,
   },

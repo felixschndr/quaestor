@@ -259,6 +259,8 @@
       "deleteAccountFailed": "Konto konnte nicht gelöscht werden.",
       "deleteAccountSuccess": "Konto gelöscht",
       "balance": "Saldo",
+      "hide": "In der Übersicht ausblenden",
+      "hideHint": "Konto wird nicht angezeigt und nicht in Gesamt- oder Gruppensummen einberechnet.",
       "displayName": "Persönlicher Name",
       "displayNamePlaceholder": "z. B. Gehaltskonto",
       "displayNameHint": "Wird in der Übersicht angezeigt. Leer lassen, um den ursprüngen Namen zu verwenden.",

@@ -30,6 +30,7 @@ function buildAccount(overrides: Partial<AccountRead> = {}): AccountRead {
     display_name: null,
     balance: 1000,
     balance_factor: 100,
+    is_hidden: false,
     ...overrides,
   }
 }

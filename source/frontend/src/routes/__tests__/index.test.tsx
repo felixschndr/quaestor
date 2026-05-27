@@ -111,7 +111,14 @@ describe('OverviewView', () => {
           id: 10,
           bank: 'trade_republic',
           accounts: [
-            { id: 1, name: 'TR Cash', display_name: null, balance: 50, balance_factor: 100 },
+            {
+              id: 1,
+              name: 'TR Cash',
+              display_name: null,
+              balance: 50,
+              balance_factor: 100,
+              is_hidden: false,
+            },
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
@@ -120,8 +127,22 @@ describe('OverviewView', () => {
           id: 11,
           bank: 'ing',
           accounts: [
-            { id: 2, name: 'Tagesgeld', display_name: null, balance: 1000, balance_factor: 100 },
-            { id: 3, name: 'Girokonto', display_name: null, balance: -200, balance_factor: 100 },
+            {
+              id: 2,
+              name: 'Tagesgeld',
+              display_name: null,
+              balance: 1000,
+              balance_factor: 100,
+              is_hidden: false,
+            },
+            {
+              id: 3,
+              name: 'Girokonto',
+              display_name: null,
+              balance: -200,
+              balance_factor: 100,
+              is_hidden: false,
+            },
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
@@ -160,6 +181,7 @@ describe('OverviewView', () => {
               display_name: 'Gehaltskonto',
               balance: 100,
               balance_factor: 100,
+              is_hidden: false,
             },
           ],
           last_fetching_timestamp: null,
@@ -197,6 +219,7 @@ describe('OverviewView', () => {
               display_name: 'Gehaltskonto',
               balance: 100,
               balance_factor: 100,
+              is_hidden: false,
             },
           ],
           last_fetching_timestamp: null,
@@ -228,11 +251,32 @@ describe('OverviewView', () => {
           bank: 'ing',
           accounts: [
             // Factored: 100 * 100 / 100 = 100
-            { id: 8, name: 'Acc8', display_name: null, balance: 100, balance_factor: 100 },
+            {
+              id: 8,
+              name: 'Acc8',
+              display_name: null,
+              balance: 100,
+              balance_factor: 100,
+              is_hidden: false,
+            },
             // Factored: 200 * 50 / 100 = 100  →  group total = 200,00 €
-            { id: 9, name: 'Acc9', display_name: null, balance: 200, balance_factor: 50 },
+            {
+              id: 9,
+              name: 'Acc9',
+              display_name: null,
+              balance: 200,
+              balance_factor: 50,
+              is_hidden: false,
+            },
             // Ungrouped factored: -50 * 100 / 100 = -50  →  destructive color
-            { id: 10, name: 'Acc10', display_name: null, balance: -50, balance_factor: 100 },
+            {
+              id: 10,
+              name: 'Acc10',
+              display_name: null,
+              balance: -50,
+              balance_factor: 100,
+              is_hidden: false,
+            },
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
@@ -275,6 +319,7 @@ describe('OverviewView', () => {
               display_name: 'Gehaltskonto',
               balance: 100,
               balance_factor: 100,
+              is_hidden: false,
             },
           ],
           last_fetching_timestamp: null,
@@ -287,6 +332,55 @@ describe('OverviewView', () => {
     expect(
       await screen.findByRole('heading', { level: 2, name: 'Without group' }),
     ).toBeInTheDocument()
+  })
+
+  it('omits hidden accounts from the list and from group totals', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          groups: [{ id: 1, name: 'Spar', accounts: [{ id: 11 }, { id: 12 }] }],
+          ungrouped: [],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    ) as unknown as typeof fetch
+
+    const user = buildUser({
+      credentials: [
+        {
+          id: 1,
+          bank: 'ing',
+          accounts: [
+            {
+              id: 11,
+              name: 'Visible',
+              display_name: null,
+              balance: 100,
+              balance_factor: 100,
+              is_hidden: false,
+            },
+            {
+              id: 12,
+              name: 'HiddenSub',
+              display_name: null,
+              balance: 9999,
+              balance_factor: 100,
+              is_hidden: true,
+            },
+          ],
+          last_fetching_timestamp: null,
+          requires_two_factor_authentication: false,
+        },
+      ],
+    })
+    render_(user)
+
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Spar' })
+    // Group total = 100 only (hidden 9999 doesn't count).
+    expect(heading.parentElement).toHaveTextContent('100,00 €')
+    expect(screen.getByText('Visible')).toBeInTheDocument()
+    // The hidden account's IBAN-formatted name must not surface anywhere.
+    expect(screen.queryByText('HiddenSub')).not.toBeInTheDocument()
   })
 
   it('applies balance_factor as a percentage when summing group totals', () => {
@@ -307,7 +401,14 @@ describe('OverviewView', () => {
           id: 1,
           bank: 'ing',
           accounts: [
-            { id: 7, name: 'Overdrawn', display_name: null, balance: -150.5, balance_factor: 100 },
+            {
+              id: 7,
+              name: 'Overdrawn',
+              display_name: null,
+              balance: -150.5,
+              balance_factor: 100,
+              is_hidden: false,
+            },
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,

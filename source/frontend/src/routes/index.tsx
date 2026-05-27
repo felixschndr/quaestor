@@ -119,12 +119,20 @@ function buildDisplayGroups(
     return groupAccountsByBank(user.credentials).map((group) => ({
       key: `bank-${group.bank}`,
       heading: null,
-      accounts: group.accounts.map((account) => ({ ...account, bank: group.bank })),
+      accounts: group.accounts
+        .filter((account) => !account.is_hidden)
+        .map((account) => ({ ...account, bank: group.bank })),
     }))
   }
   const lookup = buildAccountLookup(user)
+  // Hidden accounts also disappear from custom-grouped layouts. We resolve
+  // them by id (so the layout's stored ordering is honored), then drop the
+  // hidden ones; the group still renders even if every account in it is
+  // hidden, just with an empty list.
   const resolveAccounts = (refs: AccountGroupAccountRef[]) =>
-    refs.map((ref) => lookup.get(ref.id)).filter((account): account is AccountWithBank => !!account)
+    refs
+      .map((ref) => lookup.get(ref.id))
+      .filter((account): account is AccountWithBank => !!account && !account.is_hidden)
 
   const groups: DisplayGroup[] = layout!.groups.map((group) => ({
     key: `group-${group.id}`,

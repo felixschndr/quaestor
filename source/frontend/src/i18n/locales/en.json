@@ -259,6 +259,8 @@
       "deleteAccountFailed": "Could not delete account.",
       "deleteAccountSuccess": "Account deleted",
       "balance": "Balance",
+      "hide": "Hide from overview",
+      "hideHint": "Account is not displayed and not counted in total or group balances.",
       "displayName": "Personalised name",
       "displayNamePlaceholder": "e.g. Salary account",
       "displayNameHint": "Shown in the overview. Leave empty to use the original name.",

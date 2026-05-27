@@ -5,6 +5,7 @@ import { ChevronLeft, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuthMe, type AccountRead, type CredentialRead } from '@/lib/auth'
@@ -330,6 +331,29 @@ function AccountRow({ account, isManual }: { account: AccountRead; isManual: boo
   const effectiveBalance = (account.balance * effectiveFactor) / 100
   const factorInputId = `account-${account.id}-balance-factor`
   const nameInputId = `account-${account.id}-display-name`
+  const hiddenInputId = `account-${account.id}-is-hidden`
+
+  // is_hidden saves on every click (no debounce — it's a single boolean, no
+  // burst of edits to coalesce). Optimistic local state so the checkbox flips
+  // instantly while the PATCH is in flight; reverts on failure. The
+  // setState-during-render pattern keeps local state in sync with the prop
+  // without an effect (which would trigger an eslint cascading-renders error).
+  const [hidden, setHidden] = useState(account.is_hidden)
+  const [lastHiddenProp, setLastHiddenProp] = useState(account.is_hidden)
+  if (account.is_hidden !== lastHiddenProp) {
+    setLastHiddenProp(account.is_hidden)
+    setHidden(account.is_hidden)
+  }
+  const onHiddenChange = async (next: boolean) => {
+    setHidden(next)
+    try {
+      await mutateAsync({ accountId: account.id, is_hidden: next })
+      toast.success(t('credentials.detail.saved'))
+    } catch {
+      setHidden(account.is_hidden)
+      toast.error(t('credentials.detail.saveFailed'))
+    }
+  }
 
   return (
     <li className="border-border bg-card flex flex-col rounded-lg border shadow-sm">
@@ -404,6 +428,18 @@ function AccountRow({ account, isManual }: { account: AccountRead; isManual: boo
             {t('credentials.detail.balanceFactorHint')}
           </p>
         )}
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={hiddenInputId} className="flex items-center gap-2 text-sm">
+            <Checkbox
+              id={hiddenInputId}
+              checked={hidden}
+              onCheckedChange={(checked) => void onHiddenChange(checked === true)}
+            />
+            <span>{t('credentials.detail.hide')}</span>
+          </label>
+          <p className="text-muted-foreground text-xs">{t('credentials.detail.hideHint')}</p>
+        </div>
       </div>
       {isManual ? (
         <>

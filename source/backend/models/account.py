@@ -8,7 +8,7 @@ from source.backend.models.account_group import (  # noqa: F401 — registers FK
     AccountGroup,
 )
 from source.backend.models.base import Base
-from sqlalchemy import Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import (
     Mapped,
     attribute_keyed_dict,
@@ -31,6 +31,7 @@ class Account(Base):
     display_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
     balance: Mapped[float] = mapped_column(Float, default=0.0)
     balance_factor: Mapped[int] = mapped_column(default=100)
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     # User-defined grouping for the overview. NULL = "ungrouped" (rendered in a
     # default bucket). `position` orders accounts within their group OR within

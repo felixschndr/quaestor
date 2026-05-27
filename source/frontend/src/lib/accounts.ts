@@ -62,6 +62,7 @@ export function displayNameOrUserName(user: { display_name: string; user_name: s
 export interface AccountUpdatePayload {
   balance_factor?: number
   display_name?: string | null
+  is_hidden?: boolean
   balance?: number
 }
 

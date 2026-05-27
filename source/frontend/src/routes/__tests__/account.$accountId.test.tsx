@@ -40,6 +40,7 @@ const account: AccountRead = {
   display_name: null,
   balance: 1234.5,
   balance_factor: 100,
+  is_hidden: false,
 }
 
 function buildTransaction(overrides: Partial<TransactionRead> = {}): TransactionRead {
