@@ -7,7 +7,6 @@
   },
   "overview": {
     "hello": "Hello, <name>{{name}}</name>",
-    "totalBalance": "Total balance",
     "emptyTitle": "No accounts yet",
     "emptyCta": "Connect your first bank",
     "settings": "Settings"
