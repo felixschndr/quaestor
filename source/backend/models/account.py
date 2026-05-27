@@ -9,7 +9,13 @@ from source.backend.models.account_group import (  # noqa: F401 — registers FK
 )
 from source.backend.models.base import Base
 from sqlalchemy import Float, ForeignKey, Integer, String
-from sqlalchemy.orm import Mapped, attribute_keyed_dict, mapped_column, relationship
+from sqlalchemy.orm import (
+    Mapped,
+    attribute_keyed_dict,
+    mapped_column,
+    object_session,
+    relationship,
+)
 
 if TYPE_CHECKING:
     from source.backend.models.credential import Credential
@@ -46,8 +52,11 @@ class Account(Base):
         return cls(name=fetched_account.name)
 
     def update_balance_at_date(self) -> None:
+        today = date.today()
         daily_totals: dict[date, float] = defaultdict(float)
         for transaction in self.transactions:
+            if transaction.date > today:  # Future-dated transactions haven't moved money yet
+                continue
             daily_totals[transaction.date] += transaction.amount
 
         running_balance = self.balance
@@ -56,7 +65,9 @@ class Account(Base):
                 self.balance_at_date[day] = AccountBalanceSnapshot(date=day, balance=running_balance)
             running_balance = round(number=running_balance - daily_totals[day], ndigits=2)
 
-    def recompute_balance_at_date(self) -> None:
-        # Used after manual edits (balance change, transaction insert/delete)
+    def recompute_balances_at_date(self) -> None:
         self.balance_at_date.clear()
+        session = object_session(self)
+        if session is not None:
+            session.flush()
         self.update_balance_at_date()

@@ -103,7 +103,7 @@ def update_account(db_session: Session, account: Account, fields: dict) -> Accou
     for key, value in fields.items():
         setattr(account, key, value)
     if balance_in_payload:
-        account.recompute_balance_at_date()
+        account.recompute_balances_at_date()
     db_session.commit()
     logger.info(f"Updated account {account_before_change} --> {account}")
     return account
@@ -165,7 +165,7 @@ def create_manual_transaction(db_session: Session, account: Account, fields: dic
     account.balance = round(number=account.balance + transaction.amount, ndigits=2)
     db_session.add(transaction)
     db_session.flush()
-    account.recompute_balance_at_date()
+    account.recompute_balances_at_date()
     db_session.commit()
     logger.info(f"Created manual {transaction} on {account}; new balance {account.balance}")
     return transaction
@@ -176,7 +176,7 @@ def delete_transaction(db_session: Session, account: Account, transaction: Trans
     account.balance = round(number=account.balance - transaction.amount, ndigits=2)
     db_session.delete(transaction)
     db_session.flush()
-    account.recompute_balance_at_date()
+    account.recompute_balances_at_date()
     db_session.commit()
     logger.info(f"Deleted manual {transaction} from {account}; new balance {account.balance}")
 

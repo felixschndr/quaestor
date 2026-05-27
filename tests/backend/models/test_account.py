@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from source.backend.models.account import Account
 from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
@@ -81,6 +81,48 @@ def test_update_balance_at_date_is_idempotent(session_factory: sessionmaker):
         assert _get_persisted_snapshots(session=session, account=account) == {
             date(year=2025, month=1, day=1): 10.0,
         }
+
+
+def test_update_balance_at_date_ignores_future_dated_transactions(session_factory: sessionmaker):
+    with session_factory() as session:
+        today = date.today()
+        future = today + timedelta(days=7)
+        yesterday = today - timedelta(days=1)
+        account = _persist_account(
+            session=session,
+            balance=100.0,
+            transactions=[
+                (future, -50.0),
+                (today, 5.0),
+                (yesterday, -10.0),
+            ],
+        )
+
+        account.update_balance_at_date()
+        session.flush()
+
+        snapshots = _get_persisted_snapshots(session=session, account=account)
+        assert future not in snapshots
+        assert snapshots[today] == 100
+        assert snapshots[yesterday] == 100 - 5
+
+
+def test_recompute_balance_at_date_overwrites_stale_snapshots(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = _persist_account(
+            session=session,
+            balance=100.0,
+            transactions=[(date.today() - timedelta(days=1), -10.0)],
+        )
+        # Plant a wrong snapshot from a hypothetical earlier run.
+        stale_day = date.today() - timedelta(days=1)
+        account.balance_at_date[stale_day] = AccountBalanceSnapshot(date=stale_day, balance=999.0)
+        session.flush()
+
+        account.recompute_balances_at_date()
+        session.flush()
+
+        assert _get_persisted_snapshots(session=session, account=account)[stale_day] == 100
 
 
 def test_update_balance_at_date_preserves_existing_snapshots_but_chains_correctly(session_factory: sessionmaker):
