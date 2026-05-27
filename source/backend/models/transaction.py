@@ -50,6 +50,4 @@ class Transaction(Base):
             transaction_type=fetched_transaction.transaction_type,
             category=TransactionCategory.from_transaction(transaction=fetched_transaction),
         )
-        if transaction.category == TransactionCategory.UNKNOWN:
-            logger.info(f"No category matched for {transaction}")
         return transaction
