@@ -124,6 +124,33 @@ describe('OverviewView', () => {
     ])
   })
 
+  it('uses the personalised name instead of the IBAN when set, and only that', () => {
+    const user = buildUser({
+      credentials: [
+        {
+          id: 1,
+          bank: 'ing',
+          accounts: [
+            {
+              id: 8,
+              name: 'DE12345678900001',
+              display_name: 'Gehaltskonto',
+              balance: 100,
+              balance_factor: 100,
+            },
+          ],
+          last_fetching_timestamp: null,
+          requires_two_factor_authentication: false,
+        },
+      ],
+    })
+    render_(user)
+    // The personalised name shows up.
+    expect(screen.getByText('Gehaltskonto')).toBeInTheDocument()
+    // The IBAN does NOT — the overview is supposed to be just the personalised name.
+    expect(screen.queryByText('DE12 3456 7890 0001')).not.toBeInTheDocument()
+  })
+
   it('renders negative account balances in the destructive color', () => {
     const user = buildUser({
       credentials: [

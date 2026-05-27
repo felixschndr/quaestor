@@ -79,6 +79,7 @@ export function AccountDetailView({
   const groups = useMemo(() => groupTransactionsByDate(pages), [pages])
   const hasAnyTransactions = groups.length > 0
   const negative = account.balance < 0
+  const personalisedName = account.display_name?.trim() || null
 
   // The date headers below are sticky too — they need to stop at the bottom
   // edge of this header, not at the viewport top. Measure synchronously
@@ -127,9 +128,20 @@ export function AccountDetailView({
           </header>
 
           <section aria-labelledby="account-balance-label" className="flex flex-col gap-1">
-            <p id="account-balance-label" className="text-muted-foreground text-sm">
-              {formatIban(account.name)}
-            </p>
+            {personalisedName ? (
+              <>
+                <p className="text-foreground text-xl font-semibold leading-tight">
+                  {personalisedName}
+                </p>
+                <p id="account-balance-label" className="text-muted-foreground text-sm">
+                  {formatIban(account.name)}
+                </p>
+              </>
+            ) : (
+              <p id="account-balance-label" className="text-muted-foreground text-sm">
+                {formatIban(account.name)}
+              </p>
+            )}
             <p
               className={cn(
                 'text-4xl font-bold tracking-tight tabular-nums',

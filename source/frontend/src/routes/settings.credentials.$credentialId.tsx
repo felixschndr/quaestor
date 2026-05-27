@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft } from 'lucide-react'
@@ -8,9 +8,20 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuthMe, type AccountRead, type CredentialRead } from '@/lib/auth'
-import { bankIconUrl, useUpdateAccount } from '@/lib/accounts'
+import {
+  accountDisplayName,
+  accountSecondaryName,
+  bankIconUrl,
+  useUpdateAccount,
+  type AccountUpdatePayload,
+} from '@/lib/accounts'
 import { useDeleteCredential } from '@/lib/credentials'
-import { formatDateTime, formatEuro, formatIban } from '@/lib/format'
+import { formatDateTime, formatEuro } from '@/lib/format'
+
+// Wait this long after the user's last keystroke before auto-saving. Short
+// enough that "save on next focus" feels natural; long enough that we don't
+// fire a PATCH for every character.
+const AUTOSAVE_DEBOUNCE_MS = 600
 
 export const Route = createFileRoute('/settings/credentials/$credentialId')({
   component: CredentialDetailPage,
@@ -130,42 +141,64 @@ function AccountsSection({ accounts }: { accounts: AccountRead[] }) {
 
 function AccountRow({ account }: { account: AccountRead }) {
   const { t } = useTranslation()
-  // Initial value follows the server prop; once the user starts editing, local
-  // state diverges until they save (or navigate away and the component remounts).
+  // Initial values follow the server props; once the user starts editing, local
+  // state diverges until the debounced auto-save settles it back.
   const [factor, setFactor] = useState<string>(String(account.balance_factor))
-  const update = useUpdateAccount()
+  const [displayName, setDisplayName] = useState<string>(account.display_name ?? '')
+  // `mutateAsync` is stable across renders (React Query guarantee), so it's
+  // safe to depend on directly without a ref.
+  const { mutateAsync } = useUpdateAccount()
 
   const parsed = Number(factor)
-  const isValidInteger =
+  const isValidFactor =
     factor.length > 0 && Number.isInteger(parsed) && parsed >= 0 && parsed <= 100
-  const dirty = isValidInteger && parsed !== account.balance_factor
+  const factorDirty = isValidFactor && parsed !== account.balance_factor
 
-  const onSubmit = async (event: FormEvent) => {
-    event.preventDefault()
-    if (!dirty) return
-    try {
-      await update.mutateAsync({ accountId: account.id, balance_factor: parsed })
-      toast.success(t('credentials.detail.balanceFactorSaved'))
-    } catch {
-      toast.error(t('credentials.detail.deleteFailed'))
-    }
-  }
+  const trimmedDisplay = displayName.trim()
+  const normalisedDisplay: string | null = trimmedDisplay.length === 0 ? null : trimmedDisplay
+  const displayNameDirty = normalisedDisplay !== (account.display_name ?? null)
+  const hasPendingSave = factorDirty || displayNameDirty
 
-  const trimmedDisplayName = account.display_name?.trim()
-  const formattedIban = formatIban(account.name)
-  const title = trimmedDisplayName || formattedIban
-  const subtitle = trimmedDisplayName ? formattedIban : null
-  const effectiveFactor = isValidInteger ? parsed : account.balance_factor
+  // Auto-save after the user pauses typing. Cancel & reschedule on every keystroke
+  // so we only fire a single PATCH for a burst of edits.
+  useEffect(() => {
+    if (!hasPendingSave) return
+    const payload: AccountUpdatePayload = {}
+    if (factorDirty) payload.balance_factor = parsed
+    if (displayNameDirty) payload.display_name = normalisedDisplay
+
+    const handle = setTimeout(() => {
+      mutateAsync({ accountId: account.id, ...payload }).then(
+        () => toast.success(t('credentials.detail.saved')),
+        () => toast.error(t('credentials.detail.saveFailed')),
+      )
+    }, AUTOSAVE_DEBOUNCE_MS)
+    return () => clearTimeout(handle)
+  }, [
+    account.id,
+    factorDirty,
+    displayNameDirty,
+    parsed,
+    normalisedDisplay,
+    hasPendingSave,
+    mutateAsync,
+    t,
+  ])
+
+  const cardTitle = accountDisplayName(account)
+  const cardSubtitle = accountSecondaryName(account)
+  const effectiveFactor = isValidFactor ? parsed : account.balance_factor
   const effectiveBalance = (account.balance * effectiveFactor) / 100
-  const inputId = `account-${account.id}-balance-factor`
+  const factorInputId = `account-${account.id}-balance-factor`
+  const nameInputId = `account-${account.id}-display-name`
 
   return (
     <li className="border-border bg-card flex flex-col rounded-lg border shadow-sm">
       <div className="flex items-start justify-between gap-3 p-4">
         <div className="flex min-w-0 flex-col">
-          <span className="text-foreground truncate text-base font-medium">{title}</span>
-          {subtitle ? (
-            <span className="text-muted-foreground truncate text-xs">{subtitle}</span>
+          <span className="text-foreground truncate text-base font-medium">{cardTitle}</span>
+          {cardSubtitle ? (
+            <span className="text-muted-foreground truncate text-xs">{cardSubtitle}</span>
           ) : null}
         </div>
         <span className="text-foreground shrink-0 text-base font-semibold tabular-nums">
@@ -173,12 +206,28 @@ function AccountRow({ account }: { account: AccountRead }) {
         </span>
       </div>
       <div className="border-border/60 border-t" />
-      <form onSubmit={onSubmit} className="flex flex-col gap-3 p-4">
-        {/* Two-row grid so the two labels share a baseline and the input + computed
-            value + save button share another. */}
+      <div className="flex flex-col gap-4 p-4">
+        <div className="flex flex-col gap-1.5">
+          <Label
+            htmlFor={nameInputId}
+            className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
+          >
+            {t('credentials.detail.displayName')}
+          </Label>
+          <Input
+            id={nameInputId}
+            type="text"
+            value={displayName}
+            onChange={(event) => setDisplayName(event.target.value)}
+            placeholder={t('credentials.detail.displayNamePlaceholder')}
+            maxLength={150}
+          />
+          <p className="text-muted-foreground text-xs">{t('credentials.detail.displayNameHint')}</p>
+        </div>
+
         <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1.5">
           <Label
-            htmlFor={inputId}
+            htmlFor={factorInputId}
             className="text-muted-foreground row-start-1 text-[0.65rem] font-medium uppercase tracking-wide"
           >
             {t('credentials.detail.balanceFactor')}
@@ -189,7 +238,7 @@ function AccountRow({ account }: { account: AccountRead }) {
 
           <div className="border-input bg-background focus-within:border-ring focus-within:ring-ring/50 row-start-2 flex h-8 w-24 items-center rounded-lg border pr-2.5 transition-colors focus-within:ring-3">
             <Input
-              id={inputId}
+              id={factorInputId}
               type="number"
               inputMode="numeric"
               min={0}
@@ -197,7 +246,7 @@ function AccountRow({ account }: { account: AccountRead }) {
               step={1}
               value={factor}
               onChange={(event) => setFactor(event.target.value)}
-              aria-invalid={!isValidInteger || undefined}
+              aria-invalid={!isValidFactor || undefined}
               className="h-7 border-0 bg-transparent pr-1 text-right tabular-nums shadow-none focus-visible:border-0 focus-visible:ring-0"
             />
             <span className="text-muted-foreground text-sm">%</span>
@@ -205,17 +254,9 @@ function AccountRow({ account }: { account: AccountRead }) {
           <span className="text-foreground row-start-2 text-sm font-medium tabular-nums">
             {formatEuro(effectiveBalance)}
           </span>
-
-          <Button
-            type="submit"
-            size="sm"
-            disabled={!dirty || update.isPending}
-            className="col-start-3 row-start-2 ml-auto"
-          >
-            {update.isPending ? t('credentials.detail.saving') : t('credentials.detail.save')}
-          </Button>
         </div>
-        {!isValidInteger ? (
+
+        {!isValidFactor ? (
           <p role="alert" className="text-destructive text-xs">
             {t('credentials.detail.balanceFactorRange')}
           </p>
@@ -224,7 +265,7 @@ function AccountRow({ account }: { account: AccountRead }) {
             {t('credentials.detail.balanceFactorHint')}
           </p>
         )}
-      </form>
+      </div>
     </li>
   )
 }
