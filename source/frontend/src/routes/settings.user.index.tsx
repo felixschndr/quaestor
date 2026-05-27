@@ -17,9 +17,11 @@ import {
   useAuthMe,
   usePasswordRequirements,
   type PasswordRequirements,
+  type Theme,
   type UserRead,
 } from '@/lib/auth'
 import { useDeleteUser, useSupportedLanguages, useUpdateUser } from '@/lib/user'
+import { applyTheme, THEME_VALUES } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/settings/user/')({
@@ -51,6 +53,7 @@ export function SettingsUserPageContent({ user, onAccountDeleted }: SettingsUser
       </header>
 
       <LanguageSection user={user} />
+      <ThemeSection user={user} />
       <DisplayNameSection user={user} />
       <PasswordSection user={user} />
       <DangerZone user={user} onAccountDeleted={onAccountDeleted} />
@@ -183,6 +186,49 @@ function LanguageSection({ user }: { user: UserRead }) {
           {sortedLanguages.map(({ code, label }) => (
             <option key={code} value={code}>
               {label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </Section>
+  )
+}
+
+function ThemeSection({ user }: { user: UserRead }) {
+  const { t } = useTranslation()
+  const update = useUpdateUser(user.id)
+  const [pending, setPending] = useState(false)
+
+  const change = async (next: Theme) => {
+    if (next === user.theme) return
+
+    applyTheme(next)
+    setPending(true)
+    try {
+      await update.mutateAsync({ theme: next })
+      toast.success(t('settings.userSaved'))
+    } catch (err) {
+      applyTheme(user.theme)
+      toast.error(readApiErrorMessage(err, t))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <Section title={t('settings.theme')}>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="theme-select">{t('settings.theme')}</Label>
+        <select
+          id="theme-select"
+          value={user.theme}
+          disabled={pending}
+          onChange={(event) => void change(event.target.value as Theme)}
+          className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full max-w-xs rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 disabled:opacity-50 dark:bg-input/30"
+        >
+          {THEME_VALUES.map((value) => (
+            <option key={value} value={value}>
+              {t(`settings.theme${value.charAt(0)}${value.slice(1).toLowerCase()}`)}
             </option>
           ))}
         </select>

@@ -19,7 +19,9 @@ import {
   useRegister,
   useRegistrationAllowed,
   type PasswordRequirements,
+  type Theme,
 } from '@/lib/auth'
+import { applyTheme, readStoredTheme, THEME_VALUES } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
 const loginSearchSchema = z.object({
@@ -195,6 +197,7 @@ interface RegisterValues {
   display_name: string
   password: string
   password_confirm: string
+  theme: Theme
 }
 
 function buildRegisterSchema(t: (key: string) => string) {
@@ -204,6 +207,7 @@ function buildRegisterSchema(t: (key: string) => string) {
       display_name: z.string().min(1, { message: t('login.required') }),
       password: z.string().min(1, { message: t('login.required') }),
       password_confirm: z.string().min(1, { message: t('login.required') }),
+      theme: z.enum(THEME_VALUES as readonly [Theme, ...Theme[]]),
     })
     .refine((values) => values.password === values.password_confirm, {
       path: ['password_confirm'],
@@ -218,7 +222,15 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
 
   const form = useForm<RegisterValues>({
     resolver: zodResolver(buildRegisterSchema(t)),
-    defaultValues: { user_name: '', display_name: '', password: '', password_confirm: '' },
+    defaultValues: {
+      user_name: '',
+      display_name: '',
+      password: '',
+      password_confirm: '',
+      // Pre-fill with whatever the user already picked pre-login (or SYSTEM
+      // for a first-time visitor); the select reflects this default.
+      theme: readStoredTheme(),
+    },
   })
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -227,6 +239,7 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
         user_name: values.user_name,
         display_name: values.display_name,
         password: values.password,
+        theme: values.theme,
       })
       onSuccess()
     } catch (err) {
@@ -270,6 +283,28 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
         error={form.formState.errors.password_confirm?.message}
         {...form.register('password_confirm')}
       />
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="register-theme">{t('login.theme')}</Label>
+        <select
+          id="register-theme"
+          value={form.watch('theme')}
+          onChange={(event) => {
+            const next = event.target.value as Theme
+            form.setValue('theme', next)
+            // Live preview: applies to the whole page immediately so the user
+            // sees what they're picking before they submit.
+            applyTheme(next)
+          }}
+          className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 dark:bg-input/30"
+        >
+          {THEME_VALUES.map((value) => (
+            <option key={value} value={value}>
+              {t(`settings.theme${value.charAt(0)}${value.slice(1).toLowerCase()}`)}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {topLevelError ? <FormErrorBanner message={topLevelError} /> : null}
 

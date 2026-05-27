@@ -43,7 +43,11 @@ def register(
         raise PermissionDeniedError("New user registration is currently disabled")
 
     user = user_service.create_user(
-        db_session=db_session, user_name=payload.user_name, display_name=payload.display_name, password=payload.password
+        db_session=db_session,
+        user_name=payload.user_name,
+        display_name=payload.display_name,
+        password=payload.password,
+        theme=payload.theme,
     )
     logger.info(f"Registered {user}")
     raw_token = session_service.create_session(

@@ -18,11 +18,14 @@ export interface CredentialRead {
   requires_two_factor_authentication: boolean
 }
 
+export type Theme = 'LIGHT' | 'DARK' | 'SYSTEM'
+
 export interface UserRead {
   id: number
   user_name: string
   display_name: string
   language: string
+  theme: Theme
   balance: number
   credentials: CredentialRead[]
 }
@@ -134,6 +137,7 @@ export interface RegisterPayload {
   user_name: string
   display_name: string
   password: string
+  theme?: Theme
 }
 
 export function useRegister() {

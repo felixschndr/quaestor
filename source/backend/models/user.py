@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING, List
 
 from source.backend.models.base import Base
+from source.backend.models.theme import Theme
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,6 +20,7 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String)
     password_hash: Mapped[str] = mapped_column(String)
     language: Mapped[str] = mapped_column(String(length=10), default="en", server_default="en")
+    theme: Mapped[Theme] = mapped_column(SQLEnum(Theme), default=Theme.SYSTEM, server_default=Theme.SYSTEM.value)
 
     credentials: Mapped[List["Credential"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[List["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")

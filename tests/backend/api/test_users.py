@@ -45,6 +45,25 @@ def test_update_user_rejects_unsupported_language(http_client: TestClient):
     assert http_client.get("/api/auth/me").json()["language"] == "en"
 
 
+def test_update_user_changes_theme(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"theme": "DARK"})
+
+    assert response.status_code == 200
+    assert response.json()["theme"] == "DARK"
+    assert http_client.get("/api/auth/me").json()["theme"] == "DARK"
+
+
+def test_update_user_rejects_invalid_theme(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"theme": "neon"})
+
+    assert response.status_code == 422
+    assert http_client.get("/api/auth/me").json()["theme"] == "SYSTEM"
+
+
 def test_update_user_changes_password_with_correct_current_password(http_client: TestClient):
     user_id = register(http_client).json()["id"]
 

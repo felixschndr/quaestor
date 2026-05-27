@@ -7,6 +7,11 @@ import './index.css'
 import './i18n'
 import { queryClient } from './lib/queryClient'
 import { routeTree } from './routeTree.gen'
+import { applyTheme, readStoredTheme } from './lib/theme'
+
+// Apply the stored theme before the first paint so the user doesn't see a
+// flash of the wrong colours while /auth/me is in flight.
+applyTheme(readStoredTheme())
 
 const router = createRouter({
   routeTree,

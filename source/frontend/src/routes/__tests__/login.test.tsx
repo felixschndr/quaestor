@@ -203,6 +203,7 @@ describe('RegisterForm', () => {
       user_name: 'alice',
       display_name: 'Alice',
       password: 'Sup3rSecret!Pass',
+      theme: 'SYSTEM',
     })
   })
 })

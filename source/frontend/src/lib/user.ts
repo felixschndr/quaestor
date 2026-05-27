@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
-import { authQueryKeys, type UserRead } from './auth'
+import { authQueryKeys, type Theme, type UserRead } from './auth'
 
 export interface UserUpdatePayload {
   display_name?: string
   language?: string
+  theme?: Theme
   current_password?: string
   new_password?: string
 }

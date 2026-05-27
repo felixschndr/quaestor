@@ -1,3 +1,4 @@
+from source.backend.models.theme import Theme
 from source.backend.models.user import User
 from sqlalchemy.orm import sessionmaker
 
@@ -12,11 +13,20 @@ from tests.backend.conftest import (
 
 
 def test_user_repr_contains_identifying_fields_but_not_password():
-    user = User(id=1, user_name=USER_NAME, display_name=DISPLAY_NAME, password_hash=VALID_PASSWORD_HASH, language="en")
+    user = User(
+        id=1,
+        user_name=USER_NAME,
+        display_name=DISPLAY_NAME,
+        password_hash=VALID_PASSWORD_HASH,
+        language="en",
+        theme=Theme.SYSTEM,
+    )
 
     representation = repr(user)
 
-    assert representation == f"<User(id=1, user_name={USER_NAME}, display_name={DISPLAY_NAME}, language=en)>"
+    assert (
+        representation == f"<User(id=1, user_name={USER_NAME}, display_name={DISPLAY_NAME}, language=en, theme=SYSTEM)>"
+    )
     assert VALID_PASSWORD_HASH not in representation
 
 

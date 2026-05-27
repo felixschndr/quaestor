@@ -3,10 +3,12 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+:root {
+  --radius: 0.625rem;
+}
+
 :root,
 .dark {
-  --radius: 0.625rem;
-
   /* Brand palette per idea_for_frontend.md §4 */
   --background: #1e1e1e;
   --foreground: #ffffff;
@@ -31,6 +33,32 @@
 
   --success: oklch(0.69 0.17 162);
   --success-foreground: #1e1e1e;
+}
+
+.light {
+  --background: #ffffff;
+  --foreground: #1e1e1e;
+  --primary: #009eff;
+  --primary-foreground: #ffffff;
+  --ring: #009eff;
+
+  --card: #f8f8f8;
+  --card-foreground: var(--foreground);
+  --popover: #f8f8f8;
+  --popover-foreground: var(--foreground);
+  --secondary: #f0f0f0;
+  --secondary-foreground: var(--foreground);
+  --muted: #f0f0f0;
+  --muted-foreground: oklch(0.45 0 0);
+  --accent: var(--primary);
+  --accent-foreground: var(--primary-foreground);
+  --destructive: oklch(0.55 0.22 22);
+  --destructive-foreground: #ffffff;
+  --border: oklch(0 0 0 / 12%);
+  --input: oklch(0 0 0 / 15%);
+
+  --success: oklch(0.55 0.17 162);
+  --success-foreground: #ffffff;
 }
 
 @theme inline {
@@ -79,11 +107,19 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
     /* Reserve scrollbar space so mx-auto'd content doesn't recenter (and
        visibly shift) when a classic scrollbar appears mid-scroll. On
        macOS with overlay scrollbars this is a no-op. */
     scrollbar-gutter: stable;
+  }
+
+  :root,
+  .dark {
+    color-scheme: dark;
+  }
+
+  .light {
+    color-scheme: light;
   }
 
   html,

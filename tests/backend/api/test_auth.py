@@ -206,6 +206,42 @@ def test_me_returns_401_when_unauthenticated(http_client: TestClient):
     assert response.status_code == 401
 
 
+def test_register_defaults_theme_to_system(http_client: TestClient):
+    response = register(http_client)
+
+    assert response.status_code == 201
+    assert response.json()["theme"] == "SYSTEM"
+
+
+def test_register_accepts_explicit_theme(http_client: TestClient):
+    response = http_client.post(
+        "/api/auth/register",
+        json={
+            "user_name": USER_NAME,
+            "display_name": DISPLAY_NAME,
+            "password": VALID_PASSWORD,
+            "theme": "LIGHT",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["theme"] == "LIGHT"
+
+
+def test_register_rejects_invalid_theme(http_client: TestClient):
+    response = http_client.post(
+        "/api/auth/register",
+        json={
+            "user_name": USER_NAME,
+            "display_name": DISPLAY_NAME,
+            "password": VALID_PASSWORD,
+            "theme": "neon",
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_registration_allowed_returns_true_by_default(http_client: TestClient):
     response = http_client.get("/api/auth/registration_allowed")
 

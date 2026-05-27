@@ -214,10 +214,8 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 ## 5. Open / Deferred (linked from the TODO list below)
 
 - 2FA UI flow.
-- Transaction search/filter (UI + backend endpoint).
 - Push notifications.
-- Final color palette, typography, and logo.
-- Light mode.
+- Typography, and logo.
 
 ---
 
@@ -299,9 +297,9 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 
 ## Deferred / later
 - [ ] 2FA UI flow (modal during sync when `TWO_FACTOR_REQUIRED`).
-- [ ] Transaction search/filter — backend endpoint + frontend UI behind the magnifier icon.
+- [x] Transaction search/filter — backend endpoint + frontend UI behind the magnifier icon.
 - [ ] Push notifications (PWA).
 - [ ] i18n-friendly labels for `TransactionType` enum (replace raw enum values in UI).
-- [ ] Light mode.
+- [x] Light mode.
 - [ ] Final color palette, typography choice, logo / favicon, app name.
 - [ ] Editing the credential's own bank-side credentials (not only the linked accounts).

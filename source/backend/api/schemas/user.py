@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from source.backend.api.schemas.credential import CredentialRead
+from source.backend.models.theme import Theme
 from source.backend.services import i18n_service
 
 if TYPE_CHECKING:
@@ -28,6 +29,7 @@ class UserCreate(BaseModel):
     user_name: str
     display_name: str
     password: str = Field(min_length=MIN_PASSWORD_LENGTH)
+    theme: Theme = Theme.SYSTEM
 
     @field_validator("user_name")
     @classmethod
@@ -62,6 +64,7 @@ class UserRead(BaseModel):
     user_name: str
     display_name: str
     language: str
+    theme: Theme
     balance: float
     credentials: list[CredentialRead] = []
 
@@ -80,6 +83,7 @@ class UserLogin(BaseModel):
 class UserUpdate(BaseModel):
     display_name: str | None = None
     language: str | None = None
+    theme: Theme | None = None
     current_password: str | None = None
     new_password: str | None = Field(default=None, min_length=MIN_PASSWORD_LENGTH)
 
