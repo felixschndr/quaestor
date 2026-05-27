@@ -157,14 +157,25 @@ function AccountsSection({ credential }: { credential: CredentialRead }) {
           ))}
         </ul>
       )}
-      {isManual ? <AddManualAccountForm credentialId={credential.id} /> : null}
+      {isManual ? (
+        <AddManualAccountForm credentialId={credential.id} initiallyOpen={accounts.length === 0} />
+      ) : null}
     </section>
   )
 }
 
-function AddManualAccountForm({ credentialId }: { credentialId: number }) {
+function AddManualAccountForm({
+  credentialId,
+  initiallyOpen = false,
+}: {
+  credentialId: number
+  /** Open the form on first mount so a freshly-created manual credential lands
+   *  with the form ready — same effect as the user clicking "Add account",
+   *  without any backend seeding. Subsequent renders are unaffected. */
+  initiallyOpen?: boolean
+}) {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(initiallyOpen)
   const [name, setName] = useState('')
   const [balance, setBalance] = useState('')
   const create = useCreateManualAccount()

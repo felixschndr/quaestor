@@ -80,7 +80,9 @@ export function NewCredentialFormView({
       <header className="flex items-center gap-2">
         <BackLink />
         <h1 className="text-foreground text-2xl font-semibold">
-          {t('credentials.formTitle', { bank: bankTitle })}
+          {bankName === 'manual'
+            ? t('credentials.formTitleManual')
+            : t('credentials.formTitle', { bank: bankTitle })}
         </h1>
       </header>
 
@@ -231,7 +233,7 @@ function CredentialForm({
         <Button
           type="submit"
           disabled={confirm2fa.isPending || code.length === 0}
-          className="self-start"
+          className="w-full"
         >
           {confirm2fa.isPending
             ? t('credentials.twoFactor.submitting')
@@ -258,12 +260,14 @@ function CredentialForm({
         />
       ))}
 
-      <Button type="submit" disabled={submitting} className="self-start">
+      <Button type="submit" disabled={submitting} className="w-full">
         {isSyncing
           ? t('credentials.syncing')
           : create.isPending || startSync.isPending
             ? t('credentials.submitting')
-            : t('credentials.submit')}
+            : bank.name === 'manual'
+              ? t('credentials.submitManual')
+              : t('credentials.submit')}
       </Button>
     </form>
   )
