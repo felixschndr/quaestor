@@ -162,8 +162,15 @@ async def log_http_requests(request: Request, call_next: Callable[[Request], Awa
     response = await call_next(request)
     summary = f"{request.method} {request.url.path} -> {response.status_code}"
 
+    if response.status_code >= 500:
+        log_method = logger.error
+    elif response.status_code >= 400:
+        log_method = logger.warning
+    else:
+        log_method = logger.info
+
     if not log_level_is_debug:
-        logger.info(summary)
+        log_method(summary)
         return response
 
     response_body = b"".join([chunk async for chunk in response.body_iterator])
@@ -185,7 +192,7 @@ async def log_http_requests(request: Request, call_next: Callable[[Request], Awa
             ),
         },
     }
-    logger.info(summary, extra=extra)
+    log_method(summary, extra=extra)
     return rebuilt
 
 
