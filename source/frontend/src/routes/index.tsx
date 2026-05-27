@@ -88,11 +88,8 @@ export function OverviewView({ user, showProgressBar, progressVisualHint }: Over
         </Link>
       </header>
 
-      <section aria-labelledby="total-balance-label" className="flex flex-col items-center gap-1">
-        <p id="total-balance-label" className="text-muted-foreground text-sm">
-          {t('overview.totalBalance')}
-        </p>
-        <p className="text-primary text-4xl font-bold tracking-tight">{formatEuro(user.balance)}</p>
+      <section className="flex flex-col items-center gap-1">
+        <p className="text-primary text-5xl font-bold tracking-tight">{formatEuro(user.balance)}</p>
       </section>
 
       {hasAccounts ? <AccountGroupList groups={displayGroups} /> : <EmptyState />}
