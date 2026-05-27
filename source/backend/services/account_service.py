@@ -160,7 +160,14 @@ def create_manual_account(
 
 def delete_account(db_session: Session, account: Account) -> None:
     _require_manual_account(account)
+
+    parent_credential = account.credential
+    siblings_left = sum(1 for sibling in parent_credential.accounts if sibling.id != account.id)
     db_session.delete(account)
+    if siblings_left == 0:
+        db_session.delete(parent_credential)
+        logger.info(f"Deleted last manual account on {parent_credential}; deleted the credential too")
+
     db_session.commit()
     logger.info(f"Deleted manual {account}")
 

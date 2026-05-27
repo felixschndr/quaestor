@@ -3,6 +3,7 @@ from datetime import date, timedelta
 import pytest
 from fastapi.testclient import TestClient
 from source.backend.models.account import Account
+from source.backend.models.credential import Credential
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from sqlalchemy.orm import sessionmaker
@@ -603,6 +604,37 @@ def test_delete_account_removes_manual_account_with_its_transactions(
     with session_factory() as session:
         assert session.get(entity=Account, ident=account_id) is None
         assert session.query(Transaction).filter_by(account_id=account_id).count() == 0
+
+
+def test_delete_last_manual_account_also_deletes_its_credential(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = _create_manual_credential(http_client)
+    account_id = http_client.post("/api/account", json={"credential_id": credential_id, "name": "Wallet"}).json()["id"]
+
+    response = http_client.delete(f"/api/account/{account_id}")
+
+    assert response.status_code == 204
+    with session_factory() as session:
+        assert session.get(entity=Account, ident=account_id) is None
+        assert session.get(entity=Credential, ident=credential_id) is None
+
+
+def test_delete_one_of_many_manual_accounts_leaves_credential_intact(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    credential_id = _create_manual_credential(http_client)
+    first_account_id = http_client.post("/api/account", json={"credential_id": credential_id, "name": "Wallet"}).json()[
+        "id"
+    ]
+    http_client.post("/api/account", json={"credential_id": credential_id, "name": "Cash"})
+
+    response = http_client.delete(f"/api/account/{first_account_id}")
+
+    assert response.status_code == 204
+    with session_factory() as session:
+        assert session.get(entity=Account, ident=first_account_id) is None
+        assert session.get(entity=Credential, ident=credential_id) is not None
 
 
 def test_delete_account_rejects_non_manual_account(http_client: TestClient, session_factory: sessionmaker):
