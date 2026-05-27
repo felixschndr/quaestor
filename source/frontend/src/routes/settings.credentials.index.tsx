@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LayoutGrid, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useAuthMe, type CredentialRead, type UserRead } from '@/lib/auth'
@@ -51,7 +51,33 @@ export function SettingsCredentialsIndexView({ user }: SettingsCredentialsIndexV
           ))}
         </ul>
       )}
+
+      {credentials.length > 0 ? <ManageGroupsRow /> : null}
     </main>
+  )
+}
+
+function ManageGroupsRow() {
+  const { t } = useTranslation()
+  return (
+    <Link
+      to="/settings/credentials/groups"
+      className="border-border bg-card hover:bg-muted/60 flex items-center gap-3 rounded-lg border px-3 py-3 transition-colors"
+    >
+      <span
+        className="bg-muted text-foreground flex size-8 shrink-0 items-center justify-center rounded-md"
+        aria-hidden="true"
+      >
+        <LayoutGrid className="size-4" />
+      </span>
+      <span className="flex flex-1 flex-col">
+        <span className="text-sm font-medium">{t('credentials.groups.manage')}</span>
+        <span className="text-muted-foreground text-xs">
+          {t('credentials.groups.manageDescription')}
+        </span>
+      </span>
+      <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />
+    </Link>
   )
 }
 

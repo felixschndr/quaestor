@@ -4,8 +4,11 @@ from typing import TYPE_CHECKING, List
 
 from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
+from source.backend.models.account_group import (  # noqa: F401 — registers FK target table
+    AccountGroup,
+)
 from source.backend.models.base import Base
-from sqlalchemy import Float, ForeignKey, String
+from sqlalchemy import Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, attribute_keyed_dict, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -23,7 +26,14 @@ class Account(Base):
     balance: Mapped[float] = mapped_column(Float, default=0.0)
     balance_factor: Mapped[int] = mapped_column(default=100)
 
+    # User-defined grouping for the overview. NULL = "ungrouped" (rendered in a
+    # default bucket). `position` orders accounts within their group OR within
+    # the ungrouped bucket.
+    group_id: Mapped[int | None] = mapped_column(ForeignKey("account_groups.id", ondelete="SET NULL"), nullable=True)
+    position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
     credential: Mapped["Credential"] = relationship(back_populates="accounts")
+    group: Mapped["AccountGroup | None"] = relationship(back_populates="accounts")
     transactions: Mapped[List["Transaction"]] = relationship(back_populates="account", cascade="all, delete-orphan")
     balance_at_date: Mapped[dict[date, "AccountBalanceSnapshot"]] = relationship(
         back_populates="account",

@@ -115,4 +115,17 @@ describe('SettingsCredentialsIndexView', () => {
     render(<SettingsCredentialsIndexView user={buildUser([])} />)
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/settings')
   })
+
+  it('shows a link to the groups editor when at least one credential exists', () => {
+    render(
+      <SettingsCredentialsIndexView user={buildUser([buildCredential({ id: 1, bank: 'ing' })])} />,
+    )
+    const link = screen.getByRole('link', { name: /Arrange & group accounts/ })
+    expect(link).toHaveAttribute('href', '/settings/credentials/groups')
+  })
+
+  it('does not show the groups editor link when there are no credentials yet', () => {
+    render(<SettingsCredentialsIndexView user={buildUser([])} />)
+    expect(screen.queryByRole('link', { name: /Arrange & group accounts/ })).not.toBeInTheDocument()
+  })
 })

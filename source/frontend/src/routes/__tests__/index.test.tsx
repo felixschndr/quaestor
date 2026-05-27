@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 import type { UserRead } from '@/lib/auth'
@@ -50,8 +51,30 @@ function buildUser(overrides: Partial<UserRead> = {}): UserRead {
 }
 
 function render_(user: UserRead) {
-  return render(<OverviewView user={user} showProgressBar={false} progressVisualHint={0} />)
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <OverviewView user={user} showProgressBar={false} progressVisualHint={0} />
+    </QueryClientProvider>,
+  )
 }
+
+beforeEach(() => {
+  // Stub the /account_groups/layout fetch; the default (no custom groups)
+  // returns an empty layout so the overview falls back to "by bank".
+  globalThis.fetch = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify({ groups: [], ungrouped: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }),
+  ) as unknown as typeof fetch
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('OverviewView', () => {
   it('greets with display_name when set', () => {
@@ -149,6 +172,79 @@ describe('OverviewView', () => {
     expect(screen.getByText('Gehaltskonto')).toBeInTheDocument()
     // The IBAN does NOT — the overview is supposed to be just the personalised name.
     expect(screen.queryByText('DE12 3456 7890 0001')).not.toBeInTheDocument()
+  })
+
+  it('renders custom group headings when the user has defined account groups', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }] }],
+          ungrouped: [],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    ) as unknown as typeof fetch
+
+    const user = buildUser({
+      credentials: [
+        {
+          id: 1,
+          bank: 'ing',
+          accounts: [
+            {
+              id: 8,
+              name: 'DE12345678900001',
+              display_name: 'Gehaltskonto',
+              balance: 100,
+              balance_factor: 100,
+            },
+          ],
+          last_fetching_timestamp: null,
+          requires_two_factor_authentication: false,
+        },
+      ],
+    })
+    render_(user)
+
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Spar' })
+    expect(heading).toBeInTheDocument()
+  })
+
+  it('renders the "without group" heading when the layout has ungrouped accounts', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          groups: [{ id: 100, name: 'Spar', accounts: [] }],
+          ungrouped: [{ id: 8 }],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    ) as unknown as typeof fetch
+
+    const user = buildUser({
+      credentials: [
+        {
+          id: 1,
+          bank: 'ing',
+          accounts: [
+            {
+              id: 8,
+              name: 'DE12345678900001',
+              display_name: 'Gehaltskonto',
+              balance: 100,
+              balance_factor: 100,
+            },
+          ],
+          last_fetching_timestamp: null,
+          requires_two_factor_authentication: false,
+        },
+      ],
+    })
+    render_(user)
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Without group' }),
+    ).toBeInTheDocument()
   })
 
   it('renders negative account balances in the destructive color', () => {
