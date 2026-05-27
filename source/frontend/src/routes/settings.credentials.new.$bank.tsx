@@ -286,6 +286,10 @@ function handleCreateError(
   t: (key: string, opts?: Record<string, unknown>) => string,
   bankTitle: string,
 ) {
+  if (err instanceof ApiError && err.status === 409) {
+    toast.error(t('credentials.alreadyExists', { bank: bankTitle }))
+    return
+  }
   if (err instanceof ApiError && err.status === 422 && err.body && typeof err.body === 'object') {
     const detail = (err.body as { detail?: unknown }).detail
     if (Array.isArray(detail)) {

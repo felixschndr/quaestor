@@ -41,7 +41,7 @@ def _create_ing_credential(session_factory: sessionmaker, user_id: int, requires
 
 def test_validated_credentials_rejects_unexpected_fields():
     with pytest.raises(MissingCredentialFieldError, match="Unexpected field"):
-        credential_service._validated_credentials(
+        credential_service._validate_credentials(
             bank=BankProvider.ING,
             credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD, "bonus_field": "x"},
         )
@@ -49,7 +49,7 @@ def test_validated_credentials_rejects_unexpected_fields():
 
 def test_validated_credentials_rejects_missing_required_field():
     with pytest.raises(MissingCredentialFieldError, match="Missing required field"):
-        credential_service._validated_credentials(bank=BankProvider.ING, credentials={"username": BANK_USERNAME})
+        credential_service._validate_credentials(bank=BankProvider.ING, credentials={"username": BANK_USERNAME})
 
 
 def test_sync_all_due_credentials_counts_synced_skipped_failed(

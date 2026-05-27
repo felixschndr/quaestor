@@ -62,6 +62,43 @@ def test_create_credential_returns_created_credential(http_client: TestClient):
     assert body["requires_two_factor_authentication"] is False
 
 
+def test_create_credential_rejects_duplicate_for_same_user(http_client: TestClient):
+    register(http_client)
+    first = create_credential(http_client)
+    assert first.status_code == 201
+
+    second = create_credential(http_client)
+
+    assert second.status_code == 409
+    assert "already" in second.json()["detail"].lower()
+
+
+def test_create_credential_allows_same_bank_with_different_login(http_client: TestClient):
+    register(http_client)
+    first = create_credential(http_client)
+    assert first.status_code == 201
+
+    second = create_credential(
+        http_client,
+        credentials={"username": "different-user", "password": BANK_PASSWORD},
+    )
+
+    assert second.status_code == 201
+    assert second.json()["id"] != first.json()["id"]
+
+
+def test_create_credential_allows_same_login_for_different_user(http_client: TestClient):
+    register(http_client)
+    alice_credential = create_credential(http_client)
+    assert alice_credential.status_code == 201
+
+    register(http_client, user_name=SECOND_USER_NAME)
+    login_as(http_client, user_name=SECOND_USER_NAME)
+    bob_credential = create_credential(http_client)
+
+    assert bob_credential.status_code == 201
+
+
 def test_list_credentials_returns_empty_when_none_exist(http_client: TestClient):
     register(http_client)
 

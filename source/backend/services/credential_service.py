@@ -6,6 +6,7 @@ from source.backend.bank_handlers import BANKS_BY_NAME, SUPPORTED_BANKS, BankPro
 from source.backend.bank_handlers.base import TwoFactorStateCallback
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 from source.backend.exceptions import (
+    CredentialAlreadyExistsError,
     CredentialNotFoundError,
     MissingCredentialFieldError,
     ReauthenticationRequiredError,
@@ -59,7 +60,7 @@ def get_credential_for_user(db_session: Session, credential_id: int, user_id: in
     return credential
 
 
-def _validated_credentials(bank: BankProvider, credentials: dict[str, str]) -> dict[str, str]:
+def _validate_credentials(bank: BankProvider, credentials: dict[str, str]) -> dict[str, str]:
     bank_info = BANKS_BY_NAME[bank.value]
     required_fields = bank_info.handler.credential_fields(bank_info)
     missing = [field for field in required_fields if not credentials.get(field)]
@@ -82,10 +83,18 @@ def create_credential(
     credentials: dict[str, str],
 ) -> Credential:
     user = user_service.get_user_by_id(db_session=db_session, user_id=user_id)
+    validated_credentials = _validate_credentials(bank=bank, credentials=credentials)
+    existing_credentials = db_session.scalars(
+        select(Credential).where(Credential.user_id == user_id).where(Credential.bank == bank)
+    ).all()
+    if any(existing_credential.credentials == validated_credentials for existing_credential in existing_credentials):
+        raise CredentialAlreadyExistsError(
+            f"User {user_id} already has a {bank.value} credential with the same login data"
+        )
     credential = Credential(
         user=user,
         bank=bank,
-        credentials=_validated_credentials(bank=bank, credentials=credentials),
+        credentials=validated_credentials,
         last_fetching_timestamp=datetime.now() - INITIAL_FETCH_LOOKBACK,
     )
     db_session.add(credential)
