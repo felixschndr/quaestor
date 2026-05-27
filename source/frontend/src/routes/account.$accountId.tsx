@@ -206,27 +206,37 @@ function TransactionGroupList({
 }) {
   return (
     <ul className="flex flex-col gap-6">
-      {groups.map((group) => (
-        <li key={group.date} className="flex flex-col gap-2">
-          <DateHeader
-            date={group.date}
-            endOfDayBalance={group.endOfDayBalance}
-            today={today}
-            stickyTopOffset={stickyTopOffset}
-          />
-          <ul className="flex flex-col">
-            {group.transactions.map((transaction) => (
-              <TransactionRow
-                key={transaction.id}
-                accountId={accountId}
-                transaction={transaction}
-              />
-            ))}
-          </ul>
-        </li>
-      ))}
+      {groups.map((group) => {
+        const isFuture = isFutureDateString(group.date, today)
+        return (
+          <li key={group.date} className="flex flex-col gap-2">
+            <DateHeader
+              date={group.date}
+              endOfDayBalance={group.endOfDayBalance}
+              today={today}
+              stickyTopOffset={stickyTopOffset}
+            />
+            <ul className="flex flex-col">
+              {group.transactions.map((transaction) => (
+                <TransactionRow
+                  key={transaction.id}
+                  accountId={accountId}
+                  transaction={transaction}
+                  isFuture={isFuture}
+                />
+              ))}
+            </ul>
+          </li>
+        )
+      })}
     </ul>
   )
+}
+
+function isFutureDateString(isoDate: string, today?: Date): boolean {
+  const [y, m, d] = isoDate.split('-').map(Number)
+  const local = new Date(y, m - 1, d)
+  return relativeDateKey(local, today) === 'future'
 }
 
 function DateHeader({
@@ -246,7 +256,12 @@ function DateHeader({
   const [y, m, d] = date.split('-').map(Number)
   const local = new Date(y, m - 1, d)
   const relKey = relativeDateKey(local, today)
-  const label = relKey ? t(`account.${relKey}`) : formatDate(local)
+  const label =
+    relKey === 'future'
+      ? t('account.future', { date: formatDate(local) })
+      : relKey
+        ? t(`account.${relKey}`)
+        : formatDate(local)
   return (
     // grid (not flex+justify-between) so the columns have fixed positions and
     // don't reflow as the next sticky header pushes this one out. `top` is the
@@ -269,9 +284,13 @@ function DateHeader({
 function TransactionRow({
   accountId,
   transaction,
+  isFuture = false,
 }: {
   accountId: number
   transaction: TransactionRead
+  /** Future-dated transactions aren't reflected in account.balance yet — render
+   *  them muted so the user understands they're informational, not booked. */
+  isFuture?: boolean
 }) {
   const { t } = useTranslation()
   const negative = transaction.amount < 0
@@ -281,13 +300,18 @@ function TransactionRow({
       <Link
         to="/account/$accountId/transactions/$transactionId"
         params={{ accountId: String(accountId), transactionId: String(transaction.id) }}
-        className="hover:bg-muted/60 flex items-center gap-3 rounded-md px-2 py-3 transition-colors"
+        className={cn(
+          'hover:bg-muted/60 flex items-center gap-3 rounded-md px-2 py-3 transition-colors',
+          isFuture && 'opacity-60',
+        )}
       >
         <span className="flex-1 truncate text-sm font-medium">{otherParty}</span>
         <span
           className={cn(
             'text-sm font-semibold tabular-nums',
-            negative ? 'text-destructive' : 'text-success',
+            // Future txns get a neutral color: the destructive/success accent
+            // implies "this moved money" which isn't true until the date arrives.
+            isFuture ? 'text-muted-foreground' : negative ? 'text-destructive' : 'text-success',
           )}
         >
           {formatEuro(transaction.amount)}

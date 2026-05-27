@@ -18,6 +18,7 @@
     "balance": "Current balance",
     "today": "Today",
     "yesterday": "Yesterday",
+    "future": "Scheduled for {{date}}",
     "unknownParty": "Unknown",
     "empty": "No transactions yet.",
     "notFound": "Account not found.",
