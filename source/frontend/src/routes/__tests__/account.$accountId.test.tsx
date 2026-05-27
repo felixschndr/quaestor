@@ -109,6 +109,37 @@ describe('AccountDetailView', () => {
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/')
   })
 
+  it('shows the personalised name above the IBAN when one is set', () => {
+    render(
+      <AccountDetailView
+        account={{ ...account, name: 'DE12345678900001', display_name: 'Gehaltskonto' }}
+        pages={[]}
+        isFetchingNextPage={false}
+        hasNextPage={false}
+        onLoadMore={vi.fn()}
+        today={new Date(2026, 4, 22)}
+      />,
+    )
+    // Both labels visible; the personalised name dominates visually, the IBAN
+    // sits below as the muted secondary label.
+    expect(screen.getByText('Gehaltskonto')).toBeInTheDocument()
+    expect(screen.getByText('DE12 3456 7890 0001')).toBeInTheDocument()
+  })
+
+  it('shows only the IBAN when no personalised name is set', () => {
+    render(
+      <AccountDetailView
+        account={{ ...account, name: 'DE12345678900001', display_name: null }}
+        pages={[]}
+        isFetchingNextPage={false}
+        hasNextPage={false}
+        onLoadMore={vi.fn()}
+        today={new Date(2026, 4, 22)}
+      />,
+    )
+    expect(screen.getByText('DE12 3456 7890 0001')).toBeInTheDocument()
+  })
+
   it('renders the magnifier as a link to the search page for the current account', () => {
     renderView([])
     const search = screen.getByRole('link', { name: 'Search transactions' })

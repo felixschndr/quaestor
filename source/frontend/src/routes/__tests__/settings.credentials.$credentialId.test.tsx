@@ -128,29 +128,11 @@ describe('CredentialDetailView', () => {
     expect(inputs.map((input) => input.value)).toEqual(['100', '50'])
   })
 
-  it('keeps the save button disabled until the balance_factor value actually changes', async () => {
-    const user = userEvent.setup()
-    renderWithQuery(
-      <CredentialDetailView
-        credential={buildCredential({ accounts: [buildAccount({ id: 1, balance_factor: 100 })] })}
-        onDeleted={vi.fn()}
-      />,
-    )
-
-    const save = screen.getByRole('button', { name: 'Save' })
-    expect(save).toBeDisabled()
-
-    const input = screen.getByLabelText('Balance factor')
-    await user.clear(input)
-    await user.type(input, '60')
-    expect(save).toBeEnabled()
-  })
-
-  it('PATCHes the account when the balance_factor save button is clicked', async () => {
+  it('auto-saves the balance_factor after the user pauses typing', async () => {
     const user = userEvent.setup()
     const fetchMock = globalThis.fetch as Mock
     fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
-      if (url === '/api/accounts/1' && init?.method === 'PATCH') {
+      if (url === '/api/account/1' && init?.method === 'PATCH') {
         return Promise.resolve(
           jsonResponse({
             status: 200,
@@ -179,19 +161,22 @@ describe('CredentialDetailView', () => {
     const input = screen.getByLabelText('Balance factor')
     await user.clear(input)
     await user.type(input, '60')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
 
-    await waitFor(() => {
-      const call = fetchMock.mock.calls.find(
-        ([url, init]) => url === '/api/accounts/1' && init?.method === 'PATCH',
-      )
-      expect(call).toBeDefined()
-      expect(JSON.parse(call![1].body)).toEqual({ balance_factor: 60 })
-    })
+    await waitFor(
+      () => {
+        const call = fetchMock.mock.calls.find(
+          ([url, init]) => url === '/api/account/1' && init?.method === 'PATCH',
+        )
+        expect(call).toBeDefined()
+        expect(JSON.parse(call![1].body)).toEqual({ balance_factor: 60 })
+      },
+      { timeout: 2000 },
+    )
   })
 
-  it('flags values out of range as invalid and disables save', async () => {
+  it('flags values out of range as invalid and does not auto-save them', async () => {
     const user = userEvent.setup()
+    const fetchMock = globalThis.fetch as Mock
     renderWithQuery(
       <CredentialDetailView
         credential={buildCredential({ accounts: [buildAccount({ id: 1, balance_factor: 100 })] })}
@@ -204,7 +189,21 @@ describe('CredentialDetailView', () => {
     await user.type(input, '150')
 
     expect(screen.getByRole('alert')).toHaveTextContent('The value must between 0 and 100.')
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+    // Give the debounce a chance to fire — invalid input must not produce a PATCH.
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('does not show a save button — the form auto-saves silently', () => {
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential({ accounts: [buildAccount({ id: 1 })] })}
+        onDeleted={vi.fn()}
+      />,
+    )
+    // The only buttons should be the danger-zone delete button.
+    const buttons = screen.getAllByRole('button').map((b) => b.textContent)
+    expect(buttons).not.toContain('Save')
   })
 
   it('requires an explicit confirm before calling DELETE', async () => {
@@ -247,5 +246,144 @@ describe('CredentialDetailView', () => {
 
     expect(screen.getByRole('button', { name: 'Delete connection' })).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('pre-fills the personalised name input from the server value', () => {
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential({
+          accounts: [buildAccount({ id: 1, display_name: 'Gehaltskonto' })],
+        })}
+        onDeleted={vi.fn()}
+      />,
+    )
+    expect(screen.getByLabelText('Personalised name')).toHaveValue('Gehaltskonto')
+  })
+
+  it('shows the personalised name as the card title with the IBAN as subtitle', () => {
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential({
+          accounts: [
+            buildAccount({
+              id: 1,
+              name: 'DE12345678900001',
+              display_name: 'Gehaltskonto',
+            }),
+          ],
+        })}
+        onDeleted={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('Gehaltskonto')).toBeInTheDocument()
+    expect(screen.getByText('DE12 3456 7890 0001')).toBeInTheDocument()
+  })
+
+  it('auto-PATCHes display_name when only the personalised name changes', async () => {
+    const user = userEvent.setup()
+    const fetchMock = globalThis.fetch as Mock
+    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      if (url === '/api/account/1' && init?.method === 'PATCH') {
+        return Promise.resolve(jsonResponse({ status: 200, body: { id: 1 } }))
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+    })
+
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential({
+          accounts: [buildAccount({ id: 1, display_name: null, balance_factor: 100 })],
+        })}
+        onDeleted={vi.fn()}
+      />,
+    )
+
+    await user.type(screen.getByLabelText('Personalised name'), 'Sparkonto')
+
+    await waitFor(
+      () => {
+        const call = fetchMock.mock.calls.find(
+          ([url, init]) => url === '/api/account/1' && init?.method === 'PATCH',
+        )
+        expect(call).toBeDefined()
+        // balance_factor not in the payload — sending it would touch a value the
+        // user didn't intend to change.
+        expect(JSON.parse(call![1].body)).toEqual({ display_name: 'Sparkonto' })
+      },
+      { timeout: 2000 },
+    )
+  })
+
+  it('auto-clears the personalised name by sending null when the user empties the input', async () => {
+    const user = userEvent.setup()
+    const fetchMock = globalThis.fetch as Mock
+    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      if (url === '/api/account/1' && init?.method === 'PATCH') {
+        return Promise.resolve(jsonResponse({ status: 200, body: { id: 1 } }))
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+    })
+
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential({
+          accounts: [buildAccount({ id: 1, display_name: 'Gehaltskonto' })],
+        })}
+        onDeleted={vi.fn()}
+      />,
+    )
+
+    await user.clear(screen.getByLabelText('Personalised name'))
+
+    await waitFor(
+      () => {
+        const call = fetchMock.mock.calls.find(
+          ([url, init]) => url === '/api/account/1' && init?.method === 'PATCH',
+        )
+        expect(call).toBeDefined()
+        expect(JSON.parse(call![1].body)).toEqual({ display_name: null })
+      },
+      { timeout: 2000 },
+    )
+  })
+
+  it('debounces — a single PATCH covers a burst of edits to both fields', async () => {
+    const user = userEvent.setup()
+    const fetchMock = globalThis.fetch as Mock
+    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      if (url === '/api/account/1' && init?.method === 'PATCH') {
+        return Promise.resolve(jsonResponse({ status: 200, body: { id: 1 } }))
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+    })
+
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential({
+          accounts: [buildAccount({ id: 1, display_name: null, balance_factor: 100 })],
+        })}
+        onDeleted={vi.fn()}
+      />,
+    )
+
+    await user.type(screen.getByLabelText('Personalised name'), 'Sparkonto')
+    const factorInput = screen.getByLabelText('Balance factor')
+    await user.clear(factorInput)
+    await user.type(factorInput, '50')
+
+    await waitFor(
+      () => {
+        const patchCalls = fetchMock.mock.calls.filter(
+          ([url, init]) => url === '/api/account/1' && init?.method === 'PATCH',
+        )
+        // Exactly one PATCH for the whole burst — debounce coalesces edits.
+        expect(patchCalls).toHaveLength(1)
+        expect(JSON.parse(patchCalls[0]![1].body)).toEqual({
+          balance_factor: 50,
+          display_name: 'Sparkonto',
+        })
+      },
+      { timeout: 2000 },
+    )
   })
 })

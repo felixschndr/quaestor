@@ -10,6 +10,7 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { TransactionRead } from '@/lib/accountHistory'
+import { accountDisplayName } from '@/lib/accounts'
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
 import { formatDate, formatEuro, formatIban } from '@/lib/format'
 import {
@@ -397,7 +398,7 @@ function SearchResults({
   const accountNameById = useMemo(() => {
     const map = new Map<number, string>()
     for (const credential of credentials) {
-      for (const account of credential.accounts) map.set(account.id, formatIban(account.name))
+      for (const account of credential.accounts) map.set(account.id, accountDisplayName(account))
     }
     return map
   }, [credentials])
