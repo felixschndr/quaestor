@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -59,6 +60,47 @@ def test_loggable_json_body_returns_none_for_malformed_json():
 
 def test_loggable_json_body_returns_parsed_object_for_valid_json():
     assert main._loggable_json_body(raw=b'{"x": 1}', content_type="application/json") == {"x": 1}
+
+
+def _log_request_with_status(status_code: int, caplog: pytest.LogCaptureFixture) -> None:
+    async def runner() -> None:
+        request = MagicMock(spec=Request)
+        request.method = "POST"
+        request.url.path = "/api/something"
+        request.body = AsyncMock(return_value=b"")
+        request.headers = Headers({})
+        request.query_params = {}
+
+        async def call_next(_request: Request) -> MagicMock:  # noqa: ASYNC124
+            response = MagicMock()
+            response.status_code = status_code
+            response.media_type = "application/json"
+            response.headers = Headers({})
+            response.raw_headers = []
+
+            async def body_iterator():  # noqa: ASYNC124
+                for chunk in [b"{}"]:
+                    yield chunk
+
+            response.body_iterator = body_iterator()
+            return response
+
+        with caplog.at_level(logging.INFO, logger="source.backend.main"):
+            await main.log_http_requests(request=request, call_next=call_next)
+
+    asyncio.run(runner())
+
+
+@pytest.mark.parametrize(
+    argnames="status_code, expected_loglevel", argvalues=[(200, "INFO"), (405, "WARNING"), (500, "ERROR")]
+)
+def test_log_http_requests_uses_correct_log_level(
+    status_code: int, expected_loglevel: str, caplog: pytest.LogCaptureFixture
+):
+    _log_request_with_status(status_code=status_code, caplog=caplog)
+
+    record = next(r for r in caplog.records if "-> {}".format(status_code) in r.message)
+    assert record.levelname == expected_loglevel
 
 
 @pytest.mark.anyio
