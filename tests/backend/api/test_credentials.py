@@ -73,6 +73,17 @@ def test_create_credential_rejects_duplicate_for_same_user(http_client: TestClie
     assert "already" in second.json()["detail"].lower()
 
 
+def test_create_credential_allows_multiple_manual_credentials(http_client: TestClient):
+    register(http_client)
+    first = create_credential(http_client, bank="manual", credentials={})
+    assert first.status_code == 201
+
+    second = create_credential(http_client, bank="manual", credentials={})
+
+    assert second.status_code == 201
+    assert second.json()["id"] != first.json()["id"]
+
+
 def test_create_credential_allows_same_bank_with_different_login(http_client: TestClient):
     register(http_client)
     first = create_credential(http_client)

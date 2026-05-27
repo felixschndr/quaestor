@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -12,11 +12,15 @@ import {
   accountDisplayName,
   accountSecondaryName,
   bankIconUrl,
+  useCreateManualAccount,
+  useDeleteAccount,
   useUpdateAccount,
   type AccountUpdatePayload,
 } from '@/lib/accounts'
 import { useDeleteCredential } from '@/lib/credentials'
-import { formatDateTime, formatEuro } from '@/lib/format'
+import { formatDateTime, formatDecimal, formatEuro } from '@/lib/format'
+
+const MANUAL_BANK = 'manual'
 
 // Wait this long after the user's last keystroke before auto-saving. Short
 // enough that "save on next focus" feels natural; long enough that we don't
@@ -64,7 +68,7 @@ export function CredentialDetailView({ credential, onDeleted }: CredentialDetail
       ) : (
         <>
           <BankHeader credential={credential} bankTitle={bankTitle} />
-          <AccountsSection accounts={credential.accounts} />
+          <AccountsSection credential={credential} />
           <DangerZone credential={credential} bankTitle={bankTitle} onDeleted={onDeleted} />
         </>
       )}
@@ -119,27 +123,140 @@ function BankHeader({ credential, bankTitle }: { credential: CredentialRead; ban
   )
 }
 
-function AccountsSection({ accounts }: { accounts: AccountRead[] }) {
+function AccountsSection({ credential }: { credential: CredentialRead }) {
   const { t } = useTranslation()
+  const isManual = credential.bank === MANUAL_BANK
+  const accounts = credential.accounts
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
-        {t('credentials.detail.accountsHeading')}
-      </h2>
+      <header className="flex items-center justify-between gap-2">
+        <h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+          {t('credentials.detail.accountsHeading')}
+        </h2>
+      </header>
       {accounts.length === 0 ? (
-        <p className="text-muted-foreground text-sm">{t('credentials.detail.accountsEmpty')}</p>
+        <p className="text-muted-foreground text-sm">
+          {isManual
+            ? t('credentials.detail.accountsEmptyManual')
+            : t('credentials.detail.accountsEmpty')}
+        </p>
       ) : (
         <ul className="flex flex-col gap-3">
           {accounts.map((account) => (
-            <AccountRow key={account.id} account={account} />
+            <AccountRow key={account.id} account={account} isManual={isManual} />
           ))}
         </ul>
       )}
+      {isManual ? <AddManualAccountForm credentialId={credential.id} /> : null}
     </section>
   )
 }
 
-function AccountRow({ account }: { account: AccountRead }) {
+function AddManualAccountForm({ credentialId }: { credentialId: number }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [balance, setBalance] = useState('')
+  const create = useCreateManualAccount()
+
+  const trimmedName = name.trim()
+  const parsedBalance = balance.trim() === '' ? 0 : Number(balance)
+  const balanceValid = balance.trim() === '' || Number.isFinite(parsedBalance)
+  const canSubmit = trimmedName.length > 0 && balanceValid && !create.isPending
+
+  const reset = () => {
+    setName('')
+    setBalance('')
+    setOpen(false)
+  }
+
+  const submit = async () => {
+    if (!canSubmit) return
+    try {
+      await create.mutateAsync({
+        credential_id: credentialId,
+        name: trimmedName,
+        balance: parsedBalance,
+      })
+      toast.success(t('credentials.detail.newAccountCreated'))
+      reset()
+    } catch {
+      toast.error(t('credentials.detail.newAccountCreateFailed'))
+    }
+  }
+
+  if (!open) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen(true)}
+        className="self-start"
+      >
+        <Plus className="size-3.5" aria-hidden="true" />
+        {t('credentials.detail.addAccount')}
+      </Button>
+    )
+  }
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        void submit()
+      }}
+      className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4"
+    >
+      <div className="flex flex-col gap-1.5">
+        <Label
+          htmlFor={`new-account-name-${credentialId}`}
+          className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
+        >
+          {t('credentials.detail.newAccountName')}
+        </Label>
+        <Input
+          id={`new-account-name-${credentialId}`}
+          autoFocus
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder={t('credentials.detail.newAccountNamePlaceholder')}
+          maxLength={120}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label
+          htmlFor={`new-account-balance-${credentialId}`}
+          className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
+        >
+          {t('credentials.detail.newAccountBalance')}
+        </Label>
+        <Input
+          id={`new-account-balance-${credentialId}`}
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          value={balance}
+          onChange={(event) => setBalance(event.target.value)}
+          placeholder={formatDecimal(0)}
+          aria-invalid={!balanceValid || undefined}
+        />
+      </div>
+      <div className="flex gap-2">
+        <Button type="submit" disabled={!canSubmit}>
+          {create.isPending
+            ? t('credentials.detail.newAccountCreating')
+            : t('credentials.detail.newAccountCreate')}
+        </Button>
+        <Button type="button" variant="outline" onClick={reset} disabled={create.isPending}>
+          {t('common.cancel')}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function AccountRow({ account, isManual }: { account: AccountRead; isManual: boolean }) {
   const { t } = useTranslation()
   // Initial values follow the server props; once the user starts editing, local
   // state diverges until the debounced auto-save settles it back.
@@ -157,6 +274,7 @@ function AccountRow({ account }: { account: AccountRead }) {
   const trimmedDisplay = displayName.trim()
   const normalisedDisplay: string | null = trimmedDisplay.length === 0 ? null : trimmedDisplay
   const displayNameDirty = normalisedDisplay !== (account.display_name ?? null)
+
   const hasPendingSave = factorDirty || displayNameDirty
 
   // Auto-save after the user pauses typing. Cancel & reschedule on every keystroke
@@ -266,7 +384,73 @@ function AccountRow({ account }: { account: AccountRead }) {
           </p>
         )}
       </div>
+      {isManual ? (
+        <>
+          <div className="border-border/60 border-t" />
+          <DeleteAccountControls accountId={account.id} accountName={cardTitle} />
+        </>
+      ) : null}
     </li>
+  )
+}
+
+function DeleteAccountControls({
+  accountId,
+  accountName,
+}: {
+  accountId: number
+  accountName: string
+}) {
+  const { t } = useTranslation()
+  const [confirming, setConfirming] = useState(false)
+  const remove = useDeleteAccount()
+
+  const onConfirm = async () => {
+    try {
+      await remove.mutateAsync(accountId)
+      toast.success(`${t('credentials.detail.deleteAccountSuccess')}: ${accountName}`)
+    } catch {
+      toast.error(t('credentials.detail.deleteAccountFailed'))
+      setConfirming(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-2 p-3">
+      {confirming ? (
+        <>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={onConfirm}
+            disabled={remove.isPending}
+          >
+            {t('credentials.detail.deleteAccountConfirm')}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirming(false)}
+            disabled={remove.isPending}
+          >
+            {t('credentials.detail.deleteAccountCancel')}
+          </Button>
+        </>
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setConfirming(true)}
+          className="text-destructive hover:text-destructive"
+        >
+          <Trash2 className="size-3.5" aria-hidden="true" />
+          {t('credentials.detail.deleteAccount')}
+        </Button>
+      )}
+    </div>
   )
 }
 

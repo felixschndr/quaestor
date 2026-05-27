@@ -126,7 +126,10 @@ def update_transaction(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
     return account_service.update_transaction(
-        db_session=db_session, transaction=transaction, fields=payload.model_dump(exclude_unset=True)
+        db_session=db_session,
+        account=account,
+        transaction=transaction,
+        fields=payload.model_dump(exclude_unset=True),
     )
 
 

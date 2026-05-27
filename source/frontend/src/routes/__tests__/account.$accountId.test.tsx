@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
@@ -56,6 +57,14 @@ function buildTransaction(overrides: Partial<TransactionRead> = {}): Transaction
   }
 }
 
+function withClient(ui: React.ReactNode) {
+  // BalanceDisplay calls useUpdateAccount even before edit mode is entered, so
+  // the tests need a real QueryClient in scope. retry:false keeps failures
+  // from being masked by react-query's default retry behavior.
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+}
+
 function buildPage(overrides: Partial<AccountHistoryPage> = {}): AccountHistoryPage {
   return {
     transactions: [],
@@ -70,14 +79,16 @@ function buildPage(overrides: Partial<AccountHistoryPage> = {}): AccountHistoryP
 function renderView(pages: AccountHistoryPage[], opts: { hasNextPage?: boolean } = {}) {
   const onLoadMore = vi.fn()
   render(
-    <AccountDetailView
-      account={account}
-      pages={pages}
-      isFetchingNextPage={false}
-      hasNextPage={opts.hasNextPage ?? false}
-      onLoadMore={onLoadMore}
-      today={new Date(2026, 4, 22)}
-    />,
+    withClient(
+      <AccountDetailView
+        account={account}
+        pages={pages}
+        isFetchingNextPage={false}
+        hasNextPage={opts.hasNextPage ?? false}
+        onLoadMore={onLoadMore}
+        today={new Date(2026, 4, 22)}
+      />,
+    ),
   )
   return { onLoadMore }
 }
@@ -91,14 +102,16 @@ describe('AccountDetailView', () => {
 
   it('renders a negative balance in the destructive color', () => {
     render(
-      <AccountDetailView
-        account={{ ...account, balance: -200 }}
-        pages={[]}
-        isFetchingNextPage={false}
-        hasNextPage={false}
-        onLoadMore={vi.fn()}
-        today={new Date(2026, 4, 22)}
-      />,
+      withClient(
+        <AccountDetailView
+          account={{ ...account, balance: -200 }}
+          pages={[]}
+          isFetchingNextPage={false}
+          hasNextPage={false}
+          onLoadMore={vi.fn()}
+          today={new Date(2026, 4, 22)}
+        />,
+      ),
     )
     const amount = screen.getByText('-200,00 €')
     expect(amount.className).toMatch(/text-destructive/)
@@ -111,14 +124,16 @@ describe('AccountDetailView', () => {
 
   it('shows the personalised name above the IBAN when one is set', () => {
     render(
-      <AccountDetailView
-        account={{ ...account, name: 'DE12345678900001', display_name: 'Gehaltskonto' }}
-        pages={[]}
-        isFetchingNextPage={false}
-        hasNextPage={false}
-        onLoadMore={vi.fn()}
-        today={new Date(2026, 4, 22)}
-      />,
+      withClient(
+        <AccountDetailView
+          account={{ ...account, name: 'DE12345678900001', display_name: 'Gehaltskonto' }}
+          pages={[]}
+          isFetchingNextPage={false}
+          hasNextPage={false}
+          onLoadMore={vi.fn()}
+          today={new Date(2026, 4, 22)}
+        />,
+      ),
     )
     // Both labels visible; the personalised name dominates visually, the IBAN
     // sits below as the muted secondary label.
@@ -128,14 +143,16 @@ describe('AccountDetailView', () => {
 
   it('shows only the IBAN when no personalised name is set', () => {
     render(
-      <AccountDetailView
-        account={{ ...account, name: 'DE12345678900001', display_name: null }}
-        pages={[]}
-        isFetchingNextPage={false}
-        hasNextPage={false}
-        onLoadMore={vi.fn()}
-        today={new Date(2026, 4, 22)}
-      />,
+      withClient(
+        <AccountDetailView
+          account={{ ...account, name: 'DE12345678900001', display_name: null }}
+          pages={[]}
+          isFetchingNextPage={false}
+          hasNextPage={false}
+          onLoadMore={vi.fn()}
+          today={new Date(2026, 4, 22)}
+        />,
+      ),
     )
     expect(screen.getByText('DE12 3456 7890 0001')).toBeInTheDocument()
   })

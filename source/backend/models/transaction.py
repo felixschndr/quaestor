@@ -36,6 +36,10 @@ class Transaction(Base):
 
     account: Mapped["Account"] = relationship(back_populates="transactions")
 
+    FIELDS_THAT_ARE_ONLY_EDITABLE_ON_MANUAL_ACCOUNTS = frozenset(
+        {"amount", "date", "purpose", "other_party", "transaction_type"}
+    )
+
     @classmethod
     def from_fetched(cls: type["Transaction"], fetched_transaction: FetchedTransaction) -> "Transaction":
         transaction = cls(

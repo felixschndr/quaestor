@@ -22,6 +22,11 @@ class TransactionRead(BaseModel):
 class TransactionUpdate(BaseModel):
     note: str | None = None
     category: TransactionCategory | None = None
+    amount: float | None = None
+    date: datetime.date | None = None
+    purpose: str | None = None
+    other_party: str | None = None
+    transaction_type: TransactionType | None = None
 
 
 class TransactionCreate(BaseModel):

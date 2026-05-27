@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -641,3 +641,100 @@ def test_update_account_balance_rejected_for_non_manual_account(http_client: Tes
     response = http_client.patch(f"/api/account/{account_id}", json={"balance": 999.0})
 
     assert response.status_code == 403
+
+
+def test_update_transaction_amount_shifts_manual_account_balance(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    credential_id = _create_manual_credential(http_client)
+    account_id = http_client.post(
+        "/api/account",
+        json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0},
+    ).json()["id"]
+    transaction_id = http_client.post(
+        f"/api/account/{account_id}/transactions",
+        json={"amount": -10.0, "date": "2026-05-20"},
+    ).json()[
+        "id"
+    ]  # balance is now 90
+
+    response = http_client.patch(
+        f"/api/account/{account_id}/transactions/{transaction_id}",
+        json={"amount": -25.0, "purpose": "actually pricier"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["amount"] == -25.0
+    with session_factory() as session:
+        assert session.get(entity=Account, ident=account_id).balance == 75.0
+
+
+def test_update_transaction_rejects_financial_fields_for_non_manual_account(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.patch(
+        f"/api/account/{account_id}/transactions/{transaction_id}",
+        json={"amount": 999.0},
+    )
+
+    assert response.status_code == 403
+
+
+def test_create_transaction_rejects_future_date(http_client: TestClient):
+    register(http_client)
+    credential_id = _create_manual_credential(http_client)
+    account_id = http_client.post(
+        "/api/account", json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0}
+    ).json()["id"]
+    future = (date.today() + timedelta(days=14)).isoformat()
+
+    response = http_client.post(
+        f"/api/account/{account_id}/transactions",
+        json={"amount": 10.0, "date": future},
+    )
+
+    assert response.status_code == 422
+    assert "future" in response.json()["detail"].lower()
+
+
+def test_update_transaction_rejects_future_date(http_client: TestClient):
+    register(http_client)
+    credential_id = _create_manual_credential(http_client)
+    account_id = http_client.post(
+        "/api/account", json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0}
+    ).json()["id"]
+    transaction_id = http_client.post(
+        f"/api/account/{account_id}/transactions",
+        json={"amount": 10.0, "date": date.today().isoformat()},
+    ).json()["id"]
+    future = (date.today() + timedelta(days=14)).isoformat()
+
+    response = http_client.patch(
+        f"/api/account/{account_id}/transactions/{transaction_id}",
+        json={"date": future},
+    )
+
+    assert response.status_code == 422
+
+
+def test_update_transaction_still_accepts_note_on_non_manual_account(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.patch(
+        f"/api/account/{account_id}/transactions/{transaction_id}",
+        json={"note": "Still works"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["note"] == "Still works"

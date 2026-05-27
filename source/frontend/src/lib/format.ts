@@ -25,6 +25,15 @@ export function formatEuro(amount: number): string {
   return eurFormatter.format(amount)
 }
 
+const decimalFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+export function formatDecimal(value: number): string {
+  return decimalFormatter.format(value)
+}
+
 export function formatDate(d: Date | string): string {
   return dateFormatter.format(typeof d === 'string' ? new Date(d) : d)
 }
