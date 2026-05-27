@@ -16,9 +16,6 @@ FIXTURES = get_backend_test_path() / "fixtures"
 DASHBOARD_SNAPSHOT = json.loads((FIXTURES / "dfs_dashboard_snapshot_response.json").read_text())
 TRANSACTIONS = json.loads((FIXTURES / "dfs_transactions_response.json").read_text())
 
-USERNAME = USER_NAME
-PASSWORD = VALID_PASSWORD
-
 LOGIN_URL = f"{_DFSSession.BASE_URL}/acapif/portal-{_DFSSession.CUSTOMER}/public_login.prt"
 DASHBOARD_REDIRECT_URL = f"{_DFSSession.BASE_URL}/acaphc/Dashboard.action"
 # 1777500000000 ms ≈ 2026-04-29; 1774908000000 ms ≈ 2026-03-30
@@ -87,7 +84,7 @@ def patch_session(monkeypatch: pytest.MonkeyPatch, fake: FakeSession) -> None:
 
 
 def dfs_session() -> _DFSSession:
-    return _DFSSession(username=USERNAME, password=PASSWORD)
+    return _DFSSession(username=USER_NAME, password=VALID_PASSWORD)
 
 
 def test_get_accounts_returns_fund_names_from_dashboard_snapshot(monkeypatch: pytest.MonkeyPatch):
@@ -175,8 +172,8 @@ def test_login_request_sends_credentials_and_return_url(monkeypatch: pytest.Monk
 
     [login_call] = [call for call in fake_session.calls if "login.action" in call[1]]
     assert login_call[2]["data"] == {
-        "benutzername": USERNAME,
-        "passwort": PASSWORD,
+        "benutzername": USER_NAME,
+        "passwort": VALID_PASSWORD,
         "return_url": LOGIN_URL,
     }
 
@@ -184,11 +181,11 @@ def test_login_request_sends_credentials_and_return_url(monkeypatch: pytest.Monk
 def test_handler_session_yields_session_with_credentials():
     handler = DFSHandler(
         bank_info=object(),
-        credentials={"username": USERNAME, "password": PASSWORD},
+        credentials={"username": USER_NAME, "password": VALID_PASSWORD},
     )
     with handler.session() as session:
         assert isinstance(session, _DFSSession)
-        assert session.username == USERNAME
-        assert session.password == PASSWORD
+        assert session.username == USER_NAME
+        assert session.password == VALID_PASSWORD
         assert _DFSSession.CUSTOMER == "dfsbav"
         assert session._login_url == LOGIN_URL

@@ -165,12 +165,19 @@
   },
   "banks": {
     "ing": { "title": "ING" },
-    "dkb": { "title": "DKB" },
+    "dkb": {
+      "title": "DKB",
+      "note": "Nach dem Verbinden bekommst du eine Push-Benachrichtigung in der DKB-App; diese bitte dort freigeben, damit die Synchronisierung fortgesetzt werden kann."
+    },
     "sparkasse": {
       "title": "Sparkasse",
-      "note": "Nach dem Verbinden bekommst du eine Push-Benachrichtigung in deiner Sparkassen-App; diese bitte dort freigeben, damit die Synchronisierung weitergeht."
+      "note": "Nach dem Verbinden bekommst du eine Push-Benachrichtigung in der Sparkassen-App; diese bitte dort freigeben, damit die Synchronisierung fortgesetzt werden kann."
     },
-    "dfs": { "title": "DFS" },
+    "dfs": { "title": "DFS", "note": "Altersvorsorge der Deutschen Flugsicherung GmbH." },
+    "fin4u": {
+      "title": "fin4u",
+      "note": "Altersvorsorge bei fin4u. Es werden keine Einzeltransaktionen unterstützt, da die Webseite diese Informationen nicht bereitstellt."
+    },
     "trade_republic": {
       "title": "Trade Republic",
       "note": "Die Telefonnummer muss im Format +491234567890 sein (mit '+' und Ländervorwahl, ohne Leerzeichen)."
