@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Plus, Trash2 } from 'lucide-react'
@@ -35,9 +35,19 @@ function CredentialDetailPage() {
   const { credentialId } = Route.useParams()
   const { data: user } = useAuthMe()
   const router = useRouter()
+  const credential = user?.credentials.find((c) => c.id === Number(credentialId))
+
+  const hadCredential = useRef(false)
+  useEffect(() => {
+    if (credential) {
+      hadCredential.current = true
+    } else if (hadCredential.current && user) {
+      router.history.push('/settings/credentials')
+    }
+  }, [credential, user, router])
+
   if (!user) return null // root guard already redirected on 401
 
-  const credential = user.credentials.find((c) => c.id === Number(credentialId))
   return (
     <CredentialDetailView
       credential={credential}
