@@ -12,6 +12,11 @@ import {
   displayNameOrUserName,
   groupAccountsByBank,
 } from '@/lib/accounts'
+import {
+  useAccountGroupLayout,
+  type AccountGroupAccountRef,
+  type AccountGroupLayout,
+} from '@/lib/accountGroups'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { cn } from '@/lib/utils'
 
@@ -53,8 +58,14 @@ interface OverviewViewProps {
 
 export function OverviewView({ user, showProgressBar, progressVisualHint }: OverviewViewProps) {
   const { t } = useTranslation()
-  const groups = useMemo(() => groupAccountsByBank(user.credentials), [user.credentials])
-  const hasAccounts = groups.some((group) => group.accounts.length > 0)
+  // When the user has defined custom groups, render by those. Otherwise fall
+  // back to the original "by bank" layout (with no group headings).
+  const customLayout = useAccountGroupLayout()
+  const displayGroups = useMemo(
+    () => buildDisplayGroups(user, customLayout.data),
+    [user, customLayout.data],
+  )
+  const hasAccounts = displayGroups.some((group) => group.accounts.length > 0)
 
   return (
     <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-4">
@@ -84,9 +95,66 @@ export function OverviewView({ user, showProgressBar, progressVisualHint }: Over
         <p className="text-primary text-4xl font-bold tracking-tight">{formatEuro(user.balance)}</p>
       </section>
 
-      {hasAccounts ? <AccountGroupList groups={groups} /> : <EmptyState />}
+      {hasAccounts ? <AccountGroupList groups={displayGroups} /> : <EmptyState />}
     </main>
   )
+}
+
+interface DisplayGroup {
+  /** React key per row. */
+  key: string
+  /** Visible heading. Null = no heading (legacy "by bank" layout). */
+  heading: string | null
+  accounts: AccountWithBank[]
+}
+
+interface AccountWithBank extends AccountRead {
+  bank: string
+}
+
+function buildDisplayGroups(
+  user: UserRead,
+  layout: AccountGroupLayout | undefined,
+): DisplayGroup[] {
+  const usesCustomLayout = !!layout && layout.groups.length > 0
+  if (!usesCustomLayout) {
+    // Original behaviour: group by bank, no headings; each account keeps its own bank icon.
+    return groupAccountsByBank(user.credentials).map((group) => ({
+      key: `bank-${group.bank}`,
+      heading: null,
+      accounts: group.accounts.map((account) => ({ ...account, bank: group.bank })),
+    }))
+  }
+  const lookup = buildAccountLookup(user)
+  const resolveAccounts = (refs: AccountGroupAccountRef[]) =>
+    refs.map((ref) => lookup.get(ref.id)).filter((account): account is AccountWithBank => !!account)
+
+  const groups: DisplayGroup[] = layout!.groups.map((group) => ({
+    key: `group-${group.id}`,
+    heading: group.name,
+    accounts: resolveAccounts(group.accounts),
+  }))
+  const ungroupedAccounts = resolveAccounts(layout!.ungrouped)
+  if (ungroupedAccounts.length > 0) {
+    groups.push({
+      key: 'ungrouped',
+      // i18n key resolved in OverviewView's render path via t() — pass the
+      // already-resolved string here to keep DisplayGroup pure-data.
+      heading: '__ungrouped__',
+      accounts: ungroupedAccounts,
+    })
+  }
+  return groups
+}
+
+function buildAccountLookup(user: UserRead): Map<number, AccountWithBank> {
+  const map = new Map<number, AccountWithBank>()
+  for (const credential of user.credentials) {
+    for (const account of credential.accounts) {
+      map.set(account.id, { ...account, bank: credential.bank })
+    }
+  }
+  return map
 }
 
 function TopProgressBar({ visible, hint }: { visible: boolean; hint: number }) {
@@ -107,18 +175,30 @@ function TopProgressBar({ visible, hint }: { visible: boolean; hint: number }) {
   )
 }
 
-function AccountGroupList({ groups }: { groups: ReturnType<typeof groupAccountsByBank> }) {
+function AccountGroupList({ groups }: { groups: DisplayGroup[] }) {
+  const { t } = useTranslation()
   return (
     <ul className="flex flex-col gap-6">
-      {groups.map((group) => (
-        <li key={group.bank} className="flex flex-col gap-2">
-          <ul className="flex flex-col">
-            {group.accounts.map((account) => (
-              <AccountRow key={account.id} bank={group.bank} account={account} />
-            ))}
-          </ul>
-        </li>
-      ))}
+      {groups.map((group) => {
+        const heading =
+          group.heading === '__ungrouped__'
+            ? t('credentials.groups.ungroupedHeading')
+            : group.heading
+        return (
+          <li key={group.key} className="flex flex-col gap-2">
+            {heading ? (
+              <h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+                {heading}
+              </h2>
+            ) : null}
+            <ul className="flex flex-col">
+              {group.accounts.map((account) => (
+                <AccountRow key={account.id} bank={account.bank} account={account} />
+              ))}
+            </ul>
+          </li>
+        )
+      })}
     </ul>
   )
 }

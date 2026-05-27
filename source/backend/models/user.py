@@ -7,6 +7,7 @@ from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
+    from source.backend.models.account_group import AccountGroup
     from source.backend.models.credential import Credential
     from source.backend.models.session import UserSession
 
@@ -24,6 +25,11 @@ class User(Base):
 
     credentials: Mapped[List["Credential"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[List["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    account_groups: Mapped[List["AccountGroup"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="AccountGroup.position",
+    )
 
     @property
     def balance(self) -> float:
