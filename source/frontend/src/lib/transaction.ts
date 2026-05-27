@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
 import { accountQueryKeys, type TransactionRead } from './accountHistory'
+import { authQueryKeys } from './auth'
 
 /**
  * Mirrors `TransactionType` in source/backend/models/transaction_type.py.
@@ -82,6 +83,13 @@ export function useTransaction(accountId: number, transactionId: number) {
 export interface TransactionPatch {
   note?: string | null
   category?: TransactionCategory
+  // Manual-account-only fields. The backend rejects (403) if sent for synced
+  // accounts.
+  amount?: number
+  date?: string // ISO yyyy-mm-dd
+  purpose?: string | null
+  other_party?: string | null
+  transaction_type?: TransactionType | null
 }
 
 export function useUpdateTransaction(accountId: number, transactionId: number) {
@@ -98,6 +106,46 @@ export function useUpdateTransaction(accountId: number, transactionId: number) {
       // note, category). Invalidate so the next visit re-pulls the row with
       // the new value — cheap because react-query only refetches what's mounted.
       queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(accountId) })
+      // Editing the amount of a manual txn shifts account.balance on the
+      // server (which lives in the `me` query); refresh so headlines update.
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+    },
+  })
+}
+
+export interface TransactionCreatePayload {
+  amount: number
+  date: string // ISO yyyy-mm-dd
+  purpose?: string | null
+  other_party?: string | null
+  transaction_type?: TransactionType | null
+  category?: TransactionCategory | null
+  note?: string | null
+}
+
+export function useCreateTransaction(accountId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: TransactionCreatePayload) =>
+      api<TransactionRead>(`/account/${accountId}/transactions`, {
+        method: 'POST',
+        body: payload,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(accountId) })
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+    },
+  })
+}
+
+export function useDeleteTransaction(accountId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (transactionId: number) =>
+      api<void>(`/account/${accountId}/transactions/${transactionId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(accountId) })
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     },
   })
 }

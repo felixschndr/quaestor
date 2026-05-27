@@ -36,7 +36,12 @@ function NewCredentialFormPage() {
       bank={matched}
       isLoading={banks.isLoading}
       onCancel={() => router.history.push('/settings/credentials')}
-      onConnected={() => router.history.push('/')}
+      // Manual credentials land empty (no accounts yet) and need a follow-up
+      // visit to /settings/credentials/<id> to add accounts. Synced credentials
+      // already have accounts after sync, so jump straight to the overview.
+      onConnected={(credentialId) =>
+        router.history.push(bankName === 'manual' ? `/settings/credentials/${credentialId}` : '/')
+      }
       onSyncFailed={() => router.history.push('/settings/credentials')}
     />
   )
@@ -47,8 +52,10 @@ export interface NewCredentialFormViewProps {
   bank: SupportedBank | undefined
   isLoading: boolean
   onCancel: () => void
-  /** Called after both create + sync succeed. */
-  onConnected: () => void
+  /** Called after both create + sync succeed. Receives the new credential id
+   *  so the caller can route to a credential-specific page (manual creds need
+   *  to land on their detail view to add accounts). */
+  onConnected: (credentialId: number) => void
   /**
    * Called after the create succeeded but the follow-up sync failed. Per the
    * agreed UX, the credential stays in the database and the user gets bounced
@@ -114,7 +121,7 @@ function CredentialForm({
 }: {
   bank: SupportedBank
   bankTitle: string
-  onConnected: () => void
+  onConnected: (credentialId: number) => void
   onSyncFailed: () => void
 }) {
   const { t } = useTranslation()
@@ -132,13 +139,13 @@ function CredentialForm({
     if (!job || terminalHandled.current) return
     if (job.status === 'completed') {
       terminalHandled.current = true
-      onConnected()
+      if (activeJob) onConnected(activeJob.credentialId)
     } else if (job.status === 'failed') {
       terminalHandled.current = true
       toast.error(t('credentials.syncFailed', { bank: bankTitle }))
       onSyncFailed()
     }
-  }, [job, onConnected, onSyncFailed, t, bankTitle])
+  }, [job, activeJob, onConnected, onSyncFailed, t, bankTitle])
 
   const schema = useMemo(() => {
     const shape: Record<string, z.ZodString> = {}

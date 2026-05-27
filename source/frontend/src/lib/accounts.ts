@@ -62,6 +62,7 @@ export function displayNameOrUserName(user: { display_name: string; user_name: s
 export interface AccountUpdatePayload {
   balance_factor?: number
   display_name?: string | null
+  balance?: number
 }
 
 export function useUpdateAccount() {
@@ -69,6 +70,35 @@ export function useUpdateAccount() {
   return useMutation({
     mutationFn: ({ accountId, ...body }: AccountUpdatePayload & { accountId: number }) =>
       api<AccountRead>(`/account/${accountId}`, { method: 'PATCH', body }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+    },
+  })
+}
+
+export interface ManualAccountCreatePayload {
+  credential_id: number
+  name: string
+  display_name?: string | null
+  balance?: number
+  balance_factor?: number
+}
+
+export function useCreateManualAccount() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: ManualAccountCreatePayload) =>
+      api<AccountRead>('/account', { method: 'POST', body: payload }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+    },
+  })
+}
+
+export function useDeleteAccount() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (accountId: number) => api<void>(`/account/${accountId}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     },

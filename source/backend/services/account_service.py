@@ -5,6 +5,7 @@ from source.backend.exceptions import (
     AccountNotFoundError,
     PermissionDeniedError,
     TransactionNotFoundError,
+    ValidationError,
 )
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
@@ -72,11 +73,28 @@ def get_transaction_for_account(db_session: Session, account: Account, transacti
     return transaction
 
 
-def update_transaction(db_session: Session, transaction: Transaction, fields: dict) -> Transaction:
+def update_transaction(db_session: Session, account: Account, transaction: Transaction, fields: dict) -> Transaction:
+    manual_only = Transaction.FIELDS_THAT_ARE_ONLY_EDITABLE_ON_MANUAL_ACCOUNTS & set(fields)
+    if manual_only:
+        _require_manual_account(account)
+    if "date" in fields:
+        _reject_future_date(fields["date"])
+
     previous_category = transaction.category
+    previous_amount = transaction.amount
+    previous_date = transaction.date
     transaction_before_change = str(transaction)
     for key, value in fields.items():
         setattr(transaction, key, value)
+
+    amount_changed = "amount" in fields and transaction.amount != previous_amount
+    date_changed = "date" in fields and transaction.date != previous_date
+    if amount_changed:
+        account.balance = round(number=account.balance + (transaction.amount - previous_amount), ndigits=2)
+    if amount_changed or date_changed:
+        db_session.flush()
+        account.recompute_balances_at_date()
+
     db_session.commit()
     logger.info(f"Updated transaction {transaction_before_change} --> {transaction}")
     if "category" in fields and fields["category"] != previous_category:
@@ -147,8 +165,17 @@ def delete_account(db_session: Session, account: Account) -> None:
     logger.info(f"Deleted manual {account}")
 
 
+def _reject_future_date(value: date) -> None:
+    # Manual transactions can't be future-dated: account.balance is maintained as
+    # a running sum and we don't have a scheduler that rolls future txns in once
+    # their date arrives, so a future txn here would inflate today's balance.
+    if value > date.today():
+        raise ValidationError(f"Manual transactions cannot have a future date (got {value.isoformat()})")
+
+
 def create_manual_transaction(db_session: Session, account: Account, fields: dict) -> Transaction:
     _require_manual_account(account)
+    _reject_future_date(fields["date"])
     transaction = Transaction(
         account=account,
         amount=fields["amount"],

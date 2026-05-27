@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Search } from 'lucide-react'
+import { Check, ChevronLeft, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { useAuthMe, type AccountRead } from '@/lib/auth'
 import {
@@ -11,8 +12,15 @@ import {
   type AccountHistoryPage,
   type TransactionRead,
 } from '@/lib/accountHistory'
-import { formatDate, formatEuro, formatIban, relativeDateKey } from '@/lib/format'
+import { useUpdateAccount } from '@/lib/accounts'
+import { useDeleteTransaction } from '@/lib/transaction'
+import { formatDate, formatDecimal, formatEuro, formatIban, relativeDateKey } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { ManualTransactionForm } from '@/components/manual-transaction-form'
+
+const MANUAL_BANK = 'manual'
 
 export const Route = createFileRoute('/account/$accountId')({
   component: AccountDetailPage,
@@ -35,6 +43,7 @@ function AccountDetailPage() {
   return (
     <AccountDetailView
       account={accountInfo.account}
+      bank={accountInfo.bank}
       pages={history.data?.pages ?? []}
       isFetchingNextPage={history.isFetchingNextPage}
       hasNextPage={!!history.hasNextPage}
@@ -59,6 +68,9 @@ function AccountNotFoundView() {
 
 export interface AccountDetailViewProps {
   account: AccountRead
+  /** Defaults to undefined for tests; the page sets it from useAuthMe. Manual
+   *  accounts unlock the inline edit-balance / add-transaction affordances. */
+  bank?: string
   pages: AccountHistoryPage[]
   isFetchingNextPage: boolean
   hasNextPage: boolean
@@ -69,6 +81,7 @@ export interface AccountDetailViewProps {
 
 export function AccountDetailView({
   account,
+  bank,
   pages,
   isFetchingNextPage,
   hasNextPage,
@@ -80,6 +93,8 @@ export function AccountDetailView({
   const hasAnyTransactions = groups.length > 0
   const negative = account.balance < 0
   const personalisedName = account.display_name?.trim() || null
+  const isManual = bank === MANUAL_BANK
+  const [addingTxn, setAddingTxn] = useState(false)
 
   // The date headers below are sticky too — they need to stop at the bottom
   // edge of this header, not at the viewport top. Measure synchronously
@@ -127,7 +142,7 @@ export function AccountDetailView({
             </Link>
           </header>
 
-          <section aria-labelledby="account-balance-label" className="flex flex-col gap-1">
+          <section aria-labelledby="account-balance-label" className="flex flex-col gap-2">
             {personalisedName ? (
               <>
                 <p className="text-foreground text-xl font-semibold leading-tight">
@@ -142,14 +157,20 @@ export function AccountDetailView({
                 {formatIban(account.name)}
               </p>
             )}
-            <p
-              className={cn(
-                'text-4xl font-bold tracking-tight tabular-nums',
-                negative ? 'text-destructive' : 'text-primary',
-              )}
-            >
-              {formatEuro(account.balance)}
-            </p>
+            <BalanceDisplay account={account} isManual={isManual} negative={negative} />
+            {isManual ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAddingTxn((prev) => !prev)}
+                >
+                  <Plus className="size-3.5" aria-hidden="true" />
+                  {t('credentials.manualTransactions.add')}
+                </Button>
+              </div>
+            ) : null}
           </section>
         </div>
       </div>
@@ -160,12 +181,21 @@ export function AccountDetailView({
         // `pt-2` provided between header and first transaction group.
         style={{ paddingTop: `${stickyHeaderHeight + 8}px` }}
       >
+        {isManual && addingTxn ? (
+          <ManualTransactionForm
+            accountId={account.id}
+            mode="create"
+            onDone={() => setAddingTxn(false)}
+          />
+        ) : null}
+
         {hasAnyTransactions ? (
           <TransactionGroupList
             accountId={account.id}
             groups={groups}
             today={today}
             stickyTopOffset={stickyHeaderHeight}
+            isManual={isManual}
           />
         ) : (
           <p className="text-muted-foreground text-sm">{t('account.empty')}</p>
@@ -176,6 +206,122 @@ export function AccountDetailView({
         ) : null}
       </div>
     </main>
+  )
+}
+
+function BalanceDisplay({
+  account,
+  isManual,
+  negative,
+}: {
+  account: AccountRead
+  isManual: boolean
+  negative: boolean
+}) {
+  const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(account.balance))
+  const update = useUpdateAccount()
+
+  const parsed = Number(draft.replace(',', '.'))
+  const valid = draft.trim() !== '' && Number.isFinite(parsed)
+
+  const commit = async () => {
+    if (!valid || parsed === account.balance) {
+      setEditing(false)
+      return
+    }
+    try {
+      await update.mutateAsync({ accountId: account.id, balance: parsed })
+      toast.success(t('credentials.detail.saved'))
+      setEditing(false)
+    } catch {
+      toast.error(t('credentials.detail.saveFailed'))
+    }
+  }
+
+  const cancel = () => {
+    setDraft(String(account.balance))
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <Input
+          autoFocus
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              void commit()
+            } else if (event.key === 'Escape') {
+              event.preventDefault()
+              cancel()
+            }
+          }}
+          aria-label={t('credentials.detail.balance')}
+          placeholder={formatDecimal(0)}
+          className="h-10 max-w-[10rem] text-xl font-semibold tabular-nums"
+          aria-invalid={!valid || undefined}
+          disabled={update.isPending}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => void commit()}
+          aria-label={t('common.save')}
+          disabled={update.isPending}
+        >
+          <Check className="size-4" aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={cancel}
+          aria-label={t('common.cancel')}
+          disabled={update.isPending}
+        >
+          <X className="size-4" aria-hidden="true" />
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <p
+        className={cn(
+          'text-4xl font-bold tracking-tight tabular-nums',
+          negative ? 'text-destructive' : 'text-primary',
+        )}
+      >
+        {formatEuro(account.balance)}
+      </p>
+      {isManual ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setDraft(String(account.balance))
+            setEditing(true)
+          }}
+          aria-label={t('credentials.detail.balance')}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Pencil className="size-4" aria-hidden="true" />
+        </Button>
+      ) : null}
+    </div>
   )
 }
 
@@ -197,12 +343,14 @@ function TransactionGroupList({
   groups,
   today,
   stickyTopOffset = 0,
+  isManual = false,
 }: {
   accountId: number
   groups: ReturnType<typeof groupTransactionsByDate>
   today?: Date
   /** Pixel offset where date headers should park (height of the page header). */
   stickyTopOffset?: number
+  isManual?: boolean
 }) {
   return (
     <ul className="flex flex-col gap-6">
@@ -223,6 +371,7 @@ function TransactionGroupList({
                   accountId={accountId}
                   transaction={transaction}
                   isFuture={isFuture}
+                  isManual={isManual}
                 />
               ))}
             </ul>
@@ -285,38 +434,136 @@ function TransactionRow({
   accountId,
   transaction,
   isFuture = false,
+  isManual = false,
 }: {
   accountId: number
   transaction: TransactionRead
   /** Future-dated transactions aren't reflected in account.balance yet — render
    *  them muted so the user understands they're informational, not booked. */
   isFuture?: boolean
+  /** Manual accounts get inline edit + delete buttons in place of the
+   *  navigate-to-detail link. */
+  isManual?: boolean
 }) {
   const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const remove = useDeleteTransaction(accountId)
+
   const negative = transaction.amount < 0
   const otherParty = formatIban(transaction.other_party?.trim() || '') || t('account.unknownParty')
-  return (
-    <li>
-      <Link
-        to="/account/$accountId/transactions/$transactionId"
-        params={{ accountId: String(accountId), transactionId: String(transaction.id) }}
-        className={cn(
-          'hover:bg-muted/60 flex items-center gap-3 rounded-md px-2 py-3 transition-colors',
-          isFuture && 'opacity-60',
-        )}
-      >
-        <span className="flex-1 truncate text-sm font-medium">{otherParty}</span>
-        <span
+
+  if (editing) {
+    return (
+      <li className="py-2">
+        <ManualTransactionForm
+          accountId={accountId}
+          mode="edit"
+          transaction={transaction}
+          onDone={() => setEditing(false)}
+        />
+      </li>
+    )
+  }
+
+  if (!isManual) {
+    return (
+      <li>
+        <Link
+          to="/account/$accountId/transactions/$transactionId"
+          params={{ accountId: String(accountId), transactionId: String(transaction.id) }}
           className={cn(
-            'text-sm font-semibold tabular-nums',
-            // Future txns get a neutral color: the destructive/success accent
-            // implies "this moved money" which isn't true until the date arrives.
-            isFuture ? 'text-muted-foreground' : negative ? 'text-destructive' : 'text-success',
+            'hover:bg-muted/60 flex items-center gap-3 rounded-md px-2 py-3 transition-colors',
+            isFuture && 'opacity-60',
           )}
         >
-          {formatEuro(transaction.amount)}
-        </span>
-      </Link>
+          <span className="flex-1 truncate text-sm font-medium">{otherParty}</span>
+          <span
+            className={cn(
+              'text-sm font-semibold tabular-nums',
+              // Future txns get a neutral color: the destructive/success accent
+              // implies "this moved money" which isn't true until the date arrives.
+              isFuture ? 'text-muted-foreground' : negative ? 'text-destructive' : 'text-success',
+            )}
+          >
+            {formatEuro(transaction.amount)}
+          </span>
+        </Link>
+      </li>
+    )
+  }
+
+  const onDelete = async () => {
+    try {
+      await remove.mutateAsync(transaction.id)
+      toast.success(t('credentials.manualTransactions.deleted'))
+    } catch {
+      toast.error(t('credentials.manualTransactions.deleteFailed'))
+      setConfirmingDelete(false)
+    }
+  }
+
+  return (
+    <li
+      className={cn(
+        'flex items-center gap-3 rounded-md px-2 py-3 transition-colors',
+        isFuture && 'opacity-60',
+      )}
+    >
+      <span className="flex-1 truncate text-sm font-medium">{otherParty}</span>
+      <span
+        className={cn(
+          'text-sm font-semibold tabular-nums',
+          isFuture ? 'text-muted-foreground' : negative ? 'text-destructive' : 'text-success',
+        )}
+      >
+        {formatEuro(transaction.amount)}
+      </span>
+      {confirmingDelete ? (
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="destructive"
+            onClick={() => void onDelete()}
+            disabled={remove.isPending}
+          >
+            {t('credentials.manualTransactions.deleteConfirm')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setConfirmingDelete(false)}
+            disabled={remove.isPending}
+          >
+            {t('credentials.manualTransactions.cancel')}
+          </Button>
+        </div>
+      ) : (
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setEditing(true)}
+            aria-label={t('credentials.manualTransactions.edit')}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Pencil className="size-3.5" aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setConfirmingDelete(true)}
+            aria-label={t('credentials.manualTransactions.delete')}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="size-3.5" aria-hidden="true" />
+          </Button>
+        </div>
+      )}
     </li>
   )
 }
