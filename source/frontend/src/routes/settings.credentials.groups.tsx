@@ -12,11 +12,17 @@ import {
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
 import { Button } from '@/components/ui/button'
@@ -35,12 +41,18 @@ export const Route = createFileRoute('/settings/credentials/groups')({
   component: GroupsEditorPage,
 })
 
-// Stable id namespaces so dnd-kit can tell account items from group/container
-// drops apart in a single DndContext.
+// Stable id namespaces so dnd-kit can tell account items, account drop
+// containers, and sortable group sections apart in a single DndContext.
+//   account-<id>    — a draggable account row
+//   container-<id>  — the drop area inside a group (or "ungrouped")
+//   group-<id>      — a sortable group section (drag handle in its header)
 const UNGROUPED_ID = 'ungrouped'
 const accountItemId = (accountId: number): string => `account-${accountId}`
 const accountIdFromItemId = (itemId: string): number => Number(itemId.replace('account-', ''))
 const groupContainerId = (groupId: number | typeof UNGROUPED_ID): string => `container-${groupId}`
+const groupSortableId = (groupId: number): string => `group-${groupId}`
+const groupIdFromSortableId = (sortableId: string): number =>
+  Number(sortableId.replace('group-', ''))
 
 interface AccountWithBank extends AccountRead {
   bank: string
@@ -140,21 +152,24 @@ export function GroupsEditorView({ layout, accountLookup }: GroupsEditorViewProp
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
   )
 
-  const [activeAccountId, setActiveAccountId] = useState<number | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveAccountId(accountIdFromItemId(String(event.active.id)))
+    setActiveId(String(event.active.id))
   }, [])
 
-  // Cross-container moves must happen on dragOver, not just dragEnd — otherwise
-  // dnd-kit can't animate space being made in the target container, so the
-  // hovered group looks unchanged until release. Within the same container we
-  // leave the layout alone and let SortableContext handle the visual swap via
-  // transforms.
+  // Cross-container moves for accounts must happen on dragOver, not just dragEnd
+  // — otherwise dnd-kit can't animate space being made in the target container,
+  // so the hovered group looks unchanged until release. Within the same
+  // container we leave the layout alone and let SortableContext handle the
+  // visual swap via transforms. Group reordering is handled in dragEnd via
+  // arrayMove, which already matches what SortableContext renders during drag.
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event
     if (!over) return
-    const accountId = accountIdFromItemId(String(active.id))
+    const activeRaw = String(active.id)
+    if (!activeRaw.startsWith('account-')) return
+    const accountId = accountIdFromItemId(activeRaw)
     const overId = String(over.id)
     const insertAfter = shouldInsertAfter(active, over)
     setLocalLayout((current) => {
@@ -166,17 +181,44 @@ export function GroupsEditorView({ layout, accountLookup }: GroupsEditorViewProp
   }, [])
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
-    setActiveAccountId(null)
+    setActiveId(null)
     const { active, over } = event
     if (!over) return
-    const accountId = accountIdFromItemId(String(active.id))
+    const activeRaw = String(active.id)
+    const overRaw = String(over.id)
+    if (activeRaw.startsWith('group-')) {
+      if (!overRaw.startsWith('group-')) return
+      const fromGroupId = groupIdFromSortableId(activeRaw)
+      const toGroupId = groupIdFromSortableId(overRaw)
+      setLocalLayout((current) => moveGroup(current, fromGroupId, toGroupId))
+      return
+    }
+    const accountId = accountIdFromItemId(activeRaw)
     const insertAfter = shouldInsertAfter(active, over)
-    setLocalLayout((current) => moveAccount(current, accountId, String(over.id), insertAfter))
+    setLocalLayout((current) => moveAccount(current, accountId, overRaw, insertAfter))
   }, [])
 
   const handleDragCancel = useCallback(() => {
-    setActiveAccountId(null)
+    setActiveId(null)
   }, [])
+
+  // Filter droppables by drag kind so account drags only see account drop zones
+  // and group drags only see other groups. Without this, closestCenter could
+  // match a group section while dragging an account (the section is droppable
+  // because it's sortable), breaking parseTargetContainer.
+  const collisionDetection = useCallback<CollisionDetection>((args) => {
+    const isGroupDrag = String(args.active.id).startsWith('group-')
+    const droppableContainers = args.droppableContainers.filter((container) => {
+      const id = String(container.id)
+      return isGroupDrag ? id.startsWith('group-') : !id.startsWith('group-')
+    })
+    return closestCenter({ ...args, droppableContainers })
+  }, [])
+
+  const activeAccount =
+    activeId?.startsWith('account-') && accountLookup.has(accountIdFromItemId(activeId))
+      ? accountLookup.get(accountIdFromItemId(activeId))!
+      : null
 
   const handleCreateGroup = () => {
     const name = t('credentials.groups.newGroupName')
@@ -242,28 +284,31 @@ export function GroupsEditorView({ layout, accountLookup }: GroupsEditorViewProp
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={collisionDetection}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
         <div className="flex flex-col gap-3">
-          {localLayout.groups.map((group) => (
-            <GroupContainer
-              key={group.id}
-              group={group}
-              accountLookup={accountLookup}
-              onRename={(name) => handleRenameGroup(group.id, name)}
-              onDelete={() => handleDeleteGroup(group.id)}
-            />
-          ))}
+          <SortableContext
+            items={localLayout.groups.map((g) => groupSortableId(g.id))}
+            strategy={verticalListSortingStrategy}
+          >
+            {localLayout.groups.map((group) => (
+              <GroupContainer
+                key={group.id}
+                group={group}
+                accountLookup={accountLookup}
+                onRename={(name) => handleRenameGroup(group.id, name)}
+                onDelete={() => handleDeleteGroup(group.id)}
+              />
+            ))}
+          </SortableContext>
           <UngroupedContainer accounts={localLayout.ungrouped} accountLookup={accountLookup} />
         </div>
         <DragOverlay>
-          {activeAccountId !== null && accountLookup.has(activeAccountId) ? (
-            <AccountItemView account={accountLookup.get(activeAccountId)!} dragging />
-          ) : null}
+          {activeAccount ? <AccountItemView account={activeAccount} dragging /> : null}
         </DragOverlay>
       </DndContext>
     </div>
@@ -283,9 +328,30 @@ function GroupContainer({
 }) {
   const { t } = useTranslation()
   const containerId = groupContainerId(group.id)
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: groupSortableId(group.id),
+  })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  }
   return (
-    <section className="border-border bg-card flex flex-col gap-2 rounded-lg border p-3">
+    <section
+      ref={setNodeRef}
+      style={style}
+      className="border-border bg-card flex flex-col gap-2 rounded-lg border p-3"
+    >
       <header className="flex items-center gap-2">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="text-muted-foreground hover:text-foreground -ml-1 cursor-grab touch-none active:cursor-grabbing"
+          aria-label={t('credentials.groups.reorder')}
+        >
+          <GripVertical className="size-4" aria-hidden="true" />
+        </button>
         <Input
           aria-label={t('credentials.groups.nameLabel')}
           value={group.name}
@@ -409,6 +475,7 @@ interface AccountItemViewProps {
 }
 
 function AccountItemView({ account, ref, style, handleProps, dragging }: AccountItemViewProps) {
+  const { t } = useTranslation()
   return (
     <li
       ref={ref}
@@ -422,7 +489,7 @@ function AccountItemView({ account, ref, style, handleProps, dragging }: Account
         type="button"
         {...handleProps}
         className="text-muted-foreground hover:text-foreground cursor-grab touch-none active:cursor-grabbing"
-        aria-label="drag handle"
+        aria-label={t('credentials.groups.dragAccount')}
       >
         <GripVertical className="size-4" aria-hidden="true" />
       </button>
@@ -488,6 +555,18 @@ function moveAccount(
     }
   }
   return { groups, ungrouped }
+}
+
+function moveGroup(
+  layout: AccountGroupLayout,
+  fromGroupId: number,
+  toGroupId: number,
+): AccountGroupLayout {
+  if (fromGroupId === toGroupId) return layout
+  const fromIndex = layout.groups.findIndex((g) => g.id === fromGroupId)
+  const toIndex = layout.groups.findIndex((g) => g.id === toGroupId)
+  if (fromIndex < 0 || toIndex < 0) return layout
+  return { ...layout, groups: arrayMove(layout.groups, fromIndex, toIndex) }
 }
 
 // Decide before-vs-after based on the dragged item's translated center relative
@@ -559,6 +638,7 @@ function sameLayout(a: AccountGroupLayout, b: AccountGroupLayout): boolean {
 // Re-export for tests so they can verify the pure logic without DnD setup.
 export const __testing = {
   moveAccount,
+  moveGroup,
   parseTargetContainer,
   toWritePayload,
   sameLayout,
