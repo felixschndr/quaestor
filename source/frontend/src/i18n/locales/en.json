@@ -224,6 +224,8 @@
       "newGroupName": "New group",
       "nameLabel": "Group name",
       "delete": "Delete group",
+      "reorder": "Reorder group",
+      "dragAccount": "Move account",
       "dropHint": "Drop accounts here",
       "ungroupedHeading": "Without group",
       "ungroupedEmpty": "All accounts are assigned to a group.",

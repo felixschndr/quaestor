@@ -224,6 +224,8 @@
       "newGroupName": "Neue Gruppe",
       "nameLabel": "Gruppenname",
       "delete": "Gruppe löschen",
+      "reorder": "Gruppe verschieben",
+      "dragAccount": "Konto verschieben",
       "dropHint": "Konten hier hineinziehen",
       "ungroupedHeading": "Ohne Gruppe",
       "ungroupedEmpty": "Alle Konten sind einer Gruppe zugewiesen.",

@@ -19,6 +19,7 @@ import type { UserRead } from '@/lib/auth'
 
 const {
   moveAccount,
+  moveGroup,
   parseTargetContainer,
   toWritePayload,
   sameLayout,
@@ -164,6 +165,48 @@ describe('sameLayout', () => {
         groups: [{ ...base.groups[0], accounts: [{ id: 10 }, { id: 11 }] }],
       }),
     ).toBe(false)
+  })
+})
+
+describe('moveGroup', () => {
+  const threeGroups: AccountGroupLayout = {
+    groups: [
+      { id: 1, name: 'A', accounts: [] },
+      { id: 2, name: 'B', accounts: [] },
+      { id: 3, name: 'C', accounts: [] },
+    ],
+    ungrouped: [],
+  }
+
+  it('moves the first group to the end', () => {
+    const next = moveGroup(threeGroups, 1, 3)
+    expect(next.groups.map((g) => g.id)).toEqual([2, 3, 1])
+  })
+
+  it('moves the last group to the start', () => {
+    const next = moveGroup(threeGroups, 3, 1)
+    expect(next.groups.map((g) => g.id)).toEqual([3, 1, 2])
+  })
+
+  it('preserves account assignments while moving', () => {
+    const layout: AccountGroupLayout = {
+      groups: [
+        { id: 1, name: 'A', accounts: [{ id: 10 }] },
+        { id: 2, name: 'B', accounts: [{ id: 20 }, { id: 21 }] },
+      ],
+      ungrouped: [{ id: 99 }],
+    }
+    const next = moveGroup(layout, 1, 2)
+    expect(next.groups.map((g) => g.id)).toEqual([2, 1])
+    expect(next.groups[1].accounts.map((a) => a.id)).toEqual([10])
+    expect(next.groups[0].accounts.map((a) => a.id)).toEqual([20, 21])
+    expect(next.ungrouped).toEqual([{ id: 99 }])
+  })
+
+  it('returns the layout unchanged when from === to or ids are unknown', () => {
+    expect(moveGroup(threeGroups, 1, 1)).toBe(threeGroups)
+    expect(moveGroup(threeGroups, 99, 1)).toBe(threeGroups)
+    expect(moveGroup(threeGroups, 1, 99)).toBe(threeGroups)
   })
 })
 
