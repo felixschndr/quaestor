@@ -35,7 +35,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
 }))
 
-import { OverviewView } from '@/routes/index'
+import { OverviewView, sumFactoredBalance } from '@/routes/index'
 
 function buildUser(overrides: Partial<UserRead> = {}): UserRead {
   return {
@@ -210,6 +210,48 @@ describe('OverviewView', () => {
     expect(heading).toBeInTheDocument()
   })
 
+  it('shows a factored total next to each custom group heading', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }, { id: 9 }] }],
+          ungrouped: [{ id: 10 }],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    ) as unknown as typeof fetch
+
+    const user = buildUser({
+      credentials: [
+        {
+          id: 1,
+          bank: 'ing',
+          accounts: [
+            // Factored: 100 * 100 / 100 = 100
+            { id: 8, name: 'Acc8', display_name: null, balance: 100, balance_factor: 100 },
+            // Factored: 200 * 50 / 100 = 100  →  group total = 200,00 €
+            { id: 9, name: 'Acc9', display_name: null, balance: 200, balance_factor: 50 },
+            // Ungrouped factored: -50 * 100 / 100 = -50  →  destructive color
+            { id: 10, name: 'Acc10', display_name: null, balance: -50, balance_factor: 100 },
+          ],
+          last_fetching_timestamp: null,
+          requires_two_factor_authentication: false,
+        },
+      ],
+    })
+    render_(user)
+
+    const sparHeading = await screen.findByRole('heading', { level: 2, name: 'Spar' })
+    expect(sparHeading.parentElement).toHaveTextContent('200,00 €')
+
+    const ungroupedHeading = await screen.findByRole('heading', { level: 2, name: 'Without group' })
+    const total = ungroupedHeading.parentElement?.querySelector('span')
+    expect(total).toHaveTextContent('-50,00 €')
+    // Group totals share the muted heading color regardless of sign — they're a
+    // subtle subtotal, not a primary number.
+    expect(total?.className).toMatch(/text-muted-foreground/)
+  })
+
   it('renders the "without group" heading when the layout has ungrouped accounts', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(
@@ -245,6 +287,17 @@ describe('OverviewView', () => {
     expect(
       await screen.findByRole('heading', { level: 2, name: 'Without group' }),
     ).toBeInTheDocument()
+  })
+
+  it('applies balance_factor as a percentage when summing group totals', () => {
+    expect(
+      sumFactoredBalance([
+        { balance: 100, balance_factor: 100 },
+        { balance: 200, balance_factor: 50 },
+        { balance: -40, balance_factor: 25 },
+      ]),
+    ).toBe(100 + 100 - 10)
+    expect(sumFactoredBalance([])).toBe(0)
   })
 
   it('renders negative account balances in the destructive color', () => {

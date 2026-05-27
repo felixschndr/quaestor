@@ -71,7 +71,7 @@ export function OverviewView({ user, showProgressBar, progressVisualHint }: Over
     <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-4">
       <TopProgressBar visible={showProgressBar} hint={progressVisualHint} />
 
-      <header className="flex items-start justify-between">
+      <header className="flex items-start justify-between px-2">
         <h1 className="text-foreground text-2xl font-semibold">
           <Trans
             i18nKey="overview.hello"
@@ -82,13 +82,13 @@ export function OverviewView({ user, showProgressBar, progressVisualHint }: Over
         <Link
           to="/settings"
           aria-label={t('overview.settings')}
-          className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
+          className="text-primary hover:text-primary/80 group -mr-1.5 rounded-md p-1.5 transition-colors"
         >
           <Settings className="size-5 group-hover:animate-[spin-once_0.4s_ease-in-out]" />
         </Link>
       </header>
 
-      <section aria-labelledby="total-balance-label" className="flex flex-col gap-1">
+      <section aria-labelledby="total-balance-label" className="flex flex-col items-center gap-1">
         <p id="total-balance-label" className="text-muted-foreground text-sm">
           {t('overview.totalBalance')}
         </p>
@@ -184,12 +184,18 @@ function AccountGroupList({ groups }: { groups: DisplayGroup[] }) {
           group.heading === '__ungrouped__'
             ? t('credentials.groups.ungroupedHeading')
             : group.heading
+        const total = sumFactoredBalance(group.accounts)
         return (
           <li key={group.key} className="flex flex-col gap-2">
             {heading ? (
-              <h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
-                {heading}
-              </h2>
+              <div className="flex items-baseline justify-between gap-2 px-2">
+                <h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+                  {heading}
+                </h2>
+                <span className="text-muted-foreground text-xs font-semibold tabular-nums">
+                  {formatEuro(total)}
+                </span>
+              </div>
             ) : null}
             <ul className="flex flex-col">
               {group.accounts.map((account) => (
@@ -200,6 +206,15 @@ function AccountGroupList({ groups }: { groups: DisplayGroup[] }) {
         )
       })}
     </ul>
+  )
+}
+
+export function sumFactoredBalance(
+  accounts: { balance: number; balance_factor: number }[],
+): number {
+  return accounts.reduce(
+    (sum, account) => sum + (account.balance * account.balance_factor) / 100,
+    0,
   )
 }
 
