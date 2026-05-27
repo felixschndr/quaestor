@@ -99,12 +99,6 @@
   }
 }
 
-@keyframes spin-once {
-  to {
-    transform: rotate(90deg);
-  }
-}
-
 @layer base {
   :root {
     /* Reserve scrollbar space so mx-auto'd content doesn't recenter (and

@@ -84,7 +84,7 @@ export function OverviewView({ user, showProgressBar, progressVisualHint }: Over
           aria-label={t('overview.settings')}
           className="text-primary hover:text-primary/80 group -mr-1.5 rounded-md p-1.5 transition-colors"
         >
-          <Settings className="size-5 group-hover:animate-[spin-once_0.4s_ease-in-out]" />
+          <Settings className="size-5 transition-transform duration-300 ease-in-out group-hover:rotate-90" />
         </Link>
       </header>
 
