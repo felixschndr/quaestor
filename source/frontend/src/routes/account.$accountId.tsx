@@ -473,7 +473,7 @@ function TransactionRow({
           to="/account/$accountId/transactions/$transactionId"
           params={{ accountId: String(accountId), transactionId: String(transaction.id) }}
           className={cn(
-            'hover:bg-muted/60 flex items-center gap-3 rounded-md px-2 py-3 transition-colors',
+            'hover:bg-muted/60 flex items-center gap-3 rounded-md px-3 py-3 transition-colors',
             isFuture && 'opacity-60',
           )}
         >
