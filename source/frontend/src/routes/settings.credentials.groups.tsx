@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ChevronLeft, GripVertical, Plus, X } from 'lucide-react'
+import { Check, ChevronLeft, GripVertical, Pencil, Plus, X } from 'lucide-react'
 import {
   DndContext,
   DragOverlay,
@@ -33,7 +33,7 @@ import {
   type AccountGroupLayout,
   type AccountGroupLayoutWrite,
 } from '@/lib/accountGroups'
-import { accountDisplayName, bankIconUrl } from '@/lib/accounts'
+import { accountDisplayName, bankIconUrl, useUpdateAccount } from '@/lib/accounts'
 import { cn } from '@/lib/utils'
 import { useAuthMe, type AccountRead, type UserRead } from '@/lib/auth'
 
@@ -446,6 +446,7 @@ function DroppableArea({
 }
 
 function DraggableAccountItem({ account }: { account: AccountWithBank }) {
+  const { t } = useTranslation()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: accountItemId(account.id),
   })
@@ -456,12 +457,112 @@ function DraggableAccountItem({ account }: { account: AccountWithBank }) {
     // dim opacity would just leave a ghost behind the floating preview.
     opacity: isDragging ? 0 : 1,
   }
+
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const { mutateAsync, isPending } = useUpdateAccount()
+
+  const startEditing = () => {
+    setDraft(account.display_name ?? '')
+    setEditing(true)
+  }
+
+  const cancel = () => setEditing(false)
+
+  const commit = async () => {
+    const trimmed = draft.trim()
+    const nextValue: string | null = trimmed.length === 0 ? null : trimmed
+    setEditing(false)
+    if (nextValue === (account.display_name ?? null)) return
+    try {
+      await mutateAsync({ accountId: account.id, display_name: nextValue })
+      toast.success(t('credentials.groups.renameSaved'))
+    } catch {
+      toast.error(t('credentials.groups.renameFailed'))
+    }
+  }
+
+  if (editing) {
+    return (
+      <AccountItemView
+        account={account}
+        ref={setNodeRef}
+        style={style}
+        // No drag listeners while editing — the user is focused on text input.
+        body={
+          <Input
+            autoFocus
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onFocus={(event) => event.currentTarget.select()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                void commit()
+              } else if (event.key === 'Escape') {
+                event.preventDefault()
+                cancel()
+              }
+            }}
+            // Blur fires after the click on cancel/commit buttons has been
+            // processed, so the explicit buttons still work. Plain blur (e.g.
+            // tapping outside the row) commits.
+            onBlur={() => void commit()}
+            aria-label={t('credentials.groups.editAccountName')}
+            placeholder={account.name}
+            maxLength={150}
+            disabled={isPending}
+            className="h-7 flex-1"
+          />
+        }
+        trailing={
+          <>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => void commit()}
+              aria-label={t('common.save')}
+              disabled={isPending}
+            >
+              <Check className="size-3.5" aria-hidden="true" />
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={cancel}
+              aria-label={t('common.cancel')}
+              disabled={isPending}
+            >
+              <X className="size-3.5" aria-hidden="true" />
+            </Button>
+          </>
+        }
+      />
+    )
+  }
+
   return (
     <AccountItemView
       account={account}
       ref={setNodeRef}
       style={style}
       handleProps={{ ...attributes, ...listeners }}
+      trailing={
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={startEditing}
+          aria-label={t('credentials.groups.editAccountName')}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Pencil className="size-3.5" aria-hidden="true" />
+        </Button>
+      }
     />
   )
 }
@@ -472,9 +573,19 @@ interface AccountItemViewProps {
   style?: React.CSSProperties
   handleProps?: React.HTMLAttributes<HTMLButtonElement>
   dragging?: boolean
+  body?: React.ReactNode
+  trailing?: React.ReactNode
 }
 
-function AccountItemView({ account, ref, style, handleProps, dragging }: AccountItemViewProps) {
+function AccountItemView({
+  account,
+  ref,
+  style,
+  handleProps,
+  dragging,
+  body,
+  trailing,
+}: AccountItemViewProps) {
   const { t } = useTranslation()
   return (
     <li
@@ -502,7 +613,8 @@ function AccountItemView({ account, ref, style, handleProps, dragging }: Account
           event.currentTarget.style.visibility = 'hidden'
         }}
       />
-      <span className="flex-1 truncate">{accountDisplayName(account)}</span>
+      {body ?? <span className="flex-1 truncate">{accountDisplayName(account)}</span>}
+      {trailing}
     </li>
   )
 }
