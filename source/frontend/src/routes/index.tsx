@@ -5,7 +5,7 @@ import { Settings } from 'lucide-react'
 
 import { useAuthMe, useGlobalSync, type AccountRead, type UserRead } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
-import { formatEuro } from '@/lib/format'
+import { formatDecimal, formatEuro } from '@/lib/format'
 import {
   accountDisplayName,
   bankIconUrl,
@@ -217,6 +217,10 @@ export function sumFactoredBalance(
 
 function AccountRow({ bank, account }: { bank: string; account: AccountRead }) {
   const negative = account.balance < 0
+  // Surface a non-100 balance_factor so the user can see why their group total
+  // doesn't equal a naive sum of account balances. Rendered in the muted
+  // heading color so the actual balance still pops.
+  const hasFactor = account.balance_factor !== 100
   return (
     <li>
       <Link
@@ -226,8 +230,13 @@ function AccountRow({ bank, account }: { bank: string; account: AccountRead }) {
       >
         <BankIcon bank={bank} />
         <span className="flex-1 truncate text-sm font-medium">{accountDisplayName(account)}</span>
-        <span className={cn('text-sm font-semibold tabular-nums', negative && 'text-destructive')}>
-          {formatEuro(account.balance)}
+        <span className="text-sm font-semibold tabular-nums">
+          {hasFactor ? (
+            <span className="text-muted-foreground mr-1.5 font-normal">
+              {formatDecimal(account.balance_factor / 100)} x
+            </span>
+          ) : null}
+          <span className={cn(negative && 'text-destructive')}>{formatEuro(account.balance)}</span>
         </span>
       </Link>
     </li>
