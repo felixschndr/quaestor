@@ -213,7 +213,27 @@
       "description": "Wir warten auf die Freigabe in deiner Banking-App. Öffne die App und bestätige die Anfrage, um die Synchronisierung fortzusetzen."
     },
     "lastSynced": "Zuletzt synchronisiert",
-    "neverSynced": "Noch nie synchronisiert"
+    "neverSynced": "Noch nie synchronisiert",
+    "detail": {
+      "notFound": "Verbindung nicht gefunden.",
+      "backToList": "Zurück zu den Bankverbindungen",
+      "accountsHeading": "Konten",
+      "accountsEmpty": "Noch keine Konten. Sie erscheinen nach der ersten erfolgreichen Synchronisierung.",
+      "balanceFactor": "Saldofaktor",
+      "countsAsLabel": "Zählt im Gesamtsaldo",
+      "balanceFactorHint": "Wie viel vom Saldo dieses Kontos in deinen Gesamtsaldo einfließt.",
+      "balanceFactorSaved": "Gespeichert",
+      "balanceFactorRange": "Der Wert muss zwischen 0 und 100 liegen.",
+      "save": "Speichern",
+      "saving": "Wird gespeichert …",
+      "deleteSection": "Gefahrenzone",
+      "deleteDescription": "Beim Löschen der Verbindung verschwinden alle Konten und Transaktionen, die daran hängen. Das kann nicht rückgängig gemacht werden.",
+      "delete": "Verbindung löschen",
+      "deleteConfirm": "Ja, Verbindung löschen",
+      "deleteCancel": "Abbrechen",
+      "deleted": "Verbindung gelöscht",
+      "deleteFailed": "Verbindung konnte nicht gelöscht werden. Bitte erneut versuchen."
+    }
   },
   "attributions": {
     "title": "Quellenangaben",

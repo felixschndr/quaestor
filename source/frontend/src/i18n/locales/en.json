@@ -213,7 +213,27 @@
       "description": "We're waiting for you to approve the request in your banking app. Open the app and confirm to let the sync continue."
     },
     "lastSynced": "Last synced",
-    "neverSynced": "Never synced"
+    "neverSynced": "Never synced",
+    "detail": {
+      "notFound": "Connection not found.",
+      "backToList": "Back to bank connections",
+      "accountsHeading": "Accounts",
+      "accountsEmpty": "No accounts yet. They appear after the first successful sync.",
+      "balanceFactor": "Balance factor",
+      "countsAsLabel": "Counts in total",
+      "balanceFactorHint": "How much of this account's balance counts towards your total.",
+      "balanceFactorSaved": "Saved",
+      "balanceFactorRange": "The value must between 0 and 100.",
+      "save": "Save",
+      "saving": "Saving…",
+      "deleteSection": "Danger zone",
+      "deleteDescription": "Deleting the connection removes all accounts and transactions linked to it. This cannot be undone.",
+      "delete": "Delete connection",
+      "deleteConfirm": "Yes, delete this connection",
+      "deleteCancel": "Cancel",
+      "deleted": "Connection deleted",
+      "deleteFailed": "Could not delete the connection. Please try again."
+    }
   },
   "attributions": {
     "title": "Attributions",
