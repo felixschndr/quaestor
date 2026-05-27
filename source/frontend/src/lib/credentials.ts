@@ -43,6 +43,17 @@ export function useCreateCredential() {
   })
 }
 
+export function useDeleteCredential() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (credentialId: number) =>
+      api<void>(`/credentials/${credentialId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+    },
+  })
+}
+
 export type SyncJobStatus =
   | 'running'
   | 'awaiting_2fa'

@@ -13,6 +13,7 @@ const dateFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
 })
 
 const dateTimeFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
+  weekday: 'long',
   day: 'numeric',
   month: 'long',
   year: 'numeric',

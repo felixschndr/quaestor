@@ -1,4 +1,7 @@
-import type { AccountRead, CredentialRead } from './auth'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+
+import { api } from './api'
+import { authQueryKeys, type AccountRead, type CredentialRead } from './auth'
 
 export interface BankGroup {
   bank: string
@@ -33,4 +36,20 @@ export function bankIconUrl(bank: string): string {
 
 export function displayNameOrUserName(user: { display_name: string; user_name: string }): string {
   return user.display_name.trim() || user.user_name
+}
+
+export interface AccountUpdatePayload {
+  balance_factor?: number
+  display_name?: string
+}
+
+export function useUpdateAccount() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ accountId, ...body }: AccountUpdatePayload & { accountId: number }) =>
+      api<AccountRead>(`/accounts/${accountId}`, { method: 'PATCH', body }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+    },
+  })
 }
