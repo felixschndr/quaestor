@@ -21,7 +21,7 @@ class TransactionCategory(str, Enum):
     SUBSCRIPTIONS = "SUBSCRIPTIONS"
     RENT = "RENT"
     UTILITIES = "UTILITIES"
-    CAR = "CAR"
+    TRANSPORTATION = "TRANSPORTATION"
     FUEL = "FUEL"
     FITNESS = "FITNESS"
     ONLINE_SHOPPING = "ONLINE_SHOPPING"
@@ -49,11 +49,10 @@ class TransactionCategory(str, Enum):
             if type_based is not None:
                 return type_based
 
-        haystacks = [field for field in (transaction.purpose, transaction.other_party) if field]
-        for category, matchers in TRANSACTION_TYPE_MAPPING.items():
+        haystacks = [normalize_string(str(field)) for field in (transaction.purpose, transaction.other_party) if field]
+        for category, matchers in TRANSACTION_CATEGORY_MAPPING.items():
             for matcher in matchers:
-                needle = matcher.lower()
-                if any(needle in haystack.lower() for haystack in haystacks):
+                if any(matcher in haystack for haystack in haystacks):
                     return category
 
         logger.warning(f"No category matched for {transaction}")
@@ -67,10 +66,10 @@ CATEGORY_BY_TRANSACTION_TYPE: dict[TransactionType, TransactionCategory] = {
 }
 
 
-TRANSACTION_TYPE_MAPPING: dict[TransactionCategory, list[str]] = {
+TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
     TransactionCategory.SALARY: ["lohn", "gehalt"],
     TransactionCategory.ALLOWANCE: ["taschengeld", "kindergeld"],
-    TransactionCategory.PENSION: ["rv.rente", "renten service"],
+    TransactionCategory.PENSION: ["rente"],
     TransactionCategory.REIMBURSEMENT: ["reisespesen"],
     TransactionCategory.INTEREST: ["zinsen"],
     TransactionCategory.INVESTMENT: ["msci", "nasdaq"],
@@ -78,18 +77,19 @@ TRANSACTION_TYPE_MAPPING: dict[TransactionCategory, list[str]] = {
         "spotify",
         "ionos",
         "nabu casa",
-        "apple.com bill",
+        "apple com bill",
         "apple services",
         "itunes",
         "google workspace",
     ],
     TransactionCategory.RENT: ["miete"],
     TransactionCategory.UTILITIES: ["vattenfall", "vodafone", "rundfunk", "strom"],
-    TransactionCategory.CAR: ["vw leasing", "auto", "tuv", "tuev", "tüv"],
+    TransactionCategory.TRANSPORTATION: ["vw leasing", "auto", "tuv", "tuev", "db", "bahn"],
     TransactionCategory.FUEL: ["tankstelle", "aral station", "bft"],
-    TransactionCategory.FITNESS: ["fit-in", "fitnessclub", "fitnessstudio"],
+    TransactionCategory.FITNESS: ["fit-in", "fitness"],
     TransactionCategory.SUPERMARKET: [
         "rewe",
+        "billa",
         "aldi",
         "lidl",
         "edeka",
@@ -99,13 +99,13 @@ TRANSACTION_TYPE_MAPPING: dict[TransactionCategory, list[str]] = {
         "scheck-in",
         "lebensmittel",
     ],
-    TransactionCategory.DRUGSTORE: ["dm-drogerie", "dm drogerie", "rossmann", "müller"],
+    TransactionCategory.DRUGSTORE: ["drogerie", "rossmann", "mueller"],
     TransactionCategory.RESTAURANTS: [
         "doener",
         "pizzeria",
         "aramark",
         "eurest",
-        "baeckerei",
+        "baecker",
         "gaststaette",
         "sumup",
         "spc*",
@@ -120,9 +120,15 @@ TRANSACTION_TYPE_MAPPING: dict[TransactionCategory, list[str]] = {
         "cafe",
         "z10",
         "chinese",
+        "restaurant",
+        "thai",
+        "gastro",
+        "mcdonalds",
+        "bowlwerk",
+        "le crobag",
     ],
-    TransactionCategory.PERSONAL_CARE: ["friseur", "barber"],
-    TransactionCategory.CLOTHING: ["new yorker"],
+    TransactionCategory.PERSONAL_CARE: ["friseur", "barber", "waxing", "apotheke"],
+    TransactionCategory.CLOTHING: ["new yorker", "bijou brigette"],
     TransactionCategory.GIFTS: ["blume 2000"],
     TransactionCategory.ENTERTAINMENT: ["steam games", "nintendo", "baedergesel", "nzb", "feier", "triviar"],
     TransactionCategory.FEES: ["gocardless", "bewohnerparkausweis", "deutsche post ag"],
@@ -143,3 +149,15 @@ TRANSACTION_TYPE_MAPPING: dict[TransactionCategory, list[str]] = {
         "studidruck",
     ],
 }
+
+
+def normalize_string(input_string: str) -> str:
+    return (
+        input_string.strip()
+        .lower()
+        .replace("ä", "ae")
+        .replace("ö", "oe")
+        .replace("ü", "ue")
+        .replace("ß", "ss")
+        .replace(".", " ")
+    )
