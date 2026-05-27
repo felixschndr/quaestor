@@ -225,6 +225,11 @@ def test_supported_banks_returns_bank_metadata(http_client: TestClient):
             "icon": "/static/banks/dfs.png",
         },
         {
+            "name": "fin4u",
+            "required_fields": ["username", "password"],
+            "icon": "/static/banks/fin4u.png",
+        },
+        {
             "name": "trade_republic",
             "required_fields": ["phone", "pin"],
             "icon": "/static/banks/trade_republic.png",

@@ -4,6 +4,8 @@
 **/__pycache__/
 scripts/wip/
 
+*.har
+
 # pytest-cov
 .coverage
 htmlcov/
