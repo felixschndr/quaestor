@@ -138,6 +138,7 @@
     "credentialsDescription": "Add or remove banks, sync now",
     "attributions": "Attributions",
     "attributionsDescription": "Credits and licences for third-party assets",
+    "userName": "Username",
     "displayName": "Display name",
     "language": "Language",
     "theme": "Appearance",

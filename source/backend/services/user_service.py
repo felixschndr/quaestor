@@ -79,10 +79,19 @@ def get_user_by_user_name(db_session: Session, user_name: str) -> User:
 
 def update_user(db_session: Session, user_id: int, fields: dict) -> User:
     user = get_user_by_id(db_session=db_session, user_id=user_id)
+    new_user_name = fields.get("user_name")
+    if new_user_name is not None and new_user_name != user.user_name:
+        conflicting_id = db_session.scalar(select(User.id).where(User.user_name == new_user_name))
+        if conflicting_id is not None:
+            raise UserNameAlreadyExistsError(f"User name {new_user_name!r} is already taken")
     user_before_change = str(user)
     for key, value in fields.items():
         setattr(user, key, value)
-    db_session.commit()
+    try:
+        db_session.commit()
+    except IntegrityError:
+        db_session.rollback()
+        raise UserNameAlreadyExistsError(f"User name {new_user_name!r} is already taken")
     logger.info(f"Updated user {user_before_change} --> {user}")
     return user
 

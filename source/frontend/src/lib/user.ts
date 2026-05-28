@@ -4,6 +4,7 @@ import { api } from './api'
 import { authQueryKeys, type Theme, type UserRead } from './auth'
 
 export interface UserUpdatePayload {
+  user_name?: string
   display_name?: string
   language?: string
   theme?: Theme

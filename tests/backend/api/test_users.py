@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
     NEW_VALID_PASSWORD,
+    SECOND_USER_NAME,
     USER_NAME,
     VALID_PASSWORD,
     WRONG_PASSWORD,
@@ -24,6 +25,65 @@ def test_update_user_changes_display_name(http_client: TestClient):
 
     assert response.status_code == 200
     assert response.json()["display_name"] == "Renamed"
+
+
+def test_update_user_changes_user_name(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"user_name": SECOND_USER_NAME})
+
+    assert response.status_code == 200
+    assert response.json()["user_name"] == SECOND_USER_NAME
+    assert login_as(http_client, user_name=SECOND_USER_NAME, password=VALID_PASSWORD).status_code == 200
+    assert login_as(http_client, user_name=USER_NAME, password=VALID_PASSWORD).status_code == 401
+
+
+def test_update_user_normalises_new_user_name(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"user_name": "  MixedCase  "})
+
+    assert response.status_code == 200
+    assert response.json()["user_name"] == "mixedcase"
+
+
+def test_update_user_rejects_user_name_taken_by_other_user(http_client: TestClient):
+    register(http_client, user_name=SECOND_USER_NAME)
+    user_id = register(http_client, user_name=USER_NAME).json()["id"]
+    login_as(http_client, user_name=USER_NAME)
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"user_name": SECOND_USER_NAME})
+
+    assert response.status_code == 409
+    assert http_client.get("/api/auth/me").json()["user_name"] == USER_NAME
+
+
+def test_update_user_rejects_user_name_taken_by_other_user_case_insensitively(http_client: TestClient):
+    register(http_client, user_name=SECOND_USER_NAME)
+    user_id = register(http_client, user_name=USER_NAME).json()["id"]
+    login_as(http_client, user_name=USER_NAME)
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"user_name": SECOND_USER_NAME})
+
+    assert response.status_code == 409
+
+
+def test_update_user_keeping_same_user_name_is_a_noop(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"user_name": USER_NAME})
+
+    assert response.status_code == 200
+    assert response.json()["user_name"] == USER_NAME
+
+
+def test_update_user_rejects_empty_user_name(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"user_name": "   "})
+
+    assert response.status_code == 422
+    assert http_client.get("/api/auth/me").json()["user_name"] == USER_NAME
 
 
 def test_update_user_changes_language(http_client: TestClient):
