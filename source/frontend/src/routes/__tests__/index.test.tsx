@@ -103,7 +103,7 @@ describe('OverviewView', () => {
     render_(buildUser({ credentials: [] }))
     expect(screen.getByText('No accounts yet')).toBeInTheDocument()
     const cta = screen.getByRole('link', { name: 'Connect your first bank' })
-    expect(cta).toHaveAttribute('href', '/settings/credentials')
+    expect(cta).toHaveAttribute('href', '/settings/credentials/new')
   })
 
   it('renders the cog link to /settings', () => {

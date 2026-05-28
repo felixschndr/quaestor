@@ -337,7 +337,7 @@ function EmptyState() {
     <section className="border-border bg-card flex flex-col items-center gap-4 rounded-lg border border-dashed p-8 text-center">
       <p className="text-muted-foreground text-sm">{t('overview.emptyTitle')}</p>
       <Button asChild>
-        <Link to="/settings/credentials">{t('overview.emptyCta')}</Link>
+        <Link to="/settings/credentials/new">{t('overview.emptyCta')}</Link>
       </Button>
     </section>
   )
