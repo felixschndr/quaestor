@@ -56,14 +56,7 @@ function render_(user: UserRead) {
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <OverviewView
-        user={user}
-        showProgressBar={false}
-        progressVisualHint={0}
-        onSyncClick={() => {}}
-        syncDisabled={false}
-        syncSpinning={false}
-      />
+      <OverviewView user={user} onSyncClick={() => {}} syncDisabled={false} syncSpinning={false} />
     </QueryClientProvider>,
   )
 }

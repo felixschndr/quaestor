@@ -53,17 +53,14 @@ function OverviewPage() {
 
   const isBusy =
     sync.status === 'starting' || sync.status === 'running' || sync.status === 'awaiting_2fa'
-  const isSpinning = sync.status === 'starting' || sync.status === 'running'
 
   return (
     <>
       <OverviewView
         user={user}
-        showProgressBar={isBusy}
-        progressVisualHint={isBusy ? 1 : 0}
         onSyncClick={sync.start}
         syncDisabled={isBusy}
-        syncSpinning={isSpinning}
+        syncSpinning={isBusy}
       />
       <TwoFactorModal
         current2fa={sync.current2fa}
@@ -91,21 +88,12 @@ function OverviewPage() {
 
 interface OverviewViewProps {
   user: UserRead
-  showProgressBar: boolean
-  progressVisualHint: number
   onSyncClick: () => void
   syncDisabled: boolean
   syncSpinning: boolean
 }
 
-export function OverviewView({
-  user,
-  showProgressBar,
-  progressVisualHint,
-  onSyncClick,
-  syncDisabled,
-  syncSpinning,
-}: OverviewViewProps) {
+export function OverviewView({ user, onSyncClick, syncDisabled, syncSpinning }: OverviewViewProps) {
   const { t } = useTranslation()
   // When the user has defined custom groups, render by those. Otherwise fall
   // back to the original "by bank" layout (with no group headings).
@@ -118,8 +106,6 @@ export function OverviewView({
 
   return (
     <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-4">
-      <TopProgressBar visible={showProgressBar} hint={progressVisualHint} />
-
       <header className="flex items-start justify-between px-2">
         <h1 className="text-foreground text-2xl font-semibold">
           <Trans
@@ -223,24 +209,6 @@ function buildAccountLookup(user: UserRead): Map<number, AccountWithBank> {
     }
   }
   return map
-}
-
-function TopProgressBar({ visible, hint }: { visible: boolean; hint: number }) {
-  // Slim cyan bar. When the user is mid-pull, fade in proportional to pull;
-  // when the actual sync is running, animate indeterminately.
-  return (
-    <div
-      role="progressbar"
-      aria-hidden={!visible}
-      className={cn(
-        'pointer-events-none fixed inset-x-0 top-0 z-10 h-0.5 overflow-hidden transition-opacity',
-        visible ? 'opacity-100' : 'opacity-0',
-      )}
-      style={{ opacity: visible ? Math.max(0.3, hint) : 0 }}
-    >
-      <div className="bg-primary h-full w-1/3 animate-[progress_1.2s_ease-in-out_infinite]" />
-    </div>
-  )
 }
 
 function AccountGroupList({ groups }: { groups: DisplayGroup[] }) {
