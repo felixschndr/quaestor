@@ -2,6 +2,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
+import { useAuthMe } from '@/lib/auth'
 import { useSupportedBanks, type SupportedBank } from '@/lib/credentials'
 
 export const Route = createFileRoute('/settings/credentials/new/')({
@@ -10,8 +11,19 @@ export const Route = createFileRoute('/settings/credentials/new/')({
 
 function BankPickerPage() {
   const banks = useSupportedBanks()
+  const { data: user } = useAuthMe()
+  const existingAccountCounts: Record<string, number> = {}
+  for (const credential of user?.credentials ?? []) {
+    existingAccountCounts[credential.bank] =
+      (existingAccountCounts[credential.bank] ?? 0) + credential.accounts.length
+  }
   return (
-    <BankPickerView isLoading={banks.isLoading} isError={banks.isError} banks={banks.data ?? []} />
+    <BankPickerView
+      isLoading={banks.isLoading}
+      isError={banks.isError}
+      banks={banks.data ?? []}
+      existingAccountCounts={existingAccountCounts}
+    />
   )
 }
 
@@ -19,9 +31,15 @@ export interface BankPickerViewProps {
   isLoading: boolean
   isError: boolean
   banks: SupportedBank[]
+  existingAccountCounts: Record<string, number>
 }
 
-export function BankPickerView({ isLoading, isError, banks }: BankPickerViewProps) {
+export function BankPickerView({
+  isLoading,
+  isError,
+  banks,
+  existingAccountCounts,
+}: BankPickerViewProps) {
   const { t } = useTranslation()
   // Sort by the localised title so the list reads alphabetically in the user's
   // language. Falls back to the raw bank name when no translation exists.
@@ -46,7 +64,11 @@ export function BankPickerView({ isLoading, isError, banks }: BankPickerViewProp
       ) : (
         <ul className="border-border bg-card flex flex-col rounded-lg border">
           {sortedBanks.map((bank) => (
-            <BankPickerRow key={bank.name} bank={bank} />
+            <BankPickerRow
+              key={bank.name}
+              bank={bank}
+              accountsCount={existingAccountCounts[bank.name] ?? 0}
+            />
           ))}
         </ul>
       )}
@@ -54,7 +76,7 @@ export function BankPickerView({ isLoading, isError, banks }: BankPickerViewProp
   )
 }
 
-function BankPickerRow({ bank }: { bank: SupportedBank }) {
+function BankPickerRow({ bank, accountsCount }: { bank: SupportedBank; accountsCount: number }) {
   const { t } = useTranslation()
   return (
     <li className="border-border/40 border-t first:border-t-0">
@@ -72,8 +94,13 @@ function BankPickerRow({ bank }: { bank: SupportedBank }) {
             event.currentTarget.style.visibility = 'hidden'
           }}
         />
-        <span className="flex-1 truncate text-sm font-medium">
-          {t(`banks.${bank.name}.title`, { defaultValue: bank.name })}
+        <span className="flex flex-1 flex-col">
+          <span className="truncate text-sm font-medium">
+            {t(`banks.${bank.name}.title`, { defaultValue: bank.name })}
+          </span>
+          <span className="text-muted-foreground text-xs">
+            {t('credentials.pickerAccountsAdded', { count: accountsCount })}
+          </span>
         </span>
         <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />
       </Link>
