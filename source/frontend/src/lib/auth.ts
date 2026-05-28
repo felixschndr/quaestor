@@ -184,14 +184,18 @@ const TWO_FACTOR_STATUSES = new Set<SyncJobStatus>(['awaiting_2fa', 'awaiting_de
 const TERMINAL_STATUSES = new Set<SyncJobStatus>(['completed', 'failed'])
 
 /**
- * Internal state-machine phase.
+ * Internal state-machine phase. The public `status` maps from this:
+ * - 'idle' → 'idle'
+ * - 'starting' → 'starting'
+ * - 'active' + current2faId → 'awaiting_2fa'
+ * - 'active' otherwise → 'running'
+ * - 'done' / 'finishing' → 'done'
  *
- * `'finishing'` is set when the POST returns either zero jobs or an error,
- * so the public `status` flips to `'done'` immediately. For the happy path,
- * the hook stays in `'active'` until every job is terminal and `'done'` is
- * derived from the job map.
+ * `'done'` and `'finishing'` are both terminal but distinguished so the
+ * "refresh /auth/me" side effect only fires after a real sync, not after a
+ * zero-credential or error short-circuit.
  */
-type GlobalSyncPhase = 'idle' | 'starting' | 'active' | 'finishing'
+type GlobalSyncPhase = 'idle' | 'starting' | 'active' | 'done' | 'finishing'
 
 /**
  * Drives the "sync everything" flow on the overview page. Starts one async
@@ -216,14 +220,10 @@ export function useGlobalSync(): UseGlobalSyncResult {
 
   const current2faId = queue[0] ?? null
 
-  // Once every active job reaches a terminal state and no 2FA prompt is
-  // pending, the hook is implicitly "done" without an explicit setState.
   const allJobsTerminal = useMemo(
     () => jobs.size > 0 && Array.from(jobs.values()).every((j) => TERMINAL_STATUSES.has(j.status)),
     [jobs],
   )
-  const isDone =
-    phase === 'finishing' || (phase === 'active' && allJobsTerminal && queue.length === 0)
 
   const credentialBank = useCallback(
     (credentialId: number): string => {
@@ -239,6 +239,8 @@ export function useGlobalSync(): UseGlobalSyncResult {
   }, [phase])
 
   const start = useCallback(() => {
+    // Only allow start from a settled phase. 'done' / 'finishing' / 'idle' are
+    // re-entry points; 'starting' / 'active' mean a sync is mid-flight.
     if (phaseRef.current === 'starting' || phaseRef.current === 'active') return
     phaseRef.current = 'starting'
     setPhase('starting')
@@ -297,22 +299,27 @@ export function useGlobalSync(): UseGlobalSyncResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobKeys])
 
-  // Side effect of "we just transitioned into done": refresh /auth/me so the
-  // post-sync balance/transaction snapshot lands in the cache. The `finishing`
-  // phase represents the failure / no-credentials path, where there is
-  // nothing new to fetch.
+  // Advance phase 'active' → 'done' when every job is terminal and no 2FA
+  // prompt is queued. Also invalidates /auth/me so the post-sync balance lands
+  // in the cache. The 'finishing' phase (zero credentials / POST error) is
+  // already terminal, so it doesn't pass through here. The single follow-up
+  // render is acceptable — it happens once per sync run, when every WebSocket
+  // has just announced the last update.
   useEffect(() => {
-    if (!isDone) return
-    if (phase === 'finishing') return
+    if (phase !== 'active') return
+    if (!allJobsTerminal || queue.length > 0) return
+    phaseRef.current = 'done'
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPhase('done')
     queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
-  }, [isDone, phase, queryClient])
+  }, [phase, allJobsTerminal, queue.length, queryClient])
 
   const status: GlobalSyncStatus = useMemo(() => {
     if (phase === 'idle') return 'idle'
     if (phase === 'starting') return 'starting'
-    if (isDone) return 'done'
+    if (phase === 'done' || phase === 'finishing') return 'done'
     return current2faId !== null ? 'awaiting_2fa' : 'running'
-  }, [phase, isDone, current2faId])
+  }, [phase, current2faId])
 
   const current2fa: Current2FA | null = useMemo(() => {
     if (current2faId === null) return null
