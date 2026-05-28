@@ -423,6 +423,8 @@ def test_sync_job_websocket_streams_terminal_state(http_client: TestClient, monk
     assert last is not None
     assert last["status"] == "completed"
     assert "challenge_token" not in last
+    assert last["job_id"] == job_id
+    assert last["credential_id"] == credential_id
 
 
 def test_sync_job_websocket_rejects_unauthenticated_clients(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):

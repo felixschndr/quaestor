@@ -54,7 +54,7 @@ def test_start_sync_creates_a_job_that_runs_to_completion(patch_sync: PatchSync)
     async def scenario():
         job = await sync_jobs.start_sync(credential_id=42)
         assert job.credential_id == 42
-        assert sync_jobs.get_job_by_id(job.id) is job
+        assert sync_jobs.get_job_by_id(job.job_id) is job
         # start_sync yields once before returning, so the background task may have already
         # progressed to terminal — only assert the eventual outcome.
         for _ in range(50):
@@ -112,7 +112,7 @@ def test_submit_two_factor_advances_the_job(patch_sync: PatchSync, patch_confirm
                 break
             await asyncio.sleep(0)
 
-        result = await sync_jobs.submit_two_factor(job_id=job.id, code="1234")
+        result = await sync_jobs.submit_two_factor(job_id=job.job_id, code="1234")
         assert result is job
         assert job.status == JobStatus.RUNNING
         assert job.challenge_token is None  # consumed
@@ -127,22 +127,22 @@ def test_submit_two_factor_advances_the_job(patch_sync: PatchSync, patch_confirm
 
 
 def test_submit_two_factor_returns_none_when_job_not_awaiting():
-    job = SyncJob(id="abc", credential_id=1, status=JobStatus.RUNNING)
-    sync_jobs._jobs[job.id] = job
+    job = SyncJob(job_id="abc", credential_id=1, status=JobStatus.RUNNING)
+    sync_jobs._jobs[job.job_id] = job
 
     async def scenario():
-        assert await sync_jobs.submit_two_factor(job_id=job.id, code="x") is None
+        assert await sync_jobs.submit_two_factor(job_id=job.job_id, code="x") is None
 
     asyncio.run(scenario())
 
 
 def test_subscribe_yields_terminal_state_for_finished_job():
-    job = SyncJob(id="abc", credential_id=1, status=JobStatus.COMPLETED, finished_at=datetime.now())
-    sync_jobs._jobs[job.id] = job
+    job = SyncJob(job_id="abc", credential_id=1, status=JobStatus.COMPLETED, finished_at=datetime.now())
+    sync_jobs._jobs[job.job_id] = job
 
     async def scenario() -> list[SyncJob]:
         updates: list[SyncJob] = []
-        async for update in sync_jobs.subscribe(job.id):
+        async for update in sync_jobs.subscribe(job.job_id):
             updates.append(update)
         return updates
 
@@ -157,7 +157,7 @@ def test_subscribe_streams_updates_as_they_happen(patch_sync: PatchSync):
     async def scenario() -> list[JobStatus]:
         job = await sync_jobs.start_sync(credential_id=42)
         statuses: list[JobStatus] = []
-        async for update in sync_jobs.subscribe(job.id):
+        async for update in sync_jobs.subscribe(job.job_id):
             statuses.append(update.status)
             if update.finished_at is not None:
                 break
@@ -178,17 +178,17 @@ def test_subscribe_returns_immediately_for_unknown_job():
 
 
 def test_cleanup_drops_old_finished_jobs():
-    fresh = SyncJob(id="fresh", credential_id=1, status=JobStatus.COMPLETED, finished_at=datetime.now())
+    fresh = SyncJob(job_id="fresh", credential_id=1, status=JobStatus.COMPLETED, finished_at=datetime.now())
     stale = SyncJob(
-        id="stale",
+        job_id="stale",
         credential_id=1,
         status=JobStatus.COMPLETED,
         finished_at=datetime.now() - sync_jobs.JOB_RETENTION_DURATION - timedelta(minutes=1),
     )
-    sync_jobs._jobs[fresh.id] = fresh
-    sync_jobs._jobs[stale.id] = stale
+    sync_jobs._jobs[fresh.job_id] = fresh
+    sync_jobs._jobs[stale.job_id] = stale
 
     sync_jobs._cleanup_old_jobs()
 
-    assert sync_jobs.get_job_by_id(fresh.id) is fresh
-    assert sync_jobs.get_job_by_id(stale.id) is None
+    assert sync_jobs.get_job_by_id(fresh.job_id) is fresh
+    assert sync_jobs.get_job_by_id(stale.job_id) is None

@@ -1,12 +1,14 @@
 import asyncio
 import secrets
 from collections.abc import AsyncIterator, Callable
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields, replace
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import ClassVar
 
 from source.backend.db import SessionLocal
 from source.backend.logging_utils import get_logger
+from source.backend.models.base import format_repr
 from source.backend.services import credential_service
 from source.backend.services.credential_service import SyncResult, SyncStatus
 
@@ -28,7 +30,9 @@ TERMINAL_JOB_STATUSSES = frozenset({JobStatus.COMPLETED, JobStatus.FAILED})
 
 @dataclass
 class SyncJob:
-    id: str
+    __repr_exclude__: ClassVar[frozenset[str]] = frozenset({"challenge_token"})
+
+    job_id: str
     credential_id: int
     status: JobStatus = JobStatus.RUNNING
     challenge_token: str | None = None
@@ -36,6 +40,9 @@ class SyncJob:
     error: str | None = None
     started_at: datetime = field(default_factory=datetime.now)
     finished_at: datetime | None = None
+
+    def __repr__(self) -> str:
+        return format_repr(obj=self, field_names=(f.name for f in fields(self)), excluded=type(self).__repr_exclude__)
 
 
 _jobs: dict[str, SyncJob] = {}
@@ -65,16 +72,16 @@ def get_job_by_id(job_id: str) -> SyncJob | None:
 async def _notify(job: SyncJob) -> None:
     async with _lock:
         snapshot = replace(job)
-        queues = list(_subscribers.get(job.id, set()))  # noqa FKA100
+        queues = list(_subscribers.get(job.job_id, set()))  # noqa FKA100
     for queue in queues:
         await queue.put(snapshot)
 
 
 async def start_sync(credential_id: int) -> SyncJob:
     _cleanup_old_jobs()
-    job = SyncJob(id=secrets.token_urlsafe(16), credential_id=credential_id)
-    _jobs[job.id] = job
-    logger.info(f"Sync job {job.id} started for credential {credential_id}")
+    job = SyncJob(job_id=secrets.token_urlsafe(16), credential_id=credential_id)
+    _jobs[job.job_id] = job
+    logger.info(f"Sync job {job} started")
     _spawn(_run_sync(job))
     # Yield once so the background task gets a chance to start before we return.
     await asyncio.sleep(0)
@@ -87,7 +94,7 @@ async def _run_sync(job: SyncJob) -> None:
         result = await asyncio.to_thread(_sync_in_thread, job.credential_id, notify_two_factor_state)  # noqa FKA100
         _apply_result(job=job, result=result)
     except Exception as e:
-        logger.exception(f"Sync job {job.id} failed for credential {job.credential_id}")
+        logger.exception(f"Sync job {job} failed")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e))
     await _notify(job)
 
@@ -124,10 +131,10 @@ def _apply_result(job: SyncJob, result: SyncResult) -> None:
         job.status = JobStatus.AWAITING_TWO_FACTOR
         job.challenge_token = result.challenge_token
         job.expires_at = result.expires_at
-        logger.info(f"Sync job {job.id} awaiting 2FA (expires at {result.expires_at})")
+        logger.info(f"Sync job {job} awaiting 2FA")
     else:
         _mark_terminal(job=job, status=JobStatus.COMPLETED)
-        logger.info(f"Sync job {job.id} completed")
+        logger.info(f"Sync job {job} completed")
 
 
 def _mark_terminal(job: SyncJob, status: JobStatus, error: str | None = None) -> None:
@@ -157,7 +164,7 @@ async def _run_confirm(job: SyncJob, challenge_token: str, code: str) -> None:
         )
         _apply_result(job=job, result=result)
     except Exception as e:
-        logger.exception(f"Sync job {job.id} 2FA confirmation failed for credential {job.credential_id}")
+        logger.exception(f"Sync job {job} 2FA confirmation failed")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e))
     await _notify(job)
 
