@@ -21,7 +21,7 @@ class TransactionCategory(str, Enum):
     SUBSCRIPTIONS = "SUBSCRIPTIONS"
     RENT = "RENT"
     UTILITIES = "UTILITIES"
-    TRANSPORTATION = "TRANSPORTATION"
+    TRAVEL = "TRAVEL"
     FUEL = "FUEL"
     FITNESS = "FITNESS"
     ONLINE_SHOPPING = "ONLINE_SHOPPING"
@@ -84,7 +84,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
     ],
     TransactionCategory.RENT: ["miete"],
     TransactionCategory.UTILITIES: ["vattenfall", "vodafone", "rundfunk", "strom"],
-    TransactionCategory.TRANSPORTATION: ["vw leasing", "auto", "tuv", "tuev", "db", "bahn"],
+    TransactionCategory.TRAVEL: ["vw leasing", "auto", "tuv", "tuev", "db", "bahn", "hotel"],
     TransactionCategory.FUEL: ["tankstelle", "aral station", "bft"],
     TransactionCategory.FITNESS: ["fit-in", "fitness"],
     TransactionCategory.SUPERMARKET: [
@@ -98,6 +98,8 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "netto",
         "scheck-in",
         "lebensmittel",
+        "kiosk",
+        "euroshop",
     ],
     TransactionCategory.DRUGSTORE: ["drogerie", "rossmann", "mueller"],
     TransactionCategory.RESTAURANTS: [
@@ -126,12 +128,22 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "mcdonalds",
         "bowlwerk",
         "le crobag",
+        "pommes",
+        "kfc",
     ],
-    TransactionCategory.PERSONAL_CARE: ["friseur", "barber", "waxing", "apotheke"],
+    TransactionCategory.PERSONAL_CARE: ["friseur", "barber", "waxing", "apotheke", "krankenkasse"],
     TransactionCategory.CLOTHING: ["new yorker", "bijou brigette"],
     TransactionCategory.GIFTS: ["blume 2000"],
     TransactionCategory.ENTERTAINMENT: ["steam games", "nintendo", "baedergesel", "nzb", "feier", "triviar"],
-    TransactionCategory.FEES: ["gocardless", "bewohnerparkausweis", "deutsche post ag"],
+    TransactionCategory.FEES: [
+        "gocardless",
+        "bewohnerparkausweis",
+        "deutsche post ag",
+        "education",
+        "hochschule",
+        "university",
+        "universitaet",
+    ],
     TransactionCategory.SAVINGS: ["sparen", "einzahlung"],
     # TRANSFER: no text matchers — assigned only by the future cross-bank linker.
     TransactionCategory.ONLINE_SHOPPING: [

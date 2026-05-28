@@ -41,12 +41,13 @@ from tests.backend.conftest import (
         ("VATTENFALL EUROPE SALES", "Strom Abschlag", TransactionCategory.UTILITIES),
         ("Vodafone GmbH", "Rechnung", TransactionCategory.UTILITIES),
         ("Rundfunk ARD, ZDF, DRadio", None, TransactionCategory.UTILITIES),
-        # Transportation / Fuel
-        ("VW Leasing GmbH", "RATE", TransactionCategory.TRANSPORTATION),
-        ("VISA TUEV SUED AUTO SERVICE", None, TransactionCategory.TRANSPORTATION),
-        (None, "TUV", TransactionCategory.TRANSPORTATION),
-        ("Deutsche Bahn AG", "Ticket", TransactionCategory.TRANSPORTATION),
-        (None, "DB Vertrieb GmbH", TransactionCategory.TRANSPORTATION),
+        # Travel / Fuel
+        ("VW Leasing GmbH", "RATE", TransactionCategory.TRAVEL),
+        ("VISA TUEV SUED AUTO SERVICE", None, TransactionCategory.TRAVEL),
+        (None, "TUV", TransactionCategory.TRAVEL),
+        ("Deutsche Bahn AG", "Ticket", TransactionCategory.TRAVEL),
+        (None, "DB Vertrieb GmbH", TransactionCategory.TRAVEL),
+        ("Marriott Hotel Berlin", None, TransactionCategory.TRAVEL),
         ("VISA ARAL STATION", None, TransactionCategory.FUEL),
         ("VISA BFT TANKSTELLE DER EFA", None, TransactionCategory.FUEL),
         # SAVINGS text matchers (default type=OUTGOING — exercises matcher path, not type pre-check)
