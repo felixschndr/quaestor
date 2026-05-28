@@ -33,8 +33,8 @@ class UserCreate(BaseModel):
 
     @field_validator("user_name")
     @classmethod
-    def _normalize_user_name(cls: "ModelMetaclass", value: str) -> str:
-        return value.strip().lower()
+    def _normalize_user_name(cls: "ModelMetaclass", value: str) -> str | None:
+        return _normalize_user_name(value)
 
     @field_validator("password")
     @classmethod
@@ -76,16 +76,22 @@ class UserLogin(BaseModel):
 
     @field_validator("user_name")
     @classmethod
-    def _normalize_user_name(cls: "ModelMetaclass", value: str) -> str:
-        return value.strip().lower()
+    def _normalize_user_name(cls: "ModelMetaclass", value: str) -> str | None:
+        return _normalize_user_name(value)
 
 
 class UserUpdate(BaseModel):
+    user_name: str | None = None
     display_name: str | None = None
     language: str | None = None
     theme: Theme | None = None
     current_password: str | None = None
     new_password: str | None = Field(default=None, min_length=MIN_PASSWORD_LENGTH)
+
+    @field_validator("user_name")
+    @classmethod
+    def _normalize_user_name(cls: "ModelMetaclass", value: str | None) -> str | None:
+        return _normalize_user_name(value)
 
     @field_validator("new_password")
     @classmethod
@@ -107,3 +113,12 @@ class UserUpdate(BaseModel):
         if self.new_password is not None and not self.current_password:
             raise ValueError("Changing the password requires the current password")
         return self
+
+
+def _normalize_user_name(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if not normalized:
+        raise ValueError("user_name must not be empty")
+    return normalized

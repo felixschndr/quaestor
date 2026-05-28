@@ -54,6 +54,7 @@ export function SettingsUserPageContent({ user, onAccountDeleted }: SettingsUser
 
       <LanguageSection user={user} />
       <ThemeSection user={user} />
+      <UserNameSection user={user} />
       <DisplayNameSection user={user} />
       <PasswordSection user={user} />
       <DangerZone user={user} onAccountDeleted={onAccountDeleted} />
@@ -91,6 +92,62 @@ function Section({
       </div>
       {children}
     </section>
+  )
+}
+
+interface UserNameValues {
+  user_name: string
+}
+
+function UserNameSection({ user }: { user: UserRead }) {
+  const { t } = useTranslation()
+  const update = useUpdateUser(user.id)
+  const form = useForm<UserNameValues>({
+    resolver: zodResolver(
+      z.object({
+        user_name: z.string().min(1, { message: t('login.required') }),
+      }),
+    ),
+    defaultValues: { user_name: user.user_name },
+  })
+
+  useEffect(() => {
+    form.reset({ user_name: user.user_name })
+  }, [user.user_name, form])
+
+  const onSubmit = form.handleSubmit(async (values) => {
+    const normalized = values.user_name.trim().toLowerCase()
+    if (normalized === user.user_name) return
+    try {
+      await update.mutateAsync({ user_name: normalized })
+      toast.success(t('settings.userSaved'))
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        form.setError('user_name', { type: 'server', message: t('login.userNameTaken') })
+        return
+      }
+      toast.error(readApiErrorMessage(err, t))
+    }
+  })
+
+  const dirty = form.watch('user_name').trim().toLowerCase() !== user.user_name
+
+  return (
+    <Section title={t('settings.userName')}>
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3">
+        <FieldRow
+          id="user-name"
+          label={t('settings.userName')}
+          hideLabel
+          autoComplete="username"
+          error={form.formState.errors.user_name?.message}
+          {...form.register('user_name')}
+        />
+        <Button type="submit" disabled={!dirty || update.isPending} className="self-start">
+          {t('common.save')}
+        </Button>
+      </form>
+    </Section>
   )
 }
 
@@ -133,6 +190,7 @@ function DisplayNameSection({ user }: { user: UserRead }) {
         <FieldRow
           id="display-name"
           label={t('settings.displayName')}
+          hideLabel
           autoComplete="name"
           error={form.formState.errors.display_name?.message}
           {...form.register('display_name')}
@@ -175,13 +233,13 @@ function LanguageSection({ user }: { user: UserRead }) {
   return (
     <Section title={t('settings.language')}>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="language-select">{t('settings.language')}</Label>
         <select
           id="language-select"
+          aria-label={t('settings.language')}
           value={user.language}
           disabled={pending || !languages}
           onChange={(event) => void change(event.target.value)}
-          className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full max-w-xs rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 disabled:opacity-50 dark:bg-input/30"
+          className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 disabled:opacity-50 dark:bg-input/30"
         >
           {sortedLanguages.map(({ code, label }) => (
             <option key={code} value={code}>
@@ -218,13 +276,13 @@ function ThemeSection({ user }: { user: UserRead }) {
   return (
     <Section title={t('settings.theme')}>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="theme-select">{t('settings.theme')}</Label>
         <select
           id="theme-select"
+          aria-label={t('settings.theme')}
           value={user.theme}
           disabled={pending}
           onChange={(event) => void change(event.target.value as Theme)}
-          className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full max-w-xs rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 disabled:opacity-50 dark:bg-input/30"
+          className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 disabled:opacity-50 dark:bg-input/30"
         >
           {THEME_VALUES.map((value) => (
             <option key={value} value={value}>
@@ -401,13 +459,15 @@ interface FieldRowProps extends React.ComponentProps<'input'> {
   id: string
   label: string
   error?: string
+  hideLabel?: boolean
 }
 
-const FieldRow = ({ id, label, error, ...rest }: FieldRowProps) => (
+const FieldRow = ({ id, label, error, hideLabel, ...rest }: FieldRowProps) => (
   <div className="flex flex-col gap-1.5">
-    <Label htmlFor={id}>{label}</Label>
+    {hideLabel ? null : <Label htmlFor={id}>{label}</Label>}
     <Input
       id={id}
+      aria-label={hideLabel ? label : undefined}
       aria-invalid={error ? true : undefined}
       aria-describedby={error ? `${id}-error` : undefined}
       {...rest}
