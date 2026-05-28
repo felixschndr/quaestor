@@ -19,15 +19,14 @@ from source.backend.services import migrations  # noqa: E402
 from source.backend.services.password_service import hash_password  # noqa: E402
 
 from tests.backend.conftest import (  # noqa: E402
+    DISPLAY_NAME,
+    USER_NAME,
+    VALID_PASSWORD,
     make_account,
     make_credential,
     make_transaction,
     make_user,
 )
-
-DEMO_USER_NAME = "demo"
-DEMO_PASSWORD = "demo"  # nosec B105
-DEMO_DISPLAY_NAME = "Demo User"
 
 TODAY = date.today()
 
@@ -107,7 +106,7 @@ def _account_name(bank: BankProvider, index: int) -> str:
 
 
 def _delete_existing_demo_user(db_session: Session) -> None:
-    existing = db_session.scalar(select(User).where(User.user_name == DEMO_USER_NAME))
+    existing = db_session.scalar(select(User).where(User.user_name == USER_NAME))
     if existing is not None:
         db_session.delete(existing)
         db_session.flush()
@@ -119,9 +118,9 @@ def fill_db_with_testdata() -> None:
         _delete_existing_demo_user(session)
         user = make_user(
             session,
-            user_name=DEMO_USER_NAME,
-            display_name=DEMO_DISPLAY_NAME,
-            password_hash=hash_password(DEMO_PASSWORD),
+            user_name=USER_NAME,
+            display_name=DISPLAY_NAME,
+            password_hash=hash_password(VALID_PASSWORD),
         )
         account_counter = 0
         for bank in BankProvider:
@@ -137,7 +136,7 @@ def fill_db_with_testdata() -> None:
                     make_transaction(session, account_id=account.id, **transaction_data)
                 account_counter += 1
         session.commit()
-    print(f"Seeded demo data: user '{DEMO_USER_NAME}' / password '{DEMO_PASSWORD}' with {account_counter} accounts.")
+    print(f"Seeded demo data: user '{USER_NAME}' / password '{VALID_PASSWORD}' with {account_counter} accounts.")
 
 
 if __name__ == "__main__":
