@@ -2,8 +2,9 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-from source.backend.models.credential import Credential
+from source.backend.bank_handlers import BankProvider
 from source.backend.services import credential_service
+from source.backend.services.credential_service import SyncResult, SyncStatus
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
@@ -208,15 +209,16 @@ def test_delete_user_removes_account_and_invalidates_session(http_client: TestCl
     assert http_client.get("/api/auth/me").status_code == 401
 
 
-def test_sync_without_credentials_returns_no_content(http_client: TestClient):
+def test_sync_without_credentials_returns_empty_list(http_client: TestClient):
     register(http_client)
 
     response = http_client.post("/api/users/sync")
 
-    assert response.status_code == 204
+    assert response.status_code == 202
+    assert response.json() == []
 
 
-def test_sync_syncs_normal_credentials_and_skips_two_factor_ones(
+def test_sync_starts_jobs_for_normal_and_2fa_credentials(
     http_client: TestClient,
     session_factory: sessionmaker,
     monkeypatch: pytest.MonkeyPatch,
@@ -224,22 +226,28 @@ def test_sync_syncs_normal_credentials_and_skips_two_factor_ones(
     user_id = register(http_client).json()["id"]
     with session_factory() as session:
         normal = make_credential(session, user_id=user_id)
-        skipped = make_credential(session, user_id=user_id, requires_two_factor_authentication=True)
+        two_factor = make_credential(
+            session,
+            user_id=user_id,
+            bank=BankProvider.DKB,
+            requires_two_factor_authentication=True,
+        )
         session.commit()
         normal_id = normal.id
-        skipped_id = skipped.id
+        two_factor_id = two_factor.id
 
-    sync_mock = MagicMock()
-    monkeypatch.setattr(target=credential_service, name="sync_credential_object", value=sync_mock)
+    sync_mock = MagicMock(return_value=SyncResult(status=SyncStatus.COMPLETED))
+    monkeypatch.setattr(target=credential_service, name="sync_credential", value=sync_mock)
 
     response = http_client.post("/api/users/sync")
 
-    assert response.status_code == 204
-    synced_ids = [call.kwargs["credential"].id for call in sync_mock.call_args_list]
-    assert synced_ids == [normal_id]
-    assert skipped_id not in synced_ids
-    with session_factory() as session:
-        assert session.get(entity=Credential, ident=skipped_id) is not None
+    assert response.status_code == 202
+    body = response.json()
+    returned_credential_ids = sorted(job["credential_id"] for job in body)
+    assert returned_credential_ids == sorted([normal_id, two_factor_id])
+    for job in body:
+        assert job["job_id"]
+        assert job["status"] in {"running", "completed"}
 
 
 def test_list_user_sessions_returns_current_session_marked(http_client: TestClient):

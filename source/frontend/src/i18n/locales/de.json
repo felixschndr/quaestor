@@ -9,7 +9,10 @@
     "hello": "Hallo <name>{{name}}</name>",
     "emptyTitle": "Noch keine Konten",
     "emptyCta": "Erste Bank verbinden",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "syncAll": {
+      "aria": "Alle Konten synchronisieren"
+    }
   },
   "account": {
     "back": "Zurück",
@@ -339,6 +342,19 @@
     "revokedAll": "Andere Sitzungen wurden abgemeldet",
     "loadError": "Sitzungen konnten nicht geladen werden.",
     "empty": "Keine aktiven Sitzungen."
+  },
+  "sync": {
+    "twoFactor": {
+      "codeTitle": "Code für {{bank}} eingeben",
+      "codeDescription": "Wir haben einen Bestätigungscode an dein Handy gesendet. Gib ihn ein, um die Synchronisierung fortzusetzen.",
+      "decoupledTitle": "{{bank}} bestätigen",
+      "decoupledDescription": "Bitte öffne deine {{bank}}-App und bestätige die Anfrage. Wir warten auf die Freigabe.",
+      "submit": "Bestätigen",
+      "submitting": "Wird bestätigt …",
+      "codeLabel": "Code"
+    },
+    "skipped": "{{bank}} übersprungen.",
+    "failed": "{{bank}} konnte nicht synchronisiert werden."
   },
   "transaction": {
     "back": "Zurück",

@@ -9,7 +9,10 @@
     "hello": "Hello, <name>{{name}}</name>",
     "emptyTitle": "No accounts yet",
     "emptyCta": "Connect your first bank",
-    "settings": "Settings"
+    "settings": "Settings",
+    "syncAll": {
+      "aria": "Sync all accounts"
+    }
   },
   "account": {
     "back": "Back",
@@ -342,6 +345,19 @@
     "revokedAll": "Other sessions signed out",
     "loadError": "Could not load sessions.",
     "empty": "No active sessions."
+  },
+  "sync": {
+    "twoFactor": {
+      "codeTitle": "Enter code for {{bank}}",
+      "codeDescription": "We sent a confirmation code to your phone. Enter it to continue the sync.",
+      "decoupledTitle": "Approve in {{bank}}",
+      "decoupledDescription": "Please open your {{bank}} app and approve the request. We're waiting for your confirmation.",
+      "submit": "Confirm",
+      "submitting": "Confirming …",
+      "codeLabel": "Code"
+    },
+    "skipped": "{{bank}} skipped.",
+    "failed": "{{bank}} couldn't be synced."
   },
   "transaction": {
     "back": "Back",

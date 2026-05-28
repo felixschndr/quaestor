@@ -63,6 +63,7 @@ export type SyncJobStatus =
 
 export interface SyncJob {
   job_id: string
+  credential_id: number
   status: SyncJobStatus
   expires_at: string | null
   error: string | null

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from source.backend.api.schemas.account import AccountRead
 from source.backend.bank_handlers import BankProvider
 from source.backend.services.sync_jobs import JobStatus
@@ -27,7 +27,10 @@ class CredentialUpdate(BaseModel):
 
 
 class SyncJobRead(BaseModel):
-    job_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+    job_id: str = Field(validation_alias="id")
+    credential_id: int
     status: JobStatus
     expires_at: datetime | None = None
     error: str | None = None
