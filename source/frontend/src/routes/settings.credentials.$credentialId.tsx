@@ -399,7 +399,7 @@ function AccountRow({ account, isManual }: { account: AccountRead; isManual: boo
             {t('credentials.detail.countsAsLabel')}
           </span>
 
-          <div className="border-input bg-background focus-within:border-ring focus-within:ring-ring/50 row-start-2 flex h-8 w-24 items-center rounded-lg border pr-2.5 transition-colors focus-within:ring-3">
+          <div className="border-input focus-within:border-ring focus-within:ring-ring/50 row-start-2 flex h-8 w-24 items-center rounded-lg border pr-2.5 transition-colors focus-within:ring-3 dark:bg-input/30">
             <Input
               id={factorInputId}
               type="number"
@@ -410,7 +410,7 @@ function AccountRow({ account, isManual }: { account: AccountRead; isManual: boo
               value={factor}
               onChange={(event) => setFactor(event.target.value)}
               aria-invalid={!isValidFactor || undefined}
-              className="h-7 border-0 bg-transparent pr-1 text-right tabular-nums shadow-none focus-visible:border-0 focus-visible:ring-0"
+              className="h-7 border-0 bg-transparent pr-1 text-right tabular-nums shadow-none focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent"
             />
             <span className="text-muted-foreground text-sm">%</span>
           </div>
