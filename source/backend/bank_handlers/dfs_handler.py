@@ -3,6 +3,7 @@ from datetime import date
 from typing import Any, Iterator
 
 from requests import HTTPError, Session
+from requests.exceptions import JSONDecodeError
 from source.backend.bank_handlers.base import (
     BankHandler,
     BankSession,
@@ -123,21 +124,21 @@ class _DFSSession(BankSession):
         response = http.post(f"{self.BASE_URL}/acaphc/rest/dashboard/getDashboardSnapshot")
         try:
             response.raise_for_status()
-        except HTTPError as e:
+            return response.json()
+        except (HTTPError, JSONDecodeError) as e:
             error_message = f"Failed to load DFS dashboard snapshot: {e}"
             logger.error(error_message)
             raise UnknownInternalError(error_message) from e
-        return response.json()
 
     def _fetch_transactions(self, http: Session, modell_key: str) -> list[dict]:
         response = http.post(f"{self.BASE_URL}/acaphc/rest/konto/{modell_key}/transaktionen")
         try:
             response.raise_for_status()
-        except HTTPError as e:
+            return response.json()["daten"]["grid"]["dataSource"]
+        except (HTTPError, JSONDecodeError) as e:
             error_message = f"Failed to load DFS transactions for {modell_key}: {e}"
             logger.error(error_message)
             raise UnknownInternalError(error_message) from e
-        return response.json()["daten"]["grid"]["dataSource"]
 
 
 class DFSHandler(BankHandler):
