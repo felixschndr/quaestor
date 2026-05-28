@@ -79,14 +79,20 @@ function isSameLocalDay(a: Date, b: Date): boolean {
 export function relativeDateKey(
   date: Date,
   today: Date = new Date(),
-): 'future' | 'today' | 'yesterday' | null {
+): 'future' | 'today' | 'yesterday' | 'tomorrow' | 'dayAfterTomorrow' | null {
   if (isSameLocalDay(date, today)) return 'today'
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
   if (isSameLocalDay(date, yesterday)) return 'yesterday'
-  const startOfTomorrow = new Date(today)
-  startOfTomorrow.setHours(0, 0, 0, 0)
-  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1)
-  if (date.getTime() >= startOfTomorrow.getTime()) return 'future'
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  if (isSameLocalDay(date, tomorrow)) return 'tomorrow'
+  const dayAfterTomorrow = new Date(today)
+  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2)
+  if (isSameLocalDay(date, dayAfterTomorrow)) return 'dayAfterTomorrow'
+  const startOfDayAfterTomorrow = new Date(today)
+  startOfDayAfterTomorrow.setHours(0, 0, 0, 0)
+  startOfDayAfterTomorrow.setDate(startOfDayAfterTomorrow.getDate() + 3)
+  if (date.getTime() >= startOfDayAfterTomorrow.getTime()) return 'future'
   return null
 }

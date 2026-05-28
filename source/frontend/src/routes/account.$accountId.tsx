@@ -385,7 +385,8 @@ function TransactionGroupList({
 function isFutureDateString(isoDate: string, today?: Date): boolean {
   const [y, m, d] = isoDate.split('-').map(Number)
   const local = new Date(y, m - 1, d)
-  return relativeDateKey(local, today) === 'future'
+  const key = relativeDateKey(local, today)
+  return key === 'future' || key === 'tomorrow' || key === 'dayAfterTomorrow'
 }
 
 function DateHeader({
@@ -473,7 +474,7 @@ function TransactionRow({
           to="/account/$accountId/transactions/$transactionId"
           params={{ accountId: String(accountId), transactionId: String(transaction.id) }}
           className={cn(
-            'hover:bg-muted/60 flex items-center gap-3 rounded-md px-3 py-3 transition-colors',
+            'hover:bg-muted/60 flex items-center gap-3 rounded-md py-3 pl-3 transition-colors',
             isFuture && 'opacity-60',
           )}
         >
@@ -506,7 +507,7 @@ function TransactionRow({
   return (
     <li
       className={cn(
-        'flex items-center gap-3 rounded-md px-2 py-3 transition-colors',
+        'flex items-center gap-3 rounded-md py-3 pl-2 transition-colors',
         isFuture && 'opacity-60',
       )}
     >

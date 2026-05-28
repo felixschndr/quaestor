@@ -31,6 +31,8 @@
     "balance": "Current balance",
     "today": "Today",
     "yesterday": "Yesterday",
+    "tomorrow": "Scheduled for tomorrow",
+    "dayAfterTomorrow": "Scheduled for the day after tomorrow",
     "future": "Scheduled for {{date}}",
     "unknownParty": "Unknown",
     "empty": "No transactions yet.",

@@ -75,10 +75,20 @@ describe('relativeDateKey', () => {
     expect(relativeDateKey(apr30, may1)).toBe('yesterday')
   })
 
-  it('returns "future" for any date strictly after today', () => {
+  it('returns "tomorrow" for the day immediately after today', () => {
     const tomorrow = new Date(2026, 4, 23)
+    expect(relativeDateKey(tomorrow, today)).toBe('tomorrow')
+  })
+
+  it('returns "dayAfterTomorrow" for two days after today', () => {
+    const dayAfter = new Date(2026, 4, 24)
+    expect(relativeDateKey(dayAfter, today)).toBe('dayAfterTomorrow')
+  })
+
+  it('returns "future" for any date three or more days after today', () => {
+    const threeDaysOut = new Date(2026, 4, 25)
     const nextMonth = new Date(2026, 5, 1)
-    expect(relativeDateKey(tomorrow, today)).toBe('future')
+    expect(relativeDateKey(threeDaysOut, today)).toBe('future')
     expect(relativeDateKey(nextMonth, today)).toBe('future')
   })
 
