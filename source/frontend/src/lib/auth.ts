@@ -288,6 +288,11 @@ export function useGlobalSync(): UseGlobalSyncResult {
           if (!queueRef.current.includes(update.credential_id)) {
             setQueue((prev) => [...prev, update.credential_id])
           }
+        } else if (queueRef.current.includes(update.credential_id)) {
+          // Status moved out of 2FA-awaiting (e.g. decoupled approval resolved
+          // server-side, or job became terminal). Drop it from the queue so
+          // the modal closes and the next entry advances.
+          setQueue((prev) => prev.filter((id) => id !== update.credential_id))
         }
       }
       sockets.push(socket)
@@ -347,13 +352,17 @@ export function useGlobalSync(): UseGlobalSyncResult {
         method: 'POST',
         body: { code },
       })
-      setQueue((prev) => prev.slice(1))
+      // Filter by id rather than slice(0) so a concurrent WS update that
+      // already removed this credential doesn't accidentally drop the next one.
+      setQueue((prev) => prev.filter((id) => id !== activeId))
     },
     [queue, jobs],
   )
 
   const skip2fa = useCallback(() => {
-    setQueue((prev) => prev.slice(1))
+    const activeId = queueRef.current[0]
+    if (activeId === undefined) return
+    setQueue((prev) => prev.filter((id) => id !== activeId))
   }, [])
 
   return { start, status, jobs, current2fa, submit2fa, skip2fa }
