@@ -120,10 +120,13 @@ export function OverviewView({ user, onSyncClick, syncDisabled, syncSpinning }: 
             onClick={onSyncClick}
             disabled={syncDisabled}
             aria-label={t('overview.syncAll.aria')}
-            className="text-primary hover:text-primary/80 rounded-md p-1.5 transition-colors disabled:opacity-50"
+            className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors disabled:opacity-50"
           >
             <RefreshCw
-              className={cn('size-5 transition-transform', syncSpinning && 'animate-spin')}
+              className={cn(
+                'size-5 transition-transform duration-500 ease-in-out',
+                syncSpinning ? 'animate-spin' : 'group-hover:rotate-[180deg]',
+              )}
               aria-hidden="true"
             />
           </button>
