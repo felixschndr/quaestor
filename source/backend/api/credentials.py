@@ -168,20 +168,30 @@ async def sync_job_ws(
 ) -> None:
     raw_token = websocket.cookies.get(session_service.COOKIE_NAME)
     if not raw_token:
+        logger.info(
+            f"WS /credentials/{credential_id}/sync/{job_id}/ws -> {WS_CODE_CLOSE_UNAUTHENTICATED} (no session cookie)"
+        )
         await websocket.close(code=WS_CODE_CLOSE_UNAUTHENTICATED)
         return
     user = session_service.get_user_by_raw_token(db_session=db_session, raw_token=raw_token)
     if user is None:
+        logger.info(
+            f"WS /credentials/{credential_id}/sync/{job_id}/ws -> {WS_CODE_CLOSE_UNAUTHENTICATED} (invalid session)"
+        )
         await websocket.close(code=WS_CODE_CLOSE_UNAUTHENTICATED)
         return
     try:
         credential_service.get_credential_for_user(db_session=db_session, credential_id=credential_id, user_id=user.id)
     except CredentialNotFoundError:
+        logger.info(
+            f"WS /credentials/{credential_id}/sync/{job_id}/ws -> {WS_CODE_CLOSE_NOT_FOUND} (credential not found)"
+        )
         await websocket.close(code=WS_CODE_CLOSE_NOT_FOUND)
         return
 
     job = sync_jobs.get_job_by_id(job_id)
     if job is None or job.credential_id != credential_id:
+        logger.info(f"WS /credentials/{credential_id}/sync/{job_id}/ws -> {WS_CODE_CLOSE_NOT_FOUND} (job not found)")
         await websocket.close(code=WS_CODE_CLOSE_NOT_FOUND)
         return
 
@@ -190,7 +200,9 @@ async def sync_job_ws(
     # explicit finally-close — which would also trip ASYNC102 (await inside finally).
     try:
         async for update in sync_jobs.subscribe(job_id):
-            await websocket.send_json(_get_job_payload(update))
+            payload = _get_job_payload(update)
+            logger.debug(f"WS job {job_id} -> {payload}")
+            await websocket.send_json(payload)
             if update.finished_at is not None:
                 break
     except WebSocketDisconnect:
