@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 
-import { ApiError } from '@/lib/api'
+import { ApiError, NetworkError } from '@/lib/api'
 import { ensureAuthenticated, safeNext } from '@/lib/auth'
 
 describe('safeNext', () => {
@@ -103,21 +103,14 @@ describe('ensureAuthenticated', () => {
     await expect(ensureAuthenticated({ queryClient, pathname: '/', search: '' })).rejects.toBe(boom)
   })
 
-  it('redirects to /login when the backend is unreachable (network error)', async () => {
+  it('propagates a NetworkError when the backend is unreachable so the root error component can render an offline screen', async () => {
     const queryClient = buildQueryClient()
     globalThis.fetch = vi
       .fn()
       .mockRejectedValue(new TypeError('Failed to fetch')) as unknown as typeof fetch
 
-    let thrown: unknown
-    try {
-      await ensureAuthenticated({ queryClient, pathname: '/account/3', search: '' })
-    } catch (err) {
-      thrown = err
-    }
-    expect(thrown).toBeTruthy()
-    const options = (thrown as { options?: { to?: string; search?: { next?: string } } }).options
-    expect(options?.to).toBe('/login')
-    expect(options?.search?.next).toBe('/account/3')
+    await expect(
+      ensureAuthenticated({ queryClient, pathname: '/account/3', search: '' }),
+    ).rejects.toBeInstanceOf(NetworkError)
   })
 })

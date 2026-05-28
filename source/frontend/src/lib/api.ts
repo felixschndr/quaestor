@@ -12,6 +12,20 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Raised when the backend can't be reached at all — `fetch` itself rejected
+ * (typically `TypeError("Failed to fetch")` from CORS, DNS, refused
+ * connection, or `navigator.onLine === false`). Distinguished from
+ * {@link ApiError} so callers can show an "offline" UI instead of a generic
+ * "something went wrong" — the server never had a chance to respond.
+ */
+export class NetworkError extends Error {
+  constructor(cause: unknown) {
+    super('Network request failed', { cause })
+    this.name = 'NetworkError'
+  }
+}
+
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
 interface RequestOptions {
@@ -41,13 +55,20 @@ export async function api<T = unknown>(path: string, options: RequestOptions = {
 
   const url = path.startsWith('/api') ? path : `/api${path.startsWith('/') ? path : `/${path}`}`
 
-  const res = await fetch(url, {
-    method,
-    headers,
-    credentials: 'same-origin',
-    signal: options.signal,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method,
+      headers,
+      credentials: 'same-origin',
+      signal: options.signal,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    })
+  } catch (err) {
+    // Preserve AbortError so callers / react-query can detect cancellation.
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new NetworkError(err)
+  }
 
   const isJson = res.headers.get('content-type')?.includes('application/json')
   const data = isJson ? await res.json().catch(() => null) : await res.text().catch(() => null)

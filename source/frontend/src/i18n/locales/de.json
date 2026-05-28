@@ -3,7 +3,18 @@
     "loading": "Lädt …",
     "save": "Speichern",
     "cancel": "Abbrechen",
-    "logout": "Abmelden"
+    "logout": "Abmelden",
+    "retry": "Erneut versuchen"
+  },
+  "errors": {
+    "serverOffline": {
+      "title": "Server nicht erreichbar",
+      "description": "Wir können den Server gerade nicht erreichen. Prüfe deine Verbindung und versuche es erneut."
+    },
+    "unexpected": {
+      "title": "Etwas ist schiefgelaufen",
+      "description": "Ein unerwarteter Fehler ist aufgetreten. Versuche es erneut."
+    }
   },
   "overview": {
     "hello": "Hallo <name>{{name}}</name>",

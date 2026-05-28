@@ -3,7 +3,18 @@
     "loading": "Loading…",
     "save": "Save",
     "cancel": "Cancel",
-    "logout": "Log out"
+    "logout": "Log out",
+    "retry": "Try again"
+  },
+  "errors": {
+    "serverOffline": {
+      "title": "Server unreachable",
+      "description": "We can't reach the server right now. Check your connection and try again."
+    },
+    "unexpected": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred. Please try again."
+    }
   },
   "overview": {
     "hello": "Hello, <name>{{name}}</name>",
