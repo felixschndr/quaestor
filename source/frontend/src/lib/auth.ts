@@ -233,34 +233,34 @@ export function useGlobalSync(): UseGlobalSyncResult {
     [queryClient],
   )
 
+  const phaseRef = useRef<GlobalSyncPhase>(phase)
+  useEffect(() => {
+    phaseRef.current = phase
+  }, [phase])
+
   const start = useCallback(() => {
-    setPhase((prev) => {
-      // Only allow start from a settled phase — block re-entry while a sync
-      // is mid-flight.
-      if (prev === 'starting' || prev === 'active') return prev
-      // Reset transient state alongside the phase transition so the next
-      // render sees a clean slate.
-      setJobs(new Map())
-      setQueue([])
-      void (async () => {
-        try {
-          const started = await api<SyncJob[]>('/users/sync', { method: 'POST' })
-          if (started.length === 0) {
-            // No credentials → nothing to sync, jump straight to done.
-            setPhase('finishing')
-            return
-          }
-          const initial = new Map<number, SyncJob>()
-          for (const job of started) initial.set(job.credential_id, job)
-          setJobs(initial)
-          setPhase('active')
-        } catch {
-          // Network/CSRF/auth failure — surface a toast via the caller's effect.
+    if (phaseRef.current === 'starting' || phaseRef.current === 'active') return
+    phaseRef.current = 'starting'
+    setPhase('starting')
+    setJobs(new Map())
+    setQueue([])
+    void (async () => {
+      try {
+        const started = await api<SyncJob[]>('/users/sync', { method: 'POST' })
+        if (started.length === 0) {
+          // No credentials → nothing to sync, jump straight to done.
           setPhase('finishing')
+          return
         }
-      })()
-      return 'starting'
-    })
+        const initial = new Map<number, SyncJob>()
+        for (const job of started) initial.set(job.credential_id, job)
+        setJobs(initial)
+        setPhase('active')
+      } catch {
+        // Network/CSRF/auth failure — surface a toast via the caller's effect.
+        setPhase('finishing')
+      }
+    })()
   }, [])
 
   // Open one WebSocket per job. Re-runs when the job map keys change
