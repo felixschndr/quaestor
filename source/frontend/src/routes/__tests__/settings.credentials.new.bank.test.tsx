@@ -208,7 +208,13 @@ describe('NewCredentialFormView', () => {
         return Promise.resolve(
           jsonResponse({
             status: 202,
-            body: { job_id: 'job-abc', status: 'running', expires_at: null, error: null },
+            body: {
+              job_id: 'job-abc',
+              credential_id: 42,
+              status: 'running',
+              expires_at: null,
+              error: null,
+            },
           }),
         )
       }
@@ -232,7 +238,13 @@ describe('NewCredentialFormView', () => {
     await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
     const ws = await nextWebSocket((s) => s.url.includes('/credentials/42/sync/job-abc/ws'))
-    ws.push({ job_id: 'job-abc', status: 'completed', expires_at: null, error: null })
+    ws.push({
+      job_id: 'job-abc',
+      credential_id: 42,
+      status: 'completed',
+      expires_at: null,
+      error: null,
+    })
 
     await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
     expect(onSyncFailed).not.toHaveBeenCalled()
@@ -260,7 +272,13 @@ describe('NewCredentialFormView', () => {
         return Promise.resolve(
           jsonResponse({
             status: 202,
-            body: { job_id: 'job-x', status: 'running', expires_at: null, error: null },
+            body: {
+              job_id: 'job-x',
+              credential_id: 11,
+              status: 'running',
+              expires_at: null,
+              error: null,
+            },
           }),
         )
       }
@@ -284,7 +302,13 @@ describe('NewCredentialFormView', () => {
     await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
     const ws = await nextWebSocket((s) => s.url.includes('/credentials/11/sync/job-x/ws'))
-    ws.push({ job_id: 'job-x', status: 'failed', expires_at: null, error: 'bank unreachable' })
+    ws.push({
+      job_id: 'job-x',
+      credential_id: 11,
+      status: 'failed',
+      expires_at: null,
+      error: 'bank unreachable',
+    })
 
     await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
     expect(onConnected).not.toHaveBeenCalled()
@@ -437,7 +461,13 @@ describe('NewCredentialFormView', () => {
           return Promise.resolve(
             jsonResponse({
               status: 202,
-              body: { job_id: jobId, status: 'running', expires_at: null, error: null },
+              body: {
+                job_id: jobId,
+                credential_id: credentialId,
+                status: 'running',
+                expires_at: null,
+                error: null,
+              },
             }),
           )
         }
@@ -448,7 +478,13 @@ describe('NewCredentialFormView', () => {
           return Promise.resolve(
             jsonResponse({
               status: 202,
-              body: { job_id: jobId, status: 'running', expires_at: null, error: null },
+              body: {
+                job_id: jobId,
+                credential_id: credentialId,
+                status: 'running',
+                expires_at: null,
+                error: null,
+              },
             }),
           )
         }
@@ -481,11 +517,18 @@ describe('NewCredentialFormView', () => {
       const ws = await nextWebSocket((s) => s.url.includes('/credentials/7/sync/job-tr/ws'))
 
       // Still no code field — we only got "running".
-      ws.push({ job_id: 'job-tr', status: 'running', expires_at: null, error: null })
+      ws.push({
+        job_id: 'job-tr',
+        credential_id: 7,
+        status: 'running',
+        expires_at: null,
+        error: null,
+      })
       expect(screen.queryByLabelText('Code')).not.toBeInTheDocument()
 
       ws.push({
         job_id: 'job-tr',
+        credential_id: 7,
         status: 'awaiting_2fa',
         expires_at: '2099-01-01T00:00:00Z',
         error: null,
@@ -520,6 +563,7 @@ describe('NewCredentialFormView', () => {
       const ws = await nextWebSocket((s) => s.url.includes('/credentials/7/sync/job-tr/ws'))
       ws.push({
         job_id: 'job-tr',
+        credential_id: 7,
         status: 'awaiting_2fa',
         expires_at: '2099-01-01T00:00:00Z',
         error: null,
@@ -529,7 +573,13 @@ describe('NewCredentialFormView', () => {
       await user.type(codeInput, '4242')
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
 
-      ws.push({ job_id: 'job-tr', status: 'completed', expires_at: null, error: null })
+      ws.push({
+        job_id: 'job-tr',
+        credential_id: 7,
+        status: 'completed',
+        expires_at: null,
+        error: null,
+      })
 
       await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
       expect(onSyncFailed).not.toHaveBeenCalled()
@@ -562,7 +612,13 @@ describe('NewCredentialFormView', () => {
           return Promise.resolve(
             jsonResponse({
               status: 202,
-              body: { job_id: 'job-tr', status: 'running', expires_at: null, error: null },
+              body: {
+                job_id: 'job-tr',
+                credential_id: 7,
+                status: 'running',
+                expires_at: null,
+                error: null,
+              },
             }),
           )
         }
@@ -592,6 +648,7 @@ describe('NewCredentialFormView', () => {
       const ws = await nextWebSocket((s) => s.url.includes('/credentials/7/sync/job-tr/ws'))
       ws.push({
         job_id: 'job-tr',
+        credential_id: 7,
         status: 'awaiting_2fa',
         expires_at: '2099-01-01T00:00:00Z',
         error: null,
@@ -627,7 +684,13 @@ describe('NewCredentialFormView', () => {
           return Promise.resolve(
             jsonResponse({
               status: 202,
-              body: { job_id: jobId, status: 'running', expires_at: null, error: null },
+              body: {
+                job_id: jobId,
+                credential_id: credentialId,
+                status: 'running',
+                expires_at: null,
+                error: null,
+              },
             }),
           )
         }
@@ -659,6 +722,7 @@ describe('NewCredentialFormView', () => {
       const ws = await nextWebSocket((s) => s.url.includes('/credentials/13/sync/job-spk/ws'))
       ws.push({
         job_id: 'job-spk',
+        credential_id: 13,
         status: 'awaiting_decoupled_approval',
         expires_at: null,
         error: null,
@@ -695,14 +759,27 @@ describe('NewCredentialFormView', () => {
       const ws = await nextWebSocket((s) => s.url.includes('/credentials/13/sync/job-spk/ws'))
       ws.push({
         job_id: 'job-spk',
+        credential_id: 13,
         status: 'awaiting_decoupled_approval',
         expires_at: null,
         error: null,
       })
       expect(await screen.findByText(/Please approve in your banking app/)).toBeInTheDocument()
 
-      ws.push({ job_id: 'job-spk', status: 'running', expires_at: null, error: null })
-      ws.push({ job_id: 'job-spk', status: 'completed', expires_at: null, error: null })
+      ws.push({
+        job_id: 'job-spk',
+        credential_id: 13,
+        status: 'running',
+        expires_at: null,
+        error: null,
+      })
+      ws.push({
+        job_id: 'job-spk',
+        credential_id: 13,
+        status: 'completed',
+        expires_at: null,
+        error: null,
+      })
 
       await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
       expect(onSyncFailed).not.toHaveBeenCalled()

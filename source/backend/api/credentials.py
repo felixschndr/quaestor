@@ -31,7 +31,7 @@ WS_CODE_CLOSE_NOT_FOUND = 4404
 
 
 def _job_to_response(job: SyncJob) -> SyncJobRead:
-    return SyncJobRead(job_id=job.id, status=job.status, expires_at=job.expires_at, error=job.error)
+    return SyncJobRead.model_validate(job)
 
 
 def _get_job_payload(job: SyncJob) -> dict:

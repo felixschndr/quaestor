@@ -1,5 +1,6 @@
 from fastapi import Depends, Request
 from source.backend.api.create_router import create_router
+from source.backend.api.schemas.credential import SyncJobRead
 from source.backend.api.schemas.session import SessionRead
 from source.backend.api.schemas.user import UserRead, UserUpdate
 from source.backend.db import get_session
@@ -9,7 +10,12 @@ from source.backend.exceptions import (
     ValidationError,
 )
 from source.backend.models.user import User
-from source.backend.services import credential_service, session_service, user_service
+from source.backend.services import (
+    credential_service,
+    session_service,
+    sync_jobs,
+    user_service,
+)
 from source.backend.services.password_service import hash_password, verify_password
 from sqlalchemy.orm import Session
 
@@ -94,16 +100,17 @@ def update_user(
     return user_service.update_user(db_session=db_session, user_id=current_user.id, fields=fields)
 
 
-@router.post("/sync", status_code=204)
-def sync_credentials(
+@router.post("/sync", response_model=list[SyncJobRead], status_code=202)
+async def sync_credentials(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
-) -> None:
-    for credential in credential_service.list_credentials(db_session, user_id=current_user.id):
-        if credential.requires_two_factor_authentication:
-            continue  # FIXME: Add support for 2FA credentials
-        credential_service.sync_credential_object(credential=credential)
-    db_session.commit()
+) -> list[SyncJobRead]:
+    credentials = credential_service.list_credentials(db_session, user_id=current_user.id)
+    jobs = []
+    for credential in credentials:
+        job = await sync_jobs.start_sync(credential_id=credential.id)
+        jobs.append(SyncJobRead.model_validate(job))
+    return jobs
 
 
 @router.delete("/{user_id}", status_code=204)
