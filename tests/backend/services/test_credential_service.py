@@ -75,7 +75,7 @@ def test_sync_all_due_credentials_counts_synced_skipped_failed(
 
     summary = [r.message for r in caplog.records if "Periodic sync finished" in r.message]
     assert summary, [r.message for r in caplog.records]
-    assert "1 synced, 1 skipped (2FA), 1 failed out of 3 credential(s)" in summary[-1]
+    assert "1 synced, 1 skipped due to 2FA, 1 failed out of 3 credential(s)" in summary[-1]
     assert credential_service.sync_credential_object.call_count == 2
     synced_ids = [call.kwargs["credential"].id for call in credential_service.sync_credential_object.call_args_list]
     assert two_factor not in synced_ids

@@ -170,13 +170,12 @@ def sync_credential_object(
 def sync_all_due_credentials(db_session: Session) -> None:
     logger.info("Starting periodic sync of all due credentials")
     credentials = list(db_session.scalars(select(Credential)))
-    synced = 0
-    skipped = 0
-    failed = 0
+    synced, skipped, failed = 0, 0, 0
     for credential in credentials:
         if credential.requires_two_factor_authentication:
             skipped += 1
-            continue  # FIXME: Add support for 2FA credentials
+            continue
+
         try:
             sync_credential_object(credential=credential)
             synced += 1
@@ -185,7 +184,7 @@ def sync_all_due_credentials(db_session: Session) -> None:
             logger.exception(f"Periodic sync failed for {credential}")
     db_session.commit()
     logger.info(
-        f"Periodic sync finished: {synced} synced, {skipped} skipped (2FA), "
+        f"Periodic sync finished: {synced} synced, {skipped} skipped due to 2FA, "
         f"{failed} failed out of {len(credentials)} credential(s)"
     )
 
