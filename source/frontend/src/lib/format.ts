@@ -1,3 +1,5 @@
+import i18n from '@/i18n'
+
 const DISPLAY_LOCALE = 'de-DE'
 
 const eurFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
@@ -5,21 +7,38 @@ const eurFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
   currency: 'EUR',
 })
 
-const dateFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
+const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   weekday: 'long',
   day: 'numeric',
   month: 'long',
   year: 'numeric',
-})
+}
 
-const dateTimeFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
+const DATE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
+  ...DATE_OPTIONS,
   hour: '2-digit',
   minute: '2-digit',
-})
+}
+
+// Date formatters depend on the user's active UI language (i18next), so weekday
+// and month names follow whatever language is selected — not a fixed German
+// locale. Formatters are cached per locale because constructing an
+// `Intl.DateTimeFormat` is comparatively expensive.
+const dateFormatters = new Map<string, Intl.DateTimeFormat>()
+const dateTimeFormatters = new Map<string, Intl.DateTimeFormat>()
+
+function getDateFormatter(
+  cache: Map<string, Intl.DateTimeFormat>,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  const locale = i18n.language || i18n.options.fallbackLng?.toString() || 'en'
+  let formatter = cache.get(locale)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, options)
+    cache.set(locale, formatter)
+  }
+  return formatter
+}
 
 export function formatEuro(amount: number): string {
   return eurFormatter.format(amount)
@@ -35,7 +54,9 @@ export function formatDecimal(value: number): string {
 }
 
 export function formatDate(d: Date | string): string {
-  return dateFormatter.format(typeof d === 'string' ? new Date(d) : d)
+  return getDateFormatter(dateFormatters, DATE_OPTIONS).format(
+    typeof d === 'string' ? new Date(d) : d,
+  )
 }
 
 const IBAN_PATTERN = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/
@@ -54,7 +75,9 @@ export function formatIban(value: string): string {
 }
 
 export function formatDateTime(d: Date | string): string {
-  return dateTimeFormatter.format(typeof d === 'string' ? new Date(d) : d)
+  return getDateFormatter(dateTimeFormatters, DATE_TIME_OPTIONS).format(
+    typeof d === 'string' ? new Date(d) : d,
+  )
 }
 
 /**

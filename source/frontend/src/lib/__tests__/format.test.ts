@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
+import i18n from '@/i18n'
 import { formatEuro, formatDate, formatIban, relativeDateKey } from '../format'
 
 describe('formatEuro', () => {
@@ -12,13 +13,27 @@ describe('formatEuro', () => {
 })
 
 describe('formatDate', () => {
-  it('formats an ISO date in long German form', () => {
+  // formatDate follows the active i18next language; restore the default
+  // afterwards so language state doesn't leak into other test files.
+  afterAll(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('formats an ISO date in long German form when the language is German', async () => {
+    await i18n.changeLanguage('de')
     expect(formatDate('2026-05-20T12:00:00Z')).toMatch(/20\. Mai 2026/)
   })
 
-  it('prefixes the date with the weekday', () => {
+  it('prefixes the date with the weekday in German', async () => {
+    await i18n.changeLanguage('de')
     // 2026-05-20 is a Wednesday → Mittwoch.
     expect(formatDate('2026-05-20T12:00:00Z')).toMatch(/^Mittwoch, /)
+  })
+
+  it('formats the same date in long English form when the language is English', async () => {
+    await i18n.changeLanguage('en')
+    // 2026-05-20 is a Wednesday → "Wednesday, May 20, 2026".
+    expect(formatDate('2026-05-20T12:00:00Z')).toMatch(/^Wednesday, May 20, 2026/)
   })
 })
 

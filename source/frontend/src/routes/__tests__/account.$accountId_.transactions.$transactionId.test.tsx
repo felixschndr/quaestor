@@ -102,11 +102,11 @@ describe('TransactionDetailView', () => {
     expect(dts[0]).toBe('Other party')
   })
 
-  it('renders the date in long German form', () => {
+  it('renders the date in long form following the active language', () => {
     renderView({ date: '2026-05-20' })
     const dateLabel = screen.getByText('Date')
     const dateValue = dateLabel.nextElementSibling
-    expect(dateValue?.textContent).toMatch(/20\. Mai 2026/)
+    expect(dateValue?.textContent).toMatch(/May 20, 2026/)
   })
 
   it('falls back to the em-dash placeholder when other_party / purpose are missing', () => {
