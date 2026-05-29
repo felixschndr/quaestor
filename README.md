@@ -2,8 +2,9 @@
 
 Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts.
 
-The idea behind this app is to give you an overview of all your bank accounts and thus consolidating multiple apps. The app allows you to see the balances of all accounts you own. By clicking on one of the accounts you can see the transactions of the account.
-The tool is exclusively read-only. It can**not** write to any accounts (i.e., make changes to the account or do transactions).
+Quaestor consolidates the balances and transactions from all your banks into a single view → no more juggling a separate app per bank. Click any account to browse its transactions, grouped by date.
+
+The tool is strictly read-only: it only ever *reads* your data and can **never** make changes to your accounts or move money.
 
 > [!NOTE]
 > This project is still in early development and might include major changes in the near future.
@@ -59,6 +60,20 @@ The tool is exclusively read-only. It can**not** write to any accounts (i.e., ma
 
 </details>
 
+## Features
+
+- **Unified overview** of all your bank accounts and their balances in one place
+- **Multiple connection types**: Trade Republic, FinTS (Sparkasse, DKB, ING and more) and manual accounts for cash or assets you track yourself
+- **Automatic background syncing** on a configurable interval, plus on-demand sync
+- **Transactions grouped by date**, covering past, today, and scheduled entries
+- **Balance on any date**: see what an account's balance was on a given day
+- **Search** for transactions across all accounts
+- **Automatic and manual categorization** of transactions
+- **Custom notes** on transactions
+- **Account groups**: drag accounts into your own groups to organize the overview
+- **Multi-language** interface (English & German (add an issue for another requested language))
+- **Session management**: review active logins and sign out individual sessions
+- **Light & dark mode**
 
 
 ## Security
