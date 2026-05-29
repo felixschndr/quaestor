@@ -93,6 +93,17 @@ Security measures in place:
 
 ## Deployment
 
+In all cases you have to create an encryption key for the database with `python -c 'import secrets; print(secrets.token_hex(32))'` and add it to your `.env` as `${DATABASE_ENCRYPTION_KEY}`.
+
+If you are running this app behind a reverse proxy ensure to allow the usage of websockets (the application needs it).
+
+### Container image
+
+|                  | Existing image                                                                                                             | Build image yourself                                                                                                                                                                                                        |
+|------------------|----------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `docker run`     | `docker run -e DATABASE_ENCRYPTION_KEY=${DATABASE_ENCRYPTION_KEY} -v app.db:/app/bank_app.db ghcr.io/felixschndr/quaestor` | `git clone git@github.com:felixschndr/Quaestor.git && cd Quaestor && docker build . -t quaestor && docker run -e DATABASE_ENCRYPTION_KEY=${DATABASE_ENCRYPTION_KEY} -e HOST=0.0.0.0 -v ./data/:/data -p 8080:8080 quaestor` |
+| `docker compose` | `wget https://raw.githubusercontent.com/felixschndr/Quaestor/refs/heads/main/docker-compose.yaml && docker compose up`     | `wget https://raw.githubusercontent.com/felixschndr/Quaestor/refs/heads/main/docker-compose.yaml && sed -i 's,image: ghcr.io/felixschndr/quaestor,build: .,' docker-compose.yaml && docker compose up`                      |
+
 ### Native
 
 #### Requirements
@@ -110,25 +121,18 @@ Security measures in place:
 5. Run the application: `task run:prod`
 6. Access the application on [127.0.0.1:8000](http://127.0.0.1:8000)
 
-## Commands
 
-- Generate a DB Encryption secret: `python -c 'import secrets; print(secrets.token_hex(32))'`
-- Run the application
-  - Native: `poetry run python -m source.backend.server`
-  - Docker: `docker build . -t app && docker run -e DATABASE_ENCRYPTION_KEY=${DATABASE_ENCRYPTION_KEY} -it app`
-- DB
-  - CLI-Access:
-    ````shell
-    source .env
-    sqlcipher -cmd "PRAGMA key='$DATABASE_ENCRYPTION_KEY'" bank_app.db
-    sqlite> .tables
-    sqlite> SELECT id, user_id, bank, username FROM credentials;
-    ````
-  - Migrations:
-    - Create DB migration
-      - With message: `poetry run alembic revision --autogenerate`
-      - Without message: `poetry run alembic revision --autogenerate -m "<message>"`
-    - Apply DB migration: `poetry run alembic upgrade head`
+### Access the DB
+
+If you need/want to access the database you can to so with
+````shell
+source .env
+sqlcipher -cmd "PRAGMA key='${DATABASE_ENCRYPTION_KEY}'" /data/bank_app.db
+sqlite> .tables
+sqlite> SELECT id, user_id, bank, username FROM credentials;
+````
+
+`sqlcipher` is installed in the container image.
 
 ## Environment Variables
 
@@ -136,6 +140,7 @@ Security measures in place:
 |-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
 | `HOST`                        | The host the server is listening on                                                                                                                                                                         | `127.0.0.1`   |
 | `PORT`                        | The port the server is listening on                                                                                                                                                                         | `8000`        |
+| `DATABASE_ENCRYPTION_KEY`     | The key to encrypt the database with. **Must** be provided.                                                                                                                                                 | -             |
 | `SSL_CERTFILE`                | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_KEYFILE`                                                                                                                     | None          |
 | `SSL_KEYFILE`                 | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_CERTFILE`                                                                                                                    | None          |
 | `ALLOW_NEW_USER_REGISTRATION` | Whether new users may register; set to anything other than `true` to disable                                                                                                                                | `true`        |
@@ -144,3 +149,7 @@ Security measures in place:
 | `SYNC_INTERVAL_HOURS`         | How often (in hours) the server automatically syncs all credentials that don't require 2FA. Accepts fractional values (e.g. `0.5`).                                                                         | `12`          |
 | `SESSION_COOKIE_SECURE`       | Whether to set the `Secure` flag on the session and CSRF cookies. Set to `true` whenever the app is reachable over HTTPS.                                                                                   | `false`       |
 | `FORWARDED_ALLOW_IPS`         | Comma-separated list of reverse-proxy IPs whose `X-Forwarded-For` / `X-Forwarded-Proto` headers the server trusts. Use `*` if the proxy IP is unpredictable (e.g. in container networks).                   | `127.0.0.1`   |
+
+## Future changes
+
+There is a doc in which I add ideas I might want to implement in the future. If you think anything is missing feel free to open an issue/PR.
