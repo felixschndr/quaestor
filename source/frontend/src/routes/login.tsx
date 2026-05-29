@@ -65,7 +65,7 @@ export function LoginPageContent({
 
   return (
     <main className="mx-auto flex min-h-full max-w-sm flex-col gap-6 p-6">
-      <h1 className="text-foreground text-2xl font-semibold">Finanzguru Clone</h1>
+      <h1 className="text-foreground text-2xl font-semibold">Quaestor</h1>
 
       <div role="tablist" aria-label="Authentication mode" className="bg-muted flex rounded-md p-1">
         <ModeButton mode="login" active={mode === 'login'} onClick={() => setMode('login')}>

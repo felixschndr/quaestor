@@ -41,7 +41,7 @@ source/
 
 - **Dev:** Vite dev server on `:5173`, FastAPI on `:8000`. Vite proxies `/api/*` → `localhost:8000`. From the browser everything looks like one origin (`:5173`) → no CORS needed.
 - **Prod:** `pnpm build` produces `source/frontend/dist/`. FastAPI mounts that directory as `StaticFiles` at `/` and serves `index.html` as fallback for any non-`/api` route (so deep links + browser refresh work with HTML5 History API). API stays at `/api/*`. **Same origin → no CORS.**
-- **Reverse proxy:** Deployment behind e.g. `finanzguruclone.mydomain.de`. FastAPI must trust `X-Forwarded-For` / `X-Forwarded-Proto` headers (uvicorn `--proxy-headers`) so that secure cookies and IP logging work correctly.
+- **Reverse proxy:** Deployment behind e.g. `quaestor.mydomain.de`. FastAPI must trust `X-Forwarded-For` / `X-Forwarded-Proto` headers (uvicorn `--proxy-headers`) so that secure cookies and IP logging work correctly.
 
 ### Security baseline
 
@@ -207,7 +207,7 @@ Routing model: HTML5 History API. The server serves `index.html` for any non-`/a
 - **Feedback:** toasts via `sonner` — small, bottom of the screen, green check on success, auto-dismiss after ~3 s.
 - **Browser support:** modern evergreen only (last 2 versions of Chromium, Firefox, Safari).
 - **PWA:** installable. Manifest, 192/512 icons, offline shell with a "you're offline" indicator that uses the last query cache. Push notifications deferred.
-- **Branding:** working title "Finanzguru Clone". Favicon + manifest icons TBD.
+- **Branding:** Favicon.
 
 ---
 

@@ -27,9 +27,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png'],
       manifest: {
-        name: 'Finanzguru Clone',
-        short_name: 'Finanzguru',
-        description: 'Personal finance overview',
+        name: 'Quaestor',
+        short_name: 'Quaestor',
+        description:
+          'Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts',
         theme_color: '#0a0a0a',
         background_color: '#0a0a0a',
         display: 'standalone',
