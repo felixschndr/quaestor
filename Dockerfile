@@ -1,8 +1,5 @@
 FROM node:22-alpine AS frontend-builder
 
-ENV PNPM_HOME=/pnpm \
-    PATH=/pnpm:${PATH} \
-    CI=true
 RUN corepack enable
 
 WORKDIR /build/source/frontend
@@ -18,19 +15,9 @@ RUN pnpm build
 
 FROM python:3.14-slim-trixie AS backend-builder
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    POETRY_VERSION=1.8.4 \
+ENV POETRY_VERSION=1.8.4 \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
-    POETRY_NO_INTERACTION=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        libsqlcipher-dev \
-        pkg-config \
-    && rm -rf /var/lib/apt/lists/*
+    POETRY_NO_INTERACTION=1
 
 RUN pip install "poetry==${POETRY_VERSION}"
 
@@ -66,6 +53,7 @@ COPY --chown=${USER_TO_USE}:${USER_TO_USE} alembic.ini ./
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} source/backend ./source/backend
 COPY --from=frontend-builder --chown=${USER_TO_USE}:${USER_TO_USE} /build/source/frontend/dist ./source/frontend/dist
 
+RUN mkdir -p /data && chown ${USER_TO_USE}:${USER_TO_USE} /data
 USER ${USER_TO_USE}
 
 EXPOSE 8000
