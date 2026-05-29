@@ -10,12 +10,19 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 KEY_ENV_VARIABLE_NAME = "DATABASE_ENCRYPTION_KEY"
+PATH_ENV_VARIABLE_NAME = "DATABASE_PATH"
 ROOT = get_root_path_of_repository()
 ENV_FILE_PATH = ROOT / ".env"
-DB_PATH = ROOT / "bank_app.db"
 
 load_dotenv(dotenv_path=ENV_FILE_PATH)
 logger = get_logger(__name__)
+
+
+def _resolve_db_path() -> Path:
+    return Path(os.environ.get(PATH_ENV_VARIABLE_NAME) or (ROOT / "bank_app.db"))
+
+
+DB_PATH = _resolve_db_path()
 
 
 def _running_in_container() -> bool:
