@@ -22,7 +22,10 @@ Security measures in place:
 
 ## Commands
 
-- Run the application: `poetry run python -m source.backend.server`
+- Generate a DB Encryption secret: `python -c 'import secrets; print(secrets.token_hex(32))'`
+- Run the application
+  - Native: `poetry run python -m source.backend.server`
+  - Docker: `docker build . -t app && docker run -e DATABASE_ENCRYPTION_KEY=${DATABASE_ENCRYPTION_KEY} -it app`
 - DB
   - CLI-Access:
     ````shell
