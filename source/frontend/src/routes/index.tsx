@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { RefreshCw, Settings } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuthMe, useGlobalSync, type AccountRead, type UserRead } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
+import { SyncButton } from '@/components/sync-button'
 import { TwoFactorModal } from '@/components/two-factor-modal'
 import { formatDecimal, formatEuro } from '@/lib/format'
 import {
@@ -61,6 +62,7 @@ function OverviewPage() {
         onSyncClick={sync.start}
         syncDisabled={isBusy}
         syncSpinning={isBusy}
+        syncSucceededAt={sync.succeededAt}
       />
       <TwoFactorModal
         current2fa={sync.current2fa}
@@ -91,9 +93,19 @@ interface OverviewViewProps {
   onSyncClick: () => void
   syncDisabled: boolean
   syncSpinning: boolean
+  /** Passed straight to the {@link SyncButton}; a fresh Date.now() value
+   *  triggers the green-check zoom animation. Defaults to null for tests
+   *  that don't care about the success path. */
+  syncSucceededAt?: number | null
 }
 
-export function OverviewView({ user, onSyncClick, syncDisabled, syncSpinning }: OverviewViewProps) {
+export function OverviewView({
+  user,
+  onSyncClick,
+  syncDisabled,
+  syncSpinning,
+  syncSucceededAt = null,
+}: OverviewViewProps) {
   const { t } = useTranslation()
   // When the user has defined custom groups, render by those. Otherwise fall
   // back to the original "by bank" layout (with no group headings).
@@ -115,21 +127,13 @@ export function OverviewView({ user, onSyncClick, syncDisabled, syncSpinning }: 
           />
         </h1>
         <div className="-mr-1.5 flex items-center gap-1">
-          <button
-            type="button"
+          <SyncButton
             onClick={onSyncClick}
+            spinning={syncSpinning}
             disabled={syncDisabled}
-            aria-label={t('overview.syncAll.aria')}
-            className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw
-              className={cn(
-                'size-5 transition-transform duration-500 ease-in-out',
-                syncSpinning ? 'animate-spin' : 'group-hover:rotate-[180deg]',
-              )}
-              aria-hidden="true"
-            />
-          </button>
+            succeededAt={syncSucceededAt}
+            ariaLabel={t('overview.syncAll.aria')}
+          />
           <Link
             to="/settings"
             aria-label={t('overview.settings')}

@@ -66,7 +66,7 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
               </DialogDescription>
             </DialogHeader>
             <div className="flex justify-center py-4">
-              <Loader2 className="size-6 animate-spin text-muted-foreground" aria-hidden="true" />
+              <Loader2 className="size-6 animate-spin text-primary" aria-hidden="true" />
             </div>
           </>
         ) : current2fa?.kind === 'awaiting_2fa' ? (
