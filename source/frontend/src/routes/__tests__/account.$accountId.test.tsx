@@ -244,7 +244,7 @@ describe('AccountDetailView', () => {
       }),
     ])
     const heading = screen.getByRole('heading', { level: 2 })
-    expect(heading).toHaveTextContent(/10\. Mai 2026/)
+    expect(heading).toHaveTextContent(/May 10, 2026/)
   })
 
   it('omits the end-of-day number when the backend has no snapshot for the day', () => {
