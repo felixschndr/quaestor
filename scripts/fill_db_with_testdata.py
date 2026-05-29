@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import select
@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT))
 
 from source.backend.bank_handlers import BankProvider  # noqa: E402
 from source.backend.db import SessionLocal  # noqa: E402
+from source.backend.models.account_group import AccountGroup  # noqa: E402
 from source.backend.models.transaction_category import TransactionCategory  # noqa: E402
 from source.backend.models.transaction_type import TransactionType  # noqa: E402
 from source.backend.models.user import User  # noqa: E402
@@ -29,6 +30,22 @@ from tests.backend.conftest import (  # noqa: E402
 )
 
 TODAY = date.today()
+
+GROUP_EVERYDAY = "Everyday"
+GROUP_SAVINGS = "Savings"
+GROUP_INVESTMENTS = "Investments"
+
+ACCOUNT_SPECS: list[tuple[str, BankProvider, str, int]] = [
+    # (group, bank, display_name, balance_factor)
+    (GROUP_EVERYDAY, BankProvider.ING, "Daily allowance", 100),
+    (GROUP_EVERYDAY, BankProvider.DKB, "Shared Account with SO", 50),
+    (GROUP_SAVINGS, BankProvider.SPARKASSE, "Vacation", 100),
+    (GROUP_SAVINGS, BankProvider.MANUAL, "Cash at home", 100),
+    (GROUP_INVESTMENTS, BankProvider.DFS, "Retirement", 100),
+    (GROUP_INVESTMENTS, BankProvider.FIN4U, "Retirement", 100),
+    (GROUP_INVESTMENTS, BankProvider.TRADE_REPUBLIC, "Cash", 100),
+    (GROUP_INVESTMENTS, BankProvider.TRADE_REPUBLIC, "MSCI World", 100),
+]
 
 
 def _transactions_for(account_index: int) -> list[dict]:
@@ -98,11 +115,17 @@ def _transactions_for(account_index: int) -> list[dict]:
                 "category": TransactionCategory.ONLINE_SHOPPING,
             }
         )
+    transactions.append(
+        {
+            "amount": -780.00,
+            "purpose": "Rent",
+            "other_party": "Landlord GmbH",
+            "date": TODAY + timedelta(days=3),
+            "transaction_type": TransactionType.OUTGOING,
+            "category": TransactionCategory.RENT,
+        }
+    )
     return transactions
-
-
-def _account_name(bank: BankProvider, index: int) -> str:
-    return f"{bank.value.upper()} demo account {index + 1}"
 
 
 def _delete_existing_demo_user(db_session: Session) -> None:
@@ -122,21 +145,49 @@ def fill_db_with_testdata() -> None:
             display_name=DISPLAY_NAME,
             password_hash=hash_password(VALID_PASSWORD),
         )
-        account_counter = 0
-        for bank in BankProvider:
-            credential = make_credential(session, user_id=user.id, bank=bank)
-            for index in range(2):
-                account = make_account(
-                    session,
-                    credential_id=credential.id,
-                    name=_account_name(bank, index),
-                    balance=1000.0 + 250.0 * account_counter,
-                )
-                for transaction_data in _transactions_for(account_counter):
-                    make_transaction(session, account_id=account.id, **transaction_data)
-                account_counter += 1
+
+        last_synced = datetime.now() - timedelta(hours=2)
+
+        credentials_by_bank = {
+            bank: make_credential(
+                session,
+                user_id=user.id,
+                bank=bank,
+                last_fetching_timestamp=last_synced,
+                requires_two_factor_authentication=bank in {BankProvider.ING, BankProvider.TRADE_REPUBLIC},
+            )
+            for bank in BankProvider
+        }
+
+        groups = {
+            GROUP_EVERYDAY: AccountGroup(user_id=user.id, name=GROUP_EVERYDAY, position=0),
+            GROUP_SAVINGS: AccountGroup(user_id=user.id, name=GROUP_SAVINGS, position=1),
+            GROUP_INVESTMENTS: AccountGroup(user_id=user.id, name=GROUP_INVESTMENTS, position=2),
+        }
+        session.add_all(groups.values())
+        session.flush()
+
+        position_in_group: dict[int, int] = {}
+        for index, (group_name, bank, display_name, balance_factor) in enumerate(ACCOUNT_SPECS):
+            account = make_account(
+                session,
+                credential_id=credentials_by_bank[bank].id,
+                name=f"{bank.value}-demo-{index}",
+                display_name=display_name,
+                balance=1000.0 + 250.0 * index,
+                balance_factor=balance_factor,
+            )
+            for transaction_data in _transactions_for(index):
+                make_transaction(session, account_id=account.id, **transaction_data)
+            account.update_balance_at_date()
+
+            group = groups[group_name]
+            account.group_id = group.id
+            account.position = position_in_group.get(group.id, 0)
+            position_in_group[group.id] = account.position + 1
+
         session.commit()
-    print(f"Seeded demo data: user '{USER_NAME}' / password '{VALID_PASSWORD}' with {account_counter} accounts.")
+    print(f"Created demo data: user '{USER_NAME}' / password '{VALID_PASSWORD}' with {len(ACCOUNT_SPECS)} accounts.")
 
 
 if __name__ == "__main__":
