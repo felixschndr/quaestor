@@ -368,6 +368,129 @@ export function useGlobalSync(): UseGlobalSyncResult {
   return { start, status, jobs, current2fa, submit2fa, skip2fa }
 }
 
+export type CredentialSyncStatus = 'idle' | 'starting' | 'running' | 'awaiting_2fa' | 'done'
+
+export interface UseCredentialSyncResult {
+  start: () => void
+  status: CredentialSyncStatus
+  current2fa: Current2FA | null
+  submit2fa: (code: string) => Promise<void>
+  skip2fa: () => void
+}
+
+/**
+ * Single-credential variant of {@link useGlobalSync} for the account detail
+ * page's sync button. POSTs `/credentials/{id}/sync`, subscribes to the
+ * resulting WebSocket, surfaces any 2FA prompt via the same Current2FA shape
+ * the overview uses (so callers can reuse `TwoFactorModal`), and invalidates
+ * `/auth/me` plus account-history queries when the job completes.
+ */
+export function useCredentialSync(credentialId: number): UseCredentialSyncResult {
+  const queryClient = useQueryClient()
+  const [job, setJob] = useState<SyncJob | null>(null)
+  const [phase, setPhase] = useState<'idle' | 'starting' | 'active' | 'done'>('idle')
+  // Tracks whether the active job is parked on a 2FA prompt the user hasn't
+  // dismissed yet. Mirrors useGlobalSync's queue, simplified for one credential.
+  const [awaitingTwoFactor, setAwaitingTwoFactor] = useState(false)
+
+  const phaseRef = useRef(phase)
+  useEffect(() => {
+    phaseRef.current = phase
+  }, [phase])
+
+  const bank = useMemo(() => {
+    const user = queryClient.getQueryData<UserRead>(authQueryKeys.me)
+    return user?.credentials.find((c) => c.id === credentialId)?.bank ?? ''
+  }, [queryClient, credentialId])
+
+  const start = useCallback(() => {
+    if (phaseRef.current === 'starting' || phaseRef.current === 'active') return
+    phaseRef.current = 'starting'
+    setPhase('starting')
+    setJob(null)
+    setAwaitingTwoFactor(false)
+    void (async () => {
+      try {
+        const started = await api<SyncJob>(`/credentials/${credentialId}/sync`, { method: 'POST' })
+        setJob(started)
+        setPhase('active')
+      } catch {
+        setPhase('done')
+      }
+    })()
+  }, [credentialId])
+
+  useEffect(() => {
+    if (!job) return
+    if (TERMINAL_STATUSES.has(job.status)) return
+    const socket = new WebSocket(syncJobWebSocketUrl(credentialId, job.job_id))
+    socket.onmessage = (event) => {
+      const update = JSON.parse(event.data) as SyncJob
+      setJob(update)
+      if (TWO_FACTOR_STATUSES.has(update.status)) {
+        setAwaitingTwoFactor(true)
+      } else {
+        setAwaitingTwoFactor(false)
+      }
+    }
+    return () => socket.close()
+    // job.job_id captures "the active job"; status updates flow through setJob
+    // and don't need to retrigger the subscription.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [credentialId, job?.job_id])
+
+  useEffect(() => {
+    if (phase !== 'active') return
+    if (!job || !TERMINAL_STATUSES.has(job.status) || awaitingTwoFactor) return
+    phaseRef.current = 'done'
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPhase('done')
+    queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+    // Drop every cached account-history page so the new transactions appear.
+    // The exact account ids live one level inside the cache key tuple, so a
+    // partial-key match is the simplest way to hit them all.
+    queryClient.invalidateQueries({ queryKey: ['account'] })
+  }, [phase, job, awaitingTwoFactor, queryClient])
+
+  const status: CredentialSyncStatus = useMemo(() => {
+    if (phase === 'idle') return 'idle'
+    if (phase === 'starting') return 'starting'
+    if (phase === 'done') return 'done'
+    return awaitingTwoFactor ? 'awaiting_2fa' : 'running'
+  }, [phase, awaitingTwoFactor])
+
+  const current2fa: Current2FA | null = useMemo(() => {
+    if (!awaitingTwoFactor || !job) return null
+    return {
+      credentialId,
+      jobId: job.job_id,
+      bank,
+      kind:
+        job.status === 'awaiting_decoupled_approval'
+          ? 'awaiting_decoupled_approval'
+          : 'awaiting_2fa',
+    }
+  }, [awaitingTwoFactor, job, credentialId, bank])
+
+  const submit2fa = useCallback(
+    async (code: string) => {
+      if (!job) return
+      await api<SyncJob>(`/credentials/${credentialId}/sync/${job.job_id}/2fa`, {
+        method: 'POST',
+        body: { code },
+      })
+      setAwaitingTwoFactor(false)
+    },
+    [credentialId, job],
+  )
+
+  const skip2fa = useCallback(() => {
+    setAwaitingTwoFactor(false)
+  }, [])
+
+  return { start, status, current2fa, submit2fa, skip2fa }
+}
+
 /**
  * Walks a password through the live rules from the backend.
  * Returns the rule names that the password currently fails (so the UI can

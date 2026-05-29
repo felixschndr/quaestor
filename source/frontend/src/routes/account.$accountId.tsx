@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronLeft, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { Check, ChevronLeft, Pencil, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { useAuthMe, type AccountRead } from '@/lib/auth'
+import { useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
 import {
   findAccountInUser,
   groupTransactionsByDate,
@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ManualTransactionForm } from '@/components/manual-transaction-form'
+import { TwoFactorModal } from '@/components/two-factor-modal'
 
 const MANUAL_BANK = 'manual'
 
@@ -33,6 +34,10 @@ function AccountDetailPage() {
   const accountInfo = findAccountInUser(user, accountId)
 
   const history = useAccountHistory(accountId)
+  // Hook is unconditional (rules of hooks) — when no credential is in scope yet
+  // we pass a sentinel id and skip rendering the button below.
+  const sync = useCredentialSync(accountInfo?.credentialId ?? -1)
+  const { t } = useTranslation()
 
   if (!user) return null // Root guard already redirected on 401.
 
@@ -40,19 +45,50 @@ function AccountDetailPage() {
     return <AccountNotFoundView />
   }
 
+  const isManual = accountInfo.bank === MANUAL_BANK
+  const isSyncBusy =
+    sync.status === 'starting' || sync.status === 'running' || sync.status === 'awaiting_2fa'
+
   return (
-    <AccountDetailView
-      account={accountInfo.account}
-      bank={accountInfo.bank}
-      pages={history.data?.pages ?? []}
-      isFetchingNextPage={history.isFetchingNextPage}
-      hasNextPage={!!history.hasNextPage}
-      onLoadMore={() => {
-        if (history.hasNextPage && !history.isFetchingNextPage) {
-          void history.fetchNextPage()
-        }
-      }}
-    />
+    <>
+      <AccountDetailView
+        account={accountInfo.account}
+        bank={accountInfo.bank}
+        pages={history.data?.pages ?? []}
+        isFetchingNextPage={history.isFetchingNextPage}
+        hasNextPage={!!history.hasNextPage}
+        onLoadMore={() => {
+          if (history.hasNextPage && !history.isFetchingNextPage) {
+            void history.fetchNextPage()
+          }
+        }}
+        // Manual accounts have no remote sync, so the button is suppressed
+        // by leaving onSyncClick undefined.
+        onSyncClick={isManual ? undefined : sync.start}
+        syncDisabled={isSyncBusy}
+        syncSpinning={isSyncBusy}
+      />
+      <TwoFactorModal
+        current2fa={sync.current2fa}
+        onSubmit={async (code) => {
+          try {
+            await sync.submit2fa(code)
+          } catch {
+            const bankTitle = t(`banks.${accountInfo.bank}.title`, {
+              defaultValue: accountInfo.bank,
+            })
+            toast.error(t('sync.failed', { bank: bankTitle }))
+          }
+        }}
+        onSkip={() => {
+          const bankTitle = t(`banks.${accountInfo.bank}.title`, {
+            defaultValue: accountInfo.bank,
+          })
+          toast(t('sync.skipped', { bank: bankTitle }))
+          sync.skip2fa()
+        }}
+      />
+    </>
   )
 }
 
@@ -77,6 +113,11 @@ export interface AccountDetailViewProps {
   onLoadMore: () => void
   /** Overridable for tests so "Today" / "Yesterday" labels are deterministic. */
   today?: Date
+  /** Wired by the page to {@link useCredentialSync}. Omitted = button hidden
+   *  (e.g. manual accounts have no remote sync). */
+  onSyncClick?: () => void
+  syncDisabled?: boolean
+  syncSpinning?: boolean
 }
 
 export function AccountDetailView({
@@ -87,6 +128,9 @@ export function AccountDetailView({
   hasNextPage,
   onLoadMore,
   today,
+  onSyncClick,
+  syncDisabled = false,
+  syncSpinning = false,
 }: AccountDetailViewProps) {
   const { t } = useTranslation()
   const groups = useMemo(() => groupTransactionsByDate(pages), [pages])
@@ -129,17 +173,35 @@ export function AccountDetailView({
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 pt-4 pb-3">
           <header className="flex items-center justify-between gap-2">
             <BackLink />
-            <Link
-              to="/account/$accountId/search"
-              params={{ accountId: String(account.id) }}
-              aria-label={t('account.search')}
-              // Same `text-primary` token as the back arrow.
-              // translate-y nudge: optically the magnifier sits high vs. the
-              // chevron because its visual mass is in the lower half.
-              className="text-primary hover:text-primary/80 translate-y-[6px] rounded-md p-1.5 transition-colors"
-            >
-              <Search className="size-5" />
-            </Link>
+            {/* translate-y nudge matches the magnifier below: optical alignment
+                with the chevron-shaped back arrow. */}
+            <div className="flex translate-y-[6px] items-center gap-1">
+              {onSyncClick ? (
+                <button
+                  type="button"
+                  onClick={onSyncClick}
+                  disabled={syncDisabled}
+                  aria-label={t('account.sync.aria')}
+                  className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw
+                    className={cn(
+                      'size-5 transition-transform duration-500 ease-in-out',
+                      syncSpinning ? 'animate-spin' : 'group-hover:rotate-[180deg]',
+                    )}
+                    aria-hidden="true"
+                  />
+                </button>
+              ) : null}
+              <Link
+                to="/account/$accountId/search"
+                params={{ accountId: String(account.id) }}
+                aria-label={t('account.search')}
+                className="text-primary hover:text-primary/80 rounded-md p-1.5 transition-colors"
+              >
+                <Search className="size-5" />
+              </Link>
+            </div>
           </header>
 
           <section aria-labelledby="account-balance-label" className="flex flex-col gap-2">

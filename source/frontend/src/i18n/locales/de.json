@@ -28,6 +28,9 @@
   "account": {
     "back": "Zurück",
     "search": "Transaktionen durchsuchen",
+    "sync": {
+      "aria": "Konto synchronisieren"
+    },
     "balance": "Aktueller Kontostand",
     "today": "Heute",
     "yesterday": "Gestern",
