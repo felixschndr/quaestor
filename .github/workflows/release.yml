@@ -87,6 +87,8 @@ jobs:
           platforms: ${{ env.PLATFORMS }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Build and push Docker image as latest
         if: github.ref == 'refs/heads/main' && needs.check_version.outputs.version_changed == 'true'
@@ -98,6 +100,7 @@ jobs:
           platforms: ${{ env.PLATFORMS }}
           tags: ${{ steps.meta.outputs.tags }},${{ env.IMAGE_NAME }}:latest,${{ env.IMAGE_NAME }}:${{ needs.check_version.outputs.current_version }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
 
   release:
     needs: [check_version, build-and-push-image]
