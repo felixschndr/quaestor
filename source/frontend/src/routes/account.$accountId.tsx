@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronLeft, Pencil, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react'
+import { Check, ChevronLeft, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ManualTransactionForm } from '@/components/manual-transaction-form'
+import { SyncButton } from '@/components/sync-button'
 import { TwoFactorModal } from '@/components/two-factor-modal'
 
 const MANUAL_BANK = 'manual'
@@ -67,6 +68,7 @@ function AccountDetailPage() {
         onSyncClick={isManual ? undefined : sync.start}
         syncDisabled={isSyncBusy}
         syncSpinning={isSyncBusy}
+        syncSucceededAt={sync.succeededAt}
       />
       <TwoFactorModal
         current2fa={sync.current2fa}
@@ -118,6 +120,9 @@ export interface AccountDetailViewProps {
   onSyncClick?: () => void
   syncDisabled?: boolean
   syncSpinning?: boolean
+  /** Passed straight to the {@link SyncButton}; a fresh Date.now() value
+   *  triggers the green-check zoom animation. */
+  syncSucceededAt?: number | null
 }
 
 export function AccountDetailView({
@@ -131,6 +136,7 @@ export function AccountDetailView({
   onSyncClick,
   syncDisabled = false,
   syncSpinning = false,
+  syncSucceededAt = null,
 }: AccountDetailViewProps) {
   const { t } = useTranslation()
   const groups = useMemo(() => groupTransactionsByDate(pages), [pages])
@@ -177,21 +183,13 @@ export function AccountDetailView({
                 with the chevron-shaped back arrow. */}
             <div className="flex translate-y-[6px] items-center gap-1">
               {onSyncClick ? (
-                <button
-                  type="button"
+                <SyncButton
                   onClick={onSyncClick}
+                  spinning={syncSpinning}
                   disabled={syncDisabled}
-                  aria-label={t('account.sync.aria')}
-                  className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors disabled:opacity-50"
-                >
-                  <RefreshCw
-                    className={cn(
-                      'size-5 transition-transform duration-500 ease-in-out',
-                      syncSpinning ? 'animate-spin' : 'group-hover:rotate-[180deg]',
-                    )}
-                    aria-hidden="true"
-                  />
-                </button>
+                  succeededAt={syncSucceededAt}
+                  ariaLabel={t('account.sync.aria')}
+                />
               ) : null}
               <Link
                 to="/account/$accountId/search"

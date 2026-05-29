@@ -174,6 +174,10 @@ export interface UseGlobalSyncResult {
   current2fa: Current2FA | null
   submit2fa: (code: string) => Promise<void>
   skip2fa: () => void
+  /** Monotonic timestamp (Date.now()) refreshed each time a global run
+   *  finishes with every job in the 'completed' state. Stays null on mixed
+   *  outcomes (any failed/skipped job) so the success-check doesn't lie. */
+  succeededAt: number | null
 }
 
 function syncJobWebSocketUrl(credentialId: number, jobId: string): string {
@@ -212,6 +216,7 @@ export function useGlobalSync(): UseGlobalSyncResult {
   // remaining entries are queued. Shifted by submit2fa/skip2fa, appended by
   // the WebSocket message handler.
   const [queue, setQueue] = useState<number[]>([])
+  const [succeededAt, setSucceededAt] = useState<number | null>(null)
   // The WS handler captures this ref so it can read the latest queue
   // without forcing the per-job effect below to resubscribe on every render.
   const queueRef = useRef<number[]>(queue)
@@ -247,6 +252,7 @@ export function useGlobalSync(): UseGlobalSyncResult {
     setPhase('starting')
     setJobs(new Map())
     setQueue([])
+    setSucceededAt(null)
     void (async () => {
       try {
         const started = await api<SyncJob[]>('/users/sync', { method: 'POST' })
@@ -317,8 +323,15 @@ export function useGlobalSync(): UseGlobalSyncResult {
     phaseRef.current = 'done'
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPhase('done')
+    // Only flag success when every credential completed cleanly. Mixed
+    // outcomes (any 'failed') already surface as a toast on the overview;
+    // suppressing the green check there avoids contradicting that signal.
+    const everyJobCompleted = Array.from(jobs.values()).every((j) => j.status === 'completed')
+    if (everyJobCompleted) {
+      setSucceededAt(Date.now())
+    }
     queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
-  }, [phase, allJobsTerminal, queue.length, queryClient])
+  }, [phase, allJobsTerminal, queue.length, jobs, queryClient])
 
   const status: GlobalSyncStatus = useMemo(() => {
     if (phase === 'idle') return 'idle'
@@ -365,7 +378,7 @@ export function useGlobalSync(): UseGlobalSyncResult {
     setQueue((prev) => prev.filter((id) => id !== activeId))
   }, [])
 
-  return { start, status, jobs, current2fa, submit2fa, skip2fa }
+  return { start, status, jobs, current2fa, submit2fa, skip2fa, succeededAt }
 }
 
 export type CredentialSyncStatus = 'idle' | 'starting' | 'running' | 'awaiting_2fa' | 'done'
@@ -376,6 +389,10 @@ export interface UseCredentialSyncResult {
   current2fa: Current2FA | null
   submit2fa: (code: string) => Promise<void>
   skip2fa: () => void
+  /** Monotonic timestamp (Date.now()) refreshed each time a run completes
+   *  successfully. Callers watch this as a useEffect dep to fire a one-shot
+   *  success animation; null until the first success after mount. */
+  succeededAt: number | null
 }
 
 /**
@@ -392,6 +409,7 @@ export function useCredentialSync(credentialId: number): UseCredentialSyncResult
   // Tracks whether the active job is parked on a 2FA prompt the user hasn't
   // dismissed yet. Mirrors useGlobalSync's queue, simplified for one credential.
   const [awaitingTwoFactor, setAwaitingTwoFactor] = useState(false)
+  const [succeededAt, setSucceededAt] = useState<number | null>(null)
 
   const phaseRef = useRef(phase)
   useEffect(() => {
@@ -409,6 +427,7 @@ export function useCredentialSync(credentialId: number): UseCredentialSyncResult
     setPhase('starting')
     setJob(null)
     setAwaitingTwoFactor(false)
+    setSucceededAt(null)
     void (async () => {
       try {
         const started = await api<SyncJob>(`/credentials/${credentialId}/sync`, { method: 'POST' })
@@ -445,6 +464,9 @@ export function useCredentialSync(credentialId: number): UseCredentialSyncResult
     phaseRef.current = 'done'
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPhase('done')
+    if (job.status === 'completed') {
+      setSucceededAt(Date.now())
+    }
     queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     // Drop every cached account-history page so the new transactions appear.
     // The exact account ids live one level inside the cache key tuple, so a
@@ -488,7 +510,7 @@ export function useCredentialSync(credentialId: number): UseCredentialSyncResult
     setAwaitingTwoFactor(false)
   }, [])
 
-  return { start, status, current2fa, submit2fa, skip2fa }
+  return { start, status, current2fa, submit2fa, skip2fa, succeededAt }
 }
 
 /**
