@@ -36,6 +36,28 @@ def test_list_users_returns_empty_when_no_rows(session_factory: sessionmaker):
         assert user_service.list_users(db_session=session) == []
 
 
+def test_create_user_defaults_language_to_english_when_unset(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.delenv("DEFAULT_LANGUAGE", raising=False)
+
+    with session_factory() as session:
+        user = user_service.create_user(
+            db_session=session, user_name=USER_NAME, display_name=DISPLAY_NAME, password=VALID_PASSWORD
+        )
+        assert user.language == "en"
+
+
+def test_create_user_uses_configured_default_language(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(name="DEFAULT_LANGUAGE", value="de")
+
+    with session_factory() as session:
+        user = user_service.create_user(
+            db_session=session, user_name=USER_NAME, display_name=DISPLAY_NAME, password=VALID_PASSWORD
+        )
+        assert user.language == "de"
+
+
 def test_create_user_translates_integrity_error_to_user_name_already_exists(monkeypatch: pytest.MonkeyPatch):
     session = MagicMock()
     session.scalar.return_value = None  # pre-check sees no existing row

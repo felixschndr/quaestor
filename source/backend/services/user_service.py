@@ -4,6 +4,7 @@ from source.backend.exceptions import UserNameAlreadyExistsError, UserNotFoundEr
 from source.backend.logging_utils import get_logger
 from source.backend.models.theme import Theme
 from source.backend.models.user import User
+from source.backend.services import i18n_service
 from source.backend.services.password_service import hash_password
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, NoResultFound
@@ -42,6 +43,7 @@ def create_user(
         display_name=display_name,
         password_hash=hash_password(password),
         theme=theme,
+        language=i18n_service.get_default_language(),
     )
     db_session.add(user)
     try:
