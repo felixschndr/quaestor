@@ -1,6 +1,6 @@
-# Finanzguru clone
+# Quaestor
 
-This project aims to give the user an overview of his bank accounts with their balances and transactions (coming in the future).
+Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts
 
 > [!WARNING]
 > This project is still in early development and should not be used for production purposes.

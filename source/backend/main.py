@@ -107,7 +107,7 @@ def setup_logging() -> None:
 
 setup_logging()
 
-app = FastAPI(title="Finanzguru Clone", lifespan=lifespan)
+app = FastAPI(title="Quaestor", lifespan=lifespan)
 
 app.middleware("http")(csrf_middleware)
 app.middleware("http")(csp_middleware)

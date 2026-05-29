@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "Finanzguru Clone"
+name = "Quaestor"
+description = "Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts"
 version = "0.0.1"
-description = "A selfhosted clone of finanzguru"
 authors = ["Felix Schneider <mail@fschneider.me>"]
 package-mode = false
 
