@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -6,17 +7,35 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 
-def test_database_key_raises_when_env_var_not_set(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.delenv(name=db.KEY_ENV_VARIABLE_NAME, raising=False)
+@pytest.mark.parametrize(argnames="env_value", argvalues=[None, ""])
+def test_resolve_db_path_falls_back_to_repository_root(env_value: str | None, monkeypatch: pytest.MonkeyPatch):
+    if env_value is None:
+        monkeypatch.delenv(name=db.PATH_ENV_VARIABLE_NAME, raising=False)
+    else:
+        monkeypatch.setenv(name=db.PATH_ENV_VARIABLE_NAME, value=env_value)
+
+    assert db._resolve_db_path() == db.ROOT / "bank_app.db"
+
+
+@pytest.mark.parametrize(
+    argnames="env_value",
+    argvalues=["/data/bank_app.db", "custom/relative.db" "/tmp/with spaces.db"],
+)
+def test_resolve_db_path_uses_env_var_when_set(env_value: str, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(name=db.PATH_ENV_VARIABLE_NAME, value=env_value)
+
+    assert db._resolve_db_path() == Path(env_value)
+
+
+@pytest.mark.parametrize(argnames="env_value", argvalues=[None, ""])
+def test_database_key_requires_non_empty_env_var(env_value: str | None, monkeypatch: pytest.MonkeyPatch):
+    if env_value is None:
+        monkeypatch.delenv(name=db.KEY_ENV_VARIABLE_NAME, raising=False)
+    else:
+        monkeypatch.setenv(name=db.KEY_ENV_VARIABLE_NAME, value=env_value)
 
     with pytest.raises(RuntimeError, match=db.KEY_ENV_VARIABLE_NAME):
         db._database_key()
-
-
-def test_database_key_returns_value_when_env_var_is_set(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv(name=db.KEY_ENV_VARIABLE_NAME, value="secret-key")
-
-    assert db._database_key() == "secret-key"
 
 
 def test_configure_sqlcipher_sets_pragma_key_and_temp_store(monkeypatch: pytest.MonkeyPatch):
