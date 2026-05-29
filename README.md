@@ -1,9 +1,65 @@
 # Quaestor
 
-Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts
+Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts.
 
-> [!WARNING]
-> This project is still in early development and should not be used for production purposes.
+The idea behind this app is to give you an overview of all your bank accounts and thus consolidating multiple apps. The app allows you to see the balances of all accounts you own. By clicking on one of the accounts you can see the transactions of the account.
+The tool is exclusively read-only. It can**not** write to any accounts (i.e., make changes to the account or do transactions).
+
+> [!NOTE]
+> This project is still in early development and might include major changes in the near future.
+
+## Screenshots
+
+<details>
+<summary>Click to expand</summary>
+
+**Overview**: Dark mode
+
+<img src="docs/screenshots/overview_dark.png" width="400" alt="Overview (dark mode)">
+
+**Overview**: Light mode
+
+<img src="docs/screenshots/overview_light.png" width="400" alt="Overview (light mode)">
+
+**Account**: A single account showing its current balance and its transactions grouped by date
+
+<img src="docs/screenshots/account.png" width="400" alt="Account">
+
+**Manual account**: A manually managed account where you can add and edit transactions yourself
+
+<img src="docs/screenshots/account_manual.png" width="400" alt="Manual account">
+
+**Transaction**: The detail view of a transaction with a personal note
+
+<img src="docs/screenshots/transaction.png" width="400" alt="Transaction detail">
+
+**Settings**
+
+<img src="docs/screenshots/settings.png" width="400" alt="Settings entry point">
+
+**Bank connections**: The list of connected banks
+
+<img src="docs/screenshots/settings_credentials.png" width="400" alt="Bank connections">
+
+**Bank connection details**: Settings for a single connection
+
+<img src="docs/screenshots/settings_credentials_single.png" width="400" alt="Bank connection details">
+
+**Account groups**: Drag accounts into custom groups to control how they are organized in the overview
+
+<img src="docs/screenshots/settings_credentials_groups.png" width="400" alt="Account groups">
+
+**User settings**
+
+<img src="docs/screenshots/settings_user.png" width="400" alt="User settings">
+
+**Sessions**: Active login sessions with options to log out individual sessions
+
+<img src="docs/screenshots/settings_sessions.png" width="400" alt="Sessions">
+
+</details>
+
+
 
 ## Security
 
