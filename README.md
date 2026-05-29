@@ -91,6 +91,25 @@ Security measures in place:
  - Rate limiting: auth endpoints are throttled heavily per source IP. Set `FORWARDED_ALLOW_IPS` if behind a reverse proxy.
  - Hardened headers and cookies: `Content-Security-Policy`, `HttpOnly`, `SameSite=Lax`, CSRF: `SameSite=Strict`, `Secure` flag when (`SESSION_COOKIE_SECURE=true`).
 
+## Deployment
+
+### Native
+
+#### Requirements
+
+- [Task](https://github.com/go-task/task)
+- [Poetry](https://python-poetry.org/)
+- [pnpm](https://pnpm.io/)
+
+#### Running
+
+1. Clone the repository: `git clone git@github.com:felixschndr/Quaestor.git`
+2. Change to the directory: `cd Quaestor`
+3. Create a db key and add it to `.env`: `echo -n "DATABASE_ENCRYPTION_KEY=" >> .env && python -c 'import secrets; print(secrets.token_hex(32))' >> .env`
+4. Install the requirements: `poetry install`
+5. Run the application: `task run:prod`
+6. Access the application on [127.0.0.1:8000](http://127.0.0.1:8000)
+
 ## Commands
 
 - Generate a DB Encryption secret: `python -c 'import secrets; print(secrets.token_hex(32))'`
@@ -124,10 +143,3 @@ Security measures in place:
 | `SYNC_INTERVAL_HOURS`         | How often (in hours) the server automatically syncs all credentials that don't require 2FA. Accepts fractional values (e.g. `0.5`).                                                                         | `12`          |
 | `SESSION_COOKIE_SECURE`       | Whether to set the `Secure` flag on the session and CSRF cookies. Set to `true` whenever the app is reachable over HTTPS.                                                                                   | `false`       |
 | `FORWARDED_ALLOW_IPS`         | Comma-separated list of reverse-proxy IPs whose `X-Forwarded-For` / `X-Forwarded-Proto` headers the server trusts. Use `*` if the proxy IP is unpredictable (e.g. in container networks).                   | `127.0.0.1`   |
-
-
-## TODO
-- ING VL
-- Handling for wrong banking credentials
-- The trade republic session state COULD include the information about how long until a new 2FA is required (.traderepublic.com	TRUE	/	TRUE	1779099997	aws-waf-token)
-- Detect transfer transactions
