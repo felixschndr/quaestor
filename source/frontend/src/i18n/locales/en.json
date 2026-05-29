@@ -28,6 +28,9 @@
   "account": {
     "back": "Back",
     "search": "Search transactions",
+    "sync": {
+      "aria": "Sync account"
+    },
     "balance": "Current balance",
     "today": "Today",
     "yesterday": "Yesterday",

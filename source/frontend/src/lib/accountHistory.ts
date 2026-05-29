@@ -27,6 +27,7 @@ export interface AccountHistoryPage {
 export interface AccountWithBank {
   account: AccountRead
   bank: string
+  credentialId: number
 }
 
 export const accountQueryKeys = {
@@ -40,7 +41,9 @@ export function findAccountInUser(
   if (!user) return null
   for (const credential of user.credentials) {
     for (const account of credential.accounts) {
-      if (account.id === accountId) return { account, bank: credential.bank }
+      if (account.id === accountId) {
+        return { account, bank: credential.bank, credentialId: credential.id }
+      }
     }
   }
   return null
