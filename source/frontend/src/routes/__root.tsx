@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { NetworkError } from '@/lib/api'
 import { ensureAuthenticated, useAuthMe } from '@/lib/auth'
 import { readStoredTheme, useResolvedTheme } from '@/lib/theme'
+import { useApplyUserLanguage } from '@/i18n'
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
@@ -29,6 +30,7 @@ function RootComponent() {
   const { data: user } = useAuthMe()
   const preference = user?.theme ?? readStoredTheme()
   const resolved = useResolvedTheme(preference)
+  useApplyUserLanguage(user?.language)
   return (
     <>
       <Outlet />
