@@ -1,0 +1,14 @@
+services:
+  app:
+    image: ghcr.io/felixschndr/quaestor
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    environment:
+      HOST: 0.0.0.0
+      DATABASE_ENCRYPTION_KEY: ${DATABASE_ENCRYPTION_KEY}
+      # See the README for more env variables
+    restart: on-failure
+    cap_drop:
+      - ALL

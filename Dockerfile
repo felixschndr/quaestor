@@ -16,7 +16,7 @@ COPY source/frontend/ ./
 RUN pnpm build
 
 
-FROM python:3.14-slim-bookworm AS backend-builder
+FROM python:3.14-slim-trixie AS backend-builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -40,7 +40,7 @@ COPY pyproject.toml poetry.lock ./
 RUN poetry install --no-root --without dev
 
 
-FROM python:3.14-slim-bookworm AS runtime
+FROM python:3.14-slim-trixie AS runtime
 
 LABEL org.opencontainers.image.source="https://github.com/felixschndr/Quaestor"
 LABEL org.opencontainers.image.description="Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts (https://github.com/felixschndr/Quaestor)"
@@ -50,10 +50,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH=/app/.venv/bin:${PATH} \
     HOST=0.0.0.0 \
     PORT=8000 \
-    USER_TO_USE=app
+    USER_TO_USE=app \
+    DATABASE_PATH=/data/bank_app.db
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        libsqlcipher0 \
+RUN apt-get update && apt-get install -y --no-install-recommends sqlcipher \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 1000 ${USER_TO_USE} \
     && useradd  --system --uid 1000 --gid ${USER_TO_USE} --home /app --shell /usr/bin/bash ${USER_TO_USE}
