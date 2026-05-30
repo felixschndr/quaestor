@@ -38,7 +38,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     HOST=0.0.0.0 \
     PORT=8000 \
     USER_TO_USE=app \
-    DATABASE_PATH=/data/Quaestor.db
+    DATABASE_PATH=/data/Quaestor.db \
+    PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
 
 RUN apt-get update && apt-get install -y --no-install-recommends sqlcipher \
     && rm -rf /var/lib/apt/lists/* \
@@ -54,6 +55,13 @@ COPY --chown=${USER_TO_USE}:${USER_TO_USE} source/backend ./source/backend
 COPY --from=frontend-builder --chown=${USER_TO_USE}:${USER_TO_USE} /build/source/frontend/dist ./source/frontend/dist
 
 RUN mkdir -p /data && chown ${USER_TO_USE}:${USER_TO_USE} /data
+
+# We install everything that playwright needs and bake it into the image
+# We could think about only loading it if we need it in the future
+RUN playwright install --with-deps chromium \
+    && chmod -R a+rX ${PLAYWRIGHT_BROWSERS_PATH} \
+    && rm -rf /var/lib/apt/lists/*
+
 USER ${USER_TO_USE}
 
 EXPOSE 8000
