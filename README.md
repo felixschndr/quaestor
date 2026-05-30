@@ -99,16 +99,19 @@ If you are running this app behind a reverse proxy ensure to allow the usage of 
 
 ### Container image
 
-|                  | Existing image                                                                                                             | Build image yourself                                                                                                                                                                                                        |
-|------------------|----------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `docker run`     | `docker run -e DATABASE_ENCRYPTION_KEY=${DATABASE_ENCRYPTION_KEY} -v app.db:/app/bank_app.db ghcr.io/felixschndr/quaestor` | `git clone git@github.com:felixschndr/Quaestor.git && cd Quaestor && docker build . -t quaestor && docker run -e DATABASE_ENCRYPTION_KEY=${DATABASE_ENCRYPTION_KEY} -e HOST=0.0.0.0 -v ./data/:/data -p 8080:8080 quaestor` |
-| `docker compose` | `wget https://raw.githubusercontent.com/felixschndr/Quaestor/refs/heads/main/docker-compose.yaml && docker compose up`     | `wget https://raw.githubusercontent.com/felixschndr/Quaestor/refs/heads/main/docker-compose.yaml && sed -i 's,image: ghcr.io/felixschndr/quaestor,build: .,' docker-compose.yaml && docker compose up`                      |
+|                  | Existing image                                                                                                         | Build image yourself                                                                                                                                                                                                        |
+|------------------|------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `docker run`     | `docker run -e DATABASE_ENCRYPTION_KEY=${DATABASE_ENCRYPTION_KEY} -v ./data/:/data ghcr.io/felixschndr/quaestor`       | `git clone git@github.com:felixschndr/Quaestor.git && cd Quaestor && docker build . -t quaestor && docker run -e DATABASE_ENCRYPTION_KEY=${DATABASE_ENCRYPTION_KEY} -e HOST=0.0.0.0 -v ./data/:/data -p 8080:8080 quaestor` |
+| `docker compose` | `wget https://raw.githubusercontent.com/felixschndr/Quaestor/refs/heads/main/docker-compose.yaml && docker compose up` | `git clone git@github.com:felixschndr/Quaestor.git && cd Quaestor && sed -i 's,image: ghcr.io/felixschndr/quaestor,build: .,' docker-compose.yaml && docker compose up`                                                     |
+
+As this image does not run as `root` you **MUST** ensure that the user with the ID `1000` has permissions to write onto the location where you mount the `data` directory to on the host. As an alternative you can use a named volume instead. A commented out volume mount is already present in the `docker-compose.yaml`.
 
 ### Native
 
 #### Requirements
 
 - [Task](https://github.com/go-task/task)
+- [Python 3.14](https://www.python.org/)
 - [Poetry](https://python-poetry.org/)
 - [pnpm](https://pnpm.io/)
 
@@ -125,9 +128,13 @@ If you are running this app behind a reverse proxy ensure to allow the usage of 
 ### Access the DB
 
 If you need/want to access the database you can to so with
-````shell
-source .env
-sqlcipher -cmd "PRAGMA key='${DATABASE_ENCRYPTION_KEY}'" /data/bank_app.db
+
+| Native                                                                                                           | Container                                                                    |
+|------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| `source .env && sqlcipher -cmd "PRAGMA key='${DATABASE_ENCRYPTION_KEY}'" <path to db> # e.g. ./data/bank_app.db` | `sqlcipher -cmd "PRAGMA key='${DATABASE_ENCRYPTION_KEY}'" /data/bank_app.db` |
+
+Then you can use standard sqlite syntax such as
+````
 sqlite> .tables
 sqlite> SELECT id, user_id, bank, username FROM credentials;
 ````
