@@ -116,6 +116,13 @@ app.middleware("http")(csp_middleware)
 @app.middleware("http")
 async def refresh_session(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     response = await call_next(request)
+
+    if not request.url.path.startswith(API_PREFIX):
+        # Only the API ever needs the session cookie. Re-issuing it on static/SPA responses (served from "/") is
+        # dangerous: those responses are cacheable, and a shared cache (e.g. nginx) would store one user's session
+        # cookie alongside an asset and replay it to the next visitor.
+        return response
+
     raw_token = request.cookies.get(session_service.COOKIE_NAME)
     if not raw_token:
         logger.debug(f"{request.method} {request.url.path}: no session cookie, skipping session refresh")
@@ -197,6 +204,17 @@ async def log_http_requests(request: Request, call_next: Callable[[Request], Awa
     return rebuilt
 
 
+@app.middleware("http")
+async def prevent_caching_of_sensitive_responses(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    response = await call_next(request)
+    # API responses are per-user and must never be served from a shared cache to prevent session-bleed
+    if request.url.path.startswith(API_PREFIX) or "set-cookie" in response.headers:
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 for api_object in [account, account_groups, auth, credentials, i18n, transactions, users]:
     app.include_router(api_object.router, prefix=API_PREFIX)
 register_exception_handlers(app)
@@ -207,12 +225,19 @@ app.mount(path="/static", app=StaticFiles(directory=(get_backend_source_path() /
 class _SpaStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope: Scope) -> Response:
         try:
-            return await super().get_response(path=path, scope=scope)
+            response = await super().get_response(path=path, scope=scope)
         except StarletteHTTPException as exc:
             if exc.status_code != 404:
                 raise
+            response = await super().get_response(path="index.html", scope=scope)
+            path = "index.html"
 
-        return await super().get_response(path="index.html", scope=scope)
+        if path.startswith("assets/") or "/assets/" in path:
+            # Content-hashed bundles under assets/ change name on every build, so they are safe to cache forever.
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 def resolve_frontend_dist(dist_path: Path) -> Path | None:
