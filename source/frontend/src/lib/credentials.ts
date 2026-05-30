@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
 import { authQueryKeys, type CredentialRead } from './auth'
+import { syncJobWebSocketUrl } from './syncSocket'
 
 /**
  * Mirrors `BankInfo.information_for_user` on the backend. `note` lives in the
@@ -90,11 +91,6 @@ export function useConfirmTwoFactor() {
         body: { code },
       }),
   })
-}
-
-function syncJobWebSocketUrl(credentialId: number, jobId: string): string {
-  const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${scheme}://${window.location.host}/api/credentials/${credentialId}/sync/${jobId}/ws`
 }
 
 export interface UseSyncJobState {
