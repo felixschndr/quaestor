@@ -12,6 +12,9 @@ on:
 env:
   PLATFORMS: linux/amd64,linux/arm64
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     uses: ./.github/workflows/lint.yml
@@ -106,6 +109,8 @@ jobs:
     needs: [check_version, build-and-push-image]
     if: github.ref == 'refs/heads/main' && needs.check_version.outputs.version_changed == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
