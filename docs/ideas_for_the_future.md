@@ -7,3 +7,7 @@ This is where I keep track of things I am thinking about/want to implement in th
 - Detect transfer transactions
 - Add a way to add _all_ FinTS banks
 - Statistics about accounts
+- Add ability to close group in overview
+- Detect timeout when syncing a credential
+- Increase time to look back
+- PWA
