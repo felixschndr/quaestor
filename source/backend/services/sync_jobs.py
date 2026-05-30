@@ -7,6 +7,7 @@ from enum import Enum
 from typing import ClassVar
 
 from source.backend.db import SessionLocal
+from source.backend.exceptions import InvalidCredentialsError
 from source.backend.logging_utils import get_logger
 from source.backend.models.base import format_repr
 from source.backend.services import credential_service
@@ -25,6 +26,11 @@ class JobStatus(str, Enum):
     FAILED = "failed"
 
 
+class JobErrorCode(str, Enum):
+    INVALID_CREDENTIALS = "invalid_credentials"
+    UNKNOWN = "unknown"
+
+
 TERMINAL_JOB_STATUSSES = frozenset({JobStatus.COMPLETED, JobStatus.FAILED})
 
 
@@ -38,6 +44,7 @@ class SyncJob:
     challenge_token: str | None = None
     expires_at: datetime | None = None
     error: str | None = None
+    error_code: JobErrorCode | None = None
     started_at: datetime = field(default_factory=datetime.now)
     finished_at: datetime | None = None
 
@@ -93,9 +100,12 @@ async def _run_sync(job: SyncJob) -> None:
     try:
         result = await asyncio.to_thread(_sync_in_thread, job.credential_id, notify_two_factor_state)  # noqa FKA100
         _apply_result(job=job, result=result)
+    except InvalidCredentialsError as e:
+        logger.warning(f"Sync job {job} failed: invalid credentials")
+        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.INVALID_CREDENTIALS)
     except Exception as e:
         logger.exception(f"Sync job {job} failed")
-        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e))
+        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.UNKNOWN)
     await _notify(job)
 
 
@@ -137,9 +147,12 @@ def _apply_result(job: SyncJob, result: SyncResult) -> None:
         logger.info(f"Sync job {job} completed")
 
 
-def _mark_terminal(job: SyncJob, status: JobStatus, error: str | None = None) -> None:
+def _mark_terminal(
+    job: SyncJob, status: JobStatus, error: str | None = None, error_code: JobErrorCode | None = None
+) -> None:
     job.status = status
     job.error = error
+    job.error_code = error_code
     job.finished_at = datetime.now()
 
 
@@ -163,9 +176,12 @@ async def _run_confirm(job: SyncJob, challenge_token: str, code: str) -> None:
             _confirm_in_thread, job.credential_id, challenge_token=challenge_token, code=code
         )
         _apply_result(job=job, result=result)
+    except InvalidCredentialsError as e:
+        logger.warning(f"Sync job {job} 2FA confirmation failed: invalid credentials")
+        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.INVALID_CREDENTIALS)
     except Exception as e:
         logger.exception(f"Sync job {job} 2FA confirmation failed")
-        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e))
+        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.UNKNOWN)
     await _notify(job)
 
 

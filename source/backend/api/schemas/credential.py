@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 from source.backend.api.schemas.account import AccountRead
 from source.backend.bank_handlers import BankProvider
-from source.backend.services.sync_jobs import JobStatus
+from source.backend.services.sync_jobs import JobErrorCode, JobStatus
 
 
 class CredentialCreate(BaseModel):
@@ -34,6 +34,7 @@ class SyncJobRead(BaseModel):
     status: JobStatus
     expires_at: datetime | None = None
     error: str | None = None
+    error_code: JobErrorCode | None = None
 
 
 class TwoFactorCode(BaseModel):

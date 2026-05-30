@@ -62,12 +62,15 @@ export type SyncJobStatus =
   | 'completed'
   | 'failed'
 
+export type SyncJobErrorCode = 'invalid_credentials' | 'unknown'
+
 export interface SyncJob {
   job_id: string
   credential_id: number
   status: SyncJobStatus
   expires_at: string | null
   error: string | null
+  error_code: SyncJobErrorCode | null
 }
 
 export function useStartSync() {

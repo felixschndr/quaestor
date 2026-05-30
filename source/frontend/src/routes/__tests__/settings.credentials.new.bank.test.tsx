@@ -85,8 +85,10 @@ class MockWebSocket {
     this.onclose?.({})
   }
 
-  push(message: SyncJob) {
-    this.onmessage?.({ data: JSON.stringify(message) })
+  push(message: Partial<SyncJob> & Pick<SyncJob, 'job_id' | 'credential_id' | 'status'>) {
+    // Mirror the backend payload: expires_at/error/error_code default to null unless set.
+    const full: SyncJob = { expires_at: null, error: null, error_code: null, ...message }
+    this.onmessage?.({ data: JSON.stringify(full) })
   }
 }
 
@@ -312,6 +314,91 @@ describe('NewCredentialFormView', () => {
 
     await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
     expect(onConnected).not.toHaveBeenCalled()
+    // A generic (non-credential) failure is transient — the credential is kept so the user can retry.
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) => url === '/api/credentials/11' && init?.method === 'DELETE',
+      ),
+    ).toBe(false)
+  })
+
+  it('shows a dedicated message when the WS reports failed with invalid_credentials', async () => {
+    const user = userEvent.setup()
+    const { toast } = await import('sonner')
+    const toastError = vi.spyOn(toast, 'error').mockImplementation(() => 'toast-id' as never)
+    const fetchMock = globalThis.fetch as Mock
+    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      if (url === '/api/credentials' && init?.method === 'POST') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 201,
+            body: {
+              id: 11,
+              bank: 'ing',
+              accounts: [],
+              last_fetching_timestamp: null,
+              requires_two_factor_authentication: false,
+            },
+          }),
+        )
+      }
+      if (url === '/api/credentials/11/sync' && init?.method === 'POST') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 202,
+            body: {
+              job_id: 'job-x',
+              credential_id: 11,
+              status: 'running',
+              expires_at: null,
+              error: null,
+            },
+          }),
+        )
+      }
+      if (url === '/api/credentials/11' && init?.method === 'DELETE') {
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+    })
+    const onSyncFailed = vi.fn()
+
+    renderWithQuery(
+      <NewCredentialFormView
+        bankName="ing"
+        bank={ING_BANK}
+        isLoading={false}
+        onCancel={vi.fn()}
+        onConnected={vi.fn()}
+        onSyncFailed={onSyncFailed}
+      />,
+    )
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Password'), 'wrong-pin')
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+    const ws = await nextWebSocket((s) => s.url.includes('/credentials/11/sync/job-x/ws'))
+    ws.push({
+      job_id: 'job-x',
+      credential_id: 11,
+      status: 'failed',
+      error: 'The bank rejected the login',
+      error_code: 'invalid_credentials',
+    })
+
+    // The just-created credential is useless with wrong creds → it must be deleted.
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) => url === '/api/credentials/11' && init?.method === 'DELETE',
+        ),
+      ).toBe(true),
+    )
+    expect(toastError).toHaveBeenCalledTimes(1)
+    expect(toastError.mock.calls[0][0]).toMatch(/check your username and password/i)
+    // We stay on the form so the user can fix the credentials — no navigation away.
+    expect(onSyncFailed).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Connect and sync' })).toBeEnabled()
   })
 
   it('bounces back to onSyncFailed when starting the sync itself errors', async () => {
