@@ -250,6 +250,41 @@ def test_session_resolves_tan_responses_from_get_transactions(monkeypatch: pytes
     assert client.send_tan.call_count == 2
 
 
+def test_session_translates_missing_system_id_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    # python-fints raises a bare ValueError('Could not find system_id') when the bank rejects
+    # the login (wrong username/PIN), because the initial sync can't obtain a system id.
+    client = MagicMock()
+    client.fetch_tan_mechanisms.side_effect = ValueError("Could not find system_id")
+    monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
+
+    with pytest.raises(InvalidCredentialsError):
+        with _ing_handler().session():
+            pass
+
+
+def test_session_translates_fints_pin_error_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fints.exceptions import FinTSClientPINError
+
+    client = MagicMock()
+    client.fetch_tan_mechanisms.side_effect = FinTSClientPINError("PIN is wrong or blocked")
+    monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
+
+    with pytest.raises(InvalidCredentialsError):
+        with _ing_handler().session():
+            pass
+
+
+def test_session_does_not_swallow_unrelated_value_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Only the system_id failure means "bad credentials"; other ValueErrors must surface as-is.
+    client = MagicMock()
+    client.fetch_tan_mechanisms.side_effect = ValueError("something else entirely")
+    monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
+
+    with pytest.raises(ValueError, match="something else entirely"):
+        with _ing_handler().session():
+            pass
+
+
 def test_bank_info_required_fields_reflects_handler_credential_fields() -> None:
     sparkasse: BankInfo = BANKS_BY_NAME[BankProvider.SPARKASSE.value]
     ing: BankInfo = BANKS_BY_NAME[BankProvider.ING.value]

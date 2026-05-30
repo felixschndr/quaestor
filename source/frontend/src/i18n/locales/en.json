@@ -236,6 +236,7 @@
     "alreadyExists": "A {{bank}} connection with these credentials already exists.",
     "connectFailed": "Could not connect to {{bank}}. Please check the credentials.",
     "syncFailed": "Connected to {{bank}}, but the first sync failed. You can retry the sync later.",
+    "invalidCredentials": "{{bank}} rejected the login. Please check your username and password.",
     "twoFactor": {
       "description": "A code was sent to your phone. Enter it to finish connecting.",
       "codeLabel": "Code",

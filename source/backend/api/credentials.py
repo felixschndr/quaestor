@@ -38,6 +38,7 @@ def _get_job_payload(job: SyncJob) -> dict:
     payload = asdict(job)
     payload.pop("challenge_token", None)  # internal — never leaves the backend
     payload["status"] = job.status.value
+    payload["error_code"] = job.error_code.value if job.error_code else None
     for key in ("started_at", "finished_at", "expires_at"):
         value = payload.get(key)
         if value is not None:

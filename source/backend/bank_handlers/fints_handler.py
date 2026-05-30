@@ -6,6 +6,7 @@ from typing import Iterator, TypeVar
 
 import fints_url
 from fints.client import FinTS3PinTanClient, NeedTANResponse
+from fints.exceptions import FinTSClientPINError
 from fints.models import SEPAAccount
 from source.backend.bank_handlers.base import (
     BankHandler,
@@ -113,14 +114,33 @@ class FinTSHandler(BankHandler):
         bank_identifier = self.bank_info.bank_identifier or self.credentials.get("blz")
         logger.debug(f"Opening FinTS session for bank {bank_identifier}")
         client = self.client(user_id=self.credentials["username"], pin=self.credentials["password"])
-        _try_configure_pushtan_mechanism(client)
+        with _as_invalid_credentials_on_login_failure():
+            _try_configure_pushtan_mechanism(client)
         with client:
-            client.init_tan_response = _resolve_decoupled(
-                client=client,
-                response=client.init_tan_response,
-                notify_two_factor_state=self.notify_two_factor_state,
-            )
+            with _as_invalid_credentials_on_login_failure():
+                client.init_tan_response = _resolve_decoupled(
+                    client=client,
+                    response=client.init_tan_response,
+                    notify_two_factor_state=self.notify_two_factor_state,
+                )
             yield _FinTSSession(client=client, notify_two_factor_state=self.notify_two_factor_state)
+
+
+@contextmanager
+def _as_invalid_credentials_on_login_failure() -> Iterator[None]:
+    # Map the bank's "login rejected" signals to a clear domain error
+    try:
+        yield
+    except FinTSClientPINError as e:
+        message = f"The bank rejected the login: {e}"
+        logger.warning(message)
+        raise InvalidCredentialsError(message) from e
+    except ValueError as e:
+        if "system_id" not in str(e):
+            raise
+        message = "The bank rejected the login; the username or password is likely incorrect"
+        logger.warning(message)
+        raise InvalidCredentialsError(message) from e
 
 
 def _resolve_fints_url(bank_code: str) -> str:

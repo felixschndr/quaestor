@@ -14,6 +14,7 @@ import { ApiError } from '@/lib/api'
 import {
   useConfirmTwoFactor,
   useCreateCredential,
+  useDeleteCredential,
   useStartSync,
   useSupportedBanks,
   useSyncJob,
@@ -57,9 +58,10 @@ export interface NewCredentialFormViewProps {
    *  to land on their detail view to add accounts). */
   onConnected: (credentialId: number) => void
   /**
-   * Called after the create succeeded but the follow-up sync failed. Per the
-   * agreed UX, the credential stays in the database and the user gets bounced
-   * back to the list (with a toast that tells them what went wrong).
+   * Called after the create succeeded but the follow-up sync failed; bounces the
+   * user back to the list with an explanatory toast. A transient failure keeps the
+   * credential (so it can be retried); an invalid-credentials failure deletes it
+   * first (a wrong login can never sync), handled before this is called.
    */
   onSyncFailed: () => void
 }
@@ -130,24 +132,38 @@ function CredentialForm({
   const create = useCreateCredential()
   const startSync = useStartSync()
   const confirm2fa = useConfirmTwoFactor()
+  // mutate is referentially stable (React Query), so it's safe in effect deps.
+  const { mutate: deleteCredential } = useDeleteCredential()
   const note = t(`banks.${bank.name}.note`, { defaultValue: '' })
 
   const [activeJob, setActiveJob] = useState<{ credentialId: number; jobId: string } | null>(null)
   const [code, setCode] = useState('')
   const { job } = useSyncJob(activeJob?.credentialId ?? null, activeJob?.jobId ?? null)
-  const terminalHandled = useRef(false)
+  // Track which job's terminal state we've already acted on, keyed by job_id, so a retry
+  // (a fresh job) is handled again while we never act on the same job twice.
+  const handledJobId = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!job || terminalHandled.current) return
+    if (!job || handledJobId.current === job.job_id) return
     if (job.status === 'completed') {
-      terminalHandled.current = true
+      handledJobId.current = job.job_id
       if (activeJob) onConnected(activeJob.credentialId)
     } else if (job.status === 'failed') {
-      terminalHandled.current = true
-      toast.error(t('credentials.syncFailed', { bank: bankTitle }))
-      onSyncFailed()
+      handledJobId.current = job.job_id
+      if (job.error_code === 'invalid_credentials') {
+        // Wrong login → the credential we just created can never sync, so delete it. We
+        // stay on the form (a failed job already re-enables it) so the user can fix the
+        // credentials and try again — the next attempt is a new job, handled afresh.
+        if (activeJob) deleteCredential(activeJob.credentialId)
+        toast.error(t('credentials.invalidCredentials', { bank: bankTitle }))
+      } else {
+        // A transient failure (e.g. bank unreachable) — keep the credential and bounce
+        // back to the list so the user can retry the sync later.
+        toast.error(t('credentials.syncFailed', { bank: bankTitle }))
+        onSyncFailed()
+      }
     }
-  }, [job, activeJob, onConnected, onSyncFailed, t, bankTitle])
+  }, [job, activeJob, onConnected, onSyncFailed, deleteCredential, t, bankTitle])
 
   const schema = useMemo(() => {
     const shape: Record<string, z.ZodString> = {}

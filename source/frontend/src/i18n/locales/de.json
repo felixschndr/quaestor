@@ -233,6 +233,7 @@
     "alreadyExists": "Eine {{bank}}-Verbindung mit diesen Zugangsdaten existiert bereits.",
     "connectFailed": "Verbindung zu {{bank}} fehlgeschlagen. Bitte Zugangsdaten prüfen.",
     "syncFailed": "{{bank}} verbunden, aber die erste Synchronisierung ist fehlgeschlagen. Du kannst es später erneut versuchen.",
+    "invalidCredentials": "{{bank}} hat die Anmeldung abgelehnt. Bitte prüfe Benutzername und Passwort.",
     "twoFactor": {
       "description": "Ein Code wurde an dein Handy gesendet. Gib ihn ein, um die Verbindung abzuschließen.",
       "codeLabel": "Code",

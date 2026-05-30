@@ -44,6 +44,7 @@ function makeJob(overrides: Partial<SyncJob> & Pick<SyncJob, 'credential_id'>): 
     status: 'running',
     expires_at: null,
     error: null,
+    error_code: null,
     ...overrides,
   }
 }
