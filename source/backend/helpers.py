@@ -4,14 +4,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    # Imported only for type hints. Doing this at runtime would pull in
-    # `bank_handlers/__init__.py` (which eagerly imports every handler) from a
-    # module that several handlers themselves depend on → circular import.
     from source.backend.bank_handlers.base import FetchedTransaction
     from source.backend.models.transaction import Transaction
 
 
 def get_key_of_transaction(transaction: "Union[Transaction, FetchedTransaction]") -> str:
+    # Only use fields that cannot change
     return (
         f"{transaction.date} {transaction.purpose} {transaction.other_party} {transaction.amount} "
         f"{transaction.transaction_type}"

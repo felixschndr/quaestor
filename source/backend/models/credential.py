@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import TYPE_CHECKING, List
 
 from source.backend.bank_handlers import BankHandler, BankProvider, handler_for
@@ -17,8 +17,6 @@ logger = get_logger(__name__)
 
 # How far back transactions are fetched for a credential that has never been
 # synced (set as the initial last_fetching_timestamp on creation).
-INITIAL_FETCH_LOOKBACK = timedelta(days=365)
-
 if TYPE_CHECKING:
     from source.backend.models.user import User
 
@@ -49,7 +47,9 @@ class Credential(Base):
     def sync(self, handler: BankHandler) -> None:
         by_name = {account.name: account for account in self.accounts}
 
-        transactions_since = (self.last_fetching_timestamp or datetime.now() - INITIAL_FETCH_LOOKBACK).date()
+        transactions_since = (
+            date(year=1970, month=1, day=1) if self.last_fetching_timestamp is None else self.last_fetching_timestamp
+        )
         with handler.session() as bank:
             created_accounts, updated_accounts, created_transactions = self._sync_accounts_of_credential(
                 bank_session=bank, by_name=by_name, transactions_since=transactions_since
