@@ -14,12 +14,12 @@ def test_resolve_db_path_falls_back_to_repository_root(env_value: str | None, mo
     else:
         monkeypatch.setenv(name=db.PATH_ENV_VARIABLE_NAME, value=env_value)
 
-    assert db._resolve_db_path() == db.ROOT / "bank_app.db"
+    assert db._resolve_db_path() == db.ROOT / "Quaestor.db"
 
 
 @pytest.mark.parametrize(
     argnames="env_value",
-    argvalues=["/data/bank_app.db", "custom/relative.db" "/tmp/with spaces.db"],
+    argvalues=["/data/Quaestor.db", "custom/relative.db" "/tmp/with spaces.db"],
 )
 def test_resolve_db_path_uses_env_var_when_set(env_value: str, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv(name=db.PATH_ENV_VARIABLE_NAME, value=env_value)

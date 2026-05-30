@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 
 
 def _resolve_db_path() -> Path:
-    return Path(os.environ.get(PATH_ENV_VARIABLE_NAME) or (ROOT / "bank_app.db"))
+    return Path(os.environ.get(PATH_ENV_VARIABLE_NAME) or (ROOT / "Quaestor.db"))
 
 
 DB_PATH = _resolve_db_path()

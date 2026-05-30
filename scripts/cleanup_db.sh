@@ -2,7 +2,7 @@
 
 source .env
 
-rm bank_app.db
+rm Quaestor.db
 rm -rf source/backend/alembic/versions/*
 
 poetry run alembic revision --autogenerate -m "Initial"

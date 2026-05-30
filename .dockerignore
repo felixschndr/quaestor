@@ -14,9 +14,9 @@ htmlcov
 .coverage
 coverage.xml
 
-bank_app.db
-bank_app.db-shm
-bank_app.db-wal
+Quaestor.db
+Quaestor.db-shm
+Quaestor.db-wal
 .env
 .env.*
 
