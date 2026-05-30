@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -62,6 +63,9 @@ function render_(user: UserRead) {
 }
 
 beforeEach(() => {
+  // Collapsed-group state is persisted to localStorage; clear it so each test
+  // starts with every group expanded.
+  window.localStorage.clear()
   // Stub the /account_groups/layout fetch; the default (no custom groups)
   // returns an empty layout so the overview falls back to "by bank".
   globalThis.fetch = vi.fn().mockResolvedValue(
@@ -392,6 +396,94 @@ describe('OverviewView', () => {
       ]),
     ).toBe(100 + 100 - 10)
     expect(sumFactoredBalance([])).toBe(0)
+  })
+
+  function buildGroupedUser() {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }] }],
+          ungrouped: [],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    ) as unknown as typeof fetch
+
+    return buildUser({
+      credentials: [
+        {
+          id: 1,
+          bank: 'ing',
+          accounts: [
+            {
+              id: 8,
+              name: 'Gehaltskonto',
+              display_name: 'Gehaltskonto',
+              balance: 100,
+              balance_factor: 100,
+              is_hidden: false,
+            },
+          ],
+          last_fetching_timestamp: null,
+          requires_two_factor_authentication: false,
+        },
+      ],
+    })
+  }
+
+  it('collapses a group when its heading is clicked, hiding the accounts', async () => {
+    render_(buildGroupedUser())
+    const trigger = await screen.findByRole('button', { name: /Spar/ })
+    expect(screen.getByText('Gehaltskonto')).toBeInTheDocument()
+
+    await userEvent.click(trigger)
+
+    await waitFor(() => expect(screen.queryByText('Gehaltskonto')).not.toBeInTheDocument())
+  })
+
+  it('flips aria-expanded on the group trigger when toggled', async () => {
+    render_(buildGroupedUser())
+    const trigger = await screen.findByRole('button', { name: /Spar/ })
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+
+    await userEvent.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('keeps the group total visible while collapsed', async () => {
+    render_(buildGroupedUser())
+    const trigger = await screen.findByRole('button', { name: /Spar/ })
+
+    await userEvent.click(trigger)
+
+    await waitFor(() => expect(screen.queryByText('Gehaltskonto')).not.toBeInTheDocument())
+    expect(trigger).toHaveTextContent('100,00 €')
+  })
+
+  it('does not render a collapse trigger for the legacy by-bank layout', () => {
+    const user = buildUser({
+      credentials: [
+        {
+          id: 1,
+          bank: 'ing',
+          accounts: [
+            {
+              id: 2,
+              name: 'Girokonto',
+              display_name: null,
+              balance: 100,
+              balance_factor: 100,
+              is_hidden: false,
+            },
+          ],
+          last_fetching_timestamp: null,
+          requires_two_factor_authentication: false,
+        },
+      ],
+    })
+    render_(user)
+    expect(screen.getByText('Girokonto')).toBeInTheDocument()
+    expect(document.querySelector('[aria-expanded]')).toBeNull()
   })
 
   it('renders negative account balances in the destructive color', () => {

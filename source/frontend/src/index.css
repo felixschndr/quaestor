@@ -99,6 +99,34 @@
   }
 }
 
+/* Radix Collapsible height transitions for the overview's account groups. The
+   --radix-collapsible-content-height var is set by the primitive at runtime. */
+@keyframes collapsible-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+  }
+}
+
+@keyframes collapsible-up {
+  from {
+    height: var(--radix-collapsible-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+.collapsible-content[data-state='open'] {
+  animation: collapsible-down 200ms ease-in-out;
+}
+
+.collapsible-content[data-state='closed'] {
+  animation: collapsible-up 200ms ease-in-out;
+}
+
 @layer base {
   :root {
     /* Reserve scrollbar space so mx-auto'd content doesn't recenter (and
