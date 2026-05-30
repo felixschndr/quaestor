@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { Settings } from 'lucide-react'
+import { Collapsible } from 'radix-ui'
+import { ChevronRight, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuthMe, useGlobalSync, type AccountRead, type UserRead } from '@/lib/auth'
@@ -20,6 +21,7 @@ import {
   type AccountGroupAccountRef,
   type AccountGroupLayout,
 } from '@/lib/accountGroups'
+import { useCollapsedGroups } from '@/lib/collapsedGroups'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/')({
@@ -220,6 +222,7 @@ function buildAccountLookup(user: UserRead): Map<number, AccountWithBank> {
 
 function AccountGroupList({ groups }: { groups: DisplayGroup[] }) {
   const { t } = useTranslation()
+  const { isCollapsed, toggle } = useCollapsedGroups()
   return (
     <ul className="flex flex-col gap-6">
       {groups.map((group) => {
@@ -227,24 +230,41 @@ function AccountGroupList({ groups }: { groups: DisplayGroup[] }) {
           group.heading === '__ungrouped__'
             ? t('credentials.groups.ungroupedHeading')
             : group.heading
+
+        const accountRows = group.accounts.map((account) => (
+          <AccountRow key={account.id} bank={account.bank} account={account} />
+        ))
+
+        // Legacy "by bank" layout has no heading and therefore no row to act as
+        // a click target, so it stays permanently expanded.
+        if (!heading) {
+          return (
+            <li key={group.key}>
+              <ul className="flex flex-col">{accountRows}</ul>
+            </li>
+          )
+        }
+
         const total = sumFactoredBalance(group.accounts)
         return (
-          <li key={group.key} className="flex flex-col gap-2">
-            {heading ? (
-              <div className="flex items-baseline justify-between gap-2 px-2">
-                <h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+          <li key={group.key}>
+            <Collapsible.Root open={!isCollapsed(group.key)} onOpenChange={() => toggle(group.key)}>
+              <Collapsible.Trigger className="group/collapsible focus-visible:ring-ring flex w-full items-center gap-2 rounded-md px-2 text-left focus-visible:ring-2 focus-visible:outline-none">
+                <ChevronRight
+                  aria-hidden="true"
+                  className="text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 ease-in-out group-data-[state=open]/collapsible:rotate-90"
+                />
+                <h2 className="text-muted-foreground flex-1 text-xs font-semibold tracking-wide uppercase">
                   {heading}
                 </h2>
                 <span className="text-muted-foreground text-xs font-semibold tabular-nums">
                   {formatEuro(total)}
                 </span>
-              </div>
-            ) : null}
-            <ul className="flex flex-col">
-              {group.accounts.map((account) => (
-                <AccountRow key={account.id} bank={account.bank} account={account} />
-              ))}
-            </ul>
+              </Collapsible.Trigger>
+              <Collapsible.Content className="collapsible-content overflow-hidden">
+                <ul className="flex flex-col pt-2">{accountRows}</ul>
+              </Collapsible.Content>
+            </Collapsible.Root>
           </li>
         )
       })}
