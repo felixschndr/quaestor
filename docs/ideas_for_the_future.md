@@ -8,5 +8,4 @@ This is where I keep track of things I am thinking about/want to implement in th
 - Add a way to add _all_ FinTS banks
 - Statistics about accounts
 - Detect timeout when syncing a credential
-- Increase time to look back
 - Add ability to see balance of all accounts at a given date (will be necessary for statistics in the future too)

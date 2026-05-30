@@ -12,7 +12,7 @@ from source.backend.exceptions import (
     ReauthenticationRequiredError,
 )
 from source.backend.logging_utils import get_logger
-from source.backend.models.credential import INITIAL_FETCH_LOOKBACK, Credential
+from source.backend.models.credential import Credential
 from source.backend.services import trade_republic_login, user_service
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -95,12 +95,7 @@ def create_credential(
             raise CredentialAlreadyExistsError(
                 f"User {user_id} already has a {bank.value} credential with the same login data"
             )
-    credential = Credential(
-        user=user,
-        bank=bank,
-        credentials=validated_credentials,
-        last_fetching_timestamp=datetime.now() - INITIAL_FETCH_LOOKBACK,
-    )
+    credential = Credential(user=user, bank=bank, credentials=validated_credentials)
     db_session.add(credential)
     db_session.commit()
     logger.info(f"Created credential {credential}")
