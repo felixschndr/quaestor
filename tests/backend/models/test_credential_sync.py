@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from unittest.mock import MagicMock
 
 from source.backend.bank_handlers.base import (
@@ -7,7 +7,7 @@ from source.backend.bank_handlers.base import (
     FetchedAccount,
     FetchedTransaction,
 )
-from source.backend.models.credential import INITIAL_FETCH_LOOKBACK, Credential
+from source.backend.models.credential import Credential
 from source.backend.models.transaction_type import TransactionType
 from sqlalchemy.orm import sessionmaker
 
@@ -158,7 +158,7 @@ def test_sync_does_not_duplicate_already_existing_transactions(session_factory: 
         assert len(credential.accounts[0].transactions) == 1
 
 
-def test_sync_falls_back_to_initial_lookback_when_credential_was_never_synced(session_factory: sessionmaker):
+def test_sync_fetches_full_history_when_credential_was_never_synced(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
         credential = make_credential(session, user_id=user.id, last_fetching_timestamp=None)
@@ -172,16 +172,11 @@ def test_sync_falls_back_to_initial_lookback_when_credential_was_never_synced(se
     )
     handler = _build_handler(fake_session)
 
-    sync_start = datetime.now()
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
         credential.sync(handler)
 
     requested_account_name, requested_start = fake_session.get_transactions_calls[0]
     assert requested_account_name == "DE12"
-    expected_start = (sync_start - INITIAL_FETCH_LOOKBACK).date()
-    # Allow one day of tolerance for tests that straddle midnight.
-    assert abs((requested_start - expected_start).days) <= 1
     assert isinstance(requested_start, date)
-    # Also confirm INITIAL_FETCH_LOOKBACK is the lookback the code actually applies.
-    assert (datetime.now() - sync_start) < timedelta(seconds=5)
+    assert requested_start == date(year=1970, month=1, day=1)
