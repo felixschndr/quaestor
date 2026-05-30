@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { redirect } from '@tanstack/react-router'
 import { api, ApiError } from './api'
 import type { SyncJob, SyncJobStatus } from './credentials'
+import { syncJobWebSocketUrl } from './syncSocket'
 
 export interface AccountRead {
   id: number
@@ -178,11 +179,6 @@ export interface UseGlobalSyncResult {
    *  finishes with every job in the 'completed' state. Stays null on mixed
    *  outcomes (any failed/skipped job) so the success-check doesn't lie. */
   succeededAt: number | null
-}
-
-function syncJobWebSocketUrl(credentialId: number, jobId: string): string {
-  const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${scheme}://${window.location.host}/api/credentials/${credentialId}/sync/${jobId}/ws`
 }
 
 const TWO_FACTOR_STATUSES = new Set<SyncJobStatus>(['awaiting_2fa', 'awaiting_decoupled_approval'])
