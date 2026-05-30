@@ -38,7 +38,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     HOST=0.0.0.0 \
     PORT=8000 \
     USER_TO_USE=app \
-    DATABASE_PATH=/data/bank_app.db
+    DATABASE_PATH=/data/Quaestor.db
 
 RUN apt-get update && apt-get install -y --no-install-recommends sqlcipher \
     && rm -rf /var/lib/apt/lists/* \
