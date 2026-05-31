@@ -171,12 +171,13 @@ function EmptyValue() {
 }
 
 function TypeBadge({ transactionType }: { transactionType: string | null }) {
+  const { t } = useTranslation()
   if (!transactionType) return <EmptyValue />
   const Icon = TRANSACTION_TYPE_ICONS[transactionType] ?? CircleHelp
   return (
     <span className="inline-flex items-center gap-2">
       <Icon className="text-muted-foreground size-4" aria-hidden="true" />
-      <span className="font-mono text-xs uppercase tracking-wide">{transactionType}</span>
+      <span className="text-sm">{t(`transactionType.${transactionType}`)}</span>
     </span>
   )
 }
