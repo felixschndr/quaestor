@@ -237,6 +237,10 @@
     "connectFailed": "Could not connect to {{bank}}. Please check the credentials.",
     "syncFailed": "Connected to {{bank}}, but the first sync failed. You can retry the sync later.",
     "invalidCredentials": "{{bank}} rejected the login. Please check your username and password.",
+    "fieldRule": {
+      "phone_country_code": "Must start with a country code, e.g. +49",
+      "pin_four_digits": "Must be exactly 4 digits"
+    },
     "twoFactor": {
       "description": "A code was sent to your phone. Enter it to finish connecting.",
       "codeLabel": "Code",

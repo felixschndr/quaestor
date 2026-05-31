@@ -285,6 +285,13 @@ def test_session_does_not_swallow_unrelated_value_errors(monkeypatch: pytest.Mon
             pass
 
 
+def test_sparkasse_strips_whitespace_from_blz() -> None:
+    rules = BANKS_BY_NAME[BankProvider.SPARKASSE.value].information_for_user["field_rules"]
+
+    assert rules["blz"]["strip_whitespace"] is True
+    assert rules["blz"]["rules"] == []
+
+
 def test_bank_info_required_fields_reflects_handler_credential_fields() -> None:
     sparkasse: BankInfo = BANKS_BY_NAME[BankProvider.SPARKASSE.value]
     ing: BankInfo = BANKS_BY_NAME[BankProvider.ING.value]

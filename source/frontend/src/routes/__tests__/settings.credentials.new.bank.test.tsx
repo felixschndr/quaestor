@@ -40,6 +40,22 @@ const TR_BANK: SupportedBank = {
   name: 'trade_republic',
   required_fields: ['phone', 'pin'],
   icon: '/static/banks/trade_republic.png',
+  field_rules: {
+    phone: {
+      strip_whitespace: true,
+      rules: [
+        {
+          name: 'phone_country_code',
+          regex: '^\\+',
+          description: 'start with a country code (e.g. +49)',
+        },
+      ],
+    },
+    pin: {
+      strip_whitespace: false,
+      rules: [{ name: 'pin_four_digits', regex: '^\\d{4}$', description: 'be exactly 4 digits' }],
+    },
+  },
 }
 
 const SPARKASSE_BANK: SupportedBank = {
@@ -509,6 +525,87 @@ describe('NewCredentialFormView', () => {
     expect(await screen.findByText('This field is required')).toBeInTheDocument()
     expect(onConnected).not.toHaveBeenCalled()
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks submission with a field error when the Trade Republic phone has no country code', async () => {
+    const user = userEvent.setup()
+    const fetchMock = globalThis.fetch as Mock
+    renderWithQuery(
+      <NewCredentialFormView
+        bankName="trade_republic"
+        bank={TR_BANK}
+        isLoading={false}
+        onCancel={vi.fn()}
+        onConnected={vi.fn()}
+        onSyncFailed={vi.fn()}
+      />,
+    )
+    await user.type(screen.getByLabelText('Phone number'), '491512345')
+    await user.type(screen.getByLabelText('PIN'), '1234')
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+    // The field-level error (distinct from the bank note that also mentions "country code").
+    expect(await screen.findByText(/must start with a country code/i)).toBeInTheDocument()
+    // Client-side validation (from the backend rules) blocks the request entirely.
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('strips whitespace from the Trade Republic phone before submitting', async () => {
+    const user = userEvent.setup()
+    const fetchMock = globalThis.fetch as Mock
+    let sentCredentials: Record<string, string> | undefined
+    fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
+      if (url === '/api/credentials' && init?.method === 'POST') {
+        sentCredentials = (
+          JSON.parse(init.body as string) as { credentials: Record<string, string> }
+        ).credentials
+        return Promise.resolve(
+          jsonResponse({
+            status: 201,
+            body: {
+              id: 7,
+              bank: 'trade_republic',
+              accounts: [],
+              last_fetching_timestamp: null,
+              requires_two_factor_authentication: false,
+            },
+          }),
+        )
+      }
+      if (url === '/api/credentials/7/sync' && init?.method === 'POST') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 202,
+            body: {
+              job_id: 'job-1',
+              credential_id: 7,
+              status: 'running',
+              expires_at: null,
+              error: null,
+            },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+    })
+
+    renderWithQuery(
+      <NewCredentialFormView
+        bankName="trade_republic"
+        bank={TR_BANK}
+        isLoading={false}
+        onCancel={vi.fn()}
+        onConnected={vi.fn()}
+        onSyncFailed={vi.fn()}
+      />,
+    )
+    await user.type(screen.getByLabelText('Phone number'), '+49 151 23')
+    await user.type(screen.getByLabelText('PIN'), '1234')
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+    await waitFor(() => expect(sentCredentials).toBeDefined())
+    // The phone is de-spaced; the PIN (not a stripped field) is sent verbatim.
+    expect(sentCredentials).toEqual({ phone: '+4915123', pin: '1234' })
   })
 
   it('renders the bank-specific note from i18n when one exists', () => {

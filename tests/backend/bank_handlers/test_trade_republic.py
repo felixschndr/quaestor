@@ -1,10 +1,22 @@
 from datetime import date, datetime
 
 import pytest
-from source.backend.bank_handlers import trade_republic
+from source.backend.bank_handlers import BANKS_BY_NAME, trade_republic
 from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.bank_handlers.trade_republic import _TradeRepublicSession
 from source.backend.models.transaction_type import TransactionType
+
+
+def test_information_for_user_exposes_phone_and_pin_field_rules():
+    rules = BANKS_BY_NAME["trade_republic"].information_for_user["field_rules"]
+
+    assert rules["phone"]["strip_whitespace"] is True
+    assert rules["pin"]["strip_whitespace"] is False
+    assert any(rule["regex"] == r"^\+" for rule in rules["phone"]["rules"])
+    assert any(rule["regex"] == r"^\d{4}$" for rule in rules["pin"]["rules"])
+    for field_rules in rules.values():
+        for rule in field_rules["rules"]:
+            assert rule["name"] and rule["description"]
 
 
 class _FakeExporter:
