@@ -11,4 +11,3 @@ This is where I keep track of things I am thinking about/want to implement in th
 - Show version and git tag in the settings and whether there is a new update available
 - Translate type of transaction
 - Some purposes of transactions are wider than the page
-- Setting of requires_two_factor_authentication does not work on DKB

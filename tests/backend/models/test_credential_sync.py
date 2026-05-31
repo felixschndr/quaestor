@@ -158,6 +158,27 @@ def test_sync_does_not_duplicate_already_existing_transactions(session_factory: 
         assert len(credential.accounts[0].transactions) == 1
 
 
+def test_sync_passes_a_plain_date_to_handlers_when_credential_was_synced_before(session_factory: sessionmaker):
+    # last_fetching_timestamp is a datetime, but handlers are contracted to receive a date
+    # (get_transactions(start_date: date)). Passing a datetime breaks handlers that compare it
+    # against transaction dates (e.g. DFS: `transaction.date >= start_date`).
+    credential_id = _create_credential(session_factory)  # last_fetching_timestamp = datetime(2026, 1, 1)
+    fake_session = _FakeBankSession(
+        accounts=[FetchedAccount(name="DE12")],
+        balances={"DE12": 0.0},
+        transactions={"DE12": []},
+    )
+    handler = _build_handler(fake_session)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.sync(handler)
+
+    _, requested_start = fake_session.get_transactions_calls[0]
+    assert not isinstance(requested_start, datetime)
+    assert requested_start == date(year=2026, month=1, day=1)
+
+
 def test_sync_fetches_full_history_when_credential_was_never_synced(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)

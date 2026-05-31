@@ -2,11 +2,17 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 from source.backend.models.transaction_type import TransactionType
 
 TwoFactorStateCallback = Callable[[bool], None]
+
+
+@dataclass(frozen=True)
+class TwoFactorChallenge:
+    challenge_token: str
+    expires_at: datetime
 
 
 @dataclass(frozen=True)
@@ -55,6 +61,8 @@ class BankHandler(ABC):
     FIELD_RULES: dict[str, tuple[FieldRule, ...]] = {}
     WHITESPACE_STRIPPED_FIELDS: frozenset[str] = frozenset()
 
+    session_state: dict | None = None
+
     def __init__(self, bank_info: "BankInfo", credentials: dict[str, str]):
         self.bank_info = bank_info
         self.credentials = credentials
@@ -68,6 +76,12 @@ class BankHandler(ABC):
 
     @abstractmethod
     def session(self) -> AbstractContextManager[BankSession]: ...
+
+    def begin_two_factor_challenge(self, credential_id: int) -> TwoFactorChallenge | None:
+        return None
+
+    def complete_two_factor_challenge(self, challenge_token: str, credential_id: int, code: str) -> dict:
+        raise NotImplementedError(f"{type(self).__name__} does not support an interactive 2FA challenge")
 
 
 @dataclass(frozen=True)

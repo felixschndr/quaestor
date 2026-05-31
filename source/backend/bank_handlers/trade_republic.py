@@ -16,10 +16,12 @@ from source.backend.bank_handlers.base import (
     FetchedAccount,
     FetchedTransaction,
     FieldRule,
+    TwoFactorChallenge,
 )
 from source.backend.exceptions import ReauthenticationRequiredError
 from source.backend.logging_utils import get_logger
 from source.backend.models.transaction_type import TransactionType
+from source.backend.services import trade_republic_login
 
 logger = get_logger(__name__)
 
@@ -157,7 +159,17 @@ class TradeRepublicHandler(BankHandler):
     }
     WHITESPACE_STRIPPED_FIELDS = frozenset({"phone"})
 
-    session_state: dict | None = None
+    def begin_two_factor_challenge(self, credential_id: int) -> TwoFactorChallenge:
+        token, expires_at = trade_republic_login.start(
+            credential_id=credential_id,
+            phone_no=self.credentials["phone"],
+            pin=self.credentials["pin"],
+        )
+        return TwoFactorChallenge(challenge_token=token, expires_at=expires_at)
+
+    def complete_two_factor_challenge(self, challenge_token: str, credential_id: int, code: str) -> dict:
+        cookies = trade_republic_login.complete(challenge_token=challenge_token, credential_id=credential_id, code=code)
+        return {"cookies": cookies}
 
     @contextmanager
     def session(self) -> Iterator[_TradeRepublicSession]:

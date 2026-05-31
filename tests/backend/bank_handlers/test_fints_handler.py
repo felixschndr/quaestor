@@ -15,6 +15,8 @@ from source.backend.exceptions import (
     ReauthenticationRequiredError,
 )
 
+from tests.backend.conftest import CHALLENGE_TOKEN
+
 
 @dataclass
 class _FakeMechanism:
@@ -297,3 +299,12 @@ def test_bank_info_required_fields_reflects_handler_credential_fields() -> None:
     ing: BankInfo = BANKS_BY_NAME[BankProvider.ING.value]
     assert sparkasse.required_fields == ["username", "password", "blz"]
     assert ing.required_fields == ["username", "password"]
+
+
+def test_fints_handler_offers_no_out_of_band_two_factor_challenge() -> None:
+    assert _ing_handler().begin_two_factor_challenge(credential_id=1) is None
+
+
+def test_fints_handler_complete_two_factor_challenge_is_not_supported() -> None:
+    with pytest.raises(NotImplementedError):
+        _ing_handler().complete_two_factor_challenge(challenge_token=CHALLENGE_TOKEN, credential_id=1, code="0000")
