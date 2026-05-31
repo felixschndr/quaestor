@@ -49,19 +49,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends sqlcipher \
 WORKDIR /app
 RUN chown ${USER_TO_USE}:${USER_TO_USE} /app
 
+RUN mkdir -p /data && chown ${USER_TO_USE}:${USER_TO_USE} /data
+
 COPY --from=backend-builder /app/.venv /app/.venv
+
+# We install everything that playwright needs and bake it into the image.
+# We could think about only loading it if we need it in the future.
+RUN playwright install --with-deps chromium \
+    && chmod -R a+rX ${PLAYWRIGHT_BROWSERS_PATH} \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} alembic.ini ./
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} pyproject.toml ./
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} source/backend ./source/backend
 COPY --from=frontend-builder --chown=${USER_TO_USE}:${USER_TO_USE} /build/source/frontend/dist ./source/frontend/dist
-
-RUN mkdir -p /data && chown ${USER_TO_USE}:${USER_TO_USE} /data
-
-# We install everything that playwright needs and bake it into the image
-# We could think about only loading it if we need it in the future
-RUN playwright install --with-deps chromium \
-    && chmod -R a+rX ${PLAYWRIGHT_BROWSERS_PATH} \
-    && rm -rf /var/lib/apt/lists/*
 
 USER ${USER_TO_USE}
 
