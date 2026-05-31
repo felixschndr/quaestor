@@ -1,11 +1,21 @@
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight, CreditCard, Info, KeyRound, LogOut, User } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  Info,
+  KeyRound,
+  LogOut,
+  Tag,
+  User,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import type { LucideIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useLogout } from '@/lib/user'
+import { useServerVersion, type VersionInfo } from '@/lib/version'
 
 export const Route = createFileRoute('/settings/')({
   component: SettingsIndexPage,
@@ -15,6 +25,7 @@ function SettingsIndexPage() {
   const router = useRouter()
   const logout = useLogout()
   const { t } = useTranslation()
+  const { data: serverVersion } = useServerVersion()
 
   const handleLogout = async () => {
     try {
@@ -25,16 +36,31 @@ function SettingsIndexPage() {
     }
   }
 
-  return <SettingsIndexView logoutPending={logout.isPending} onLogout={handleLogout} />
+  return (
+    <SettingsIndexView
+      logoutPending={logout.isPending}
+      onLogout={handleLogout}
+      serverVersion={serverVersion}
+    />
+  )
 }
 
 export interface SettingsIndexViewProps {
   logoutPending: boolean
   onLogout: () => void
+  serverVersion?: VersionInfo
 }
 
-export function SettingsIndexView({ logoutPending, onLogout }: SettingsIndexViewProps) {
+export function SettingsIndexView({
+  logoutPending,
+  onLogout,
+  serverVersion,
+}: SettingsIndexViewProps) {
   const { t } = useTranslation()
+  const versionDescription =
+    serverVersion?.update_available && serverVersion.latest
+      ? t('settings.serverVersionUpdate', { latest: serverVersion.latest })
+      : t('settings.serverVersionDescription')
   return (
     <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
@@ -78,6 +104,13 @@ export function SettingsIndexView({ logoutPending, onLogout }: SettingsIndexView
             actions. */}
         <ul className="border-border bg-card flex flex-col rounded-lg border">
           <SettingsLink
+            to="/settings/version"
+            icon={Tag}
+            label={t('settings.serverVersion')}
+            description={versionDescription}
+            highlight={serverVersion?.update_available ?? false}
+          />
+          <SettingsLink
             to="/settings/attributions"
             icon={Info}
             label={t('settings.attributions')}
@@ -107,15 +140,18 @@ function SettingsLink({
   icon: Icon,
   label,
   description,
+  highlight = false,
 }: {
   to:
     | '/settings/user'
     | '/settings/user/sessions'
     | '/settings/credentials'
+    | '/settings/version'
     | '/settings/attributions'
   icon: LucideIcon
   label: string
   description: string
+  highlight?: boolean
 }) {
   return (
     <li className="border-border/40 border-t first:border-t-0">
@@ -126,7 +162,13 @@ function SettingsLink({
         <Icon className="text-primary size-5 shrink-0" aria-hidden="true" />
         <span className="flex flex-1 flex-col">
           <span className="text-sm font-medium">{label}</span>
-          <span className="text-muted-foreground text-xs">{description}</span>
+          <span
+            className={
+              highlight ? 'text-primary text-xs font-medium' : 'text-muted-foreground text-xs'
+            }
+          >
+            {description}
+          </span>
         </span>
         <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />
       </Link>

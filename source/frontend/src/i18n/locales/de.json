@@ -160,6 +160,9 @@
     "sessionsDescription": "Geräte, die angemeldet sind",
     "credentials": "Bankverbindungen",
     "credentialsDescription": "Banken hinzufügen, entfernen oder synchronisieren",
+    "serverVersion": "Serverversion",
+    "serverVersionDescription": "Aktuelle und neueste verfügbare Version",
+    "serverVersionUpdate": "Update verfügbar: {{latest}}",
     "attributions": "Quellenangaben",
     "attributionsDescription": "Credits und Lizenzen für externe Inhalte",
     "userName": "Benutzername",
@@ -356,6 +359,14 @@
       "moneyIcons": "money icons",
       "writingIcons": "writing icons"
     }
+  },
+  "version": {
+    "title": "Serverversion",
+    "current": "Aktuelle Version",
+    "latest": "Neueste Version",
+    "upToDate": "Dein Server ist aktuell",
+    "updateAvailable": "Ein Update ist verfügbar",
+    "checkFailed": "Update-Prüfung fehlgeschlagen"
   },
   "sessions": {
     "currentBadge": "Aktuell",

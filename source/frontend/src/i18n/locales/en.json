@@ -160,6 +160,9 @@
     "sessionsDescription": "Devices that are signed in",
     "credentials": "Bank connections",
     "credentialsDescription": "Add or remove banks, sync now",
+    "serverVersion": "Server Version",
+    "serverVersionDescription": "Current and latest available version",
+    "serverVersionUpdate": "Update available: {{latest}}",
     "attributions": "Attributions",
     "attributionsDescription": "Credits and licences for third-party assets",
     "userName": "Username",
@@ -359,6 +362,14 @@
       "moneyIcons": "money icons",
       "writingIcons": "writing icons"
     }
+  },
+  "version": {
+    "title": "Server Version",
+    "current": "Current version",
+    "latest": "Latest version",
+    "upToDate": "Your server is up to date",
+    "updateAvailable": "An update is available",
+    "checkFailed": "Couldn't check for updates"
   },
   "sessions": {
     "currentBadge": "Current",

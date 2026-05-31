@@ -115,9 +115,9 @@ describe('TransactionDetailView', () => {
     expect(dashes.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('renders the raw transaction type alongside an icon', () => {
+  it('renders the translated transaction type alongside an icon', () => {
     renderView({ transaction_type: 'OUTGOING' })
-    expect(screen.getByText('OUTGOING')).toBeInTheDocument()
+    expect(screen.getByText('Outgoing')).toBeInTheDocument()
   })
 
   it('renders the em-dash when transaction_type is null', () => {

@@ -51,6 +51,7 @@ RUN chown ${USER_TO_USE}:${USER_TO_USE} /app
 
 COPY --from=backend-builder /app/.venv /app/.venv
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} alembic.ini ./
+COPY --chown=${USER_TO_USE}:${USER_TO_USE} pyproject.toml ./
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} source/backend ./source/backend
 COPY --from=frontend-builder --chown=${USER_TO_USE}:${USER_TO_USE} /build/source/frontend/dist ./source/frontend/dist
 

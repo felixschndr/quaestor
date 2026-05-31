@@ -18,6 +18,7 @@ from source.backend.api import (
     i18n,
     transactions,
     users,
+    version,
 )
 from source.backend.api.exception_handlers import register_exception_handlers
 from source.backend.constants import API_PREFIX
@@ -215,7 +216,7 @@ async def prevent_caching_of_sensitive_responses(
     return response
 
 
-for api_object in [account, account_groups, auth, credentials, i18n, transactions, users]:
+for api_object in [account, account_groups, auth, credentials, i18n, transactions, users, version]:
     app.include_router(api_object.router, prefix=API_PREFIX)
 register_exception_handlers(app)
 

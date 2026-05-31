@@ -34,8 +34,41 @@ describe('SettingsIndexView', () => {
       '/settings/user',
       '/settings/user/sessions',
       '/settings/credentials',
+      '/settings/version',
       '/settings/attributions',
     ])
+  })
+
+  it('shows the default version description when no update is available', () => {
+    render(
+      <SettingsIndexView
+        logoutPending={false}
+        onLogout={vi.fn()}
+        serverVersion={{
+          current: '0.1.11',
+          latest: '0.1.9',
+          update_available: false,
+          release_url: null,
+        }}
+      />,
+    )
+    expect(screen.getByText('Current and latest available version')).toBeInTheDocument()
+  })
+
+  it('announces an available update in the description', () => {
+    render(
+      <SettingsIndexView
+        logoutPending={false}
+        onLogout={vi.fn()}
+        serverVersion={{
+          current: '0.1.0',
+          latest: '0.1.9',
+          update_available: true,
+          release_url: 'https://x/0.1.9',
+        }}
+      />,
+    )
+    expect(screen.getByText('Update available: 0.1.9')).toBeInTheDocument()
   })
 
   it('includes a back link to the overview', () => {
