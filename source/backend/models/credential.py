@@ -48,7 +48,9 @@ class Credential(Base):
         by_name = {account.name: account for account in self.accounts}
 
         transactions_since = (
-            date(year=1970, month=1, day=1) if self.last_fetching_timestamp is None else self.last_fetching_timestamp
+            date(year=1970, month=1, day=1)
+            if self.last_fetching_timestamp is None
+            else self.last_fetching_timestamp.date()
         )
         with handler.session() as bank:
             created_accounts, updated_accounts, created_transactions = self._sync_accounts_of_credential(
