@@ -29,8 +29,8 @@ RUN poetry install --no-root --without dev
 
 FROM python:3.14-slim-trixie AS runtime
 
-LABEL org.opencontainers.image.source="https://github.com/felixschndr/Quaestor"
-LABEL org.opencontainers.image.description="Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts (https://github.com/felixschndr/Quaestor)"
+LABEL org.opencontainers.image.source="https://github.com/felixschndr/quaestor"
+LABEL org.opencontainers.image.description="Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts (https://github.com/felixschndr/quaestor)"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

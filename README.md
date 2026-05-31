@@ -104,8 +104,8 @@ If you are running this app behind a reverse proxy ensure to allow the usage of 
 
 |                  | Existing image                                                                                                         | Build image yourself                                                                                                                                                                                                        |
 |------------------|------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `docker run`     | `docker run -e DATABASE_ENCRYPTION_KEY=${DATABASE_ENCRYPTION_KEY} -v ./data/:/data ghcr.io/felixschndr/quaestor`       | `git clone git@github.com:felixschndr/Quaestor.git && cd Quaestor && docker build . -t quaestor && docker run -e DATABASE_ENCRYPTION_KEY=${DATABASE_ENCRYPTION_KEY} -e HOST=0.0.0.0 -v ./data/:/data -p 8080:8080 quaestor` |
-| `docker compose` | `wget https://raw.githubusercontent.com/felixschndr/Quaestor/refs/heads/main/docker-compose.yaml && docker compose up` | `git clone git@github.com:felixschndr/Quaestor.git && cd Quaestor && sed -i 's,image: ghcr.io/felixschndr/quaestor,build: .,' docker-compose.yaml && docker compose up`                                                     |
+| `docker run`     | `docker run -e DATABASE_ENCRYPTION_KEY=${DATABASE_ENCRYPTION_KEY} -v ./data/:/data ghcr.io/felixschndr/quaestor`       | `git clone git@github.com:felixschndr/quaestor.git && cd quaestor && docker build . -t quaestor && docker run -e DATABASE_ENCRYPTION_KEY=${DATABASE_ENCRYPTION_KEY} -e HOST=0.0.0.0 -v ./data/:/data -p 8080:8080 quaestor` |
+| `docker compose` | `wget https://raw.githubusercontent.com/felixschndr/quaestor/refs/heads/main/docker-compose.yaml && docker compose up` | `git clone git@github.com:felixschndr/quaestor.git && cd quaestor && sed -i 's,image: ghcr.io/felixschndr/quaestor,build: .,' docker-compose.yaml && docker compose up`                                                     |
 
 As this image does not run as `root` you **MUST** ensure that the user with the ID `1000` has permissions to write onto the location where you mount the `data` directory to on the host. As an alternative you can use a named volume instead. A commented out volume mount is already present in the `docker-compose.yaml`.
 
@@ -120,8 +120,8 @@ As this image does not run as `root` you **MUST** ensure that the user with the 
 
 #### Running
 
-1. Clone the repository: `git clone git@github.com:felixschndr/Quaestor.git`
-2. Change to the directory: `cd Quaestor`
+1. Clone the repository: `git clone git@github.com:felixschndr/quaestor.git`
+2. Change to the directory: `cd quaestor`
 3. Create a db key and add it to `.env`: `echo -n "DATABASE_ENCRYPTION_KEY=" >> .env && python -c 'import secrets; print(secrets.token_hex(32))' >> .env`
 4. Install the requirements: `poetry install`
 5. Run the application: `task run:prod`
