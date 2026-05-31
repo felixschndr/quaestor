@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -8,6 +9,7 @@ from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 from source.backend.exceptions import (
     CredentialAlreadyExistsError,
     CredentialNotFoundError,
+    InvalidCredentialFieldError,
     MissingCredentialFieldError,
     ReauthenticationRequiredError,
 )
@@ -62,7 +64,8 @@ def get_credential_for_user(db_session: Session, credential_id: int, user_id: in
 
 def _validate_credentials(bank: BankProvider, credentials: dict[str, str]) -> dict[str, str]:
     bank_info = BANKS_BY_NAME[bank.value]
-    required_fields = bank_info.handler.credential_fields(bank_info)
+    handler = bank_info.handler
+    required_fields = handler.credential_fields(bank_info)
     missing = [field for field in required_fields if not credentials.get(field)]
     if missing:
         error_message = f"Missing required field(s) for {bank.value}: {', '.join(missing)}"
@@ -73,7 +76,19 @@ def _validate_credentials(bank: BankProvider, credentials: dict[str, str]) -> di
         error_message = f"Unexpected field(s) for {bank.value}: {', '.join(sorted(unexpected))}"
         logger.warning(error_message)
         raise MissingCredentialFieldError(error_message)
-    return {field: credentials[field] for field in required_fields}
+
+    cleaned: dict[str, str] = {}
+    for field in required_fields:
+        value = credentials[field]
+        if field in handler.WHITESPACE_STRIPPED_FIELDS:
+            value = re.sub(pattern=r"\s+", repl="", string=value)
+        for rule in handler.FIELD_RULES.get(field, ()):  # noqa FKA100
+            if not re.search(pattern=rule.regex, string=value):
+                error_message = f"The {field} must {rule.description}"
+                logger.warning(error_message)
+                raise InvalidCredentialFieldError(error_message)
+        cleaned[field] = value
+    return cleaned
 
 
 def create_credential(

@@ -9,11 +9,23 @@ import { syncJobWebSocketUrl } from './syncSocket'
  * Mirrors `BankInfo.information_for_user` on the backend. `note` lives in the
  * frontend i18n bundle instead (keyed by `name`), so banks can be translated.
  */
+export interface CredentialFieldRule {
+  name: string
+  regex: string /* Regex string valid in both Python and JS; the field value must match it. */
+  description: string
+}
+
+export interface CredentialFieldSpec {
+  strip_whitespace: boolean
+  rules: CredentialFieldRule[]
+}
+
 export interface SupportedBank {
   name: string
   required_fields: string[]
   icon: string
   bank_identifier?: string
+  field_rules?: Record<string, CredentialFieldSpec>
 }
 
 export const credentialQueryKeys = {

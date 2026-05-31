@@ -87,6 +87,9 @@ def _transaction_type_from_amount(amount: float) -> TransactionType:
 
 class FinTSHandler(BankHandler):
     CREDENTIAL_FIELDS = ("username", "password")
+    # Only relevant for banks without a pinned BLZ (e.g. Sparkasse), where the user enters
+    # it themselves — often in spaced groups like "660 501 01".
+    WHITESPACE_STRIPPED_FIELDS = frozenset({"blz"})
 
     # Generic/public product ID from the python-fints GitHub repo.
     FINTS_PRODUCT_ID = "6151256F3D4F9975B877BD4A2"

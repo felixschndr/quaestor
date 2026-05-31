@@ -43,8 +43,17 @@ class BankSession(ABC):
     def get_transactions(self, account: FetchedAccount, start_date: date) -> list[FetchedTransaction]: ...
 
 
+@dataclass(frozen=True)
+class FieldRule:
+    name: str
+    regex: str  # must be valid in Python AND JS to be used for backend and frontend
+    description: str
+
+
 class BankHandler(ABC):
     CREDENTIAL_FIELDS: tuple[str, ...]
+    FIELD_RULES: dict[str, tuple[FieldRule, ...]] = {}
+    WHITESPACE_STRIPPED_FIELDS: frozenset[str] = frozenset()
 
     def __init__(self, bank_info: "BankInfo", credentials: dict[str, str]):
         self.bank_info = bank_info
@@ -77,11 +86,31 @@ class BankInfo:
         return f"/static/banks/{self.name}.png"
 
     @property
+    def field_rules(self) -> dict[str, dict]:
+        # Single source of truth for input validation, consumed by both the backend
+        # (on create) and the frontend (live). A field appears here if it has rules
+        # and/or its whitespace is stripped.
+        handler = self.handler
+        fields = set(handler.FIELD_RULES) | set(handler.WHITESPACE_STRIPPED_FIELDS)
+        return {
+            field: {
+                "strip_whitespace": field in handler.WHITESPACE_STRIPPED_FIELDS,
+                "rules": [
+                    {"name": rule.name, "regex": rule.regex, "description": rule.description}
+                    for rule in handler.FIELD_RULES.get(field, ())  # noqa FKA100
+                ],
+            }
+            for field in self.required_fields
+            if field in fields
+        }
+
+    @property
     def information_for_user(self) -> dict:
         info = {
             "name": self.name,
             "required_fields": self.required_fields,
             "icon": self.icon,
+            "field_rules": self.field_rules,
         }
         if self.bank_identifier is not None:
             info["bank_identifier"] = self.bank_identifier

@@ -30,6 +30,10 @@ class MissingCredentialFieldError(ValidationError):
     pass
 
 
+class InvalidCredentialFieldError(ValidationError):
+    pass
+
+
 class InvalidTwoFactorError(ValidationError):
     pass
 

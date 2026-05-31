@@ -29,7 +29,7 @@ os.environ.setdefault(key="ALLOW_MISSING_FRONTEND", value="true")
 USER_NAME = "alice"
 SECOND_USER_NAME = "bob"
 DISPLAY_NAME = "Alice"
-VALID_PASSWORD = "Sup3rSecret!Pass"  # nosec B105
+VALID_PASSWORD = "Sup3rSecret!Pass with Spaces"  # nosec B105
 VALID_PASSWORD_HASH = (
     "$argon2id$v=19$m=65536,t=3,p=4$SHe1II5FiMI7z+lVd6e6Ig$+liPtR4Uu7MjpiMGPMLmkvmaWai+KehP9tPOmQllTfE"  # nosec B105
 )

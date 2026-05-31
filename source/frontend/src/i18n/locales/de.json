@@ -234,6 +234,10 @@
     "connectFailed": "Verbindung zu {{bank}} fehlgeschlagen. Bitte Zugangsdaten prüfen.",
     "syncFailed": "{{bank}} verbunden, aber die erste Synchronisierung ist fehlgeschlagen. Du kannst es später erneut versuchen.",
     "invalidCredentials": "{{bank}} hat die Anmeldung abgelehnt. Bitte prüfe Benutzername und Passwort.",
+    "fieldRule": {
+      "phone_country_code": "Muss mit einer Ländervorwahl beginnen, z. B. +49",
+      "pin_four_digits": "Muss genau 4 Ziffern haben"
+    },
     "twoFactor": {
       "description": "Ein Code wurde an dein Handy gesendet. Gib ihn ein, um die Verbindung abzuschließen.",
       "codeLabel": "Code",

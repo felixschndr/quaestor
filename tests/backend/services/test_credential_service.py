@@ -6,6 +6,7 @@ from source.backend.bank_handlers import BankProvider
 from source.backend.bank_handlers.base import BankHandler
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 from source.backend.exceptions import (
+    InvalidCredentialFieldError,
     MissingCredentialFieldError,
     ReauthenticationRequiredError,
 )
@@ -20,6 +21,7 @@ from tests.backend.conftest import (
     PHONE_NUMBER,
     PIN,
     USER_NAME,
+    VALID_PASSWORD,
     make_credential,
     make_user,
 )
@@ -50,6 +52,40 @@ def test_validated_credentials_rejects_unexpected_fields():
 def test_validated_credentials_rejects_missing_required_field():
     with pytest.raises(MissingCredentialFieldError, match="Missing required field"):
         credential_service._validate_credentials(bank=BankProvider.ING, credentials={"username": BANK_USERNAME})
+
+
+def test_validate_credentials_strips_whitespace_for_trade_republic():
+    cleaned = credential_service._validate_credentials(
+        bank=BankProvider.TRADE_REPUBLIC,
+        credentials={"phone": "+49 151 23 45", "pin": PIN},
+    )
+    assert cleaned == {"phone": "+491512345", "pin": PIN}
+
+
+@pytest.mark.parametrize(argnames="phone_number", argvalues=["491512345", "01512345"])
+def test_validate_credentials_rejects_phone_without_country_code(phone_number: str):
+    with pytest.raises(InvalidCredentialFieldError):
+        credential_service._validate_credentials(
+            bank=BankProvider.TRADE_REPUBLIC,
+            credentials={"phone": phone_number, "pin": PIN},
+        )
+
+
+def test_validate_credentials_rejects_pin_that_is_not_four_digits():
+    with pytest.raises(InvalidCredentialFieldError):
+        credential_service._validate_credentials(
+            bank=BankProvider.TRADE_REPUBLIC,
+            credentials={"phone": PHONE_NUMBER, "pin": "12"},
+        )
+
+
+def test_validate_credentials_strips_whitespace_from_sparkasse_blz():
+    cleaned = credential_service._validate_credentials(
+        bank=BankProvider.SPARKASSE,
+        credentials={"username": BANK_USERNAME, "password": VALID_PASSWORD, "blz": "660 501 01"},
+    )
+    assert cleaned["blz"] == "66050101"
+    assert cleaned["password"] == VALID_PASSWORD  # this contains spaces which should not be stripped
 
 
 def test_sync_all_due_credentials_counts_synced_skipped_failed(

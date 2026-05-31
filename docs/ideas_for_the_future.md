@@ -9,3 +9,6 @@ This is where I keep track of things I am thinking about/want to implement in th
 - Detect timeout when syncing a credential
 - Add ability to see balance of all accounts at a given date (will be necessary for statistics in the future too)
 - Show version and git tag in the settings and whether there is a new update available
+- Add copy button next to IBAN
+- Translate type of transaction
+- Some purposes of transactions are wider than the page
