@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -156,6 +157,34 @@ describe('AccountDetailView', () => {
       ),
     )
     expect(screen.getByText('DE12 3456 7890 0001')).toBeInTheDocument()
+  })
+
+  it('copies the compact IBAN to the clipboard via the copy button', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+    render(
+      withClient(
+        <AccountDetailView
+          account={{ ...account, name: 'DE12345678900001', display_name: null }}
+          pages={[]}
+          isFetchingNextPage={false}
+          hasNextPage={false}
+          onLoadMore={vi.fn()}
+          today={new Date(2026, 4, 22)}
+        />,
+      ),
+    )
+    await user.click(screen.getByRole('button', { name: 'Copy IBAN' }))
+    expect(writeText).toHaveBeenCalledWith('DE12345678900001')
+  })
+
+  it('shows no copy button when the account name is not an IBAN', () => {
+    renderView([])
+    expect(screen.queryByRole('button', { name: 'Copy IBAN' })).not.toBeInTheDocument()
   })
 
   it('renders the magnifier as a link to the search page for the current account', () => {

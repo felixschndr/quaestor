@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronLeft, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { Check, ChevronLeft, Copy, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
@@ -14,8 +14,16 @@ import {
 } from '@/lib/accountHistory'
 import { useUpdateAccount } from '@/lib/accounts'
 import { useDeleteTransaction } from '@/lib/transaction'
-import { formatDate, formatDecimal, formatEuro, formatIban, relativeDateKey } from '@/lib/format'
+import {
+  formatDate,
+  formatDecimal,
+  formatEuro,
+  formatIban,
+  isIban,
+  relativeDateKey,
+} from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { copyText } from '@/lib/clipboard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ManualTransactionForm } from '@/components/manual-transaction-form'
@@ -27,6 +35,54 @@ const MANUAL_BANK = 'manual'
 export const Route = createFileRoute('/account/$accountId')({
   component: AccountDetailPage,
 })
+
+/** Muted IBAN label with a copy-to-clipboard button when `value` is an IBAN.
+ *  Non-IBAN names (e.g. "Girokonto") render as plain text without a button. */
+function IbanLabel({ value, id }: { value: string; id?: string }) {
+  const { t } = useTranslation()
+  const [copied, setCopied] = useState(false)
+  const copyTimeout = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  useEffect(() => () => clearTimeout(copyTimeout.current), [])
+
+  if (!isIban(value)) {
+    return (
+      <p id={id} className="text-muted-foreground text-sm">
+        {formatIban(value)}
+      </p>
+    )
+  }
+
+  const handleCopy = async () => {
+    try {
+      await copyText(value.replace(/\s+/g, ''))
+      setCopied(true)
+      clearTimeout(copyTimeout.current)
+      copyTimeout.current = setTimeout(() => setCopied(false), 2000)
+      toast.success(t('account.iban.copied'))
+    } catch {
+      toast.error(t('account.iban.copyFailed'))
+    }
+  }
+
+  return (
+    <p id={id} className="text-muted-foreground flex items-center gap-1.5 text-sm">
+      {formatIban(value)}
+      <button
+        type="button"
+        onClick={handleCopy}
+        aria-label={t('account.iban.copy')}
+        className="hover:text-foreground -m-0.5 rounded p-0.5 transition-colors"
+      >
+        {copied ? (
+          <Check className="text-success size-3.5" aria-hidden="true" />
+        ) : (
+          <Copy className="size-3.5" aria-hidden="true" />
+        )}
+      </button>
+    </p>
+  )
+}
 
 function AccountDetailPage() {
   const { accountId: rawId } = Route.useParams()
@@ -208,14 +264,10 @@ export function AccountDetailView({
                 <p className="text-foreground text-xl font-semibold leading-tight">
                   {personalisedName}
                 </p>
-                <p id="account-balance-label" className="text-muted-foreground text-sm">
-                  {formatIban(account.name)}
-                </p>
+                <IbanLabel id="account-balance-label" value={account.name} />
               </>
             ) : (
-              <p id="account-balance-label" className="text-muted-foreground text-sm">
-                {formatIban(account.name)}
-              </p>
+              <IbanLabel id="account-balance-label" value={account.name} />
             )}
             <BalanceDisplay account={account} isManual={isManual} negative={negative} />
             {isManual ? (

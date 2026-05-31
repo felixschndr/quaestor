@@ -31,6 +31,11 @@
     "sync": {
       "aria": "Sync account"
     },
+    "iban": {
+      "copy": "Copy IBAN",
+      "copied": "IBAN copied",
+      "copyFailed": "Could not copy IBAN"
+    },
     "balance": "Current balance",
     "today": "Today",
     "yesterday": "Yesterday",
