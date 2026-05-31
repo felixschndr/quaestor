@@ -1,5 +1,9 @@
+from collections.abc import Iterator
+
 import pytest
 from fastapi.testclient import TestClient
+from source.backend import main
+from source.backend.security import csrf
 from source.backend.services.session_service import COOKIE_NAME
 from source.backend.services.user_service import (
     ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME,
@@ -313,3 +317,33 @@ def test_register_succeeds_when_registration_is_explicitly_enabled(
     response = register(http_client, user_name="early")
 
     assert response.status_code == 201
+
+
+@pytest.fixture
+def second_http_client(http_client: TestClient) -> Iterator[TestClient]:
+    with TestClient(main.app) as client:
+        client.get("/api/auth/registration_allowed")
+        csrf_token = client.cookies.get(csrf.COOKIE_NAME)
+        if csrf_token:
+            client.headers[csrf.HEADER_NAME] = csrf_token
+        yield client
+
+
+def test_two_logged_in_users_each_resolve_to_their_own_identity(
+    http_client: TestClient, second_http_client: TestClient
+):
+    register(http_client, user_name=USER_NAME)
+    register(second_http_client, user_name=SECOND_USER_NAME)
+
+    assert http_client.get("/api/auth/me").json()["user_name"] == USER_NAME
+    assert second_http_client.get("/api/auth/me").json()["user_name"] == SECOND_USER_NAME
+
+
+def test_session_cookie_resolves_strictly_to_its_owner(http_client: TestClient, second_http_client: TestClient):
+    register(http_client, user_name=USER_NAME)
+    register(second_http_client, user_name=SECOND_USER_NAME)
+    other_users_session = second_http_client.cookies.get(COOKIE_NAME)
+
+    http_client.cookies.set(name=COOKIE_NAME, value=other_users_session)
+
+    assert http_client.get("/api/auth/me").json()["user_name"] == SECOND_USER_NAME
