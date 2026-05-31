@@ -57,6 +57,15 @@ def start(credential_id: int, phone_no: str, pin: str) -> tuple[str, datetime]:
         error_message = f"Trade Republic rejected the login for credential {credential_id}: {e}"
         logger.warning(error_message)
         raise InvalidCredentialsError(error_message) from e
+    except requests.exceptions.HTTPError as e:
+        cookies_path.unlink(missing_ok=True)
+        # TR answers with a 4xx when the phone number / PIN is wrong.
+        status = e.response.status_code if e.response is not None else None
+        if status is None or status == 429 or not (400 <= status < 500):
+            raise
+        error_message = f"Trade Republic rejected the login for credential {credential_id}: {e}"
+        logger.warning(error_message)
+        raise InvalidCredentialsError(error_message) from e
 
     token = secrets.token_urlsafe(24)
     expires_at = datetime.now() + DURATION_FOR_VALID_2FA_CODE
