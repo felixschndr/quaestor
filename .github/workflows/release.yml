@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  PLATFORMS: linux/amd64,linux/arm64
+  PLATFORMS: linux/amd64
   IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 permissions:
