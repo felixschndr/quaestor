@@ -12,6 +12,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from tests.backend.conftest import (
     BANK_PASSWORD,
+    CHALLENGE_TOKEN,
     PHONE_NUMBER,
     PIN,
     SECOND_USER_NAME,
@@ -343,7 +344,7 @@ def test_sync_job_transitions_to_awaiting_two_factor(http_client: TestClient, mo
         target=credential_service,
         name="sync_credential",
         value=lambda **_: SyncResult(
-            status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token="tok", expires_at=expires_at  # nosec B106
+            status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN, expires_at=expires_at
         ),
     )
 
@@ -374,7 +375,7 @@ def test_submit_two_factor_completes_the_sync(http_client: TestClient, monkeypat
     monkeypatch.setattr(
         target=credential_service,
         name="sync_credential",
-        value=lambda **_: SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token="tok"),  # nosec B106
+        value=lambda **_: SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN),
     )
     monkeypatch.setattr(
         target=credential_service,

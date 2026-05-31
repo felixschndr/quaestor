@@ -5,7 +5,6 @@ from enum import Enum
 
 from source.backend.bank_handlers import BANKS_BY_NAME, SUPPORTED_BANKS, BankProvider
 from source.backend.bank_handlers.base import TwoFactorStateCallback
-from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 from source.backend.exceptions import (
     CredentialAlreadyExistsError,
     CredentialNotFoundError,
@@ -15,7 +14,7 @@ from source.backend.exceptions import (
 )
 from source.backend.logging_utils import get_logger
 from source.backend.models.credential import Credential
-from source.backend.services import trade_republic_login, user_service
+from source.backend.services import user_service
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -152,27 +151,37 @@ def sync_credential_object(
 ) -> SyncResult:
     logger.info(f"Syncing {credential}")
     handler = credential.handler
-    handler.notify_two_factor_state = notify_two_factor_state
     logger.debug(f"Using {type(handler).__name__} for {credential}")
-    if isinstance(handler, TradeRepublicHandler):
-        handler.session_state = credential.session_state
-        logger.debug(f"{credential} has {'a stored' if credential.session_state else 'no'} Trade Republic session")
-        try:
-            credential.sync(handler)
-        except ReauthenticationRequiredError:
-            logger.info(f"{credential} requires 2FA re-authentication; starting Trade Republic login")
-            token, expires_at = trade_republic_login.start(
-                credential_id=credential.id,
-                phone_no=handler.credentials["phone"],
-                pin=handler.credentials["pin"],
-            )
-            credential.requires_two_factor_authentication = True
-            return SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=token, expires_at=expires_at)
-        credential.session_state = handler.session_state
-        logger.info(f"Synced {credential} (Trade Republic, resumed session)")
-        return SyncResult(status=SyncStatus.COMPLETED)
 
-    credential.sync(handler)
+    two_factor_used = False
+
+    def track_two_factor_state(awaiting: bool) -> None:
+        nonlocal two_factor_used
+        if awaiting:
+            two_factor_used = True
+        if notify_two_factor_state is not None:
+            notify_two_factor_state(awaiting)
+
+    handler.notify_two_factor_state = track_two_factor_state
+    handler.session_state = credential.session_state
+
+    try:
+        credential.sync(handler)
+    except ReauthenticationRequiredError:
+        challenge = handler.begin_two_factor_challenge(credential_id=credential.id)
+        if challenge is None:
+            raise
+        logger.info(f"{credential} requires 2FA re-authentication; started interactive challenge")
+        credential.requires_two_factor_authentication = True
+        return SyncResult(
+            status=SyncStatus.TWO_FACTOR_REQUIRED,
+            challenge_token=challenge.challenge_token,
+            expires_at=challenge.expires_at,
+        )
+
+    credential.session_state = handler.session_state
+    if two_factor_used:
+        credential.requires_two_factor_authentication = True
     logger.info(f"Synced {credential}")
     return SyncResult(status=SyncStatus.COMPLETED)
 
@@ -202,8 +211,9 @@ def sync_all_due_credentials(db_session: Session) -> None:
 def confirm_two_factor(db_session: Session, credential_id: int, challenge_token: str, code: str) -> SyncResult:
     logger.info(f"Confirming 2FA for credential {credential_id}")
     credential = get_credential(db_session=db_session, credential_id=credential_id)
-    cookies = trade_republic_login.complete(challenge_token=challenge_token, credential_id=credential_id, code=code)
-    credential.session_state = {"cookies": cookies}
+    credential.session_state = credential.handler.complete_two_factor_challenge(
+        challenge_token=challenge_token, credential_id=credential_id, code=code
+    )
     result = sync_credential_object(credential=credential)
     db_session.commit()
     return result

@@ -9,6 +9,8 @@ from source.backend.services import sync_jobs
 from source.backend.services.credential_service import SyncResult, SyncStatus
 from source.backend.services.sync_jobs import JobErrorCode, JobStatus, SyncJob
 
+from tests.backend.conftest import CHALLENGE_TOKEN
+
 SyncOutcome = Union[SyncResult, Exception]
 PatchSync = Callable[[SyncOutcome], None]
 PatchConfirm = Callable[[SyncOutcome], None]
@@ -115,9 +117,7 @@ def test_start_sync_tags_unexpected_failure_with_unknown_error_code(patch_sync: 
 
 def test_start_sync_holds_awaiting_two_factor(patch_sync: PatchSync):
     expires = datetime.now() + timedelta(minutes=5)
-    patch_sync(
-        SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token="tok", expires_at=expires)  # nosec B106
-    )
+    patch_sync(SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN, expires_at=expires))
 
     async def scenario():
         job = await sync_jobs.start_sync(credential_id=42)
@@ -126,7 +126,7 @@ def test_start_sync_holds_awaiting_two_factor(patch_sync: PatchSync):
                 break
             await asyncio.sleep(0)
         assert job.status == JobStatus.AWAITING_TWO_FACTOR
-        assert job.challenge_token == "tok"  # nosec B105
+        assert job.challenge_token == CHALLENGE_TOKEN
         assert job.expires_at == expires
         assert job.finished_at is None  # awaiting_2fa is not terminal
 
@@ -134,7 +134,7 @@ def test_start_sync_holds_awaiting_two_factor(patch_sync: PatchSync):
 
 
 def test_submit_two_factor_advances_the_job(patch_sync: PatchSync, patch_confirm: PatchConfirm):
-    patch_sync(SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token="tok"))  # nosec B106
+    patch_sync(SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN))
     patch_confirm(SyncResult(status=SyncStatus.COMPLETED))
 
     async def scenario():

@@ -11,12 +11,13 @@ from source.backend.exceptions import (
     ReauthenticationRequiredError,
 )
 from source.backend.models.credential import Credential
-from source.backend.services import credential_service
+from source.backend.services import credential_service, trade_republic_login
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
     BANK_PASSWORD,
     BANK_USERNAME,
+    CHALLENGE_TOKEN,
     HTTP_SESSION_TOKEN,
     PHONE_NUMBER,
     PIN,
@@ -182,6 +183,59 @@ def test_sync_credential_object_for_handler_with_2fa_returns_completed_on_resume
     assert result.status == credential_service.SyncStatus.COMPLETED
 
 
+def test_sync_marks_credential_when_handler_requests_two_factor(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = _create_user(session_factory)
+    credential_id = _create_ing_credential(session_factory, user_id=user_id)
+
+    def fake_sync(self: Credential, handler: BankHandler) -> None:
+        notifier = handler.notify_two_factor_state
+        if notifier is not None:
+            notifier(True)
+            notifier(False)  # Ignore setting it back to false after setting it to true once
+
+    monkeypatch.setattr(target=Credential, name="sync", value=fake_sync)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        result = credential_service.sync_credential_object(credential=credential)
+        assert credential.requires_two_factor_authentication is True
+
+    assert result.status == credential_service.SyncStatus.COMPLETED
+
+
+def test_sync_leaves_two_factor_flag_unset_without_two_factor(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = _create_user(session_factory)
+    credential_id = _create_ing_credential(session_factory, user_id=user_id)
+
+    monkeypatch.setattr(target=Credential, name="sync", value=lambda self, handler: None)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential_service.sync_credential_object(credential=credential)
+        assert credential.requires_two_factor_authentication is False
+
+
+def test_sync_reraises_reauth_when_handler_has_no_interactive_challenge(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = _create_user(session_factory)
+    credential_id = _create_ing_credential(session_factory, user_id=user_id)
+
+    def raise_reauth(self: Credential, handler: BankHandler) -> None:
+        raise ReauthenticationRequiredError("expired")
+
+    monkeypatch.setattr(target=Credential, name="sync", value=raise_reauth)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        with pytest.raises(ReauthenticationRequiredError):
+            credential_service.sync_credential_object(credential=credential)
+
+
 def test_sync_credential_object_for_handler_with_2fa_starts_2fa_when_reauth_required(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
@@ -203,7 +257,7 @@ def test_sync_credential_object_for_handler_with_2fa_starts_2fa_when_reauth_requ
     monkeypatch.setattr(target=Credential, name="sync", value=raise_reauth)
     expires_at = datetime.now() + timedelta(minutes=5)
     start_login = MagicMock(return_value=(HTTP_SESSION_TOKEN, expires_at))
-    monkeypatch.setattr(target=credential_service.trade_republic_login, name="start", value=start_login)
+    monkeypatch.setattr(target=trade_republic_login, name="start", value=start_login)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -231,18 +285,16 @@ def test_confirm_two_factor_completes_login_and_syncs_credential(
         credential_id = credential.id
 
     complete_login = MagicMock(return_value="cookies-from-2fa")
-    monkeypatch.setattr(target=credential_service.trade_republic_login, name="complete", value=complete_login)
+    monkeypatch.setattr(target=trade_republic_login, name="complete", value=complete_login)
     monkeypatch.setattr(target=Credential, name="sync", value=MagicMock())
 
     with session_factory() as session:
         result = credential_service.confirm_two_factor(
-            db_session=session, credential_id=credential_id, challenge_token="abc", code="0000"  # nosec B106
+            db_session=session, credential_id=credential_id, challenge_token=CHALLENGE_TOKEN, code="0000"
         )
 
     assert result.status == credential_service.SyncStatus.COMPLETED
-    complete_login.assert_called_once_with(
-        challenge_token="abc", credential_id=credential_id, code="0000"
-    )  # nosec B106
+    complete_login.assert_called_once_with(challenge_token=CHALLENGE_TOKEN, credential_id=credential_id, code="0000")
     with session_factory() as session:
         assert session.get(entity=Credential, ident=credential_id).session_state == {"cookies": "cookies-from-2fa"}
 

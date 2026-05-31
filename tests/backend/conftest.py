@@ -38,6 +38,7 @@ WRONG_PASSWORD = "Wr0ngPassword!!"  # nosec B105
 PHONE_NUMBER = "+491234567890"
 PIN = "1234"
 HTTP_SESSION_TOKEN = "eyJ_test_token_payload"  # nosec B105
+CHALLENGE_TOKEN = "challenge-token"  # nosec B105
 BANK_USERNAME = "bankuser"
 BANK_PASSWORD = "bankpass"  # nosec B105
 UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"

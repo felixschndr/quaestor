@@ -1,10 +1,16 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pytest
 from source.backend.bank_handlers import BANKS_BY_NAME, trade_republic
-from source.backend.bank_handlers.base import FetchedAccount
-from source.backend.bank_handlers.trade_republic import _TradeRepublicSession
+from source.backend.bank_handlers.base import FetchedAccount, TwoFactorChallenge
+from source.backend.bank_handlers.trade_republic import (
+    TradeRepublicHandler,
+    _TradeRepublicSession,
+)
 from source.backend.models.transaction_type import TransactionType
+from source.backend.services import trade_republic_login
+
+from tests.backend.conftest import CHALLENGE_TOKEN, PHONE_NUMBER, PIN
 
 
 def test_information_for_user_exposes_phone_and_pin_field_rules():
@@ -114,3 +120,42 @@ def test_timeline_is_only_fetched_once_per_session(monkeypatch: pytest.MonkeyPat
     )
 
     assert calls["count"] == 1
+
+
+def _handler() -> TradeRepublicHandler:
+    return TradeRepublicHandler(
+        bank_info=(BANKS_BY_NAME["trade_republic"]), credentials={"phone": PHONE_NUMBER, "pin": PIN}
+    )
+
+
+def test_begin_two_factor_challenge_starts_login_with_credentials(monkeypatch: pytest.MonkeyPatch):
+    expires_at = datetime.now() + timedelta(minutes=5)
+    calls: list[dict] = []
+
+    def fake_start(*, credential_id: int, phone_no: str, pin: str) -> tuple[str, datetime]:
+        calls.append({"credential_id": credential_id, "phone_no": phone_no, "pin": pin})
+        return CHALLENGE_TOKEN, expires_at
+
+    monkeypatch.setattr(target=trade_republic_login, name="start", value=fake_start)
+
+    challenge = _handler().begin_two_factor_challenge(credential_id=7)
+
+    assert challenge == TwoFactorChallenge(challenge_token=CHALLENGE_TOKEN, expires_at=expires_at)
+    assert calls == [{"credential_id": 7, "phone_no": PHONE_NUMBER, "pin": PIN}]
+
+
+def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest.MonkeyPatch):
+    calls: list[dict] = []
+
+    def fake_complete(*, challenge_token: str, credential_id: int, code: str) -> str:
+        calls.append({"challenge_token": challenge_token, "credential_id": credential_id, "code": code})
+        return "fresh-cookie"
+
+    monkeypatch.setattr(target=trade_republic_login, name="complete", value=fake_complete)
+
+    session_state = _handler().complete_two_factor_challenge(
+        challenge_token=CHALLENGE_TOKEN, credential_id=7, code="0000"
+    )
+
+    assert session_state == {"cookies": "fresh-cookie"}
+    assert calls == [{"challenge_token": CHALLENGE_TOKEN, "credential_id": 7, "code": "0000"}]
