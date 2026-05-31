@@ -1,9 +1,8 @@
 name: Pipeline that builds and releases the container image
 
 on:
+  # Single CI entry point
   push:
-    paths:
-      - 'pyproject.toml'
     branches:
       - main
   pull_request:
