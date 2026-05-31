@@ -74,6 +74,11 @@ export function formatIban(value: string): string {
   return compact.match(/.{1,4}/g)!.join(' ')
 }
 
+/** Whether `value` is an IBAN (see {@link formatIban}), ignoring whitespace. */
+export function isIban(value: string): boolean {
+  return IBAN_PATTERN.test(value.replace(/\s+/g, ''))
+}
+
 export function formatDateTime(d: Date | string): string {
   return getDateFormatter(dateTimeFormatters, DATE_TIME_OPTIONS).format(
     typeof d === 'string' ? new Date(d) : d,
