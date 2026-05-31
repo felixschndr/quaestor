@@ -15,6 +15,7 @@ from source.backend.bank_handlers.base import (
     BankSession,
     FetchedAccount,
     FetchedTransaction,
+    FieldRule,
 )
 from source.backend.exceptions import ReauthenticationRequiredError
 from source.backend.logging_utils import get_logger
@@ -148,6 +149,13 @@ class _TradeRepublicSession(BankSession):
 
 class TradeRepublicHandler(BankHandler):
     CREDENTIAL_FIELDS = ("phone", "pin")
+    FIELD_RULES = {
+        "phone": (
+            FieldRule(name="phone_country_code", regex=r"^\+", description="start with a country code (e.g. +49)"),
+        ),
+        "pin": (FieldRule(name="pin_four_digits", regex=r"^\d{4}$", description="be exactly 4 digits"),),
+    }
+    WHITESPACE_STRIPPED_FIELDS = frozenset({"phone"})
 
     session_state: dict | None = None
 

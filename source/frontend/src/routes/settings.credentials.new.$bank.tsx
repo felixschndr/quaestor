@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { ChevronLeft } from 'lucide-react'
@@ -18,6 +18,7 @@ import {
   useStartSync,
   useSupportedBanks,
   useSyncJob,
+  type CredentialFieldSpec,
   type SupportedBank,
 } from '@/lib/credentials'
 
@@ -166,23 +167,40 @@ function CredentialForm({
   }, [job, activeJob, onConnected, onSyncFailed, deleteCredential, t, bankTitle])
 
   const schema = useMemo(() => {
-    const shape: Record<string, z.ZodString> = {}
+    const shape: Record<string, z.ZodType<string>> = {}
     for (const field of bank.required_fields) {
-      shape[field] = z.string().min(1, { message: t('login.required') })
+      const base = z.string().min(1, { message: t('login.required') })
+      const spec = bank.field_rules?.[field]
+      shape[field] = spec
+        ? base.superRefine((value, ctx) => {
+            const candidate = spec.strip_whitespace ? value.replace(/\s/g, '') : value
+            for (const rule of spec.rules) {
+              if (!new RegExp(rule.regex).test(candidate)) {
+                ctx.addIssue({
+                  code: 'custom',
+                  message: t(`credentials.fieldRule.${rule.name}`, {
+                    defaultValue: rule.description,
+                  }),
+                })
+              }
+            }
+          })
+        : base
     }
     return z.object(shape)
-  }, [bank.required_fields, t])
+  }, [bank.required_fields, bank.field_rules, t])
 
   type FormValues = Record<string, string>
   const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: Object.fromEntries(bank.required_fields.map((field) => [field, ''])),
   })
 
   const onSubmit = form.handleSubmit(async (values) => {
     let createdId: number
+    const credentials = stripCredentialWhitespace(values, bank.field_rules)
     try {
-      const created = await create.mutateAsync({ bank: bank.name, credentials: values })
+      const created = await create.mutateAsync({ bank: bank.name, credentials })
       createdId = created.id
     } catch (err) {
       handleCreateError(err, form.setError, t, bankTitle)
@@ -305,6 +323,20 @@ function autoCompleteFor(field: string): string {
   if (field === 'username') return 'username'
   if (maskedField(field)) return 'current-password'
   return 'off'
+}
+
+function stripCredentialWhitespace(
+  values: Record<string, string>,
+  fieldRules: Record<string, CredentialFieldSpec> | undefined,
+): Record<string, string> {
+  if (!fieldRules) return values
+  const result = { ...values }
+  for (const [field, spec] of Object.entries(fieldRules)) {
+    if (spec.strip_whitespace && field in result) {
+      result[field] = result[field].replace(/\s/g, '')
+    }
+  }
+  return result
 }
 
 function handleCreateError(

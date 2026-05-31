@@ -206,38 +206,66 @@ def test_supported_banks_returns_bank_metadata(http_client: TestClient):
             "name": "ing",
             "required_fields": ["username", "password"],
             "icon": "/static/banks/ing.png",
+            "field_rules": {},
             "bank_identifier": "50010517",
         },
         {
             "name": "dkb",
             "required_fields": ["username", "password"],
             "icon": "/static/banks/dkb.png",
+            "field_rules": {},
             "bank_identifier": "12030000",
         },
         {
             "name": "sparkasse",
             "required_fields": ["username", "password", "blz"],
             "icon": "/static/banks/sparkasse.png",
+            "field_rules": {"blz": {"strip_whitespace": True, "rules": []}},
         },
         {
             "name": "dfs",
             "required_fields": ["username", "password"],
             "icon": "/static/banks/dfs.png",
+            "field_rules": {},
         },
         {
             "name": "fin4u",
             "required_fields": ["username", "password"],
             "icon": "/static/banks/fin4u.png",
+            "field_rules": {},
         },
         {
             "name": "trade_republic",
             "required_fields": ["phone", "pin"],
             "icon": "/static/banks/trade_republic.png",
+            "field_rules": {
+                "phone": {
+                    "strip_whitespace": True,
+                    "rules": [
+                        {
+                            "name": "phone_country_code",
+                            "regex": r"^\+",
+                            "description": "start with a country code (e.g. +49)",
+                        }
+                    ],
+                },
+                "pin": {
+                    "strip_whitespace": False,
+                    "rules": [
+                        {
+                            "name": "pin_four_digits",
+                            "regex": r"^\d{4}$",
+                            "description": "be exactly 4 digits",
+                        }
+                    ],
+                },
+            },
         },
         {
             "name": "manual",
             "required_fields": [],
             "icon": "/static/banks/manual.png",
+            "field_rules": {},
         },
     ]
 
