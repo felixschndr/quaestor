@@ -1,13 +1,22 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 from httpx import Response
 from source.backend import main
 from source.backend.security import csrf
+from starlette.responses import Response as StarletteResponse
 from starlette.types import Scope
 
-from tests.backend.conftest import USER_NAME, login_as, register
+from tests.backend.conftest import register
+
+
+def _request_to(path: str) -> Request:
+    request = MagicMock(spec=Request)
+    request.url.path = path
+    return request
 
 
 def _get_session_set_cookies(response: Response) -> list[str]:
@@ -28,14 +37,6 @@ def test_api_response_refreshes_session_cookie(http_client: TestClient):
     response = http_client.get("/api/auth/me")
 
     assert _get_session_set_cookies(response)
-
-
-def test_login_response_is_not_cacheable(http_client: TestClient):
-    register(http_client)
-
-    response = login_as(http_client=http_client, user_name=USER_NAME)
-
-    assert "no-store" in response.headers.get(key="cache-control")
 
 
 def test_authenticated_api_response_is_not_cacheable(http_client: TestClient):
@@ -80,3 +81,47 @@ async def test_hashed_assets_are_cacheable(tmp_path: Path):
     cache_control = response.headers.get(key="cache-control")
     assert "immutable" in cache_control
     assert "no-store" not in cache_control
+
+
+@pytest.mark.anyio
+async def test_cache_middleware_marks_api_responses_no_store():
+    async def call_next(_request: Request) -> StarletteResponse:  # noqa: ASYNC124
+        return StarletteResponse(content=b"{}", media_type="application/json")
+
+    response = await main.prevent_caching_of_sensitive_responses(
+        request=_request_to("/api/anything"), call_next=call_next
+    )
+
+    assert response.headers["cache-control"] == "no-store"
+
+
+@pytest.mark.anyio
+async def test_cache_middleware_marks_cookie_setting_responses_no_store():
+    async def call_next(_request: Request) -> StarletteResponse:  # noqa: ASYNC124
+        response = StarletteResponse(content=b"hello world")
+        response.set_cookie(key="session", value="token")
+        return response
+
+    response = await main.prevent_caching_of_sensitive_responses(request=_request_to("/"), call_next=call_next)
+
+    assert response.headers["cache-control"] == "no-store"
+
+
+@pytest.mark.anyio
+async def test_cache_middleware_leaves_plain_static_responses_cacheable():
+    async def call_next(_request: Request) -> StarletteResponse:  # noqa: ASYNC124
+        return StarletteResponse(content=b"asset")  # a static asset, no cookie
+
+    response = await main.prevent_caching_of_sensitive_responses(
+        request=_request_to("/assets/app.js"), call_next=call_next
+    )
+
+    assert "cache-control" not in response.headers
+
+
+def test_cache_control_middleware_runs_outside_the_cookie_setters():
+    names = [mw.kwargs.get("dispatch").__name__ for mw in main.app.user_middleware if mw.kwargs.get("dispatch")]
+    guard = names.index("prevent_caching_of_sensitive_responses")
+
+    assert guard < names.index("refresh_session")
+    assert guard < names.index("csrf_middleware")
