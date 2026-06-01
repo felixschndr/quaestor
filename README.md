@@ -1,7 +1,5 @@
 # Quaestor
 
-Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts.
-
 > "The Quaestor [...] is a senior executive, and is responsible for the finances [...]; the equivalent of treasurer, Finance Director." Source: [Wikipedia](https://en.wikipedia.org/wiki/Quaestor_(University_of_St_Andrews))
 
 Quaestor consolidates the balances and transactions from all your banks into a single view → no more juggling a separate app per bank. Click any account to browse its transactions, grouped by date.
@@ -9,7 +7,7 @@ Quaestor consolidates the balances and transactions from all your banks into a s
 The tool is strictly read-only: it only ever *reads* your data and can **never** make changes to your accounts or move money.
 
 > [!NOTE]
-> This project is still in early development and might include major changes in the near future.
+> This project is still in early development and [might include major changes in the near future](#future-changes).
 
 ## Screenshots
 
@@ -163,4 +161,4 @@ sqlite> SELECT id, user_id, bank, username FROM credentials;
 
 ## Future changes
 
-There is [a doc](docs/ideas_for_the_future.md) in which I add ideas I might want to implement in the future. If you think anything is missing feel free to open an issue/PR.
+There is [a doc](docs/ideas_for_the_future.md) in which I add ideas I might want to implement in the future. If you think anything is missing, feel free to open an issue/PR.
