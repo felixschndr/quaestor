@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useLocation } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronLeft, Copy, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -34,6 +34,10 @@ const MANUAL_BANK = 'manual'
 
 export const Route = createFileRoute('/account/$accountId')({
   component: AccountDetailPage,
+  validateSearch: (search: Record<string, unknown>): { focus?: number } => {
+    const focus = Number(search.focus)
+    return Number.isFinite(focus) && focus > 0 ? { focus } : {}
+  },
 })
 
 /** Muted IBAN label with a copy-to-clipboard button when `value` is an IBAN.
@@ -95,6 +99,13 @@ function AccountDetailPage() {
   // we pass a sentinel id and skip rendering the button below.
   const sync = useCredentialSync(accountInfo?.credentialId ?? -1)
   const { t } = useTranslation()
+  const { focus } = Route.useSearch()
+  // Unique per history entry; a fresh navigation to the same `focus` id (e.g.
+  // clicking the same linked transaction again after going back) yields a new
+  // key, which re-arms the scroll/highlight that the one-shot guard would
+  // otherwise suppress. `__TSR_key` is the entry key TanStack itself keys scroll
+  // restoration on; `state.key` is undefined on some navigation paths.
+  const focusNavKey = useLocation({ select: (location) => location.state.__TSR_key })
 
   if (!user) return null // Root guard already redirected on 401.
 
@@ -119,6 +130,8 @@ function AccountDetailPage() {
             void history.fetchNextPage()
           }
         }}
+        focusTransactionId={focus}
+        focusNavKey={focusNavKey}
         // Manual accounts have no remote sync, so the button is suppressed
         // by leaving onSyncClick undefined.
         onSyncClick={isManual ? undefined : sync.start}
@@ -179,6 +192,13 @@ export interface AccountDetailViewProps {
   /** Passed straight to the {@link SyncButton}; a fresh Date.now() value
    *  triggers the green-check zoom animation. */
   syncSucceededAt?: number | null
+  /** When set: load history pages until this transaction is present, then
+   *  smooth-scroll to it and briefly highlight it (deep-link from a counterpart). */
+  focusTransactionId?: number
+  /** Unique per navigation. The scroll/highlight one-shot guard is keyed on this
+   *  so re-navigating to the same focus id (e.g. clicking the same linked
+   *  transaction again) re-triggers it, while page loads within one visit don't. */
+  focusNavKey?: string
 }
 
 export function AccountDetailView({
@@ -193,10 +213,57 @@ export function AccountDetailView({
   syncDisabled = false,
   syncSpinning = false,
   syncSucceededAt = null,
+  focusTransactionId,
+  focusNavKey,
 }: AccountDetailViewProps) {
   const { t } = useTranslation()
   const groups = useMemo(() => groupTransactionsByDate(pages), [pages])
   const hasAnyTransactions = groups.length > 0
+
+  const [highlightId, setHighlightId] = useState<number | null>(null)
+  // Keep the latest onLoadMore without listing it as an effect dependency: the
+  // parent passes a fresh arrow on every render, which would otherwise re-run
+  // the focus effect (and re-fire scrollIntoView) on every render and fight the
+  // user's scroll. Mirrors the ref pattern used by InfiniteScrollSentinel below.
+  const onLoadMoreRef = useRef(onLoadMore)
+  useEffect(() => {
+    onLoadMoreRef.current = onLoadMore
+  }, [onLoadMore])
+  // One-shot guard: once we've scrolled for a given navigation, don't scroll
+  // again when groups change as further pages load. Keyed on the navigation key
+  // (falling back to the focus id when none is provided, e.g. in unit tests) so
+  // a fresh navigation to the same focus id re-arms the scroll/highlight.
+  const scrolledForRef = useRef<string | number | null>(null)
+  useEffect(() => {
+    if (!focusTransactionId) return
+    const guardKey = focusNavKey ?? focusTransactionId
+    if (scrolledForRef.current === guardKey) return
+    const isLoaded = groups.some((group) =>
+      group.transactions.some((transaction) => transaction.id === focusTransactionId),
+    )
+    if (!isLoaded) {
+      if (hasNextPage && !isFetchingNextPage) onLoadMoreRef.current()
+      return
+    }
+    const element = document.getElementById(`transaction-${focusTransactionId}`)
+    if (!element) return
+    scrolledForRef.current = guardKey
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // Set the highlight synchronously rather than via a 0ms timer: a quick
+    // re-render right after the guard is armed (common with cached data) would
+    // otherwise run this effect's cleanup, cancel the pending timer, and then
+    // early-return on the guard — so the highlight was lost on every navigation
+    // after the first. The one-shot guard above keeps this from looping.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHighlightId(focusTransactionId)
+  }, [focusTransactionId, focusNavKey, groups, hasNextPage, isFetchingNextPage])
+  // Clear the highlight ~4s after it appears. Keyed only on highlightId so
+  // unrelated re-renders (e.g. pages loading) can't cancel the timer.
+  useEffect(() => {
+    if (highlightId === null) return
+    const timer = setTimeout(() => setHighlightId(null), 4000)
+    return () => clearTimeout(timer)
+  }, [highlightId])
   const negative = account.balance < 0
   const personalisedName = account.display_name?.trim() || null
   const isManual = bank === MANUAL_BANK
@@ -308,6 +375,7 @@ export function AccountDetailView({
             today={today}
             stickyTopOffset={stickyHeaderHeight}
             isManual={isManual}
+            highlightId={highlightId}
           />
         ) : (
           <p className="text-muted-foreground text-sm">{t('account.empty')}</p>
@@ -456,6 +524,7 @@ function TransactionGroupList({
   today,
   stickyTopOffset = 0,
   isManual = false,
+  highlightId,
 }: {
   accountId: number
   groups: ReturnType<typeof groupTransactionsByDate>
@@ -463,6 +532,7 @@ function TransactionGroupList({
   /** Pixel offset where date headers should park (height of the page header). */
   stickyTopOffset?: number
   isManual?: boolean
+  highlightId?: number | null
 }) {
   return (
     <ul className="flex flex-col gap-6">
@@ -484,6 +554,7 @@ function TransactionGroupList({
                   transaction={transaction}
                   isFuture={isFuture}
                   isManual={isManual}
+                  highlighted={highlightId === transaction.id}
                 />
               ))}
             </ul>
@@ -548,6 +619,7 @@ function TransactionRow({
   transaction,
   isFuture = false,
   isManual = false,
+  highlighted = false,
 }: {
   accountId: number
   transaction: TransactionRead
@@ -557,6 +629,7 @@ function TransactionRow({
   /** Manual accounts get inline edit + delete buttons in place of the
    *  navigate-to-detail link. */
   isManual?: boolean
+  highlighted?: boolean
 }) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
@@ -568,7 +641,10 @@ function TransactionRow({
 
   if (editing) {
     return (
-      <li className="py-2">
+      <li
+        id={`transaction-${transaction.id}`}
+        className={cn('py-2', highlighted && 'bg-primary/20 rounded-md transition-colors')}
+      >
         <ManualTransactionForm
           accountId={accountId}
           mode="edit"
@@ -581,7 +657,10 @@ function TransactionRow({
 
   if (!isManual) {
     return (
-      <li>
+      <li
+        id={`transaction-${transaction.id}`}
+        className={cn(highlighted && 'bg-primary/20 rounded-md transition-colors')}
+      >
         <Link
           to="/account/$accountId/transactions/$transactionId"
           params={{ accountId: String(accountId), transactionId: String(transaction.id) }}
@@ -618,9 +697,11 @@ function TransactionRow({
 
   return (
     <li
+      id={`transaction-${transaction.id}`}
       className={cn(
         'flex items-center gap-3 rounded-md py-3 pl-2 transition-colors',
         isFuture && 'opacity-60',
+        highlighted && 'bg-primary/20',
       )}
     >
       <span className="flex-1 truncate text-sm font-medium">{otherParty}</span>

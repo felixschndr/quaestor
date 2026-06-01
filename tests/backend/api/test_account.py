@@ -2,10 +2,12 @@ from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from source.backend.api.schemas.transaction import TransactionDetailRead
 from source.backend.models.account import Account
 from source.backend.models.credential import Credential
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
+from source.backend.models.transaction_type import TransactionType
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
@@ -770,3 +772,94 @@ def test_update_transaction_still_accepts_note_on_non_manual_account(
 
     assert response.status_code == 200
     assert response.json()["note"] == "Still works"
+
+
+def test_transaction_detail_read_defaults_counterpart_to_none():
+    schema = TransactionDetailRead(
+        id=1,
+        account_id=1,
+        amount=-5.0,
+        purpose=None,
+        date=date(year=2026, month=5, day=10),
+        other_party=None,
+        transaction_type=None,
+        category=TransactionCategory.UNKNOWN,
+        note=None,
+        transfer_counterpart_id=None,
+    )
+
+    assert schema.transfer_counterpart is None
+
+
+def test_get_transaction_includes_transfer_counterpart(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_a = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_b = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    with session_factory() as session:
+        out_transaction = Transaction(account_id=account_a, amount=-50.0, date=date(year=2026, month=5, day=10))
+        in_transaction = Transaction(account_id=account_b, amount=50.0, date=date(year=2026, month=5, day=10))
+        session.add_all([out_transaction, in_transaction])
+        session.flush()
+        out_transaction.transfer_counterpart_id = in_transaction.id
+        in_transaction.transfer_counterpart_id = out_transaction.id
+        session.commit()
+        out_id, in_id = out_transaction.id, in_transaction.id
+
+    response = http_client.get(f"/api/account/{account_a}/transactions/{out_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["transfer_counterpart_id"] == in_id
+    assert body["transfer_counterpart"]["id"] == in_id
+    assert body["transfer_counterpart"]["account_id"] == account_b
+    assert "transfer_counterpart" not in body["transfer_counterpart"]
+
+
+def test_unlink_transfer_endpoint_clears_link(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_a = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_b = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    with session_factory() as session:
+        out_transaction = Transaction(
+            account_id=account_a,
+            amount=-50.0,
+            date=date(year=2026, month=5, day=10),
+            transaction_type=TransactionType.TRANSFER_OUT,
+            transfer_original_type=TransactionType.OUTGOING,
+        )
+        in_transaction = Transaction(
+            account_id=account_b,
+            amount=50.0,
+            date=date(year=2026, month=5, day=10),
+            transaction_type=TransactionType.TRANSFER_IN,
+            transfer_original_type=TransactionType.INCOMING,
+        )
+        session.add_all([out_transaction, in_transaction])
+        session.flush()
+        out_transaction.transfer_counterpart_id = in_transaction.id
+        in_transaction.transfer_counterpart_id = out_transaction.id
+        session.commit()
+        out_id = out_transaction.id
+
+    response = http_client.delete(f"/api/account/{account_a}/transactions/{out_id}/transfer-link")
+    assert response.status_code == 204
+
+    detail = http_client.get(f"/api/account/{account_a}/transactions/{out_id}").json()
+    assert detail["transfer_counterpart_id"] is None
+    assert detail["transfer_counterpart"] is None
+    assert detail["transaction_type"] == "OUTGOING"
+
+
+def test_unlink_transfer_endpoint_404_for_foreign_account(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client, user_name="owner")
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_id)
+
+    register(http_client, user_name="intruder")
+    login_as(http_client, user_name="intruder")
+
+    response = http_client.delete(f"/api/account/{account_id}/transactions/{transaction_id}/transfer-link")
+    assert response.status_code == 404

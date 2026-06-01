@@ -3,6 +3,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowDownLeft,
+  ArrowLeftRight,
   ArrowUpRight,
   ChevronLeft,
   CircleHelp,
@@ -13,16 +14,21 @@ import {
   TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
-import type { TransactionRead } from '@/lib/accountHistory'
+import type { TransactionDetailRead, TransactionRead } from '@/lib/accountHistory'
+import { findAccountInUser } from '@/lib/accountHistory'
 import { formatDate, formatEuro } from '@/lib/format'
 import {
   TRANSACTION_CATEGORIES,
   useTransaction,
   useUpdateTransaction,
+  useUnlinkTransfer,
   type TransactionCategory,
 } from '@/lib/transaction'
+import { useAuthMe } from '@/lib/auth'
 import { useDebouncedAutoSave, type AutoSaveStatus } from '@/hooks/useDebouncedAutoSave'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/account/$accountId_/transactions/$transactionId')({
@@ -46,16 +52,28 @@ function TransactionDetailPage() {
   const transactionId = Number(rawTransactionId)
   const query = useTransaction(accountId, transactionId)
   const update = useUpdateTransaction(accountId, transactionId)
+  const unlink = useUnlinkTransfer(accountId, transactionId)
+  const { data: user } = useAuthMe()
 
   if (query.isLoading) return null
   if (!query.data) return <TransactionNotFoundView accountId={accountId} />
+
+  const counterpart = query.data.transfer_counterpart
+  const counterpartAccount = counterpart
+    ? findAccountInUser(user, counterpart.account_id)?.account
+    : null
+  const counterpartAccountName = counterpartAccount
+    ? counterpartAccount.display_name?.trim() || counterpartAccount.name
+    : null
 
   return (
     <TransactionDetailView
       accountId={accountId}
       transaction={query.data}
+      counterpartAccountName={counterpartAccountName}
       onSaveNote={(note) => update.mutateAsync({ note })}
       onChangeCategory={(category) => update.mutateAsync({ category })}
+      onUnlink={() => unlink.mutateAsync()}
     />
   )
 }
@@ -72,17 +90,21 @@ function TransactionNotFoundView({ accountId }: { accountId: number }) {
 
 export interface TransactionDetailViewProps {
   accountId: number
-  transaction: TransactionRead
+  transaction: TransactionDetailRead
+  counterpartAccountName?: string | null
   /** Receives `null` when the user clears the note (per §3.4: empty = delete). */
   onSaveNote: (note: string | null) => Promise<unknown>
   onChangeCategory: (category: TransactionCategory) => Promise<unknown>
+  onUnlink: () => Promise<unknown>
 }
 
 export function TransactionDetailView({
   accountId,
   transaction,
+  counterpartAccountName,
   onSaveNote,
   onChangeCategory,
+  onUnlink,
 }: TransactionDetailViewProps) {
   const { t } = useTranslation()
   const negative = transaction.amount < 0
@@ -121,11 +143,68 @@ export function TransactionDetailView({
             onChange={onChangeCategory}
           />
         </DetailRow>
+        {transaction.transfer_counterpart ? (
+          <LinkedTransactionSection
+            counterpart={transaction.transfer_counterpart}
+            counterpartAccountName={counterpartAccountName}
+            onUnlink={onUnlink}
+          />
+        ) : null}
         <DetailRow label={t('transaction.note')} align="start">
           <NoteEditor remoteNote={transaction.note ?? ''} onSave={onSaveNote} />
         </DetailRow>
       </dl>
     </main>
+  )
+}
+
+function LinkedTransactionSection({
+  counterpart,
+  counterpartAccountName,
+  onUnlink,
+}: {
+  counterpart: TransactionRead
+  counterpartAccountName?: string | null
+  onUnlink: () => Promise<unknown>
+}) {
+  const { t } = useTranslation()
+  const [pending, setPending] = useState(false)
+  const accountLabel = counterpartAccountName?.trim() || t('transaction.linkedAccountUnknown')
+
+  const handleUnlink = async () => {
+    setPending(true)
+    try {
+      await onUnlink()
+    } catch {
+      toast.error(t('transaction.unlinkFailed'))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <DetailRow label={t('transaction.linkedTransaction')} align="start">
+      <div className="flex flex-col items-start gap-2">
+        <Link
+          to="/account/$accountId"
+          params={{ accountId: String(counterpart.account_id) }}
+          search={{ focus: counterpart.id }}
+          className="text-primary hover:text-primary/80 inline-flex items-center gap-2 transition-colors"
+        >
+          <ArrowLeftRight className="size-4" aria-hidden="true" />
+          <span>
+            {t('transaction.linkedTransactionValue', {
+              account: accountLabel,
+              amount: formatEuro(counterpart.amount),
+              date: formatDate(counterpart.date),
+            })}
+          </span>
+        </Link>
+        <Button type="button" variant="outline" size="sm" onClick={handleUnlink} disabled={pending}>
+          {t('transaction.unlink')}
+        </Button>
+      </div>
+    </DetailRow>
   )
 }
 
@@ -240,7 +319,7 @@ function CategorySelect({
         }
       }}
       className={cn(
-        'border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full max-w-xs rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 disabled:opacity-50',
+        'border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 disabled:opacity-50',
         'dark:bg-input/30',
       )}
     >

@@ -1,7 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 import type { AccountRead } from '@/lib/auth'
@@ -34,6 +34,21 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 import { AccountDetailView } from '@/routes/account.$accountId'
+
+beforeAll(() => {
+  // jsdom does not implement scrollIntoView.
+  Element.prototype.scrollIntoView = vi.fn()
+  // jsdom does not implement IntersectionObserver (used by InfiniteScrollSentinel).
+  if (typeof globalThis.IntersectionObserver === 'undefined') {
+    class NoopIntersectionObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.IntersectionObserver =
+      NoopIntersectionObserver as unknown as typeof IntersectionObserver
+  }
+})
 
 const account: AccountRead = {
   id: 42,
@@ -78,7 +93,10 @@ function buildPage(overrides: Partial<AccountHistoryPage> = {}): AccountHistoryP
   }
 }
 
-function renderView(pages: AccountHistoryPage[], opts: { hasNextPage?: boolean } = {}) {
+function renderView(
+  pages: AccountHistoryPage[],
+  opts: { hasNextPage?: boolean; focusTransactionId?: number } = {},
+) {
   const onLoadMore = vi.fn()
   render(
     withClient(
@@ -89,6 +107,7 @@ function renderView(pages: AccountHistoryPage[], opts: { hasNextPage?: boolean }
         hasNextPage={opts.hasNextPage ?? false}
         onLoadMore={onLoadMore}
         today={new Date(2026, 4, 22)}
+        focusTransactionId={opts.focusTransactionId}
       />,
     ),
   )
@@ -289,5 +308,61 @@ describe('AccountDetailView', () => {
     const heading = screen.getByRole('heading', { level: 2, name: 'Today' })
     const header = heading.parentElement!
     expect(within(header).queryByText(/€/)).toBeNull()
+  })
+
+  it('scrolls to the focused transaction when it is already loaded', async () => {
+    const pages = [buildPage({ transactions: [buildTransaction({ id: 501, date: '2026-05-20' })] })]
+    renderView(pages, { focusTransactionId: 501 })
+    await waitFor(() =>
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
+        behavior: 'smooth',
+        block: 'center',
+      }),
+    )
+  })
+
+  it('loads more pages until the focused transaction appears', () => {
+    const pages = [buildPage({ transactions: [buildTransaction({ id: 999, date: '2026-05-20' })] })]
+    const { onLoadMore } = renderView(pages, { focusTransactionId: 501, hasNextPage: true })
+    expect(onLoadMore).toHaveBeenCalled()
+  })
+
+  it('does not scroll or load when no focus is given', () => {
+    const pages = [buildPage({ transactions: [buildTransaction({ id: 1, date: '2026-05-20' })] })]
+    const { onLoadMore } = renderView(pages)
+    expect(onLoadMore).not.toHaveBeenCalled()
+  })
+
+  it('highlights the focused transaction row once it is scrolled into view', async () => {
+    const pages = [buildPage({ transactions: [buildTransaction({ id: 501, date: '2026-05-20' })] })]
+    renderView(pages, { focusTransactionId: 501 })
+    await waitFor(() => {
+      const row = document.getElementById('transaction-501')
+      expect(row?.className).toMatch(/bg-primary\/20/)
+    })
+  })
+
+  it('re-scrolls to the same focus id when the navigation key changes', async () => {
+    const scrollMock = Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>
+    scrollMock.mockClear()
+    const pages = [buildPage({ transactions: [buildTransaction({ id: 501, date: '2026-05-20' })] })]
+    const view = (navKey: string) =>
+      withClient(
+        <AccountDetailView
+          account={account}
+          pages={pages}
+          isFetchingNextPage={false}
+          hasNextPage={false}
+          onLoadMore={vi.fn()}
+          today={new Date(2026, 4, 22)}
+          focusTransactionId={501}
+          focusNavKey={navKey}
+        />,
+      )
+    const { rerender } = render(view('nav-1'))
+    await waitFor(() => expect(scrollMock).toHaveBeenCalledTimes(1))
+    // Same focus id, fresh navigation: the one-shot guard must re-arm.
+    rerender(view('nav-2'))
+    await waitFor(() => expect(scrollMock).toHaveBeenCalledTimes(2))
   })
 })

@@ -402,9 +402,6 @@ def test_get_filtered_transactions_for_user_returns_empty_when_no_account_ids(se
 def test_filter_transactions(
     session_factory: sessionmaker, filter_parameters: dict, indexes_of_not_expected_transactions: list[int]
 ):
-    # Use the real public entry point — service-level ownership check + filter
-    # logic in one go. We persist a user + credential + account so the
-    # ownership guard inside `get_filtered_transactions_for_user` is happy.
     user_id, account_ids = _create_user_with_accounts(session_factory)
     account_id = account_ids[0]
     common_attrs = {
@@ -434,3 +431,33 @@ def test_filter_transactions(
         )
 
         assert [t.id for t in filtered_transactions] == expected_ids
+
+
+def test_unlink_transfer_clears_both_sides_and_restores_types(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        credential = make_credential(session, user_id=user.id, bank=BankProvider.ING)
+        account_a = make_account(session, credential_id=credential.id, name="A")
+        account_b = make_account(session, credential_id=credential.id, name="B")
+        out_transaction = make_transaction(
+            session, account_id=account_a.id, amount=-50.0, transaction_type=TransactionType.TRANSFER_OUT
+        )
+        in_transaction = make_transaction(
+            session, account_id=account_b.id, amount=50.0, transaction_type=TransactionType.TRANSFER_IN
+        )
+        out_transaction.transfer_counterpart_id = in_transaction.id
+        in_transaction.transfer_counterpart_id = out_transaction.id
+        out_transaction.transfer_original_type = TransactionType.OUTGOING
+        in_transaction.transfer_original_type = TransactionType.DEPOSIT
+        session.flush()
+
+        account_service.unlink_transfer(db_session=session, transaction=out_transaction)
+
+        assert out_transaction.transfer_counterpart_id is None
+        assert in_transaction.transfer_counterpart_id is None
+        assert out_transaction.transfer_relink_blocked is True
+        assert in_transaction.transfer_relink_blocked is True
+        assert out_transaction.transaction_type == TransactionType.OUTGOING
+        assert in_transaction.transaction_type == TransactionType.DEPOSIT
+        assert out_transaction.transfer_original_type is None
+        assert in_transaction.transfer_original_type is None

@@ -53,6 +53,7 @@ def detect_transfers_for_user(db_session: Session, user_id: int) -> int:
             .where(Credential.user_id == user_id)
             .where(Transaction.transfer_counterpart_id.is_(None))
             .where(Transaction.transaction_type.in_(ELIGIBLE_TYPES))
+            .where(Transaction.transfer_relink_blocked.is_(False))
         )
     )
     outflows = sorted((t for t in unpaired_transactions if t.amount < 0), key=lambda t: (t.date, t.id))
@@ -74,6 +75,8 @@ def detect_transfers_for_user(db_session: Session, user_id: int) -> int:
             logger.debug(f"No transfer match for outflow {outflow.id} ({outflow.amount} on {outflow.date})")
             continue
         best = min(candidates, key=lambda inflow: _candidate_rank(outflow=outflow, inflow=inflow))
+        outflow.transfer_original_type = outflow.transaction_type
+        best.transfer_original_type = best.transaction_type
         outflow.transaction_type = TransactionType.TRANSFER_OUT
         best.transaction_type = TransactionType.TRANSFER_IN
         outflow.transfer_counterpart_id = best.id

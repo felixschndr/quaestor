@@ -3,17 +3,19 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
-import type { TransactionRead } from '@/lib/accountHistory'
+import type { TransactionDetailRead, TransactionRead } from '@/lib/accountHistory'
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
     params,
+    search,
     children,
     ...rest
   }: {
     to: string
     params?: Record<string, string>
+    search?: Record<string, unknown>
     children: React.ReactNode
   } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'children'>) => {
     let href = to
@@ -21,6 +23,12 @@ vi.mock('@tanstack/react-router', () => ({
       for (const [key, value] of Object.entries(params)) {
         href = href.replace(`$${key}`, value)
       }
+    }
+    if (search) {
+      const qs = new URLSearchParams(
+        Object.entries(search).map(([k, v]) => [k, String(v)]),
+      ).toString()
+      if (qs) href = `${href}?${qs}`
     }
     return (
       <a href={href} {...rest}>
@@ -36,7 +44,7 @@ import {
   otherPartyLabelKey,
 } from '@/routes/account.$accountId_.transactions.$transactionId'
 
-function buildTransaction(overrides: Partial<TransactionRead> = {}): TransactionRead {
+function buildTransaction(overrides: Partial<TransactionDetailRead> = {}): TransactionDetailRead {
   return {
     id: 7,
     account_id: 42,
@@ -47,22 +55,27 @@ function buildTransaction(overrides: Partial<TransactionRead> = {}): Transaction
     transaction_type: 'OUTGOING',
     category: 'SUPERMARKET',
     note: null,
+    transfer_counterpart_id: null,
+    transfer_counterpart: null,
     ...overrides,
   }
 }
 
-function renderView(overrides: Partial<TransactionRead> = {}) {
+function renderView(overrides: Partial<TransactionDetailRead> = {}) {
   const onSaveNote = vi.fn().mockResolvedValue(undefined)
   const onChangeCategory = vi.fn().mockResolvedValue(undefined)
+  const onUnlink = vi.fn().mockResolvedValue(undefined)
   render(
     <TransactionDetailView
       accountId={42}
       transaction={buildTransaction(overrides)}
+      counterpartAccountName="Sparkonto"
       onSaveNote={onSaveNote}
       onChangeCategory={onChangeCategory}
+      onUnlink={onUnlink}
     />,
   )
-  return { onSaveNote, onChangeCategory }
+  return { onSaveNote, onChangeCategory, onUnlink }
 }
 
 describe('TransactionDetailView', () => {
@@ -153,6 +166,78 @@ describe('TransactionDetailView', () => {
     const select = screen.getByRole('combobox', { name: 'Category' })
     await user.selectOptions(select, 'RESTAURANTS')
     expect(onChangeCategory).toHaveBeenCalledWith('RESTAURANTS')
+  })
+
+  it('does not render the linked-transaction field when there is no counterpart', () => {
+    renderView({ transfer_counterpart: null })
+    expect(screen.queryByText('Linked transaction')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove link' })).not.toBeInTheDocument()
+  })
+
+  it('renders the linked-transaction field linking to the counterpart account with a focus param', () => {
+    const counterpart: TransactionRead = {
+      id: 99,
+      account_id: 55,
+      amount: 42.5,
+      purpose: null,
+      date: '2026-05-20',
+      other_party: null,
+      transaction_type: 'TRANSFER_IN',
+      category: 'TRANSFER',
+      note: null,
+      transfer_counterpart_id: 7,
+    }
+    renderView({ transfer_counterpart_id: 99, transfer_counterpart: counterpart })
+    const link = screen.getByRole('link', { name: /Sparkonto/ })
+    expect(link).toHaveAttribute('href', '/account/55?focus=99')
+  })
+
+  it('calls onUnlink when the user clicks "Remove link"', async () => {
+    const user = userEvent.setup()
+    const counterpart: TransactionRead = {
+      id: 99,
+      account_id: 55,
+      amount: 42.5,
+      purpose: null,
+      date: '2026-05-20',
+      other_party: null,
+      transaction_type: 'TRANSFER_IN',
+      category: 'TRANSFER',
+      note: null,
+      transfer_counterpart_id: 7,
+    }
+    const { onUnlink } = renderView({
+      transfer_counterpart_id: 99,
+      transfer_counterpart: counterpart,
+    })
+    await user.click(screen.getByRole('button', { name: 'Remove link' }))
+    expect(onUnlink).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders the linked-transaction field above the note', () => {
+    const counterpart: TransactionRead = {
+      id: 99,
+      account_id: 55,
+      amount: 42.5,
+      purpose: null,
+      date: '2026-05-20',
+      other_party: null,
+      transaction_type: 'TRANSFER_IN',
+      category: 'TRANSFER',
+      note: null,
+      transfer_counterpart_id: 7,
+    }
+    renderView({ transfer_counterpart_id: 99, transfer_counterpart: counterpart })
+    const terms = screen.getAllByRole('term').map((node) => node.textContent)
+    expect(terms).toEqual([
+      'Recipient',
+      'Date',
+      'Purpose',
+      'Type',
+      'Category',
+      'Linked transaction',
+      'Note',
+    ])
   })
 })
 
