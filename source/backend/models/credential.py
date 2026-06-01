@@ -82,6 +82,7 @@ class Credential(Base):
                 account.name = fetched_account.name
                 updated_accounts += 1
             account.balance = bank_session.get_balance(fetched_account)
+            account.tracks_balance_history = fetched_account.tracks_balance_history
 
             created_transactions += self._sync_transactions_of_account(
                 account=account,

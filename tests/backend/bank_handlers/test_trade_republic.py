@@ -116,6 +116,20 @@ def test_position_trades_also_appear_in_the_cash_account(monkeypatch: pytest.Mon
     ]
 
 
+def test_get_accounts_disables_balance_history_for_security_positions(monkeypatch: pytest.MonkeyPatch):
+    session = _session()
+
+    async def _noop() -> None:
+        pass
+
+    monkeypatch.setattr(target=session, name="_fetch", value=_noop)
+
+    accounts = {account.name: account for account in session.get_accounts()}
+
+    assert accounts["DE00 1234"].tracks_balance_history is True
+    assert accounts["Core MSCI World USD (Acc)"].tracks_balance_history is False
+
+
 def test_start_date_is_passed_to_the_timeline_as_not_before(monkeypatch: pytest.MonkeyPatch):
     captured: dict = {}
     _patch_pytr(monkeypatch=monkeypatch, rows=[], captured=captured)

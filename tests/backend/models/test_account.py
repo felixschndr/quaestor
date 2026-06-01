@@ -32,7 +32,8 @@ def test_account_repr_contains_identifying_fields():
 
     assert repr(account) == (
         "<Account(id=42, credential_id=7, name=Checking, display_name=None, "
-        "balance=123.45, balance_factor=80, is_hidden=None, group_id=None, position=None)>"
+        "balance=123.45, balance_factor=80, is_hidden=None, tracks_balance_history=None, "
+        "group_id=None, position=None)>"
     )
 
 
@@ -123,6 +124,40 @@ def test_recompute_balance_at_date_overwrites_stale_snapshots(session_factory: s
         session.flush()
 
         assert _get_persisted_snapshots(session=session, account=account)[stale_day] == 100
+
+
+def test_recompute_skips_snapshots_for_market_valued_accounts(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = _persist_account(
+            session=session,
+            balance=100.0,
+            transactions=[(date(year=2025, month=3, day=5), 10.0)],
+        )
+        account.tracks_balance_history = False
+        session.flush()
+
+        account.recompute_balances_at_date()
+        session.flush()
+
+        assert _get_persisted_snapshots(session=session, account=account) == {}
+
+
+def test_recompute_clears_existing_snapshots_when_balance_history_disabled(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = _persist_account(
+            session=session,
+            balance=100.0,
+            transactions=[(date(year=2025, month=3, day=5), 10.0)],
+        )
+        account.recompute_balances_at_date()
+        session.flush()
+        assert _get_persisted_snapshots(session=session, account=account)
+
+        account.tracks_balance_history = False
+        account.recompute_balances_at_date()
+        session.flush()
+
+        assert _get_persisted_snapshots(session=session, account=account) == {}
 
 
 def test_update_balance_at_date_preserves_existing_snapshots_but_chains_correctly(session_factory: sessionmaker):

@@ -18,6 +18,7 @@ class TwoFactorChallenge:
 @dataclass(frozen=True)
 class FetchedAccount:
     name: str
+    tracks_balance_history: bool = True
 
 
 @dataclass(frozen=True)
