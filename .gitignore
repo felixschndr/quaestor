@@ -4,6 +4,10 @@
 **/__pycache__/
 scripts/wip/
 
+# Ignore MacOS hidden files
+**/._*
+**/.DS_Store
+
 *.har
 
 # pytest-cov
