@@ -419,7 +419,9 @@ def test_filter_transactions(
         ]
         session.commit()
     expected_ids = [
-        all_transactions[i].id for i in range(len(all_transactions)) if i not in indexes_of_not_expected_transactions
+        all_transactions[i].id
+        for i in reversed(range(len(all_transactions)))
+        if i not in indexes_of_not_expected_transactions
     ]
 
     with session_factory() as session:
