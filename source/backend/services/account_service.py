@@ -341,6 +341,8 @@ def _filter_transactions(db_session: Session, account_ids: list[int], filter_par
         else:
             query = query.where(Transaction.transfer_counterpart_id.is_(None))
 
+    query = query.order_by(Transaction.date.desc()).order_by(Transaction.id.desc())
+
     transactions = list(db_session.execute(query).scalars())
     logger.debug(f"Filtered {len(transactions)} transaction(s) across accounts {account_ids} with {filter_parameters}")
     return transactions
