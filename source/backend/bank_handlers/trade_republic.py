@@ -127,21 +127,22 @@ class _TradeRepublicSession(BankSession):
                 value = row[value_field]
                 if value is None:
                     continue
-                isin = row[isin_field]
-                account_name = self._account_name_for_isin(isin) if isin else None
-                if account_name is None:
-                    account_name = self._cash_account_name
-                if account_name is None:
-                    continue
-                self._account(account_name)["transactions"].append(
-                    FetchedTransaction(
-                        amount=float(value),
-                        purpose=None,
-                        date=date.fromisoformat(str(row[date_field])),
-                        other_party=row[note_field],
-                        transaction_type=_LABEL_TO_TRANSACTION_TYPE.get(row[type_field]),
-                    )
+                transaction = FetchedTransaction(
+                    amount=float(value),
+                    purpose=None,
+                    date=date.fromisoformat(str(row[date_field])),
+                    other_party=row[note_field],
+                    transaction_type=_LABEL_TO_TRANSACTION_TYPE.get(row[type_field]),
                 )
+
+                # We need to add movements for buying stock to the account of the stock AND to the cash account
+                # Otherwise the running balance would be wrong in the cash account
+                isin = row[isin_field]
+                position_name = self._account_name_for_isin(isin) if isin else None
+                if self._cash_account_name is not None:
+                    self._account(self._cash_account_name)["transactions"].append(transaction)
+                if position_name is not None and position_name != self._cash_account_name:
+                    self._account(position_name)["transactions"].append(transaction)
 
         logger.debug(
             f"Trade Republic timeline fetched: {len(timeline.events)} event(s) since {start_date} "

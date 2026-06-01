@@ -80,10 +80,39 @@ def test_cash_and_position_transactions_are_routed_to_the_right_account(monkeypa
     )
 
     assert [(t.amount, t.transaction_type, t.date) for t in cash] == [
-        (-500.0, TransactionType.REMOVAL, date(year=2026, month=5, day=13))
+        (-500.0, TransactionType.REMOVAL, date(year=2026, month=5, day=13)),
+        (-54801.0, TransactionType.BUY, date(year=2025, month=3, day=24)),
     ]
     assert [(t.amount, t.transaction_type, t.date) for t in position] == [
         (-54801.0, TransactionType.BUY, date(year=2025, month=3, day=24))
+    ]
+
+
+def test_position_trades_also_appear_in_the_cash_account(monkeypatch: pytest.MonkeyPatch):
+    rows = [
+        {"date": "2026-05-13", "type": "Deposit", "value": 1000.0, "note": "Alice Parker", "isin": None},
+        {
+            "date": "2026-05-14",
+            "type": "Buy",
+            "value": -600.0,
+            "note": "Core MSCI World USD (Acc)",
+            "isin": "IE00B4L5Y983",
+        },
+    ]
+    _patch_pytr(monkeypatch=monkeypatch, rows=rows, captured={})
+    session = _session()
+
+    cash = session.get_transactions(FetchedAccount(name="DE00 1234"), start_date=date(year=2026, month=1, day=1))
+    position = session.get_transactions(
+        FetchedAccount(name="Core MSCI World USD (Acc)"), start_date=date(year=2026, month=1, day=1)
+    )
+
+    assert [(t.amount, t.transaction_type, t.date) for t in cash] == [
+        (1000.0, TransactionType.DEPOSIT, date(year=2026, month=5, day=13)),
+        (-600.0, TransactionType.BUY, date(year=2026, month=5, day=14)),
+    ]
+    assert [(t.amount, t.transaction_type, t.date) for t in position] == [
+        (-600.0, TransactionType.BUY, date(year=2026, month=5, day=14))
     ]
 
 
