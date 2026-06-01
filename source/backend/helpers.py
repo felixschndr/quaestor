@@ -10,10 +10,7 @@ if TYPE_CHECKING:
 
 def get_key_of_transaction(transaction: "Union[Transaction, FetchedTransaction]") -> str:
     # Only use fields that cannot change
-    return (
-        f"{transaction.date} {transaction.purpose} {transaction.other_party} {transaction.amount} "
-        f"{transaction.transaction_type}"
-    )
+    return f"{transaction.date} {transaction.purpose} {transaction.other_party} {transaction.amount}"
 
 
 def epoch_ms_to_date(value: str | int) -> date:

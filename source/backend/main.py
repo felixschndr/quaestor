@@ -33,6 +33,7 @@ from source.backend.services import (
     migrations,
     session_service,
     sync_scheduler,
+    transfer_detection,
 )
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Scope
@@ -53,6 +54,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator:
 
     background_tasks = [
         asyncio.create_task(category_rescan.run_startup_rescan()),
+        asyncio.create_task(transfer_detection.run_startup_transfer_detection()),
         asyncio.create_task(sync_scheduler.run_periodic_sync()),
     ]
     try:

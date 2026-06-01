@@ -6,10 +6,10 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.base import Base
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
-from sqlalchemy import Date
+from sqlalchemy import Connection, Date
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import Float, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Float, ForeignKey, String, event, update
+from sqlalchemy.orm import Mapped, Mapper, mapped_column, relationship
 
 if TYPE_CHECKING:
     from source.backend.models.account import Account
@@ -34,6 +34,10 @@ class Transaction(Base):
     )
     note: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    transfer_counterpart_id: Mapped[int | None] = mapped_column(
+        ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True, unique=True
+    )
+
     account: Mapped["Account"] = relationship(back_populates="transactions")
 
     FIELDS_THAT_ARE_ONLY_EDITABLE_ON_MANUAL_ACCOUNTS = frozenset(
@@ -51,3 +55,14 @@ class Transaction(Base):
             category=TransactionCategory.from_transaction(transaction=fetched_transaction),
         )
         return transaction
+
+
+@event.listens_for(target=Transaction, identifier="before_delete")
+def _clear_transfer_counterpart_links(_mapper: Mapper, connection: Connection, target: Transaction) -> None:
+    # SQLite doesn't enforce the ON DELETE SET NULL (foreign keys are off, and the migration only
+    # adds a column + unique index, not a real FK constraint), so emulate it: when a transaction is
+    # deleted, null out the other leg that still references it. Covers both manual deletes and the
+    # account/credential delete cascade.
+    connection.execute(
+        update(Transaction).where(Transaction.transfer_counterpart_id == target.id).values(transfer_counterpart_id=None)
+    )

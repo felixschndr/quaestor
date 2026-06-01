@@ -21,5 +21,5 @@ def test_transaction_repr_contains_identifying_fields():
     assert repr(transaction) == (
         "<Transaction(id=99, account_id=42, amount=-19.99, purpose=Coffee, "
         "date=2026-05-20, other_party=Café, transaction_type=OUTGOING, "
-        "category=UNKNOWN, note=Birthday gift)>"
+        "category=UNKNOWN, note=Birthday gift, transfer_counterpart_id=None)>"
     )
