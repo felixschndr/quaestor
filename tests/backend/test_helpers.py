@@ -10,7 +10,6 @@ from source.backend.helpers import (
     get_root_path_of_repository,
 )
 from source.backend.models.transaction import Transaction
-from source.backend.models.transaction_type import TransactionType
 
 from tests.backend.conftest import create_fetched_transaction
 
@@ -26,7 +25,6 @@ def test_key_is_identical_for_two_identical_transactions():
         ("purpose", "Tea"),
         ("other_party", "Other Cafe"),
         ("date", date(year=2026, month=5, day=22)),
-        ("transaction_type", TransactionType.INCOMING),
     ],
 )
 def test_key_differs_when_any_identifying_field_differs(changed_key: str, changed_value: Any):

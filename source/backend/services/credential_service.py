@@ -14,7 +14,7 @@ from source.backend.exceptions import (
 )
 from source.backend.logging_utils import get_logger
 from source.backend.models.credential import Credential
-from source.backend.services import user_service
+from source.backend.services import transfer_detection, user_service
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -141,6 +141,8 @@ def sync_credential(
     logger.debug(f"Sync requested for credential {credential_id}")
     credential = get_credential(db_session=db_session, credential_id=credential_id)
     result = sync_credential_object(credential=credential, notify_two_factor_state=notify_two_factor_state)
+    if result.status == SyncStatus.COMPLETED:
+        transfer_detection.detect_transfers_for_user(db_session=db_session, user_id=credential.user_id)
     db_session.commit()
     return result
 
@@ -190,6 +192,7 @@ def sync_all_due_credentials(db_session: Session) -> None:
     logger.info("Starting periodic sync of all due credentials")
     credentials = list(db_session.scalars(select(Credential)))
     synced, skipped, failed = 0, 0, 0
+    synced_user_ids: set[int] = set()
     for credential in credentials:
         if credential.requires_two_factor_authentication:
             skipped += 1
@@ -198,9 +201,12 @@ def sync_all_due_credentials(db_session: Session) -> None:
         try:
             sync_credential_object(credential=credential)
             synced += 1
+            synced_user_ids.add(credential.user_id)
         except Exception:
             failed += 1
             logger.exception(f"Periodic sync failed for {credential}")
+    for user_id in synced_user_ids:
+        transfer_detection.detect_transfers_for_user(db_session=db_session, user_id=user_id)
     db_session.commit()
     logger.info(
         f"Periodic sync finished: {synced} synced, {skipped} skipped due to 2FA, "
@@ -215,5 +221,7 @@ def confirm_two_factor(db_session: Session, credential_id: int, challenge_token:
         challenge_token=challenge_token, credential_id=credential_id, code=code
     )
     result = sync_credential_object(credential=credential)
+    if result.status == SyncStatus.COMPLETED:
+        transfer_detection.detect_transfers_for_user(db_session=db_session, user_id=credential.user_id)
     db_session.commit()
     return result
