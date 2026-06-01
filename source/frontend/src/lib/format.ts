@@ -9,7 +9,7 @@ const eurFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
 
 const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   weekday: 'long',
-  day: 'numeric',
+  day: '2-digit',
   month: 'long',
   year: 'numeric',
 }
