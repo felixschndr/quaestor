@@ -194,6 +194,7 @@ def make_account(
     balance: float = 0.0,
     balance_factor: int = 100,
     is_hidden: bool = False,
+    tracks_balance_history: bool = True,
 ) -> Account:
     credential = db_session.get(entity=Credential, ident=credential_id)
     account = Account(
@@ -203,6 +204,7 @@ def make_account(
         balance=balance,
         balance_factor=balance_factor,
         is_hidden=is_hidden,
+        tracks_balance_history=tracks_balance_history,
     )
     db_session.add(account)
     db_session.flush()

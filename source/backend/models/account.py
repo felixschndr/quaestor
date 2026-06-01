@@ -33,6 +33,8 @@ class Account(Base):
     balance_factor: Mapped[int] = mapped_column(default=100)
     is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
+    tracks_balance_history: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
+
     # User-defined grouping for the overview. NULL = "ungrouped" (rendered in a
     # default bucket). `position` orders accounts within their group OR within
     # the ungrouped bucket.
@@ -50,9 +52,12 @@ class Account(Base):
 
     @classmethod
     def from_fetched(cls: type["Account"], fetched_account: FetchedAccount) -> "Account":
-        return cls(name=fetched_account.name)
+        return cls(name=fetched_account.name, tracks_balance_history=fetched_account.tracks_balance_history)
 
     def update_balance_at_date(self) -> None:
+        if not self.tracks_balance_history:
+            return
+
         today = date.today()
         daily_totals: dict[date, float] = defaultdict(float)
         for transaction in self.transactions:

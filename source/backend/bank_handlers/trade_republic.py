@@ -68,7 +68,10 @@ class _TradeRepublicSession(BankSession):
 
     def get_accounts(self) -> list[FetchedAccount]:
         asyncio.run(self._fetch())
-        return [FetchedAccount(name=account_name) for account_name in self._accounts]
+        return [
+            FetchedAccount(name=account_name, tracks_balance_history=state["isin"] is None)
+            for account_name, state in self._accounts.items()
+        ]
 
     def get_balance(self, account: FetchedAccount) -> float:
         return round(number=self._account(account.name)["balance"], ndigits=2)
