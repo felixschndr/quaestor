@@ -15,6 +15,9 @@ export interface TransactionFilters {
   date_to?: string
   transaction_type?: TransactionType
   category?: TransactionCategory
+  // `linked` filters by transfer (Umbuchung) status: 'linked' = has a transfer
+  // counterpart, 'unlinked' = none. Omitted means "any".
+  linked?: 'linked' | 'unlinked'
 }
 
 /**

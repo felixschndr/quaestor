@@ -32,6 +32,7 @@ const searchParamsSchema = z.object({
   date_to: z.string().optional(),
   transaction_type: z.enum(TRANSACTION_TYPES).optional(),
   category: z.enum(TRANSACTION_CATEGORIES).optional(),
+  linked: z.enum(['linked', 'unlinked']).optional(),
   // Multi-select: list of account ids to search. URL form:
   // ?account_ids=1&account_ids=2 → zod sees ['1','2'] → coerce to numbers.
   // Single-value URL (?account_ids=1) gets normalised to [1].
@@ -264,6 +265,20 @@ function SearchForm({
               {t(`category.${categoryValue}`)}
             </option>
           ))}
+        </NativeSelect>
+      </Field>
+
+      <Field id="search-linked" label={t('search.linked')}>
+        <NativeSelect
+          id="search-linked"
+          value={draft.linked ?? ''}
+          onChange={(event) =>
+            update('linked', (event.target.value || undefined) as TransactionFilters['linked'])
+          }
+        >
+          <option value="">{t('search.anyOption')}</option>
+          <option value="linked">{t('search.linkedYes')}</option>
+          <option value="unlinked">{t('search.linkedNo')}</option>
         </NativeSelect>
       </Field>
 

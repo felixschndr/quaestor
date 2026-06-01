@@ -1,4 +1,5 @@
 import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from source.backend.models.transaction_category import TransactionCategory
@@ -53,6 +54,9 @@ class TransactionFilter(BaseModel):
     transaction_type: TransactionType | None = None
     category: TransactionCategory | None = None
     note: str | None = None
+    # "linked" = transaction is part of a transfer (has a counterpart),
+    # "unlinked" = no counterpart. Missing means "no filter".
+    linked: Literal["linked", "unlinked"] | None = None
 
     def to_filter_parameters(self) -> dict:
         return {key: value for key, value in self.model_dump().items() if value is not None}

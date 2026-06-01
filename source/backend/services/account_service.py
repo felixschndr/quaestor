@@ -335,6 +335,12 @@ def _filter_transactions(db_session: Session, account_ids: list[int], filter_par
     if note := filter_parameters.get("note"):
         query = query.where(Transaction.note.ilike(f"%{note}%"))
 
+    if (linked := filter_parameters.get("linked")) is not None:
+        if linked == "linked":
+            query = query.where(Transaction.transfer_counterpart_id.isnot(None))
+        else:
+            query = query.where(Transaction.transfer_counterpart_id.is_(None))
+
     transactions = list(db_session.execute(query).scalars())
     logger.debug(f"Filtered {len(transactions)} transaction(s) across accounts {account_ids} with {filter_parameters}")
     return transactions

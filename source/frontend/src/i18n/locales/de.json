@@ -68,6 +68,9 @@
     "datePlaceholder": "Datum wählen",
     "transactionType": "Typ",
     "category": "Kategorie",
+    "linked": "Umbuchung",
+    "linkedYes": "Umbuchung",
+    "linkedNo": "Keine Umbuchung",
     "anyOption": "Beliebig",
     "submit": "Suchen",
     "empty": "Keine Transaktionen passen zu deinen Filtern.",
@@ -93,8 +96,8 @@
     "SPINOFF": "Spin-off",
     "SPLIT": "Split",
     "SWAP": "Tausch",
-    "TRANSFER_IN": "Übertrag rein",
-    "TRANSFER_OUT": "Übertrag raus",
+    "TRANSFER_IN": "Eingehende Umbuchung",
+    "TRANSFER_OUT": "Ausgehende Umbuchung",
     "UNKNOWN": "Unbekannt"
   },
   "login": {

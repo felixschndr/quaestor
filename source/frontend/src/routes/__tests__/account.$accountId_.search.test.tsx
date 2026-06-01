@@ -111,6 +111,26 @@ describe('TransactionSearchView — form', () => {
     expect(dateTriggers).toHaveLength(2)
     expect(screen.getByLabelText('Type')).toBeInTheDocument()
     expect(screen.getByLabelText('Category')).toBeInTheDocument()
+    expect(screen.getByLabelText('Transfer')).toBeInTheDocument()
+  })
+
+  it('submits the selected transfer (linked) filter', async () => {
+    const user = userEvent.setup()
+    const { onSubmit } = renderView()
+
+    await user.selectOptions(screen.getByLabelText('Transfer'), 'linked')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(onSubmit.mock.calls[0][0].filters.linked).toBe('linked')
+  })
+
+  it('omits the transfer filter when left on "Any"', async () => {
+    const user = userEvent.setup()
+    const { onSubmit } = renderView()
+
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(onSubmit.mock.calls[0][0].filters.linked).toBeUndefined()
   })
 
   it('does not render a separate Note field — the freetext covers it', () => {
@@ -370,6 +390,7 @@ describe('TransactionSearchView — request building', () => {
         amount_from: -100,
         date_from: '2026-01-01',
         transaction_type: 'OUTGOING',
+        linked: 'linked',
         account_ids: [42, 99],
         submitted: '1',
       },
@@ -384,6 +405,7 @@ describe('TransactionSearchView — request building', () => {
     expect(url).toContain('amount_from=-100')
     expect(url).toContain('date_from=2026-01-01')
     expect(url).toContain('transaction_type=OUTGOING')
+    expect(url).toContain('linked=linked')
     expect(url).not.toContain('submitted=')
   })
 })
