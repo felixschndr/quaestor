@@ -24,6 +24,11 @@ describe('formatDate', () => {
     expect(formatDate('2026-05-20T12:00:00Z')).toMatch(/20\. Mai 2026/)
   })
 
+  it('pads a single-digit day with a leading zero', async () => {
+    await i18n.changeLanguage('de')
+    expect(formatDate('2026-05-05T12:00:00Z')).toMatch(/05\. Mai 2026/)
+  })
+
   it('prefixes the date with the weekday in German', async () => {
     await i18n.changeLanguage('de')
     // 2026-05-20 is a Wednesday → Mittwoch.
