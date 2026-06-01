@@ -6,13 +6,15 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.base import Base
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
-from sqlalchemy import Connection, Date
+from sqlalchemy import Boolean, Date
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Float, ForeignKey, String, event, update
-from sqlalchemy.orm import Mapped, Mapper, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from source.backend.models.account import Account
+    from sqlalchemy import Connection
+    from sqlalchemy.orm import Mapper
 
 logger = get_logger(__name__)
 
@@ -37,6 +39,16 @@ class Transaction(Base):
     transfer_counterpart_id: Mapped[int | None] = mapped_column(
         ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True, unique=True
     )
+    transfer_original_type: Mapped[TransactionType | None] = mapped_column(SQLEnum(TransactionType), nullable=True)
+    transfer_relink_blocked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+
+    transfer_counterpart: Mapped["Transaction | None"] = relationship(
+        "Transaction",
+        remote_side=[id],
+        foreign_keys=[transfer_counterpart_id],
+        uselist=False,
+        viewonly=True,
+    )
 
     account: Mapped["Account"] = relationship(back_populates="transactions")
 
@@ -58,11 +70,8 @@ class Transaction(Base):
 
 
 @event.listens_for(target=Transaction, identifier="before_delete")
-def _clear_transfer_counterpart_links(_mapper: Mapper, connection: Connection, target: Transaction) -> None:
-    # SQLite doesn't enforce the ON DELETE SET NULL (foreign keys are off, and the migration only
-    # adds a column + unique index, not a real FK constraint), so emulate it: when a transaction is
-    # deleted, null out the other leg that still references it. Covers both manual deletes and the
-    # account/credential delete cascade.
+def _clear_transfer_counterpart_links(_mapper: "Mapper", connection: "Connection", target: Transaction) -> None:
+    # SQLite doesn't enforce the ON DELETE SET NULL (foreign keys are off), so emulate it
     connection.execute(
         update(Transaction).where(Transaction.transfer_counterpart_id == target.id).values(transfer_counterpart_id=None)
     )

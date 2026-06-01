@@ -410,6 +410,11 @@
     "noteSaving": "Speichern …",
     "notePlaceholder": "Notiz hinzufügen …",
     "fieldEmpty": "—",
-    "notFound": "Transaktion nicht gefunden."
+    "notFound": "Transaktion nicht gefunden.",
+    "linkedTransaction": "Verknüpfte Transaktion",
+    "linkedTransactionValue": "{{account}} · {{amount}} · {{date}}",
+    "unlink": "Verbindung lösen",
+    "unlinkFailed": "Verbindung konnte nicht gelöst werden",
+    "linkedAccountUnknown": "Anderes Konto"
   }
 }

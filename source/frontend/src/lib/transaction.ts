@@ -1,7 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
-import { accountQueryKeys, type TransactionRead } from './accountHistory'
+import {
+  accountQueryKeys,
+  type TransactionDetailRead,
+  type TransactionRead,
+} from './accountHistory'
 import { authQueryKeys } from './auth'
 
 /**
@@ -76,7 +80,8 @@ export const transactionQueryKeys = {
 export function useTransaction(accountId: number, transactionId: number) {
   return useQuery({
     queryKey: transactionQueryKeys.detail(accountId, transactionId),
-    queryFn: () => api<TransactionRead>(`/account/${accountId}/transactions/${transactionId}`),
+    queryFn: () =>
+      api<TransactionDetailRead>(`/account/${accountId}/transactions/${transactionId}`),
   })
 }
 
@@ -145,6 +150,26 @@ export function useDeleteTransaction(accountId: number) {
       api<void>(`/account/${accountId}/transactions/${transactionId}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(accountId) })
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+    },
+  })
+}
+
+export function useUnlinkTransfer(accountId: number, transactionId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () =>
+      api<void>(`/account/${accountId}/transactions/${transactionId}/transfer-link`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      // Reload the detail (counterpart disappears) and invalidate both affected
+      // accounts' histories — the type changes on both legs. The counterpart's
+      // account id isn't known here, so invalidate the whole 'account' prefix.
+      queryClient.invalidateQueries({
+        queryKey: transactionQueryKeys.detail(accountId, transactionId),
+      })
+      queryClient.invalidateQueries({ queryKey: ['account'] })
       queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     },
   })

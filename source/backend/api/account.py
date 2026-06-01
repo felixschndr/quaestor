@@ -8,6 +8,7 @@ from source.backend.api.schemas.account import (
 )
 from source.backend.api.schemas.transaction import (
     TransactionCreate,
+    TransactionDetailRead,
     TransactionRead,
     TransactionUpdate,
 )
@@ -96,7 +97,23 @@ def delete_transaction(
     account_service.delete_transaction(db_session=db_session, account=account, transaction=transaction)
 
 
-@router.get("/{account_id}/transactions/{transaction_id}", response_model=TransactionRead)
+@router.delete("/{account_id}/transactions/{transaction_id}/transfer-link", status_code=204)
+def unlink_transfer(
+    account_id: int,
+    transaction_id: int,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> None:
+    account = account_service.get_account_for_user(
+        db_session=db_session, account_id=account_id, user_id=current_user.id
+    )
+    transaction = account_service.get_transaction_for_account(
+        db_session=db_session, account=account, transaction_id=transaction_id
+    )
+    account_service.unlink_transfer(db_session=db_session, transaction=transaction)
+
+
+@router.get("/{account_id}/transactions/{transaction_id}", response_model=TransactionDetailRead)
 def get_transaction(
     account_id: int,
     transaction_id: int,

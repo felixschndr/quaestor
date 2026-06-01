@@ -215,6 +215,24 @@ def delete_transaction(db_session: Session, account: Account, transaction: Trans
     logger.info(f"Deleted manual {transaction} from {account}; new balance {account.balance}")
 
 
+def unlink_transfer(db_session: Session, transaction: Transaction) -> None:
+    counterpart = None
+    if transaction.transfer_counterpart_id is not None:
+        counterpart = db_session.get(entity=Transaction, ident=transaction.transfer_counterpart_id)
+
+    for leg in (transaction, counterpart):
+        if leg is None:
+            continue
+        if leg.transfer_original_type is not None:
+            leg.transaction_type = leg.transfer_original_type
+        leg.transfer_original_type = None
+        leg.transfer_counterpart_id = None
+        leg.transfer_relink_blocked = True
+
+    db_session.commit()
+    logger.info(f"Unlinked transfer for {transaction} (counterpart={counterpart})")
+
+
 def get_history_page(
     db_session: Session,
     account_id: int,

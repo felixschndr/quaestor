@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT))
 from source.backend.bank_handlers import BankProvider  # noqa: E402
 from source.backend.db import SessionLocal  # noqa: E402
 from source.backend.models.account_group import AccountGroup  # noqa: E402
+from source.backend.models.transaction import Transaction  # noqa: E402
 from source.backend.models.transaction_category import TransactionCategory  # noqa: E402
 from source.backend.models.transaction_type import TransactionType  # noqa: E402
 from source.backend.models.user import User  # noqa: E402
@@ -35,17 +36,25 @@ GROUP_EVERYDAY = "Everyday"
 GROUP_SAVINGS = "Savings"
 GROUP_INVESTMENTS = "Investments"
 
-ACCOUNT_SPECS: list[tuple[str, BankProvider, str, int]] = [
-    # (group, bank, display_name, balance_factor)
-    (GROUP_EVERYDAY, BankProvider.ING, "Daily allowance", 100),
-    (GROUP_EVERYDAY, BankProvider.DKB, "Shared Account with SO", 50),
-    (GROUP_SAVINGS, BankProvider.SPARKASSE, "Vacation", 100),
-    (GROUP_SAVINGS, BankProvider.MANUAL, "Cash at home", 100),
-    (GROUP_INVESTMENTS, BankProvider.DFS, "Retirement", 100),
-    (GROUP_INVESTMENTS, BankProvider.FIN4U, "Retirement", 100),
-    (GROUP_INVESTMENTS, BankProvider.TRADE_REPUBLIC, "Cash", 100),
-    (GROUP_INVESTMENTS, BankProvider.TRADE_REPUBLIC, "MSCI World", 100),
+ACCOUNT_SPECS: list[tuple[str, BankProvider, str, int, bool]] = [
+    (GROUP_EVERYDAY, BankProvider.ING, "Daily allowance", 100, True),
+    (GROUP_EVERYDAY, BankProvider.DKB, "Shared Account with SO", 50, True),
+    (GROUP_SAVINGS, BankProvider.SPARKASSE, "Vacation", 100, True),
+    (GROUP_SAVINGS, BankProvider.MANUAL, "Cash at home", 100, True),
+    (GROUP_INVESTMENTS, BankProvider.DFS, "Retirement", 100, True),
+    (GROUP_INVESTMENTS, BankProvider.FIN4U, "Retirement", 100, True),
+    (GROUP_INVESTMENTS, BankProvider.TRADE_REPUBLIC, "Cash", 100, True),
+    (GROUP_INVESTMENTS, BankProvider.TRADE_REPUBLIC, "MSCI World", 100, False),
 ]
+
+
+def _link_transactions(outflow: Transaction, inflow: Transaction) -> None:
+    outflow.transfer_original_type = outflow.transaction_type
+    inflow.transfer_original_type = inflow.transaction_type
+    outflow.transaction_type = TransactionType.TRANSFER_OUT
+    inflow.transaction_type = TransactionType.TRANSFER_IN
+    outflow.transfer_counterpart_id = inflow.id
+    inflow.transfer_counterpart_id = outflow.id
 
 
 def _transactions_for(account_index: int) -> list[dict]:
@@ -168,7 +177,8 @@ def fill_db_with_testdata() -> None:
         session.flush()
 
         position_in_group: dict[int, int] = {}
-        for index, (group_name, bank, display_name, balance_factor) in enumerate(ACCOUNT_SPECS):
+        first_transactions: list[Transaction] = []
+        for index, (group_name, bank, display_name, balance_factor, tracks_balance_history) in enumerate(ACCOUNT_SPECS):
             account = make_account(
                 session,
                 credential_id=credentials_by_bank[bank].id,
@@ -176,15 +186,22 @@ def fill_db_with_testdata() -> None:
                 display_name=display_name,
                 balance=1000.0 + 250.0 * index,
                 balance_factor=balance_factor,
+                tracks_balance_history=tracks_balance_history,
             )
-            for transaction_data in _transactions_for(index):
+            account_transactions = [
                 make_transaction(session, account_id=account.id, **transaction_data)
+                for transaction_data in _transactions_for(index)
+            ]
+            first_transactions.append(account_transactions[0])
             account.update_balance_at_date()
 
             group = groups[group_name]
             account.group_id = group.id
             account.position = position_in_group.get(group.id, 0)
             position_in_group[group.id] = account.position + 1
+
+        _link_transactions(first_transactions[0], first_transactions[1])
+        _link_transactions(first_transactions[2], first_transactions[3])
 
         session.commit()
     print(f"Created demo data: user '{USER_NAME}' / password '{VALID_PASSWORD}' with {len(ACCOUNT_SPECS)} accounts.")

@@ -2,7 +2,9 @@ from datetime import date, timedelta
 
 from source.backend.bank_handlers import BankProvider
 from source.backend.models.account import Account
+from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_type import TransactionType
+from source.backend.models.user import User
 from source.backend.services import transfer_detection
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -235,3 +237,61 @@ def test_prefers_the_candidate_with_matching_purpose(session_factory: sessionmak
         assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 1
         assert matching_purpose.transaction_type == TransactionType.TRANSFER_IN
         assert other_purpose.transaction_type == TransactionType.INCOMING
+
+
+def test_stores_original_type_when_pairing(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, account_b = _create_two_accounts(session, user_id=user.id)
+        out_transaction = make_transaction(
+            session, account_id=account_a.id, amount=-50.0, date=_BASE_DATE, transaction_type=TransactionType.DEPOSIT
+        )
+        in_transaction = make_transaction(
+            session, account_id=account_b.id, amount=50.0, date=_BASE_DATE, transaction_type=TransactionType.INCOMING
+        )
+        session.flush()
+
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 1
+        assert out_transaction.transfer_original_type == TransactionType.DEPOSIT
+        assert in_transaction.transfer_original_type == TransactionType.INCOMING
+
+
+def test_never_pairs_relink_blocked_transactions(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, account_b = _create_two_accounts(session, user_id=user.id)
+        blocked = make_transaction(
+            session, account_id=account_a.id, amount=-50.0, date=_BASE_DATE, transaction_type=TransactionType.OUTGOING
+        )
+        blocked.transfer_relink_blocked = True
+        make_transaction(
+            session, account_id=account_b.id, amount=50.0, date=_BASE_DATE, transaction_type=TransactionType.INCOMING
+        )
+        session.flush()
+
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 0
+        assert blocked.transfer_counterpart_id is None
+
+
+def test_deleting_a_user_with_a_linked_transfer_pair_does_not_deadlock(session_factory: sessionmaker):
+    # Both legs of a transfer reference each other to no raise a CircularDependencyError
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, account_b = _create_two_accounts(session, user_id=user.id)
+        out_transaction = make_transaction(
+            session, account_id=account_a.id, amount=-50.0, date=_BASE_DATE, transaction_type=TransactionType.OUTGOING
+        )
+        in_transaction = make_transaction(
+            session, account_id=account_b.id, amount=50.0, date=_BASE_DATE, transaction_type=TransactionType.INCOMING
+        )
+        session.flush()
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 1
+        session.flush()
+        out_id, in_id = out_transaction.id, in_transaction.id
+
+        session.delete(user)
+        session.flush()
+
+        assert session.get(entity=Transaction, ident=out_id) is None
+        assert session.get(entity=Transaction, ident=in_id) is None
+        assert session.get(entity=User, ident=user.id) is None

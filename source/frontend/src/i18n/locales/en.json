@@ -413,6 +413,11 @@
     "noteSaving": "Saving…",
     "notePlaceholder": "Add a note…",
     "fieldEmpty": "—",
-    "notFound": "Transaction not found."
+    "notFound": "Transaction not found.",
+    "linkedTransaction": "Linked transaction",
+    "linkedTransactionValue": "{{account}} · {{amount}} · {{date}}",
+    "unlink": "Remove link",
+    "unlinkFailed": "Could not remove the link",
+    "linkedAccountUnknown": "Other account"
   }
 }
