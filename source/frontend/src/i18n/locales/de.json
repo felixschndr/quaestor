@@ -352,15 +352,33 @@
     "title": "Quellenangaben",
     "for": {
       "favicon": "Favicon",
-      "manualBank": "Icon der manuellen Bank"
+      "manualBank": "Icon der manuellen Bank",
+      "dfsLogo": "DFS-Logo",
+      "dkbLogo": "DKB-Logo",
+      "fin4uLogo": "fin4u-Logo",
+      "ingLogo": "ING-Logo",
+      "sparkasseLogo": "Sparkassen-Logo",
+      "tradeRepublicLogo": "Trade-Republic-Logo"
     },
     "text": {
       "faviconMoneyIcons": "Money icons created by Freepik - Flaticon",
-      "manualWritingIcons": "Writing icons created by Freepik - Flaticon"
+      "manualWritingIcons": "Writing icons created by Freepik - Flaticon",
+      "dfsLogo": "DFS-Logo über YouTube",
+      "dkbLogo": "DKB-Logo über My German Finances",
+      "fin4uLogo": "fin4u-Logo über Google Play",
+      "ingLogo": "ING-Logo über Google Play",
+      "sparkasseLogo": "Sparkassen-Logo über Wikipedia",
+      "tradeRepublicLogo": "Trade-Republic-Logo über My German Finances"
     },
     "linkTitle": {
       "moneyIcons": "money icons",
-      "writingIcons": "writing icons"
+      "writingIcons": "writing icons",
+      "dfsLogo": "Quelle des DFS-Logos",
+      "dkbLogo": "Quelle des DKB-Logos",
+      "fin4uLogo": "Quelle des fin4u-Logos",
+      "ingLogo": "Quelle des ING-Logos",
+      "sparkasseLogo": "Quelle des Sparkassen-Logos",
+      "tradeRepublicLogo": "Quelle des Trade-Republic-Logos"
     }
   },
   "version": {

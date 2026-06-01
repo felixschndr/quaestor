@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft } from 'lucide-react'
+import { ArrowUpRight, ChevronLeft } from 'lucide-react'
 
 export const Route = createFileRoute('/settings/attributions')({
   component: SettingsAttributionsPage,
@@ -31,6 +31,42 @@ const ATTRIBUTIONS: Attribution[] = [
     titleKey: 'attributions.linkTitle.writingIcons',
     href: 'https://www.flaticon.com/free-icons/writing',
   },
+  {
+    forKey: 'attributions.for.dfsLogo',
+    textKey: 'attributions.text.dfsLogo',
+    titleKey: 'attributions.linkTitle.dfsLogo',
+    href: 'https://www.youtube.com/channel/UC0Gp2sTjIcV-vYT1wzG8yxw',
+  },
+  {
+    forKey: 'attributions.for.dkbLogo',
+    textKey: 'attributions.text.dkbLogo',
+    titleKey: 'attributions.linkTitle.dkbLogo',
+    href: 'https://www.mygermanfinances.de/dkb-logo-square-2/',
+  },
+  {
+    forKey: 'attributions.for.fin4uLogo', // gitleaks:allow — i18n key, not a secret
+    textKey: 'attributions.text.fin4uLogo',
+    titleKey: 'attributions.linkTitle.fin4uLogo',
+    href: 'https://play.google.com/store/apps/details?id=de.alteleipziger.fin4u&hl=de',
+  },
+  {
+    forKey: 'attributions.for.ingLogo',
+    textKey: 'attributions.text.ingLogo',
+    titleKey: 'attributions.linkTitle.ingLogo',
+    href: 'https://play.google.com/store/apps/details?id=com.ingcb.mobile.cbportal&hl=de',
+  },
+  {
+    forKey: 'attributions.for.sparkasseLogo',
+    textKey: 'attributions.text.sparkasseLogo',
+    titleKey: 'attributions.linkTitle.sparkasseLogo',
+    href: 'https://de.wikipedia.org/wiki/Datei:Logo-_Sparkassen-App_%E2%80%93_die_mobile_Filiale.png',
+  },
+  {
+    forKey: 'attributions.for.tradeRepublicLogo',
+    textKey: 'attributions.text.tradeRepublicLogo',
+    titleKey: 'attributions.linkTitle.tradeRepublicLogo',
+    href: 'https://www.mygermanfinances.de/trade-republic-square-logo-2/',
+  },
 ]
 
 export function SettingsAttributionsPage() {
@@ -54,8 +90,9 @@ export function SettingsAttributionsPage() {
               title={t(attribution.titleKey)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary text-sm hover:underline"
+              className="text-primary inline-flex items-center gap-1 text-sm hover:underline"
             >
+              <ArrowUpRight className="size-3.5 shrink-0" aria-hidden="true" />
               {t(attribution.textKey)}
             </a>
           </li>
