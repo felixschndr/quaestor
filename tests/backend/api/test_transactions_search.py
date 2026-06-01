@@ -73,6 +73,19 @@ def _persist_transaction(session_factory: sessionmaker, account_id: int, *, purp
         return transaction.id
 
 
+def _seed_linked_pair_and_single(session_factory: sessionmaker, account_id: int) -> dict[str, int]:
+    """Two transactions linked as transfer counterparts plus one standalone."""
+    with session_factory() as session:
+        out = make_transaction(session, account_id=account_id, amount=-100.0, purpose="transfer out")
+        back = make_transaction(session, account_id=account_id, amount=100.0, purpose="transfer in")
+        session.flush()
+        out.transfer_counterpart_id = back.id
+        back.transfer_counterpart_id = out.id
+        single = make_transaction(session, account_id=account_id, amount=-5.0, purpose="standalone")
+        session.commit()
+        return {"out": out.id, "back": back.id, "single": single.id}
+
+
 def _ids_in_response(response_json: list[dict]) -> set[int]:
     return {row["id"] for row in response_json}
 
@@ -333,3 +346,58 @@ def test_search_requires_at_least_one_account_id(http_client: TestClient):
 def test_search_requires_authentication(http_client: TestClient):
     response = http_client.get("/api/transactions/search", params=[("account_ids", 1)])
     assert response.status_code == 401
+
+
+def test_search_linked_returns_only_transfer_transactions(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    ids = _seed_linked_pair_and_single(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("linked", "linked")],
+    )
+
+    assert response.status_code == 200
+    assert _ids_in_response(response.json()) == {ids["out"], ids["back"]}
+
+
+def test_search_unlinked_returns_only_standalone_transactions(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    ids = _seed_linked_pair_and_single(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("linked", "unlinked")],
+    )
+
+    assert response.status_code == 200
+    assert _ids_in_response(response.json()) == {ids["single"]}
+
+
+def test_search_without_linked_filter_returns_both(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    ids = _seed_linked_pair_and_single(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.get("/api/transactions/search", params=[("account_ids", account_id)])
+
+    assert response.status_code == 200
+    assert _ids_in_response(response.json()) == set(ids.values())
+
+
+def test_search_rejects_invalid_linked_value(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("linked", "maybe")],
+    )
+
+    assert response.status_code == 422
