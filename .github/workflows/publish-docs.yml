@@ -39,7 +39,12 @@ jobs:
         run: poetry run python scripts/dump_openapi.py site/openapi.json
 
       - name: Build static ReDoc page
-        run: npx --yes @redocly/cli build-docs site/openapi.json -o site/index.html
+        run: npx --yes @redocly/cli build-docs site/openapi.json -o site/index.html --title "Quaestor API"
+
+      - name: Add favicon
+        run: |
+          cp source/frontend/public/favicon.png site/favicon.png
+          sed -i 's#</head>#<link rel="icon" type="image/png" href="favicon.png"></head>#' site/index.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
