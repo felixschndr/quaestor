@@ -25,4 +25,4 @@ def test_user_session_repr_contains_identifying_fields_but_not_token_hash():
         f"<UserSession(id=11, user_id=1, created_at={created_at}, expires_at={expires_at}, "
         f"last_used_at={last_used_at}, ip=203.0.113.1, user_agent=Mozilla/5.0, remember_me=True)>"
     )
-    assert "should_not_appear" not in representation  # nosec B105
+    assert "should_not_appear" not in representation

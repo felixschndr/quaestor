@@ -33,7 +33,8 @@ import {
   type AccountGroupLayout,
   type AccountGroupLayoutWrite,
 } from '@/lib/accountGroups'
-import { accountDisplayName, bankIconUrl, useUpdateAccount } from '@/lib/accounts'
+import { accountDisplayName, useUpdateAccount } from '@/lib/accounts'
+import { BankLogo } from '@/components/BankLogo'
 import { cn } from '@/lib/utils'
 import { useAuthMe, type AccountRead, type UserRead } from '@/lib/auth'
 
@@ -56,6 +57,8 @@ const groupIdFromSortableId = (sortableId: string): number =>
 
 interface AccountWithBank extends AccountRead {
   bank: string
+  bankName: string | null
+  bankIcon: string | null
 }
 
 type AccountLookup = Map<number, AccountWithBank>
@@ -65,7 +68,12 @@ function buildAccountLookup(user: UserRead | undefined): AccountLookup {
   if (!user) return map
   for (const credential of user.credentials) {
     for (const account of credential.accounts) {
-      map.set(account.id, { ...account, bank: credential.bank })
+      map.set(account.id, {
+        ...account,
+        bank: credential.bank,
+        bankName: credential.bank_name,
+        bankIcon: credential.bank_icon,
+      })
     }
   }
   return map
@@ -604,14 +612,11 @@ function AccountItemView({
       >
         <GripVertical className="size-4" aria-hidden="true" />
       </button>
-      <img
-        src={bankIconUrl(account.bank)}
-        alt=""
-        aria-hidden="true"
-        className="size-5 shrink-0 rounded-sm object-cover"
-        onError={(event) => {
-          event.currentTarget.style.visibility = 'hidden'
-        }}
+      <BankLogo
+        icon={account.bankIcon}
+        name={account.bankName ?? account.bank}
+        seed={account.bankName ?? account.bank}
+        className="size-5 shrink-0"
       />
       {body ?? <span className="flex-1 truncate">{accountDisplayName(account)}</span>}
       {trailing}

@@ -195,15 +195,7 @@
     "de": "German"
   },
   "banks": {
-    "ing": { "title": "ING" },
-    "dkb": {
-      "title": "DKB",
-      "note": "After you connect, you'll get a push notification in your app — approve it there to let the sync continue."
-    },
-    "sparkasse": {
-      "title": "Sparkasse",
-      "note": "After you connect, you'll get a push notification in your app — approve it there to let the sync continue."
-    },
+    "fints": { "title": "FinTS bank" },
     "dfs": {
       "title": "DFS",
       "note": "Retirement provisioning of the Deutsche Flugsicherung GmbH."
@@ -235,9 +227,16 @@
     "empty": "No banks connected yet.",
     "pickerTitle": "Choose a bank",
     "pickerEmpty": "No banks available.",
+    "searchPlaceholder": "Bank name, sort code or IBAN…",
+    "noResults": "No bank found.",
+    "tested": "Verified",
+    "ibanLabel": "IBAN",
+    "ibanMismatch": "This IBAN does not belong to the selected bank.",
     "pickerAccountsAdded_zero": "No accounts added yet",
     "pickerAccountsAdded_one": "{{count}} account already added",
     "pickerAccountsAdded_other": "{{count}} accounts already added",
+    "familyCount_one": "{{count}} bank",
+    "familyCount_other": "{{count}} banks",
     "formTitle": "Connect {{bank}}",
     "formTitleManual": "Create manual account",
     "submit": "Connect and sync",

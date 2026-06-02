@@ -12,12 +12,12 @@ import { useAuthMe, type AccountRead, type CredentialRead } from '@/lib/auth'
 import {
   accountDisplayName,
   accountSecondaryName,
-  bankIconUrl,
   useCreateManualAccount,
   useDeleteAccount,
   useUpdateAccount,
   type AccountUpdatePayload,
 } from '@/lib/accounts'
+import { BankLogo } from '@/components/BankLogo'
 import { useDeleteCredential } from '@/lib/credentials'
 import { formatDateTime, formatDecimal, formatEuro } from '@/lib/format'
 
@@ -65,7 +65,8 @@ export interface CredentialDetailViewProps {
 export function CredentialDetailView({ credential, onDeleted }: CredentialDetailViewProps) {
   const { t } = useTranslation()
   const bankTitle = credential
-    ? t(`banks.${credential.bank}.title`, { defaultValue: credential.bank })
+    ? (credential.bank_name ??
+      t(`banks.${credential.bank}.title`, { defaultValue: credential.bank }))
     : ''
 
   return (
@@ -119,14 +120,11 @@ function BankHeader({ credential, bankTitle }: { credential: CredentialRead; ban
     : t('credentials.neverSynced')
   return (
     <section className="flex flex-col items-center gap-2 text-center">
-      <img
-        src={bankIconUrl(credential.bank)}
-        alt=""
-        aria-hidden="true"
-        className="size-16 rounded-xl object-cover"
-        onError={(event) => {
-          event.currentTarget.style.visibility = 'hidden'
-        }}
+      <BankLogo
+        icon={credential.bank_icon}
+        name={bankTitle}
+        seed={credential.bank_name ?? credential.bank}
+        className="size-16"
       />
       <h1 className="text-foreground text-2xl font-semibold">{bankTitle}</h1>
       <p className="text-muted-foreground text-sm">{lastSyncedLabel}</p>

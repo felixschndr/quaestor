@@ -94,10 +94,11 @@ def test_e2e_full_flow() -> None:
         "method": "POST",
         "url": f"{URL}/api/credentials",
         "json": {
-            "bank": "ing",
+            "bank": "fints",
             "credentials": {
                 "username": os.environ["ING_USERNAME"],
                 "password": os.environ["ING_PASSWORD"],
+                "blz": "50010517",
             },
         },
     }

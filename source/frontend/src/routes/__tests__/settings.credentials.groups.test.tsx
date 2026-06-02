@@ -39,6 +39,8 @@ function buildUser(): UserRead {
       {
         id: 10,
         bank: 'ing',
+        bank_name: null,
+        bank_icon: null,
         accounts: [
           {
             id: 1,

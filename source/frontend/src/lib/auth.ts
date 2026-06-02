@@ -19,6 +19,8 @@ export interface AccountRead {
 export interface CredentialRead {
   id: number
   bank: string
+  bank_name: string | null
+  bank_icon: string | null
   accounts: AccountRead[]
   last_fetching_timestamp: string | null
   requires_two_factor_authentication: boolean
@@ -164,6 +166,9 @@ export interface Current2FA {
   credentialId: number
   jobId: string
   bank: string
+  /** Resolved bank name + logo for display (null name → fall back to the i18n title). */
+  bankName: string | null
+  bankIcon: string | null
   /** 'awaiting_2fa' (Trade Republic-style code) or 'awaiting_decoupled_approval' (pushTAN). */
   kind: 'awaiting_2fa' | 'awaiting_decoupled_approval'
 }
@@ -227,10 +232,15 @@ export function useGlobalSync(): UseGlobalSyncResult {
     [jobs],
   )
 
-  const credentialBank = useCallback(
-    (credentialId: number): string => {
+  const credentialDisplay = useCallback(
+    (credentialId: number) => {
       const user = queryClient.getQueryData<UserRead>(authQueryKeys.me)
-      return user?.credentials.find((c) => c.id === credentialId)?.bank ?? ''
+      const credential = user?.credentials.find((c) => c.id === credentialId)
+      return {
+        bank: credential?.bank ?? '',
+        bankName: credential?.bank_name ?? null,
+        bankIcon: credential?.bank_icon ?? null,
+      }
     },
     [queryClient],
   )
@@ -343,13 +353,13 @@ export function useGlobalSync(): UseGlobalSyncResult {
     return {
       credentialId: current2faId,
       jobId: job.job_id,
-      bank: credentialBank(current2faId),
+      ...credentialDisplay(current2faId),
       kind:
         job.status === 'awaiting_decoupled_approval'
           ? 'awaiting_decoupled_approval'
           : 'awaiting_2fa',
     }
-  }, [current2faId, jobs, credentialBank])
+  }, [current2faId, jobs, credentialDisplay])
 
   const submit2fa = useCallback(
     async (code: string) => {
@@ -412,9 +422,14 @@ export function useCredentialSync(credentialId: number): UseCredentialSyncResult
     phaseRef.current = phase
   }, [phase])
 
-  const bank = useMemo(() => {
+  const display = useMemo(() => {
     const user = queryClient.getQueryData<UserRead>(authQueryKeys.me)
-    return user?.credentials.find((c) => c.id === credentialId)?.bank ?? ''
+    const credential = user?.credentials.find((c) => c.id === credentialId)
+    return {
+      bank: credential?.bank ?? '',
+      bankName: credential?.bank_name ?? null,
+      bankIcon: credential?.bank_icon ?? null,
+    }
   }, [queryClient, credentialId])
 
   const start = useCallback(() => {
@@ -482,13 +497,13 @@ export function useCredentialSync(credentialId: number): UseCredentialSyncResult
     return {
       credentialId,
       jobId: job.job_id,
-      bank,
+      ...display,
       kind:
         job.status === 'awaiting_decoupled_approval'
           ? 'awaiting_decoupled_approval'
           : 'awaiting_2fa',
     }
-  }, [awaitingTwoFactor, job, credentialId, bank])
+  }, [awaitingTwoFactor, job, credentialId, display])
 
   const submit2fa = useCallback(
     async (code: string) => {

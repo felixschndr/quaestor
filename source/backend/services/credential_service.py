@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
-from source.backend.bank_handlers import BANKS_BY_NAME, SUPPORTED_BANKS, BankProvider
+from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
 from source.backend.bank_handlers.base import TwoFactorStateCallback
 from source.backend.exceptions import (
     CredentialAlreadyExistsError,
@@ -14,7 +14,7 @@ from source.backend.exceptions import (
 )
 from source.backend.logging_utils import get_logger
 from source.backend.models.credential import Credential
-from source.backend.services import transfer_detection, user_service
+from source.backend.services import bank_catalog, transfer_detection, user_service
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -34,7 +34,7 @@ class SyncResult:
 
 
 def list_all_possible() -> list[dict]:
-    return [bank.information_for_user for bank in SUPPORTED_BANKS]
+    return bank_catalog.get_catalog()
 
 
 def list_credentials(db_session: Session, user_id: int) -> list[Credential]:

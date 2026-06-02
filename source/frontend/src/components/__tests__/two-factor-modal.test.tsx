@@ -39,6 +39,8 @@ describe('TwoFactorModal', () => {
         credentialId: 1,
         jobId: 'j',
         bank: 'trade_republic',
+        bankName: null,
+        bankIcon: null,
         kind: 'awaiting_2fa',
       },
       onSubmit,
@@ -56,7 +58,9 @@ describe('TwoFactorModal', () => {
       current2fa: {
         credentialId: 1,
         jobId: 'j',
-        bank: 'dkb',
+        bank: 'fints',
+        bankName: 'DKB',
+        bankIcon: null,
         kind: 'awaiting_decoupled_approval',
       },
     })
@@ -74,6 +78,8 @@ describe('TwoFactorModal', () => {
         credentialId: 1,
         jobId: 'j',
         bank: 'trade_republic',
+        bankName: null,
+        bankIcon: null,
         kind: 'awaiting_2fa',
       },
       onSkip,
@@ -88,6 +94,8 @@ describe('TwoFactorModal', () => {
         credentialId: 1,
         jobId: 'job-1',
         bank: 'trade_republic',
+        bankName: null,
+        bankIcon: null,
         kind: 'awaiting_2fa',
       },
     })
@@ -100,7 +108,9 @@ describe('TwoFactorModal', () => {
         current2fa={{
           credentialId: 2,
           jobId: 'job-2',
-          bank: 'dkb',
+          bank: 'fints',
+          bankName: 'DKB',
+          bankIcon: null,
           kind: 'awaiting_2fa',
         }}
         onSubmit={async () => {}}

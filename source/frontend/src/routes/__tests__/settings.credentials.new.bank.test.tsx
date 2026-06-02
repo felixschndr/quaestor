@@ -24,22 +24,36 @@ import { NewCredentialFormView } from '@/routes/settings.credentials.new.$bank'
 import type { SupportedBank, SyncJob } from '@/lib/credentials'
 
 const ING_BANK: SupportedBank = {
-  name: 'ing',
+  provider: 'ing',
+  key: 'ing',
+  name: 'ING',
+  bic: null,
+  icon: '/static/banks/ing-diba.png',
+  tested: true,
   required_fields: ['username', 'password'],
-  icon: '/static/banks/ing.png',
-  bank_identifier: '50010517',
+  blzs: ['50010517'],
 }
 
 const DFS_BANK: SupportedBank = {
-  name: 'dfs',
-  required_fields: ['username', 'password'],
+  provider: 'dfs',
+  key: 'dfs',
+  name: 'Deutsche Finance Service',
+  bic: null,
   icon: '/static/banks/dfs.png',
+  tested: false,
+  required_fields: ['username', 'password'],
+  blzs: [],
 }
 
 const TR_BANK: SupportedBank = {
-  name: 'trade_republic',
-  required_fields: ['phone', 'pin'],
+  provider: 'trade_republic',
+  key: 'trade_republic',
+  name: 'Trade Republic',
+  bic: null,
   icon: '/static/banks/trade_republic.png',
+  tested: true,
+  required_fields: ['phone', 'pin'],
+  blzs: [],
   field_rules: {
     phone: {
       strip_whitespace: true,
@@ -58,10 +72,28 @@ const TR_BANK: SupportedBank = {
   },
 }
 
+// A grouped FinTS bank with a single branch BLZ: only login + PIN, BLZ injected on submit.
 const SPARKASSE_BANK: SupportedBank = {
-  name: 'sparkasse',
-  required_fields: ['username', 'password', 'blz'],
+  provider: 'fints',
+  key: '66050101',
+  name: 'Sparkasse Pforzheim Calw',
+  bic: null,
   icon: '/static/banks/sparkasse.png',
+  tested: true,
+  required_fields: ['username', 'password'],
+  blzs: ['66050101'],
+}
+
+// A grouped FinTS bank with several branch BLZs: the form asks for an IBAN to disambiguate.
+const DEUTSCHE_BANK: SupportedBank = {
+  provider: 'fints',
+  key: '10070000',
+  name: 'Deutsche Bank',
+  bic: null,
+  icon: null,
+  tested: false,
+  required_fields: ['username', 'password'],
+  blzs: ['10070000', '12070000'],
 }
 
 interface MockResponse {
@@ -141,7 +173,7 @@ describe('NewCredentialFormView', () => {
   it('renders one input per required_field with the localised label', () => {
     renderWithQuery(
       <NewCredentialFormView
-        bankName="ing"
+        bankKey="ing"
         bank={ING_BANK}
         isLoading={false}
         onCancel={vi.fn()}
@@ -159,7 +191,7 @@ describe('NewCredentialFormView', () => {
   it('renders DFS with only username + password', () => {
     renderWithQuery(
       <NewCredentialFormView
-        bankName="dfs"
+        bankKey="dfs"
         bank={DFS_BANK}
         isLoading={false}
         onCancel={vi.fn()}
@@ -176,7 +208,7 @@ describe('NewCredentialFormView', () => {
   it('renders the loading state while the supported_banks query is in flight', () => {
     renderWithQuery(
       <NewCredentialFormView
-        bankName="ing"
+        bankKey="ing"
         bank={undefined}
         isLoading={true}
         onCancel={vi.fn()}
@@ -192,7 +224,7 @@ describe('NewCredentialFormView', () => {
     const onCancel = vi.fn()
     renderWithQuery(
       <NewCredentialFormView
-        bankName="not-a-real-bank"
+        bankKey="not-a-real-bank"
         bank={undefined}
         isLoading={false}
         onCancel={onCancel}
@@ -243,7 +275,7 @@ describe('NewCredentialFormView', () => {
 
     renderWithQuery(
       <NewCredentialFormView
-        bankName="ing"
+        bankKey="ing"
         bank={ING_BANK}
         isLoading={false}
         onCancel={vi.fn()}
@@ -307,7 +339,7 @@ describe('NewCredentialFormView', () => {
 
     renderWithQuery(
       <NewCredentialFormView
-        bankName="ing"
+        bankKey="ing"
         bank={ING_BANK}
         isLoading={false}
         onCancel={vi.fn()}
@@ -381,7 +413,7 @@ describe('NewCredentialFormView', () => {
 
     renderWithQuery(
       <NewCredentialFormView
-        bankName="ing"
+        bankKey="ing"
         bank={ING_BANK}
         isLoading={false}
         onCancel={vi.fn()}
@@ -445,7 +477,7 @@ describe('NewCredentialFormView', () => {
 
     renderWithQuery(
       <NewCredentialFormView
-        bankName="ing"
+        bankKey="ing"
         bank={ING_BANK}
         isLoading={false}
         onCancel={vi.fn()}
@@ -482,7 +514,7 @@ describe('NewCredentialFormView', () => {
 
     renderWithQuery(
       <NewCredentialFormView
-        bankName="ing"
+        bankKey="ing"
         bank={ING_BANK}
         isLoading={false}
         onCancel={vi.fn()}
@@ -511,7 +543,7 @@ describe('NewCredentialFormView', () => {
 
     renderWithQuery(
       <NewCredentialFormView
-        bankName="ing"
+        bankKey="ing"
         bank={ING_BANK}
         isLoading={false}
         onCancel={vi.fn()}
@@ -532,7 +564,7 @@ describe('NewCredentialFormView', () => {
     const fetchMock = globalThis.fetch as Mock
     renderWithQuery(
       <NewCredentialFormView
-        bankName="trade_republic"
+        bankKey="trade_republic"
         bank={TR_BANK}
         isLoading={false}
         onCancel={vi.fn()}
@@ -591,7 +623,7 @@ describe('NewCredentialFormView', () => {
 
     renderWithQuery(
       <NewCredentialFormView
-        bankName="trade_republic"
+        bankKey="trade_republic"
         bank={TR_BANK}
         isLoading={false}
         onCancel={vi.fn()}
@@ -611,7 +643,7 @@ describe('NewCredentialFormView', () => {
   it('renders the bank-specific note from i18n when one exists', () => {
     renderWithQuery(
       <NewCredentialFormView
-        bankName="trade_republic"
+        bankKey="trade_republic"
         bank={TR_BANK}
         isLoading={false}
         onCancel={vi.fn()}
@@ -683,7 +715,7 @@ describe('NewCredentialFormView', () => {
 
       renderWithQuery(
         <NewCredentialFormView
-          bankName="trade_republic"
+          bankKey="trade_republic"
           bank={TR_BANK}
           isLoading={false}
           onCancel={vi.fn()}
@@ -731,7 +763,7 @@ describe('NewCredentialFormView', () => {
 
       renderWithQuery(
         <NewCredentialFormView
-          bankName="trade_republic"
+          bankKey="trade_republic"
           bank={TR_BANK}
           isLoading={false}
           onCancel={vi.fn()}
@@ -816,7 +848,7 @@ describe('NewCredentialFormView', () => {
 
       renderWithQuery(
         <NewCredentialFormView
-          bankName="trade_republic"
+          bankKey="trade_republic"
           bank={TR_BANK}
           isLoading={false}
           onCancel={vi.fn()}
@@ -889,7 +921,7 @@ describe('NewCredentialFormView', () => {
 
       renderWithQuery(
         <NewCredentialFormView
-          bankName="sparkasse"
+          bankKey="66050101"
           bank={SPARKASSE_BANK}
           isLoading={false}
           onCancel={vi.fn()}
@@ -900,7 +932,6 @@ describe('NewCredentialFormView', () => {
 
       await user.type(screen.getByLabelText('Username'), 'felix')
       await user.type(screen.getByLabelText('Password'), 'secret-password')
-      await user.type(screen.getByLabelText('Bank code (BLZ)'), '66050101')
       await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
       const ws = await nextWebSocket((s) => s.url.includes('/credentials/13/sync/job-spk/ws'))
@@ -914,7 +945,7 @@ describe('NewCredentialFormView', () => {
 
       expect(await screen.findByText(/Please approve in your banking app/)).toBeInTheDocument()
       // The form is replaced by the waiting panel.
-      expect(screen.queryByLabelText('Bank code (BLZ)')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Username')).not.toBeInTheDocument()
     })
 
     it('completes the sync after the approval transitions to running and then completed', async () => {
@@ -926,7 +957,7 @@ describe('NewCredentialFormView', () => {
 
       renderWithQuery(
         <NewCredentialFormView
-          bankName="sparkasse"
+          bankKey="66050101"
           bank={SPARKASSE_BANK}
           isLoading={false}
           onCancel={vi.fn()}
@@ -937,7 +968,6 @@ describe('NewCredentialFormView', () => {
 
       await user.type(screen.getByLabelText('Username'), 'felix')
       await user.type(screen.getByLabelText('Password'), 'secret-password')
-      await user.type(screen.getByLabelText('Bank code (BLZ)'), '66050101')
       await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
       const ws = await nextWebSocket((s) => s.url.includes('/credentials/13/sync/job-spk/ws'))
@@ -967,6 +997,132 @@ describe('NewCredentialFormView', () => {
 
       await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
       expect(onSyncFailed).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('grouped FinTS banks', () => {
+    function captureCreate(fetchMock: Mock, credentialId: number) {
+      let sentBody: { bank: string; credentials: Record<string, string> } | undefined
+      fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
+        if (url === '/api/credentials' && init?.method === 'POST') {
+          sentBody = JSON.parse(init.body as string)
+          return Promise.resolve(
+            jsonResponse({
+              status: 201,
+              body: {
+                id: credentialId,
+                bank: 'fints',
+                accounts: [],
+                last_fetching_timestamp: null,
+                requires_two_factor_authentication: false,
+              },
+            }),
+          )
+        }
+        if (url === `/api/credentials/${credentialId}/sync` && init?.method === 'POST') {
+          return Promise.resolve(
+            jsonResponse({
+              status: 202,
+              body: {
+                job_id: 'job-f',
+                credential_id: credentialId,
+                status: 'running',
+                expires_at: null,
+                error: null,
+              },
+            }),
+          )
+        }
+        return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+      })
+      return () => sentBody
+    }
+
+    it('submits a single-blz fints bank with the prefilled blz and no iban field', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+      const sentBody = captureCreate(fetchMock, 21)
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankKey="66050101"
+          bank={SPARKASSE_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={vi.fn()}
+          onSyncFailed={vi.fn()}
+        />,
+      )
+
+      // A single-BLZ FinTS bank only asks for login + PIN; the BLZ is injected.
+      expect(screen.queryByLabelText('IBAN')).not.toBeInTheDocument()
+      await user.type(screen.getByLabelText('Username'), 'alice')
+      await user.type(screen.getByLabelText('Password'), 'hunter2')
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+      await waitFor(() => expect(sentBody()).toBeDefined())
+      expect(sentBody()).toEqual({
+        bank: 'fints',
+        credentials: { username: 'alice', password: 'hunter2', blz: '66050101' },
+      })
+    })
+
+    it('asks for an IBAN on a multi-blz bank and derives the matching blz', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+      const sentBody = captureCreate(fetchMock, 22)
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankKey="10070000"
+          bank={DEUTSCHE_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={vi.fn()}
+          onSyncFailed={vi.fn()}
+        />,
+      )
+
+      await user.type(screen.getByLabelText('Username'), 'bob')
+      await user.type(screen.getByLabelText('Password'), 'hunter2')
+      // IBAN whose BLZ (chars 5-12) is 12070000 — a branch BLZ of this bank.
+      await user.type(screen.getByLabelText('IBAN'), 'DE89120700000532013000')
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+      await waitFor(() => expect(sentBody()).toBeDefined())
+      expect(sentBody()).toEqual({
+        bank: 'fints',
+        credentials: { username: 'bob', password: 'hunter2', blz: '12070000' },
+      })
+      // The IBAN itself is never sent to the backend.
+      expect(sentBody()!.credentials).not.toHaveProperty('iban')
+    })
+
+    it('rejects an IBAN whose blz does not belong to the bank and sends nothing', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankKey="10070000"
+          bank={DEUTSCHE_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={vi.fn()}
+          onSyncFailed={vi.fn()}
+        />,
+      )
+
+      await user.type(screen.getByLabelText('Username'), 'bob')
+      await user.type(screen.getByLabelText('Password'), 'hunter2')
+      // BLZ 50010517 is not one of this bank's branch BLZs.
+      await user.type(screen.getByLabelText('IBAN'), 'DE89500105170532013000')
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+      expect(
+        await screen.findByText(/This IBAN does not belong to the selected bank/i),
+      ).toBeInTheDocument()
+      expect(fetchMock).not.toHaveBeenCalled()
     })
   })
 })

@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { bankIconUrl, groupAccountsByBank } from '@/lib/accounts'
 import { accountDisplayName } from '@/lib/accounts'
+import { BankLogo } from '@/components/BankLogo'
 import type { CredentialRead } from '@/lib/auth'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -32,7 +32,17 @@ function AccountMultiSelect({
   className,
 }: AccountMultiSelectProps) {
   const { t } = useTranslation()
-  const groups = groupAccountsByBank(credentials)
+  // Group by credential (one bank connection) — generic FinTS banks share provider "fints",
+  // so grouping by provider would merge different banks and pick the wrong/missing logo.
+  const groups = [...credentials]
+    .sort((a, b) => (a.bank_name ?? a.bank).localeCompare(b.bank_name ?? b.bank))
+    .map((credential) => ({
+      key: `cred-${credential.id}`,
+      name: credential.bank_name ?? credential.bank,
+      icon: credential.bank_icon,
+      accounts: [...credential.accounts].sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .filter((group) => group.accounts.length > 0)
   const allIds = groups.flatMap((group) => group.accounts.map((account) => account.id))
   const selectedSet = new Set(selectedIds)
   const selectedCount = selectedIds.length
@@ -96,7 +106,7 @@ function AccountMultiSelect({
         </div>
         <ul aria-label={t('search.accountsLabel')} className="max-h-72 overflow-y-auto py-1">
           {groups.map((group) => (
-            <li key={group.bank} className="flex flex-col">
+            <li key={group.key} className="flex flex-col">
               {group.accounts.map((account) => {
                 const checkboxId = `account-multi-${account.id}`
                 const checked = selectedSet.has(account.id)
@@ -106,14 +116,11 @@ function AccountMultiSelect({
                     htmlFor={checkboxId}
                     className="hover:bg-muted/60 flex cursor-pointer items-center gap-3 px-3 py-2 text-sm"
                   >
-                    <img
-                      src={bankIconUrl(group.bank)}
-                      alt=""
-                      aria-hidden="true"
-                      className="size-5 shrink-0 rounded-sm object-cover"
-                      onError={(event) => {
-                        event.currentTarget.style.visibility = 'hidden'
-                      }}
+                    <BankLogo
+                      icon={group.icon}
+                      name={group.name}
+                      seed={group.name}
+                      className="size-5 shrink-0"
                     />
                     <span className="flex-1 truncate">{accountDisplayName(account)}</span>
                     <Checkbox

@@ -29,6 +29,7 @@ from source.backend.security.csp import csp_middleware
 from source.backend.security.csrf import csrf_middleware
 from source.backend.security.rate_limit import rate_limit_middleware
 from source.backend.services import (
+    bank_info_updater,
     category_rescan,
     migrations,
     session_service,
@@ -53,6 +54,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator:
     migrations.upgrade_to_head()
 
     background_tasks = [
+        asyncio.create_task(bank_info_updater.run_startup_update()),
         asyncio.create_task(category_rescan.run_startup_rescan()),
         asyncio.create_task(transfer_detection.run_startup_transfer_detection()),
         asyncio.create_task(sync_scheduler.run_periodic_sync()),

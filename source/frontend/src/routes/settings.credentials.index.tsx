@@ -1,11 +1,18 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight, LayoutGrid, Plus } from 'lucide-react'
+import type { TFunction } from 'i18next'
 
 import { Button } from '@/components/ui/button'
+import { BankLogo } from '@/components/BankLogo'
 import { useAuthMe, type CredentialRead, type UserRead } from '@/lib/auth'
-import { bankIconUrl } from '@/lib/accounts'
 import { formatDateTime } from '@/lib/format'
+
+function bankTitle(t: TFunction, credential: CredentialRead): string {
+  return (
+    credential.bank_name ?? t(`banks.${credential.bank}.title`, { defaultValue: credential.bank })
+  )
+}
 
 export const Route = createFileRoute('/settings/credentials/')({
   component: SettingsCredentialsIndexPage,
@@ -24,9 +31,7 @@ export interface SettingsCredentialsIndexViewProps {
 export function SettingsCredentialsIndexView({ user }: SettingsCredentialsIndexViewProps) {
   const { t } = useTranslation()
   const credentials = [...user.credentials].sort((a, b) =>
-    t(`banks.${a.bank}.title`, { defaultValue: a.bank }).localeCompare(
-      t(`banks.${b.bank}.title`, { defaultValue: b.bank }),
-    ),
+    bankTitle(t, a).localeCompare(bankTitle(t, b)),
   )
 
   return (
@@ -83,6 +88,7 @@ function ManageGroupsRow() {
 
 function CredentialRow({ credential }: { credential: CredentialRead }) {
   const { t } = useTranslation()
+  const title = bankTitle(t, credential)
   const lastSyncedLabel = credential.last_fetching_timestamp
     ? `${t('credentials.lastSynced')}: ${formatDateTime(credential.last_fetching_timestamp)}`
     : t('credentials.neverSynced')
@@ -93,19 +99,13 @@ function CredentialRow({ credential }: { credential: CredentialRead }) {
         params={{ credentialId: String(credential.id) }}
         className="hover:bg-muted/60 flex items-center gap-3 rounded-md px-3 py-3 transition-colors"
       >
-        <img
-          src={bankIconUrl(credential.bank)}
-          alt=""
-          aria-hidden="true"
-          className="size-8 rounded-md object-cover"
-          onError={(event) => {
-            event.currentTarget.style.visibility = 'hidden'
-          }}
+        <BankLogo
+          icon={credential.bank_icon}
+          name={title}
+          seed={credential.bank_name ?? credential.bank}
         />
         <span className="flex flex-1 flex-col">
-          <span className="text-sm font-medium">
-            {t(`banks.${credential.bank}.title`, { defaultValue: credential.bank })}
-          </span>
+          <span className="text-sm font-medium">{title}</span>
           <span className="text-muted-foreground text-xs">{lastSyncedLabel}</span>
         </span>
         <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />

@@ -21,11 +21,17 @@ export interface CredentialFieldSpec {
 }
 
 export interface SupportedBank {
+  provider: string
+  key: string
   name: string
+  bic: string | null
+  icon: string | null
+  tested: boolean
   required_fields: string[]
-  icon: string
-  bank_identifier?: string
   field_rules?: Record<string, CredentialFieldSpec>
+  /** Branch BLZs covered by this entry. Empty for non-FinTS providers; length>1 means
+   *  the user must supply an IBAN to disambiguate. */
+  blzs: string[]
 }
 
 export const credentialQueryKeys = {

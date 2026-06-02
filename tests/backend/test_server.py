@@ -17,6 +17,8 @@ from source.backend import main, server
 from source.backend.db import get_session
 from sqlalchemy.orm import sessionmaker
 
+from tests.backend.conftest import VALID_PASSWORD
+
 
 def test_run_invokes_uvicorn_with_resolved_options(monkeypatch: pytest.MonkeyPatch):
     from unittest.mock import MagicMock
@@ -168,7 +170,7 @@ def test_server_honors_x_forwarded_for_when_proxy_is_trusted(isolated_app: None,
                 json={
                     "user_name": "proxied",
                     "display_name": "Proxied",
-                    "password": "Sup3rSecret!Pass",  # nosec B105
+                    "password": VALID_PASSWORD,
                 },
             )
             user_id = registered.json()["id"]

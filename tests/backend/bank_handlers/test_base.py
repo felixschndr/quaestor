@@ -5,7 +5,7 @@ from tests.backend.conftest import create_fetched_transaction
 
 
 def test_field_rules_default_to_empty_for_banks_without_rules():
-    assert BANKS_BY_NAME["ing"].information_for_user["field_rules"] == {}
+    assert BANKS_BY_NAME["dfs"].information_for_user["field_rules"] == {}
 
 
 @pytest.mark.parametrize(

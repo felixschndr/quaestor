@@ -38,7 +38,9 @@ function buildAccount(overrides: Partial<AccountRead> = {}): AccountRead {
 function buildCredential(overrides: Partial<CredentialRead> = {}): CredentialRead {
   return {
     id: 42,
-    bank: 'sparkasse',
+    bank: 'fints',
+    bank_name: null,
+    bank_icon: null,
     accounts: [],
     last_fetching_timestamp: null,
     requires_two_factor_authentication: false,
@@ -87,15 +89,16 @@ describe('CredentialDetailView', () => {
     renderWithQuery(
       <CredentialDetailView
         credential={buildCredential({
-          bank: 'ing',
+          bank: 'trade_republic',
+          bank_icon: '/static/banks/trade_republic.png',
           last_fetching_timestamp: '2026-05-20T10:00:00Z',
         })}
         onDeleted={vi.fn()}
       />,
     )
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ING')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Trade Republic')
     // The logo has alt="" + aria-hidden so it isn't queryable by role; check the DOM directly.
-    expect(document.querySelector('img[src="/static/banks/ing.png"]')).not.toBeNull()
+    expect(document.querySelector('img[src="/static/banks/trade_republic.png"]')).not.toBeNull()
     expect(screen.getByText(/Last synced:/)).toBeInTheDocument()
   })
 

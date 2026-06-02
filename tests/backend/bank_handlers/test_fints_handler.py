@@ -15,7 +15,7 @@ from source.backend.exceptions import (
     ReauthenticationRequiredError,
 )
 
-from tests.backend.conftest import CHALLENGE_TOKEN
+from tests.backend.conftest import BANK_PASSWORD, BANK_USERNAME, CHALLENGE_TOKEN, PIN
 
 
 @dataclass
@@ -24,24 +24,26 @@ class _FakeMechanism:
     description_required: str | None = None
 
 
-def _ing_handler() -> FinTSHandler:
-    bank_info = BANKS_BY_NAME[BankProvider.ING.value]
-    return FinTSHandler(bank_info=bank_info, credentials={"username": "u", "password": "p"})  # nosec B105
+_FAKE_BANK_INFO = BankInfo(
+    name="pinned",
+    handler=FinTSHandler,
+    bank_identifier="50010517",
+    fints_url="https://fints.ing.de/fints/",
+)
 
 
-def _sparkasse_handler(blz: str = "66050101") -> FinTSHandler:
-    bank_info = BANKS_BY_NAME[BankProvider.SPARKASSE.value]
-    credentials = {"blz": blz, "username": "u", "password": "p"}  # nosec B105
+def _fints_handler(blz: str = "66050101") -> FinTSHandler:
+    bank_info = BANKS_BY_NAME[BankProvider.FINTS.value]
+    credentials = {"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": blz}
     return FinTSHandler(bank_info=bank_info, credentials=credentials)
 
 
 def test_credential_fields_omit_blz_when_bank_identifier_is_pinned() -> None:
-    bank_info = BANKS_BY_NAME[BankProvider.ING.value]
-    assert FinTSHandler.credential_fields(bank_info) == ("username", "password")
+    assert FinTSHandler.credential_fields(_FAKE_BANK_INFO) == ("username", "password")
 
 
 def test_credential_fields_include_blz_when_bank_identifier_is_missing() -> None:
-    bank_info = BANKS_BY_NAME[BankProvider.SPARKASSE.value]
+    bank_info = BANKS_BY_NAME[BankProvider.FINTS.value]
     assert FinTSHandler.credential_fields(bank_info) == ("username", "password", "blz")
 
 
@@ -59,7 +61,9 @@ def test_client_uses_pinned_bank_identifier_and_url(monkeypatch: pytest.MonkeyPa
         value=MagicMock(find=MagicMock(side_effect=AssertionError("should not be called"))),
     )
 
-    _ing_handler().client(user_id="user", pin="pin")
+    FinTSHandler(bank_info=_FAKE_BANK_INFO, credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD}).client(
+        user_id=BANK_USERNAME, pin=PIN
+    )
 
     assert captured["bank_identifier"] == "50010517"
     assert captured["server"] == "https://fints.ing.de/fints/"
@@ -77,7 +81,7 @@ def test_client_resolves_blz_and_url_for_unpinned_bank(monkeypatch: pytest.Monke
         target=module, name="fints_url", value=MagicMock(find=lambda bank_code: f"https://lookup/{bank_code}")
     )
 
-    _sparkasse_handler(blz="66050101").client(user_id="user", pin="pin")
+    _fints_handler(blz="66050101").client(user_id=BANK_USERNAME, pin=PIN)
 
     assert captured["bank_identifier"] == "66050101"
     assert captured["server"] == "https://lookup/66050101"
@@ -90,7 +94,7 @@ def test_client_raises_invalid_credentials_for_unknown_blz(monkeypatch: pytest.M
     monkeypatch.setattr(target=module, name="fints_url", value=MagicMock(find=boom))
 
     with pytest.raises(InvalidCredentialsError, match="No FinTS server known for BLZ 99999999"):
-        _sparkasse_handler(blz="99999999").client(user_id="u", pin="p")
+        _fints_handler(blz="99999999").client(user_id=BANK_USERNAME, pin=PIN)
 
 
 def test_configure_pushtan_picks_mechanism_by_name() -> None:
@@ -260,7 +264,7 @@ def test_session_translates_missing_system_id_into_invalid_credentials(monkeypat
     monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
 
     with pytest.raises(InvalidCredentialsError):
-        with _ing_handler().session():
+        with _fints_handler().session():
             pass
 
 
@@ -272,7 +276,7 @@ def test_session_translates_fints_pin_error_into_invalid_credentials(monkeypatch
     monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
 
     with pytest.raises(InvalidCredentialsError):
-        with _ing_handler().session():
+        with _fints_handler().session():
             pass
 
 
@@ -283,28 +287,27 @@ def test_session_does_not_swallow_unrelated_value_errors(monkeypatch: pytest.Mon
     monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
 
     with pytest.raises(ValueError, match="something else entirely"):
-        with _ing_handler().session():
+        with _fints_handler().session():
             pass
 
 
-def test_sparkasse_strips_whitespace_from_blz() -> None:
-    rules = BANKS_BY_NAME[BankProvider.SPARKASSE.value].information_for_user["field_rules"]
+def test_fints_strips_whitespace_from_blz() -> None:
+    rules = BANKS_BY_NAME[BankProvider.FINTS.value].information_for_user["field_rules"]
 
     assert rules["blz"]["strip_whitespace"] is True
     assert rules["blz"]["rules"] == []
 
 
 def test_bank_info_required_fields_reflects_handler_credential_fields() -> None:
-    sparkasse: BankInfo = BANKS_BY_NAME[BankProvider.SPARKASSE.value]
-    ing: BankInfo = BANKS_BY_NAME[BankProvider.ING.value]
-    assert sparkasse.required_fields == ["username", "password", "blz"]
-    assert ing.required_fields == ["username", "password"]
+    fints = BANKS_BY_NAME[BankProvider.FINTS.value]
+    assert fints.required_fields == ["username", "password", "blz"]
+    assert _FAKE_BANK_INFO.required_fields == ["username", "password"]
 
 
 def test_fints_handler_offers_no_out_of_band_two_factor_challenge() -> None:
-    assert _ing_handler().begin_two_factor_challenge(credential_id=1) is None
+    assert _fints_handler().begin_two_factor_challenge(credential_id=1) is None
 
 
 def test_fints_handler_complete_two_factor_challenge_is_not_supported() -> None:
     with pytest.raises(NotImplementedError):
-        _ing_handler().complete_two_factor_challenge(challenge_token=CHALLENGE_TOKEN, credential_id=1, code="0000")
+        _fints_handler().complete_two_factor_challenge(challenge_token=CHALLENGE_TOKEN, credential_id=1, code="0000")

@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { bankIconUrl } from '@/lib/accounts'
+import { BankLogo } from '@/components/BankLogo'
 import type { Current2FA } from '@/lib/auth'
 
 export interface TwoFactorModalProps {
@@ -50,7 +50,8 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
   }
 
   const bankTitle = current2fa
-    ? t(`banks.${current2fa.bank}.title`, { defaultValue: current2fa.bank })
+    ? (current2fa.bankName ??
+      t(`banks.${current2fa.bank}.title`, { defaultValue: current2fa.bank }))
     : ''
 
   return (
@@ -59,7 +60,12 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
         {current2fa?.kind === 'awaiting_decoupled_approval' ? (
           <>
             <DialogHeader>
-              <BankIcon bank={current2fa.bank} />
+              <BankLogo
+                icon={current2fa.bankIcon}
+                name={bankTitle}
+                seed={current2fa.bankName ?? current2fa.bank}
+                className="mx-auto size-12"
+              />
               <DialogTitle>{t('sync.twoFactor.decoupledTitle', { bank: bankTitle })}</DialogTitle>
               <DialogDescription>
                 {t('sync.twoFactor.decoupledDescription', { bank: bankTitle })}
@@ -72,7 +78,12 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
         ) : current2fa?.kind === 'awaiting_2fa' ? (
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
             <DialogHeader>
-              <BankIcon bank={current2fa.bank} />
+              <BankLogo
+                icon={current2fa.bankIcon}
+                name={bankTitle}
+                seed={current2fa.bankName ?? current2fa.bank}
+                className="mx-auto size-12"
+              />
               <DialogTitle>{t('sync.twoFactor.codeTitle', { bank: bankTitle })}</DialogTitle>
               <DialogDescription>{t('sync.twoFactor.codeDescription')}</DialogDescription>
             </DialogHeader>
@@ -94,19 +105,5 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
         ) : null}
       </DialogContent>
     </Dialog>
-  )
-}
-
-function BankIcon({ bank }: { bank: string }) {
-  return (
-    <img
-      src={bankIconUrl(bank)}
-      alt=""
-      aria-hidden="true"
-      className="mx-auto size-12 rounded-lg object-cover"
-      onError={(event) => {
-        event.currentTarget.style.visibility = 'hidden'
-      }}
-    />
   )
 }
