@@ -8,6 +8,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 env:
   PLATFORMS: linux/amd64
   IMAGE_NAME: ghcr.io/${{ github.repository }}
