@@ -8,7 +8,7 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.14"
-sqlalchemy = "^2.0.49"
+sqlalchemy = "^2.0.50"
 fastapi = "^0.136.1"
 pydantic = "^2.13.4"
 alembic = "^1.18.4"
