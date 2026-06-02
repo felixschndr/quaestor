@@ -4,10 +4,14 @@
 
 Quaestor consolidates the balances and transactions from all your banks into a single view → no more juggling a separate app per bank. Click any account to browse its transactions, grouped by date.
 
+This app is heavily inspired by [Finanzguru](https://github.com/finanzguru/finanzguru), with the key benefit that it is completely free, open source, and **private** since all the data stays on your own server.
+
 The tool is strictly read-only: it only ever *reads* your data and can **never** make changes to your accounts or move money.
 
 > [!NOTE]
 > This project is still in early development and [might include major changes in the near future](#future-changes).
+
+This app is primarily intended for German users. You can find the reason for this in the [supported banks](#supported-banks) section.
 
 ## Screenshots
 
@@ -42,6 +46,10 @@ The tool is strictly read-only: it only ever *reads* your data and can **never**
 
 <img src="docs/screenshots/settings_credentials.png" width="400" alt="Bank connections">
 
+**Adding a bank connection**: Search for a bank and add it
+
+<img src="docs/screenshots/settings_credentials_new.png" width="400" alt="Adding a bank connection">
+
 **Bank connection details**: Settings for a single connection
 
 <img src="docs/screenshots/settings_credentials_single.png" width="400" alt="Bank connection details">
@@ -63,7 +71,7 @@ The tool is strictly read-only: it only ever *reads* your data and can **never**
 ## Features
 
 - **Unified overview** of all your bank accounts and their balances in one place
-- **Multiple connection types**: Trade Republic, FinTS (Sparkasse, DKB, ING and more) and manual accounts for cash or assets you track yourself
+- **Multiple connection types**: Connects to multiple banks to fetch your data, see the [supported banks](#supported-banks) section
 - **Automatic background syncing** on a configurable interval, plus on-demand sync
 - **Transactions grouped by date**, covering past, today, and scheduled entries
 - **Balance on any date**: see what an account's balance was on a given day
@@ -75,6 +83,31 @@ The tool is strictly read-only: it only ever *reads* your data and can **never**
 - **Session management**: review active logins and sign out individual sessions
 - **Light & dark mode**
 
+## Supported banks
+
+The following connections are currently supported:
+
+- Trade Republic
+- _All_ FinTS banks
+  - FinTS is a _standardized_ protocol for banking. It allows this app to fetch balances and transactions from any bank that supports it. It's a standard that mostly German banks use (because they are legally obligated to do so). However, not all banks implement it the same way.
+  - Thus, **tested** are
+    - ING-DiBa
+    - Deutsche Kreditbank Berlin (DKB)
+    - Sparkasse Karlsruhe
+  - But the app gets a list of all banks that support FinTS and they _should_ work. If they don't, please open an issue.
+    - This can have some common reasons:
+      - The bank uses an unsupported way to implement 2FA.
+      - The FinTS url of the bank is not correct in the upstream database.
+    - If you encounter such a bank, please open an issue and we can work together to implement it.
+- Manual accounts: These allow the user to set the balance and add transactions manually.
+- Deutsche Flugsicherung GmbH retirement plan (http://www.dfs-vorsorgeplan.de / https://www.value-account.eu)
+- fin4u retirement plan (https://www.alte-leipziger.de/service/rund-um-ihre-vertraege/kundenportal-fin4u)
+
+### Why are some banks not supported?
+
+This is a hobby project. Apps such as Finanzguru can support more banks because they use the `PSD2` standard, which exposes more data and supports more banks than FinTS does. However, it requires an expensive banking license (several thousand dollars) to use.
+
+This is the reason why PayPal is not supported by this App. To fetch PayPal personal accounts, you need a PSD2 license. I could implement business accounts of PayPal, please open an issue if you need this.
 
 ## Security
 
