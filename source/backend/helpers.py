@@ -3,16 +3,21 @@ import pathlib
 import tomllib
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from source.backend.bank_handlers.base import FetchedTransaction
     from source.backend.models.transaction import Transaction
 
 
-def get_key_of_transaction(transaction: "Union[Transaction, FetchedTransaction]") -> str:
+def get_key_of_transaction(transaction: "FetchedTransaction | Transaction") -> str:
     # Only use fields that cannot change
     return f"{transaction.date} {transaction.purpose} {transaction.other_party} {transaction.amount}"
+
+
+def format_transaction_for_categorization(transaction: "FetchedTransaction | Transaction") -> str:
+    id_insert = f"id={transaction.id}, " if getattr(transaction, "id", None) else ""
+    return f"<{transaction.__class__.__name__}({id_insert}amount={transaction.amount}, purpose={transaction.purpose}, other_party={transaction.other_party}, transaction_type={transaction.transaction_type})>"
 
 
 def epoch_ms_to_date(value: str | int) -> date:

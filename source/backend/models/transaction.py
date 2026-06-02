@@ -2,6 +2,7 @@ import datetime
 from typing import TYPE_CHECKING
 
 from source.backend.bank_handlers.base import FetchedTransaction
+from source.backend.helpers import format_transaction_for_categorization
 from source.backend.logging_utils import get_logger
 from source.backend.models.base import Base
 from source.backend.models.transaction_category import TransactionCategory
@@ -67,6 +68,9 @@ class Transaction(Base):
             category=TransactionCategory.from_transaction(transaction=fetched_transaction),
         )
         return transaction
+
+    def to_string_for_transaction_categorization(self) -> str:
+        return format_transaction_for_categorization(self)
 
 
 @event.listens_for(target=Transaction, identifier="before_delete")

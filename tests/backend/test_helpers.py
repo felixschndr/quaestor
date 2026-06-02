@@ -2,8 +2,10 @@ from datetime import date
 from typing import Any
 
 import pytest
+from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.helpers import (
     epoch_ms_to_date,
+    format_transaction_for_categorization,
     get_backend_source_path,
     get_frontend_source_path,
     get_key_of_transaction,
@@ -11,6 +13,7 @@ from source.backend.helpers import (
     get_root_path_of_repository,
 )
 from source.backend.models.transaction import Transaction
+from source.backend.models.transaction_type import TransactionType
 
 from tests.backend.conftest import create_fetched_transaction
 
@@ -83,6 +86,27 @@ def test_get_frontend_source_path_points_at_source_frontend():
 
 def test_get_project_name_reads_the_name_from_pyproject():
     assert get_project_name() == "Quaestor"
+
+
+def test_format_transaction_for_categorization_renders_identifying_fields():
+    fetched_transaction = FetchedTransaction(
+        amount=-19.99,
+        purpose="Coffee",
+        other_party="Café",
+        date=date(year=2026, month=5, day=20),
+        transaction_type=TransactionType.OUTGOING,
+    )
+    transaction = Transaction.from_fetched(fetched_transaction)
+    transaction.id = 1
+
+    assert format_transaction_for_categorization(fetched_transaction) == (
+        f"<FetchedTransaction(amount={transaction.amount}, purpose={transaction.purpose}, "
+        f"other_party={transaction.other_party}, transaction_type={transaction.transaction_type})>"
+    )
+    assert format_transaction_for_categorization(transaction) == (
+        f"<Transaction(id={transaction.id}, amount={transaction.amount}, purpose={transaction.purpose}, "
+        f"other_party={transaction.other_party}, transaction_type={transaction.transaction_type})>"
+    )
 
 
 def test_backend_and_frontend_are_siblings_under_the_repo_root():

@@ -55,7 +55,7 @@ class TransactionCategory(str, Enum):
                 if any(matcher in haystack for haystack in haystacks):
                     return category
 
-        logger.warning(f"No category matched for {transaction}")
+        logger.info(f"No category matched for {transaction.to_string_for_transaction_categorization()}")
         return cls.UNKNOWN
 
 
