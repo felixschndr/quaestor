@@ -39,7 +39,7 @@ jobs:
         run: poetry run python scripts/dump_openapi.py site/openapi.json
 
       - name: Build static ReDoc page
-        run: npx --yes @redocly/cli build-docs site/openapi.json -o site/index.html --title "Quaestor API"
+        run: npx --yes @redocly/cli build-docs site/openapi.json -o site/index.html --title "Quaestor API Docs"
 
       - name: Add favicon
         run: |
