@@ -195,4 +195,4 @@ sqlite> SELECT id, user_id, bank, username FROM credentials;
 
 ## Future changes
 
-There is [a doc](docs/ideas_for_the_future.md) in which I add ideas I might want to implement in the future. If you think anything is missing, feel free to open an issue/PR.
+Ideas I might want to implement in the future are tracked as [`enhancement` issues](https://github.com/felixschndr/quaestor/issues?q=is%3Aissue+state%3Aopen+label%3Aenhancement). If you think anything is missing, feel free to open an issue/PR.
