@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
     DISPLAY_NAME,
+    TWO_FACTOR_SECRET,
     USER_NAME,
     VALID_PASSWORD_HASH,
     make_account,
@@ -20,14 +21,18 @@ def test_user_repr_contains_identifying_fields_but_not_password():
         password_hash=VALID_PASSWORD_HASH,
         language="en",
         theme=Theme.SYSTEM,
+        two_factor_secret=TWO_FACTOR_SECRET,
+        two_factor_enabled=False,
     )
 
     representation = repr(user)
 
-    assert (
-        representation == f"<User(id=1, user_name={USER_NAME}, display_name={DISPLAY_NAME}, language=en, theme=SYSTEM)>"
+    assert representation == (
+        f"<User(id=1, user_name={USER_NAME}, display_name={DISPLAY_NAME}, "
+        "language=en, theme=SYSTEM, two_factor_enabled=False)>"
     )
     assert VALID_PASSWORD_HASH not in representation
+    assert TWO_FACTOR_SECRET not in representation
 
 
 def test_user_language_defaults_to_en(session_factory: sessionmaker):

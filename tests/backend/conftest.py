@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
+import pyotp
 import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
@@ -41,6 +42,7 @@ HTTP_SESSION_TOKEN = "eyJ_test_token_payload"  # nosec B105
 CHALLENGE_TOKEN = "challenge-token"  # nosec B105
 BANK_USERNAME = "bankuser"
 BANK_PASSWORD = "bankpass"  # nosec B105
+TWO_FACTOR_SECRET = "T2UXK5D6ZPTJ3WF2YXHYGGXKIT2G5LUH"  # nosec B105  # gitleaks:allow
 UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"
 
 
@@ -113,6 +115,18 @@ def login_as(http_client: TestClient, user_name: str, password: str = VALID_PASS
     # Drop only the session cookie; the csrf_token must stay so the POST is accepted.
     http_client.cookies.delete("session")
     return http_client.post("/api/auth/login", json={"user_name": user_name, "password": password})
+
+
+def current_totp(secret: str) -> str:
+    return pyotp.TOTP(secret).now()
+
+
+def enable_two_factor(http_client: TestClient, user_id: int) -> tuple[str, list[str]]:
+    secret = http_client.post(f"/api/users/{user_id}/2fa/setup").json()["secret"]
+    backup_codes = http_client.post(f"/api/users/{user_id}/2fa/enable", json={"code": current_totp(secret)}).json()[
+        "backup_codes"
+    ]
+    return secret, backup_codes
 
 
 def create_credential(

@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
+import { TwoFactorSetup } from '@/components/two-factor-setup'
 import { ApiError } from '@/lib/api'
 import {
   evaluatePassword,
@@ -21,6 +23,7 @@ import {
   type PasswordRequirements,
   type Theme,
 } from '@/lib/auth'
+import { useVerifyTwoFactorLogin } from '@/lib/twoFactor'
 import { applyTheme, readStoredTheme, THEME_VALUES } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
@@ -137,9 +140,15 @@ function buildLoginSchema(t: (key: string) => string) {
   })
 }
 
+interface PendingChallenge {
+  challengeToken: string
+  rememberMe: boolean
+}
+
 export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
   const { t } = useTranslation()
   const login = useLogin()
+  const [challenge, setChallenge] = useState<PendingChallenge | null>(null)
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(buildLoginSchema(t)),
@@ -148,7 +157,11 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await login.mutateAsync(values)
+      const result = await login.mutateAsync(values)
+      if (result.kind === 'two_factor_required') {
+        setChallenge({ challengeToken: result.challenge_token, rememberMe: values.remember_me })
+        return
+      }
       onSuccess()
     } catch (err) {
       applyServerError(err, form.setError as unknown as SetError, t)
@@ -156,6 +169,17 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
   })
 
   const topLevelError = readTopLevelError(login.error, t)
+
+  if (challenge) {
+    return (
+      <TwoFactorLoginStep
+        challengeToken={challenge.challengeToken}
+        rememberMe={challenge.rememberMe}
+        onSuccess={onSuccess}
+        onBack={() => setChallenge(null)}
+      />
+    )
+  }
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
@@ -192,12 +216,87 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
   )
 }
 
+function TwoFactorLoginStep({
+  challengeToken,
+  rememberMe,
+  onSuccess,
+  onBack,
+}: {
+  challengeToken: string
+  rememberMe: boolean
+  onSuccess: () => void
+  onBack: () => void
+}) {
+  const { t } = useTranslation()
+  const verify = useVerifyTwoFactorLogin()
+  const [code, setCode] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const onSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setError(null)
+    try {
+      await verify.mutateAsync({
+        challenge_token: challengeToken,
+        code: code.trim(),
+        remember_me: rememberMe,
+      })
+      onSuccess()
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setError(t('twoFactor.invalidCode'))
+        return
+      }
+      if (err instanceof ApiError && err.status === 429) {
+        setError(t('login.rateLimited'))
+        return
+      }
+      setError(t('login.genericError'))
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-foreground text-lg font-semibold">{t('twoFactor.loginTitle')}</h2>
+        <p className="text-muted-foreground text-sm">{t('twoFactor.loginHint')}</p>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="login-2fa-code">{t('twoFactor.codeLabel')}</Label>
+        <Input
+          id="login-2fa-code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          autoFocus
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'login-2fa-code-error' : undefined}
+        />
+        {error ? (
+          <p id="login-2fa-code-error" role="alert" className="text-destructive text-xs">
+            {error}
+          </p>
+        ) : null}
+      </div>
+      <p className="text-muted-foreground text-xs">{t('twoFactor.backupLoginHint')}</p>
+      <Button type="submit" disabled={verify.isPending || code.trim().length === 0}>
+        {t('twoFactor.verifyLogin')}
+      </Button>
+      <Button type="button" variant="outline" onClick={onBack} disabled={verify.isPending}>
+        {t('common.cancel')}
+      </Button>
+    </form>
+  )
+}
+
 interface RegisterValues {
   user_name: string
   display_name: string
   password: string
   password_confirm: string
   theme: Theme
+  enable_two_factor: boolean
 }
 
 function buildRegisterSchema(t: (key: string) => string) {
@@ -208,6 +307,7 @@ function buildRegisterSchema(t: (key: string) => string) {
       password: z.string().min(1, { message: t('login.required') }),
       password_confirm: z.string().min(1, { message: t('login.required') }),
       theme: z.enum(THEME_VALUES as readonly [Theme, ...Theme[]]),
+      enable_two_factor: z.boolean(),
     })
     .refine((values) => values.password === values.password_confirm, {
       path: ['password_confirm'],
@@ -219,6 +319,7 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
   const { t } = useTranslation()
   const register = useRegister()
   const { data: passwordRequirements } = usePasswordRequirements()
+  const [setupUserId, setSetupUserId] = useState<number | null>(null)
 
   const form = useForm<RegisterValues>({
     resolver: zodResolver(buildRegisterSchema(t)),
@@ -230,17 +331,22 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
       // Pre-fill with whatever the user already picked pre-login (or SYSTEM
       // for a first-time visitor); the select reflects this default.
       theme: readStoredTheme(),
+      enable_two_factor: false,
     },
   })
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await register.mutateAsync({
+      const user = await register.mutateAsync({
         user_name: values.user_name,
         display_name: values.display_name,
         password: values.password,
         theme: values.theme,
       })
+      if (values.enable_two_factor) {
+        setSetupUserId(user.id)
+        return
+      }
       onSuccess()
     } catch (err) {
       applyServerError(err, form.setError as unknown as SetError, t)
@@ -249,6 +355,19 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
 
   const topLevelError = readTopLevelError(register.error, t)
   const password = form.watch('password')
+
+  if (setupUserId !== null) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-foreground text-lg font-semibold">{t('twoFactor.setupTitle')}</h2>
+        </div>
+        {/* No cancel here: the account already exists; finishing (or skipping via "done"
+            after enabling) is the only forward path. */}
+        <TwoFactorSetup userId={setupUserId} onFinished={onSuccess} />
+      </div>
+    )
+  }
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
@@ -305,6 +424,18 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
           ))}
         </select>
       </div>
+
+      <label className="border-border bg-card flex items-center justify-between gap-3 rounded-md border p-3">
+        <span className="flex flex-col">
+          <span className="text-sm font-medium">{t('twoFactor.enableLabel')}</span>
+          <span className="text-muted-foreground text-xs">{t('twoFactor.enableHint')}</span>
+        </span>
+        <Switch
+          checked={form.watch('enable_two_factor')}
+          onCheckedChange={(checked) => form.setValue('enable_two_factor', checked === true)}
+          aria-label={t('twoFactor.enableLabel')}
+        />
+      </label>
 
       {topLevelError ? <FormErrorBanner message={topLevelError} /> : null}
 

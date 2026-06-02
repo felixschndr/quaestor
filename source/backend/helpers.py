@@ -1,4 +1,6 @@
+import functools
 import pathlib
+import tomllib
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Union
@@ -19,6 +21,13 @@ def epoch_ms_to_date(value: str | int) -> date:
 
 def get_root_path_of_repository() -> Path:
     return pathlib.Path(__file__).parent.parent.parent
+
+
+@functools.cache
+def get_project_name() -> str:
+    pyproject_path = get_root_path_of_repository() / "pyproject.toml"
+    with pyproject_path.open("rb") as handle:
+        return tomllib.load(handle)["tool"]["poetry"]["name"]
 
 
 def _get_source_path() -> Path:

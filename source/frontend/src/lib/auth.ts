@@ -34,6 +34,7 @@ export interface UserRead {
   display_name: string
   language: string
   theme: Theme
+  two_factor_enabled: boolean
   balance: number
   credentials: CredentialRead[]
 }
@@ -131,13 +132,36 @@ export interface LoginPayload {
   remember_me: boolean
 }
 
+interface TwoFactorRequiredResponse {
+  two_factor_required: true
+  challenge_token: string
+}
+
+export type LoginResult =
+  | { kind: 'authenticated'; user: UserRead }
+  | { kind: 'two_factor_required'; challenge_token: string }
+
+function isTwoFactorRequired(value: unknown): value is TwoFactorRequiredResponse {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { two_factor_required?: unknown }).two_factor_required === true
+  )
+}
+
 export function useLogin() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (payload: LoginPayload) =>
-      api<UserRead>('/auth/login', { method: 'POST', body: payload }),
-    onSuccess: (user) => {
-      queryClient.setQueryData(authQueryKeys.me, user)
+    mutationFn: async (payload: LoginPayload): Promise<LoginResult> => {
+      const response = await api<UserRead | TwoFactorRequiredResponse>('/auth/login', {
+        method: 'POST',
+        body: payload,
+      })
+      if (isTwoFactorRequired(response)) {
+        return { kind: 'two_factor_required', challenge_token: response.challenge_token }
+      }
+      queryClient.setQueryData(authQueryKeys.me, response)
+      return { kind: 'authenticated', user: response }
     },
   })
 }

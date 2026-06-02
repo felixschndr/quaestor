@@ -208,6 +208,152 @@ describe('RegisterForm', () => {
   })
 })
 
+describe('two-factor login', () => {
+  it('shows the code step on two_factor_required, then completes via /api/auth/2fa', async () => {
+    const user = userEvent.setup()
+    ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
+      if (url === '/api/auth/login') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 200,
+            body: { two_factor_required: true, challenge_token: 'tok-123' },
+          }),
+        )
+      }
+      if (url === '/api/auth/2fa') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 200,
+            body: {
+              id: 1,
+              user_name: 'alice',
+              display_name: 'Alice',
+              language: 'en',
+              two_factor_enabled: true,
+              balance: 0,
+            },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`))
+    })
+    const onSuccess = vi.fn()
+
+    renderWithQuery(<LoginForm onSuccess={onSuccess} />)
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Password'), 'wonderland-1234!')
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+
+    const codeInput = await screen.findByLabelText('Authentication code')
+    expect(onSuccess).not.toHaveBeenCalled()
+    await user.type(codeInput, '123456')
+    await user.click(screen.getByRole('button', { name: 'Verify' }))
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1))
+    const verifyCall = (globalThis.fetch as Mock).mock.calls.find(
+      ([url]) => url === '/api/auth/2fa',
+    )
+    expect(JSON.parse(verifyCall![1].body)).toEqual({
+      challenge_token: 'tok-123',
+      code: '123456',
+      remember_me: false,
+    })
+  })
+
+  it('shows an inline error when the 2FA code is rejected', async () => {
+    const user = userEvent.setup()
+    ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
+      if (url === '/api/auth/login') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 200,
+            body: { two_factor_required: true, challenge_token: 'tok' },
+          }),
+        )
+      }
+      if (url === '/api/auth/2fa') {
+        return Promise.resolve(
+          jsonResponse({ status: 401, body: { detail: 'Invalid two-factor code' } }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`))
+    })
+
+    renderWithQuery(<LoginForm onSuccess={vi.fn()} />)
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Password'), 'wonderland-1234!')
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+    await user.type(await screen.findByLabelText('Authentication code'), '000000')
+    await user.click(screen.getByRole('button', { name: 'Verify' }))
+
+    expect(
+      await screen.findByText('That code is not correct. Please try again.'),
+    ).toBeInTheDocument()
+  })
+})
+
+describe('registration with two-factor', () => {
+  it('runs the setup flow and reveals backup codes when the switch is on', async () => {
+    const user = userEvent.setup()
+    ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
+      if (url === '/api/auth/password_requirements') {
+        return Promise.resolve(jsonResponse({ status: 200, body: PASSWORD_REQUIREMENTS }))
+      }
+      if (url === '/api/auth/register') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 201,
+            body: {
+              id: 1,
+              user_name: 'alice',
+              display_name: 'Alice',
+              language: 'en',
+              two_factor_enabled: false,
+              balance: 0,
+            },
+          }),
+        )
+      }
+      if (url === '/api/users/1/2fa/setup') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 200,
+            body: {
+              secret: 'JBSWY3DPEHPK3PXP',
+              otpauth_uri: 'otpauth://x',
+              qr_code: 'data:image/svg+xml;base64,abc',
+            },
+          }),
+        )
+      }
+      if (url === '/api/users/1/2fa/enable') {
+        return Promise.resolve(
+          jsonResponse({ status: 200, body: { backup_codes: ['AAAAA-BBBBB-CCCCC'] } }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`))
+    })
+    const onSuccess = vi.fn()
+
+    renderWithQuery(<RegisterForm onSuccess={onSuccess} />)
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Display name'), 'Alice')
+    await user.type(screen.getByLabelText('Password'), 'Sup3rSecret!Pass')
+    await user.type(screen.getByLabelText('Confirm password'), 'Sup3rSecret!Pass')
+    await user.click(screen.getByRole('switch', { name: 'Enable two-factor authentication' }))
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByText('JBSWY3DPEHPK3PXP')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Authentication code'), '123456')
+    await user.click(screen.getByRole('button', { name: 'Verify and enable' }))
+
+    expect(await screen.findByText('AAAAA-BBBBB-CCCCC')).toBeInTheDocument()
+    expect(onSuccess).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: "I've saved my backup codes" }))
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1))
+  })
+})
+
 describe('LoginPageContent', () => {
   it('renders the disabled-registration message when registration is off', async () => {
     const user = userEvent.setup()

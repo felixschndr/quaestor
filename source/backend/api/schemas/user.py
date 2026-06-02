@@ -65,6 +65,7 @@ class UserRead(BaseModel):
     display_name: str
     language: str
     theme: Theme
+    two_factor_enabled: bool
     balance: float
     credentials: list[CredentialRead] = []
 

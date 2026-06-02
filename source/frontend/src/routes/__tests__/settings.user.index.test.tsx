@@ -42,6 +42,7 @@ function buildUser(overrides: Partial<UserRead> = {}): UserRead {
     display_name: 'Alice',
     language: 'en',
     theme: 'SYSTEM',
+    two_factor_enabled: false,
     balance: 0,
     credentials: [],
     ...overrides,
@@ -380,5 +381,135 @@ describe('SettingsUserPageContent', () => {
     // Second click: confirm → DELETE fires and the callback runs.
     await user.click(screen.getByRole('button', { name: 'Yes, delete my account' }))
     await waitFor(() => expect(onAccountDeleted).toHaveBeenCalledTimes(1))
+  })
+
+  it('enables two-factor: shows QR + secret, verifies, then reveals backup codes', async () => {
+    const user = userEvent.setup()
+    ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
+      if (url === '/api/i18n/languages') {
+        return Promise.resolve(jsonResponse({ status: 200, body: { languages: ['en'] } }))
+      }
+      if (url === '/api/auth/password_requirements') {
+        return Promise.resolve(jsonResponse({ status: 200, body: PASSWORD_REQUIREMENTS }))
+      }
+      if (url === '/api/users/1/2fa/setup') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 200,
+            body: {
+              secret: 'JBSWY3DPEHPK3PXP',
+              otpauth_uri: 'otpauth://x',
+              qr_code: 'data:image/svg+xml;base64,abc',
+            },
+          }),
+        )
+      }
+      if (url === '/api/users/1/2fa/enable') {
+        return Promise.resolve(
+          jsonResponse({ status: 200, body: { backup_codes: ['AAAAA-BBBBB-CCCCC'] } }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`))
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+    })
+    const { rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsUserPageContent
+          user={buildUser({ two_factor_enabled: false })}
+          onAccountDeleted={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByText('Two-factor authentication is off')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Enable two-factor authentication' }))
+
+    expect(await screen.findByText('JBSWY3DPEHPK3PXP')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Authentication code'), '123456')
+    await user.click(screen.getByRole('button', { name: 'Verify and enable' }))
+
+    expect(await screen.findByText('AAAAA-BBBBB-CCCCC')).toBeInTheDocument()
+    const enableCall = (globalThis.fetch as Mock).mock.calls.find(
+      ([url]) => url === '/api/users/1/2fa/enable',
+    )
+    expect(JSON.parse(enableCall![1].body)).toEqual({ code: '123456' })
+
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SettingsUserPageContent
+          user={buildUser({ two_factor_enabled: true })}
+          onAccountDeleted={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByText('AAAAA-BBBBB-CCCCC')).toBeInTheDocument()
+  })
+
+  it('disables two-factor by submitting a current code', async () => {
+    const user = userEvent.setup()
+    ;(globalThis.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
+      if (url === '/api/i18n/languages') {
+        return Promise.resolve(jsonResponse({ status: 200, body: { languages: ['en'] } }))
+      }
+      if (url === '/api/auth/password_requirements') {
+        return Promise.resolve(jsonResponse({ status: 200, body: PASSWORD_REQUIREMENTS }))
+      }
+      if (url === '/api/users/1/2fa/disable' && init?.method === 'POST') {
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`))
+    })
+
+    renderWithQuery(
+      <SettingsUserPageContent
+        user={buildUser({ two_factor_enabled: true })}
+        onAccountDeleted={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Two-factor authentication is on')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Disable two-factor authentication' }))
+    await user.type(screen.getByLabelText('Authentication code'), '654321')
+    await user.click(screen.getByRole('button', { name: 'Disable' }))
+
+    await waitFor(() => {
+      const disableCall = (globalThis.fetch as Mock).mock.calls.find(
+        ([url]) => url === '/api/users/1/2fa/disable',
+      )
+      expect(disableCall).toBeTruthy()
+      expect(JSON.parse(disableCall![1].body)).toEqual({ code: '654321' })
+    })
+  })
+
+  it('regenerates backup codes and reveals the new set', async () => {
+    const user = userEvent.setup()
+    ;(globalThis.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
+      if (url === '/api/i18n/languages') {
+        return Promise.resolve(jsonResponse({ status: 200, body: { languages: ['en'] } }))
+      }
+      if (url === '/api/auth/password_requirements') {
+        return Promise.resolve(jsonResponse({ status: 200, body: PASSWORD_REQUIREMENTS }))
+      }
+      if (url === '/api/users/1/2fa/backup-codes' && init?.method === 'POST') {
+        return Promise.resolve(
+          jsonResponse({ status: 200, body: { backup_codes: ['ZZZZZ-YYYYY-XXXXX'] } }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`))
+    })
+
+    renderWithQuery(
+      <SettingsUserPageContent
+        user={buildUser({ two_factor_enabled: true })}
+        onAccountDeleted={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Regenerate backup codes' }))
+
+    expect(await screen.findByText('ZZZZZ-YYYYY-XXXXX')).toBeInTheDocument()
   })
 })

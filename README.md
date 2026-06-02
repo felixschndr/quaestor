@@ -118,6 +118,7 @@ Security measures in place:
  - Encryption at rest: The SQLite database is fully encrypted, meaning its contents cannot be read without the encryption key (no matter whether the software is currently running or not). This applies not only to your account credentials but to **all** data stored in the database.
  - Secure communication with banks: All communication with banking servers is exclusively done via HTTP**S**.
  - Secure access to the server: I strongly recommend accessing the server only via HTTP**S** as well. Set `SSL_CERTFILE` and `SSL_KEYFILE` to enable it (see `Environment`); without them the server runs plain HTTP. Alternatively use a reverse proxy.
+ - Two-factor authentication: A user is able to enable two-factor authentication for their account.
  - Read-only operations: The software only performs read requests; it **never** writes, updates, or deletes any resources on your accounts.
  - All the dependencies are pinned and automatically updated via Dependabot: All the updates for dependencies do have to be at least 3 days old to prevent supply chain attacks before being automatically merged.
  - There is no administration account/interface: A user can only access his/her own accounts/credentials/transactions. There is no possibility for an admin to access the data of another user (other than by accessing the database directly).

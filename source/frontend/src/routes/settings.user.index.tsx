@@ -21,6 +21,9 @@ import {
   type UserRead,
 } from '@/lib/auth'
 import { useDeleteUser, useSupportedLanguages, useUpdateUser } from '@/lib/user'
+import { useDisableTwoFactor, useRegenerateBackupCodes } from '@/lib/twoFactor'
+import { TwoFactorSetup } from '@/components/two-factor-setup'
+import { BackupCodes } from '@/components/backup-codes'
 import { applyTheme, THEME_VALUES } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
@@ -57,6 +60,7 @@ export function SettingsUserPageContent({ user, onAccountDeleted }: SettingsUser
       <UserNameSection user={user} />
       <DisplayNameSection user={user} />
       <PasswordSection user={user} />
+      <TwoFactorSection user={user} />
       <DangerZone user={user} onAccountDeleted={onAccountDeleted} />
     </main>
   )
@@ -143,7 +147,7 @@ function UserNameSection({ user }: { user: UserRead }) {
           error={form.formState.errors.user_name?.message}
           {...form.register('user_name')}
         />
-        <Button type="submit" disabled={!dirty || update.isPending} className="self-start">
+        <Button type="submit" disabled={!dirty || update.isPending} className="w-full">
           {t('common.save')}
         </Button>
       </form>
@@ -195,7 +199,7 @@ function DisplayNameSection({ user }: { user: UserRead }) {
           error={form.formState.errors.display_name?.message}
           {...form.register('display_name')}
         />
-        <Button type="submit" disabled={!dirty || update.isPending} className="self-start">
+        <Button type="submit" disabled={!dirty || update.isPending} className="w-full">
           {t('common.save')}
         </Button>
       </form>
@@ -398,11 +402,145 @@ function PasswordSection({ user }: { user: UserRead }) {
           error={form.formState.errors.password_confirm?.message}
           {...form.register('password_confirm')}
         />
-        <Button type="submit" disabled={update.isPending} className="self-start">
+        <Button type="submit" disabled={update.isPending} className="w-full">
           {t('settings.changePassword')}
         </Button>
       </form>
     </Section>
+  )
+}
+
+function TwoFactorSection({ user }: { user: UserRead }) {
+  const { t } = useTranslation()
+  const [mode, setMode] = useState<'idle' | 'enabling' | 'disabling'>('idle')
+  const regenerate = useRegenerateBackupCodes(user.id)
+  const [regeneratedCodes, setRegeneratedCodes] = useState<string[] | null>(null)
+
+  const handleRegenerate = async () => {
+    try {
+      const result = await regenerate.mutateAsync()
+      setRegeneratedCodes(result.backup_codes)
+    } catch (err) {
+      toast.error(readApiErrorMessage(err, t))
+    }
+  }
+
+  function renderBody() {
+    if (mode === 'enabling') {
+      return (
+        <TwoFactorSetup
+          userId={user.id}
+          onFinished={() => setMode('idle')}
+          onCancel={() => setMode('idle')}
+        />
+      )
+    }
+    if (mode === 'disabling') {
+      return <DisableTwoFactorForm user={user} onDone={() => setMode('idle')} />
+    }
+    if (regeneratedCodes) {
+      return <BackupCodes codes={regeneratedCodes} onDone={() => setRegeneratedCodes(null)} />
+    }
+    if (!user.two_factor_enabled) {
+      return (
+        <div className="flex flex-col gap-3">
+          <p className="text-muted-foreground text-sm">{t('twoFactor.statusDisabled')}</p>
+          <Button type="button" onClick={() => setMode('enabling')} className="w-full">
+            {t('twoFactor.enable')}
+          </Button>
+        </div>
+      )
+    }
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-success flex items-center gap-1.5 text-sm font-medium">
+          <Check className="size-4" />
+          {t('twoFactor.statusEnabled')}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleRegenerate}
+            disabled={regenerate.isPending}
+            className="grow basis-40"
+          >
+            {t('twoFactor.regenerate')}
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => setMode('disabling')}
+            className="grow basis-40"
+          >
+            {t('twoFactor.disable')}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <Section title={t('twoFactor.sectionTitle')} description={t('twoFactor.sectionDescription')}>
+      {renderBody()}
+    </Section>
+  )
+}
+
+function DisableTwoFactorForm({ user, onDone }: { user: UserRead; onDone: () => void }) {
+  const { t } = useTranslation()
+  const disable = useDisableTwoFactor(user.id)
+  const [code, setCode] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const onSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setError(null)
+    try {
+      await disable.mutateAsync(code.trim())
+      toast.success(t('twoFactor.disabledToast'))
+      onDone()
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 422 || err.status === 401)) {
+        setError(t('twoFactor.invalidCode'))
+        return
+      }
+      toast.error(readApiErrorMessage(err, t))
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3">
+      <p className="text-muted-foreground text-sm">{t('twoFactor.disableHint')}</p>
+      <FieldRow
+        id={`disable-2fa-code-${user.id}`}
+        label={t('twoFactor.codeLabel')}
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        value={code}
+        onChange={(event) => setCode(event.target.value)}
+        error={error ?? undefined}
+      />
+      <div className="flex flex-col gap-2">
+        <Button
+          type="submit"
+          variant="destructive"
+          disabled={disable.isPending || code.trim().length === 0}
+          className="w-full"
+        >
+          {t('twoFactor.confirmDisable')}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onDone}
+          disabled={disable.isPending}
+          className="w-full"
+        >
+          {t('common.cancel')}
+        </Button>
+      </div>
+    </form>
   )
 }
 
@@ -428,7 +566,7 @@ function DangerZone({ user, onAccountDeleted }: { user: UserRead; onAccountDelet
           type="button"
           variant="destructive"
           onClick={() => setConfirming(true)}
-          className="self-start"
+          className="w-full"
         >
           {t('settings.deleteAccount')}
         </Button>
@@ -438,8 +576,14 @@ function DangerZone({ user, onAccountDeleted }: { user: UserRead; onAccountDelet
 
   return (
     <Section title={t('settings.dangerZone')} description={t('settings.deleteConfirm')}>
-      <div className="flex gap-2">
-        <Button type="button" variant="destructive" onClick={onConfirm} disabled={remove.isPending}>
+      <div className="flex flex-col gap-2">
+        <Button
+          type="button"
+          variant="destructive"
+          onClick={onConfirm}
+          disabled={remove.isPending}
+          className="w-full"
+        >
           {t('settings.deleteAccountConfirm')}
         </Button>
         <Button
@@ -447,6 +591,7 @@ function DangerZone({ user, onAccountDeleted }: { user: UserRead; onAccountDelet
           variant="outline"
           onClick={() => setConfirming(false)}
           disabled={remove.isPending}
+          className="w-full"
         >
           {t('common.cancel')}
         </Button>

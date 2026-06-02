@@ -2,6 +2,12 @@ from fastapi import Depends, Request
 from source.backend.api.create_router import create_router
 from source.backend.api.schemas.credential import SyncJobRead
 from source.backend.api.schemas.session import SessionRead
+from source.backend.api.schemas.two_factor import (
+    BackupCodesRead,
+    TwoFactorDisableRequest,
+    TwoFactorEnableRequest,
+    TwoFactorSetupRead,
+)
 from source.backend.api.schemas.user import UserRead, UserUpdate
 from source.backend.db import get_session
 from source.backend.exceptions import (
@@ -14,6 +20,7 @@ from source.backend.services import (
     credential_service,
     session_service,
     sync_jobs,
+    two_factor_service,
     user_service,
 )
 from source.backend.services.password_service import hash_password, verify_password
@@ -98,6 +105,51 @@ def update_user(
             raise InvalidCredentialsError("Current password is incorrect")
         fields["password_hash"] = hash_password(new_password)
     return user_service.update_user(db_session=db_session, user_id=current_user.id, fields=fields)
+
+
+@router.post("/{user_id}/2fa/setup", response_model=TwoFactorSetupRead)
+def setup_two_factor(
+    user_id: int,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> TwoFactorSetupRead:
+    _require_self(user_id=user_id, current_user=current_user)
+    secret, otpauth_uri, qr_code = two_factor_service.start_setup(db_session=db_session, user=current_user)
+    return TwoFactorSetupRead(secret=secret, otpauth_uri=otpauth_uri, qr_code=qr_code)
+
+
+@router.post("/{user_id}/2fa/enable", response_model=BackupCodesRead)
+def enable_two_factor(
+    user_id: int,
+    payload: TwoFactorEnableRequest,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> BackupCodesRead:
+    _require_self(user_id=user_id, current_user=current_user)
+    backup_codes = two_factor_service.enable(db_session=db_session, user=current_user, code=payload.code)
+    return BackupCodesRead(backup_codes=backup_codes)
+
+
+@router.post("/{user_id}/2fa/disable", status_code=204)
+def disable_two_factor(
+    user_id: int,
+    payload: TwoFactorDisableRequest,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> None:
+    _require_self(user_id=user_id, current_user=current_user)
+    two_factor_service.disable(db_session=db_session, user=current_user, code=payload.code)
+
+
+@router.post("/{user_id}/2fa/backup-codes", response_model=BackupCodesRead)
+def regenerate_two_factor_backup_codes(
+    user_id: int,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> BackupCodesRead:
+    _require_self(user_id=user_id, current_user=current_user)
+    backup_codes = two_factor_service.regenerate_backup_codes(db_session=db_session, user=current_user)
+    return BackupCodesRead(backup_codes=backup_codes)
 
 
 @router.post("/sync", response_model=list[SyncJobRead], status_code=202)

@@ -36,6 +36,7 @@ function buildUser(credentials: CredentialRead[] = []): UserRead {
     display_name: 'Alice',
     language: 'en',
     theme: 'SYSTEM',
+    two_factor_enabled: false,
     balance: 0,
     credentials,
   }

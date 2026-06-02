@@ -1,5 +1,9 @@
 from fastapi import Depends, Request, Response
 from source.backend.api.create_router import create_router
+from source.backend.api.schemas.two_factor import (
+    TwoFactorChallengeRequest,
+    TwoFactorRequired,
+)
 from source.backend.api.schemas.user import (
     MIN_PASSWORD_LENGTH,
     PASSWORD_RULES,
@@ -18,7 +22,7 @@ from source.backend.exceptions import (
 )
 from source.backend.logging_utils import get_logger
 from source.backend.models.user import User
-from source.backend.services import session_service, user_service
+from source.backend.services import session_service, two_factor_service, user_service
 from source.backend.services.password_service import verify_password
 from sqlalchemy.orm import Session
 
@@ -50,19 +54,14 @@ def register(
         theme=payload.theme,
     )
     logger.info(f"Registered {user}")
-    raw_token = session_service.create_session(
-        db_session=db_session,
-        user=user,
-        remember_me=True,
-        ip=_get_client_ip(request),
-        user_agent=_get_client_user_agent(request),
-    )
-    session_service.set_session_cookie(response=response, raw_token=raw_token, remember_me=True)
+    _start_session(request=request, response=response, db_session=db_session, user=user, remember_me=True)
     return user
 
 
-@router.post("/login", response_model=UserRead)
-def login(payload: UserLogin, request: Request, response: Response, db_session: Session = Depends(get_session)) -> User:
+@router.post("/login", response_model=None)
+def login(
+    payload: UserLogin, request: Request, response: Response, db_session: Session = Depends(get_session)
+) -> UserRead | TwoFactorRequired:
     error_message_in_case_of_invalid_credentials = "Invalid name or password"
     try:
         user = user_service.get_user_by_user_name(db_session=db_session, user_name=payload.user_name)
@@ -71,15 +70,45 @@ def login(payload: UserLogin, request: Request, response: Response, db_session: 
     if not verify_password(password_hash=user.password_hash, password_to_verify=payload.password):
         raise InvalidCredentialsError(error_message_in_case_of_invalid_credentials)
 
+    if user.two_factor_enabled:
+        challenge_token = two_factor_service.create_challenge(db_session=db_session, user=user)
+        return TwoFactorRequired(challenge_token=challenge_token)
+
+    _start_session(
+        request=request, response=response, db_session=db_session, user=user, remember_me=payload.remember_me
+    )
+    return UserRead.model_validate(user)
+
+
+@router.post("/2fa", response_model=UserRead)
+def verify_two_factor(
+    payload: TwoFactorChallengeRequest,
+    request: Request,
+    response: Response,
+    db_session: Session = Depends(get_session),
+) -> User:
+    user = two_factor_service.resolve_challenge(db_session=db_session, raw_token=payload.challenge_token)
+    if user is None:
+        raise InvalidCredentialsError("Invalid or expired two-factor challenge")
+    if not two_factor_service.verify_login_code(db_session=db_session, user=user, code=payload.code):
+        raise InvalidCredentialsError("Invalid two-factor code")
+
+    two_factor_service.delete_challenge(db_session=db_session, raw_token=payload.challenge_token)
+    _start_session(
+        request=request, response=response, db_session=db_session, user=user, remember_me=payload.remember_me
+    )
+    return user
+
+
+def _start_session(request: Request, response: Response, db_session: Session, user: User, remember_me: bool) -> None:
     raw_token = session_service.create_session(
         db_session=db_session,
         user=user,
-        remember_me=payload.remember_me,
+        remember_me=remember_me,
         ip=_get_client_ip(request),
         user_agent=_get_client_user_agent(request),
     )
-    session_service.set_session_cookie(response=response, raw_token=raw_token, remember_me=payload.remember_me)
-    return user
+    session_service.set_session_cookie(response=response, raw_token=raw_token, remember_me=remember_me)
 
 
 @router.get("/me", response_model=UserRead)

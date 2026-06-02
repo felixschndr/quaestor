@@ -7,6 +7,7 @@ from source.backend.helpers import (
     get_backend_source_path,
     get_frontend_source_path,
     get_key_of_transaction,
+    get_project_name,
     get_root_path_of_repository,
 )
 from source.backend.models.transaction import Transaction
@@ -78,6 +79,10 @@ def test_get_frontend_source_path_points_at_source_frontend():
     assert frontend.name == "frontend"
     assert frontend.parent.name == "source"
     assert (frontend / "package.json").is_file()
+
+
+def test_get_project_name_reads_the_name_from_pyproject():
+    assert get_project_name() == "Quaestor"
 
 
 def test_backend_and_frontend_are_siblings_under_the_repo_root():
