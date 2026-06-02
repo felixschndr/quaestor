@@ -37,9 +37,9 @@ GROUP_SAVINGS = "Savings"
 GROUP_INVESTMENTS = "Investments"
 
 ACCOUNT_SPECS: list[tuple[str, BankProvider, str, int, bool]] = [
-    (GROUP_EVERYDAY, BankProvider.ING, "Daily allowance", 100, True),
-    (GROUP_EVERYDAY, BankProvider.DKB, "Shared Account with SO", 50, True),
-    (GROUP_SAVINGS, BankProvider.SPARKASSE, "Vacation", 100, True),
+    (GROUP_EVERYDAY, BankProvider.FINTS, "Daily allowance", 100, True),
+    (GROUP_EVERYDAY, BankProvider.FINTS, "Shared Account with SO", 50, True),
+    (GROUP_SAVINGS, BankProvider.FINTS, "Vacation", 100, True),
     (GROUP_SAVINGS, BankProvider.MANUAL, "Cash at home", 100, True),
     (GROUP_INVESTMENTS, BankProvider.DFS, "Retirement", 100, True),
     (GROUP_INVESTMENTS, BankProvider.FIN4U, "Retirement", 100, True),
@@ -163,7 +163,7 @@ def fill_db_with_testdata() -> None:
                 user_id=user.id,
                 bank=bank,
                 last_fetching_timestamp=last_synced,
-                requires_two_factor_authentication=bank in {BankProvider.ING, BankProvider.TRADE_REPUBLIC},
+                requires_two_factor_authentication=bank in {BankProvider.FINTS, BankProvider.TRADE_REPUBLIC},
             )
             for bank in BankProvider
         }
