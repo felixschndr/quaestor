@@ -29,6 +29,7 @@ export interface SupportedBank {
   tested: boolean
   required_fields: string[]
   field_rules?: Record<string, CredentialFieldSpec>
+  family: { slug: string; label: string } | null
   /** Branch BLZs covered by this entry. Empty for non-FinTS providers; length>1 means
    *  the user must supply an IBAN to disambiguate. */
   blzs: string[]

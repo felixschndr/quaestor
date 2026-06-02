@@ -209,7 +209,18 @@ def test_list_supported_banks_returns_catalog(http_client: TestClient):
     providers = {entry["provider"] for entry in catalog}
     assert {"fints", "dfs", "trade_republic", "manual"} <= providers
     sample = catalog[0]
-    expected_keys = {"provider", "key", "name", "bic", "icon", "tested", "required_fields", "field_rules", "blzs"}
+    expected_keys = {
+        "provider",
+        "key",
+        "name",
+        "bic",
+        "icon",
+        "family",
+        "tested",
+        "required_fields",
+        "field_rules",
+        "blzs",
+    }
     assert expected_keys == sample.keys()
     fints_entry = next(entry for entry in catalog if entry["provider"] == "fints")
     assert expected_keys == fints_entry.keys()
@@ -220,7 +231,7 @@ def test_supported_banks_requires_authentication(http_client: TestClient):
 
 
 def test_bank_icons_are_served_as_static_files(http_client: TestClient):
-    for bank in ["ing-diba", "dkb", "dfs", "trade_republic"]:
+    for bank in ["ing-diba", "deutsche-kreditbank-berlin", "dfs", "trade_republic"]:
         response = http_client.get(f"/static/banks/{bank}.png")
         assert response.status_code == 200, bank
         assert response.headers["content-type"] == "image/png"

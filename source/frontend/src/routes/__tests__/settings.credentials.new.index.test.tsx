@@ -75,6 +75,7 @@ const BANKS: SupportedBank[] = [
     icon: '/static/banks/sparkasse.png',
     tested: true,
     required_fields: ['username', 'password'],
+    family: { slug: 'sparkasse', label: 'Sparkasse' },
     blzs: ['70150000'],
   },
   {
@@ -85,6 +86,7 @@ const BANKS: SupportedBank[] = [
     icon: null,
     tested: false,
     required_fields: ['username', 'password'],
+    family: null,
     blzs: ['10070000', '12070000'],
   },
   {
@@ -95,6 +97,7 @@ const BANKS: SupportedBank[] = [
     icon: '/static/banks/manual.png',
     tested: false,
     required_fields: [],
+    family: null,
     blzs: [],
   },
 ]
@@ -123,6 +126,7 @@ describe('BankPickerView', () => {
         icon: '/static/banks/sparkasse.png',
         tested: true,
         required_fields: ['username', 'password'],
+        family: { slug: 'sparkasse', label: 'Sparkasse' },
         blzs: ['66050101'],
       },
     ]
@@ -271,6 +275,11 @@ describe('BankPickerView', () => {
   })
 })
 
+const FAMILY_LABELS: Record<string, string> = {
+  sparkasse: 'Sparkasse',
+  volksbank: 'Volksbank Raiffeisenbank',
+}
+
 function fintsBank(key: string, name: string, slug: string): SupportedBank {
   return {
     provider: 'fints',
@@ -280,6 +289,7 @@ function fintsBank(key: string, name: string, slug: string): SupportedBank {
     icon: `/static/banks/${slug}.png`,
     tested: false,
     required_fields: ['username', 'password'],
+    family: { slug, label: FAMILY_LABELS[slug] ?? slug },
     blzs: [key],
   }
 }
@@ -297,6 +307,7 @@ const FAMILY_BANKS: SupportedBank[] = [
     icon: '/static/banks/manual.png',
     tested: true,
     required_fields: [],
+    family: null,
     blzs: [],
   },
 ]

@@ -80,15 +80,6 @@ export interface BankPickerViewProps {
   onFamilySearch: (value: string) => void
 }
 
-/** Brand umbrella names for the bank families. These are proper names, not UI copy,
- *  so they stay identical across languages and live here rather than in i18n. */
-const FAMILY_LABELS: Record<string, string> = {
-  volksbank: 'Volksbank Raiffeisenbank',
-  sparkasse: 'Sparkasse',
-  sparda: 'Sparda-Bank',
-  psd: 'PSD Bank',
-}
-
 /** A top-level picker entry: either a single bank, or a family that groups the many
  *  local Sparkassen / Volksbanken (etc.) sharing one logo behind a single row the
  *  user drills into. */
@@ -99,7 +90,7 @@ type PickerItem =
       key: string
       slug: string
       label: string
-      icon: string
+      icon: string | null
       members: SupportedBank[]
     }
 
@@ -253,35 +244,19 @@ function displayName(t: TFunction, bank: SupportedBank): string {
     : bank.name
 }
 
-/** The family a bank belongs to, derived from its shared logo slug (e.g. all Sparkassen
- *  carry `/static/banks/sparkasse.png`). Only generic FinTS banks can form families;
- *  curated providers always stand alone. Cooperative "VR…" banks belong to the Volksbank
- *  family even when they lack a logo. */
-function familySlugOf(bank: SupportedBank): string | null {
-  if (bank.provider !== 'fints') return null
-  if (/^vr\b/i.test(bank.name)) return 'volksbank'
-  if (!bank.icon) return null
-  const match = /\/banks\/(.+)\.png$/.exec(bank.icon)
-  return match ? match[1] : null
-}
-
-function familyLabel(slug: string): string {
-  return FAMILY_LABELS[slug] ?? slug.charAt(0).toUpperCase() + slug.slice(1)
-}
-
-/** Collapse banks that share a logo into family rows (≥2 members); everything else stays
- *  a standalone row. Result is sorted alphabetically by the row's display label. */
+/** Collapse banks that share a backend-assigned family into family rows (≥2 members);
+ *  everything else stays a standalone row. The grouping is the backend's single source of
+ *  truth (`bank.family`) — this only renders it. Result is sorted alphabetically by label. */
 function buildItems(banks: SupportedBank[], t: TFunction): PickerItem[] {
   const byFamily = new Map<string, SupportedBank[]>()
   const standalone: SupportedBank[] = []
   for (const bank of banks) {
-    const slug = familySlugOf(bank)
-    if (slug === null) {
+    if (bank.family === null) {
       standalone.push(bank)
     } else {
-      const members = byFamily.get(slug) ?? []
+      const members = byFamily.get(bank.family.slug) ?? []
       members.push(bank)
-      byFamily.set(slug, members)
+      byFamily.set(bank.family.slug, members)
     }
   }
 
@@ -292,8 +267,10 @@ function buildItems(banks: SupportedBank[], t: TFunction): PickerItem[] {
         kind: 'family',
         key: `family:${slug}`,
         slug,
-        label: familyLabel(slug),
-        icon: members[0].icon as string,
+        // Every member carries the same family; take the label from the first.
+        label: members[0].family!.label,
+        // Members may lack a logo (e.g. a small co-op bank); use the first one that has one.
+        icon: members.find((member) => member.icon !== null)?.icon ?? null,
         members,
       })
     } else {

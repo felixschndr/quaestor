@@ -12,6 +12,8 @@ from source.backend.bank_handlers.bank_logos import logo_exists, logo_slug
         ("Volks- und Raiffeisenbank", "volksbank"),
         ("VR Bank Mecklenburg", "volksbank"),  # both VR spellings normalise to the same keyword
         ("VR-Bank Altenburger Land", "volksbank"),
+        ("VR SüdBank", "volksbank"),
+        ("Genossenschaftsbank München", "volksbank"),
         ("Sparda-Bank Berlin", "sparda"),
         ("Commerzbank Köln", "commerzbank"),
         ("UniCredit Bank - HypoVereinsbank", "hypovereinsbank"),

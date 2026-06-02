@@ -32,6 +32,12 @@ const ATTRIBUTIONS: Attribution[] = [
     href: 'https://www.flaticon.com/free-icons/writing',
   },
   {
+    forKey: 'attributions.for.commerzbankLogo',
+    textKey: 'attributions.text.commerzbankLogo',
+    titleKey: 'attributions.linkTitle.commerzbankLogo',
+    href: 'https://companieslogo.com/de/commerzbank/logo/',
+  },
+  {
     forKey: 'attributions.for.dfsLogo',
     textKey: 'attributions.text.dfsLogo',
     titleKey: 'attributions.linkTitle.dfsLogo',
@@ -66,6 +72,12 @@ const ATTRIBUTIONS: Attribution[] = [
     textKey: 'attributions.text.tradeRepublicLogo',
     titleKey: 'attributions.linkTitle.tradeRepublicLogo',
     href: 'https://www.mygermanfinances.de/trade-republic-square-logo-2/',
+  },
+  {
+    forKey: 'attributions.for.volksbankLogo',
+    textKey: 'attributions.text.volksbankLogo',
+    titleKey: 'attributions.linkTitle.volksbankLogo',
+    href: 'https://www.facebook.com/VereinigteVolksbankRaiffeisenbankeG/',
   },
 ]
 

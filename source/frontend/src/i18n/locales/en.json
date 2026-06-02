@@ -355,32 +355,38 @@
     "for": {
       "favicon": "Favicon",
       "manualBank": "Manual bank icon",
+      "commerzbankLogo": "Commerzbank logo",
       "dfsLogo": "DFS logo",
       "dkbLogo": "DKB logo",
       "fin4uLogo": "fin4u logo",
       "ingLogo": "ING logo",
       "sparkasseLogo": "Sparkasse logo",
-      "tradeRepublicLogo": "Trade Republic logo"
+      "tradeRepublicLogo": "Trade Republic logo",
+      "volksbankLogo": "Volksbank logo"
     },
     "text": {
       "faviconMoneyIcons": "Money icons created by Freepik - Flaticon",
       "manualWritingIcons": "Writing icons created by Freepik - Flaticon",
+      "commerzbankLogo": "Commerzbank logo via Companies Logo",
       "dfsLogo": "DFS logo via YouTube",
       "dkbLogo": "DKB logo via My German Finances",
       "fin4uLogo": "fin4u logo via Google Play",
       "ingLogo": "ING logo via Google Play",
       "sparkasseLogo": "Sparkasse logo via Wikipedia",
-      "tradeRepublicLogo": "Trade Republic logo via My German Finances"
+      "tradeRepublicLogo": "Trade Republic logo via My German Finances",
+      "volksbankLogo": "Volksbank logo via Facebook"
     },
     "linkTitle": {
       "moneyIcons": "money icons",
       "writingIcons": "writing icons",
+      "commerzbankLogo": "Commerzbank logo source",
       "dfsLogo": "DFS logo source",
       "dkbLogo": "DKB logo source",
       "fin4uLogo": "fin4u logo source",
       "ingLogo": "ING logo source",
       "sparkasseLogo": "Sparkasse logo source",
-      "tradeRepublicLogo": "Trade Republic logo source"
+      "tradeRepublicLogo": "Trade Republic logo source",
+      "volksbankLogo": "Volksbank logo source"
     }
   },
   "version": {

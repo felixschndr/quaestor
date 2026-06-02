@@ -1,9 +1,14 @@
+from dataclasses import asdict, dataclass
 from functools import lru_cache
 
 import fints_url
 from schwifty import registry
 from source.backend.bank_handlers import BANKS_BY_NAME, SUPPORTED_BANKS
-from source.backend.bank_handlers.bank_logos import logo_exists, logo_slug
+from source.backend.bank_handlers.bank_logos import (
+    family_for_name,
+    logo_exists,
+    logo_slug,
+)
 from source.backend.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -12,6 +17,27 @@ _GENERIC_FINTS_PROVIDER = "fints"
 _NON_FINTS_PROVIDERS = frozenset({"dfs", "fin4u", "trade_republic", "manual"})
 
 _TESTED_FINTS_PROVIDERS = frozenset({"ING-DiBa", "Deutsche Kreditbank", "Sparkasse"})
+
+
+@dataclass(frozen=True)
+class CatalogFamily:
+    slug: str
+    label: str
+
+
+@dataclass(frozen=True)
+class CatalogEntry:
+    # One selectable bank in the picker
+    provider: str
+    key: str
+    name: str
+    bic: str | None
+    icon: str | None
+    family: CatalogFamily | None
+    tested: bool
+    required_fields: list[str]
+    field_rules: dict[str, dict]
+    blzs: list[str]
 
 
 def is_tested(provider: str, name: str) -> bool:
@@ -42,41 +68,48 @@ def _icon_for_name(name: str) -> str | None:
     return f"/static/banks/{slug}.png" if logo_exists(slug) else None
 
 
-def _create_group_entry(name: str, blzs: list[str], schwifty_index: dict[str, dict]) -> dict:
+def _family_of(name: str) -> CatalogFamily | None:
+    family = family_for_name(name)
+    return CatalogFamily(slug=family.slug, label=family.label) if family is not None else None
+
+
+def _create_group_entry(name: str, blzs: list[str], schwifty_index: dict[str, dict]) -> CatalogEntry:
     ordered = sorted(blzs)
     representative = ordered[0]
     enriched = schwifty_index[representative] if representative in schwifty_index else {}
-    return {
-        "provider": _GENERIC_FINTS_PROVIDER,
-        "key": representative,
-        "name": name,
-        "bic": enriched.get("bic"),
-        "icon": _icon_for_name(name),
-        "tested": is_tested(provider=_GENERIC_FINTS_PROVIDER, name=name),
-        "required_fields": ["username", "password"],
-        "field_rules": {},
-        "blzs": ordered,
-    }
+    return CatalogEntry(
+        provider=_GENERIC_FINTS_PROVIDER,
+        key=representative,
+        name=name,
+        bic=enriched.get("bic"),
+        icon=_icon_for_name(name),
+        family=_family_of(name),
+        tested=is_tested(provider=_GENERIC_FINTS_PROVIDER, name=name),
+        required_fields=["username", "password"],
+        field_rules={},
+        blzs=ordered,
+    )
 
 
-def _create_non_fints_provider_entry(provider: str) -> dict:
+def _create_non_fints_provider_entry(provider: str) -> CatalogEntry:
     bank_info = BANKS_BY_NAME[provider]
     blz = bank_info.bank_identifier
     name = bank_info.name
-    return {
-        "provider": provider,
-        "key": provider,
-        "name": name,
-        "bic": None,
-        "icon": bank_info.icon,
-        "tested": is_tested(provider=provider, name=name),
-        "required_fields": bank_info.required_fields,
-        "field_rules": bank_info.field_rules,
-        "blzs": [blz] if blz is not None else [],
-    }
+    return CatalogEntry(
+        provider=provider,
+        key=provider,
+        name=name,
+        bic=None,
+        icon=bank_info.icon,
+        family=None,
+        tested=is_tested(provider=provider, name=name),
+        required_fields=bank_info.required_fields,
+        field_rules=bank_info.field_rules,
+        blzs=[blz] if blz is not None else [],
+    )
 
 
-def build_catalog(fints_db: dict[str, dict], schwifty_index: dict[str, dict]) -> list[dict]:
+def build_catalog(fints_db: dict[str, dict], schwifty_index: dict[str, dict]) -> list[CatalogEntry]:
     curated_blz = {
         bank.bank_identifier
         for bank in SUPPORTED_BANKS
@@ -100,28 +133,28 @@ def build_catalog(fints_db: dict[str, dict], schwifty_index: dict[str, dict]) ->
 
 
 @lru_cache(maxsize=1)
-def _canonical_catalog() -> tuple[dict, ...]:
+def _canonical_catalog() -> tuple[CatalogEntry, ...]:
     return tuple(build_catalog(fints_db=_get_fints_db(), schwifty_index=_schwifty_index()))
 
 
 @lru_cache(maxsize=1)
-def _blz_to_catalog_entry_mapping() -> dict[str, dict]:
+def _blz_to_catalog_entry_mapping() -> dict[str, CatalogEntry]:
     index = {}
     for entry in _canonical_catalog():
-        for blz in entry["blzs"]:
+        for blz in entry.blzs:
             index.setdefault(blz, entry)  # noqa FKA100
     return index
 
 
 def get_catalog() -> list[dict]:
-    return [dict(entry) for entry in _canonical_catalog()]
+    return [asdict(entry) for entry in _canonical_catalog()]
 
 
 def get_name_and_icon_of_provider(provider: str, blz: str | None) -> tuple[str | None, str | None]:
     if provider == _GENERIC_FINTS_PROVIDER:
         entry = _blz_to_catalog_entry_mapping().get(blz) if blz is not None else None
         if entry is not None:
-            return entry["name"], entry["icon"]
+            return entry.name, entry.icon
         # Unknown BLZ (e.g. a bank missing from the FinTS DB): show the BLZ rather than nothing.
         return blz, None
     bank_info = BANKS_BY_NAME[provider] if provider in BANKS_BY_NAME else None
