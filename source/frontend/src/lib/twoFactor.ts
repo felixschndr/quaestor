@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
 import { authQueryKeys, type UserRead } from './auth'
+import { sessionQueryKeys } from './sessions'
 
 export interface TwoFactorSetup {
   secret: string
@@ -27,6 +28,8 @@ export function useEnableTwoFactor(userId: number) {
       api<BackupCodes>(`/users/${userId}/2fa/enable`, { method: 'POST', body: { code } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+      // Enabling 2FA revokes the other sessions server-side; refresh the list.
+      queryClient.invalidateQueries({ queryKey: sessionQueryKeys.list(userId) })
     },
   })
 }

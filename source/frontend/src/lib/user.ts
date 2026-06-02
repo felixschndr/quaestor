@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
 import { authQueryKeys, type Theme, type UserRead } from './auth'
+import { sessionQueryKeys } from './sessions'
 
 export interface UserUpdatePayload {
   user_name?: string
@@ -39,6 +40,8 @@ export function useUpdateUser(userId: number) {
       api<UserRead>(`/users/${userId}`, { method: 'PATCH', body: payload }),
     onSuccess: (user) => {
       queryClient.setQueryData(authQueryKeys.me, user)
+      // A password change revokes the other sessions server-side; refresh the list.
+      queryClient.invalidateQueries({ queryKey: sessionQueryKeys.list(userId) })
     },
   })
 }

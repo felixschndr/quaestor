@@ -351,7 +351,7 @@ function PasswordSection({ user }: { user: UserRead }) {
         new_password: values.new_password,
       })
       form.reset({ current_password: '', new_password: '', password_confirm: '' })
-      toast.success(t('settings.passwordChanged'))
+      toast.success(t('settings.passwordChanged'), { description: t('sessions.revokedAll') })
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         form.setError('current_password', {

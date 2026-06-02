@@ -183,6 +183,33 @@ def test_update_user_rejects_short_new_password(http_client: TestClient):
     assert response.status_code == 422
 
 
+def test_changing_password_revokes_all_other_sessions(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+    # A second login leaves a stale session behind in the DB; the client now holds the newest one.
+    http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
+    assert len(http_client.get(f"/api/users/{user_id}/sessions").json()) == 2
+
+    response = http_client.patch(
+        f"/api/users/{user_id}",
+        json={"current_password": VALID_PASSWORD, "new_password": NEW_VALID_PASSWORD},
+    )
+
+    assert response.status_code == 200
+    remaining = http_client.get(f"/api/users/{user_id}/sessions").json()
+    assert len(remaining) == 1
+    assert remaining[0]["is_current"] is True
+
+
+def test_updating_profile_without_password_keeps_other_sessions(http_client: TestClient):
+    user_id = register(http_client).json()["id"]
+    http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"display_name": "Renamed"})
+
+    assert response.status_code == 200
+    assert len(http_client.get(f"/api/users/{user_id}/sessions").json()) == 2
+
+
 def test_update_user_can_change_display_name_and_password_together(http_client: TestClient):
     user_id = register(http_client).json()["id"]
 

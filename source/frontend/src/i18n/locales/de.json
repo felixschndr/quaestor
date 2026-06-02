@@ -6,6 +6,7 @@
     "statusDisabled": "Zwei-Faktor-Authentifizierung ist deaktiviert",
     "enable": "Zwei-Faktor-Authentifizierung aktivieren",
     "disable": "Zwei-Faktor-Authentifizierung deaktivieren",
+    "enabledToast": "Zwei-Faktor-Authentifizierung aktiviert",
     "disabledToast": "Zwei-Faktor-Authentifizierung deaktiviert",
     "disableHint": "Gib einen Code aus deiner Authenticator-App (oder einen Backup-Code) ein, um sie zu deaktivieren.",
     "confirmDisable": "Deaktivieren",

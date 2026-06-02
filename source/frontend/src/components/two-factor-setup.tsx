@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -76,6 +77,7 @@ export function TwoFactorSetup({ userId, onFinished, onCancel }: TwoFactorSetupP
     setCodeError(null)
     try {
       const result = await enable.mutateAsync(code.trim())
+      toast.success(t('twoFactor.enabledToast'), { description: t('sessions.revokedAll') })
       setBackupCodes(result.backup_codes)
     } catch (err) {
       if (err instanceof ApiError && (err.status === 422 || err.status === 401)) {

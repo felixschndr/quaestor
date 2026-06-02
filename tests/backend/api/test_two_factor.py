@@ -40,6 +40,21 @@ def test_enable_with_valid_code_returns_backup_codes_and_flags_user(http_client:
     assert http_client.get("/api/auth/me").json()["two_factor_enabled"] is True
 
 
+def test_enable_revokes_all_other_sessions(http_client: TestClient):
+    user_id = _register_and_get_id(http_client)
+    totp_secret = http_client.post(f"/api/users/{user_id}/2fa/setup").json()["secret"]
+    # A second login leaves a stale session behind in the DB; the client now holds the newest one.
+    http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
+    assert len(http_client.get(f"/api/users/{user_id}/sessions").json()) == 2
+
+    response = http_client.post(f"/api/users/{user_id}/2fa/enable", json={"code": current_totp(totp_secret)})
+
+    assert response.status_code == 200
+    remaining = http_client.get(f"/api/users/{user_id}/sessions").json()
+    assert len(remaining) == 1
+    assert remaining[0]["is_current"] is True
+
+
 def test_enable_with_wrong_code_is_rejected(http_client: TestClient):
     user_id = _register_and_get_id(http_client)
     http_client.post(f"/api/users/{user_id}/2fa/setup")

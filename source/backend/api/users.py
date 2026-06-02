@@ -93,6 +93,7 @@ def revoke_user_session(
 def update_user(
     user_id: int,
     payload: UserUpdate,
+    request: Request,
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> User:
@@ -104,7 +105,14 @@ def update_user(
         if not verify_password(password_hash=current_user.password_hash, password_to_verify=current_password):
             raise InvalidCredentialsError("Current password is incorrect")
         fields["password_hash"] = hash_password(new_password)
-    return user_service.update_user(db_session=db_session, user_id=current_user.id, fields=fields)
+    user = user_service.update_user(db_session=db_session, user_id=current_user.id, fields=fields)
+    if new_password is not None:
+        session_service.revoke_all_other_sessions_for_user(
+            db_session=db_session,
+            user_id=current_user.id,
+            current_raw_token=request.cookies.get(session_service.COOKIE_NAME),
+        )
+    return user
 
 
 @router.post("/{user_id}/2fa/setup", response_model=TwoFactorSetupRead)
@@ -122,11 +130,17 @@ def setup_two_factor(
 def enable_two_factor(
     user_id: int,
     payload: TwoFactorEnableRequest,
+    request: Request,
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> BackupCodesRead:
     _require_self(user_id=user_id, current_user=current_user)
     backup_codes = two_factor_service.enable(db_session=db_session, user=current_user, code=payload.code)
+    session_service.revoke_all_other_sessions_for_user(
+        db_session=db_session,
+        user_id=current_user.id,
+        current_raw_token=request.cookies.get(session_service.COOKIE_NAME),
+    )
     return BackupCodesRead(backup_codes=backup_codes)
 
 

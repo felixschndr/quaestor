@@ -6,6 +6,7 @@
     "statusDisabled": "Two-factor authentication is off",
     "enable": "Enable two-factor authentication",
     "disable": "Disable two-factor authentication",
+    "enabledToast": "Two-factor authentication enabled",
     "disabledToast": "Two-factor authentication disabled",
     "disableHint": "Enter a code from your authenticator app (or a backup code) to turn it off.",
     "confirmDisable": "Disable",
