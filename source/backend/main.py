@@ -35,6 +35,7 @@ from source.backend.services import (
     session_service,
     sync_scheduler,
     transfer_detection,
+    version_service,
 )
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Scope
@@ -112,7 +113,7 @@ def setup_logging() -> None:
 
 setup_logging()
 
-app = FastAPI(title="Quaestor", lifespan=lifespan)
+app = FastAPI(title="Quaestor", version=version_service.get_current_version(), lifespan=lifespan, docs_url=None)
 
 app.middleware("http")(csrf_middleware)
 app.middleware("http")(csp_middleware)
