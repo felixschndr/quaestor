@@ -349,18 +349,6 @@
   },
   "attributions": {
     "title": "Quellenangaben",
-    "for": {
-      "favicon": "Favicon",
-      "manualBank": "Icon der manuellen Bank",
-      "commerzbankLogo": "Commerzbank-Logo",
-      "dfsLogo": "DFS-Logo",
-      "dkbLogo": "DKB-Logo",
-      "fin4uLogo": "fin4u-Logo",
-      "ingLogo": "ING-Logo",
-      "sparkasseLogo": "Sparkassen-Logo",
-      "tradeRepublicLogo": "Trade-Republic-Logo",
-      "volksbankLogo": "Volksbank-Logo"
-    },
     "text": {
       "faviconMoneyIcons": "Money icons created by Freepik - Flaticon",
       "manualWritingIcons": "Writing icons created by Freepik - Flaticon",
@@ -372,18 +360,6 @@
       "sparkasseLogo": "Sparkassen-Logo über Wikipedia",
       "tradeRepublicLogo": "Trade-Republic-Logo über My German Finances",
       "volksbankLogo": "Volksbank-Logo über Facebook"
-    },
-    "linkTitle": {
-      "moneyIcons": "money icons",
-      "writingIcons": "writing icons",
-      "commerzbankLogo": "Quelle des Commerzbank-Logos",
-      "dfsLogo": "Quelle des DFS-Logos",
-      "dkbLogo": "Quelle des DKB-Logos",
-      "fin4uLogo": "Quelle des fin4u-Logos",
-      "ingLogo": "Quelle des ING-Logos",
-      "sparkasseLogo": "Quelle des Sparkassen-Logos",
-      "tradeRepublicLogo": "Quelle des Trade-Republic-Logos",
-      "volksbankLogo": "Quelle des Volksbank-Logos"
     }
   },
   "version": {
