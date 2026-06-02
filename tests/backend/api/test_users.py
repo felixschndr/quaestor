@@ -229,7 +229,7 @@ def test_sync_starts_jobs_for_normal_and_2fa_credentials(
         two_factor = make_credential(
             session,
             user_id=user_id,
-            bank=BankProvider.DKB,
+            bank=BankProvider.FINTS,
             requires_two_factor_authentication=True,
         )
         session.commit()

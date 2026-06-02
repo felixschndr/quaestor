@@ -43,6 +43,8 @@ const credentials: CredentialRead[] = [
   {
     id: 1,
     bank: 'ing',
+    bank_name: null,
+    bank_icon: null,
     accounts: [
       {
         id: 42,
@@ -67,6 +69,8 @@ const credentials: CredentialRead[] = [
   {
     id: 2,
     bank: 'trade_republic',
+    bank_name: null,
+    bank_icon: null,
     accounts: [
       {
         id: 99,

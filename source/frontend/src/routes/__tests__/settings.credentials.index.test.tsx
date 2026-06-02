@@ -44,7 +44,9 @@ function buildUser(credentials: CredentialRead[] = []): UserRead {
 function buildCredential(overrides: Partial<CredentialRead>): CredentialRead {
   return {
     id: 10,
-    bank: 'ing',
+    bank: 'fints',
+    bank_name: null,
+    bank_icon: null,
     accounts: [],
     last_fetching_timestamp: null,
     requires_two_factor_authentication: false,
@@ -70,17 +72,16 @@ describe('SettingsCredentialsIndexView', () => {
       <SettingsCredentialsIndexView
         user={buildUser([
           buildCredential({ id: 1, bank: 'trade_republic' }),
-          buildCredential({ id: 2, bank: 'ing' }),
+          buildCredential({ id: 2, bank: 'fints' }),
           buildCredential({ id: 3, bank: 'dfs' }),
         ])}
       />,
     )
 
     const rows = screen.getAllByRole('listitem')
-    // Banks sorted by localised title: DFS, ING, Trade Republic.
     expect(rows.map((row) => row.textContent)).toEqual([
       expect.stringContaining('DFS'),
-      expect.stringContaining('ING'),
+      expect.stringContaining('FinTS bank'),
       expect.stringContaining('Trade Republic'),
     ])
   })
@@ -89,13 +90,21 @@ describe('SettingsCredentialsIndexView', () => {
     render(
       <SettingsCredentialsIndexView
         user={buildUser([
-          buildCredential({ id: 42, bank: 'ing', last_fetching_timestamp: '2026-05-20T10:00:00Z' }),
+          buildCredential({
+            id: 42,
+            bank: 'fints',
+            bank_name: 'ING',
+            bank_icon: '/static/banks/ing-diba.png',
+            last_fetching_timestamp: '2026-05-20T10:00:00Z',
+          }),
         ])}
       />,
     )
 
+    // A generic FinTS credential shows its resolved bank name + logo, not "FinTS bank".
     const link = screen.getByRole('link', { name: /ING/ })
     expect(link).toHaveAttribute('href', '/settings/credentials/42')
+    expect(link.querySelector('img')).toHaveAttribute('src', '/static/banks/ing-diba.png')
     // The row's secondary line carries the last-synced caption.
     expect(screen.getByText(/Last synced:/)).toBeInTheDocument()
   })

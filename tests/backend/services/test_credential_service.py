@@ -45,14 +45,19 @@ def _create_ing_credential(session_factory: sessionmaker, user_id: int, requires
 def test_validated_credentials_rejects_unexpected_fields():
     with pytest.raises(MissingCredentialFieldError, match="Unexpected field"):
         credential_service._validate_credentials(
-            bank=BankProvider.ING,
-            credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD, "bonus_field": "x"},
+            bank=BankProvider.FINTS,
+            credentials={
+                "username": BANK_USERNAME,
+                "password": BANK_PASSWORD,
+                "blz": "50010517",
+                "bonus_field": "x",
+            },
         )
 
 
 def test_validated_credentials_rejects_missing_required_field():
     with pytest.raises(MissingCredentialFieldError, match="Missing required field"):
-        credential_service._validate_credentials(bank=BankProvider.ING, credentials={"username": BANK_USERNAME})
+        credential_service._validate_credentials(bank=BankProvider.FINTS, credentials={"username": BANK_USERNAME})
 
 
 def test_validate_credentials_strips_whitespace_for_trade_republic():
@@ -80,9 +85,9 @@ def test_validate_credentials_rejects_pin_that_is_not_four_digits():
         )
 
 
-def test_validate_credentials_strips_whitespace_from_sparkasse_blz():
+def test_validate_credentials_strips_whitespace_from_fints_blz():
     cleaned = credential_service._validate_credentials(
-        bank=BankProvider.SPARKASSE,
+        bank=BankProvider.FINTS,
         credentials={"username": BANK_USERNAME, "password": VALID_PASSWORD, "blz": "660 501 01"},
     )
     assert cleaned["blz"] == "66050101"
@@ -297,6 +302,35 @@ def test_confirm_two_factor_completes_login_and_syncs_credential(
     complete_login.assert_called_once_with(challenge_token=CHALLENGE_TOKEN, credential_id=credential_id, code="0000")
     with session_factory() as session:
         assert session.get(entity=Credential, ident=credential_id).session_state == {"cookies": "cookies-from-2fa"}
+
+
+def test_create_generic_fints_credential_persists_blz(session_factory: sessionmaker) -> None:
+    user_id = _create_user(session_factory)
+
+    with session_factory() as session:
+        credential = credential_service.create_credential(
+            session,
+            user_id=user_id,
+            bank=BankProvider.FINTS,
+            credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": "70150000"},
+        )
+        session.commit()
+
+    assert credential.bank == BankProvider.FINTS
+    assert credential.credentials == {"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": "70150000"}
+
+
+def test_create_generic_fints_credential_rejects_missing_blz(session_factory: sessionmaker) -> None:
+    user_id = _create_user(session_factory)
+
+    with session_factory() as session:
+        with pytest.raises(MissingCredentialFieldError):
+            credential_service.create_credential(
+                session,
+                user_id=user_id,
+                bank=BankProvider.FINTS,
+                credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD},
+            )
 
 
 def test_sync_all_due_credentials_logs_exception_per_failure(

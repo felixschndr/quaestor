@@ -12,6 +12,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from tests.backend.conftest import (
     BANK_PASSWORD,
+    BANK_USERNAME,
     CHALLENGE_TOKEN,
     PHONE_NUMBER,
     PIN,
@@ -58,7 +59,9 @@ def test_create_credential_returns_created_credential(http_client: TestClient):
 
     assert response.status_code == 201
     body = response.json()
-    assert body["bank"] == "ing"
+    assert body["bank"] == "fints"
+    assert body["bank_name"]
+    assert body["bank_icon"] == "/static/banks/ing-diba.png"
     assert body["accounts"] == []
     assert body["requires_two_factor_authentication"] is False
 
@@ -92,7 +95,7 @@ def test_create_credential_allows_same_bank_with_different_login(http_client: Te
 
     second = create_credential(
         http_client,
-        credentials={"username": "different-user", "password": BANK_PASSWORD},
+        credentials={"username": SECOND_USER_NAME, "password": BANK_PASSWORD, "blz": "50010517"},
     )
 
     assert second.status_code == 201
@@ -122,8 +125,8 @@ def test_list_credentials_returns_empty_when_none_exist(http_client: TestClient)
 
 def test_list_credentials_returns_own_credentials(http_client: TestClient):
     register(http_client)
-    first_id = create_credential(http_client).json()["id"]
-    second_id = create_credential(
+    first_credential_id = create_credential(http_client).json()["id"]
+    second_credential_id = create_credential(
         http_client, bank="trade_republic", credentials={"phone": PHONE_NUMBER, "pin": PIN}
     ).json()["id"]
 
@@ -131,8 +134,8 @@ def test_list_credentials_returns_own_credentials(http_client: TestClient):
 
     assert response.status_code == 200
     body = response.json()
-    assert {credential["id"] for credential in body} == {first_id, second_id}
-    assert {credential["bank"] for credential in body} == {"ing", "trade_republic"}
+    assert {credential["id"] for credential in body} == {first_credential_id, second_credential_id}
+    assert {credential["bank"] for credential in body} == {"fints", "trade_republic"}
 
 
 def test_list_credentials_excludes_other_users_credentials(http_client: TestClient):
@@ -196,79 +199,20 @@ def test_get_unknown_credential_returns_not_found(http_client: TestClient):
     assert response.status_code == 404
 
 
-def test_supported_banks_returns_bank_metadata(http_client: TestClient):
+def test_list_supported_banks_returns_catalog(http_client: TestClient):
     register(http_client)
 
     response = http_client.get("/api/credentials/supported_banks")
 
     assert response.status_code == 200
-    assert response.json() == [
-        {
-            "name": "ing",
-            "required_fields": ["username", "password"],
-            "icon": "/static/banks/ing.png",
-            "field_rules": {},
-            "bank_identifier": "50010517",
-        },
-        {
-            "name": "dkb",
-            "required_fields": ["username", "password"],
-            "icon": "/static/banks/dkb.png",
-            "field_rules": {},
-            "bank_identifier": "12030000",
-        },
-        {
-            "name": "sparkasse",
-            "required_fields": ["username", "password", "blz"],
-            "icon": "/static/banks/sparkasse.png",
-            "field_rules": {"blz": {"strip_whitespace": True, "rules": []}},
-        },
-        {
-            "name": "dfs",
-            "required_fields": ["username", "password"],
-            "icon": "/static/banks/dfs.png",
-            "field_rules": {},
-        },
-        {
-            "name": "fin4u",
-            "required_fields": ["username", "password"],
-            "icon": "/static/banks/fin4u.png",
-            "field_rules": {},
-        },
-        {
-            "name": "trade_republic",
-            "required_fields": ["phone", "pin"],
-            "icon": "/static/banks/trade_republic.png",
-            "field_rules": {
-                "phone": {
-                    "strip_whitespace": True,
-                    "rules": [
-                        {
-                            "name": "phone_country_code",
-                            "regex": r"^\+",
-                            "description": "start with a country code (e.g. +49)",
-                        }
-                    ],
-                },
-                "pin": {
-                    "strip_whitespace": False,
-                    "rules": [
-                        {
-                            "name": "pin_four_digits",
-                            "regex": r"^\d{4}$",
-                            "description": "be exactly 4 digits",
-                        }
-                    ],
-                },
-            },
-        },
-        {
-            "name": "manual",
-            "required_fields": [],
-            "icon": "/static/banks/manual.png",
-            "field_rules": {},
-        },
-    ]
+    catalog = response.json()
+    providers = {entry["provider"] for entry in catalog}
+    assert {"fints", "dfs", "trade_republic", "manual"} <= providers
+    sample = catalog[0]
+    expected_keys = {"provider", "key", "name", "bic", "icon", "tested", "required_fields", "field_rules", "blzs"}
+    assert expected_keys == sample.keys()
+    fints_entry = next(entry for entry in catalog if entry["provider"] == "fints")
+    assert expected_keys == fints_entry.keys()
 
 
 def test_supported_banks_requires_authentication(http_client: TestClient):
@@ -276,7 +220,7 @@ def test_supported_banks_requires_authentication(http_client: TestClient):
 
 
 def test_bank_icons_are_served_as_static_files(http_client: TestClient):
-    for bank in ["ing", "dkb", "dfs", "trade_republic"]:
+    for bank in ["ing-diba", "dkb", "dfs", "trade_republic"]:
         response = http_client.get(f"/static/banks/{bank}.png")
         assert response.status_code == 200, bank
         assert response.headers["content-type"] == "image/png"
@@ -286,7 +230,10 @@ def test_bank_icons_are_served_as_static_files(http_client: TestClient):
 def test_create_credential_rejects_unknown_bank(http_client: TestClient):
     register(http_client)
 
-    response = create_credential(http_client, bank="not_a_bank")
+    response = http_client.post(
+        "/api/credentials",
+        json={"bank": "not_a_bank", "credentials": {"username": BANK_USERNAME, "password": BANK_PASSWORD}},
+    )
 
     assert response.status_code == 422
 

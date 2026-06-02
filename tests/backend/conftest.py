@@ -49,6 +49,8 @@ def disable_background_tasks(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=main.sync_scheduler, name="run_periodic_sync", value=AsyncMock())
     monkeypatch.setattr(target=main.category_rescan, name="run_startup_rescan", value=AsyncMock())
     monkeypatch.setattr(target=main.migrations, name="upgrade_to_head", value=MagicMock())
+    # Never hit the network (or rewrite the bundled DB) during tests.
+    monkeypatch.setattr(target=main.bank_info_updater, name="run_startup_update", value=AsyncMock())
 
 
 @pytest.fixture(autouse=True)
@@ -114,10 +116,11 @@ def login_as(http_client: TestClient, user_name: str, password: str = VALID_PASS
 
 
 def create_credential(
-    http_client: TestClient, bank: str = "ing", credentials: dict[str, str] | None = None
+    http_client: TestClient, bank: str = "fints", credentials: dict[str, str] | None = None
 ) -> Response:
     if credentials is None:
-        credentials = {"username": BANK_USERNAME, "password": BANK_PASSWORD}
+        credentials = _default_credentials_for(BankProvider(bank))
+
     return http_client.post("/api/credentials", json={"bank": bank, "credentials": credentials})
 
 
@@ -145,6 +148,7 @@ def _default_credentials_for(bank: BankProvider) -> dict[str, str]:
         "password": BANK_PASSWORD,
         "phone": PHONE_NUMBER,
         "pin": PIN,
+        "blz": "50010517",
     }
     return {field: defaults.get(field, f"{field}-value") for field in fields}  # noqa FKA100
 
@@ -167,7 +171,7 @@ def make_credential(
     db_session: Session,
     *,
     user_id: int,
-    bank: BankProvider = BankProvider.ING,
+    bank: BankProvider = BankProvider.FINTS,
     credentials: dict[str, str] | None = None,
     requires_two_factor_authentication: bool = False,
     last_fetching_timestamp: datetime | None = None,

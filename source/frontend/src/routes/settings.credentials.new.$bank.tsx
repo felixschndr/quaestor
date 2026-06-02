@@ -6,11 +6,13 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
+import type { TFunction } from 'i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
+import { ibanToBlz } from '@/lib/bankIdentity'
 import {
   useConfirmTwoFactor,
   useCreateCredential,
@@ -27,14 +29,14 @@ export const Route = createFileRoute('/settings/credentials/new/$bank')({
 })
 
 function NewCredentialFormPage() {
-  const { bank: bankName } = Route.useParams()
+  const { bank: bankKey } = Route.useParams()
   const banks = useSupportedBanks()
   const router = useRouter()
-  const matched = banks.data?.find((b) => b.name === bankName)
+  const matched = banks.data?.find((b) => b.key === bankKey)
 
   return (
     <NewCredentialFormView
-      bankName={bankName}
+      bankKey={bankKey}
       bank={matched}
       isLoading={banks.isLoading}
       onCancel={() => router.history.push('/settings/credentials')}
@@ -42,7 +44,7 @@ function NewCredentialFormPage() {
       // visit to /settings/credentials/<id> to add accounts. Synced credentials
       // already have accounts after sync, so jump straight to the overview.
       onConnected={(credentialId) =>
-        router.history.push(bankName === 'manual' ? `/settings/credentials/${credentialId}` : '/')
+        router.history.push(bankKey === 'manual' ? `/settings/credentials/${credentialId}` : '/')
       }
       onSyncFailed={() => router.history.push('/settings/credentials')}
     />
@@ -50,7 +52,7 @@ function NewCredentialFormPage() {
 }
 
 export interface NewCredentialFormViewProps {
-  bankName: string
+  bankKey: string
   bank: SupportedBank | undefined
   isLoading: boolean
   onCancel: () => void
@@ -68,7 +70,7 @@ export interface NewCredentialFormViewProps {
 }
 
 export function NewCredentialFormView({
-  bankName,
+  bankKey,
   bank,
   isLoading,
   onCancel,
@@ -76,14 +78,17 @@ export function NewCredentialFormView({
   onSyncFailed,
 }: NewCredentialFormViewProps) {
   const { t } = useTranslation()
-  const bankTitle = t(`banks.${bankName}.title`, { defaultValue: bankName })
+  // Special providers keep their curated i18n title; grouped FinTS banks use their catalog name.
+  const bankTitle = bank
+    ? displayName(t, bank)
+    : t(`banks.${bankKey}.title`, { defaultValue: bankKey })
 
   return (
     <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
         <BackLink />
         <h1 className="text-foreground text-2xl font-semibold">
-          {bankName === 'manual'
+          {bankKey === 'manual'
             ? t('credentials.formTitleManual')
             : t('credentials.formTitle', { bank: bankTitle })}
         </h1>
@@ -135,7 +140,8 @@ function CredentialForm({
   const confirm2fa = useConfirmTwoFactor()
   // mutate is referentially stable (React Query), so it's safe in effect deps.
   const { mutate: deleteCredential } = useDeleteCredential()
-  const note = t(`banks.${bank.name}.note`, { defaultValue: '' })
+  const note = t(`banks.${bank.provider}.note`, { defaultValue: '' })
+  const needsIban = bank.provider === 'fints' && bank.blzs.length > 1
 
   const [activeJob, setActiveJob] = useState<{ credentialId: number; jobId: string } | null>(null)
   const [code, setCode] = useState('')
@@ -187,20 +193,37 @@ function CredentialForm({
           })
         : base
     }
+    if (needsIban) {
+      // The IBAN is never sent to the backend; we only use it to derive the branch BLZ
+      shape.iban = z.string().superRefine((value, ctx) => {
+        const blz = ibanToBlz(value)
+        if (blz === null || !bank.blzs.includes(blz)) {
+          ctx.addIssue({ code: 'custom', message: t('credentials.ibanMismatch') })
+        }
+      })
+    }
     return z.object(shape)
-  }, [bank.required_fields, bank.field_rules, t])
+  }, [bank.required_fields, bank.field_rules, bank.blzs, needsIban, t])
 
   type FormValues = Record<string, string>
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
-    defaultValues: Object.fromEntries(bank.required_fields.map((field) => [field, ''])),
+    defaultValues: Object.fromEntries(
+      [...bank.required_fields, ...(needsIban ? ['iban'] : [])].map((field) => [field, '']),
+    ),
   })
 
   const onSubmit = form.handleSubmit(async (values) => {
     let createdId: number
-    const credentials = stripCredentialWhitespace(values, bank.field_rules)
+    const declared = Object.fromEntries(bank.required_fields.map((field) => [field, values[field]]))
+    const credentials = stripCredentialWhitespace(declared, bank.field_rules)
+    let submitProvider = bank.provider
+    if (bank.provider === 'fints') {
+      credentials.blz = bank.blzs.length > 1 ? ibanToBlz(values.iban)! : bank.blzs[0]
+      submitProvider = 'fints'
+    }
     try {
-      const created = await create.mutateAsync({ bank: bank.name, credentials })
+      const created = await create.mutateAsync({ bank: submitProvider, credentials })
       createdId = created.id
     } catch (err) {
       handleCreateError(err, form.setError, t, bankTitle)
@@ -285,7 +308,7 @@ function CredentialForm({
       {bank.required_fields.map((field) => (
         <FieldRow
           key={field}
-          id={`credential-${bank.name}-${field}`}
+          id={`credential-${bank.key}-${field}`}
           label={t(`banks.field.${field}`, { defaultValue: field })}
           type={maskedField(field) ? 'password' : 'text'}
           autoComplete={autoCompleteFor(field)}
@@ -293,13 +316,22 @@ function CredentialForm({
           {...form.register(field)}
         />
       ))}
+      {needsIban ? (
+        <FieldRow
+          id={`credential-${bank.key}-iban`}
+          label={t('credentials.ibanLabel')}
+          autoComplete="off"
+          error={form.formState.errors.iban?.message as string | undefined}
+          {...form.register('iban')}
+        />
+      ) : null}
 
       <Button type="submit" disabled={submitting} className="w-full">
         {isSyncing
           ? t('credentials.syncing')
           : create.isPending || startSync.isPending
             ? t('credentials.submitting')
-            : bank.name === 'manual'
+            : bank.provider === 'manual'
               ? t('credentials.submitManual')
               : t('credentials.submit')}
       </Button>
@@ -392,6 +424,12 @@ const FieldRow = ({ id, label, error, ...rest }: FieldRowProps) => (
     ) : null}
   </div>
 )
+
+function displayName(t: TFunction, bank: SupportedBank): string {
+  return bank.provider === bank.key
+    ? t(`banks.${bank.provider}.title`, { defaultValue: bank.name })
+    : bank.name
+}
 
 function BackLink() {
   const { t } = useTranslation()

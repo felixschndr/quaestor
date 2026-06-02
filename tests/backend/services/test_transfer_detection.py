@@ -19,8 +19,8 @@ _BASE_DATE = date(year=2026, month=5, day=10)
 
 
 def _create_two_accounts(session: Session, *, user_id: int) -> tuple[Account, Account]:
-    credential_a = make_credential(session, user_id=user_id, bank=BankProvider.ING)
-    credential_b = make_credential(session, user_id=user_id, bank=BankProvider.DKB)
+    credential_a = make_credential(session, user_id=user_id, bank=BankProvider.FINTS)
+    credential_b = make_credential(session, user_id=user_id, bank=BankProvider.FINTS)
     account_a = make_account(session, credential_id=credential_a.id, name="A")
     account_b = make_account(session, credential_id=credential_b.id, name="B")
     return account_a, account_b
@@ -109,8 +109,8 @@ def test_does_not_match_across_different_users(session_factory: sessionmaker):
     with session_factory() as session:
         user_one = make_user(session, user_name="one")
         user_two = make_user(session, user_name="two")
-        credential_one = make_credential(session, user_id=user_one.id, bank=BankProvider.ING)
-        credential_two = make_credential(session, user_id=user_two.id, bank=BankProvider.DKB)
+        credential_one = make_credential(session, user_id=user_one.id, bank=BankProvider.FINTS)
+        credential_two = make_credential(session, user_id=user_two.id, bank=BankProvider.FINTS)
         account_one = make_account(session, credential_id=credential_one.id, name="One")
         account_two = make_account(session, credential_id=credential_two.id, name="Two")
         make_transaction(

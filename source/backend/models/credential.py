@@ -8,6 +8,7 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.base import Base
 from source.backend.models.transaction import Transaction
+from source.backend.services import bank_catalog
 from sqlalchemy import JSON, DateTime
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey
@@ -43,6 +44,14 @@ class Credential(Base):
     @property
     def handler(self) -> BankHandler:
         return handler_for(provider=self.bank, credentials=self.credentials)
+
+    @property
+    def bank_name(self) -> str | None:
+        return bank_catalog.get_name_and_icon_of_provider(provider=self.bank.value, blz=self.credentials.get("blz"))[0]
+
+    @property
+    def bank_icon(self) -> str | None:
+        return bank_catalog.get_name_and_icon_of_provider(provider=self.bank.value, blz=self.credentials.get("blz"))[1]
 
     def sync(self, handler: BankHandler) -> None:
         by_name = {account.name: account for account in self.accounts}

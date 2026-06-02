@@ -20,6 +20,8 @@ function makeUser(): UserRead {
       {
         id: 100,
         bank: 'ing',
+        bank_name: null,
+        bank_icon: null,
         accounts: [
           {
             id: 1,
@@ -44,6 +46,8 @@ function makeUser(): UserRead {
       {
         id: 101,
         bank: 'trade_republic',
+        bank_name: null,
+        bank_icon: null,
         accounts: [
           {
             id: 3,

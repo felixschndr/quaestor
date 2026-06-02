@@ -10,12 +10,8 @@ import { Button } from '@/components/ui/button'
 import { SyncButton } from '@/components/sync-button'
 import { TwoFactorModal } from '@/components/two-factor-modal'
 import { formatDecimal, formatEuro } from '@/lib/format'
-import {
-  accountDisplayName,
-  bankIconUrl,
-  displayNameOrUserName,
-  groupAccountsByBank,
-} from '@/lib/accounts'
+import { accountDisplayName, displayNameOrUserName } from '@/lib/accounts'
+import { BankLogo } from '@/components/BankLogo'
 import {
   useAccountGroupLayout,
   type AccountGroupAccountRef,
@@ -165,6 +161,9 @@ interface DisplayGroup {
 
 interface AccountWithBank extends AccountRead {
   bank: string
+  /** Resolved bank name + logo of the owning credential (for the row's logo/monogram). */
+  bankName: string | null
+  bankIcon: string | null
 }
 
 function buildDisplayGroups(
@@ -173,14 +172,25 @@ function buildDisplayGroups(
 ): DisplayGroup[] {
   const usesCustomLayout = !!layout && layout.groups.length > 0
   if (!usesCustomLayout) {
-    // Original behaviour: group by bank, no headings; each account keeps its own bank icon.
-    return groupAccountsByBank(user.credentials).map((group) => ({
-      key: `bank-${group.bank}`,
-      heading: null,
-      accounts: group.accounts
-        .filter((account) => !account.is_hidden)
-        .map((account) => ({ ...account, bank: group.bank })),
-    }))
+    // Original behaviour: no headings, each account shows its own bank logo. Group by
+    // credential (one bank connection) — generic FinTS banks all share provider "fints",
+    // so grouping by provider would collapse different banks into one block.
+    return [...user.credentials]
+      .sort((a, b) => (a.bank_name ?? a.bank).localeCompare(b.bank_name ?? b.bank))
+      .map((credential) => ({
+        key: `cred-${credential.id}`,
+        heading: null,
+        accounts: credential.accounts
+          .filter((account) => !account.is_hidden)
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((account) => ({
+            ...account,
+            bank: credential.bank,
+            bankName: credential.bank_name,
+            bankIcon: credential.bank_icon,
+          })),
+      }))
+      .filter((group) => group.accounts.length > 0)
   }
   const lookup = buildAccountLookup(user)
   // Hidden accounts also disappear from custom-grouped layouts. We resolve
@@ -214,7 +224,12 @@ function buildAccountLookup(user: UserRead): Map<number, AccountWithBank> {
   const map = new Map<number, AccountWithBank>()
   for (const credential of user.credentials) {
     for (const account of credential.accounts) {
-      map.set(account.id, { ...account, bank: credential.bank })
+      map.set(account.id, {
+        ...account,
+        bank: credential.bank,
+        bankName: credential.bank_name,
+        bankIcon: credential.bank_icon,
+      })
     }
   }
   return map
@@ -232,7 +247,7 @@ function AccountGroupList({ groups }: { groups: DisplayGroup[] }) {
             : group.heading
 
         const accountRows = group.accounts.map((account) => (
-          <AccountRow key={account.id} bank={account.bank} account={account} />
+          <AccountRow key={account.id} account={account} />
         ))
 
         // Legacy "by bank" layout has no heading and therefore no row to act as
@@ -281,7 +296,7 @@ export function sumFactoredBalance(
   )
 }
 
-function AccountRow({ bank, account }: { bank: string; account: AccountRead }) {
+function AccountRow({ account }: { account: AccountWithBank }) {
   const negative = account.balance < 0
   // Surface a non-100 balance_factor so the user can see why their group total
   // doesn't equal a naive sum of account balances. Rendered in the muted
@@ -294,7 +309,11 @@ function AccountRow({ bank, account }: { bank: string; account: AccountRead }) {
         params={{ accountId: String(account.id) }}
         className="hover:bg-muted/60 flex items-center gap-3 rounded-md px-2 py-3 transition-colors"
       >
-        <BankIcon bank={bank} />
+        <BankLogo
+          icon={account.bankIcon}
+          name={account.bankName ?? account.bank}
+          seed={account.bankName ?? account.bank}
+        />
         <span className="flex-1 truncate text-sm font-medium">{accountDisplayName(account)}</span>
         <span className="text-sm font-semibold tabular-nums">
           {hasFactor ? (
@@ -306,23 +325,6 @@ function AccountRow({ bank, account }: { bank: string; account: AccountRead }) {
         </span>
       </Link>
     </li>
-  )
-}
-
-function BankIcon({ bank }: { bank: string }) {
-  return (
-    <img
-      src={bankIconUrl(bank)}
-      alt=""
-      // The bank name is communicated to assistive tech via the account name
-      // and grouping, so the icon is purely decorative.
-      aria-hidden="true"
-      className="size-8 rounded-md object-cover"
-      onError={(event) => {
-        // Hide the broken-image glyph if the bank ever ships without an icon.
-        event.currentTarget.style.visibility = 'hidden'
-      }}
-    />
   )
 }
 

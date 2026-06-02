@@ -131,7 +131,7 @@ def test_create_manual_account_rejects_credential_owned_by_other_user(session_fa
 def test_create_manual_account_rejects_credential_of_non_manual_bank(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
-        credential = make_credential(session, user_id=user.id, bank=BankProvider.ING)
+        credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
         session.commit()
         user_id = user.id
         credential_id = credential.id
@@ -246,7 +246,7 @@ def test_create_manual_transaction_auto_categorises_when_no_category_given(
 def test_create_manual_transaction_rejects_non_manual_account(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
-        credential = make_credential(session, user_id=user.id, bank=BankProvider.ING)
+        credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
         account = make_account(session, credential_id=credential.id, name="Real", balance=100.0)
         session.commit()
         account_id = account.id
@@ -291,7 +291,7 @@ def test_delete_transaction_restores_balance(session_factory: sessionmaker):
 def test_delete_account_only_works_for_manual_credential(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
-        real_credential = make_credential(session, user_id=user.id, bank=BankProvider.ING)
+        real_credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
         manual_credential = make_credential(session, user_id=user.id, bank=BankProvider.MANUAL, credentials={})
         real_account = make_account(session, credential_id=real_credential.id, name="Real")
         manual_account = make_account(session, credential_id=manual_credential.id, name="Manual")
@@ -316,7 +316,7 @@ def test_delete_account_only_works_for_manual_credential(session_factory: sessio
 def test_update_account_rejects_balance_change_on_non_manual_account(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
-        credential = make_credential(session, user_id=user.id, bank=BankProvider.ING)
+        credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
         account = make_account(session, credential_id=credential.id, name="Real", balance=42.0)
         session.commit()
         account_id = account.id
@@ -438,7 +438,7 @@ def test_filter_transactions(
 def test_unlink_transfer_clears_both_sides_and_restores_types(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
-        credential = make_credential(session, user_id=user.id, bank=BankProvider.ING)
+        credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
         account_a = make_account(session, credential_id=credential.id, name="A")
         account_b = make_account(session, credential_id=credential.id, name="B")
         out_transaction = make_transaction(

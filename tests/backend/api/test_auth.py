@@ -201,7 +201,7 @@ def test_me_includes_credentials_and_balance(http_client: TestClient):
     assert response.status_code == 200
     body = response.json()
     assert body["balance"] == 0.0
-    assert [credential["bank"] for credential in body["credentials"]] == ["ing"]
+    assert [credential["bank"] for credential in body["credentials"]] == ["fints"]
 
 
 def test_me_returns_401_when_unauthenticated(http_client: TestClient):

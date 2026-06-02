@@ -195,15 +195,7 @@
     "de": "Deutsch"
   },
   "banks": {
-    "ing": { "title": "ING" },
-    "dkb": {
-      "title": "DKB",
-      "note": "Nach dem Verbinden bekommst du eine Push-Benachrichtigung in der DKB-App; diese bitte dort freigeben, damit die Synchronisierung fortgesetzt werden kann."
-    },
-    "sparkasse": {
-      "title": "Sparkasse",
-      "note": "Nach dem Verbinden bekommst du eine Push-Benachrichtigung in der Sparkassen-App; diese bitte dort freigeben, damit die Synchronisierung fortgesetzt werden kann."
-    },
+    "fints": { "title": "FinTS-Bank" },
     "dfs": { "title": "DFS", "note": "Altersvorsorge der Deutschen Flugsicherung GmbH." },
     "fin4u": {
       "title": "fin4u",
@@ -232,9 +224,16 @@
     "empty": "Noch keine Banken verbunden.",
     "pickerTitle": "Bank auswählen",
     "pickerEmpty": "Keine Banken verfügbar.",
+    "searchPlaceholder": "Bankname, BLZ oder IBAN…",
+    "noResults": "Keine Bank gefunden.",
+    "tested": "Getestet",
+    "ibanLabel": "IBAN",
+    "ibanMismatch": "Diese IBAN gehört nicht zur gewählten Bank.",
     "pickerAccountsAdded_zero": "Noch keine Konten hinzugefügt",
     "pickerAccountsAdded_one": "{{count}} Konto bereits hinzugefügt",
     "pickerAccountsAdded_other": "{{count}} Konten bereits hinzugefügt",
+    "familyCount_one": "{{count}} Bank",
+    "familyCount_other": "{{count}} Banken",
     "formTitle": "{{bank}} verbinden",
     "formTitleManual": "Manuelles Konto erstellen",
     "submit": "Verbinden und synchronisieren",

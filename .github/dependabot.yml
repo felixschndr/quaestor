@@ -21,9 +21,6 @@ updates:
       interval: "daily"
     cooldown:
       default-days: 3
-    # Assignment happens in .github/workflows/dependabot-auto-merge.yml — only
-    # PRs that don't auto-merge (i.e., major bumps) get assigned, so routine
-    # minor/patch traffic doesn't fill the inbox.
     labels:
       - "dependencies"
       - "github-actions"

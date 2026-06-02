@@ -16,6 +16,8 @@ class CredentialRead(BaseModel):
 
     id: int
     bank: BankProvider
+    bank_name: str | None = None
+    bank_icon: str | None = None
     accounts: list[AccountRead] = []
     last_fetching_timestamp: datetime | None = None
     requires_two_factor_authentication: bool

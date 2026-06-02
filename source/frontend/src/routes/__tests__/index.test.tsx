@@ -114,6 +114,8 @@ describe('OverviewView', () => {
         {
           id: 10,
           bank: 'trade_republic',
+          bank_name: null,
+          bank_icon: null,
           accounts: [
             {
               id: 1,
@@ -130,6 +132,8 @@ describe('OverviewView', () => {
         {
           id: 11,
           bank: 'ing',
+          bank_name: null,
+          bank_icon: null,
           accounts: [
             {
               id: 2,
@@ -178,6 +182,8 @@ describe('OverviewView', () => {
         {
           id: 1,
           bank: 'ing',
+          bank_name: null,
+          bank_icon: null,
           accounts: [
             {
               id: 8,
@@ -216,6 +222,8 @@ describe('OverviewView', () => {
         {
           id: 1,
           bank: 'ing',
+          bank_name: null,
+          bank_icon: null,
           accounts: [
             {
               id: 8,
@@ -253,6 +261,8 @@ describe('OverviewView', () => {
         {
           id: 1,
           bank: 'ing',
+          bank_name: null,
+          bank_icon: null,
           accounts: [
             // Factored: 100 * 100 / 100 = 100
             {
@@ -316,6 +326,8 @@ describe('OverviewView', () => {
         {
           id: 1,
           bank: 'ing',
+          bank_name: null,
+          bank_icon: null,
           accounts: [
             {
               id: 8,
@@ -354,6 +366,8 @@ describe('OverviewView', () => {
         {
           id: 1,
           bank: 'ing',
+          bank_name: null,
+          bank_icon: null,
           accounts: [
             {
               id: 11,
@@ -414,6 +428,8 @@ describe('OverviewView', () => {
         {
           id: 1,
           bank: 'ing',
+          bank_name: null,
+          bank_icon: null,
           accounts: [
             {
               id: 8,
@@ -466,6 +482,8 @@ describe('OverviewView', () => {
         {
           id: 1,
           bank: 'ing',
+          bank_name: null,
+          bank_icon: null,
           accounts: [
             {
               id: 2,
@@ -492,6 +510,8 @@ describe('OverviewView', () => {
         {
           id: 1,
           bank: 'ing',
+          bank_name: null,
+          bank_icon: null,
           accounts: [
             {
               id: 7,
