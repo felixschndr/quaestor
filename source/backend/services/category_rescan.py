@@ -18,6 +18,7 @@ def rescan_unknown_categories_sync() -> None:
 
 
 def _rescan(db_session: Session) -> None:
+    logger.debug(f"Starting re-scan of transactions still categorised as {TransactionCategory.UNKNOWN.value}")
     checked = 0
     updated = 0
     stmt = (
@@ -32,7 +33,10 @@ def _rescan(db_session: Session) -> None:
             transaction.category = new_category
             updated += 1
     db_session.commit()
-    logger.info(f"Category re-scan: checked {checked}, updated {updated}, still unknown {checked - updated}")
+    logger.info(
+        f"Category re-scan: checked {checked}, updated {updated}, "
+        f"still {TransactionCategory.UNKNOWN.value.lower()} {checked - updated}"
+    )
 
 
 async def run_startup_rescan() -> None:

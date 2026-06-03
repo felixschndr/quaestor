@@ -44,7 +44,7 @@ def test_detects_a_simple_transfer_and_links_them(session_factory: sessionmaker)
         )
         session.flush()
 
-        created = transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id)
+        created = transfer_detection.detect_transfers_for_user(db_session=session, user=user)
         session.flush()
 
         assert created == 1
@@ -69,7 +69,7 @@ def test_amount_tolerance(session_factory: sessionmaker):
         )
         session.flush()
 
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 1
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
         assert within.transaction_type == TransactionType.TRANSFER_IN
 
 
@@ -89,7 +89,7 @@ def test_no_match_when_time_difference_is_too_big(session_factory: sessionmaker)
         )
         session.flush()
 
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 0
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 0
 
 
 def test_does_not_match_within_the_same_account(session_factory: sessionmaker):
@@ -104,7 +104,7 @@ def test_does_not_match_within_the_same_account(session_factory: sessionmaker):
         )
         session.flush()
 
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 0
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 0
 
 
 def test_does_not_match_across_different_users(session_factory: sessionmaker):
@@ -123,7 +123,7 @@ def test_does_not_match_across_different_users(session_factory: sessionmaker):
         )
         session.flush()
 
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user_one.id) == 0
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user_one) == 0
 
 
 def test_ignores_non_whitelisted_transaction_types(session_factory: sessionmaker):
@@ -139,7 +139,7 @@ def test_ignores_non_whitelisted_transaction_types(session_factory: sessionmaker
         )
         session.flush()
 
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 0
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 0
 
 
 def test_is_idempotent_across_reruns(session_factory: sessionmaker):
@@ -154,10 +154,10 @@ def test_is_idempotent_across_reruns(session_factory: sessionmaker):
         )
         session.flush()
 
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 1
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
         session.flush()
         # Second run finds nothing new and leaves the existing pair untouched.
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 0
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 0
 
 
 def test_pairs_one_to_one_when_multiple_inflows_match(session_factory: sessionmaker):
@@ -176,7 +176,7 @@ def test_pairs_one_to_one_when_multiple_inflows_match(session_factory: sessionma
         )
         session.flush()
 
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 1
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
         paired = [t for t in (first, second) if t.transaction_type == TransactionType.TRANSFER_IN]
         unpaired = [t for t in (first, second) if t.transaction_type == TransactionType.INCOMING]
         assert len(paired) == 1
@@ -195,7 +195,7 @@ def test_deleting_one_leg_clears_the_counterpart_link(session_factory: sessionma
             session, account_id=account_b.id, amount=50.0, date=_BASE_DATE, transaction_type=TransactionType.INCOMING
         )
         session.flush()
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 1
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
         session.flush()
 
         session.delete(out_transaction)
@@ -236,7 +236,7 @@ def test_prefers_the_candidate_with_matching_purpose(session_factory: sessionmak
         )
         session.flush()
 
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 1
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
         assert matching_purpose.transaction_type == TransactionType.TRANSFER_IN
         assert other_purpose.transaction_type == TransactionType.INCOMING
 
@@ -253,7 +253,7 @@ def test_stores_original_type_when_pairing(session_factory: sessionmaker):
         )
         session.flush()
 
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 1
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
         assert out_transaction.transfer_original_type == TransactionType.DEPOSIT
         assert in_transaction.transfer_original_type == TransactionType.INCOMING
 
@@ -271,7 +271,7 @@ def test_never_pairs_relink_blocked_transactions(session_factory: sessionmaker):
         )
         session.flush()
 
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 0
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 0
         assert blocked.transfer_counterpart_id is None
 
 
@@ -287,7 +287,7 @@ def test_deleting_a_user_with_a_linked_transfer_pair_does_not_deadlock(session_f
             session, account_id=account_b.id, amount=50.0, date=_BASE_DATE, transaction_type=TransactionType.INCOMING
         )
         session.flush()
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user_id=user.id) == 1
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
         session.flush()
         out_id, in_id = out_transaction.id, in_transaction.id
 

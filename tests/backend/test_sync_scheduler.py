@@ -78,7 +78,7 @@ def test_run_periodic_sync_logs_and_keeps_running_on_exception(
 
     monkeypatch.setattr(target=sync_scheduler.asyncio, name="sleep", value=fake_sleep)
 
-    with caplog.at_level("ERROR", logger="source.backend.services.sync_scheduler"):
+    with caplog.at_level("ERROR", logger="services.sync_scheduler"):
         with pytest.raises(_StopLoop):
             asyncio.run(real_run_periodic_sync())
 

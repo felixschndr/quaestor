@@ -70,7 +70,7 @@ def start_setup(db_session: Session, user: User) -> tuple[str, str, str]:
     user.two_factor_secret = secret
     user.two_factor_enabled = False
     db_session.commit()
-    logger.info(f"Started 2FA setup for user {user.id}")
+    logger.info(f"Started 2FA setup for {user}")
     provisioning_uri = build_provisioning_uri(secret=secret, user_name=user.user_name)
     return secret, provisioning_uri, build_qr_data_uri(provisioning_uri)
 
@@ -84,7 +84,7 @@ def enable(db_session: Session, user: User, code: str) -> list[str]:
     user.two_factor_enabled = True
     backup_codes = _issue_backup_codes(user=user)
     db_session.commit()
-    logger.info(f"Enabled 2FA for user {user.id}")
+    logger.info(f"Enabled 2FA for {user}")
     return backup_codes
 
 
@@ -93,7 +93,7 @@ def regenerate_backup_codes(db_session: Session, user: User) -> list[str]:
         raise InvalidTwoFactorError("Two-factor authentication is not enabled")
     backup_codes = _issue_backup_codes(user=user)
     db_session.commit()
-    logger.info(f"Regenerated backup codes for user {user.id}")
+    logger.info(f"Regenerated backup codes for {user}")
     return backup_codes
 
 
@@ -115,7 +115,7 @@ def disable(db_session: Session, user: User, code: str) -> None:
     user.two_factor_secret = None
     _replace_backup_codes(user=user)
     db_session.commit()
-    logger.info(f"Disabled 2FA for user {user.id}")
+    logger.info(f"Disabled 2FA for {user}")
 
 
 def verify_login_code(db_session: Session, user: User, code: str) -> bool:
@@ -134,7 +134,7 @@ def _consume_backup_code(db_session: Session, user: User, code: str) -> bool:
         if verify_password(password_hash=backup_code.code_hash, password_to_verify=normalized):
             user.backup_codes.remove(backup_code)
             db_session.commit()
-            logger.info(f"Consumed a backup code for user {user.id}")
+            logger.info(f"Consumed a backup code for {user}")
             return True
     return False
 
@@ -154,7 +154,7 @@ def create_challenge(db_session: Session, user: User) -> str:
     )
     db_session.add(challenge)
     db_session.commit()
-    logger.info(f"Created 2FA challenge for user {user.id}")
+    logger.info(f"Created 2FA challenge for {user}")
     return raw_token
 
 

@@ -8,7 +8,7 @@ from source.backend.services import playwright_browser
 
 pytestmark = pytest.mark.real_playwright_browser
 
-LOGGER_NAME = "source.backend.services.playwright_browser"
+LOGGER_NAME = "services.playwright_browser"
 
 
 def _patch_executable_path(monkeypatch: pytest.MonkeyPatch, path: Path) -> None:

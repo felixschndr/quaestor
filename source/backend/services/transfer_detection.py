@@ -7,6 +7,7 @@ from source.backend.models.account import Account
 from source.backend.models.credential import Credential
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_type import TransactionType
+from source.backend.models.user import User
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -44,13 +45,13 @@ def _candidate_rank(outflow: Transaction, inflow: Transaction) -> tuple:
     )
 
 
-def detect_transfers_for_user(db_session: Session, user_id: int) -> int:
+def detect_transfers_for_user(db_session: Session, user: User) -> int:
     unpaired_transactions = list(
         db_session.scalars(
             select(Transaction)
             .join(Account, onclause=Transaction.account_id == Account.id)
             .join(Credential, onclause=Account.credential_id == Credential.id)
-            .where(Credential.user_id == user_id)
+            .where(Credential.user_id == user.id)
             .where(Transaction.transfer_counterpart_id.is_(None))
             .where(Transaction.transaction_type.in_(ELIGIBLE_TYPES))
             .where(Transaction.transfer_relink_blocked.is_(False))
@@ -60,7 +61,7 @@ def detect_transfers_for_user(db_session: Session, user_id: int) -> int:
     outflows = sorted((t for t in unpaired_transactions if t.amount < 0), key=lambda t: (t.date, t.id))
     inflows = [t for t in unpaired_transactions if t.amount > 0]
     logger.debug(
-        f"Transfer detection for user {user_id}: {len(unpaired_transactions)} unpaired candidate(s) "
+        f"Transfer detection for {user}: {len(unpaired_transactions)} unpaired candidate(s) "
         f"({len(outflows)} outflow(s), {len(inflows)} inflow(s))"
     )
 
@@ -88,15 +89,16 @@ def detect_transfers_for_user(db_session: Session, user_id: int) -> int:
             f"Matched transfer: outflow {outflow} <-> inflow {best.id}; {len(candidates)} candidate(s) considered"
         )
 
-    logger.info(f"Transfer detection for user {user_id}: {created} new transfer pair(s)")
+    logger.info(f"Transfer detection for {user}: {created} new transfer pair(s)")
     return created
 
 
 def detect_all_transfers_sync() -> None:
     with SessionLocal() as db_session:
-        user_ids = list(db_session.scalars(select(Credential.user_id).distinct()))
-        for user_id in user_ids:
-            detect_transfers_for_user(db_session=db_session, user_id=user_id)
+        users = list(db_session.scalars(select(User).where(User.id.in_(select(Credential.user_id).distinct()))))
+        logger.info(f"Running transfer detection for {len(users)} user(s) with credentials")
+        for user in users:
+            detect_transfers_for_user(db_session=db_session, user=user)
         db_session.commit()
 
 

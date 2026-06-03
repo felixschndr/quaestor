@@ -27,7 +27,7 @@ EXCEPTIONS_TO_CATCH_AND_THEIR_STATUS_CODES: dict[type[Exception], int] = {
 def register_exception_handlers(app: FastAPI) -> None:
     def make_handler(code: int) -> Callable:
         def handler(request: Request, exc: Exception) -> JSONResponse:
-            message = f"{type(exc).__name__} on {request.method} {request.url.path} -> {code}"
+            message = f"{type(exc).__name__} on [{request.method}] [{request.url.path}] -> {code}"
             if code >= 500:
                 logger.exception(message)
             else:

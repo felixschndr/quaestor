@@ -4,9 +4,11 @@ import pytest
 from source.backend.bank_handlers import BankProvider
 from source.backend.exceptions import AccountNotFoundError, PermissionDeniedError
 from source.backend.models.account import Account
+from source.backend.models.credential import Credential
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
+from source.backend.models.user import User
 from source.backend.services import account_service
 from sqlalchemy.orm import sessionmaker
 
@@ -32,7 +34,9 @@ def _create_user_with_accounts(session_factory: sessionmaker) -> tuple[int, list
         return user.id, [first.id, second.id]
 
 
-def test_list_accounts_returns_only_accounts_belonging_to_the_user(session_factory: sessionmaker):
+def test_list_accounts_returns_only_accounts_belonging_to_the_user(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     user_id, expected_ids = _create_user_with_accounts(session_factory)
     with session_factory() as session:
         other = make_user(session, user_name=SECOND_USER_NAME, display_name="Other")
@@ -41,9 +45,12 @@ def test_list_accounts_returns_only_accounts_belonging_to_the_user(session_facto
         session.commit()
 
     with session_factory() as session:
-        accounts = account_service.list_accounts(db_session=session, user_id=user_id)
+        user = session.get(entity=User, ident=user_id)
+        with caplog.at_level("DEBUG", logger="services.account_service"):
+            accounts = account_service.list_accounts(db_session=session, user=user)
 
     assert {account.id for account in accounts} == set(expected_ids)
+    assert any("<User(" in record.getMessage() for record in caplog.records)
 
 
 def test_list_accounts_empty_when_user_has_no_credentials(session_factory: sessionmaker):
@@ -53,7 +60,8 @@ def test_list_accounts_empty_when_user_has_no_credentials(session_factory: sessi
         user_id = user.id
 
     with session_factory() as session:
-        assert account_service.list_accounts(db_session=session, user_id=user_id) == []
+        user = session.get(entity=User, ident=user_id)
+        assert account_service.list_accounts(db_session=session, user=user) == []
 
 
 def test_get_account_raises_when_id_unknown(session_factory: sessionmaker):
@@ -71,20 +79,21 @@ def _create_user_with_manual_credential(session_factory: sessionmaker) -> tuple[
 
 
 def test_create_manual_account_persists_account_with_caller_owned_credential(
-    session_factory: sessionmaker,
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
-    user_id, credential_id = _create_user_with_manual_credential(session_factory)
+    _, credential_id = _create_user_with_manual_credential(session_factory)
 
     with session_factory() as session:
-        account = account_service.create_manual_account(
-            db_session=session,
-            user_id=user_id,
-            credential_id=credential_id,
-            name="Wallet",
-            display_name="Cash wallet",
-            balance=123.45,
-            balance_factor=100,
-        )
+        credential = session.get(entity=Credential, ident=credential_id)
+        with caplog.at_level("INFO", logger="services.account_service"):
+            account = account_service.create_manual_account(
+                db_session=session,
+                credential=credential,
+                name="Wallet",
+                display_name="Cash wallet",
+                balance=123.45,
+                balance_factor=100,
+            )
         account_id = account.id
 
     with session_factory() as session:
@@ -93,42 +102,9 @@ def test_create_manual_account_persists_account_with_caller_owned_credential(
         assert loaded.credential_id == credential_id
         assert loaded.name == "Wallet"
         assert loaded.balance == 123.45
-
-
-def test_create_manual_account_rejects_unknown_credential(session_factory: sessionmaker):
-    user_id, _ = _create_user_with_manual_credential(session_factory)
-
-    with session_factory() as session:
-        with pytest.raises(AccountNotFoundError, match="not found"):
-            account_service.create_manual_account(
-                db_session=session,
-                user_id=user_id,
-                credential_id=99999,
-                name="Wallet",
-                display_name=None,
-                balance=0.0,
-                balance_factor=100,
-            )
-
-
-def test_create_manual_account_rejects_credential_owned_by_other_user(session_factory: sessionmaker):
-    _, credential_id = _create_user_with_manual_credential(session_factory)
-    with session_factory() as session:
-        other = make_user(session, user_name=SECOND_USER_NAME, display_name="Other")
-        session.commit()
-        other_id = other.id
-
-    with session_factory() as session:
-        with pytest.raises(AccountNotFoundError):
-            account_service.create_manual_account(
-                db_session=session,
-                user_id=other_id,
-                credential_id=credential_id,
-                name="Wallet",
-                display_name=None,
-                balance=0.0,
-                balance_factor=100,
-            )
+    assert any(
+        "Created manual" in record.getMessage() and "<Account(" in record.getMessage() for record in caplog.records
+    )
 
 
 def test_create_manual_account_rejects_credential_of_non_manual_bank(session_factory: sessionmaker):
@@ -136,15 +112,14 @@ def test_create_manual_account_rejects_credential_of_non_manual_bank(session_fac
         user = make_user(session)
         credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
         session.commit()
-        user_id = user.id
         credential_id = credential.id
 
     with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
         with pytest.raises(PermissionDeniedError, match="manual"):
             account_service.create_manual_account(
                 db_session=session,
-                user_id=user_id,
-                credential_id=credential_id,
+                credential=credential,
                 name="Bogus",
                 display_name=None,
                 balance=0.0,
@@ -177,7 +152,8 @@ def test_create_manual_transaction_updates_balance_and_snapshots(session_factory
         assert account.balance_at_date[TRANSACTION_DATE].balance == 75.0
 
     with session_factory() as session:
-        account_service.get_account_for_user(db_session=session, account_id=account_id, user_id=user_id)
+        user = session.get(entity=User, ident=user_id)
+        account_service.get_account_for_user(db_session=session, account_id=account_id, user=user)
 
 
 def test_create_manual_transaction_honours_explicit_category(session_factory: sessionmaker):
@@ -357,9 +333,10 @@ def test_update_account_balance_recomputes_snapshots_on_manual_account(session_f
 def test_get_filtered_transactions_for_user_returns_empty_when_no_account_ids(session_factory: sessionmaker):
     user_id, _ = _create_user_with_accounts(session_factory)
     with session_factory() as session:
+        user = session.get(entity=User, ident=user_id)
         result = account_service.get_filtered_transactions_for_user(
             db_session=session,
-            user_id=user_id,
+            user=user,
             account_ids_to_search_through=[],
             filter_parameters={"text": "anything"},
         )
@@ -428,9 +405,10 @@ def test_filter_transactions(
     ]
 
     with session_factory() as session:
+        user = session.get(entity=User, ident=user_id)
         filtered_transactions = account_service.get_filtered_transactions_for_user(
             db_session=session,
-            user_id=user_id,
+            user=user,
             account_ids_to_search_through=[account_id],
             filter_parameters=filter_parameters,
         )

@@ -47,7 +47,7 @@ def list_user_sessions(
             user_agent=user_session.user_agent,
             is_current=session_service.is_current_session(user_session=user_session, raw_token=raw_token),
         )
-        for user_session in session_service.list_sessions_for_user(db_session=db_session, user_id=current_user.id)
+        for user_session in session_service.list_sessions_for_user(db_session=db_session, user=current_user)
     ]
 
 
@@ -67,7 +67,7 @@ def revoke_all_other_user_sessions(
         )
     session_service.revoke_all_other_sessions_for_user(
         db_session=db_session,
-        user_id=current_user.id,
+        user=current_user,
         current_raw_token=request.cookies.get(session_service.COOKIE_NAME),
     )
 
@@ -83,7 +83,7 @@ def revoke_user_session(
     _require_self(user_id=user_id, current_user=current_user)
     session_service.revoke_user_session(
         db_session=db_session,
-        user_id=current_user.id,
+        user=current_user,
         session_id=session_id,
         current_raw_token=request.cookies.get(session_service.COOKIE_NAME),
     )
@@ -105,11 +105,11 @@ def update_user(
         if not verify_password(password_hash=current_user.password_hash, password_to_verify=current_password):
             raise InvalidCredentialsError("Current password is incorrect")
         fields["password_hash"] = hash_password(new_password)
-    user = user_service.update_user(db_session=db_session, user_id=current_user.id, fields=fields)
+    user = user_service.update_user(db_session=db_session, user=current_user, fields=fields)
     if new_password is not None:
         session_service.revoke_all_other_sessions_for_user(
             db_session=db_session,
-            user_id=current_user.id,
+            user=current_user,
             current_raw_token=request.cookies.get(session_service.COOKIE_NAME),
         )
     return user
@@ -138,7 +138,7 @@ def enable_two_factor(
     backup_codes = two_factor_service.enable(db_session=db_session, user=current_user, code=payload.code)
     session_service.revoke_all_other_sessions_for_user(
         db_session=db_session,
-        user_id=current_user.id,
+        user=current_user,
         current_raw_token=request.cookies.get(session_service.COOKIE_NAME),
     )
     return BackupCodesRead(backup_codes=backup_codes)
@@ -171,7 +171,7 @@ async def sync_credentials(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> list[SyncJobRead]:
-    credentials = credential_service.list_credentials(db_session, user_id=current_user.id)
+    credentials = credential_service.list_credentials(db_session, user=current_user)
     jobs = []
     for credential in credentials:
         job = await sync_jobs.start_sync(credential_id=credential.id)
@@ -186,7 +186,7 @@ def delete_user(
     db_session: Session = Depends(get_session),
 ) -> None:
     _require_self(user_id=user_id, current_user=current_user)
-    user_service.delete_user(db_session=db_session, user_id=current_user.id)
+    user_service.delete_user(db_session=db_session, user=current_user)
 
 
 def _require_self(user_id: int, current_user: User) -> None:

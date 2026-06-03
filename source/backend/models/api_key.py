@@ -23,3 +23,6 @@ class ApiKey(Base):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="api_keys")
+
+    def log_label(self) -> str:
+        return f"User: {self.user_id} (API-Key-ID: {self.id})"

@@ -81,9 +81,9 @@ def renew_session(db_session: Session, raw_token: str) -> UserSession | None:
     return user_session
 
 
-def list_sessions_for_user(db_session: Session, user_id: int) -> list[UserSession]:
-    sessions = list(db_session.scalars(select(UserSession).where(UserSession.user_id == user_id)))
-    logger.debug(f"Found {len(sessions)} session(s) for user {user_id}")
+def list_sessions_for_user(db_session: Session, user: User) -> list[UserSession]:
+    sessions = list(db_session.scalars(select(UserSession).where(UserSession.user_id == user.id)))
+    logger.debug(f"Found {len(sessions)} session(s) for {user}")
     return sessions
 
 
@@ -91,34 +91,36 @@ def is_current_session(user_session: UserSession, raw_token: str | None) -> bool
     return raw_token is not None and user_session.token_hash == _hash_token(raw_token)
 
 
-def revoke_all_other_sessions_for_user(db_session: Session, user_id: int, current_raw_token: str | None) -> int:
-    sessions = list_sessions_for_user(db_session=db_session, user_id=user_id)
+def revoke_all_other_sessions_for_user(db_session: Session, user: User, current_raw_token: str | None) -> int:
+    sessions = list_sessions_for_user(db_session=db_session, user=user)
     revoked = 0
     for user_session in sessions:
         if is_current_session(user_session=user_session, raw_token=current_raw_token):
+            logger.debug(f"Keeping current {user_session} while revoking the others")
             continue
+        logger.debug(f"Revoking {user_session}")
         db_session.delete(user_session)
         revoked += 1
     if revoked:
         db_session.commit()
-    logger.info(f"Revoked {revoked} other session(s) for user {user_id}")
+    logger.info(f"Revoked {revoked} other session(s) for {user}")
     return revoked
 
 
-def revoke_user_session(db_session: Session, user_id: int, session_id: int, current_raw_token: str | None) -> None:
+def revoke_user_session(db_session: Session, user: User, session_id: int, current_raw_token: str | None) -> None:
     user_session = db_session.get(entity=UserSession, ident=session_id)
     not_found_error = SessionNotFoundError(f"Session with the ID {session_id} not found")
-    if user_session is None or user_session.user_id != user_id:
-        logger.warning(f"User {user_id} attempted to revoke session {session_id} which does not belong to them")
+    if user_session is None or user_session.user_id != user.id:
+        logger.warning(f"{user} attempted to revoke session {session_id} which does not belong to them")
         raise not_found_error
     if is_current_session(user_session=user_session, raw_token=current_raw_token):
-        logger.debug(f"User {user_id} attempted to revoke their current session {user_session} via the revoke endpoint")
+        logger.debug(f"{user} attempted to revoke their current {user_session} via the revoke endpoint")
         raise CannotRevokeCurrentSessionError(
             "Cannot revoke the current session via this endpoint; use POST /api/auth/logout instead"
         )
     db_session.delete(user_session)
     db_session.commit()
-    logger.info(f"Revoked session {user_session}")
+    logger.info(f"Revoked {user_session}")
 
 
 def get_user_by_raw_token(db_session: Session, raw_token: str) -> User | None:
@@ -161,25 +163,25 @@ def clear_session_cookie(response: Response) -> None:
 def get_current_user_from_session(request: Request, db_session: Session = Depends(get_session)) -> User:
     raw_token = request.cookies.get(COOKIE_NAME)
     if not raw_token:
-        logger.debug(f"{request.method} {request.url.path}: no session cookie, authentication failed")
+        logger.debug(f"[{request.method}] [{request.url.path}]: no session cookie, authentication failed")
         raise InvalidCredentialsError("Authentication required")
-    user = get_user_by_raw_token(db_session=db_session, raw_token=raw_token)
-    if user is None:
+    user_session = _get_session_by_raw_token(db_session=db_session, raw_token=raw_token)
+    if user_session is None:
         logger.debug(
-            f"{request.method} {request.url.path}: session cookie did not resolve to a user, authentication failed"
+            f"[{request.method}] [{request.url.path}]: session cookie did not resolve to a session, authentication failed"
         )
         raise InvalidCredentialsError("Authentication required")
-    logger.debug(f"{request.method} {request.url.path}: authenticated as user {user} via session")
-    return user
+    logger.debug(f"[{request.method}] [{request.url.path}]: authenticated {user_session.user} via {user_session}")
+    return user_session.user
 
 
 def _authenticate_via_api_key(request: Request, db_session: Session) -> User:
     raw_token = api_key_service.extract_bearer_token(request)
     user = api_key_service.authenticate(db_session=db_session, raw_token=raw_token)
     if user is None:
-        logger.debug(f"{request.method} {request.url.path}: API key did not resolve to a user")
+        logger.debug(f"[{request.method}] [{request.url.path}]: API key did not resolve to a user")
         raise InvalidCredentialsError("Authentication required")
-    logger.debug(f"{request.method} {request.url.path}: authenticated as user {user} via API key")
+    logger.debug(f"[{request.method}] [{request.url.path}]: authenticated {user} via API key")
     return user
 
 

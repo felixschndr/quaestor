@@ -79,8 +79,8 @@ def get_user_by_user_name(db_session: Session, user_name: str) -> User:
     )
 
 
-def update_user(db_session: Session, user_id: int, fields: dict) -> User:
-    user = get_user_by_id(db_session=db_session, user_id=user_id)
+def update_user(db_session: Session, user: User, fields: dict) -> User:
+    logger.debug(f"Updating {user} with fields {sorted(fields)}")
     new_user_name = fields.get("user_name")
     if new_user_name is not None and new_user_name != user.user_name:
         conflicting_id = db_session.scalar(select(User.id).where(User.user_name == new_user_name))
@@ -98,8 +98,8 @@ def update_user(db_session: Session, user_id: int, fields: dict) -> User:
     return user
 
 
-def delete_user(db_session: Session, user_id: int) -> None:
-    user = get_user_by_id(db_session=db_session, user_id=user_id)
+def delete_user(db_session: Session, user: User) -> None:
+    logger.debug(f"Deleting {user}")
     db_session.delete(user)
     db_session.commit()
     logger.info(f"Deleted user {user}")

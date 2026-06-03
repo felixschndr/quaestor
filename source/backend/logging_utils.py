@@ -1,9 +1,58 @@
 import json
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import partialmethod
 from typing import Any
 
 REDACTION_PLACEHOLDER = "XXXXXX"
+
+NO_SESSION_LOG_LABEL = "-"
+SYSTEM_LOG_LABEL = "system"
+
+LOGGER_NAME_PREFIX = "source.backend."
+
+_session_log_label: ContextVar[str] = ContextVar("session_log_label", default=NO_SESSION_LOG_LABEL)
+
+
+def set_session_log_label(label: str) -> None:
+    _session_log_label.set(label)
+
+
+def current_session_log_label() -> str:
+    return _session_log_label.get()
+
+
+@contextmanager
+def session_log_context(label: str) -> Iterator[None]:
+    # Bind a label for the duration of a block and restore the previous one afterwards.
+    # Used by background tasks, which have no request to set the label for them.
+    token = _session_log_label.set(label)
+    try:
+        yield
+    finally:
+        _session_log_label.reset(token)
+
+
+def _install_session_log_record_factory() -> None:
+    # Attach the current session label to every LogRecord so the formatter can render
+    # `%(session)s`. Wrapping whatever factory is already installed keeps us composable
+    # and idempotent (importing this module twice must not stack factories).
+    existing_factory = logging.getLogRecordFactory()
+    if getattr(existing_factory, "_injects_session_label", False):
+        return
+
+    def factory(*args: Any, **kwargs: Any) -> logging.LogRecord:
+        record = existing_factory(*args, **kwargs)
+        record.session = _session_log_label.get()
+        return record
+
+    factory._injects_session_label = True  # type: ignore[attr-defined]
+    logging.setLogRecordFactory(factory)
+
+
+_install_session_log_record_factory()
 
 # Blacklist: any dict key whose lowercased name contains one of these fragments gets its value replaced
 SENSITIVE_KEY_FRAGMENTS = frozenset(
@@ -78,6 +127,9 @@ class StructuredLogger:
     def __init__(self, logger: logging.Logger) -> None:
         self._logger = logger
 
+    def is_enabled_for(self, level: int) -> bool:
+        return self._logger.isEnabledFor(level)
+
     def log(self, message: str, extra: Any = None, *, level: int, exc_info: Any = None) -> None:
         if not self._logger.isEnabledFor(level):
             return
@@ -100,4 +152,4 @@ class StructuredLogger:
 
 
 def get_logger(name: str) -> StructuredLogger:
-    return StructuredLogger(logging.getLogger(name))
+    return StructuredLogger(logging.getLogger(name.removeprefix(LOGGER_NAME_PREFIX)))

@@ -14,7 +14,8 @@ from source.backend.exceptions import (
 )
 from source.backend.logging_utils import get_logger
 from source.backend.models.credential import Credential
-from source.backend.services import bank_catalog, transfer_detection, user_service
+from source.backend.models.user import User
+from source.backend.services import bank_catalog, transfer_detection
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -37,9 +38,9 @@ def list_all_possible() -> list[dict]:
     return bank_catalog.get_catalog()
 
 
-def list_credentials(db_session: Session, user_id: int) -> list[Credential]:
-    credentials = list(db_session.scalars(select(Credential).where(Credential.user_id == user_id)))
-    logger.debug(f"Found {len(credentials)} credential(s) for user {user_id}")
+def list_credentials(db_session: Session, user: User) -> list[Credential]:
+    credentials = list(db_session.scalars(select(Credential).where(Credential.user_id == user.id)))
+    logger.debug(f"Found {len(credentials)} credential(s) for {user}")
     return credentials
 
 
@@ -53,11 +54,12 @@ def get_credential(db_session: Session, credential_id: int) -> Credential:
     return credential
 
 
-def get_credential_for_user(db_session: Session, credential_id: int, user_id: int) -> Credential:
+def get_credential_for_user(db_session: Session, credential_id: int, user: User) -> Credential:
     credential = get_credential(db_session=db_session, credential_id=credential_id)
-    if credential.user_id != user_id:
-        logger.warning(f"User {user_id} attempted to access {credential} owned by user {credential.user_id}")
+    if credential.user_id != user.id:
+        logger.warning(f"{user} attempted to access {credential} owned by user {credential.user_id}")
         raise CredentialNotFoundError(f"Credential with the ID {credential_id} not found")
+    logger.debug(f"{user} accessed {credential}")
     return credential
 
 
@@ -92,32 +94,30 @@ def _validate_credentials(bank: BankProvider, credentials: dict[str, str]) -> di
 
 def create_credential(
     db_session: Session,
-    user_id: int,
+    user: User,
     bank: BankProvider,
     credentials: dict[str, str],
 ) -> Credential:
-    user = user_service.get_user_by_id(db_session=db_session, user_id=user_id)
+    logger.debug(f"Creating {bank.value} credential for {user}")
     validated_credentials = _validate_credentials(bank=bank, credentials=credentials)
 
     if bank != BankProvider.MANUAL:
         existing_credentials = db_session.scalars(
-            select(Credential).where(Credential.user_id == user_id).where(Credential.bank == bank)
+            select(Credential).where(Credential.user_id == user.id).where(Credential.bank == bank)
         ).all()
         if any(
             existing_credential.credentials == validated_credentials for existing_credential in existing_credentials
         ):
-            raise CredentialAlreadyExistsError(
-                f"User {user_id} already has a {bank.value} credential with the same login data"
-            )
+            raise CredentialAlreadyExistsError(f"{user} already has a {bank.value} credential with the same login data")
     credential = Credential(user=user, bank=bank, credentials=validated_credentials)
     db_session.add(credential)
     db_session.commit()
-    logger.info(f"Created credential {credential}")
+    logger.info(f"Created {credential} for {user}")
     return credential
 
 
-def update_credential(db_session: Session, credential_id: int, fields: dict) -> Credential:
-    credential = get_credential(db_session=db_session, credential_id=credential_id)
+def update_credential(db_session: Session, credential: Credential, fields: dict) -> Credential:
+    logger.debug(f"Updating {credential} with fields {sorted(fields)}")
     credential_before_change = str(credential)
     for key, value in fields.items():
         setattr(credential, key, value)
@@ -126,11 +126,11 @@ def update_credential(db_session: Session, credential_id: int, fields: dict) -> 
     return credential
 
 
-def delete_credential(db_session: Session, credential_id: int) -> None:
-    credential = get_credential(db_session=db_session, credential_id=credential_id)
+def delete_credential(db_session: Session, credential: Credential) -> None:
+    logger.debug(f"Deleting {credential}")
     db_session.delete(credential)
     db_session.commit()
-    logger.info(f"Deleted credential {credential}")
+    logger.info(f"Deleted {credential}")
 
 
 def sync_credential(
@@ -142,7 +142,7 @@ def sync_credential(
     credential = get_credential(db_session=db_session, credential_id=credential_id)
     result = sync_credential_object(credential=credential, notify_two_factor_state=notify_two_factor_state)
     if result.status == SyncStatus.COMPLETED:
-        transfer_detection.detect_transfers_for_user(db_session=db_session, user_id=credential.user_id)
+        transfer_detection.detect_transfers_for_user(db_session=db_session, user=credential.user)
     db_session.commit()
     return result
 
@@ -192,7 +192,7 @@ def sync_all_due_credentials(db_session: Session) -> None:
     logger.info("Starting periodic sync of all due credentials")
     credentials = list(db_session.scalars(select(Credential)))
     synced, skipped, failed = 0, 0, 0
-    synced_user_ids: set[int] = set()
+    synced_users: dict[int, User] = {}
     for credential in credentials:
         if credential.requires_two_factor_authentication:
             skipped += 1
@@ -201,12 +201,12 @@ def sync_all_due_credentials(db_session: Session) -> None:
         try:
             sync_credential_object(credential=credential)
             synced += 1
-            synced_user_ids.add(credential.user_id)
+            synced_users[credential.user_id] = credential.user
         except Exception:
             failed += 1
             logger.exception(f"Periodic sync failed for {credential}")
-    for user_id in synced_user_ids:
-        transfer_detection.detect_transfers_for_user(db_session=db_session, user_id=user_id)
+    for user in synced_users.values():
+        transfer_detection.detect_transfers_for_user(db_session=db_session, user=user)
     db_session.commit()
     logger.info(
         f"Periodic sync finished: {synced} synced, {skipped} skipped due to 2FA, "
@@ -215,13 +215,13 @@ def sync_all_due_credentials(db_session: Session) -> None:
 
 
 def confirm_two_factor(db_session: Session, credential_id: int, challenge_token: str, code: str) -> SyncResult:
-    logger.info(f"Confirming 2FA for credential {credential_id}")
     credential = get_credential(db_session=db_session, credential_id=credential_id)
+    logger.info(f"Confirming 2FA for {credential}")
     credential.session_state = credential.handler.complete_two_factor_challenge(
         challenge_token=challenge_token, credential_id=credential_id, code=code
     )
     result = sync_credential_object(credential=credential)
     if result.status == SyncStatus.COMPLETED:
-        transfer_detection.detect_transfers_for_user(db_session=db_session, user_id=credential.user_id)
+        transfer_detection.detect_transfers_for_user(db_session=db_session, user=credential.user)
     db_session.commit()
     return result

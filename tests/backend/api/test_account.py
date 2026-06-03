@@ -3,6 +3,7 @@ from datetime import date, timedelta
 import pytest
 from fastapi.testclient import TestClient
 from source.backend.api.schemas.transaction import TransactionDetailRead
+from source.backend.bank_handlers import BankProvider
 from source.backend.models.account import Account
 from source.backend.models.credential import Credential
 from source.backend.models.transaction import Transaction
@@ -15,10 +16,59 @@ from tests.backend.conftest import (
     USER_NAME,
     create_credential,
     login_as,
+    make_credential,
+    make_user,
     persist_account,
     persist_transaction,
     register,
 )
+
+
+def _create_manual_account_payload(credential_id: int) -> dict:
+    return {"credential_id": credential_id, "name": "Wallet", "balance": 50.0}
+
+
+def test_create_manual_account_succeeds_on_owned_manual_credential(http_client: TestClient):
+    register(http_client)
+    credential_id = create_credential(http_client, bank="manual", credentials={}).json()["id"]
+
+    response = http_client.post("/api/account", json=_create_manual_account_payload(credential_id))
+
+    assert response.status_code == 201
+    assert response.json()["name"] == "Wallet"
+    assert response.json()["balance"] == 50.0
+
+
+def test_create_manual_account_with_unknown_credential_returns_404(http_client: TestClient):
+    register(http_client)
+
+    response = http_client.post("/api/account", json=_create_manual_account_payload(999999))
+
+    assert response.status_code == 404
+
+
+def test_create_manual_account_with_other_users_credential_returns_404(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    with session_factory() as session:
+        other = make_user(session, user_name=SECOND_USER_NAME, display_name="Other")
+        foreign_credential = make_credential(session, user_id=other.id, bank=BankProvider.MANUAL, credentials={})
+        session.commit()
+        foreign_credential_id = foreign_credential.id
+
+    response = http_client.post("/api/account", json=_create_manual_account_payload(foreign_credential_id))
+
+    assert response.status_code == 404
+
+
+def test_create_manual_account_on_non_manual_credential_returns_403(http_client: TestClient):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+
+    response = http_client.post("/api/account", json=_create_manual_account_payload(credential_id))
+
+    assert response.status_code == 403
 
 
 def test_update_account_changes_balance_factor(http_client: TestClient, session_factory: sessionmaker):
@@ -393,7 +443,7 @@ def test_update_transaction_logs_category_override(
         session_factory=session_factory, account_id=account_id, other_party="Some Tiny Cafe"
     )
 
-    with caplog.at_level("INFO", logger="source.backend.services.account_service"):
+    with caplog.at_level("INFO", logger="services.account_service"):
         http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"category": "DRUGSTORE"})
 
     override_logs = [r for r in caplog.records if "Category override" in r.message]
@@ -412,7 +462,7 @@ def test_update_transaction_does_not_log_override_when_category_unchanged(
     account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
 
-    with caplog.at_level("INFO", logger="source.backend.services.account_service"):
+    with caplog.at_level("INFO", logger="services.account_service"):
         http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"note": "just a note"})
 
     assert not any("Category override" in r.message for r in caplog.records)

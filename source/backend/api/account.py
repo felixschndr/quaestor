@@ -16,7 +16,7 @@ from source.backend.db import get_session
 from source.backend.models.account import Account
 from source.backend.models.transaction import Transaction
 from source.backend.models.user import User
-from source.backend.services import account_service, session_service
+from source.backend.services import account_service, credential_service, session_service
 from sqlalchemy.orm import Session
 
 router = create_router()
@@ -28,10 +28,12 @@ def create_manual_account(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> Account:
+    credential = credential_service.get_credential_for_user(
+        db_session=db_session, credential_id=payload.credential_id, user=current_user
+    )
     return account_service.create_manual_account(
         db_session=db_session,
-        user_id=current_user.id,
-        credential_id=payload.credential_id,
+        credential=credential,
         name=payload.name,
         display_name=payload.display_name,
         balance=payload.balance,
@@ -46,9 +48,7 @@ def update_account(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> Account:
-    account = account_service.get_account_for_user(
-        db_session=db_session, account_id=account_id, user_id=current_user.id
-    )
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
     return account_service.update_account(
         db_session=db_session, account=account, fields=payload.model_dump(exclude_unset=True)
     )
@@ -60,9 +60,7 @@ def delete_account(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> None:
-    account = account_service.get_account_for_user(
-        db_session=db_session, account_id=account_id, user_id=current_user.id
-    )
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
     account_service.delete_account(db_session=db_session, account=account)
 
 
@@ -73,9 +71,7 @@ def create_transaction(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> Transaction:
-    account = account_service.get_account_for_user(
-        db_session=db_session, account_id=account_id, user_id=current_user.id
-    )
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
     return account_service.create_manual_transaction(
         db_session=db_session, account=account, fields=payload.model_dump(exclude_unset=True)
     )
@@ -88,9 +84,7 @@ def delete_transaction(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> None:
-    account = account_service.get_account_for_user(
-        db_session=db_session, account_id=account_id, user_id=current_user.id
-    )
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
@@ -104,9 +98,7 @@ def unlink_transfer(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> None:
-    account = account_service.get_account_for_user(
-        db_session=db_session, account_id=account_id, user_id=current_user.id
-    )
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
@@ -120,9 +112,7 @@ def get_transaction(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> Transaction:
-    account = account_service.get_account_for_user(
-        db_session=db_session, account_id=account_id, user_id=current_user.id
-    )
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
     return account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
@@ -136,9 +126,7 @@ def update_transaction(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> Transaction:
-    account = account_service.get_account_for_user(
-        db_session=db_session, account_id=account_id, user_id=current_user.id
-    )
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
@@ -158,9 +146,9 @@ def get_account_history(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> AccountHistory:
-    account_service.get_account_for_user(db_session=db_session, account_id=account_id, user_id=current_user.id)
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
     transactions, balance_at_date, total_days = account_service.get_history_page(
-        db_session=db_session, account_id=account_id, page=page, page_size=page_size
+        db_session=db_session, account=account, page=page, page_size=page_size
     )
     return AccountHistory(
         transactions=[TransactionRead.model_validate(transaction) for transaction in transactions],

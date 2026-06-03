@@ -31,15 +31,19 @@ def test_list_users_returns_empty_when_no_rows(session_factory: sessionmaker):
 
 
 def test_create_user_defaults_language_to_english_when_unset(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     monkeypatch.delenv("DEFAULT_LANGUAGE", raising=False)
 
     with session_factory() as session:
-        user = user_service.create_user(
-            db_session=session, user_name=USER_NAME, display_name=DISPLAY_NAME, password=VALID_PASSWORD
-        )
+        with caplog.at_level("INFO", logger="services.user_service"):
+            user = user_service.create_user(
+                db_session=session, user_name=USER_NAME, display_name=DISPLAY_NAME, password=VALID_PASSWORD
+            )
         assert user.language == "en"
+
+    assert any("Created user" in record.getMessage() and "<User(" in record.getMessage() for record in caplog.records)
+    assert "password_hash" not in caplog.text
 
 
 def test_create_user_uses_configured_default_language(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):

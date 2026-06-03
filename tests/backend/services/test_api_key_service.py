@@ -39,18 +39,22 @@ def test_authenticate_returns_none_for_unknown_token(session_factory: sessionmak
         assert api_key_service.authenticate(db_session=db_session, raw_token="qk_does-not-exist") is None  # nosec B106
 
 
-def test_delete_removes_the_key(session_factory: sessionmaker):
+def test_delete_removes_the_key(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     user = create_user(session_factory)
     with session_factory() as db_session:
         _, api_key = api_key_service.create_api_key(db_session=db_session, user=user, name="My script")
         api_key_id = api_key.id
 
     with session_factory() as db_session:
-        api_key_service.delete_api_key(db_session=db_session, user_id=user.id, api_key_id=api_key_id)
+        api_key = api_key_service.get_api_key_for_user(db_session=db_session, api_key_id=api_key_id, user=user)
+        with caplog.at_level("INFO", logger="services.api_key_service"):
+            api_key_service.delete_api_key(db_session=db_session, api_key=api_key)
         assert db_session.scalars(select(ApiKey)).all() == []
 
+    assert any("Deleted" in record.getMessage() and "<ApiKey(" in record.getMessage() for record in caplog.records)
 
-def test_delete_foreign_key_raises_not_found_and_keeps_it(session_factory: sessionmaker):
+
+def test_get_foreign_key_raises_not_found_and_keeps_it(session_factory: sessionmaker):
     owner = create_user(session_factory, user_name="owner")
     intruder = create_user(session_factory, user_name="intruder")
     with session_factory() as db_session:
@@ -59,7 +63,7 @@ def test_delete_foreign_key_raises_not_found_and_keeps_it(session_factory: sessi
 
     with session_factory() as db_session:
         with pytest.raises(ApiKeyNotFoundError):
-            api_key_service.delete_api_key(db_session=db_session, user_id=intruder.id, api_key_id=api_key_id)
+            api_key_service.get_api_key_for_user(db_session=db_session, api_key_id=api_key_id, user=intruder)
         assert db_session.scalars(select(ApiKey)).one().id == api_key_id
 
 
@@ -71,5 +75,5 @@ def test_list_only_returns_the_users_own_keys(session_factory: sessionmaker):
         api_key_service.create_api_key(db_session=db_session, user=intruder, name="intruder key")
 
     with session_factory() as db_session:
-        owner_keys = api_key_service.list_api_keys(db_session=db_session, user_id=owner.id)
+        owner_keys = api_key_service.list_api_keys(db_session=db_session, user=owner)
         assert [key.name for key in owner_keys] == ["owner key"]

@@ -73,7 +73,7 @@ async def rate_limit_middleware(request: Request, call_next: Callable[[Request],
     key = f"{bucket_class}:{_client_key(request)}"
     allowed, retry_after = limiter.try_consume(key=key, capacity=capacity, refill_per_second=refill)
     if not allowed:
-        logger.warning(f"Rate limit exceeded for {request.method} {request.url.path} (key={key})")
+        logger.warning(f"Rate limit exceeded for [{request.method}] [{request.url.path}] (key={key})")
         return JSONResponse(
             status_code=429,
             headers={"Retry-After": str(max(1, int(retry_after) + 1))},

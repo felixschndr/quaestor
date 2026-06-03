@@ -2,12 +2,15 @@ import logging
 
 import pytest
 from fastapi.testclient import TestClient
-from source.backend import logging_utils
+from source.backend import logging_utils, main
 from source.backend.logging_utils import (
+    NO_SESSION_LOG_LABEL,
     REDACTION_PLACEHOLDER,
+    SYSTEM_LOG_LABEL,
     get_logger,
     redact,
     redact_headers,
+    session_log_context,
 )
 
 from tests.backend.conftest import PIN, VALID_PASSWORD, register
@@ -103,4 +106,49 @@ def test_request_middleware_redacts_password_and_auth_header(http_client: TestCl
     assert response.status_code == 201
     assert VALID_PASSWORD not in caplog.text
     assert "leaktest" not in caplog.text
-    assert "POST /api/auth/register -> 201" in caplog.text
+    assert "[POST] [/api/auth/register] -> 201" in caplog.text
+
+
+def test_request_summary_carries_session_label_on_endpoints_without_auth_dependency(
+    http_client: TestClient, caplog: pytest.LogCaptureFixture
+):
+    register(http_client)
+
+    with caplog.at_level(logging.INFO, logger="main"):
+        http_client.get("/api/i18n/languages")
+
+    summary = next(record for record in caplog.records if "/api/i18n/languages" in record.getMessage())
+    assert summary.session not in (None, NO_SESSION_LOG_LABEL)
+
+
+@pytest.fixture(autouse=True)
+def restore_session_label():
+    # Keep the contextvar from leaking a label set by one test into the next.
+    with session_log_context(NO_SESSION_LOG_LABEL):
+        yield
+
+
+def test_session_log_context_sets_and_restores_label_on_records(caplog: pytest.LogCaptureFixture):
+    logger = get_logger("test.logging.session.scope")
+
+    with caplog.at_level(logging.INFO, logger="test.logging.session.scope"):
+        with session_log_context(SYSTEM_LOG_LABEL):
+            logger.info("inside")
+        logger.info("outside")
+
+    inside, outside = caplog.records
+    assert inside.session == SYSTEM_LOG_LABEL
+    assert outside.session == NO_SESSION_LOG_LABEL
+
+
+def test_production_log_format_renders_level_session_component_and_strips_source_backend_prefix(
+    caplog: pytest.LogCaptureFixture,
+):
+    logger = get_logger("source.backend.services.session_service")
+
+    with caplog.at_level(logging.INFO, logger="services.session_service"):
+        with session_log_context("session=1 user=2"):
+            logger.info("hello")
+
+    rendered = logging.Formatter(main.LOG_FORMAT).format(caplog.records[0])
+    assert "[INFO] [session=1 user=2] [services.session_service] hello" in rendered

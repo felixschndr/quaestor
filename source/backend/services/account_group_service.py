@@ -8,6 +8,7 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.account_group import AccountGroup
 from source.backend.models.credential import Credential
+from source.backend.models.user import User
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -18,43 +19,46 @@ class AccountGroupNotFoundError(NotFoundError):
     pass
 
 
-def list_groups_for_user(db_session: Session, user_id: int) -> list[AccountGroup]:
+def list_groups_for_user(db_session: Session, user: User) -> list[AccountGroup]:
     statement = (
         select(AccountGroup)  # noqa: FKA100
-        .where(AccountGroup.user_id == user_id)
+        .where(AccountGroup.user_id == user.id)
         .order_by(AccountGroup.position, AccountGroup.id)
     )
     rows = list(db_session.scalars(statement))
-    logger.debug(f"Found {len(rows)} account group(s) for user {user_id}")
+    logger.debug(f"Found {len(rows)} account group(s) for {user}")
     return rows
 
 
-def list_ungrouped_accounts_for_user(db_session: Session, user_id: int) -> list[Account]:
+def list_ungrouped_accounts_for_user(db_session: Session, user: User) -> list[Account]:
     statement = (
         select(Account)  # noqa: FKA100
         .join(Credential, Account.credential_id == Credential.id)
-        .where(Credential.user_id == user_id, Account.group_id.is_(None))
+        .where(Credential.user_id == user.id, Account.group_id.is_(None))
         .order_by(Account.position, Account.id)
     )
-    return list(db_session.scalars(statement))
+    accounts = list(db_session.scalars(statement))
+    logger.debug(f"Found {len(accounts)} ungrouped account(s) for {user}")
+    return accounts
 
 
-def replace_layout(db_session: Session, user_id: int, payload: AccountGroupLayoutWrite) -> None:
-    existing_groups = {group.id: group for group in list_groups_for_user(db_session=db_session, user_id=user_id)}
-    user_account_ids = _user_account_ids(db_session=db_session, user_id=user_id)
+def replace_layout(db_session: Session, user: User, payload: AccountGroupLayoutWrite) -> None:
+    logger.debug(f"Replacing account-group layout for {user}: {len(payload.groups)} group(s) in payload")
+    existing_groups = {group.id: group for group in list_groups_for_user(db_session=db_session, user=user)}
+    user_account_ids = _user_account_ids(db_session=db_session, user_id=user.id)
     _validate_account_ownership(payload=payload, user_account_ids=user_account_ids)
     _validate_no_duplicate_account_ids(payload=payload)
 
     incoming_ids = {incoming.id for incoming in payload.groups if incoming.id is not None}
     unknown = incoming_ids - existing_groups.keys()
     if unknown:
-        raise AccountGroupNotFoundError(f"Unknown group id(s) for user {user_id}: {sorted(unknown)}")
+        raise AccountGroupNotFoundError(f"Unknown group id(s) for {user}: {sorted(unknown)}")
 
     # Resolve / create the AccountGroup rows in the order they appear in the payload.
     target_groups: list[AccountGroup] = []
     for position, incoming in enumerate(payload.groups):
         if incoming.id is None:
-            group = AccountGroup(user_id=user_id, name=incoming.name.strip(), position=position)
+            group = AccountGroup(user_id=user.id, name=incoming.name.strip(), position=position)
             db_session.add(group)
         else:
             group = existing_groups[incoming.id]
@@ -65,7 +69,7 @@ def replace_layout(db_session: Session, user_id: int, payload: AccountGroupLayou
     accounts_by_id = {
         account.id: account
         for account in db_session.scalars(
-            select(Account).where(Account.credential_id.in_(_credential_ids(db_session=db_session, user_id=user_id)))
+            select(Account).where(Account.credential_id.in_(_credential_ids(db_session=db_session, user_id=user.id)))
         )
     }
     for group, incoming in zip(target_groups, payload.groups, strict=True):
@@ -85,7 +89,7 @@ def replace_layout(db_session: Session, user_id: int, payload: AccountGroupLayou
 
     db_session.flush()
     logger.info(
-        f"User {user_id} layout: {len(target_groups)} group(s) "
+        f"{user} layout: {len(target_groups)} group(s) "
         f"({sum(1 for g in payload.groups if g.id is None)} created, {len(groups_to_delete)} deleted), "
         f"{len(payload.ungrouped)} ungrouped account(s)"
     )

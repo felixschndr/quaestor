@@ -85,7 +85,7 @@ def _log_request_with_status(status_code: int, caplog: pytest.LogCaptureFixture)
             response.body_iterator = body_iterator()
             return response
 
-        with caplog.at_level(logging.INFO, logger="source.backend.main"):
+        with caplog.at_level(logging.INFO, logger="main"):
             await main.log_http_requests(request=request, call_next=call_next)
 
     asyncio.run(runner())
@@ -126,7 +126,7 @@ async def test_log_http_requests_logs_when_body_read_fails(caplog: pytest.LogCap
         response.body_iterator = body_iterator()
         return response
 
-    with caplog.at_level(logging.DEBUG, logger="source.backend.main"):
+    with caplog.at_level(logging.DEBUG, logger="main"):
         await main.log_http_requests(request=request, call_next=call_next)
 
     assert any("Could not read request body" in r.message for r in caplog.records)

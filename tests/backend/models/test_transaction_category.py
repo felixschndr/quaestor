@@ -111,7 +111,7 @@ def test_from_fetched_assigns_matching_category():
 def test_from_fetched_logs_unknown_with_other_party_and_purpose(caplog: pytest.LogCaptureFixture):
     fetched = create_fetched_transaction(other_party=UNKNOWN_TRANSACTION_OTHER_PARTY, purpose="Miscellaneous")
 
-    with caplog.at_level("INFO", logger="source.backend.models.transaction_category"):
+    with caplog.at_level("INFO", logger="models.transaction_category"):
         Transaction.from_fetched(fetched_transaction=fetched)
 
     assert any(
@@ -125,7 +125,7 @@ def test_from_fetched_logs_unknown_with_other_party_and_purpose(caplog: pytest.L
 def test_from_fetched_does_not_log_unknown_for_matched_transaction(caplog: pytest.LogCaptureFixture):
     fetched = create_fetched_transaction(other_party="REWE Markt")
 
-    with caplog.at_level("INFO", logger="source.backend.models.transaction_category"):
+    with caplog.at_level("INFO", logger="models.transaction_category"):
         Transaction.from_fetched(fetched_transaction=fetched)
 
     assert not any("No category matched" in record.message for record in caplog.records)

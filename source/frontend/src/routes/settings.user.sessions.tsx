@@ -144,7 +144,7 @@ function BackLink() {
   const { t } = useTranslation()
   return (
     <Link
-      to="/settings"
+      to="/settings/user"
       aria-label={t('settings.back')}
       className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
     >

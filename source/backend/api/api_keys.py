@@ -16,7 +16,7 @@ def list_api_keys(
 ) -> list[ApiKeyRead]:
     return [
         ApiKeyRead.model_validate(api_key)
-        for api_key in api_key_service.list_api_keys(db_session=db_session, user_id=current_user.id)
+        for api_key in api_key_service.list_api_keys(db_session=db_session, user=current_user)
     ]
 
 
@@ -43,4 +43,5 @@ def delete_api_key(
     current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
 ) -> None:
-    api_key_service.delete_api_key(db_session=db_session, user_id=current_user.id, api_key_id=api_key_id)
+    api_key = api_key_service.get_api_key_for_user(db_session=db_session, api_key_id=api_key_id, user=current_user)
+    api_key_service.delete_api_key(db_session=db_session, api_key=api_key)

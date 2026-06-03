@@ -25,3 +25,6 @@ class UserSession(Base):
     remember_me: Mapped[bool] = mapped_column(default=False)
 
     user: Mapped["User"] = relationship(back_populates="sessions")
+
+    def log_label(self) -> str:
+        return f"User: {self.user_id} (Session-ID: {self.id})"

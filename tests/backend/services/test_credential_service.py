@@ -11,6 +11,7 @@ from source.backend.exceptions import (
     ReauthenticationRequiredError,
 )
 from source.backend.models.credential import Credential
+from source.backend.models.user import User
 from source.backend.services import credential_service, trade_republic_login
 from sqlalchemy.orm import sessionmaker
 
@@ -98,7 +99,7 @@ def test_sync_all_due_credentials_counts_synced_skipped_failed(
         target=credential_service, name="sync_credential_object", value=MagicMock(side_effect=fake_sync)
     )
 
-    with caplog.at_level("INFO", logger="source.backend.services.credential_service"):
+    with caplog.at_level("INFO", logger="services.credential_service"):
         with session_factory() as session:
             credential_service.sync_all_due_credentials(db_session=session)
 
@@ -291,30 +292,37 @@ def test_confirm_two_factor_completes_login_and_syncs_credential(
         assert session.get(entity=Credential, ident=credential_id).session_state == {"cookies": "cookies-from-2fa"}
 
 
-def test_create_generic_fints_credential_persists_blz(session_factory: sessionmaker) -> None:
+def test_create_generic_fints_credential_persists_blz(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+) -> None:
     user_id = create_user(session_factory).id
 
     with session_factory() as session:
-        credential = credential_service.create_credential(
-            session,
-            user_id=user_id,
-            bank=BankProvider.FINTS,
-            credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": "70150000"},
-        )
+        user = session.get(entity=User, ident=user_id)
+        with caplog.at_level("INFO", logger="services.credential_service"):
+            credential = credential_service.create_credential(
+                session,
+                user=user,
+                bank=BankProvider.FINTS,
+                credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": "70150000"},
+            )
         session.commit()
 
     assert credential.bank == BankProvider.FINTS
     assert credential.credentials == {"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": "70150000"}
+    assert any("Created" in record.getMessage() and "<Credential(" in record.getMessage() for record in caplog.records)
+    assert BANK_PASSWORD not in caplog.text
 
 
 def test_create_generic_fints_credential_rejects_missing_blz(session_factory: sessionmaker) -> None:
     user_id = create_user(session_factory).id
 
     with session_factory() as session:
+        user = session.get(entity=User, ident=user_id)
         with pytest.raises(MissingCredentialFieldError):
             credential_service.create_credential(
                 session,
-                user_id=user_id,
+                user=user,
                 bank=BankProvider.FINTS,
                 credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD},
             )
@@ -333,7 +341,7 @@ def test_sync_all_due_credentials_logs_exception_per_failure(
         target=credential_service, name="sync_credential_object", value=MagicMock(side_effect=fake_sync)
     )
 
-    with caplog.at_level("ERROR", logger="source.backend.services.credential_service"):
+    with caplog.at_level("ERROR", logger="services.credential_service"):
         with session_factory() as session:
             credential_service.sync_all_due_credentials(db_session=session)
 

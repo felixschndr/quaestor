@@ -23,7 +23,7 @@ def search_transactions(
 ) -> list[Transaction]:
     return account_service.get_filtered_transactions_for_user(
         db_session=db_session,
-        user_id=current_user.id,
+        user=current_user,
         account_ids_to_search_through=query.account_ids,
         filter_parameters=query.to_filter_parameters(),
     )

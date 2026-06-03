@@ -33,7 +33,7 @@ def test_lookup_returns_none_for_expired_session(session_factory: sessionmaker):
 def test_delete_session_is_noop_when_token_does_not_match(
     session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
-    with caplog.at_level("WARNING", logger="source.backend.services.session_service"):
+    with caplog.at_level("WARNING", logger="services.session_service"):
         with session_factory() as db_session:
             session_service.delete_session(db_session=db_session, raw_token=HTTP_SESSION_TOKEN)
 
@@ -52,7 +52,9 @@ def test_get_current_user_from_request_raises_when_cookie_present_but_unknown(se
             session_service.get_current_user_from_request(request=request, db_session=db_session)
 
 
-def test_renew_session_extends_expiry_and_last_used_for_valid_session(session_factory: sessionmaker):
+def test_renew_session_extends_expiry_and_last_used_for_valid_session(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         raw_token = session_service.create_session(db_session=db_session, user=user)
@@ -61,8 +63,11 @@ def test_renew_session_extends_expiry_and_last_used_for_valid_session(session_fa
         original_last_used = original.last_used_at
 
     with session_factory() as db_session:
-        renewed = session_service.renew_session(db_session=db_session, raw_token=raw_token)
+        with caplog.at_level("DEBUG", logger="services.session_service"):
+            renewed = session_service.renew_session(db_session=db_session, raw_token=raw_token)
 
         assert renewed is not None
         assert renewed.expires_at >= original_expiry
         assert renewed.last_used_at >= original_last_used
+
+    assert any("<UserSession(" in record.getMessage() for record in caplog.records)

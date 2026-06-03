@@ -32,7 +32,7 @@ async def csrf_middleware(request: Request, call_next: Callable[[Request], Await
             or not header_token
             or not secrets.compare_digest(cookie_token, header_token)  # noqa FKA100
         ):
-            logger.warning(f"CSRF validation failed for {request.method} {request.url.path}")
+            logger.warning(f"CSRF validation failed for [{request.method}] [{request.url.path}]")
             return JSONResponse(status_code=403, content={"detail": "Invalid CSRF token"})
 
     response = await call_next(request)

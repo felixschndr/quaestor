@@ -59,7 +59,7 @@ def create_credential(
 ) -> Credential:
     return credential_service.create_credential(
         db_session,
-        user_id=current_user.id,
+        user=current_user,
         bank=payload.bank,
         credentials=payload.credentials,
     )
@@ -70,7 +70,7 @@ def list_credentials(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> list[Credential]:
-    return credential_service.list_credentials(db_session=db_session, user_id=current_user.id)
+    return credential_service.list_credentials(db_session=db_session, user=current_user)
 
 
 @router.get("/{credential_id}", response_model=CredentialRead)
@@ -80,7 +80,7 @@ def get_credential(
     db_session: Session = Depends(get_session),
 ) -> Credential:
     return credential_service.get_credential_for_user(
-        db_session=db_session, credential_id=credential_id, user_id=current_user.id
+        db_session=db_session, credential_id=credential_id, user=current_user
     )
 
 
@@ -91,11 +91,11 @@ def update_credential(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> Credential:
-    credential_service.get_credential_for_user(
-        db_session=db_session, credential_id=credential_id, user_id=current_user.id
+    credential = credential_service.get_credential_for_user(
+        db_session=db_session, credential_id=credential_id, user=current_user
     )
     return credential_service.update_credential(
-        db_session=db_session, credential_id=credential_id, fields=payload.model_dump(exclude_unset=True)
+        db_session=db_session, credential=credential, fields=payload.model_dump(exclude_unset=True)
     )
 
 
@@ -105,10 +105,10 @@ def delete_credential(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> None:
-    credential_service.get_credential_for_user(
-        db_session=db_session, credential_id=credential_id, user_id=current_user.id
+    credential = credential_service.get_credential_for_user(
+        db_session=db_session, credential_id=credential_id, user=current_user
     )
-    credential_service.delete_credential(db_session=db_session, credential_id=credential_id)
+    credential_service.delete_credential(db_session=db_session, credential=credential)
 
 
 @router.post("/{credential_id}/sync", response_model=SyncJobRead, status_code=202)
@@ -117,9 +117,7 @@ async def start_sync(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> SyncJobRead:
-    credential_service.get_credential_for_user(
-        db_session=db_session, credential_id=credential_id, user_id=current_user.id
-    )
+    credential_service.get_credential_for_user(db_session=db_session, credential_id=credential_id, user=current_user)
     job = await sync_jobs.start_sync(credential_id=credential_id)
     return _job_to_response(job)
 
@@ -131,9 +129,7 @@ def get_sync_job(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> SyncJobRead:
-    credential_service.get_credential_for_user(
-        db_session=db_session, credential_id=credential_id, user_id=current_user.id
-    )
+    credential_service.get_credential_for_user(db_session=db_session, credential_id=credential_id, user=current_user)
     job = sync_jobs.get_job_by_id(job_id)
     if job is None or job.credential_id != credential_id:
         raise NotFoundError(f"Sync job {job_id} not found for credential {credential_id}")
@@ -148,9 +144,7 @@ async def submit_sync_two_factor(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> SyncJobRead:
-    credential_service.get_credential_for_user(
-        db_session=db_session, credential_id=credential_id, user_id=current_user.id
-    )
+    credential_service.get_credential_for_user(db_session=db_session, credential_id=credential_id, user=current_user)
     existing = sync_jobs.get_job_by_id(job_id)
     if existing is None or existing.credential_id != credential_id:
         raise NotFoundError(f"Sync job {job_id} not found for credential {credential_id}")
@@ -182,7 +176,7 @@ async def sync_job_ws(
         await websocket.close(code=WS_CODE_CLOSE_UNAUTHENTICATED)
         return
     try:
-        credential_service.get_credential_for_user(db_session=db_session, credential_id=credential_id, user_id=user.id)
+        credential_service.get_credential_for_user(db_session=db_session, credential_id=credential_id, user=user)
     except CredentialNotFoundError:
         logger.info(
             f"WS /credentials/{credential_id}/sync/{job_id}/ws -> {WS_CODE_CLOSE_NOT_FOUND} (credential not found)"

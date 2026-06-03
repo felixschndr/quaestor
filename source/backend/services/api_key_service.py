@@ -50,20 +50,26 @@ def create_api_key(db_session: Session, user: User, name: str) -> tuple[str, Api
     return raw_token, api_key
 
 
-def list_api_keys(db_session: Session, user_id: int) -> list[ApiKey]:
-    api_keys = list(db_session.scalars(select(ApiKey).where(ApiKey.user_id == user_id)))
-    logger.debug(f"Found {len(api_keys)} API key(s) for user {user_id}")
+def list_api_keys(db_session: Session, user: User) -> list[ApiKey]:
+    api_keys = list(db_session.scalars(select(ApiKey).where(ApiKey.user_id == user.id)))
+    logger.debug(f"Found {len(api_keys)} API key(s) for {user}")
     return api_keys
 
 
-def delete_api_key(db_session: Session, user_id: int, api_key_id: int) -> None:
+def get_api_key_for_user(db_session: Session, api_key_id: int, user: User) -> ApiKey:
     api_key = db_session.get(entity=ApiKey, ident=api_key_id)
-    if api_key is None or api_key.user_id != user_id:
-        logger.warning(f"User {user_id} attempted to delete API key {api_key_id} which does not belong to them")
+    if api_key is None or api_key.user_id != user.id:
+        logger.warning(f"{user} attempted to access API key {api_key_id} which does not belong to them")
         raise ApiKeyNotFoundError(f"API key with the ID {api_key_id} not found")
+    logger.debug(f"{user} accessed {api_key}")
+    return api_key
+
+
+def delete_api_key(db_session: Session, api_key: ApiKey) -> None:
+    logger.debug(f"Deleting {api_key}")
     db_session.delete(api_key)
     db_session.commit()
-    logger.info(f"Deleted API key {api_key_id} for user {user_id}")
+    logger.info(f"Deleted {api_key}")
 
 
 def authenticate(db_session: Session, raw_token: str) -> User | None:
@@ -73,5 +79,13 @@ def authenticate(db_session: Session, raw_token: str) -> User | None:
         return None
     api_key.last_used_at = datetime.now()
     db_session.commit()
-    logger.debug(f"Authenticated request via API key {api_key.id} for user {api_key.user_id}")
+    logger.debug(f"Authenticated request via {api_key}")
     return api_key.user
+
+
+def resolve_log_label(db_session: Session, request: Request) -> str | None:
+    raw_token = extract_bearer_token(request)
+    if raw_token is None:
+        return None
+    api_key = db_session.scalar(select(ApiKey).where(ApiKey.token_hash == _hash_token(raw_token)))
+    return api_key.log_label() if api_key is not None else None

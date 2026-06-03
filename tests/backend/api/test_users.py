@@ -1,8 +1,10 @@
+import logging
 from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 from source.backend.bank_handlers import BankProvider
+from source.backend.logging_utils import NO_SESSION_LOG_LABEL
 from source.backend.services import credential_service
 from source.backend.services.credential_service import SyncResult, SyncStatus
 from sqlalchemy.orm import sessionmaker
@@ -19,13 +21,16 @@ from tests.backend.conftest import (
 )
 
 
-def test_update_user_changes_display_name(http_client: TestClient):
+def test_update_user_changes_display_name(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     user_id = register(http_client).json()["id"]
 
-    response = http_client.patch(f"/api/users/{user_id}", json={"display_name": "Renamed"})
+    with caplog.at_level(logging.INFO, logger="services.user_service"):
+        response = http_client.patch(f"/api/users/{user_id}", json={"display_name": "Renamed"})
 
     assert response.status_code == 200
     assert response.json()["display_name"] == "Renamed"
+    updated = next(record for record in caplog.records if "Updated user" in record.getMessage())
+    assert updated.session not in (None, NO_SESSION_LOG_LABEL)
 
 
 def test_update_user_changes_user_name(http_client: TestClient):

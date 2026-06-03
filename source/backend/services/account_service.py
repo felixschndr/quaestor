@@ -13,6 +13,7 @@ from source.backend.models.account_balance_snapshot import AccountBalanceSnapsho
 from source.backend.models.credential import Credential
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
+from source.backend.models.user import User
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -31,14 +32,14 @@ DEFAULT_DAYS_PER_PAGE = 30
 MAX_DAYS_PER_PAGE = 365
 
 
-def list_accounts(db_session: Session, user_id: int) -> list[Account]:
+def list_accounts(db_session: Session, user: User) -> list[Account]:
     stmt = (
         select(Account)
         .join(Credential, onclause=Account.credential_id == Credential.id)
-        .where(Credential.user_id == user_id)
+        .where(Credential.user_id == user.id)
     )
     accounts = list(db_session.scalars(stmt))
-    logger.debug(f"Found {len(accounts)} account(s) for user {user_id}")
+    logger.debug(f"Found {len(accounts)} account(s) for {user}")
     return accounts
 
 
@@ -52,11 +53,12 @@ def get_account(db_session: Session, account_id: int) -> Account:
     return account
 
 
-def get_account_for_user(db_session: Session, account_id: int, user_id: int) -> Account:
+def get_account_for_user(db_session: Session, account_id: int, user: User) -> Account:
     account = get_account(db_session=db_session, account_id=account_id)
-    if account.credential.user_id != user_id:
-        logger.warning(f"User {user_id} attempted to access {account} owned by user {account.credential.user_id}")
+    if account.credential.user_id != user.id:
+        logger.warning(f"{user} attempted to access {account} owned by user {account.credential.user_id}")
         raise AccountNotFoundError(f"Account with the ID {account_id} not found")
+    logger.debug(f"{user} accessed {account}")
     return account
 
 
@@ -133,21 +135,16 @@ def update_account(db_session: Session, account: Account, fields: dict) -> Accou
 
 def create_manual_account(
     db_session: Session,
-    user_id: int,
-    credential_id: int,
+    credential: Credential,
     name: str,
     display_name: str | None,
     balance: float,
     balance_factor: int,
 ) -> Account:
-    credential = db_session.get(entity=Credential, ident=credential_id)
-    if credential is None or credential.user_id != user_id:
-        logger.warning(f"User {user_id} attempted to create an account on unknown / foreign credential {credential_id}")
-        raise AccountNotFoundError(f"Credential with the ID {credential_id} not found")
     if credential.bank != BankProvider.MANUAL:
         raise PermissionDeniedError(
             f"Accounts can only be created manually on a 'manual' credential; "
-            f"credential {credential_id} belongs to {credential.bank.value}"
+            f"{credential} belongs to {credential.bank.value}"
         )
     account = Account(
         credential=credential,
@@ -158,7 +155,7 @@ def create_manual_account(
     )
     db_session.add(account)
     db_session.commit()
-    logger.info(f"Created manual {account}")
+    logger.info(f"Created manual {account} on {credential}")
     return account
 
 
@@ -239,19 +236,19 @@ def unlink_transfer(db_session: Session, transaction: Transaction) -> None:
 
 def get_history_page(
     db_session: Session,
-    account_id: int,
+    account: Account,
     page: int = 1,
     page_size: int = DEFAULT_DAYS_PER_PAGE,
 ) -> tuple[list[Transaction], dict[date, float], int]:
     # `page_size` is the number of distinct transaction days per page (not the number of transactions)
     total_days = (
-        db_session.scalar(select(func.count(Transaction.date.distinct())).where(Transaction.account_id == account_id))
+        db_session.scalar(select(func.count(Transaction.date.distinct())).where(Transaction.account_id == account.id))
         or 0
     )
     page_dates = list(
         db_session.scalars(
             select(Transaction.date)
-            .where(Transaction.account_id == account_id)
+            .where(Transaction.account_id == account.id)
             .group_by(Transaction.date)
             .order_by(Transaction.date.desc())
             .offset((page - 1) * page_size)
@@ -259,13 +256,13 @@ def get_history_page(
         )
     )
     if not page_dates:
-        logger.debug(f"Account {account_id} history page {page} (size {page_size}): no transactions on this page")
+        logger.debug(f"{account} history page {page} (size {page_size}): no transactions on this page")
         return [], {}, total_days
 
     transactions = list(
         db_session.scalars(
             select(Transaction)
-            .where(Transaction.account_id == account_id)
+            .where(Transaction.account_id == account.id)
             .where(Transaction.date.in_(page_dates))
             .order_by(Transaction.date.desc())
             .order_by(Transaction.id.desc())
@@ -273,12 +270,12 @@ def get_history_page(
     )
     snapshots = db_session.scalars(
         select(AccountBalanceSnapshot)
-        .where(AccountBalanceSnapshot.account_id == account_id)
+        .where(AccountBalanceSnapshot.account_id == account.id)
         .where(AccountBalanceSnapshot.date.in_(page_dates))
     )
     balance_at_date = {snapshot.date: snapshot.balance for snapshot in snapshots}
     logger.debug(
-        f"Account {account_id} history page {page} (size {page_size}): "
+        f"{account} history page {page} (size {page_size}): "
         f"{len(page_dates)} day(s), {len(transactions)} transaction(s) of {total_days} total day(s)"
     )
     return transactions, balance_at_date, total_days
@@ -286,7 +283,7 @@ def get_history_page(
 
 def get_filtered_transactions_for_user(
     db_session: Session,
-    user_id: int,
+    user: User,
     account_ids_to_search_through: list[int],
     filter_parameters: dict,
 ) -> list[Transaction]:
@@ -297,13 +294,13 @@ def get_filtered_transactions_for_user(
         for account in db_session.scalars(
             select(Account)
             .join(Credential, onclause=Account.credential_id == Credential.id)
-            .where(Credential.user_id == user_id)
+            .where(Credential.user_id == user.id)
             .where(Account.id.in_(account_ids_to_search_through))
         )
     }
     unknown_account_ids = set(account_ids_to_search_through) - owned_account_ids
     if unknown_account_ids:
-        logger.warning(f"User {user_id} attempted to search accounts they don't own: {sorted(unknown_account_ids)}")
+        logger.warning(f"{user} attempted to search accounts they don't own: {sorted(unknown_account_ids)}")
         raise AccountNotFoundError(f"Account(s) {sorted(unknown_account_ids)} not found")
     return _filter_transactions(
         db_session=db_session, account_ids=list(owned_account_ids), filter_parameters=filter_parameters

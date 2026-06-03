@@ -91,7 +91,7 @@ def test_rescan_logs_summary_at_info(
         other_party=UNKNOWN_TRANSACTION_OTHER_PARTY,
     )
 
-    with caplog.at_level("INFO", logger="source.backend.services.category_rescan"):
+    with caplog.at_level("INFO", logger="services.category_rescan"):
         category_rescan.rescan_unknown_categories_sync()
 
     assert any(
@@ -117,11 +117,11 @@ def test_run_startup_rescan_logs_exception_instead_of_crashing(
             captured.append(record)
 
     handler = _Capture(level=logging.ERROR)
-    logging.getLogger("source.backend.services.category_rescan").addHandler(handler)
+    logging.getLogger("services.category_rescan").addHandler(handler)
     try:
         asyncio.run(real_run_startup_rescan())
     finally:
-        logging.getLogger("source.backend.services.category_rescan").removeHandler(handler)
+        logging.getLogger("services.category_rescan").removeHandler(handler)
 
     assert any(
         "Startup category re-scan crashed" in record.getMessage() and record.exc_info is not None for record in captured

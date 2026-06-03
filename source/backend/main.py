@@ -31,11 +31,19 @@ from source.backend.helpers import (
     get_project_name,
     get_project_version,
 )
-from source.backend.logging_utils import get_logger, redact_headers
+from source.backend.logging_utils import (
+    NO_SESSION_LOG_LABEL,
+    SYSTEM_LOG_LABEL,
+    get_logger,
+    redact_headers,
+    session_log_context,
+    set_session_log_label,
+)
 from source.backend.security.csp import csp_middleware
 from source.backend.security.csrf import csrf_middleware
 from source.backend.security.rate_limit import rate_limit_middleware
 from source.backend.services import (
+    api_key_service,
     bank_info_updater,
     category_rescan,
     migrations,
@@ -52,6 +60,8 @@ logger = get_logger(__name__)
 MAX_LOGGED_BODY_BYTES = 4096
 ALLOW_MISSING_FRONTEND_ENV = "ALLOW_MISSING_FRONTEND"
 
+LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(session)s] [%(name)s] %(message)s"
+
 load_dotenv()
 
 
@@ -63,6 +73,11 @@ STARTUP_BACKGROUND_TASKS = (
 )
 
 
+async def _run_as_system_task(module: Any, name: str) -> None:
+    with session_log_context(SYSTEM_LOG_LABEL):
+        await getattr(module, name)()
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator:
     _route_third_party_loggers_to_root()
@@ -71,7 +86,9 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator:
 
     await playwright_browser.ensure_chromium_installed()
 
-    background_tasks = [asyncio.create_task(getattr(module, name)()) for module, name in STARTUP_BACKGROUND_TASKS]
+    background_tasks = [
+        asyncio.create_task(_run_as_system_task(module=module, name=name)) for module, name in STARTUP_BACKGROUND_TASKS
+    ]
     try:
         yield
     finally:
@@ -113,7 +130,7 @@ def setup_logging() -> None:
     log_level = os.environ.get(key="LOG_LEVEL", default="INFO")
     logging.basicConfig(
         stream=sys.stdout,
-        format="[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s",
+        format=LOG_FORMAT,
         encoding="utf-8",
         level=log_level,
         force=True,
@@ -139,31 +156,41 @@ app.middleware("http")(csp_middleware)
 
 @app.middleware("http")
 async def refresh_session(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-    response = await call_next(request)
-
     if not request.url.path.startswith(API_PREFIX):
         # Only the API ever needs the session cookie. Re-issuing it on static/SPA responses (served from "/") is
         # dangerous: those responses are cacheable, and a shared cache (e.g. nginx) would store one user's session
         # cookie alongside an asset and replay it to the next visitor.
-        return response
+        return await call_next(request)
 
     raw_token = request.cookies.get(session_service.COOKIE_NAME)
-    if not raw_token:
-        logger.debug(f"{request.method} {request.url.path}: no session cookie, skipping session refresh")
-        return response
-    with SessionLocal() as db_session:
-        user_session = session_service.renew_session(db_session=db_session, raw_token=raw_token)
-        if user_session is None:
-            logger.debug(
-                f"{request.method} {request.url.path}: presented session cookie is invalid or expired, "
-                "clearing it from the response"
-            )
-            session_service.clear_session_cookie(response)
-        else:
-            logger.debug(f"{request.method} {request.url.path}: refreshed {user_session}")
-            session_service.set_session_cookie(
-                response=response, raw_token=raw_token, remember_me=user_session.remember_me
-            )
+    session_valid = False
+    remember_me = False
+    if raw_token:
+        with SessionLocal() as db_session:
+            user_session = session_service.renew_session(db_session=db_session, raw_token=raw_token)
+            if user_session is not None:
+                session_valid = True
+                remember_me = user_session.remember_me
+                set_session_log_label(user_session.log_label())
+                request.state.session_log_label = user_session.log_label()
+                logger.debug(f"[{request.method}] [{request.url.path}]: refreshed {user_session}")
+    elif api_key_service.request_carries_api_key(request):
+        with SessionLocal() as db_session:
+            api_key_label = api_key_service.resolve_log_label(db_session=db_session, request=request)
+        if api_key_label is not None:
+            set_session_log_label(api_key_label)
+            request.state.session_log_label = api_key_label
+
+    response = await call_next(request)
+
+    if raw_token and not session_valid:
+        logger.debug(
+            f"[{request.method}] [{request.url.path}]: presented session cookie is invalid or expired, "
+            "clearing it from the response"
+        )
+        session_service.clear_session_cookie(response)
+    elif session_valid:
+        session_service.set_session_cookie(response=response, raw_token=raw_token, remember_me=remember_me)
     return response
 
 
@@ -181,18 +208,21 @@ app.middleware("http")(rate_limit_middleware)
 
 @app.middleware("http")
 async def log_http_requests(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-    log_level_is_debug = logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
+    log_level_is_debug = logger.is_enabled_for(logging.DEBUG)
 
     request_body = b""
     if log_level_is_debug:
         try:
             request_body = await request.body()
         except Exception as e:
-            logger.debug(f"Could not read request body for {request.method} {request.url.path}: {e}")
+            logger.debug(f"Could not read request body for [{request.method}] [{request.url.path}]: {e}")
             request_body = b""
 
     response = await call_next(request)
-    summary = f"{request.method} {request.url.path} -> {response.status_code}"
+    # Authentication runs downstream in its own context, so it can't set our contextvar directly;
+    # it leaves the label on request.state for us to apply to the request summary line.
+    set_session_log_label(getattr(request.state, "session_log_label", NO_SESSION_LOG_LABEL))
+    summary = f"[{request.method}] [{request.url.path}] -> {response.status_code}"
 
     if response.status_code >= 500:
         log_method = logger.error

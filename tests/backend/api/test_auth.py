@@ -1,8 +1,10 @@
+import logging
 from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
 from source.backend import main
+from source.backend.logging_utils import NO_SESSION_LOG_LABEL
 from source.backend.security import csrf
 from source.backend.services.session_service import COOKIE_NAME
 from source.backend.services.user_service import (
@@ -181,15 +183,20 @@ def test_session_cookie_is_secure_when_env_var_true(
     assert "secure" in _set_cookie_attributes(response)
 
 
-def test_me_returns_current_user_when_authenticated(http_client: TestClient):
+def test_me_returns_current_user_when_authenticated(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     register(http_client)
 
-    response = http_client.get("/api/auth/me")
+    with caplog.at_level(logging.DEBUG):
+        response = http_client.get("/api/auth/me")
 
     assert response.status_code == 200
     body = response.json()
     assert body["user_name"] == USER_NAME
     assert body["display_name"] == DISPLAY_NAME
+    authenticated = next(record for record in caplog.records if "authenticated" in record.getMessage())
+    assert authenticated.session not in (None, NO_SESSION_LOG_LABEL)
+    summary = next(record for record in caplog.records if record.name == "main" and "-> 200" in record.getMessage())
+    assert summary.session == authenticated.session
 
 
 def test_me_includes_credentials_and_balance(http_client: TestClient):

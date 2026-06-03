@@ -17,8 +17,8 @@ def get_layout(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> dict:
-    groups = account_group_service.list_groups_for_user(db_session=db_session, user_id=current_user.id)
-    ungrouped = account_group_service.list_ungrouped_accounts_for_user(db_session=db_session, user_id=current_user.id)
+    groups = account_group_service.list_groups_for_user(db_session=db_session, user=current_user)
+    ungrouped = account_group_service.list_ungrouped_accounts_for_user(db_session=db_session, user=current_user)
     return account_group_service.serialize_layout(groups=groups, ungrouped_accounts=ungrouped)
 
 
@@ -28,9 +28,9 @@ def set_layout(
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> dict:
-    account_group_service.replace_layout(db_session=db_session, user_id=current_user.id, payload=payload)
+    account_group_service.replace_layout(db_session=db_session, user=current_user, payload=payload)
     db_session.commit()
     db_session.expire_all()  # so subsequent reads see the freshly persisted positions
-    groups = account_group_service.list_groups_for_user(db_session=db_session, user_id=current_user.id)
-    ungrouped = account_group_service.list_ungrouped_accounts_for_user(db_session=db_session, user_id=current_user.id)
+    groups = account_group_service.list_groups_for_user(db_session=db_session, user=current_user)
+    ungrouped = account_group_service.list_ungrouped_accounts_for_user(db_session=db_session, user=current_user)
     return account_group_service.serialize_layout(groups=groups, ungrouped_accounts=ungrouped)
