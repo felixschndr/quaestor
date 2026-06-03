@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
@@ -238,22 +239,22 @@ def test_session_resolves_tan_responses_from_get_transactions(monkeypatch: pytes
 
     client = MagicMock()
     client.get_transactions.return_value = pending
-    # After 2 polls, the bank returns the actual transactions iterable.
-    client.send_tan.side_effect = [pending, [fake_transaction]]
+    # get_transactions runs twice per call (booked-only + booked+pending)
+    client.send_tan.side_effect = [pending, [fake_transaction], pending, [fake_transaction]]
 
     session = module._FinTSSession(client=client)
     session._account_mapping = {"DE00 1234": MagicMock()}
 
     # We don't care about the parsed values here, just that the call doesn't raise
     # 'NeedTANResponse object is not iterable'.
-    from datetime import date
 
     transactions = session.get_transactions(
         account=module.FetchedAccount(name="DE00 1234"), start_date=date(year=2025, month=1, day=1)
     )
 
     assert len(transactions) == 1
-    assert client.send_tan.call_count == 2
+    assert client.get_transactions.call_count == 2
+    assert client.send_tan.call_count == 4
 
 
 def test_session_translates_missing_system_id_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch) -> None:

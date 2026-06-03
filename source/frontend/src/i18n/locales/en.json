@@ -449,6 +449,8 @@
     "noteSaving": "Saving…",
     "notePlaceholder": "Add a note…",
     "fieldEmpty": "—",
+    "pendingBadge": "Pending",
+    "pendingHint": "Pending — not finally booked yet and may still change",
     "notFound": "Transaction not found.",
     "linkedTransaction": "Linked transaction",
     "linkedTransactionValue": "{{account}} · {{amount}} · {{date}}",

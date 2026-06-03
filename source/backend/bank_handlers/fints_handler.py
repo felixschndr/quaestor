@@ -1,5 +1,6 @@
 import time
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import date, timedelta
 from time import sleep
 from typing import Iterator, TypeVar
@@ -20,6 +21,7 @@ from source.backend.exceptions import (
     InvalidCredentialsError,
     ReauthenticationRequiredError,
 )
+from source.backend.helpers import get_key_of_transaction
 from source.backend.logging_utils import get_logger
 from source.backend.models.transaction_type import TransactionType
 
@@ -27,6 +29,7 @@ logger = get_logger(__name__)
 
 APPROVAL_TIMEOUT = timedelta(minutes=3)
 APPROVAL_POLL_INTERVAL = timedelta(seconds=2)
+PENDING_LOOKBACK = timedelta(days=14)
 
 T = TypeVar("T")
 
@@ -52,8 +55,33 @@ class _FinTSSession(BankSession):
 
     def get_transactions(self, account: FetchedAccount, start_date: date) -> list[FetchedTransaction]:
         sepa_account = self._account_mapping[account.name]
+        # FinTS merges booked + pending into one unlabelled list, so we ask for booked-only and for booked+pending
+        # separately and treat the difference as the pending set. The bank gives no stable transaction id, so this is
+        # the only reliable way to label pending transactions.
+        pending_start = date.today() - PENDING_LOOKBACK
+        booked_start = min(start_date, pending_start)
+        booked_transactions = self._fetch_transactions(sepa_account, start_date=booked_start, include_pending=False)
+        booked_and_pending_transactions = self._fetch_transactions(
+            sepa_account, start_date=pending_start, include_pending=True
+        )
+
+        booked_keys = {get_key_of_transaction(transaction) for transaction in booked_transactions}
+        transactions = list(booked_transactions)
+        for transaction in booked_and_pending_transactions:
+            if get_key_of_transaction(transaction) not in booked_keys:
+                transactions.append(replace(transaction, pending=True))
+
+        logger.debug(
+            f"FinTS returned {len(transactions)} transaction(s) for {account.name} since {start_date} "
+            f"({sum(1 for transaction in transactions if transaction.pending)} pending)"
+        )
+        return transactions
+
+    def _fetch_transactions(
+        self, sepa_account: SEPAAccount, start_date: date, include_pending: bool
+    ) -> list[FetchedTransaction]:
         raw_transactions = self._resolve(
-            self._client.get_transactions(sepa_account, start_date=start_date, include_pending=True)
+            self._client.get_transactions(sepa_account, start_date=start_date, include_pending=include_pending)
         )
         transactions = []
         for raw_transaction in raw_transactions:
@@ -68,7 +96,6 @@ class _FinTSSession(BankSession):
                     transaction_type=_transaction_type_from_amount(amount=amount),
                 )
             )
-        logger.debug(f"FinTS returned {len(transactions)} transaction(s) for {account.name} since {start_date}")
         return transactions
 
     def _resolve(self, response: T) -> T:

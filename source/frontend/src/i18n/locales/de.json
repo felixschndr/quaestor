@@ -446,6 +446,8 @@
     "noteSaving": "Speichern …",
     "notePlaceholder": "Notiz hinzufügen …",
     "fieldEmpty": "—",
+    "pendingBadge": "Vorgemerkt",
+    "pendingHint": "Vorgemerkt — noch nicht endgültig gebucht und kann sich noch ändern",
     "notFound": "Transaktion nicht gefunden.",
     "linkedTransaction": "Verknüpfte Transaktion",
     "linkedTransactionValue": "{{account}} · {{amount}} · {{date}}",

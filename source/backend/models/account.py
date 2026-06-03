@@ -61,7 +61,7 @@ class Account(Base):
         today = date.today()
         daily_totals: dict[date, float] = defaultdict(float)
         for transaction in self.transactions:
-            if transaction.date > today:  # Future-dated transactions haven't moved money yet
+            if transaction.date > today or transaction.pending:  # Future-dated transactions haven't moved money yet
                 continue
             daily_totals[transaction.date] += transaction.amount
 

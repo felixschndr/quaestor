@@ -34,6 +34,7 @@ def _persist_transaction(
     amount: float = 12.34,
     purpose: str = "groceries",
     other_party: str = "Supermarket",
+    pending: bool = False,
 ) -> int:
     with session_factory() as session:
         transaction = make_transaction(
@@ -43,6 +44,7 @@ def _persist_transaction(
             purpose=purpose,
             other_party=other_party,
             date=date(year=2026, month=5, day=20),
+            pending=pending,
         )
         session.commit()
         return transaction.id
@@ -275,6 +277,33 @@ def test_update_transaction_set_note(http_client: TestClient, session_factory: s
 
     assert response.status_code == 200
     assert response.json()["note"] == "Birthday gift"
+
+
+def test_update_transaction_rejects_editing_pending(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_id, pending=True)
+
+    response = http_client.patch(
+        f"/api/account/{account_id}/transactions/{transaction_id}", json={"note": "should fail"}
+    )
+
+    assert response.status_code == 422
+    with session_factory() as session:
+        assert session.get(entity=Transaction, ident=transaction_id).note is None
+
+
+def test_pending_flag_is_exposed_in_transaction_read(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = _persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = _persist_transaction(session_factory=session_factory, account_id=account_id, pending=True)
+
+    response = http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}")
+
+    assert response.status_code == 200
+    assert response.json()["pending"] is True
 
 
 def test_update_transaction_persists_note(http_client: TestClient, session_factory: sessionmaker):
@@ -786,6 +815,7 @@ def test_transaction_detail_read_defaults_counterpart_to_none():
         category=TransactionCategory.UNKNOWN,
         note=None,
         transfer_counterpart_id=None,
+        pending=False,
     )
 
     assert schema.transfer_counterpart is None

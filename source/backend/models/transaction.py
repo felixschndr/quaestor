@@ -37,6 +37,8 @@ class Transaction(Base):
     )
     note: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+
     transfer_counterpart_id: Mapped[int | None] = mapped_column(
         ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True, unique=True
     )
@@ -66,6 +68,7 @@ class Transaction(Base):
             other_party=fetched_transaction.other_party,
             transaction_type=fetched_transaction.transaction_type,
             category=TransactionCategory.from_transaction(transaction=fetched_transaction),
+            pending=fetched_transaction.pending,
         )
         return transaction
 

@@ -240,6 +240,7 @@ def make_transaction(
     transaction_type: TransactionType | None = None,
     category: TransactionCategory = TransactionCategory.UNKNOWN,
     note: str | None = None,
+    pending: bool = False,
 ) -> Transaction:
     account = db_session.get(entity=Account, ident=account_id)
     transaction = Transaction(
@@ -251,6 +252,7 @@ def make_transaction(
         transaction_type=transaction_type,
         category=category,
         note=note,
+        pending=pending,
     )
     db_session.add(transaction)
     db_session.flush()

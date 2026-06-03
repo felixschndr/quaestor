@@ -19,6 +19,7 @@ class TransactionRead(BaseModel):
     category: TransactionCategory
     note: str | None
     transfer_counterpart_id: int | None
+    pending: bool
 
 
 class TransactionDetailRead(TransactionRead):

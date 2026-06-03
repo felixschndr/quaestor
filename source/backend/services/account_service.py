@@ -74,6 +74,10 @@ def get_transaction_for_account(db_session: Session, account: Account, transacti
 
 
 def update_transaction(db_session: Session, account: Account, transaction: Transaction, fields: dict) -> Transaction:
+    if transaction.pending:
+        # Pending entries are provisional previews
+        # They're wiped and re-fetched on every sync, so any edit would be lost.
+        raise ValidationError(f"{transaction} is pending and cannot be edited")
     manual_only = Transaction.FIELDS_THAT_ARE_ONLY_EDITABLE_ON_MANUAL_ACCOUNTS & set(fields)
     if manual_only:
         _require_manual_account(account)

@@ -109,12 +109,22 @@ class Credential(Base):
         fetched_account: FetchedAccount,
         transactions_since: date,
     ) -> int:
+        fetched_transactions = bank_session.get_transactions(account=fetched_account, start_date=transactions_since)
+
+        # Pending entries ("Vormerkungen") have no stable identity — their date/purpose/other_party
+        # can still change before they book. Instead of trying to match them across syncs (which
+        # creates duplicates), we treat them as ephemeral: drop the old ones and rebuild from scratch.
+        for pending_transactions in [transaction for transaction in account.transactions if transaction.pending]:
+            account.transactions.remove(pending_transactions)
+
         existing_transactions = {get_key_of_transaction(transaction) for transaction in account.transactions}
         created_transactions = 0
 
-        for fetched_transaction in bank_session.get_transactions(
-            account=fetched_account, start_date=transactions_since
-        ):
+        for fetched_transaction in fetched_transactions:
+            if fetched_transaction.pending:
+                account.transactions.append(Transaction.from_fetched(fetched_transaction))
+                continue
+
             key = get_key_of_transaction(fetched_transaction)
             if key in existing_transactions:
                 continue

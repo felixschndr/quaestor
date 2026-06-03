@@ -124,6 +124,11 @@ export function TransactionDetailView({
         >
           {formatEuro(transaction.amount)}
         </p>
+        {transaction.pending ? (
+          <p className="bg-muted text-muted-foreground mt-3 rounded-full px-3 py-1 text-xs font-medium">
+            {t('transaction.pendingHint')}
+          </p>
+        ) : null}
       </section>
 
       <dl className="flex flex-col">
@@ -138,10 +143,14 @@ export function TransactionDetailView({
           <TypeBadge transactionType={transaction.transaction_type} />
         </DetailRow>
         <DetailRow label={t('transaction.category')}>
-          <CategorySelect
-            value={transaction.category as TransactionCategory}
-            onChange={onChangeCategory}
-          />
+          {transaction.pending ? (
+            <span className="text-sm">{t(`category.${transaction.category}`)}</span>
+          ) : (
+            <CategorySelect
+              value={transaction.category as TransactionCategory}
+              onChange={onChangeCategory}
+            />
+          )}
         </DetailRow>
         {transaction.transfer_counterpart ? (
           <LinkedTransactionSection
@@ -150,9 +159,11 @@ export function TransactionDetailView({
             onUnlink={onUnlink}
           />
         ) : null}
-        <DetailRow label={t('transaction.note')} align="start">
-          <NoteEditor remoteNote={transaction.note ?? ''} onSave={onSaveNote} />
-        </DetailRow>
+        {transaction.pending ? null : (
+          <DetailRow label={t('transaction.note')} align="start">
+            <NoteEditor remoteNote={transaction.note ?? ''} onSave={onSaveNote} />
+          </DetailRow>
+        )}
       </dl>
     </main>
   )

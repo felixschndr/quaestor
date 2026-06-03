@@ -637,6 +637,7 @@ function TransactionRow({
   const remove = useDeleteTransaction(accountId)
 
   const negative = transaction.amount < 0
+  const pending = transaction.pending ?? false
   const otherParty = formatIban(transaction.other_party?.trim() || '') || t('account.unknownParty')
 
   if (editing) {
@@ -666,16 +667,27 @@ function TransactionRow({
           params={{ accountId: String(accountId), transactionId: String(transaction.id) }}
           className={cn(
             'hover:bg-muted/60 flex items-center gap-3 rounded-md py-3 pl-3 transition-colors',
-            isFuture && 'opacity-60',
+            (isFuture || pending) && 'opacity-60',
           )}
         >
-          <span className="flex-1 truncate text-sm font-medium">{otherParty}</span>
+          <span className="flex-1 truncate text-sm font-medium">
+            {otherParty}
+            {pending ? (
+              <span className="bg-muted text-muted-foreground ml-2 rounded-full px-1.5 py-0.5 align-middle text-[10px] font-medium">
+                {t('transaction.pendingBadge')}
+              </span>
+            ) : null}
+          </span>
           <span
             className={cn(
               'text-sm font-semibold tabular-nums',
-              // Future txns get a neutral color: the destructive/success accent
-              // implies "this moved money" which isn't true until the date arrives.
-              isFuture ? 'text-muted-foreground' : negative ? 'text-destructive' : 'text-success',
+              // Future/pending transactions get a neutral color: the destructive/success accent
+              // implies "this moved money" which isn't true until it books.
+              isFuture || pending
+                ? 'text-muted-foreground'
+                : negative
+                  ? 'text-destructive'
+                  : 'text-success',
             )}
           >
             {formatEuro(transaction.amount)}

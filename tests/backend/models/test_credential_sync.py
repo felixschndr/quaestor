@@ -158,6 +158,124 @@ def test_sync_does_not_duplicate_already_existing_transactions(session_factory: 
         assert len(credential.accounts[0].transactions) == 1
 
 
+def _create_fetched_transaction(amount: float, day: int, pending: bool) -> FetchedTransaction:
+    return FetchedTransaction(
+        amount=amount,
+        purpose="booked" if not pending else "vorgemerkt",
+        date=date(year=2026, month=5, day=day),
+        other_party="ACME",
+        transaction_type=TransactionType.OUTGOING,
+        pending=pending,
+    )
+
+
+def _booked_transaction(amount: float, day: int) -> FetchedTransaction:
+    return _create_fetched_transaction(amount=amount, day=day, pending=False)
+
+
+def _pending_transaction(amount: float, day: int) -> FetchedTransaction:
+    return _create_fetched_transaction(amount=amount, day=day, pending=True)
+
+
+def test_sync_stores_pending_flag(session_factory: sessionmaker):
+    credential_id = _create_credential(session_factory)
+    handler = _build_handler(
+        _FakeBankSession(
+            accounts=[FetchedAccount(name="A")],  # TODO: extract Account name and IBAN to fixture
+            balances={"A": 0.0},
+            transactions={"A": [_booked_transaction(amount=-10.0, day=10), _pending_transaction(amount=-20.0, day=11)]},
+        )
+    )
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.sync(handler)
+        session.commit()
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        assert {tx.amount: tx.pending for tx in credential.accounts[0].transactions} == {-10.0: False, -20.0: True}
+
+
+def test_sync_rebuilds_pending_each_time_without_accumulating(session_factory: sessionmaker):
+    credential_id = _create_credential(session_factory)
+    bank = _FakeBankSession(
+        accounts=[FetchedAccount(name="A")],
+        balances={"A": 0.0},
+        transactions={"A": [_booked_transaction(amount=-10.0, day=10), _pending_transaction(amount=-20.0, day=11)]},
+    )
+    handler = _build_handler(bank)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.sync(handler)
+        session.commit()
+
+        # Next sync: the pending entry has drifted (new date) --> the stale one must be wiped, not kept
+        bank._transactions["A"] = [
+            _booked_transaction(amount=-10.0, day=10),
+            _pending_transaction(amount=-20.0, day=13),
+        ]
+        credential.sync(handler)
+        session.commit()
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        transactions = credential.accounts[0].transactions
+        assert len(transactions) == 2
+        pending = [tx for tx in transactions if tx.pending]
+        assert len(pending) == 1
+        assert pending[0].date == date(year=2026, month=5, day=13)
+
+
+def test_pending_that_becomes_booked_is_not_duplicated(session_factory: sessionmaker):
+    credential_id = _create_credential(session_factory)
+    bank = _FakeBankSession(
+        accounts=[FetchedAccount(name="A")],
+        balances={"A": 0.0},
+        transactions={"A": [_pending_transaction(amount=-142.0, day=4)]},
+    )
+    handler = _build_handler(bank)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.sync(handler)
+        session.commit()
+
+        bank._transactions["A"] = [_booked_transaction(amount=-142.0, day=2)]
+        credential.sync(handler)
+        session.commit()
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        transactions = credential.accounts[0].transactions
+        assert len(transactions) == 1
+        assert transactions[0].pending is False
+        assert transactions[0].purpose == "booked"
+
+
+def test_pending_transactions_are_excluded_from_balance_history(session_factory: sessionmaker):
+    credential_id = _create_credential(session_factory)
+    handler = _build_handler(
+        _FakeBankSession(
+            accounts=[FetchedAccount(name="A")],
+            balances={"A": 0.0},
+            transactions={"A": [_booked_transaction(amount=-10.0, day=10), _pending_transaction(amount=-20.0, day=12)]},
+        )
+    )
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.sync(handler)
+        session.commit()
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        balance_days = set(credential.accounts[0].balance_at_date.keys())
+        assert date(year=2026, month=5, day=10) in balance_days
+        assert date(year=2026, month=5, day=12) not in balance_days
+
+
 def test_sync_passes_a_plain_date_to_handlers_when_credential_was_synced_before(session_factory: sessionmaker):
     # last_fetching_timestamp is a datetime, but handlers are contracted to receive a date
     # (get_transactions(start_date: date)). Passing a datetime breaks handlers that compare it
