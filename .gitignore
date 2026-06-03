@@ -4,6 +4,9 @@
 **/__pycache__/
 scripts/wip/
 
+# Persistent data written into DATA_DIR (defaults to <REPO_ROOT>/data when running natively)
+/data/
+
 # Ignore MacOS hidden files
 **/._*
 **/.DS_Store

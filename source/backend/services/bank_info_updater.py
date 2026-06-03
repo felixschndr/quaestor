@@ -13,6 +13,7 @@ from pathlib import Path
 import fints_url
 from fints_url import update_bank_info
 from source.backend.logging_utils import get_logger
+from source.backend.paths import BANK_DB_PATH
 from source.backend.services import bank_catalog
 
 logger = get_logger(__name__)
@@ -28,7 +29,11 @@ _MIN_PLAUSIBLE_ENTRIES = 1000
 
 
 def _pickle_path() -> Path:
-    return Path(fints_url.__file__).parent / "bank_info.pickle"
+    return BANK_DB_PATH
+
+
+def _redirect_update_target(pickle_path: Path) -> None:
+    update_bank_info.__file__ = str(pickle_path)
 
 
 def _freshness_marker_path() -> Path:
@@ -65,13 +70,19 @@ def _update_raw_db_file() -> None:
 
     if _is_fresh_enough(DEFAULT_MAX_AGE):
         logger.info(f"FinTS bank DB at {pickle_path} is fresh enough; skipping update")
+        if pickle_path.exists():
+            _reload_in_memory_db(pickle_path)
         return
 
+    pickle_path.parent.mkdir(parents=True, exist_ok=True)
     if not os.access(path=pickle_path.parent, mode=os.W_OK):
         logger.warning(f"FinTS bank DB directory {pickle_path.parent} is not writable; keeping bundled DB")
+        if pickle_path.exists():
+            _reload_in_memory_db(pickle_path)
         return
 
     logger.info("Updating FinTS bank DB from the aqbanking dataset ...")
+    _redirect_update_target(pickle_path)
     with contextlib.redirect_stdout(io.StringIO()):
         update_bank_info.update()
 

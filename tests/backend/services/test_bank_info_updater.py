@@ -56,6 +56,27 @@ def test_update_is_skipped_when_marker_is_fresh(isolated_paths: Path, monkeypatc
     assert calls == []
 
 
+def test_persisted_db_is_loaded_into_memory_when_fresh(isolated_paths: Path, monkeypatch: pytest.MonkeyPatch):
+    isolated_paths.touch()
+    updater._freshness_marker_path().touch()
+    reloaded = []
+    monkeypatch.setattr(target=updater, name="_reload_in_memory_db", value=lambda path: reloaded.append(path))
+    monkeypatch.setattr(target=updater.update_bank_info, name="update", value=lambda: pytest.fail("must not update"))
+
+    updater._update_raw_db_file()
+
+    assert reloaded == [isolated_paths]
+
+
+def test_update_redirects_fints_url_writer_to_our_path(isolated_paths: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(target=updater.update_bank_info, name="update", value=lambda: None)
+    monkeypatch.setattr(target=updater, name="_reload_in_memory_db", value=lambda _path: 1244)
+
+    updater._update_raw_db_file()
+
+    assert updater.update_bank_info.__file__ == str(isolated_paths)
+
+
 def test_marker_is_not_written_when_update_looks_too_small(isolated_paths: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=updater.update_bank_info, name="update", value=lambda: None)
     monkeypatch.setattr(target=updater, name="_reload_in_memory_db", value=lambda _path: 3)

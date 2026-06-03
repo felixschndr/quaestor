@@ -1,10 +1,10 @@
 import asyncio
-import os
 import sys
 from pathlib import Path
 
 from playwright.async_api import async_playwright
 from source.backend.logging_utils import get_logger
+from source.backend.paths import PLAYWRIGHT_BROWSERS_PATH
 
 logger = get_logger(__name__)
 
@@ -37,7 +37,7 @@ async def ensure_chromium_installed() -> None:
 
     logger.info(
         f"Playwright {BROWSER} browser not found at {executable_path}; downloading it into "
-        f"{os.environ.get('PLAYWRIGHT_BROWSERS_PATH')}. This happens once per version and may take a moment ..."
+        f"{PLAYWRIGHT_BROWSERS_PATH}. This happens once per version and may take a moment ..."
     )
     try:
         await _download_chromium()

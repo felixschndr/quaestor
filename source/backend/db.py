@@ -3,26 +3,14 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import sqlcipher3
-from dotenv import load_dotenv
-from source.backend.helpers import get_root_path_of_repository
 from source.backend.logging_utils import get_logger
+from source.backend.paths import DATABASE_PATH
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 KEY_ENV_VARIABLE_NAME = "DATABASE_ENCRYPTION_KEY"
-PATH_ENV_VARIABLE_NAME = "DATABASE_PATH"
-ROOT = get_root_path_of_repository()
-ENV_FILE_PATH = ROOT / ".env"
 
-load_dotenv(dotenv_path=ENV_FILE_PATH)
 logger = get_logger(__name__)
-
-
-def _resolve_db_path() -> Path:
-    return Path(os.environ.get(PATH_ENV_VARIABLE_NAME) or (ROOT / "Quaestor.db"))
-
-
-DB_PATH = _resolve_db_path()
 
 
 def _running_in_container() -> bool:
@@ -41,11 +29,11 @@ def _nearest_mount_point(path: Path) -> Path:
 def _warn_if_db_not_on_volume() -> None:
     if not _running_in_container():
         return
-    mount_point = _nearest_mount_point(DB_PATH.parent)
+    mount_point = _nearest_mount_point(DATABASE_PATH.parent)
     if mount_point == Path("/"):
         logger.warning(
             f"No volume or bind mount was detected for the database. "
-            f"All data will be lost when the container is removed or replaced. Mount a volume covering {DB_PATH}."
+            f"All data will be lost when the container is removed or replaced. Mount a volume covering {DATABASE_PATH}."
         )
 
 
@@ -61,14 +49,14 @@ def _database_key() -> str:
 
 
 # Plain sqlite dialect, but driven by the SQLCipher DBAPI, so the whole database file is AES-encrypted at rest
-engine = create_engine(f"sqlite:///{DB_PATH}", module=sqlcipher3.dbapi2)
+engine = create_engine(f"sqlite:///{DATABASE_PATH}", module=sqlcipher3.dbapi2)
 
 
 def log_database_location() -> None:
     # Called from the app lifespan so it runs after logging is configured
-    logger.info(f"Using database at {DB_PATH}")
-    if not DB_PATH.exists():
-        logger.info(f"No existing database found at {DB_PATH} --> a new one will be created.")
+    logger.info(f"Using database at {DATABASE_PATH}")
+    if not DATABASE_PATH.exists():
+        logger.info(f"No existing database found at {DATABASE_PATH} --> a new one will be created.")
     _warn_if_db_not_on_volume()
 
 
