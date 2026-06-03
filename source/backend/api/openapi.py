@@ -12,8 +12,7 @@ API_DESCRIPTION = f"""
 
 ## Authentication
 
-Every `/api` endpoint requires authentication. There are two ways to authenticate, and they grant access
-to the same account.
+Every `/api` endpoint requires authentication. There are two ways to authenticate:
 
 ### Session cookie
 
@@ -29,12 +28,10 @@ For programmatic access, send a personal API key as a Bearer token:
 Authorization: Bearer qk_your_api_key
 ```
 
-API keys can **only be created in the web frontend**, under *Settings → API keys* (there is deliberately
-no endpoint to create one). A key is only shown once at creation time. You can revoke a key from the same screen.
+API keys can **only be created in the web frontend**, under *Settings → API keys*. A key is only shown once at creation time. You can revoke a key from the same screen.
 
 An API key can drive the same data endpoints as the frontend (accounts, transactions, bank connections,
-syncing). For safety it **cannot** be used for account self-management (e.g. changing your password or managing
-two-factor authentication)
+syncing). For safety it **cannot** be used for account self-management (e.g. changing your password or managing two-factor authentication or managing API keys)
 """
 
 _SECURITY_SCHEMES = {

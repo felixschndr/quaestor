@@ -39,7 +39,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PORT=8000 \
     USER_TO_USE=app \
     DATABASE_PATH=/data/Quaestor.db \
-    PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
+    PLAYWRIGHT_BROWSERS_PATH=/data/playwright
 
 RUN apt-get update && apt-get install -y --no-install-recommends sqlcipher \
     && rm -rf /var/lib/apt/lists/* \
@@ -53,10 +53,12 @@ RUN mkdir -p /data && chown ${USER_TO_USE}:${USER_TO_USE} /data
 
 COPY --from=backend-builder /app/.venv /app/.venv
 
-# We install everything that playwright needs and bake it into the image.
-# We could think about only loading it if we need it in the future.
-RUN playwright install --with-deps chromium \
-    && chmod -R a+rX ${PLAYWRIGHT_BROWSERS_PATH} \
+# Install only the system libraries Chromium needs (fonts, codecs, ...). The browser binary itself is
+# NOT baked into the image: it is downloaded on first start into PLAYWRIGHT_BROWSERS_PATH (=/data/playwright),
+# which lives in the mounted data volume, so it survives container restarts and recreations. See
+# source/backend/services/playwright_browser.py. On a Playwright version bump just rebuild the image
+# (refreshes these deps) — the matching browser revision is then fetched automatically on the next start.
+RUN playwright install-deps chromium \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} alembic.ini ./

@@ -38,6 +38,7 @@ from source.backend.services import (
     bank_info_updater,
     category_rescan,
     migrations,
+    playwright_browser,
     session_service,
     sync_scheduler,
     transfer_detection,
@@ -59,6 +60,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator:
     _route_third_party_loggers_to_root()
     log_database_location()
     migrations.upgrade_to_head()
+
+    await playwright_browser.ensure_chromium_installed()
 
     background_tasks = [
         asyncio.create_task(bank_info_updater.run_startup_update()),

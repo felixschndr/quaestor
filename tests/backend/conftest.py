@@ -53,6 +53,16 @@ def disable_background_tasks(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
+def skip_browser_provisioning(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch):
+    # The app lifespan provisions the Playwright browser on startup, which would launch the driver
+    # and possibly download Chromium over the network. The dedicated playwright_browser tests opt
+    # out via this marker to exercise the real logic.
+    if request.node.get_closest_marker("real_playwright_browser"):
+        return
+    monkeypatch.setattr(target=main.playwright_browser, name="ensure_chromium_installed", value=AsyncMock())
+
+
+@pytest.fixture(autouse=True)
 def isolate_rate_limiter(monkeypatch: pytest.MonkeyPatch):
     # Each test gets a fresh limiter instance so request counts don't leak across tests.
     monkeypatch.setattr(target=rate_limit, name="limiter", value=rate_limit.InMemoryTokenBucketLimiter())
