@@ -35,9 +35,7 @@ class TransactionCategory(str, Enum):
     FEES = "FEES"
     SAVINGS = "SAVINGS"
     WITHDRAWAL = "WITHDRAWAL"
-    # TRANSFER is reserved for the future cross-bank linking (e.g. an OUTGOING on account 1
-    # to an INCOMING on account 2
-    TRANSFER = "TRANSFER"
+
     UNKNOWN = "UNKNOWN"
 
     @classmethod
