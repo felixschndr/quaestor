@@ -27,12 +27,14 @@ segno = "^1.6.6"
 pytest = "^9.0.3"
 httpx = "^0.28.1"
 pytest-cov = "^7.1.0"
+pytest-env = "^1.6.0"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]
 addopts = ["--import-mode=importlib"]
+env = ["R:ALLOW_MISSING_FRONTEND=true"] # R = don't override pre-existing env
 
 [tool.isort]
 profile = "black"

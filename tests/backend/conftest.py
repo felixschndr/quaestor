@@ -1,4 +1,3 @@
-import os
 from datetime import date as _date
 from datetime import datetime
 from pathlib import Path
@@ -24,8 +23,6 @@ from source.backend.security import csrf, rate_limit
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
-
-os.environ.setdefault(key="ALLOW_MISSING_FRONTEND", value="true")
 
 USER_NAME = "alice"
 SECOND_USER_NAME = "bob"
