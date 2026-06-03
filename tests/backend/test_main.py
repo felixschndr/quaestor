@@ -6,8 +6,18 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import Request
 from source.backend import main
+from source.backend.helpers import get_project_name, get_project_version
 from starlette.datastructures import Headers
 from starlette.types import Scope
+
+
+def test_log_startup_version_logs_name_and_version(caplog: pytest.LogCaptureFixture):
+    with caplog.at_level(logging.INFO, logger="main"):
+        main.log_startup_version()
+
+    message = caplog.records[-1].getMessage()
+    assert message == f"Starting {get_project_name()} {get_project_version()}"
+    assert get_project_version() in message
 
 
 def test_rename_uvicorn_error_filter_renames_uvicorn_error_records():

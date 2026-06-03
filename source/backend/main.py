@@ -140,7 +140,12 @@ def setup_logging() -> None:
     logger.debug(f"Logging configured at level {log_level}")
 
 
+def log_startup_version() -> None:
+    logger.info(f"Starting {get_project_name()} {get_project_version()}")
+
+
 setup_logging()
+log_startup_version()
 
 app = FastAPI(
     title=get_project_name(),
