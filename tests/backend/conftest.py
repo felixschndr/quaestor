@@ -39,17 +39,19 @@ HTTP_SESSION_TOKEN = "eyJ_test_token_payload"  # nosec B105
 CHALLENGE_TOKEN = "challenge-token"  # nosec B105
 BANK_USERNAME = "bankuser"
 BANK_PASSWORD = "bankpass"  # nosec B105
+ACCOUNT_IBAN = "DE12 3456 7890"
+SECOND_ACCOUNT_IBAN = "DE98 7654 3210"
+LAST_FETCHING_TIMESTAMP = datetime(year=2026, month=1, day=1)
+TRANSACTION_DATE = _date(year=2026, month=5, day=20)
 TWO_FACTOR_SECRET = "T2UXK5D6ZPTJ3WF2YXHYGGXKIT2G5LUH"  # nosec B105  # gitleaks:allow
 UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"
 
 
 @pytest.fixture(autouse=True)
 def disable_background_tasks(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(target=main.sync_scheduler, name="run_periodic_sync", value=AsyncMock())
-    monkeypatch.setattr(target=main.category_rescan, name="run_startup_rescan", value=AsyncMock())
+    for module, name in main.STARTUP_BACKGROUND_TASKS:
+        monkeypatch.setattr(target=module, name=name, value=AsyncMock())
     monkeypatch.setattr(target=main.migrations, name="upgrade_to_head", value=MagicMock())
-    # Never hit the network (or rewrite the bundled DB) during tests.
-    monkeypatch.setattr(target=main.bank_info_updater, name="run_startup_update", value=AsyncMock())
 
 
 @pytest.fixture(autouse=True)
@@ -156,7 +158,7 @@ def create_credential(
 def create_fetched_transaction(
     amount: float = -12.34,
     purpose: str | None = None,
-    date: _date = _date(year=2026, month=5, day=21),
+    date: _date = TRANSACTION_DATE,
     other_party: str | None = None,
     transaction_type: TransactionType | None = TransactionType.OUTGOING,
 ) -> FetchedTransaction:
@@ -196,6 +198,14 @@ def make_user(
     return user
 
 
+def create_user(session_factory: sessionmaker, *, user_name: str = USER_NAME) -> User:
+    with session_factory() as db_session:
+        user = make_user(db_session, user_name=user_name)
+        db_session.commit()
+        db_session.refresh(user)
+        return user
+
+
 def make_credential(
     db_session: Session,
     *,
@@ -222,7 +232,7 @@ def make_account(
     db_session: Session,
     *,
     credential_id: int,
-    name: str = "DE00 1234",
+    name: str = ACCOUNT_IBAN,
     display_name: str | None = None,
     balance: float = 0.0,
     balance_factor: int = 100,
@@ -251,7 +261,7 @@ def make_transaction(
     amount: float = -1.0,
     purpose: str | None = None,
     other_party: str | None = None,
-    date: _date = _date(year=2026, month=5, day=21),
+    date: _date = TRANSACTION_DATE,
     transaction_type: TransactionType | None = None,
     category: TransactionCategory = TransactionCategory.UNKNOWN,
     note: str | None = None,
@@ -272,6 +282,101 @@ def make_transaction(
     db_session.add(transaction)
     db_session.flush()
     return transaction
+
+
+def persist_credential(
+    session_factory: sessionmaker,
+    *,
+    user_id: int,
+    bank: BankProvider = BankProvider.FINTS,
+    credentials: dict[str, str] | None = None,
+    requires_two_factor_authentication: bool = False,
+    last_fetching_timestamp: datetime | None = None,
+) -> int:
+    """Persist a credential for the given user through its own committed session and return its id."""
+    with session_factory() as db_session:
+        credential = make_credential(
+            db_session,
+            user_id=user_id,
+            bank=bank,
+            credentials=credentials,
+            requires_two_factor_authentication=requires_two_factor_authentication,
+            last_fetching_timestamp=last_fetching_timestamp,
+        )
+        db_session.commit()
+        return credential.id
+
+
+def persist_account(
+    session_factory: sessionmaker,
+    *,
+    credential_id: int,
+    name: str = ACCOUNT_IBAN,
+    display_name: str | None = None,
+    balance: float = 0.0,
+    balance_factor: int = 100,
+    is_hidden: bool = False,
+    tracks_balance_history: bool = True,
+) -> int:
+    """Persist an account through its own committed session and return its id."""
+    with session_factory() as db_session:
+        account = make_account(
+            db_session,
+            credential_id=credential_id,
+            name=name,
+            display_name=display_name,
+            balance=balance,
+            balance_factor=balance_factor,
+            is_hidden=is_hidden,
+            tracks_balance_history=tracks_balance_history,
+        )
+        db_session.commit()
+        return account.id
+
+
+def persist_transaction(
+    session_factory: sessionmaker,
+    *,
+    account_id: int,
+    amount: float = -1.0,
+    purpose: str | None = None,
+    other_party: str | None = None,
+    date: _date = TRANSACTION_DATE,
+    transaction_type: TransactionType | None = None,
+    category: TransactionCategory = TransactionCategory.UNKNOWN,
+    note: str | None = None,
+    pending: bool = False,
+) -> int:
+    """Persist a transaction through its own committed session and return its id."""
+    with session_factory() as db_session:
+        transaction = make_transaction(
+            db_session,
+            account_id=account_id,
+            amount=amount,
+            purpose=purpose,
+            other_party=other_party,
+            date=date,
+            transaction_type=transaction_type,
+            category=category,
+            note=note,
+            pending=pending,
+        )
+        db_session.commit()
+        return transaction.id
+
+
+def persist_credential_with_new_user(
+    session_factory: sessionmaker, *, last_fetching_timestamp: datetime | None = LAST_FETCHING_TIMESTAMP
+) -> int:
+    """Create a fresh user and a credential owned by them, returning the credential id."""
+    user = create_user(session_factory)
+    return persist_credential(session_factory, user_id=user.id, last_fetching_timestamp=last_fetching_timestamp)
+
+
+def persist_account_with_new_user(session_factory: sessionmaker) -> int:
+    """Create a fresh user, credential and account, returning the account id."""
+    credential_id = persist_credential_with_new_user(session_factory, last_fetching_timestamp=None)
+    return persist_account(session_factory, credential_id=credential_id)
 
 
 def get_backend_test_path() -> Path:

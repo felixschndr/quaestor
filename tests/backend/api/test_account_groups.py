@@ -2,7 +2,14 @@ from fastapi.testclient import TestClient
 from source.backend.models.user import User
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import make_account, make_credential, make_user, register
+from tests.backend.conftest import (
+    ACCOUNT_IBAN,
+    SECOND_ACCOUNT_IBAN,
+    make_account,
+    make_credential,
+    make_user,
+    register,
+)
 
 
 def test_get_layout_returns_empty_when_user_has_no_accounts(http_client: TestClient):
@@ -21,8 +28,8 @@ def test_get_layout_returns_ungrouped_accounts_when_no_groups_exist(
     with session_factory() as db_session:
         user = db_session.query(User).first()
         credential = make_credential(db_session, user_id=user.id)
-        account_id_1 = make_account(db_session, credential_id=credential.id, name="DE00 0001").id
-        account_id_2 = make_account(db_session, credential_id=credential.id, name="DE00 0002").id
+        account_id_1 = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
+        account_id_2 = make_account(db_session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN).id
         db_session.commit()
 
     response = http_client.get("/api/account_groups/layout")
@@ -38,8 +45,8 @@ def test_set_layout_creates_a_new_group_and_assigns_accounts(http_client: TestCl
     with session_factory() as db_session:
         user = db_session.query(User).first()
         credential = make_credential(db_session, user_id=user.id)
-        account_id_1 = make_account(db_session, credential_id=credential.id, name="DE00 0001").id
-        account_id_2 = make_account(db_session, credential_id=credential.id, name="DE00 0002").id
+        account_id_1 = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
+        account_id_2 = make_account(db_session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN).id
         db_session.commit()
 
     response = http_client.put(
@@ -60,8 +67,8 @@ def test_set_layout_renames_and_reorders_groups(http_client: TestClient, session
     with session_factory() as db_session:
         user = db_session.query(User).first()
         credential = make_credential(db_session, user_id=user.id)
-        account_id_1 = make_account(db_session, credential_id=credential.id, name="DE00 0001").id
-        account_id_2 = make_account(db_session, credential_id=credential.id, name="DE00 0002").id
+        account_id_1 = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
+        account_id_2 = make_account(db_session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN).id
         db_session.commit()
 
     initial = http_client.put(
@@ -101,7 +108,7 @@ def test_set_layout_deletes_groups_not_in_payload_and_orphans_become_ungrouped(
     with session_factory() as db_session:
         user = db_session.query(User).first()
         credential = make_credential(db_session, user_id=user.id)
-        account_id_1 = make_account(db_session, credential_id=credential.id, name="DE00 0001").id
+        account_id_1 = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
         db_session.commit()
 
     initial = http_client.put(
@@ -128,10 +135,10 @@ def test_set_layout_rejects_account_id_not_owned_by_user(http_client: TestClient
         # Different user owns this account.
         other_user = make_user(db_session, user_name="otheruser", display_name="Other")
         other_cred = make_credential(db_session, user_id=other_user.id)
-        foreign = make_account(db_session, credential_id=other_cred.id, name="DE00 9999")
+        foreign = make_account(db_session, credential_id=other_cred.id, name=SECOND_ACCOUNT_IBAN)
         # Our user has one of their own too, just to make sure the error message references the foreign one.
         my_cred = make_credential(db_session, user_id=user.id)
-        mine = make_account(db_session, credential_id=my_cred.id, name="DE00 0001")
+        mine = make_account(db_session, credential_id=my_cred.id, name=ACCOUNT_IBAN)
         db_session.commit()
         foreign_id, mine_id = foreign.id, mine.id
 
@@ -147,7 +154,7 @@ def test_set_layout_rejects_duplicate_account_ids(http_client: TestClient, sessi
     with session_factory() as db_session:
         user = db_session.query(User).first()
         credential = make_credential(db_session, user_id=user.id)
-        account_id_1 = make_account(db_session, credential_id=credential.id, name="DE00 0001").id
+        account_id_1 = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
         db_session.commit()
 
     response = http_client.put(
@@ -168,7 +175,7 @@ def test_set_layout_rejects_unknown_group_id(http_client: TestClient, session_fa
     with session_factory() as db_session:
         user = db_session.query(User).first()
         credential = make_credential(db_session, user_id=user.id)
-        account_id_1 = make_account(db_session, credential_id=credential.id, name="DE00 0001").id
+        account_id_1 = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
         db_session.commit()
 
     response = http_client.put(

@@ -21,25 +21,12 @@ from tests.backend.conftest import (
     HTTP_SESSION_TOKEN,
     PHONE_NUMBER,
     PIN,
-    USER_NAME,
     VALID_PASSWORD,
+    create_user,
     make_credential,
     make_user,
+    persist_credential,
 )
-
-
-def _create_user(session_factory: sessionmaker, user_name: str = USER_NAME) -> int:
-    with session_factory() as session:
-        user = make_user(session, user_name=user_name)
-        session.commit()
-        return user.id
-
-
-def _create_ing_credential(session_factory: sessionmaker, user_id: int, requires_2fa: bool = False) -> int:
-    with session_factory() as session:
-        credential = make_credential(session, user_id=user_id, requires_two_factor_authentication=requires_2fa)
-        session.commit()
-        return credential.id
 
 
 def test_validated_credentials_rejects_unexpected_fields():
@@ -97,10 +84,10 @@ def test_validate_credentials_strips_whitespace_from_fints_blz():
 def test_sync_all_due_credentials_counts_synced_skipped_failed(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    user_id = _create_user(session_factory)
-    syncable = _create_ing_credential(session_factory, user_id=user_id)
-    two_factor = _create_ing_credential(session_factory, user_id=user_id, requires_2fa=True)
-    failing = _create_ing_credential(session_factory, user_id=user_id)
+    user_id = create_user(session_factory).id
+    syncable = persist_credential(session_factory, user_id=user_id)
+    two_factor = persist_credential(session_factory, user_id=user_id, requires_two_factor_authentication=True)
+    failing = persist_credential(session_factory, user_id=user_id)
 
     def fake_sync(credential: Credential):
         if credential.id == failing:
@@ -127,8 +114,8 @@ def test_sync_all_due_credentials_counts_synced_skipped_failed(
 def test_sync_credential_loads_by_id_and_returns_completed_for_handler_without_2fa(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = _create_user(session_factory)
-    credential_id = _create_ing_credential(session_factory, user_id=user_id)
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
     monkeypatch.setattr(target=Credential, name="sync", value=MagicMock())
 
     with session_factory() as session:
@@ -141,8 +128,8 @@ def test_sync_credential_loads_by_id_and_returns_completed_for_handler_without_2
 def test_sync_credential_object_for_handler_without_2fa_calls_credential_sync(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = _create_user(session_factory)
-    credential_id = _create_ing_credential(session_factory, user_id=user_id)
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
     calls: list[object] = []
 
     def fake_sync(self: Credential, handler: BankHandler) -> None:
@@ -191,8 +178,8 @@ def test_sync_credential_object_for_handler_with_2fa_returns_completed_on_resume
 def test_sync_marks_credential_when_handler_requests_two_factor(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = _create_user(session_factory)
-    credential_id = _create_ing_credential(session_factory, user_id=user_id)
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
 
     def fake_sync(self: Credential, handler: BankHandler) -> None:
         notifier = handler.notify_two_factor_state
@@ -213,8 +200,8 @@ def test_sync_marks_credential_when_handler_requests_two_factor(
 def test_sync_leaves_two_factor_flag_unset_without_two_factor(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = _create_user(session_factory)
-    credential_id = _create_ing_credential(session_factory, user_id=user_id)
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
 
     monkeypatch.setattr(target=Credential, name="sync", value=lambda self, handler: None)
 
@@ -227,8 +214,8 @@ def test_sync_leaves_two_factor_flag_unset_without_two_factor(
 def test_sync_reraises_reauth_when_handler_has_no_interactive_challenge(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = _create_user(session_factory)
-    credential_id = _create_ing_credential(session_factory, user_id=user_id)
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
 
     def raise_reauth(self: Credential, handler: BankHandler) -> None:
         raise ReauthenticationRequiredError("expired")
@@ -305,7 +292,7 @@ def test_confirm_two_factor_completes_login_and_syncs_credential(
 
 
 def test_create_generic_fints_credential_persists_blz(session_factory: sessionmaker) -> None:
-    user_id = _create_user(session_factory)
+    user_id = create_user(session_factory).id
 
     with session_factory() as session:
         credential = credential_service.create_credential(
@@ -321,7 +308,7 @@ def test_create_generic_fints_credential_persists_blz(session_factory: sessionma
 
 
 def test_create_generic_fints_credential_rejects_missing_blz(session_factory: sessionmaker) -> None:
-    user_id = _create_user(session_factory)
+    user_id = create_user(session_factory).id
 
     with session_factory() as session:
         with pytest.raises(MissingCredentialFieldError):
@@ -336,8 +323,8 @@ def test_create_generic_fints_credential_rejects_missing_blz(session_factory: se
 def test_sync_all_due_credentials_logs_exception_per_failure(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    user_id = _create_user(session_factory)
-    failing = _create_ing_credential(session_factory, user_id=user_id)
+    user_id = create_user(session_factory).id
+    failing = persist_credential(session_factory, user_id=user_id)
 
     def fake_sync(credential: Credential):
         raise RuntimeError(f"something went wrong when syncing {credential}")

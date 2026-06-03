@@ -11,19 +11,13 @@ from tests.backend.conftest import (
     SECOND_USER_NAME,
     USER_NAME,
     VALID_PASSWORD,
-    make_user,
+    create_user,
 )
 
 
-def _create_user(session_factory: sessionmaker, user_name: str) -> None:
-    with session_factory() as session:
-        make_user(session, user_name=user_name)
-        session.commit()
-
-
 def test_list_users_returns_all_users(session_factory: sessionmaker):
-    _create_user(session_factory, user_name=USER_NAME)
-    _create_user(session_factory, user_name=SECOND_USER_NAME)
+    create_user(session_factory, user_name=USER_NAME)
+    create_user(session_factory, user_name=SECOND_USER_NAME)
 
     with session_factory() as session:
         users = user_service.list_users(db_session=session)

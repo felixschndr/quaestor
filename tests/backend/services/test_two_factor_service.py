@@ -10,17 +10,9 @@ from source.backend.services import two_factor_service
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import USER_NAME, make_user
+from tests.backend.conftest import USER_NAME, create_user
 
 _BACKUP_CODE_FORMAT = re.compile(r"^[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$")
-
-
-def _create_user(session_factory: sessionmaker) -> User:  # TODO: move into conftest
-    with session_factory() as db_session:
-        user = make_user(db_session)
-        db_session.commit()
-        db_session.refresh(user)
-        return user
 
 
 def test_generate_backup_codes_have_expected_format_and_count():
@@ -48,7 +40,7 @@ def test_verify_totp_accepts_current_code_and_rejects_wrong_one():
 
 
 def test_enable_requires_setup_first(session_factory: sessionmaker):
-    user = _create_user(session_factory=session_factory)
+    user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
         with pytest.raises(InvalidTwoFactorError):
@@ -56,7 +48,7 @@ def test_enable_requires_setup_first(session_factory: sessionmaker):
 
 
 def test_setup_then_enable_turns_on_2fa_and_returns_backup_codes(session_factory: sessionmaker):
-    user = _create_user(session_factory=session_factory)
+    user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
         secret, _, _ = two_factor_service.start_setup(db_session=db_session, user=attached)
@@ -68,7 +60,7 @@ def test_setup_then_enable_turns_on_2fa_and_returns_backup_codes(session_factory
 
 
 def test_setup_is_rejected_while_already_enabled(session_factory: sessionmaker):
-    user = _create_user(session_factory=session_factory)
+    user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
         secret, _, _ = two_factor_service.start_setup(db_session=db_session, user=attached)
@@ -79,7 +71,7 @@ def test_setup_is_rejected_while_already_enabled(session_factory: sessionmaker):
 
 
 def test_backup_code_logs_in_once_then_is_consumed(session_factory: sessionmaker):
-    user = _create_user(session_factory=session_factory)
+    user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
         secret, _, _ = two_factor_service.start_setup(db_session=db_session, user=attached)
@@ -94,7 +86,7 @@ def test_backup_code_logs_in_once_then_is_consumed(session_factory: sessionmaker
 
 
 def test_disable_clears_secret_and_backup_codes(session_factory: sessionmaker):
-    user = _create_user(session_factory=session_factory)
+    user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
         secret, _, _ = two_factor_service.start_setup(db_session=db_session, user=attached)
@@ -108,7 +100,7 @@ def test_disable_clears_secret_and_backup_codes(session_factory: sessionmaker):
 
 
 def test_disable_rejects_wrong_code(session_factory: sessionmaker):
-    user = _create_user(session_factory=session_factory)
+    user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
         secret, _, _ = two_factor_service.start_setup(db_session=db_session, user=attached)
@@ -120,7 +112,7 @@ def test_disable_rejects_wrong_code(session_factory: sessionmaker):
 
 
 def test_regenerate_backup_codes_replaces_and_invalidates_old(session_factory: sessionmaker):
-    user = _create_user(session_factory=session_factory)
+    user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
         secret, _, _ = two_factor_service.start_setup(db_session=db_session, user=attached)
@@ -135,7 +127,7 @@ def test_regenerate_backup_codes_replaces_and_invalidates_old(session_factory: s
 
 
 def test_regenerate_backup_codes_requires_enabled(session_factory: sessionmaker):
-    user = _create_user(session_factory=session_factory)
+    user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
         with pytest.raises(InvalidTwoFactorError):
@@ -143,7 +135,7 @@ def test_regenerate_backup_codes_requires_enabled(session_factory: sessionmaker)
 
 
 def test_challenge_resolves_until_expired(session_factory: sessionmaker):
-    user = _create_user(session_factory=session_factory)
+    user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
         raw_token = two_factor_service.create_challenge(db_session=db_session, user=attached)

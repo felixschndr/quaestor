@@ -29,6 +29,7 @@ from source.backend.helpers import (
     get_backend_source_path,
     get_frontend_source_path,
     get_project_name,
+    get_project_version,
 )
 from source.backend.logging_utils import get_logger, redact_headers
 from source.backend.security.csp import csp_middleware
@@ -42,7 +43,6 @@ from source.backend.services import (
     session_service,
     sync_scheduler,
     transfer_detection,
-    version_service,
 )
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Scope
@@ -55,6 +55,14 @@ ALLOW_MISSING_FRONTEND_ENV = "ALLOW_MISSING_FRONTEND"
 load_dotenv()
 
 
+STARTUP_BACKGROUND_TASKS = (
+    (bank_info_updater, "run_startup_update"),
+    (category_rescan, "run_startup_rescan"),
+    (transfer_detection, "run_startup_transfer_detection"),
+    (sync_scheduler, "run_periodic_sync"),
+)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator:
     _route_third_party_loggers_to_root()
@@ -63,12 +71,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator:
 
     await playwright_browser.ensure_chromium_installed()
 
-    background_tasks = [
-        asyncio.create_task(bank_info_updater.run_startup_update()),
-        asyncio.create_task(category_rescan.run_startup_rescan()),
-        asyncio.create_task(transfer_detection.run_startup_transfer_detection()),
-        asyncio.create_task(sync_scheduler.run_periodic_sync()),
-    ]
+    background_tasks = [asyncio.create_task(getattr(module, name)()) for module, name in STARTUP_BACKGROUND_TASKS]
     try:
         yield
     finally:
@@ -124,7 +127,7 @@ setup_logging()
 
 app = FastAPI(
     title=get_project_name(),
-    version=version_service.get_current_version(),
+    version=get_project_version(),
     description=API_DESCRIPTION,
     lifespan=lifespan,
     docs_url=None,

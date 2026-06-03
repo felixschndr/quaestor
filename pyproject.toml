@@ -34,7 +34,10 @@ pythonpath = ["."]
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]
 addopts = ["--import-mode=importlib"]
-env = ["R:ALLOW_MISSING_FRONTEND=true"] # R = don't override pre-existing env
+env = [
+    "R:ALLOW_MISSING_FRONTEND=true", # R = don't override pre-existing env
+    "R:LOG_LEVEL=WARNING",
+]
 markers = ["real_playwright_browser: exercise the real Playwright browser provisioning logic"]
 
 [tool.isort]

@@ -1,24 +1,15 @@
 import pytest
 from source.backend.exceptions import ApiKeyNotFoundError
 from source.backend.models.api_key import ApiKey
-from source.backend.models.user import User
 from source.backend.services import api_key_service
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import USER_NAME, make_user
-
-
-def _create_user(session_factory: sessionmaker, user_name: str = USER_NAME) -> User:
-    with session_factory() as db_session:
-        user = make_user(db_session, user_name=user_name)
-        db_session.commit()
-        db_session.refresh(user)
-        return user
+from tests.backend.conftest import create_user
 
 
 def test_create_returns_prefixed_token_and_stores_only_its_hash(session_factory: sessionmaker):
-    user = _create_user(session_factory)
+    user = create_user(session_factory)
     with session_factory() as db_session:
         raw_token, api_key = api_key_service.create_api_key(db_session=db_session, user=user, name="My script")
 
@@ -32,7 +23,7 @@ def test_create_returns_prefixed_token_and_stores_only_its_hash(session_factory:
 
 
 def test_authenticate_returns_user_and_stamps_last_used(session_factory: sessionmaker):
-    user = _create_user(session_factory)
+    user = create_user(session_factory)
     with session_factory() as db_session:
         raw_token, _ = api_key_service.create_api_key(db_session=db_session, user=user, name="My script")
 
@@ -49,7 +40,7 @@ def test_authenticate_returns_none_for_unknown_token(session_factory: sessionmak
 
 
 def test_delete_removes_the_key(session_factory: sessionmaker):
-    user = _create_user(session_factory)
+    user = create_user(session_factory)
     with session_factory() as db_session:
         _, api_key = api_key_service.create_api_key(db_session=db_session, user=user, name="My script")
         api_key_id = api_key.id
@@ -60,8 +51,8 @@ def test_delete_removes_the_key(session_factory: sessionmaker):
 
 
 def test_delete_foreign_key_raises_not_found_and_keeps_it(session_factory: sessionmaker):
-    owner = _create_user(session_factory, user_name="owner")
-    intruder = _create_user(session_factory, user_name="intruder")
+    owner = create_user(session_factory, user_name="owner")
+    intruder = create_user(session_factory, user_name="intruder")
     with session_factory() as db_session:
         _, api_key = api_key_service.create_api_key(db_session=db_session, user=owner, name="My script")
         api_key_id = api_key.id
@@ -73,8 +64,8 @@ def test_delete_foreign_key_raises_not_found_and_keeps_it(session_factory: sessi
 
 
 def test_list_only_returns_the_users_own_keys(session_factory: sessionmaker):
-    owner = _create_user(session_factory, user_name="owner")
-    intruder = _create_user(session_factory, user_name="intruder")
+    owner = create_user(session_factory, user_name="owner")
+    intruder = create_user(session_factory, user_name="intruder")
     with session_factory() as db_session:
         api_key_service.create_api_key(db_session=db_session, user=owner, name="owner key")
         api_key_service.create_api_key(db_session=db_session, user=intruder, name="intruder key")

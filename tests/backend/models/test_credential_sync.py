@@ -11,17 +11,16 @@ from source.backend.models.credential import Credential
 from source.backend.models.transaction_type import TransactionType
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import make_account, make_credential, make_user
-
-
-def _create_credential(session_factory: sessionmaker) -> int:
-    with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(
-            session, user_id=user.id, last_fetching_timestamp=datetime(year=2026, month=1, day=1)
-        )
-        session.commit()
-        return credential.id
+from tests.backend.conftest import (
+    ACCOUNT_IBAN,
+    LAST_FETCHING_TIMESTAMP,
+    SECOND_ACCOUNT_IBAN,
+    TRANSACTION_DATE,
+    make_account,
+    make_credential,
+    make_user,
+    persist_credential_with_new_user,
+)
 
 
 class _FakeBankSession(BankSession):
@@ -60,13 +59,13 @@ def _build_handler(bank_session: _FakeBankSession) -> MagicMock:
 
 
 def test_sync_creates_new_account_with_balance_and_transactions(session_factory: sessionmaker):
-    credential_id = _create_credential(session_factory)
-    fake_account = FetchedAccount(name="DE12 New")
+    credential_id = persist_credential_with_new_user(session_factory)
+    fake_account = FetchedAccount(name=ACCOUNT_IBAN)
     transactions = [
         FetchedTransaction(
             amount=-12.34,
             purpose="Coffee",
-            date=date(year=2026, month=5, day=20),
+            date=TRANSACTION_DATE,
             other_party="Café",
             transaction_type=TransactionType.OUTGOING,
         ),
@@ -81,8 +80,8 @@ def test_sync_creates_new_account_with_balance_and_transactions(session_factory:
     handler = _build_handler(
         _FakeBankSession(
             accounts=[fake_account],
-            balances={"DE12 New": 1000.0},
-            transactions={"DE12 New": transactions},
+            balances={ACCOUNT_IBAN: 1000.0},
+            transactions={ACCOUNT_IBAN: transactions},
         )
     )
 
@@ -95,24 +94,24 @@ def test_sync_creates_new_account_with_balance_and_transactions(session_factory:
         credential = session.get(entity=Credential, ident=credential_id)
         assert len(credential.accounts) == 1
         account = credential.accounts[0]
-        assert account.name == "DE12 New"
+        assert account.name == ACCOUNT_IBAN
         assert account.balance == 1000.0
         assert {tx.amount for tx in account.transactions} == {-12.34, 2500.0}
-        expected_days = {date(year=2026, month=5, day=20), date(year=2026, month=5, day=1)}
+        expected_days = {TRANSACTION_DATE, date(year=2026, month=5, day=1)}
         assert expected_days <= set(account.balance_at_date.keys())
         assert credential.last_fetching_timestamp is not None
 
 
 def test_sync_matches_existing_account_by_name_and_adds_missing_ones(session_factory: sessionmaker):
-    credential_id = _create_credential(session_factory)
+    credential_id = persist_credential_with_new_user(session_factory)
     with session_factory() as session:
-        make_account(session, credential_id=credential_id, name="DE12 OLD")
+        make_account(session, credential_id=credential_id, name=ACCOUNT_IBAN)
         session.commit()
 
     handler = _build_handler(
         _FakeBankSession(
-            accounts=[FetchedAccount(name="DE12 OLD"), FetchedAccount(name="DE12 NEW")],
-            balances={"DE12 OLD": 50.0, "DE12 NEW": 0.0},
+            accounts=[FetchedAccount(name=ACCOUNT_IBAN), FetchedAccount(name=SECOND_ACCOUNT_IBAN)],
+            balances={ACCOUNT_IBAN: 50.0, SECOND_ACCOUNT_IBAN: 0.0},
             transactions={},
         )
     )
@@ -125,11 +124,11 @@ def test_sync_matches_existing_account_by_name_and_adds_missing_ones(session_fac
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
         names_to_balance = {account.name: account.balance for account in credential.accounts}
-        assert names_to_balance == {"DE12 OLD": 50.0, "DE12 NEW": 0.0}
+        assert names_to_balance == {ACCOUNT_IBAN: 50.0, SECOND_ACCOUNT_IBAN: 0.0}
 
 
 def test_sync_does_not_duplicate_already_existing_transactions(session_factory: sessionmaker):
-    credential_id = _create_credential(session_factory)
+    credential_id = persist_credential_with_new_user(session_factory)
     existing_tx = FetchedTransaction(
         amount=-9.99,
         purpose="Recurring",
@@ -140,9 +139,9 @@ def test_sync_does_not_duplicate_already_existing_transactions(session_factory: 
 
     handler = _build_handler(
         _FakeBankSession(
-            accounts=[FetchedAccount(name="ACME-1")],
-            balances={"ACME-1": 0.0},
-            transactions={"ACME-1": [existing_tx]},
+            accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
+            balances={ACCOUNT_IBAN: 0.0},
+            transactions={ACCOUNT_IBAN: [existing_tx]},
         )
     )
 
@@ -178,12 +177,14 @@ def _pending_transaction(amount: float, day: int) -> FetchedTransaction:
 
 
 def test_sync_stores_pending_flag(session_factory: sessionmaker):
-    credential_id = _create_credential(session_factory)
+    credential_id = persist_credential_with_new_user(session_factory)
     handler = _build_handler(
         _FakeBankSession(
-            accounts=[FetchedAccount(name="A")],  # TODO: extract Account name and IBAN to fixture
-            balances={"A": 0.0},
-            transactions={"A": [_booked_transaction(amount=-10.0, day=10), _pending_transaction(amount=-20.0, day=11)]},
+            accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
+            balances={ACCOUNT_IBAN: 0.0},
+            transactions={
+                ACCOUNT_IBAN: [_booked_transaction(amount=-10.0, day=10), _pending_transaction(amount=-20.0, day=11)]
+            },
         )
     )
 
@@ -198,11 +199,13 @@ def test_sync_stores_pending_flag(session_factory: sessionmaker):
 
 
 def test_sync_rebuilds_pending_each_time_without_accumulating(session_factory: sessionmaker):
-    credential_id = _create_credential(session_factory)
+    credential_id = persist_credential_with_new_user(session_factory)
     bank = _FakeBankSession(
-        accounts=[FetchedAccount(name="A")],
-        balances={"A": 0.0},
-        transactions={"A": [_booked_transaction(amount=-10.0, day=10), _pending_transaction(amount=-20.0, day=11)]},
+        accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
+        balances={ACCOUNT_IBAN: 0.0},
+        transactions={
+            ACCOUNT_IBAN: [_booked_transaction(amount=-10.0, day=10), _pending_transaction(amount=-20.0, day=11)]
+        },
     )
     handler = _build_handler(bank)
 
@@ -212,7 +215,7 @@ def test_sync_rebuilds_pending_each_time_without_accumulating(session_factory: s
         session.commit()
 
         # Next sync: the pending entry has drifted (new date) --> the stale one must be wiped, not kept
-        bank._transactions["A"] = [
+        bank._transactions[ACCOUNT_IBAN] = [
             _booked_transaction(amount=-10.0, day=10),
             _pending_transaction(amount=-20.0, day=13),
         ]
@@ -229,11 +232,11 @@ def test_sync_rebuilds_pending_each_time_without_accumulating(session_factory: s
 
 
 def test_pending_that_becomes_booked_is_not_duplicated(session_factory: sessionmaker):
-    credential_id = _create_credential(session_factory)
+    credential_id = persist_credential_with_new_user(session_factory)
     bank = _FakeBankSession(
-        accounts=[FetchedAccount(name="A")],
-        balances={"A": 0.0},
-        transactions={"A": [_pending_transaction(amount=-142.0, day=4)]},
+        accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
+        balances={ACCOUNT_IBAN: 0.0},
+        transactions={ACCOUNT_IBAN: [_pending_transaction(amount=-142.0, day=4)]},
     )
     handler = _build_handler(bank)
 
@@ -242,7 +245,7 @@ def test_pending_that_becomes_booked_is_not_duplicated(session_factory: sessionm
         credential.sync(handler)
         session.commit()
 
-        bank._transactions["A"] = [_booked_transaction(amount=-142.0, day=2)]
+        bank._transactions[ACCOUNT_IBAN] = [_booked_transaction(amount=-142.0, day=2)]
         credential.sync(handler)
         session.commit()
 
@@ -255,12 +258,14 @@ def test_pending_that_becomes_booked_is_not_duplicated(session_factory: sessionm
 
 
 def test_pending_transactions_are_excluded_from_balance_history(session_factory: sessionmaker):
-    credential_id = _create_credential(session_factory)
+    credential_id = persist_credential_with_new_user(session_factory)
     handler = _build_handler(
         _FakeBankSession(
-            accounts=[FetchedAccount(name="A")],
-            balances={"A": 0.0},
-            transactions={"A": [_booked_transaction(amount=-10.0, day=10), _pending_transaction(amount=-20.0, day=12)]},
+            accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
+            balances={ACCOUNT_IBAN: 0.0},
+            transactions={
+                ACCOUNT_IBAN: [_booked_transaction(amount=-10.0, day=10), _pending_transaction(amount=-20.0, day=12)]
+            },
         )
     )
 
@@ -280,11 +285,11 @@ def test_sync_passes_a_plain_date_to_handlers_when_credential_was_synced_before(
     # last_fetching_timestamp is a datetime, but handlers are contracted to receive a date
     # (get_transactions(start_date: date)). Passing a datetime breaks handlers that compare it
     # against transaction dates (e.g. DFS: `transaction.date >= start_date`).
-    credential_id = _create_credential(session_factory)  # last_fetching_timestamp = datetime(2026, 1, 1)
+    credential_id = persist_credential_with_new_user(session_factory)
     fake_session = _FakeBankSession(
-        accounts=[FetchedAccount(name="DE12")],
-        balances={"DE12": 0.0},
-        transactions={"DE12": []},
+        accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
+        balances={ACCOUNT_IBAN: 0.0},
+        transactions={ACCOUNT_IBAN: []},
     )
     handler = _build_handler(fake_session)
 
@@ -294,7 +299,7 @@ def test_sync_passes_a_plain_date_to_handlers_when_credential_was_synced_before(
 
     _, requested_start = fake_session.get_transactions_calls[0]
     assert not isinstance(requested_start, datetime)
-    assert requested_start == date(year=2026, month=1, day=1)
+    assert requested_start == LAST_FETCHING_TIMESTAMP.date()
 
 
 def test_sync_fetches_full_history_when_credential_was_never_synced(session_factory: sessionmaker):
@@ -305,9 +310,9 @@ def test_sync_fetches_full_history_when_credential_was_never_synced(session_fact
         credential_id = credential.id
 
     fake_session = _FakeBankSession(
-        accounts=[FetchedAccount(name="DE12")],
-        balances={"DE12": 0.0},
-        transactions={"DE12": []},
+        accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
+        balances={ACCOUNT_IBAN: 0.0},
+        transactions={ACCOUNT_IBAN: []},
     )
     handler = _build_handler(fake_session)
 
@@ -316,6 +321,6 @@ def test_sync_fetches_full_history_when_credential_was_never_synced(session_fact
         credential.sync(handler)
 
     requested_account_name, requested_start = fake_session.get_transactions_calls[0]
-    assert requested_account_name == "DE12"
+    assert requested_account_name == ACCOUNT_IBAN
     assert isinstance(requested_start, date)
     assert requested_start == date(year=1970, month=1, day=1)

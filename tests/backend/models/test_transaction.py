@@ -1,4 +1,3 @@
-from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
@@ -7,6 +6,8 @@ from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 
+from tests.backend.conftest import TRANSACTION_DATE
+
 
 def test_transaction_repr_contains_identifying_fields():
     transaction = Transaction(
@@ -14,7 +15,7 @@ def test_transaction_repr_contains_identifying_fields():
         account_id=42,
         amount=-19.99,
         purpose="Coffee",
-        date=date(year=2026, month=5, day=20),
+        date=TRANSACTION_DATE,
         other_party="Café",
         transaction_type=TransactionType.OUTGOING,
         category=TransactionCategory.UNKNOWN,

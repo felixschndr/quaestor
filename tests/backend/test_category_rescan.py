@@ -16,48 +16,17 @@ from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
     UNKNOWN_TRANSACTION_OTHER_PARTY,
-    make_account,
-    make_credential,
-    make_transaction,
-    make_user,
+    persist_account_with_new_user,
+    persist_transaction,
 )
-
-
-def _persist_transaction(
-    *,
-    session_factory: sessionmaker,
-    account_id: int,
-    category: TransactionCategory,
-    other_party: str | None,
-    purpose: str | None = None,
-) -> int:
-    with session_factory() as session:
-        transaction = make_transaction(
-            session,
-            account_id=account_id,
-            other_party=other_party,
-            purpose=purpose,
-            category=category,
-        )
-        session.commit()
-        return transaction.id
-
-
-def _persist_account(session_factory: sessionmaker) -> int:
-    with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(session, user_id=user.id)
-        account = make_account(session, credential_id=credential.id, name="DE00")
-        session.commit()
-        return account.id
 
 
 def test_rescan_updates_unknown_transactions_that_now_match(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
     monkeypatch.setattr(target=category_rescan, name="SessionLocal", value=session_factory)
-    account_id = _persist_account(session_factory=session_factory)
-    matchable_id = _persist_transaction(
+    account_id = persist_account_with_new_user(session_factory)
+    matchable_id = persist_transaction(
         session_factory=session_factory,
         account_id=account_id,
         category=TransactionCategory.UNKNOWN,
@@ -72,8 +41,8 @@ def test_rescan_updates_unknown_transactions_that_now_match(
 
 def test_rescan_leaves_truly_unknown_transactions_alone(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=category_rescan, name="SessionLocal", value=session_factory)
-    account_id = _persist_account(session_factory=session_factory)
-    transaction_id = _persist_transaction(
+    account_id = persist_account_with_new_user(session_factory)
+    transaction_id = persist_transaction(
         session_factory=session_factory,
         account_id=account_id,
         category=TransactionCategory.UNKNOWN,
@@ -90,8 +59,8 @@ def test_rescan_does_not_overwrite_non_unknown_transactions(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
     monkeypatch.setattr(target=category_rescan, name="SessionLocal", value=session_factory)
-    account_id = _persist_account(session_factory=session_factory)
-    manually_set_id = _persist_transaction(
+    account_id = persist_account_with_new_user(session_factory)
+    manually_set_id = persist_transaction(
         session_factory=session_factory,
         account_id=account_id,
         category=TransactionCategory.DRUGSTORE,
@@ -108,14 +77,14 @@ def test_rescan_logs_summary_at_info(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     monkeypatch.setattr(target=category_rescan, name="SessionLocal", value=session_factory)
-    account_id = _persist_account(session_factory=session_factory)
-    _persist_transaction(
+    account_id = persist_account_with_new_user(session_factory)
+    persist_transaction(
         session_factory=session_factory,
         account_id=account_id,
         category=TransactionCategory.UNKNOWN,
         other_party="REWE Markt",
     )
-    _persist_transaction(
+    persist_transaction(
         session_factory=session_factory,
         account_id=account_id,
         category=TransactionCategory.UNKNOWN,

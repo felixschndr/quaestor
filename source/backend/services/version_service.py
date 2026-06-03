@@ -1,38 +1,27 @@
-import functools
-import tomllib
 from datetime import datetime, timedelta
-from typing import Any
 
 import requests
-from source.backend.helpers import get_root_path_of_repository
+from source.backend.helpers import get_content_of_pyproject_toml, get_project_version
 from source.backend.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
-GITHUB_BASE_URL = "https://github.com/"
 _CACHE_TTL = timedelta(hours=1)
 
 # (cached_at, (version, release_url)) for the last successful fetch.
 _latest_release_cache: tuple[datetime, tuple[str, str]] | None = None
 
 
-@functools.cache
-def _read_pyproject() -> dict[str, Any]:
-    pyproject_path = get_root_path_of_repository() / "pyproject.toml"
-    with pyproject_path.open("rb") as handle:
-        return tomllib.load(handle)
-
-
 def get_current_version() -> str:
-    return _read_pyproject()["tool"]["poetry"]["version"]
+    return get_project_version()
 
 
 def get_repository_url() -> str:
-    return _read_pyproject()["tool"]["poetry"]["repository"]
+    return get_content_of_pyproject_toml()["tool"]["poetry"]["repository"]
 
 
 def get_github_latest_release_url() -> str:
-    repository_path = get_repository_url().rstrip("/").removeprefix(GITHUB_BASE_URL)
+    repository_path = get_repository_url().rstrip("/").removeprefix("https://github.com/")
     return f"https://api.github.com/repos/{repository_path}/releases/latest"
 
 

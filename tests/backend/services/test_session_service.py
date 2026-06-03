@@ -4,20 +4,11 @@ from unittest.mock import MagicMock
 import pytest
 from source.backend.exceptions import InvalidCredentialsError
 from source.backend.models.session import UserSession
-from source.backend.models.user import User
 from source.backend.services import session_service
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import HTTP_SESSION_TOKEN, make_user
-
-
-def _create_user(session_factory: sessionmaker) -> User:
-    with session_factory() as db_session:
-        user = make_user(db_session)
-        db_session.commit()
-        db_session.refresh(user)
-        return user
+from tests.backend.conftest import HTTP_SESSION_TOKEN, create_user
 
 
 def test_lookup_returns_none_for_unknown_token(session_factory: sessionmaker):
@@ -27,7 +18,7 @@ def test_lookup_returns_none_for_unknown_token(session_factory: sessionmaker):
 
 
 def test_lookup_returns_none_for_expired_session(session_factory: sessionmaker):
-    user = _create_user(session_factory=session_factory)
+    user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         raw_token = session_service.create_session(db_session=db_session, user=user)
         only_session = db_session.scalars(select(UserSession)).one()
@@ -62,7 +53,7 @@ def test_get_current_user_from_request_raises_when_cookie_present_but_unknown(se
 
 
 def test_renew_session_extends_expiry_and_last_used_for_valid_session(session_factory: sessionmaker):
-    user = _create_user(session_factory=session_factory)
+    user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         raw_token = session_service.create_session(db_session=db_session, user=user)
         original = db_session.scalars(select(UserSession)).one()

@@ -11,7 +11,10 @@ from source.backend.services import account_service
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
+    ACCOUNT_IBAN,
+    SECOND_ACCOUNT_IBAN,
     SECOND_USER_NAME,
+    TRANSACTION_DATE,
     make_account,
     make_credential,
     make_transaction,
@@ -23,8 +26,8 @@ def _create_user_with_accounts(session_factory: sessionmaker) -> tuple[int, list
     with session_factory() as session:
         user = make_user(session)
         credential = make_credential(session, user_id=user.id)
-        first = make_account(session, credential_id=credential.id, name="DE-1", balance=10.0)
-        second = make_account(session, credential_id=credential.id, name="DE-2", balance=20.0)
+        first = make_account(session, credential_id=credential.id, name=ACCOUNT_IBAN, balance=10.0)
+        second = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN, balance=20.0)
         session.commit()
         return user.id, [first.id, second.id]
 
@@ -34,7 +37,7 @@ def test_list_accounts_returns_only_accounts_belonging_to_the_user(session_facto
     with session_factory() as session:
         other = make_user(session, user_name=SECOND_USER_NAME, display_name="Other")
         other_credential = make_credential(session, user_id=other.id)
-        make_account(session, credential_id=other_credential.id, name="OTHER")
+        make_account(session, credential_id=other_credential.id, name=ACCOUNT_IBAN)
         session.commit()
 
     with session_factory() as session:
@@ -163,7 +166,7 @@ def test_create_manual_transaction_updates_balance_and_snapshots(session_factory
             account=account,
             fields={
                 "amount": -25.0,
-                "date": date(year=2026, month=5, day=20),
+                "date": TRANSACTION_DATE,
                 "purpose": "Coffee run",
                 "other_party": "Rewe",
                 "transaction_type": TransactionType.OUTGOING,
@@ -171,7 +174,7 @@ def test_create_manual_transaction_updates_balance_and_snapshots(session_factory
         )
         assert transaction.id is not None
         assert account.balance == 75.0
-        assert account.balance_at_date[date(year=2026, month=5, day=20)].balance == 75.0
+        assert account.balance_at_date[TRANSACTION_DATE].balance == 75.0
 
     with session_factory() as session:
         account_service.get_account_for_user(db_session=session, account_id=account_id, user_id=user_id)
@@ -191,7 +194,7 @@ def test_create_manual_transaction_honours_explicit_category(session_factory: se
             account=account,
             fields={
                 "amount": -10.0,
-                "date": date(year=2026, month=5, day=20),
+                "date": TRANSACTION_DATE,
                 "other_party": "REWE",
                 "category": TransactionCategory.GIFTS,
             },
@@ -236,7 +239,7 @@ def test_create_manual_transaction_auto_categorises_when_no_category_given(
             account=account,
             fields={
                 "amount": -19.99,
-                "date": date(year=2026, month=5, day=20),
+                "date": TRANSACTION_DATE,
                 "other_party": "REWE Markt",
             },
         )
@@ -257,7 +260,7 @@ def test_create_manual_transaction_rejects_non_manual_account(session_factory: s
             account_service.create_manual_transaction(
                 db_session=session,
                 account=account,
-                fields={"amount": 10.0, "date": date(year=2026, month=5, day=20)},
+                fields={"amount": 10.0, "date": TRANSACTION_DATE},
             )
 
 
@@ -273,7 +276,7 @@ def test_delete_transaction_restores_balance(session_factory: sessionmaker):
         transaction = account_service.create_manual_transaction(
             db_session=session,
             account=account,
-            fields={"amount": -50.0, "date": date(year=2026, month=5, day=20)},
+            fields={"amount": -50.0, "date": TRANSACTION_DATE},
         )
         assert account.balance == 150.0
         transaction_id = transaction.id
@@ -335,7 +338,7 @@ def test_update_account_balance_recomputes_snapshots_on_manual_account(session_f
             session,
             account_id=account.id,
             amount=-20.0,
-            date=date(year=2026, month=5, day=20),
+            date=TRANSACTION_DATE,
         )
         account.update_balance_at_date()
         session.commit()
@@ -343,12 +346,12 @@ def test_update_account_balance_recomputes_snapshots_on_manual_account(session_f
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
-        original_snapshot = account.balance_at_date[date(year=2026, month=5, day=20)].balance
+        original_snapshot = account.balance_at_date[TRANSACTION_DATE].balance
         assert original_snapshot == 100.0
 
         account_service.update_account(db_session=session, account=account, fields={"balance": 500.0})
         assert account.balance == 500.0
-        assert account.balance_at_date[date(year=2026, month=5, day=20)].balance == 500.0
+        assert account.balance_at_date[TRANSACTION_DATE].balance == 500.0
 
 
 def test_get_filtered_transactions_for_user_returns_empty_when_no_account_ids(session_factory: sessionmaker):
@@ -439,8 +442,8 @@ def test_unlink_transfer_clears_both_sides_and_restores_types(session_factory: s
     with session_factory() as session:
         user = make_user(session)
         credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
-        account_a = make_account(session, credential_id=credential.id, name="A")
-        account_b = make_account(session, credential_id=credential.id, name="B")
+        account_a = make_account(session, credential_id=credential.id, name=ACCOUNT_IBAN)
+        account_b = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN)
         out_transaction = make_transaction(
             session, account_id=account_a.id, amount=-50.0, transaction_type=TransactionType.TRANSFER_OUT
         )
