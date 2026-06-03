@@ -229,8 +229,13 @@
     "de": "Deutsch"
   },
   "banks": {
-    "fints": { "title": "FinTS-Bank" },
-    "dfs": { "title": "DFS", "note": "Altersvorsorge der Deutschen Flugsicherung GmbH." },
+    "fints": {
+      "title": "FinTS-Bank"
+    },
+    "dfs": {
+      "title": "DFS",
+      "note": "Altersvorsorge der Deutschen Flugsicherung GmbH."
+    },
     "fin4u": {
       "title": "fin4u",
       "note": "Altersvorsorge bei fin4u. Es werden keine Einzeltransaktionen unterstützt, da die Webseite diese Informationen nicht bereitstellt."
@@ -418,6 +423,29 @@
     "revokedAll": "Andere Sitzungen wurden abgemeldet",
     "loadError": "Sitzungen konnten nicht geladen werden.",
     "empty": "Keine aktiven Sitzungen."
+  },
+  "apiKeys": {
+    "title": "API-Keys",
+    "description": "Programmatischer Zugriff auf deine Daten mit denselben Rechten wie die App.",
+    "loadError": "API-Keys konnten nicht geladen werden.",
+    "empty": "Noch keine API-Keys.",
+    "createTitle": "Neuen API-Key erstellen",
+    "nameLabel": "Name",
+    "namePlaceholder": "z. B. Mein Haushaltsbuch-Skript",
+    "nameRequired": "Bitte einen Namen eingeben",
+    "create": "API-Key erstellen",
+    "createdTitle": "Kopiere deinen API-Key jetzt",
+    "createdHint": "Der Key wird nur dieses eine Mal angezeigt. Bewahre ihn sicher auf — du kannst ihn nicht erneut einsehen.",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "createdDone": "Ich habe meinen Key gespeichert",
+    "prefix": "Key",
+    "created": "Erstellt",
+    "lastUsed": "Zuletzt verwendet",
+    "neverUsed": "Noch nie verwendet",
+    "delete": "Löschen",
+    "confirmDelete": "Bestätigen",
+    "deleted": "API-Key gelöscht"
   },
   "sync": {
     "twoFactor": {

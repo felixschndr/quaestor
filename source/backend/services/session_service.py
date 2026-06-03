@@ -13,6 +13,7 @@ from source.backend.exceptions import (
 from source.backend.logging_utils import get_logger
 from source.backend.models.session import UserSession
 from source.backend.models.user import User
+from source.backend.services import api_key_service
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -157,7 +158,7 @@ def clear_session_cookie(response: Response) -> None:
     response.delete_cookie(COOKIE_NAME, path="/")
 
 
-def get_current_user_from_request(request: Request, db_session: Session = Depends(get_session)) -> User:
+def get_current_user_from_session(request: Request, db_session: Session = Depends(get_session)) -> User:
     raw_token = request.cookies.get(COOKIE_NAME)
     if not raw_token:
         logger.debug(f"{request.method} {request.url.path}: no session cookie, authentication failed")
@@ -168,5 +169,21 @@ def get_current_user_from_request(request: Request, db_session: Session = Depend
             f"{request.method} {request.url.path}: session cookie did not resolve to a user, authentication failed"
         )
         raise InvalidCredentialsError("Authentication required")
-    logger.debug(f"{request.method} {request.url.path}: authenticated as user {user}")
+    logger.debug(f"{request.method} {request.url.path}: authenticated as user {user} via session")
     return user
+
+
+def _authenticate_via_api_key(request: Request, db_session: Session) -> User:
+    raw_token = api_key_service.extract_bearer_token(request)
+    user = api_key_service.authenticate(db_session=db_session, raw_token=raw_token)
+    if user is None:
+        logger.debug(f"{request.method} {request.url.path}: API key did not resolve to a user")
+        raise InvalidCredentialsError("Authentication required")
+    logger.debug(f"{request.method} {request.url.path}: authenticated as user {user} via API key")
+    return user
+
+
+def get_current_user_from_request(request: Request, db_session: Session = Depends(get_session)) -> User:
+    if api_key_service.request_carries_api_key(request):
+        return _authenticate_via_api_key(request=request, db_session=db_session)
+    return get_current_user_from_session(request=request, db_session=db_session)

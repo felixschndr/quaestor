@@ -82,7 +82,7 @@ This app is primarily intended for German users. You can find the reason for thi
 - **Multi-language** interface (English & German (add an issue for another requested language))
 - **Session management**: review active logins and sign out individual sessions
 - **Light & dark mode**
-- **Open API**: This app exposes a REST API that can be used to interact with the application. The docs are available on `<your instance url>/redoc` and public on [GitHub](https://quaestordocs.fschneider.me/).
+- **API keys**: Create personal API keys in your settings to interact with the backend programmatically with the same access as the frontend; keys are shown once, stored as hashed values, and can be revoked at any time. The docs are available on `<your instance url>/redoc` and on [GitHub](https://quaestordocs.fschneider.me/).
 
 ## Supported banks
 

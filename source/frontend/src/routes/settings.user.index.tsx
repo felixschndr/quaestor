@@ -4,7 +4,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronLeft, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, KeyRound, MonitorSmartphone, X } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import i18n from 'i18next'
 
@@ -61,6 +62,7 @@ export function SettingsUserPageContent({ user, onAccountDeleted }: SettingsUser
       <DisplayNameSection user={user} />
       <PasswordSection user={user} />
       <TwoFactorSection user={user} />
+      <SecurityLinksSection />
       <DangerZone user={user} onAccountDeleted={onAccountDeleted} />
     </main>
   )
@@ -484,6 +486,54 @@ function TwoFactorSection({ user }: { user: UserRead }) {
     <Section title={t('twoFactor.sectionTitle')} description={t('twoFactor.sectionDescription')}>
       {renderBody()}
     </Section>
+  )
+}
+
+function SecurityLinksSection() {
+  const { t } = useTranslation()
+  return (
+    <ul className="border-border bg-card flex flex-col rounded-lg border">
+      <SecurityLink
+        to="/settings/user/sessions"
+        icon={MonitorSmartphone}
+        label={t('settings.sessions')}
+        description={t('settings.sessionsDescription')}
+      />
+      <SecurityLink
+        to="/settings/user/api-keys"
+        icon={KeyRound}
+        label={t('apiKeys.title')}
+        description={t('apiKeys.description')}
+      />
+    </ul>
+  )
+}
+
+function SecurityLink({
+  to,
+  icon: Icon,
+  label,
+  description,
+}: {
+  to: '/settings/user/sessions' | '/settings/user/api-keys'
+  icon: LucideIcon
+  label: string
+  description: string
+}) {
+  return (
+    <li className="border-border/40 border-t first:border-t-0">
+      <Link
+        to={to}
+        className="hover:bg-muted/60 flex items-center gap-3 rounded-md px-3 py-3 transition-colors"
+      >
+        <Icon className="text-primary size-5 shrink-0" aria-hidden="true" />
+        <span className="flex flex-1 flex-col">
+          <span className="text-sm font-medium">{label}</span>
+          <span className="text-muted-foreground text-xs">{description}</span>
+        </span>
+        <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />
+      </Link>
+    </li>
   )
 }
 

@@ -229,7 +229,9 @@
     "de": "German"
   },
   "banks": {
-    "fints": { "title": "FinTS bank" },
+    "fints": {
+      "title": "FinTS bank"
+    },
     "dfs": {
       "title": "DFS",
       "note": "Retirement provisioning of the Deutsche Flugsicherung GmbH."
@@ -421,6 +423,29 @@
     "revokedAll": "Other sessions signed out",
     "loadError": "Could not load sessions.",
     "empty": "No active sessions."
+  },
+  "apiKeys": {
+    "title": "API keys",
+    "description": "Programmatic access to your data with the same permissions as the app.",
+    "loadError": "API keys could not be loaded.",
+    "empty": "No API keys yet.",
+    "createTitle": "Create a new API key",
+    "nameLabel": "Name",
+    "namePlaceholder": "e.g. My budgeting script",
+    "nameRequired": "Please enter a name",
+    "create": "Create API key",
+    "createdTitle": "Copy your API key now",
+    "createdHint": "This is the only time the key is shown. Store it somewhere safe — you can't see it again.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "createdDone": "I've saved my key",
+    "prefix": "Key",
+    "created": "Created",
+    "lastUsed": "Last used",
+    "neverUsed": "Never used",
+    "delete": "Delete",
+    "confirmDelete": "Confirm",
+    "deleted": "API key deleted"
   },
   "sync": {
     "twoFactor": {

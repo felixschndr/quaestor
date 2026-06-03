@@ -53,7 +53,10 @@ export async function api<T = unknown>(path: string, options: RequestOptions = {
     if (csrf) headers['X-CSRF-Token'] = csrf
   }
 
-  const url = path.startsWith('/api') ? path : `/api${path.startsWith('/') ? path : `/${path}`}`
+  // Match the `/api/` boundary, not the bare prefix `/api`, so an endpoint like `/api_keys` is
+  // still prefixed to `/api/api_keys` instead of being mistaken for an already-prefixed path.
+  const alreadyPrefixed = path === '/api' || path.startsWith('/api/')
+  const url = alreadyPrefixed ? path : `/api${path.startsWith('/') ? path : `/${path}`}`
 
   let res: Response
   try {

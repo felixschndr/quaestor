@@ -52,6 +52,7 @@ def test_delete_session_is_noop_when_token_does_not_match(
 def test_get_current_user_from_request_raises_when_cookie_present_but_unknown(session_factory: sessionmaker):
     request = MagicMock()
     request.cookies = {session_service.COOKIE_NAME: HTTP_SESSION_TOKEN}
+    request.headers = {}
     request.method = "GET"
     request.url.path = "/api/auth/me"
 

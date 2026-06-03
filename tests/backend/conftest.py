@@ -126,6 +126,14 @@ def enable_two_factor(http_client: TestClient, user_id: int) -> tuple[str, list[
     return secret, backup_codes
 
 
+def create_api_key(http_client: TestClient) -> Response:
+    return http_client.post("/api/api_keys", json={"name": "My script"})
+
+
+def auth_header_for_api_key(raw_token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {raw_token}"}
+
+
 def create_credential(
     http_client: TestClient, bank: str = "fints", credentials: dict[str, str] | None = None
 ) -> Response:

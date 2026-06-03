@@ -22,6 +22,10 @@ class TransactionNotFoundError(NotFoundError):
     pass
 
 
+class ApiKeyNotFoundError(NotFoundError):
+    pass
+
+
 class ValidationError(Exception):
     pass
 

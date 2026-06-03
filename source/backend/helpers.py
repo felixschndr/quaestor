@@ -29,10 +29,18 @@ def get_root_path_of_repository() -> Path:
 
 
 @functools.cache
-def get_project_name() -> str:
+def get_content_of_pyproject_toml() -> dict:
     pyproject_path = get_root_path_of_repository() / "pyproject.toml"
     with pyproject_path.open("rb") as handle:
-        return tomllib.load(handle)["tool"]["poetry"]["name"]
+        return tomllib.load(handle)
+
+
+def get_project_name() -> str:
+    return get_content_of_pyproject_toml()["tool"]["poetry"]["name"]
+
+
+def get_project_description() -> str:
+    return get_content_of_pyproject_toml()["tool"]["poetry"]["description"]
 
 
 def _get_source_path() -> Path:

@@ -1,15 +1,6 @@
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import {
-  ChevronLeft,
-  ChevronRight,
-  CreditCard,
-  Info,
-  KeyRound,
-  LogOut,
-  Tag,
-  User,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, CreditCard, Info, LogOut, Tag, User } from 'lucide-react'
 import { toast } from 'sonner'
 import type { LucideIcon } from 'lucide-react'
 
@@ -87,12 +78,6 @@ export function SettingsIndexView({
             description={t('settings.userDescription')}
           />
           <SettingsLink
-            to="/settings/user/sessions"
-            icon={KeyRound}
-            label={t('settings.sessions')}
-            description={t('settings.sessionsDescription')}
-          />
-          <SettingsLink
             to="/settings/credentials"
             icon={CreditCard}
             label={t('settings.credentials')}
@@ -142,12 +127,7 @@ function SettingsLink({
   description,
   highlight = false,
 }: {
-  to:
-    | '/settings/user'
-    | '/settings/user/sessions'
-    | '/settings/credentials'
-    | '/settings/version'
-    | '/settings/attributions'
+  to: '/settings/user' | '/settings/credentials' | '/settings/version' | '/settings/attributions'
   icon: LucideIcon
   label: string
   description: string

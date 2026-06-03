@@ -5,6 +5,7 @@ from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from source.backend.constants import API_PREFIX
 from source.backend.logging_utils import get_logger
+from source.backend.services import api_key_service
 from source.backend.services.session_service import cookie_is_secure
 
 logger = get_logger(__name__)
@@ -15,7 +16,11 @@ MUTATING_METHODS: frozenset[str] = frozenset({"POST", "PATCH", "PUT", "DELETE"})
 
 
 def _requires_validation(request: Request) -> bool:
-    return request.method in MUTATING_METHODS and request.url.path.startswith(API_PREFIX)
+    if request.method not in MUTATING_METHODS or not request.url.path.startswith(API_PREFIX):
+        return False
+    if api_key_service.request_carries_api_key(request):
+        return False
+    return True
 
 
 async def csrf_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:

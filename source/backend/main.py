@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from source.backend.api import (
     account,
     account_groups,
+    api_keys,
     auth,
     credentials,
     i18n,
@@ -21,9 +22,14 @@ from source.backend.api import (
     version,
 )
 from source.backend.api.exception_handlers import register_exception_handlers
+from source.backend.api.openapi import API_DESCRIPTION, configure_openapi
 from source.backend.constants import API_PREFIX
 from source.backend.db import SessionLocal, close_engine, log_database_location
-from source.backend.helpers import get_backend_source_path, get_frontend_source_path
+from source.backend.helpers import (
+    get_backend_source_path,
+    get_frontend_source_path,
+    get_project_name,
+)
 from source.backend.logging_utils import get_logger, redact_headers
 from source.backend.security.csp import csp_middleware
 from source.backend.security.csrf import csrf_middleware
@@ -113,7 +119,13 @@ def setup_logging() -> None:
 
 setup_logging()
 
-app = FastAPI(title="Quaestor", version=version_service.get_current_version(), lifespan=lifespan, docs_url=None)
+app = FastAPI(
+    title=get_project_name(),
+    version=version_service.get_current_version(),
+    description=API_DESCRIPTION,
+    lifespan=lifespan,
+    docs_url=None,
+)
 
 app.middleware("http")(csrf_middleware)
 app.middleware("http")(csp_middleware)
@@ -221,9 +233,10 @@ async def prevent_caching_of_sensitive_responses(
     return response
 
 
-for api_object in [account, account_groups, auth, credentials, i18n, transactions, users, version]:
+for api_object in [account, account_groups, api_keys, auth, credentials, i18n, transactions, users, version]:
     app.include_router(api_object.router, prefix=API_PREFIX)
 register_exception_handlers(app)
+configure_openapi(app)
 
 app.mount(path="/static", app=StaticFiles(directory=(get_backend_source_path() / "static")), name="static")
 

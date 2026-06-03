@@ -7,8 +7,10 @@ from source.backend.helpers import (
     epoch_ms_to_date,
     format_transaction_for_categorization,
     get_backend_source_path,
+    get_content_of_pyproject_toml,
     get_frontend_source_path,
     get_key_of_transaction,
+    get_project_description,
     get_project_name,
     get_root_path_of_repository,
 )
@@ -86,6 +88,21 @@ def test_get_frontend_source_path_points_at_source_frontend():
 
 def test_get_project_name_reads_the_name_from_pyproject():
     assert get_project_name() == "Quaestor"
+
+
+def test_get_project_description_reads_the_description_from_pyproject():
+    description = get_project_description()
+    assert isinstance(description, str)
+    assert "treasurer" in description
+
+
+def test_get_content_of_pyproject_toml_exposes_the_poetry_table():
+    content = get_content_of_pyproject_toml()
+    assert content["tool"]["poetry"]["name"] == "Quaestor"
+
+
+def test_get_content_of_pyproject_toml_is_cached():
+    assert get_content_of_pyproject_toml() is get_content_of_pyproject_toml()
 
 
 def test_format_transaction_for_categorization_renders_identifying_fields():

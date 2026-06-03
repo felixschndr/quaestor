@@ -33,7 +33,7 @@ router = create_router()
 def list_user_sessions(
     user_id: int,
     request: Request,
-    current_user: User = Depends(session_service.get_current_user_from_request),
+    current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
 ) -> list[SessionRead]:
     _require_self(user_id=user_id, current_user=current_user)
@@ -56,7 +56,7 @@ def revoke_all_other_user_sessions(
     user_id: int,
     request: Request,
     exclude_current: bool = False,
-    current_user: User = Depends(session_service.get_current_user_from_request),
+    current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
 ) -> None:
     _require_self(user_id=user_id, current_user=current_user)
@@ -77,7 +77,7 @@ def revoke_user_session(
     user_id: int,
     session_id: int,
     request: Request,
-    current_user: User = Depends(session_service.get_current_user_from_request),
+    current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
 ) -> None:
     _require_self(user_id=user_id, current_user=current_user)
@@ -94,7 +94,7 @@ def update_user(
     user_id: int,
     payload: UserUpdate,
     request: Request,
-    current_user: User = Depends(session_service.get_current_user_from_request),
+    current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
 ) -> User:
     _require_self(user_id=user_id, current_user=current_user)
@@ -118,7 +118,7 @@ def update_user(
 @router.post("/{user_id}/2fa/setup", response_model=TwoFactorSetupRead)
 def setup_two_factor(
     user_id: int,
-    current_user: User = Depends(session_service.get_current_user_from_request),
+    current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
 ) -> TwoFactorSetupRead:
     _require_self(user_id=user_id, current_user=current_user)
@@ -131,7 +131,7 @@ def enable_two_factor(
     user_id: int,
     payload: TwoFactorEnableRequest,
     request: Request,
-    current_user: User = Depends(session_service.get_current_user_from_request),
+    current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
 ) -> BackupCodesRead:
     _require_self(user_id=user_id, current_user=current_user)
@@ -148,7 +148,7 @@ def enable_two_factor(
 def disable_two_factor(
     user_id: int,
     payload: TwoFactorDisableRequest,
-    current_user: User = Depends(session_service.get_current_user_from_request),
+    current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
 ) -> None:
     _require_self(user_id=user_id, current_user=current_user)
@@ -158,7 +158,7 @@ def disable_two_factor(
 @router.post("/{user_id}/2fa/backup-codes", response_model=BackupCodesRead)
 def regenerate_two_factor_backup_codes(
     user_id: int,
-    current_user: User = Depends(session_service.get_current_user_from_request),
+    current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
 ) -> BackupCodesRead:
     _require_self(user_id=user_id, current_user=current_user)
@@ -182,7 +182,7 @@ async def sync_credentials(
 @router.delete("/{user_id}", status_code=204)
 def delete_user(
     user_id: int,
-    current_user: User = Depends(session_service.get_current_user_from_request),
+    current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
 ) -> None:
     _require_self(user_id=user_id, current_user=current_user)

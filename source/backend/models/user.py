@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from source.backend.models.account_group import AccountGroup
+    from source.backend.models.api_key import ApiKey
     from source.backend.models.backup_code import BackupCode
     from source.backend.models.credential import Credential
     from source.backend.models.session import UserSession
@@ -30,6 +31,7 @@ class User(Base):
 
     credentials: Mapped[List["Credential"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[List["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    api_keys: Mapped[List["ApiKey"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     backup_codes: Mapped[List["BackupCode"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     account_groups: Mapped[List["AccountGroup"]] = relationship(
         back_populates="user",
