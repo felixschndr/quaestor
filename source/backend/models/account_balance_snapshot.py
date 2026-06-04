@@ -1,12 +1,20 @@
 import datetime
+import enum
 from typing import TYPE_CHECKING
 
 from source.backend.models.base import Base
-from sqlalchemy import Date, Float, ForeignKey, UniqueConstraint
+from sqlalchemy import Date
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import Float, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from source.backend.models.account import Account
+
+
+class BalanceSnapshotSource(str, enum.Enum):
+    COMPUTED = "COMPUTED"
+    BANK_REPORTED = "BANK_REPORTED"
 
 
 class AccountBalanceSnapshot(Base):
@@ -17,5 +25,10 @@ class AccountBalanceSnapshot(Base):
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), index=True)
     date: Mapped[datetime.date] = mapped_column(Date)
     balance: Mapped[float] = mapped_column(Float)
+    source: Mapped[BalanceSnapshotSource] = mapped_column(
+        SQLEnum(BalanceSnapshotSource),
+        default=BalanceSnapshotSource.COMPUTED,
+        server_default=BalanceSnapshotSource.COMPUTED.value,
+    )
 
     account: Mapped["Account"] = relationship(back_populates="balance_at_date")

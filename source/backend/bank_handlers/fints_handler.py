@@ -3,13 +3,14 @@ from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date, timedelta
 from time import sleep
-from typing import Iterator, TypeVar
+from typing import TYPE_CHECKING, Iterator, TypeVar
 
 import fints_url
 from fints.client import FinTS3PinTanClient, NeedTANResponse
 from fints.exceptions import FinTSClientPINError
 from fints.models import SEPAAccount
 from source.backend.bank_handlers.base import (
+    BalanceObservation,
     BankHandler,
     BankInfo,
     BankSession,
@@ -24,6 +25,9 @@ from source.backend.exceptions import (
 from source.backend.helpers import get_key_of_transaction
 from source.backend.logging_utils import get_logger
 from source.backend.models.transaction_type import TransactionType
+
+if TYPE_CHECKING:
+    from mt940.models import Transaction as RawTransaction
 
 logger = get_logger(__name__)
 
@@ -42,6 +46,7 @@ class _FinTSSession(BankSession):
         self._notify_two_factor_state = notify_two_factor_state
 
         self._account_mapping: dict[str, SEPAAccount]
+        self._balance_observations: dict[str, list[BalanceObservation]] = {}
 
     def get_accounts(self) -> list[FetchedAccount]:
         accounts = self._resolve(self._client.get_sepa_accounts())
@@ -60,6 +65,9 @@ class _FinTSSession(BankSession):
         # the only reliable way to label pending transactions.
         pending_start = date.today() - PENDING_LOOKBACK
         booked_start = min(start_date, pending_start)
+        # Each fetch is over a different window, so each yields its own opening-balance anchor (the
+        # booked one reaches further back, the pending one anchors ~2 weeks ago). Collect both.
+        self._balance_observations[sepa_account.iban] = []
         booked_transactions = self._fetch_transactions(sepa_account, start_date=booked_start, include_pending=False)
         booked_and_pending_transactions = self._fetch_transactions(
             sepa_account, start_date=pending_start, include_pending=True
@@ -77,11 +85,20 @@ class _FinTSSession(BankSession):
         )
         return transactions
 
+    def get_balance_observations(self, account: FetchedAccount) -> list[BalanceObservation]:
+        sepa_account = self._account_mapping.get(account.name)
+        if sepa_account is None:
+            return []
+        return self._balance_observations.get(sepa_account.iban, [])  # noqa: FKA100
+
     def _fetch_transactions(
         self, sepa_account: SEPAAccount, start_date: date, include_pending: bool
     ) -> list[FetchedTransaction]:
         raw_transactions = self._resolve(
             self._client.get_transactions(sepa_account, start_date=start_date, include_pending=include_pending)
+        )
+        self._balance_observations.setdefault(sepa_account.iban, []).extend(  # noqa: FKA100
+            _extract_balance_observations(raw_transactions)
         )
         transactions = []
         for raw_transaction in raw_transactions:
@@ -102,6 +119,24 @@ class _FinTSSession(BankSession):
         return _resolve_decoupled(
             client=self._client, response=response, notify_two_factor_state=self._notify_two_factor_state
         )
+
+
+def _extract_balance_observations(raw_transactions: list["RawTransaction"]) -> list[BalanceObservation]:
+    # python-fints returns a list of mt940 Transaction objects; each holds a back-reference to its
+    # statement collection, whose .data carries the statement-level balances. When the period had no
+    # transactions the list is empty and the bank gives us no anchor.
+    #
+    # We only take the *opening* balance: it's a real historical anchor. The closing balance is dated
+    # the last booking day and -- since nothing is booked after it -- always equals the current balance
+    # we already start the backward walk from, so it adds no information and would only risk spurious
+    # drift warnings when it disagrees with the HKSAL balance.
+    if not raw_transactions:
+        return []
+    balance = raw_transactions[0].transactions.data.get("final_opening_balance")  # noqa: FKA100
+    if balance is None or balance.date is None or balance.amount is None:
+        return []
+    observation_date = date(year=balance.date.year, month=balance.date.month, day=balance.date.day)
+    return [BalanceObservation(date=observation_date, amount=float(balance.amount.amount))]
 
 
 def _transaction_type_from_amount(amount: float) -> TransactionType:

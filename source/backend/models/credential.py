@@ -99,6 +99,7 @@ class Credential(Base):
                 fetched_account=fetched_account,
                 transactions_since=transactions_since,
             )
+            account.record_balance_observations(bank_session.get_balance_observations(fetched_account))
             account.recompute_balances_at_date()
         return created_accounts, updated_accounts, created_transactions
 

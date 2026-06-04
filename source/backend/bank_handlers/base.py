@@ -41,6 +41,14 @@ class FetchedTransaction:
         return format_transaction_for_categorization(self)
 
 
+@dataclass(frozen=True)
+class BalanceObservation:
+    # A balance the bank itself reported for a specific date.
+    # Used as a ground-truth anchor for the account's balance history.
+    date: date
+    amount: float
+
+
 class BankSession(ABC):
     def __init__(self):
         self._account_mapping = {}
@@ -53,6 +61,11 @@ class BankSession(ABC):
 
     @abstractmethod
     def get_transactions(self, account: FetchedAccount, start_date: date) -> list[FetchedTransaction]: ...
+
+    def get_balance_observations(self, account: FetchedAccount) -> list[BalanceObservation]:
+        # Optional: bank-reported balance anchors for the period fetched by the last get_transactions
+        # call. Banks that don't expose them (the default) simply return none.
+        return []
 
 
 @dataclass(frozen=True)

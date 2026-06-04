@@ -1,7 +1,13 @@
+import logging
 from datetime import date, timedelta
 
+import pytest
+from source.backend.bank_handlers.base import BalanceObservation
 from source.backend.models.account import Account
-from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
+from source.backend.models.account_balance_snapshot import (
+    AccountBalanceSnapshot,
+    BalanceSnapshotSource,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -25,6 +31,12 @@ def _persist_account(session: Session, balance: float, transactions: list[tuple[
 def _get_persisted_snapshots(session: Session, account: Account) -> dict[date, float]:
     rows = session.scalars(select(AccountBalanceSnapshot).where(AccountBalanceSnapshot.account_id == account.id)).all()
     return {row.date: row.balance for row in rows}
+
+
+def _plant_bank_anchor(account: Account, day: date, balance: float) -> None:
+    account.balance_at_date[day] = AccountBalanceSnapshot(
+        date=day, balance=balance, source=BalanceSnapshotSource.BANK_REPORTED
+    )
 
 
 def test_account_repr_contains_identifying_fields():
@@ -182,3 +194,97 @@ def test_update_balance_at_date_preserves_existing_snapshots_but_chains_correctl
             date(year=2025, month=3, day=5): 999.0,
             date(year=2025, month=3, day=3): 90.0,
         }
+
+
+def test_record_balance_observations_persists_bank_reported_anchor(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = _persist_account(session=session, balance=0.0, transactions=[])
+        anchor_day = date.today() - timedelta(days=10)
+
+        account.record_balance_observations([BalanceObservation(date=anchor_day, amount=625.15)])
+        session.flush()
+
+        snapshot = account.balance_at_date[anchor_day]
+        assert snapshot.balance == 625.15
+        assert snapshot.source == BalanceSnapshotSource.BANK_REPORTED
+
+
+def test_record_balance_observations_ignores_future_dates(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = _persist_account(session=session, balance=0.0, transactions=[])
+        future = date.today() + timedelta(days=3)
+
+        account.record_balance_observations([BalanceObservation(date=future, amount=10.0)])
+        session.flush()
+
+        assert future not in account.balance_at_date
+
+
+def test_record_balance_observations_upgrades_existing_computed_snapshot(session_factory: sessionmaker):
+    with session_factory() as session:
+        day = date.today() - timedelta(days=2)
+        account = _persist_account(session=session, balance=100.0, transactions=[(day, 5.0)])
+        account.update_balance_at_date()  # creates a COMPUTED snapshot for `day`
+        session.flush()
+        assert account.balance_at_date[day].source == BalanceSnapshotSource.COMPUTED
+
+        account.record_balance_observations([BalanceObservation(date=day, amount=88.0)])
+        session.flush()
+
+        snapshot = account.balance_at_date[day]
+        assert snapshot.balance == 88.0
+        assert snapshot.source == BalanceSnapshotSource.BANK_REPORTED
+
+
+def test_bank_anchor_resets_the_backward_walk_and_corrects_drift(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    with session_factory() as session:
+        today = date.today()
+        d1, d2, d3 = today - timedelta(days=1), today - timedelta(days=2), today - timedelta(days=3)
+        # Current balance + transactions alone would compute d3 = 70, but the bank says it was 50.
+        account = _persist_account(session=session, balance=100.0, transactions=[(d1, 30.0), (d3, 20.0)])
+        _plant_bank_anchor(account=account, day=d2, balance=50.0)
+        session.flush()
+
+        with caplog.at_level(logging.WARNING):
+            account.recompute_balances_at_date()
+            session.flush()
+
+        assert _get_persisted_snapshots(session=session, account=account) == {d1: 100.0, d2: 50.0, d3: 50.0}
+        assert any("drift" in record.message.lower() for record in caplog.records)
+
+
+def test_bank_anchor_within_tolerance_does_not_warn(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
+    with session_factory() as session:
+        today = date.today()
+        d1, d2 = today - timedelta(days=1), today - timedelta(days=2)
+        # Backward walk derives exactly 100 at d2, matching the anchor --> no drift.
+        account = _persist_account(session=session, balance=110.0, transactions=[(d1, 10.0)])
+        _plant_bank_anchor(account=account, day=d2, balance=100.0)
+        session.flush()
+
+        with caplog.at_level(logging.WARNING):
+            account.recompute_balances_at_date()
+            session.flush()
+
+        assert not any("drift" in record.message.lower() for record in caplog.records)
+
+
+def test_recompute_preserves_bank_reported_anchor_but_rebuilds_computed(session_factory: sessionmaker):
+    with session_factory() as session:
+        day = date.today() - timedelta(days=1)
+        account = _persist_account(session=session, balance=100.0, transactions=[(day, -10.0)])
+        anchor_day = date.today() - timedelta(days=5)
+        _plant_bank_anchor(account=account, day=anchor_day, balance=42.0)
+        # A stale computed snapshot that must be rebuilt.
+        account.balance_at_date[day] = AccountBalanceSnapshot(date=day, balance=999.0)
+        session.flush()
+
+        account.recompute_balances_at_date()
+        session.flush()
+
+        snapshots = _get_persisted_snapshots(session=session, account=account)
+        assert snapshots[anchor_day] == 42.0  # anchor survived
+        assert snapshots[day] == 100.0  # computed rebuilt from scratch
+        assert account.balance_at_date[anchor_day].source == BalanceSnapshotSource.BANK_REPORTED

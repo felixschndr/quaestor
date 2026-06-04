@@ -1,11 +1,16 @@
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from unittest.mock import MagicMock
 
 import pytest
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
 from source.backend.bank_handlers import fints_handler as module
-from source.backend.bank_handlers.base import BankInfo
+from source.backend.bank_handlers.base import (
+    BalanceObservation,
+    BankInfo,
+    FetchedAccount,
+)
 from source.backend.bank_handlers.fints_handler import (
     FinTSHandler,
     _resolve_decoupled,
@@ -16,7 +21,16 @@ from source.backend.exceptions import (
     ReauthenticationRequiredError,
 )
 
-from tests.backend.conftest import BANK_PASSWORD, BANK_USERNAME, CHALLENGE_TOKEN, PIN
+from tests.backend.conftest import (
+    ACCOUNT_IBAN,
+    BANK_PASSWORD,
+    BANK_USERNAME,
+    CHALLENGE_TOKEN,
+    LAST_FETCHING_TIMESTAMP,
+    PIN,
+    SECOND_ACCOUNT_IBAN,
+    TRANSACTION_DATE,
+)
 
 
 @dataclass
@@ -312,3 +326,125 @@ def test_fints_handler_offers_no_out_of_band_two_factor_challenge() -> None:
 def test_fints_handler_complete_two_factor_challenge_is_not_supported() -> None:
     with pytest.raises(NotImplementedError):
         _fints_handler().complete_two_factor_challenge(challenge_token=CHALLENGE_TOKEN, credential_id=1, code="0000")
+
+
+@dataclass
+class _FakeMt940Amount:
+    amount: Decimal
+
+
+@dataclass
+class _FakeMt940Balance:
+    amount: _FakeMt940Amount | None
+    date: date | None
+
+
+def _fake_raw_statement(balances: dict[str, _FakeMt940Balance]) -> list[MagicMock]:
+    # python-fints hands back mt940 Transaction objects whose `.transactions` back-reference carries
+    # the statement-level `.data` dict with the opening/closing balances.
+    collection = MagicMock()
+    collection.data = balances
+    transaction = MagicMock()
+    transaction.transactions = collection
+    return [transaction]
+
+
+def test_extract_balance_observations_reads_opening_balance_and_ignores_closing() -> None:
+    raw = _fake_raw_statement(
+        {
+            "final_opening_balance": _FakeMt940Balance(
+                amount=_FakeMt940Amount(Decimal("625.15")), date=TRANSACTION_DATE
+            ),
+            "final_closing_balance": _FakeMt940Balance(
+                amount=_FakeMt940Amount(Decimal("700.00")), date=LAST_FETCHING_TIMESTAMP.date()
+            ),
+        }
+    )
+
+    observations = module._extract_balance_observations(raw)
+
+    assert [(observation.date, observation.amount) for observation in observations] == [
+        (TRANSACTION_DATE, 625.15),
+    ]
+
+
+def test_extract_balance_observations_returns_empty_for_empty_statement() -> None:
+    assert module._extract_balance_observations([]) == []
+
+
+def test_extract_balance_observations_skips_incomplete_balances() -> None:
+    raw = _fake_raw_statement(
+        {"final_opening_balance": _FakeMt940Balance(amount=_FakeMt940Amount(Decimal("10")), date=None)}
+    )
+
+    assert module._extract_balance_observations(raw) == []
+
+
+def test_get_balance_observations_returns_captured_anchors_for_account() -> None:
+    session = module._FinTSSession(client=MagicMock())
+    sepa_account = MagicMock(iban=ACCOUNT_IBAN)
+    session._account_mapping = {ACCOUNT_IBAN: sepa_account}
+    anchors = [BalanceObservation(date=TRANSACTION_DATE, amount=625.15)]
+    session._balance_observations = {ACCOUNT_IBAN: anchors}
+
+    assert session.get_balance_observations(FetchedAccount(name=ACCOUNT_IBAN)) == anchors
+    assert session.get_balance_observations(FetchedAccount(name=SECOND_ACCOUNT_IBAN)) == []
+
+
+def _fake_mt940_transaction(amount: float, txn_date: date, opening: _FakeMt940Balance | None) -> MagicMock:
+    collection = MagicMock()
+    collection.data = {"final_opening_balance": opening} if opening is not None else {}
+    transaction = MagicMock()
+    transaction.transactions = collection
+    transaction.data = {
+        "amount": _FakeMt940Amount(Decimal(str(amount))),
+        "date": txn_date,
+        "purpose": "purpose",
+        "applicant_name": "party",
+    }
+    return transaction
+
+
+def _session_with_mapped_account() -> "module._FinTSSession":
+    session = module._FinTSSession(client=MagicMock())
+    session._account_mapping = {ACCOUNT_IBAN: MagicMock(iban=ACCOUNT_IBAN)}
+    return session
+
+
+def _statement_with_opening(amount: float, txn_day: date, opening_balance: float, opening_day: date) -> list[MagicMock]:
+    opening = _FakeMt940Balance(amount=_FakeMt940Amount(Decimal(str(opening_balance))), date=opening_day)
+    return [_fake_mt940_transaction(amount=amount, txn_date=txn_day, opening=opening)]
+
+
+def test_get_transactions_accumulates_opening_anchor_from_both_fetches() -> None:
+    session = _session_with_mapped_account()
+    booked_opening_day = LAST_FETCHING_TIMESTAMP.date()
+    booked = _statement_with_opening(
+        amount=-10.0, txn_day=booked_opening_day, opening_balance=100.0, opening_day=booked_opening_day
+    )
+    pending = _statement_with_opening(
+        amount=-20.0, txn_day=TRANSACTION_DATE, opening_balance=300.0, opening_day=TRANSACTION_DATE
+    )
+    session._client.get_transactions.side_effect = [booked, pending]
+
+    session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=booked_opening_day)
+
+    observations = session.get_balance_observations(FetchedAccount(name=ACCOUNT_IBAN))
+    assert [(observation.date, observation.amount) for observation in observations] == [
+        (booked_opening_day, 100.0),
+        (TRANSACTION_DATE, 300.0),
+    ]
+
+
+def test_get_transactions_resets_anchors_between_calls() -> None:
+    # Two get_transactions calls (e.g. two syncs) must not let anchors pile up across calls.
+    session = _session_with_mapped_account()
+    statement = _statement_with_opening(
+        amount=-10.0, txn_day=TRANSACTION_DATE, opening_balance=100.0, opening_day=TRANSACTION_DATE
+    )
+    session._client.get_transactions.side_effect = [statement, [], statement, []]
+
+    session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=TRANSACTION_DATE)
+    session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=TRANSACTION_DATE)
+
+    assert len(session.get_balance_observations(FetchedAccount(name=ACCOUNT_IBAN))) == 1

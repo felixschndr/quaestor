@@ -1,5 +1,4 @@
 .idea
-*.db
 .env
 **/__pycache__/
 scripts/wip/

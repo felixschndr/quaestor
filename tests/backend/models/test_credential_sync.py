@@ -3,10 +3,12 @@ from datetime import date, datetime
 from unittest.mock import MagicMock
 
 from source.backend.bank_handlers.base import (
+    BalanceObservation,
     BankSession,
     FetchedAccount,
     FetchedTransaction,
 )
+from source.backend.models.account_balance_snapshot import BalanceSnapshotSource
 from source.backend.models.credential import Credential
 from source.backend.models.transaction_type import TransactionType
 from sqlalchemy.orm import sessionmaker
@@ -29,11 +31,13 @@ class _FakeBankSession(BankSession):
         accounts: list[FetchedAccount],
         balances: dict[str, float],
         transactions: dict[str, list[FetchedTransaction]],
+        observations: dict[str, list[BalanceObservation]] | None = None,
     ):
         super().__init__()
         self._accounts = accounts
         self._balances = balances
         self._transactions = transactions
+        self._observations = observations or {}
         self.get_transactions_calls: list[tuple[str, date]] = []
 
     def get_accounts(self) -> list[FetchedAccount]:
@@ -45,6 +49,9 @@ class _FakeBankSession(BankSession):
     def get_transactions(self, account: FetchedAccount, start_date: date) -> list[FetchedTransaction]:
         self.get_transactions_calls.append((account.name, start_date))
         return self._transactions[account.name] if account.name in self._transactions else []
+
+    def get_balance_observations(self, account: FetchedAccount) -> list[BalanceObservation]:
+        return self._observations.get(account.name, [])  # noqa: FKA100
 
 
 def _build_handler(bank_session: _FakeBankSession) -> MagicMock:
@@ -279,6 +286,30 @@ def test_pending_transactions_are_excluded_from_balance_history(session_factory:
         balance_days = set(credential.accounts[0].balance_at_date.keys())
         assert date(year=2026, month=5, day=10) in balance_days
         assert date(year=2026, month=5, day=12) not in balance_days
+
+
+def test_sync_records_bank_reported_balance_observations_as_anchors(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    anchor_day = TRANSACTION_DATE
+    handler = _build_handler(
+        _FakeBankSession(
+            accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
+            balances={ACCOUNT_IBAN: 1000.0},
+            transactions={ACCOUNT_IBAN: []},
+            observations={ACCOUNT_IBAN: [BalanceObservation(date=anchor_day, amount=625.15)]},
+        )
+    )
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.sync(handler)
+        session.commit()
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        snapshot = credential.accounts[0].balance_at_date[anchor_day]
+        assert snapshot.balance == 625.15
+        assert snapshot.source == BalanceSnapshotSource.BANK_REPORTED
 
 
 def test_sync_passes_a_plain_date_to_handlers_when_credential_was_synced_before(session_factory: sessionmaker):
