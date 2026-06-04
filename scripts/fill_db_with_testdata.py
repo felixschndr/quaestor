@@ -36,15 +36,15 @@ GROUP_EVERYDAY = "Everyday"
 GROUP_SAVINGS = "Savings"
 GROUP_INVESTMENTS = "Investments"
 
-ACCOUNT_SPECS: list[tuple[str, BankProvider, str, int, bool]] = [
-    (GROUP_EVERYDAY, BankProvider.FINTS, "Daily allowance", 100, True),
-    (GROUP_EVERYDAY, BankProvider.FINTS, "Shared Account with SO", 50, True),
-    (GROUP_SAVINGS, BankProvider.FINTS, "Vacation", 100, True),
-    (GROUP_SAVINGS, BankProvider.MANUAL, "Cash at home", 100, True),
-    (GROUP_INVESTMENTS, BankProvider.DFS, "Retirement", 100, True),
-    (GROUP_INVESTMENTS, BankProvider.FIN4U, "Retirement", 100, True),
-    (GROUP_INVESTMENTS, BankProvider.TRADE_REPUBLIC, "Cash", 100, True),
-    (GROUP_INVESTMENTS, BankProvider.TRADE_REPUBLIC, "MSCI World", 100, False),
+ACCOUNT_SPECS: list[tuple[str, BankProvider, str, int]] = [
+    (GROUP_EVERYDAY, BankProvider.FINTS, "Daily allowance", 100),
+    (GROUP_EVERYDAY, BankProvider.FINTS, "Shared Account with SO", 50),
+    (GROUP_SAVINGS, BankProvider.FINTS, "Vacation", 100),
+    (GROUP_SAVINGS, BankProvider.MANUAL, "Cash at home", 100),
+    (GROUP_INVESTMENTS, BankProvider.DFS, "Retirement", 100),
+    (GROUP_INVESTMENTS, BankProvider.FIN4U, "Retirement", 100),
+    (GROUP_INVESTMENTS, BankProvider.TRADE_REPUBLIC, "Cash", 100),
+    (GROUP_INVESTMENTS, BankProvider.TRADE_REPUBLIC, "MSCI World", 100),
 ]
 
 
@@ -178,7 +178,7 @@ def fill_db_with_testdata() -> None:
 
         position_in_group: dict[int, int] = {}
         first_transactions: list[Transaction] = []
-        for index, (group_name, bank, display_name, balance_factor, tracks_balance_history) in enumerate(ACCOUNT_SPECS):
+        for index, (group_name, bank, display_name, balance_factor) in enumerate(ACCOUNT_SPECS):
             account = make_account(
                 session,
                 credential_id=credentials_by_bank[bank].id,
@@ -186,7 +186,6 @@ def fill_db_with_testdata() -> None:
                 display_name=display_name,
                 balance=1000.0 + 250.0 * index,
                 balance_factor=balance_factor,
-                tracks_balance_history=tracks_balance_history,
             )
             account_transactions = [
                 make_transaction(session, account_id=account.id, **transaction_data)

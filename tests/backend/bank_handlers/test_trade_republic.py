@@ -1,8 +1,13 @@
+import logging
 from datetime import date, datetime, timedelta
 
 import pytest
 from source.backend.bank_handlers import BANKS_BY_NAME, trade_republic
-from source.backend.bank_handlers.base import FetchedAccount, TwoFactorChallenge
+from source.backend.bank_handlers.base import (
+    BalanceObservation,
+    FetchedAccount,
+    TwoFactorChallenge,
+)
 from source.backend.bank_handlers.trade_republic import (
     TradeRepublicHandler,
     _TradeRepublicSession,
@@ -116,7 +121,7 @@ def test_position_trades_also_appear_in_the_cash_account(monkeypatch: pytest.Mon
     ]
 
 
-def test_get_accounts_disables_balance_history_for_security_positions(monkeypatch: pytest.MonkeyPatch):
+def test_get_accounts_lists_cash_and_positions(monkeypatch: pytest.MonkeyPatch):
     session = _session()
 
     async def _noop() -> None:
@@ -124,10 +129,84 @@ def test_get_accounts_disables_balance_history_for_security_positions(monkeypatc
 
     monkeypatch.setattr(target=session, name="_fetch", value=_noop)
 
-    accounts = {account.name: account for account in session.get_accounts()}
+    assert {account.name for account in session.get_accounts()} == {"DE00 1234", "Core MSCI World USD (Acc)"}
 
-    assert accounts["DE00 1234"].tracks_balance_history is True
-    assert accounts["Core MSCI World USD (Acc)"].tracks_balance_history is False
+
+def test_share_moves_only_count_buys_and_sells(monkeypatch: pytest.MonkeyPatch):
+    rows = [
+        {"date": "2025-03-24", "type": "Buy", "isin": "IE00B4L5Y983", "shares": "10"},
+        {"date": "2025-04-01", "type": "Buy", "isin": "IE00B4L5Y983", "shares": "5"},
+        {"date": "2025-05-01", "type": "Sell", "isin": "IE00B4L5Y983", "shares": "3"},
+        {"date": "2025-06-27", "type": "Dividend", "isin": "IE00B4L5Y983", "shares": "12"},  # holding, not a move
+        {"date": "2025-03-24", "type": "Deposit", "isin": None, "shares": None},  # cash, ignored
+    ]
+    _patch_pytr(monkeypatch=monkeypatch, rows=[], captured={})
+
+    moves = _TradeRepublicSession._share_moves_by_isin(rows)
+
+    assert moves["IE00B4L5Y983"] == [
+        (date(year=2025, month=3, day=24), 10.0),
+        (date(year=2025, month=4, day=1), 5.0),
+        (date(year=2025, month=5, day=1), -3.0),
+    ]
+
+
+def test_value_series_multiplies_holding_by_daily_close():
+    moves = [(date(year=2025, month=3, day=24), 10.0), (date(year=2025, month=4, day=1), 5.0)]
+    prices = {
+        date(year=2025, month=3, day=23): 90.0,  # before the first trade -> skipped
+        date(year=2025, month=3, day=24): 100.0,
+        date(year=2025, month=3, day=25): 110.0,
+        date(year=2025, month=4, day=1): 120.0,
+    }
+
+    series = _TradeRepublicSession._market_value_series(name="World", isin="IE00B4L5Y983", moves=moves, prices=prices)
+
+    assert [(observation.date, observation.amount) for observation in series] == [
+        (date(year=2025, month=3, day=24), 1000.0),
+        (date(year=2025, month=3, day=25), 1100.0),
+        (date(year=2025, month=4, day=1), 1800.0),
+    ]
+
+
+def test_value_series_logs_debug_summary(caplog: pytest.LogCaptureFixture):
+    moves = [(date(year=2025, month=3, day=24), 10.0)]
+    prices = {date(year=2025, month=3, day=24): 100.0}
+
+    with caplog.at_level(logging.DEBUG):
+        _TradeRepublicSession._market_value_series(name="World", isin="IE00B4L5Y983", moves=moves, prices=prices)
+
+    assert any("valued World" in record.message for record in caplog.records)
+
+
+def test_value_series_without_prices_is_empty():
+    moves = [(date(year=2025, month=3, day=24), 10.0)]
+
+    assert _TradeRepublicSession._market_value_series(name="World", isin="IE00B4L5Y983", moves=moves, prices={}) == []
+
+
+def test_market_value_history_is_empty_for_cash_account():
+    session = _session()
+
+    assert session.get_market_value_history(FetchedAccount(name="DE00 1234")) == []
+
+
+def test_market_value_history_is_fetched_once_and_cached(monkeypatch: pytest.MonkeyPatch):
+    session = _session()
+    calls = {"count": 0}
+    expected = [BalanceObservation(date=date(year=2025, month=3, day=24), amount=1000.0)]
+
+    async def fake_fetch_value_history() -> dict:  # noqa: ASYNC124 — must be awaitable for asyncio.run
+        calls["count"] += 1
+        return {"Core MSCI World USD (Acc)": expected}
+
+    monkeypatch.setattr(target=session, name="_fetch_value_history", value=fake_fetch_value_history)
+
+    first = session.get_market_value_history(FetchedAccount(name="Core MSCI World USD (Acc)"))
+    second = session.get_market_value_history(FetchedAccount(name="Core MSCI World USD (Acc)"))
+
+    assert first == second == expected
+    assert calls["count"] == 1
 
 
 def test_start_date_is_passed_to_the_timeline_as_not_before(monkeypatch: pytest.MonkeyPatch):

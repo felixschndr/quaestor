@@ -5,13 +5,14 @@ from typing import Any, Iterator
 from requests import HTTPError, Session
 from requests.exceptions import JSONDecodeError
 from source.backend.bank_handlers.base import (
+    BalanceObservation,
     BankHandler,
     BankSession,
     FetchedAccount,
     FetchedTransaction,
 )
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
-from source.backend.helpers import epoch_ms_to_date
+from source.backend.helpers import epoch_ms_to_date, parse_german_decimal
 from source.backend.logging_utils import get_logger
 from source.backend.models.transaction_type import TransactionType
 
@@ -57,45 +58,114 @@ class _DFSSession(BankSession):
         logger.debug(f"DFS returned {len(transactions)} transaction(s) for {account.name} since {start_date}")
         return transactions
 
+    def get_market_value_history(self, account: FetchedAccount) -> list[BalanceObservation]:
+        self._fetch()
+        state = self._accounts.get(account.name)
+        if state is None:
+            return []
+        return self._market_value_series(
+            name=account.name,
+            kurs_series=state["kurs_series"],
+            units_moves=state["units_moves"],
+            transaction_days=[transaction.date for transaction in state["transactions"]],
+        )
+
     def _fetch(self) -> None:
         if self._fetched:
             return
-        with Session() as http:
-            self._login(http)
-            self._initialize_dashboard(http)
-            dashboard_snapshot = self._fetch_dashboard_snapshot(http)
-            modell_keys_by_account: dict[str, str] = {}
+        try:
+            with Session() as http:
+                self._login(http)
+                self._initialize_dashboard(http)
+                dashboard_snapshot = self._fetch_dashboard_snapshot(http)
+                modell_keys_by_account: dict[str, str] = {}
 
-            for modell in dashboard_snapshot["snapshotWidget"]["kontoModellList"]:
-                modell_key = modell["modellTech"]
-                for fund in modell["aktuellesDecorator"]["kapitalItem"]["delegate"]["kontoDaten"]:
-                    fund_name = fund["nameKapitalanlage"]
-                    self._accounts[fund_name] = {"balance": float(fund["guthaben"]), "transactions": []}
-                    modell_keys_by_account[fund_name] = modell_key
+                for modell in dashboard_snapshot["snapshotWidget"]["kontoModellList"]:
+                    modell_key = modell["modellTech"]
+                    for fund in modell["aktuellesDecorator"]["kapitalItem"]["delegate"]["kontoDaten"]:
+                        fund_name = fund["nameKapitalanlage"]
+                        self._accounts[fund_name] = {
+                            "balance": float(fund["guthaben"]),
+                            "transactions": [],
+                            "units_moves": [],
+                            "kurs_series": [],
+                        }
+                        modell_keys_by_account[fund_name] = modell_key
 
-            for modell_key in set(modell_keys_by_account.values()):
-                for raw_transaction in self._fetch_transactions(http, modell_key=modell_key):
-                    fund_name = raw_transaction["anlage"]
-                    if fund_name not in self._accounts:
-                        continue  # defensive: skip rows that name an unknown fund
-                    vorgang: str = raw_transaction.get("vorgang") or ""
-                    amount = float(raw_transaction["betrag"])
-                    if vorgang == "Auszahlung":
-                        amount = -amount
-                    self._accounts[fund_name]["transactions"].append(
-                        FetchedTransaction(
-                            amount=amount,
-                            purpose=raw_transaction.get("lohnart"),
-                            date=epoch_ms_to_date(raw_transaction["belegdatum"]),
-                            other_party="Deutsche Flugsicherung GmbH",
-                            transaction_type=_VORGANG_TO_TRANSACTION_TYPE.get(vorgang),
-                        )
-                    )
+                for modell_key in set(modell_keys_by_account.values()):
+                    self._load_kurse_series(http, modell_key=modell_key)
+                    for raw_transaction in self._fetch_transactions(http, modell_key=modell_key):
+                        self._record_transaction(raw_transaction)
+        except (HTTPError, JSONDecodeError) as e:
+            error_message = f"Failed to fetch DFS data: {e}"
+            logger.error(error_message)
+            raise UnknownInternalError(error_message) from e
         self._fetched = True
         logger.debug(
             f"DFS fetched {len(self._accounts)} fund account(s), "
             f"{sum(len(state['transactions']) for state in self._accounts.values())} transaction(s) in total"
         )
+
+    def _record_transaction(self, raw_transaction: dict) -> None:
+        fund_name = raw_transaction["anlage"]
+        if fund_name not in self._accounts:
+            return  # defensive: skip rows that name an unknown fund
+        vorgang: str = raw_transaction.get("vorgang") or ""
+        sign = -1 if vorgang == "Auszahlung" else 1
+        self._accounts[fund_name]["transactions"].append(
+            FetchedTransaction(
+                amount=sign * float(raw_transaction["betrag"]),
+                purpose=raw_transaction.get("lohnart"),
+                date=epoch_ms_to_date(raw_transaction["belegdatum"]),
+                other_party="Deutsche Flugsicherung GmbH",
+                transaction_type=_VORGANG_TO_TRANSACTION_TYPE.get(vorgang),
+            )
+        )
+        kaufdatum = epoch_ms_to_date(raw_transaction.get("kaufdatum") or raw_transaction["belegdatum"])
+        anteile = sign * parse_german_decimal(raw_transaction["anteile"])
+        self._accounts[fund_name]["units_moves"].append((kaufdatum, anteile))
+
+    def _load_kurse_series(self, http: Session, modell_key: str) -> None:
+        for row in self._fetch_kurse_list(http, modell_key=modell_key):
+            fund_name = row["name"]
+            if fund_name in self._accounts:
+                self._accounts[fund_name]["kurs_series"] = self._fetch_kurse_series(
+                    http, modell_key=modell_key, kurs_id=row["id"]
+                )
+
+    @staticmethod
+    def _market_value_series(
+        name: str,
+        kurs_series: list[list],
+        units_moves: list[tuple[date, float]],
+        transaction_days: list[date],
+    ) -> list[BalanceObservation]:
+        if not kurs_series:
+            logger.debug(f"No price series for {name}; skipping value history")
+            return []
+        series = sorted((epoch_ms_to_date(epoch_ms), float(kurs)) for epoch_ms, kurs in kurs_series)
+        moves = sorted(units_moves)
+        if not moves:
+            return []
+
+        first_move = moves[0][0]
+        valuation_days = sorted({day for day, _ in series} | set(transaction_days))
+        held = 0.0
+        next_move = 0
+        next_price = 0
+        kurs = series[0][1]
+        observations: list[BalanceObservation] = []
+        for day in valuation_days:
+            while next_move < len(moves) and moves[next_move][0] <= day:
+                held += moves[next_move][1]
+                next_move += 1
+            while next_price < len(series) and series[next_price][0] <= day:
+                kurs = series[next_price][1]
+                next_price += 1
+            if day >= first_move:
+                observations.append(BalanceObservation(date=day, amount=round(number=held * kurs, ndigits=2)))
+        logger.debug(f"DFS valued {name}: {len(observations)} daily snapshot(s) from {len(moves)} contribution(s)")
+        return observations
 
     def _login(self, http: Session) -> None:
         login_data = {
@@ -112,33 +182,29 @@ class _DFSSession(BankSession):
         logger.debug(f"DFS login succeeded for user {self.username}")
 
     def _initialize_dashboard(self, http: Session) -> None:
-        response = http.get(f"{self.BASE_URL}/acaphc/Dashboard.action")
-        try:
-            response.raise_for_status()
-        except HTTPError as e:
-            error_message = f"Failed to initialize DFS dashboard: {e}"
-            logger.error(error_message)
-            raise UnknownInternalError(error_message) from e
+        http.get(f"{self.BASE_URL}/acaphc/Dashboard.action").raise_for_status()
 
     def _fetch_dashboard_snapshot(self, http: Session) -> dict:
         response = http.post(f"{self.BASE_URL}/acaphc/rest/dashboard/getDashboardSnapshot")
-        try:
-            response.raise_for_status()
-            return response.json()
-        except (HTTPError, JSONDecodeError) as e:
-            error_message = f"Failed to load DFS dashboard snapshot: {e}"
-            logger.error(error_message)
-            raise UnknownInternalError(error_message) from e
+        response.raise_for_status()
+        return response.json()
 
     def _fetch_transactions(self, http: Session, modell_key: str) -> list[dict]:
         response = http.post(f"{self.BASE_URL}/acaphc/rest/konto/{modell_key}/transaktionen")
-        try:
-            response.raise_for_status()
-            return response.json()["daten"]["grid"]["dataSource"]
-        except (HTTPError, JSONDecodeError) as e:
-            error_message = f"Failed to load DFS transactions for {modell_key}: {e}"
-            logger.error(error_message)
-            raise UnknownInternalError(error_message) from e
+        response.raise_for_status()
+        return response.json()["daten"]["grid"]["dataSource"]
+
+    def _fetch_kurse_list(self, http: Session, modell_key: str) -> list[dict]:
+        # Maps each fund (name + ISIN) to its price-series id, e.g. {"name": ..., "id": "1416:STANDARD_BAV"}.
+        response = http.post(f"{self.BASE_URL}/acaphc/rest/konto/{modell_key}/kurse")
+        response.raise_for_status()
+        return response.json()["daten"]["rows"]
+
+    def _fetch_kurse_series(self, http: Session, modell_key: str, kurs_id: str) -> list[list]:
+        response = http.post(f"{self.BASE_URL}/acaphc/rest/konto/{modell_key}/kurse/{kurs_id}")
+        response.raise_for_status()
+        series = response.json()["series"]
+        return series[0]["data"] if series else []
 
 
 class DFSHandler(BankHandler):

@@ -43,8 +43,6 @@ class Account(Base):
     balance_factor: Mapped[int] = mapped_column(default=100)
     is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
-    tracks_balance_history: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
-
     # User-defined grouping for the overview. NULL = "ungrouped" (rendered in a
     # default bucket). `position` orders accounts within their group OR within
     # the ungrouped bucket.
@@ -62,14 +60,38 @@ class Account(Base):
 
     @classmethod
     def from_fetched(cls: type["Account"], fetched_account: FetchedAccount) -> "Account":
-        return cls(name=fetched_account.name, tracks_balance_history=fetched_account.tracks_balance_history)
+        return cls(name=fetched_account.name)
+
+    @property
+    def is_market_valued(self) -> bool:
+        # Market-valued accounts (depots/funds) carry MARKET_VALUED snapshots and are priced by the
+        # handler instead of the transaction-driven backward walk.
+        return any(snapshot.source == BalanceSnapshotSource.MARKET_VALUED for snapshot in self.balance_at_date.values())
+
+    def record_market_value_history(self, observations: list[BalanceObservation]) -> None:
+        today = date.today()
+        for day in [
+            day
+            for day, snapshot in self.balance_at_date.items()
+            if snapshot.source == BalanceSnapshotSource.MARKET_VALUED
+        ]:
+            del self.balance_at_date[day]
+        session = object_session(self)
+        if session is not None:
+            session.flush()
+        for observation in observations:
+            if observation.date > today:
+                continue
+            self.balance_at_date[observation.date] = AccountBalanceSnapshot(
+                date=observation.date,
+                balance=observation.amount,
+                source=BalanceSnapshotSource.MARKET_VALUED,
+            )
+        logger.debug(f"Recorded {len(observations)} market-value snapshot(s) for {self}")
 
     def record_balance_observations(self, observations: list[BalanceObservation]) -> None:
         # Persist bank-reported balances as ground-truth anchors. They are kept across recomputes
         # (unlike COMPUTED snapshots) and re-ground the backward walk in update_balance_at_date.
-        if not self.tracks_balance_history:
-            return
-
         today = date.today()
         for observation in observations:
             if observation.date > today:
@@ -86,9 +108,6 @@ class Account(Base):
                 snapshot.source = BalanceSnapshotSource.BANK_REPORTED
 
     def update_balance_at_date(self) -> None:
-        if not self.tracks_balance_history:
-            return
-
         today = date.today()
         daily_totals: dict[date, float] = defaultdict(float)
         for transaction in self.transactions:
@@ -121,13 +140,15 @@ class Account(Base):
         )
 
     def recompute_balances_at_date(self) -> None:
+        if self.is_market_valued:
+            return
+
         # Drop the derived snapshots and rebuild them.
         # Bank-reported anchors are ground truth and survive recomputing
-        keep_anchors = self.tracks_balance_history
         stale_days = [
             day
             for day, snapshot in self.balance_at_date.items()
-            if not (keep_anchors and snapshot.source == BalanceSnapshotSource.BANK_REPORTED)
+            if snapshot.source != BalanceSnapshotSource.BANK_REPORTED
         ]
         for day in stale_days:
             del self.balance_at_date[day]

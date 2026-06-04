@@ -237,7 +237,6 @@ def make_account(
     balance: float = 0.0,
     balance_factor: int = 100,
     is_hidden: bool = False,
-    tracks_balance_history: bool = True,
 ) -> Account:
     credential = db_session.get(entity=Credential, ident=credential_id)
     account = Account(
@@ -247,7 +246,6 @@ def make_account(
         balance=balance,
         balance_factor=balance_factor,
         is_hidden=is_hidden,
-        tracks_balance_history=tracks_balance_history,
     )
     db_session.add(account)
     db_session.flush()
@@ -293,7 +291,6 @@ def persist_credential(
     requires_two_factor_authentication: bool = False,
     last_fetching_timestamp: datetime | None = None,
 ) -> int:
-    """Persist a credential for the given user through its own committed session and return its id."""
     with session_factory() as db_session:
         credential = make_credential(
             db_session,
@@ -316,9 +313,7 @@ def persist_account(
     balance: float = 0.0,
     balance_factor: int = 100,
     is_hidden: bool = False,
-    tracks_balance_history: bool = True,
 ) -> int:
-    """Persist an account through its own committed session and return its id."""
     with session_factory() as db_session:
         account = make_account(
             db_session,
@@ -328,7 +323,6 @@ def persist_account(
             balance=balance,
             balance_factor=balance_factor,
             is_hidden=is_hidden,
-            tracks_balance_history=tracks_balance_history,
         )
         db_session.commit()
         return account.id

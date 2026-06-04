@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 class BalanceSnapshotSource(str, enum.Enum):
     COMPUTED = "COMPUTED"
     BANK_REPORTED = "BANK_REPORTED"
+    MARKET_VALUED = "MARKET_VALUED"
 
 
 class AccountBalanceSnapshot(Base):

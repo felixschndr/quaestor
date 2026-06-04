@@ -24,6 +24,15 @@ def epoch_ms_to_date(value: str | int) -> date:
     return datetime.fromtimestamp(timestamp=int(value) / 1000, tz=timezone.utc).date()
 
 
+def parse_german_decimal(value: str) -> float:
+    # Some sources mix formats: amounts use a dot ("460.80"), share counts a German comma ("3,761").
+    # Only when a comma is present do we treat dots as thousands separators.
+    text = str(value)
+    if "," in text:
+        text = text.replace(".", "").replace(",", ".")
+    return float(text)
+
+
 def get_root_path_of_repository() -> Path:
     return pathlib.Path(__file__).parent.parent.parent
 

@@ -14,6 +14,7 @@ from source.backend.helpers import (
     get_project_name,
     get_project_repository,
     get_root_path_of_repository,
+    parse_german_decimal,
 )
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_type import TransactionType
@@ -59,6 +60,19 @@ def test_key_matches_between_transaction_and_fetched_transaction():
 def test_epoch_ms_to_date_accepts_int_and_str(epoch_input: str | int):
     # 1700000000000 ms = 2023-11-14 22:13:20 UTC
     assert epoch_ms_to_date(epoch_input) == date(year=2023, month=11, day=14)
+
+
+@pytest.mark.parametrize(
+    argnames="raw, expected",
+    argvalues=[
+        ("3,761", 3.761),
+        ("1.234,5", 1234.5),
+        ("460.80", 460.8),
+        ("4", 4.0),
+    ],
+)
+def test_parse_german_decimal_handles_german_and_plain_formats(raw: str, expected: float):
+    assert parse_german_decimal(raw) == expected
 
 
 def test_get_root_path_of_repository_points_at_the_repo_root():

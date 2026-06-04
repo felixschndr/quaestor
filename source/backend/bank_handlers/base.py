@@ -19,7 +19,6 @@ class TwoFactorChallenge:
 @dataclass(frozen=True)
 class FetchedAccount:
     name: str
-    tracks_balance_history: bool = True
 
 
 @dataclass(frozen=True)
@@ -65,6 +64,11 @@ class BankSession(ABC):
     def get_balance_observations(self, account: FetchedAccount) -> list[BalanceObservation]:
         # Optional: bank-reported balance anchors for the period fetched by the last get_transactions
         # call. Banks that don't expose them (the default) simply return none.
+        return []
+
+    def get_market_value_history(self, account: FetchedAccount) -> list[BalanceObservation]:
+        # Optional: daily market value (price x quantity) for depot/fund accounts whose worth moves
+        # with the market rather than with transactions. Cash/giro accounts (the default) return none.
         return []
 
 

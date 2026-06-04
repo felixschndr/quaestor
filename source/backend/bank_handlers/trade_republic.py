@@ -1,7 +1,8 @@
 import asyncio
 import tempfile
+from collections import defaultdict
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
@@ -11,6 +12,7 @@ from pytr.portfolio import Portfolio
 from pytr.timeline import Timeline
 from pytr.transactions import TransactionExporter
 from source.backend.bank_handlers.base import (
+    BalanceObservation,
     BankHandler,
     BankSession,
     FetchedAccount,
@@ -24,6 +26,18 @@ from source.backend.models.transaction_type import TransactionType
 from source.backend.services import trade_republic_login
 
 logger = get_logger(__name__)
+
+# pytr's performance_history() targets the retired `aggregateHistory` topic; the live API serves
+# instrument price history under `aggregateHistoryLight`. `max` + an explicit daily resolution yields
+# one close per trading day over the full history (without it, long ranges collapse to weekly points).
+_PRICE_HISTORY_TOPIC = "aggregateHistoryLight"
+_PRICE_HISTORY_RANGE = "max"
+_DAILY_RESOLUTION_MS = 86_400_000
+_DEFAULT_EXCHANGE = "LSX"
+# Share history must reach back to the first trade, independent of the incremental transaction window.
+_FULL_HISTORY_START = date(year=2000, month=1, day=1)
+# Only buys and sells change the holding; other events carry no share movement.
+_SHARE_MOVE_SIGN: dict[TransactionType, float] = {TransactionType.BUY: 1.0, TransactionType.SELL: -1.0}
 
 # We need an own mapping since the pytr exporter does not output the enums but text instead
 # Thus, we have to convert it back
@@ -57,6 +71,7 @@ class _TradeRepublicSession(BankSession):
         self._cash_account_name: str | None = None
 
         self._transactions_loaded = False
+        self._value_history: dict[str, list[BalanceObservation]] | None = None
 
     def _account(self, name: str) -> dict:
         if name not in self._accounts:
@@ -68,10 +83,7 @@ class _TradeRepublicSession(BankSession):
 
     def get_accounts(self) -> list[FetchedAccount]:
         asyncio.run(self._fetch())
-        return [
-            FetchedAccount(name=account_name, tracks_balance_history=state["isin"] is None)
-            for account_name, state in self._accounts.items()
-        ]
+        return [FetchedAccount(name=account_name) for account_name in self._accounts]
 
     def get_balance(self, account: FetchedAccount) -> float:
         return round(number=self._account(account.name)["balance"], ndigits=2)
@@ -85,6 +97,13 @@ class _TradeRepublicSession(BankSession):
             f"Trade Republic returned {len(transactions)} transaction(s) for {account.name} since {start_date}"
         )
         return transactions
+
+    def get_market_value_history(self, account: FetchedAccount) -> list[BalanceObservation]:
+        if self._account(account.name)["isin"] is None:  # cash account -> transaction-driven balance
+            return []
+        if self._value_history is None:
+            self._value_history = asyncio.run(self._fetch_value_history())
+        return self._value_history.get(account.name) or []
 
     async def _fetch(self) -> None:
         portfolio = Portfolio(self._trade_republic_client, lang="de")
@@ -151,6 +170,112 @@ class _TradeRepublicSession(BankSession):
             f"Trade Republic timeline fetched: {len(timeline.events)} event(s) since {start_date} "
             f"across {len(self._accounts)} account(s)"
         )
+
+    async def _fetch_value_history(self) -> dict[str, list[BalanceObservation]]:
+        positions = {name: state for name, state in self._accounts.items() if state["isin"] is not None}
+        if not positions:
+            return {}
+
+        share_moves = self._share_moves_by_isin(await self._load_full_events())
+        try:
+            history: dict[str, list[BalanceObservation]] = {}
+            for name, state in positions.items():
+                isin = state["isin"]
+                moves = sorted(share_moves.get(isin) or [])
+                if not moves:
+                    logger.debug(f"Trade Republic: no share moves for {name} ({isin}); skipping value history")
+                    continue
+                exchange = await self._instrument_exchange(isin)
+                prices = await self._price_history(isin=isin, exchange=exchange)
+                history[name] = self._market_value_series(name=name, isin=isin, moves=moves, prices=prices)
+            return history
+        finally:
+            await self._trade_republic_client.close()
+
+    async def _load_full_events(self) -> list[dict]:
+        # Value history needs every buy/sell ever, so we ignore the incremental window here.
+        not_before = datetime.combine(date=_FULL_HISTORY_START, time=datetime.min.time()).astimezone().timestamp()
+        with tempfile.TemporaryDirectory() as output_dir:
+            timeline = Timeline(
+                tr=self._trade_republic_client,
+                output_path=Path(output_dir),
+                not_before=not_before,
+                store_event_database=False,
+                scan_for_duplicates=False,
+                dump_raw_data=False,
+            )
+            await timeline.tl_loop()
+        return timeline.events
+
+    @staticmethod
+    def _share_moves_by_isin(events: list[dict]) -> dict[str, list[tuple[date, float]]]:
+        # A dividend or split can carry a `shares` field that is the current holding, not a movement,
+        # so only buys and sells (via _SHARE_MOVE_SIGN) are accumulated.
+        exporter = TransactionExporter(lang="en", date_with_time=False, decimal_localization=False)
+        fields = exporter.fields()
+        date_field, type_field, isin_field, shares_field = fields[0], fields[1], fields[4], fields[5]
+        moves: dict[str, list[tuple[date, float]]] = defaultdict(list)
+        for raw_event in events:
+            for row in exporter.from_event(Event.from_dict(raw_event)):
+                isin, shares = row[isin_field], row[shares_field]
+                sign = _SHARE_MOVE_SIGN.get(_LABEL_TO_TRANSACTION_TYPE.get(row[type_field]))
+                if not isin or shares in (None, "") or sign is None:
+                    continue
+                moves[isin].append((date.fromisoformat(str(row[date_field])), sign * float(shares)))
+        return moves
+
+    async def _instrument_exchange(self, isin: str) -> str:
+        instrument = await self._subscribe_once(payload={"type": "instrument", "id": isin}, expected_type="instrument")
+        exchanges = instrument.get("exchangeIds") or []
+        return exchanges[0] if exchanges else _DEFAULT_EXCHANGE
+
+    async def _price_history(self, isin: str, exchange: str) -> dict[date, float]:
+        response = await self._subscribe_once(
+            payload={
+                "type": _PRICE_HISTORY_TOPIC,
+                "id": f"{isin}.{exchange}",
+                "range": _PRICE_HISTORY_RANGE,
+                "resolution": _DAILY_RESOLUTION_MS,
+            },
+            expected_type=_PRICE_HISTORY_TOPIC,
+        )
+        return {
+            datetime.fromtimestamp(timestamp=point["time"] / 1000, tz=timezone.utc).date(): float(point["close"])
+            for point in response.get("aggregates") or []
+        }
+
+    async def _subscribe_once(self, payload: dict, expected_type: str) -> dict:
+        subscription_id = await self._trade_republic_client.subscribe(payload)
+        try:
+            while True:
+                _id, subscription, response = await self._trade_republic_client.recv()
+                if subscription.get("type") == expected_type:
+                    return response
+        finally:
+            await self._trade_republic_client.unsubscribe(subscription_id)
+
+    @staticmethod
+    def _market_value_series(
+        name: str, isin: str, moves: list[tuple[date, float]], prices: dict[date, float]
+    ) -> list[BalanceObservation]:
+        if not prices:
+            logger.debug(f"Trade Republic: no price history for {name} ({isin}); skipping value history")
+            return []
+        first_trade = moves[0][0]
+        held = 0.0
+        next_move = 0
+        observations: list[BalanceObservation] = []
+        for day in sorted(prices):
+            while next_move < len(moves) and moves[next_move][0] <= day:
+                held += moves[next_move][1]
+                next_move += 1
+            if day >= first_trade:
+                observations.append(BalanceObservation(date=day, amount=round(number=held * prices[day], ndigits=2)))
+        logger.debug(
+            f"Trade Republic valued {name} ({isin}): {len(observations)} daily snapshot(s) "
+            f"from {len(moves)} share move(s)"
+        )
+        return observations
 
 
 class TradeRepublicHandler(BankHandler):

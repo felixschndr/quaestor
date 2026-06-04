@@ -32,12 +32,14 @@ class _FakeBankSession(BankSession):
         balances: dict[str, float],
         transactions: dict[str, list[FetchedTransaction]],
         observations: dict[str, list[BalanceObservation]] | None = None,
+        market_values: dict[str, list[BalanceObservation]] | None = None,
     ):
         super().__init__()
         self._accounts = accounts
         self._balances = balances
         self._transactions = transactions
         self._observations = observations or {}
+        self._market_values = market_values or {}
         self.get_transactions_calls: list[tuple[str, date]] = []
 
     def get_accounts(self) -> list[FetchedAccount]:
@@ -52,6 +54,9 @@ class _FakeBankSession(BankSession):
 
     def get_balance_observations(self, account: FetchedAccount) -> list[BalanceObservation]:
         return self._observations.get(account.name, [])  # noqa: FKA100
+
+    def get_market_value_history(self, account: FetchedAccount) -> list[BalanceObservation]:
+        return self._market_values.get(account.name, [])  # noqa: FKA100
 
 
 def _build_handler(bank_session: _FakeBankSession) -> MagicMock:
@@ -355,3 +360,59 @@ def test_sync_fetches_full_history_when_credential_was_never_synced(session_fact
     assert requested_account_name == ACCOUNT_IBAN
     assert isinstance(requested_start, date)
     assert requested_start == date(year=1970, month=1, day=1)
+
+
+def _market_valued_handler(market_day: date, transactions: list[FetchedTransaction] | None = None) -> MagicMock:
+    return _build_handler(
+        _FakeBankSession(
+            accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
+            balances={ACCOUNT_IBAN: 4200.0},
+            transactions={ACCOUNT_IBAN: transactions or []},
+            market_values={ACCOUNT_IBAN: [BalanceObservation(date=market_day, amount=4200.0)]},
+        )
+    )
+
+
+def test_sync_records_market_value_history_as_market_valued_snapshots(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    market_day = date(year=2026, month=5, day=2)
+    buy = FetchedTransaction(
+        amount=-100.0,
+        purpose="Buy",
+        date=TRANSACTION_DATE,
+        other_party="Broker",
+        transaction_type=TransactionType.BUY,
+    )
+    handler = _market_valued_handler(market_day=market_day, transactions=[buy])
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.sync(handler)
+        session.commit()
+
+    with session_factory() as session:
+        account = session.get(entity=Credential, ident=credential_id).accounts[0]
+        snapshot = account.balance_at_date[market_day]
+        assert snapshot.balance == 4200.0
+        assert snapshot.source == BalanceSnapshotSource.MARKET_VALUED
+        assert TRANSACTION_DATE not in account.balance_at_date
+
+
+def test_market_valued_snapshots_survive_a_recompute(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    market_day = date(year=2026, month=5, day=2)
+    handler = _market_valued_handler(market_day=market_day)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.sync(handler)
+        session.commit()
+
+    with session_factory() as session:
+        account = session.get(entity=Credential, ident=credential_id).accounts[0]
+        account.recompute_balances_at_date()
+        session.commit()
+
+    with session_factory() as session:
+        account = session.get(entity=Credential, ident=credential_id).accounts[0]
+        assert account.balance_at_date[market_day].source == BalanceSnapshotSource.MARKET_VALUED

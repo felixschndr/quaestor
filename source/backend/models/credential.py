@@ -16,8 +16,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 logger = get_logger(__name__)
 
-# How far back transactions are fetched for a credential that has never been
-# synced (set as the initial last_fetching_timestamp on creation).
 if TYPE_CHECKING:
     from source.backend.models.user import User
 
@@ -91,7 +89,6 @@ class Credential(Base):
                 account.name = fetched_account.name
                 updated_accounts += 1
             account.balance = bank_session.get_balance(fetched_account)
-            account.tracks_balance_history = fetched_account.tracks_balance_history
 
             created_transactions += self._sync_transactions_of_account(
                 account=account,
@@ -99,8 +96,13 @@ class Credential(Base):
                 fetched_account=fetched_account,
                 transactions_since=transactions_since,
             )
-            account.record_balance_observations(bank_session.get_balance_observations(fetched_account))
-            account.recompute_balances_at_date()
+
+            market_value_history = bank_session.get_market_value_history(fetched_account)
+            if market_value_history:
+                account.record_market_value_history(market_value_history)
+            else:
+                account.record_balance_observations(bank_session.get_balance_observations(fetched_account))
+                account.recompute_balances_at_date()
         return created_accounts, updated_accounts, created_transactions
 
     @staticmethod

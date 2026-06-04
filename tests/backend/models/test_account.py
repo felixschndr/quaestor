@@ -44,8 +44,7 @@ def test_account_repr_contains_identifying_fields():
 
     assert repr(account) == (
         "<Account(id=42, credential_id=7, name=Checking, display_name=None, "
-        "balance=123.45, balance_factor=80, is_hidden=None, tracks_balance_history=None, "
-        "group_id=None, position=None)>"
+        "balance=123.45, balance_factor=80, is_hidden=None, group_id=None, position=None)>"
     )
 
 
@@ -138,38 +137,59 @@ def test_recompute_balance_at_date_overwrites_stale_snapshots(session_factory: s
         assert _get_persisted_snapshots(session=session, account=account)[stale_day] == 100
 
 
-def test_recompute_skips_snapshots_for_market_valued_accounts(session_factory: sessionmaker):
+def _plant_market_value(account: Account, day: date, balance: float) -> None:
+    account.balance_at_date[day] = AccountBalanceSnapshot(
+        date=day, balance=balance, source=BalanceSnapshotSource.MARKET_VALUED
+    )
+
+
+def test_recompute_leaves_market_valued_snapshots_untouched(session_factory: sessionmaker):
     with session_factory() as session:
         account = _persist_account(
             session=session,
             balance=100.0,
             transactions=[(date(year=2025, month=3, day=5), 10.0)],
         )
-        account.tracks_balance_history = False
+        _plant_market_value(account=account, day=date(year=2025, month=3, day=5), balance=42.0)
         session.flush()
 
+        assert account.is_market_valued
         account.recompute_balances_at_date()
         session.flush()
 
-        assert _get_persisted_snapshots(session=session, account=account) == {}
+        assert _get_persisted_snapshots(session=session, account=account) == {date(year=2025, month=3, day=5): 42.0}
 
 
-def test_recompute_clears_existing_snapshots_when_balance_history_disabled(session_factory: sessionmaker):
+def test_record_market_value_history_replaces_previous_market_snapshots(session_factory: sessionmaker):
     with session_factory() as session:
-        account = _persist_account(
-            session=session,
-            balance=100.0,
-            transactions=[(date(year=2025, month=3, day=5), 10.0)],
+        account = _persist_account(session=session, balance=0.0, transactions=[])
+        _plant_market_value(account=account, day=date(year=2025, month=1, day=1), balance=10.0)
+        session.flush()
+
+        account.record_market_value_history(
+            [
+                BalanceObservation(date=date(year=2025, month=2, day=1), amount=20.0),
+                BalanceObservation(date=date(year=2025, month=2, day=2), amount=25.0),
+            ]
         )
-        account.recompute_balances_at_date()
-        session.flush()
-        assert _get_persisted_snapshots(session=session, account=account)
-
-        account.tracks_balance_history = False
-        account.recompute_balances_at_date()
         session.flush()
 
-        assert _get_persisted_snapshots(session=session, account=account) == {}
+        snapshots = _get_persisted_snapshots(session=session, account=account)
+        assert snapshots == {date(year=2025, month=2, day=1): 20.0, date(year=2025, month=2, day=2): 25.0}
+        assert all(
+            snapshot.source == BalanceSnapshotSource.MARKET_VALUED for snapshot in account.balance_at_date.values()
+        )
+
+
+def test_record_market_value_history_ignores_future_dates(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = _persist_account(session=session, balance=0.0, transactions=[])
+        future = date.today() + timedelta(days=3)
+
+        account.record_market_value_history([BalanceObservation(date=future, amount=99.0)])
+        session.flush()
+
+        assert future not in account.balance_at_date
 
 
 def test_update_balance_at_date_preserves_existing_snapshots_but_chains_correctly(session_factory: sessionmaker):
