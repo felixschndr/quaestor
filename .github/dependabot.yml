@@ -9,6 +9,22 @@ updates:
     # Assignment happens in .github/workflows/dependabot-auto-merge.yml
     labels:
       - "dependencies"
+      - "backend"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/source/frontend"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 3
+    labels:
+      - "dependencies"
+      - "frontend"
     groups:
       minor-and-patch:
         update-types:
