@@ -47,7 +47,7 @@ jobs:
           sed -i 's#</head>#<link rel="icon" type="image/png" href="favicon.png"></head>#' site/index.html
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
