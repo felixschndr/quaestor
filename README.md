@@ -104,6 +104,8 @@ The following connections are currently supported:
 - Deutsche Flugsicherung GmbH retirement plan (http://www.dfs-vorsorgeplan.de / https://www.value-account.eu)
 - fin4u retirement plan (https://www.alte-leipziger.de/service/rund-um-ihre-vertraege/kundenportal-fin4u)
 
+You can browse the full list of every supported bank [here](https://quaestordocs.fschneider.me/banks.html).
+
 ### Why are some banks not supported?
 
 This is a hobby project. Apps such as Finanzguru can support more banks because they use the `PSD2` standard, which exposes more data and supports more banks than FinTS does. However, it requires an expensive banking license (several thousand dollars) to use.

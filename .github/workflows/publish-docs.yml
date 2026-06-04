@@ -41,10 +41,20 @@ jobs:
       - name: Build static ReDoc page
         run: npx --yes @redocly/cli build-docs site/openapi.json -o site/index.html --title "Quaestor API Docs"
 
-      - name: Add favicon
+      - name: Add favicon and supported-banks link
         run: |
           cp source/frontend/public/favicon.png site/favicon.png
           sed -i 's#</head>#<link rel="icon" type="image/png" href="favicon.png"></head>#' site/index.html
+          link='<a href="banks.html" style="position:fixed;top:12px;right:16px;z-index:1000;padding:6px 12px;border-radius:8px;background:rgb(3,236,252);color:rgb(30,30,30);font:600 14px system-ui,sans-serif;text-decoration:none">Supported banks</a>'
+          sed -i "s#</body>#${link}</body>#" site/index.html
+
+      - name: Build supported-banks page
+        run: poetry run python scripts/dump_bank_catalog.py site/banks.html
+
+      - name: Copy bank logos
+        run: |
+          mkdir -p site/static/banks
+          cp source/backend/static/banks/*.png site/static/banks/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

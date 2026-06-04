@@ -47,6 +47,10 @@ def get_project_version() -> str:
     return get_content_of_pyproject_toml()["tool"]["poetry"]["version"]
 
 
+def get_project_repository() -> str:
+    return get_content_of_pyproject_toml()["tool"]["poetry"]["repository"]
+
+
 def _get_source_path() -> Path:
     return get_root_path_of_repository() / "source"
 
