@@ -344,6 +344,37 @@ def test_get_filtered_transactions_for_user_returns_empty_when_no_account_ids(se
     assert result == []
 
 
+def test_resolve_owned_account_ids_returns_owned_subset(session_factory: sessionmaker):
+    user_id, account_ids = _create_user_with_accounts(session_factory)
+    with session_factory() as session:
+        user = session.get(entity=User, ident=user_id)
+        resolved = account_service.resolve_owned_account_ids(db_session=session, user=user, account_ids=account_ids)
+
+    assert sorted(resolved) == sorted(account_ids)
+
+
+def test_resolve_owned_account_ids_returns_empty_for_empty_input(session_factory: sessionmaker):
+    user_id, _ = _create_user_with_accounts(session_factory)
+    with session_factory() as session:
+        user = session.get(entity=User, ident=user_id)
+        resolved = account_service.resolve_owned_account_ids(db_session=session, user=user, account_ids=[])
+
+    assert resolved == []
+
+
+def test_resolve_owned_account_ids_raises_for_foreign_account(session_factory: sessionmaker):
+    owner_id, owner_account_ids = _create_user_with_accounts(session_factory)
+    with session_factory() as session:
+        intruder = make_user(session, user_name=SECOND_USER_NAME)
+        session.commit()
+        intruder_id = intruder.id
+
+    with session_factory() as session:
+        intruder = session.get(entity=User, ident=intruder_id)
+        with pytest.raises(AccountNotFoundError, match="not found"):
+            account_service.resolve_owned_account_ids(db_session=session, user=intruder, account_ids=owner_account_ids)
+
+
 @pytest.mark.parametrize(
     argnames="filter_parameters, indexes_of_not_expected_transactions",
     argvalues=[

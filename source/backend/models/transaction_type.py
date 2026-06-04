@@ -24,4 +24,4 @@ class TransactionType(str, Enum):
     TRANSFER_IN = "TRANSFER_IN"
     TRANSFER_OUT = "TRANSFER_OUT"
 
-    UNKNOWN = "UNKNOWN"
+    ZERO = "ZERO"  # when amount == 0

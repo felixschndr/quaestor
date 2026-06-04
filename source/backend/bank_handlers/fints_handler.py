@@ -144,7 +144,7 @@ def _transaction_type_from_amount(amount: float) -> TransactionType:
         return TransactionType.INCOMING
     if amount < 0:
         return TransactionType.OUTGOING
-    return TransactionType.UNKNOWN
+    return TransactionType.ZERO
 
 
 class FinTSHandler(BankHandler):

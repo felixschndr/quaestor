@@ -10,8 +10,8 @@ import { authQueryKeys } from './auth'
 
 /**
  * Mirrors `TransactionType` in source/backend/models/transaction_type.py.
- * UNKNOWN sits last so the search-form dropdown doesn't have it as the
- * accidental first pick.
+ * ZERO (amount == 0 / Nullgeschäft) sits last so the search-form dropdown
+ * doesn't have it as the accidental first pick.
  */
 export const TRANSACTION_TYPES = [
   'INCOMING',
@@ -32,7 +32,7 @@ export const TRANSACTION_TYPES = [
   'SWAP',
   'TRANSFER_IN',
   'TRANSFER_OUT',
-  'UNKNOWN',
+  'ZERO',
 ] as const
 
 export type TransactionType = (typeof TRANSACTION_TYPES)[number]

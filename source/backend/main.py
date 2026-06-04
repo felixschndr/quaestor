@@ -17,6 +17,7 @@ from source.backend.api import (
     auth,
     credentials,
     i18n,
+    statistics,
     transactions,
     users,
     version,
@@ -274,7 +275,18 @@ async def prevent_caching_of_sensitive_responses(
     return response
 
 
-for api_object in [account, account_groups, api_keys, auth, credentials, i18n, transactions, users, version]:
+for api_object in [
+    account,
+    account_groups,
+    api_keys,
+    auth,
+    credentials,
+    i18n,
+    statistics,
+    transactions,
+    users,
+    version,
+]:
     app.include_router(api_object.router, prefix=API_PREFIX)
 register_exception_handlers(app)
 configure_openapi(app)

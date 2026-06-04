@@ -57,7 +57,8 @@
     "settings": "Einstellungen",
     "syncAll": {
       "aria": "Alle Konten synchronisieren"
-    }
+    },
+    "statistics": "Statistiken"
   },
   "account": {
     "back": "Zurück",
@@ -79,7 +80,8 @@
     "unknownParty": "Unbekannt",
     "empty": "Noch keine Transaktionen.",
     "notFound": "Konto nicht gefunden.",
-    "loadingMore": "Weitere Transaktionen werden geladen …"
+    "loadingMore": "Weitere Transaktionen werden geladen …",
+    "statistics": "Statistiken"
   },
   "search": {
     "title": "Transaktionen suchen",
@@ -132,7 +134,7 @@
     "SWAP": "Tausch",
     "TRANSFER_IN": "Eingehende Umbuchung",
     "TRANSFER_OUT": "Ausgehende Umbuchung",
-    "UNKNOWN": "Unbekannt"
+    "ZERO": "Nullgeschäft"
   },
   "login": {
     "loginTab": "Anmelden",
@@ -488,5 +490,50 @@
     "unlink": "Verbindung lösen",
     "unlinkFailed": "Verbindung konnte nicht gelöst werden",
     "linkedAccountUnknown": "Anderes Konto"
+  },
+  "stats": {
+    "title": "Statistiken",
+    "back": "Zurück",
+    "accountsLabel": "Konten",
+    "dateFrom": "Von",
+    "dateTo": "Bis",
+    "loading": "Wird geladen …",
+    "error": "Konnte nicht geladen werden.",
+    "empty": "Keine Daten für diesen Zeitraum.",
+    "noAccounts": "Bitte wähle mindestens ein Konto, um Statistiken zu sehen.",
+    "other": "Sonstige",
+    "directionLabel": "Richtung",
+    "direction": {
+      "OUTGOING": "Ausgaben",
+      "INCOMING": "Einnahmen"
+    },
+    "chartTypeLabel": "Diagrammtyp",
+    "chartType": {
+      "bar": "Balken",
+      "pie": "Torte"
+    },
+    "categories": {
+      "title": "Nach Kategorie"
+    },
+    "cashflow": {
+      "title": "Einnahmen & Ausgaben pro Monat",
+      "income": "Einnahmen",
+      "expenses": "Ausgaben"
+    },
+    "netSavings": {
+      "title": "Überschuss & Sparquote pro Monat",
+      "net": "Überschuss",
+      "savingsRate": "Sparquote"
+    },
+    "otherParties": {
+      "titleOutgoing": "Top-Empfänger",
+      "titleIncoming": "Top-Sender"
+    },
+    "categoriesLabel": "Kategorien",
+    "categoriesAll": "Alle Kategorien",
+    "categoriesNone": "Keine Kategorien",
+    "categoriesCount_one": "{{count}} Kategorie",
+    "categoriesCount_other": "{{count}} Kategorien",
+    "noCategories": "Bitte wähle mindestens eine Kategorie, um Statistiken zu sehen."
   }
 }

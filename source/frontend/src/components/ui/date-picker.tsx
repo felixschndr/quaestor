@@ -5,7 +5,7 @@ import { de, enUS, type Locale } from 'date-fns/locale'
 import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
-import { formatDate } from '@/lib/format'
+import { formatDate, formatDateShortWeekday } from '@/lib/format'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
@@ -32,14 +32,15 @@ function DatePicker({ id, value, onChange, placeholder, className }: DatePickerP
   const locale = LOCALES[i18n.language] ?? enUS
   const selected = value ? parseIsoDate(value) : undefined
 
-  const label = selected ? formatDate(selected) : (placeholder ?? '')
+  const fullLabel = selected ? formatDate(selected) : (placeholder ?? '')
+  const shortLabel = selected ? formatDateShortWeekday(selected) : (placeholder ?? '')
 
   return (
     <Popover>
       <PopoverTrigger
         id={id}
         type="button"
-        aria-label={label}
+        aria-label={fullLabel}
         className={cn(
           'border-input flex h-8 w-full min-w-0 items-center gap-2 rounded-lg border bg-transparent px-2.5 py-1 text-left text-sm transition-colors outline-none',
           'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3',
@@ -50,7 +51,14 @@ function DatePicker({ id, value, onChange, placeholder, className }: DatePickerP
         )}
       >
         <CalendarIcon className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
-        <span className="truncate">{label}</span>
+        {selected ? (
+          <span className="truncate">
+            <span className="sm:hidden">{shortLabel}</span>
+            <span className="hidden sm:inline">{fullLabel}</span>
+          </span>
+        ) : (
+          <span className="truncate">{fullLabel}</span>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-auto p-2">
         <Calendar

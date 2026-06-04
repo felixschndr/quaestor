@@ -379,5 +379,42 @@ def persist_account_with_new_user(session_factory: sessionmaker) -> int:
     return persist_account(session_factory, credential_id=credential_id)
 
 
+def setup_account(http_client: TestClient, session_factory: sessionmaker) -> int:
+    """Register a user, create a fints credential, and persist one account; return its id."""
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    return persist_account(session_factory=session_factory, credential_id=credential_id)
+
+
+def seed_for_categories(session_factory: sessionmaker, account_id: int) -> None:
+    """Seed a representative spread for category statistics: two supermarket and one
+    restaurant expense, one salary income, plus a pending expense that must be ignored."""
+    with session_factory() as session:
+        make_transaction(
+            session, account_id=account_id, amount=-12.50, other_party="Rewe", category=TransactionCategory.SUPERMARKET
+        )
+        make_transaction(
+            session, account_id=account_id, amount=-7.50, other_party="Edeka", category=TransactionCategory.SUPERMARKET
+        )
+        make_transaction(
+            session,
+            account_id=account_id,
+            amount=-30.00,
+            other_party="Pizzeria",
+            category=TransactionCategory.RESTAURANTS,
+        )
+        make_transaction(
+            session, account_id=account_id, amount=2500.00, other_party="ACME", category=TransactionCategory.SALARY
+        )
+        make_transaction(
+            session,
+            account_id=account_id,
+            amount=-999.00,
+            category=TransactionCategory.SUPERMARKET,
+            pending=True,
+        )
+        session.commit()
+
+
 def get_backend_test_path() -> Path:
     return get_root_path_of_repository() / "tests" / "backend"

@@ -1,7 +1,17 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute, useLocation } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronLeft, Copy, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import {
+  ChartColumn,
+  Check,
+  ChevronLeft,
+  Copy,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
@@ -314,6 +324,14 @@ export function AccountDetailView({
                   ariaLabel={t('account.sync.aria')}
                 />
               ) : null}
+              <Link
+                to="/stats"
+                search={{ account_ids: [account.id] }}
+                aria-label={t('account.statistics')}
+                className="text-primary hover:text-primary/80 rounded-md p-1.5 transition-colors"
+              >
+                <ChartColumn className="size-5" />
+              </Link>
               <Link
                 to="/account/$accountId/search"
                 params={{ accountId: String(account.id) }}

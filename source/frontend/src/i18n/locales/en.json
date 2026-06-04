@@ -57,7 +57,8 @@
     "settings": "Settings",
     "syncAll": {
       "aria": "Sync all accounts"
-    }
+    },
+    "statistics": "Statistics"
   },
   "account": {
     "back": "Back",
@@ -79,7 +80,8 @@
     "unknownParty": "Unknown",
     "empty": "No transactions yet.",
     "notFound": "Account not found.",
-    "loadingMore": "Loading more transactions…"
+    "loadingMore": "Loading more transactions…",
+    "statistics": "Statistics"
   },
   "search": {
     "title": "Search transactions",
@@ -132,7 +134,7 @@
     "SWAP": "Swap",
     "TRANSFER_IN": "Transfer in",
     "TRANSFER_OUT": "Transfer out",
-    "UNKNOWN": "Unknown"
+    "ZERO": "Zero transaction"
   },
   "login": {
     "loginTab": "Log in",
@@ -488,5 +490,50 @@
     "unlink": "Remove link",
     "unlinkFailed": "Could not remove the link",
     "linkedAccountUnknown": "Other account"
+  },
+  "stats": {
+    "title": "Statistics",
+    "back": "Back",
+    "accountsLabel": "Accounts",
+    "dateFrom": "From",
+    "dateTo": "To",
+    "loading": "Loading …",
+    "error": "Could not load.",
+    "empty": "No data for this period.",
+    "noAccounts": "Select at least one account to see statistics.",
+    "other": "Other",
+    "directionLabel": "Direction",
+    "direction": {
+      "OUTGOING": "Expenses",
+      "INCOMING": "Income"
+    },
+    "chartTypeLabel": "Chart type",
+    "chartType": {
+      "bar": "Bar",
+      "pie": "Pie"
+    },
+    "categories": {
+      "title": "By category"
+    },
+    "cashflow": {
+      "title": "Income & expenses per month",
+      "income": "Income",
+      "expenses": "Expenses"
+    },
+    "netSavings": {
+      "title": "Surplus & savings rate per month",
+      "net": "Surplus",
+      "savingsRate": "Savings rate"
+    },
+    "otherParties": {
+      "titleOutgoing": "Top recipients",
+      "titleIncoming": "Top senders"
+    },
+    "categoriesLabel": "Categories",
+    "categoriesAll": "All categories",
+    "categoriesNone": "No categories",
+    "categoriesCount_one": "{{count}} category",
+    "categoriesCount_other": "{{count}} categories",
+    "noCategories": "Select at least one category to see statistics."
   }
 }

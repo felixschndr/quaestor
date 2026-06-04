@@ -163,8 +163,8 @@ function SearchForm({
   }
 
   const typeOptions = [...TRANSACTION_TYPES].sort((a, b) => {
-    if (a === 'UNKNOWN') return 1
-    if (b === 'UNKNOWN') return -1
+    if (a === 'ZERO') return 1
+    if (b === 'ZERO') return -1
     return t(`transactionType.${a}`).localeCompare(t(`transactionType.${b}`), i18n.language)
   })
   const categoryOptions = [...TRANSACTION_CATEGORIES].sort((a, b) => {

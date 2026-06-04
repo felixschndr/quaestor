@@ -294,7 +294,7 @@ const TRANSACTION_TYPE_ICONS: Record<string, LucideIcon> = {
   FEES_REFUND: Coins,
   TRANSFER_IN: ArrowDownLeft,
   TRANSFER_OUT: ArrowUpRight,
-  UNKNOWN: CircleHelp,
+  ZERO: CircleHelp,
 }
 
 function CategorySelect({

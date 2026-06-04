@@ -281,13 +281,8 @@ def get_history_page(
     return transactions, balance_at_date, total_days
 
 
-def get_filtered_transactions_for_user(
-    db_session: Session,
-    user: User,
-    account_ids_to_search_through: list[int],
-    filter_parameters: dict,
-) -> list[Transaction]:
-    if not account_ids_to_search_through:
+def resolve_owned_account_ids(db_session: Session, user: User, account_ids: list[int]) -> list[int]:
+    if not account_ids:
         return []
     owned_account_ids = {
         account.id
@@ -295,15 +290,30 @@ def get_filtered_transactions_for_user(
             select(Account)
             .join(Credential, onclause=Account.credential_id == Credential.id)
             .where(Credential.user_id == user.id)
-            .where(Account.id.in_(account_ids_to_search_through))
+            .where(Account.id.in_(account_ids))
         )
     }
-    unknown_account_ids = set(account_ids_to_search_through) - owned_account_ids
+    unknown_account_ids = set(account_ids) - owned_account_ids
     if unknown_account_ids:
-        logger.warning(f"{user} attempted to search accounts they don't own: {sorted(unknown_account_ids)}")
+        logger.warning(f"{user} attempted to access accounts they don't own: {sorted(unknown_account_ids)}")
         raise AccountNotFoundError(f"Account(s) {sorted(unknown_account_ids)} not found")
+    logger.debug(f"Resolved {len(owned_account_ids)} owned account(s) for {user}")
+    return list(owned_account_ids)
+
+
+def get_filtered_transactions_for_user(
+    db_session: Session,
+    user: User,
+    account_ids_to_search_through: list[int],
+    filter_parameters: dict,
+) -> list[Transaction]:
+    owned_account_ids = resolve_owned_account_ids(
+        db_session=db_session, user=user, account_ids=account_ids_to_search_through
+    )
+    if not owned_account_ids:
+        return []
     return _filter_transactions(
-        db_session=db_session, account_ids=list(owned_account_ids), filter_parameters=filter_parameters
+        db_session=db_session, account_ids=owned_account_ids, filter_parameters=filter_parameters
     )
 
 

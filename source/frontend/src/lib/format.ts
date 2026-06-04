@@ -53,8 +53,27 @@ export function formatDecimal(value: number): string {
   return decimalFormatter.format(value)
 }
 
+const percentFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
+  style: 'percent',
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
+
+export function formatPercent(ratio: number): string {
+  return percentFormatter.format(ratio)
+}
+
 export function formatDate(d: Date | string): string {
   return getDateFormatter(dateFormatters, DATE_OPTIONS).format(
+    typeof d === 'string' ? new Date(d) : d,
+  )
+}
+
+const DATE_SHORT_WEEKDAY_OPTIONS: Intl.DateTimeFormatOptions = { ...DATE_OPTIONS, weekday: 'short' }
+const shortWeekdayDateFormatters = new Map<string, Intl.DateTimeFormat>()
+
+export function formatDateShortWeekday(d: Date | string): string {
+  return getDateFormatter(shortWeekdayDateFormatters, DATE_SHORT_WEEKDAY_OPTIONS).format(
     typeof d === 'string' ? new Date(d) : d,
   )
 }
