@@ -2,12 +2,17 @@ import datetime
 
 from source.backend.api.schemas.statistics import (
     CategorySlice,
+    DailyNetWorth,
     MonthlyCashflow,
     MonthlyNetSavings,
+    NetWorthResponse,
+    NetWorthSummary,
     OtherPartySlice,
     StatisticsDirection,
 )
 from source.backend.logging_utils import get_logger
+from source.backend.models.account import Account
+from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.user import User
@@ -202,3 +207,94 @@ def top_other_parties(
     ]
     logger.debug(f"Computed top {len(slices)} {direction} other parties for {user}")
     return slices
+
+
+def daily_net_worth(
+    db_session: Session,
+    user: User,
+    account_ids: list[int],
+    date_from: datetime.date | None,
+    date_to: datetime.date | None,
+) -> NetWorthResponse:
+    owned_account_ids = account_service.resolve_owned_account_ids(
+        db_session=db_session, user=user, account_ids=account_ids
+    )
+    if not owned_account_ids:
+        return NetWorthResponse(series=[])
+
+    today = datetime.date.today()
+    end_date = min(date_to, today) if date_to is not None else today
+
+    accounts = list(db_session.scalars(select(Account).where(Account.id.in_(owned_account_ids))))  # noqa: FKA100
+    balance_factors = {account.id: account.balance_factor for account in accounts}
+
+    # When the caller didn't pin the start, anchor to the earliest snapshot across selected accounts
+    if date_from is None:
+        earliest = db_session.scalar(
+            select(func.min(AccountBalanceSnapshot.date)).where(
+                AccountBalanceSnapshot.account_id.in_(owned_account_ids)
+            )
+        )
+        if earliest is None:
+            return NetWorthResponse(series=[])
+        date_from = earliest
+
+    if end_date < date_from:
+        return NetWorthResponse(series=[])
+
+    in_range_snapshots = list(
+        db_session.scalars(
+            select(AccountBalanceSnapshot)
+            .where(AccountBalanceSnapshot.account_id.in_(owned_account_ids))
+            .where(AccountBalanceSnapshot.date >= date_from)
+            .where(AccountBalanceSnapshot.date <= end_date)
+            .order_by(AccountBalanceSnapshot.date)
+        )
+    )
+    per_account_steps: dict[int, list[tuple[datetime.date, float]]] = {
+        account_id: [] for account_id in owned_account_ids
+    }
+    for snapshot in in_range_snapshots:
+        per_account_steps[snapshot.account_id].append((snapshot.date, snapshot.balance))
+
+    current_balance: dict[int, float | None] = dict.fromkeys(owned_account_ids)
+    for account_id in owned_account_ids:
+        anchor = db_session.scalar(
+            select(AccountBalanceSnapshot.balance)
+            .where(AccountBalanceSnapshot.account_id == account_id)
+            .where(AccountBalanceSnapshot.date < date_from)
+            .order_by(AccountBalanceSnapshot.date.desc())
+            .limit(1)
+        )
+        current_balance[account_id] = anchor
+
+    step_indices: dict[int, int] = dict.fromkeys(owned_account_ids, 0)  # noqa: FKA100
+    result: list[DailyNetWorth] = []
+    day = date_from
+    one_day = datetime.timedelta(days=1)
+    while day <= end_date:
+        for account_id, steps in per_account_steps.items():
+            index = step_indices[account_id]
+            while index < len(steps) and steps[index][0] <= day:
+                current_balance[account_id] = steps[index][1]
+                index += 1
+            step_indices[account_id] = index
+
+        if any(balance is not None for balance in current_balance.values()):
+            net = sum(
+                (balance or 0.0) * balance_factors[account_id] / 100 for account_id, balance in current_balance.items()
+            )
+            result.append(DailyNetWorth(date=day, value=round(number=net, ndigits=2)))
+        day += one_day
+
+    logger.debug(f"Computed daily net worth over {len(result)} day(s) for {user}")
+    summary = _net_worth_summary(result)
+    return NetWorthResponse(series=result, summary=summary)
+
+
+def _net_worth_summary(series: list[DailyNetWorth]) -> NetWorthSummary | None:
+    if not series:
+        return None
+    values = [datum.value for datum in series]
+    average = round(number=sum(values) / len(values), ndigits=2)
+    return NetWorthSummary(minimum=min(values), average=average, maximum=max(values))

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { format, subMonths } from 'date-fns'
+import { format, subMonths, subWeeks, subYears } from 'date-fns'
 
 import { api } from './api'
 import { TRANSACTION_CATEGORIES, type TransactionCategory } from './transaction'
@@ -47,18 +47,85 @@ export interface OtherPartySlice {
   total: number
 }
 
-const NUMBER_OF_DEFAULT_MONTHS = 3
+export interface DailyNetWorth {
+  date: string // ISO yyyy-mm-dd
+  value: number
+}
+
+export interface NetWorthSummary {
+  minimum: number
+  average: number
+  maximum: number
+}
+
+export interface NetWorthResponse {
+  series: DailyNetWorth[]
+  summary: NetWorthSummary | null // null when the series is empty.
+}
+
+/** Identifier for the shortcut buttons of the date-range picker. */
+export type DateRangePreset = '2w' | '1m' | '3m' | '6m' | '1y' | '3y'
+
+export const DATE_RANGE_PRESETS: readonly DateRangePreset[] = ['2w', '1m', '3m', '6m', '1y', '3y']
+
+const formatDay = (date: Date): string => format(date, 'yyyy-MM-dd')
+
+function presetStart(preset: DateRangePreset, today: Date): Date {
+  switch (preset) {
+    case '2w':
+      return subWeeks(today, 2)
+    case '1m':
+      return subMonths(today, 1)
+    case '3m':
+      return subMonths(today, 3)
+    case '6m':
+      return subMonths(today, 6)
+    case '1y':
+      return subYears(today, 1)
+    case '3y':
+      return subYears(today, 3)
+  }
+}
 
 /**
- * Default filter range for the stats page: the last three months up to today.
+ * The date range a shortcut button represents: a span ending today.
  * `today` is injectable so tests can pin a date instead of depending on the
  * wall clock.
  */
-export function defaultStatsDateRange(today: Date = new Date()): Required<StatsFilters> {
+export function presetDateRange(
+  preset: DateRangePreset,
+  today: Date = new Date(),
+): Required<StatsFilters> {
   return {
-    date_from: format(subMonths(today, NUMBER_OF_DEFAULT_MONTHS), 'yyyy-MM-dd'),
-    date_to: format(today, 'yyyy-MM-dd'),
+    date_from: formatDay(presetStart(preset, today)),
+    date_to: formatDay(today),
   }
+}
+
+/**
+ * Default filter range for the stats page: the "1 month" shortcut.
+ */
+export function defaultStatsDateRange(today: Date = new Date()): Required<StatsFilters> {
+  return presetDateRange('1m', today)
+}
+
+/**
+ * Returns the preset that exactly matches `filters`, or null if the user has
+ * picked a custom range. Lets the shortcut picker show the active preset
+ * without losing the highlight when shortcuts are re-applied verbatim.
+ */
+export function matchingPreset(
+  filters: StatsFilters,
+  today: Date = new Date(),
+): DateRangePreset | null {
+  if (!filters.date_from || !filters.date_to) return null
+  for (const preset of DATE_RANGE_PRESETS) {
+    const range = presetDateRange(preset, today)
+    if (range.date_from === filters.date_from && range.date_to === filters.date_to) {
+      return preset
+    }
+  }
+  return null
 }
 
 /**
@@ -136,6 +203,8 @@ export const statisticsQueryKeys = {
       direction,
       sortedCategories(categories),
     ] as const,
+  netWorth: (accountIds: number[], filters: StatsFilters) =>
+    ['statistics', 'net-worth', sortedIds(accountIds), filters] as const,
 }
 
 export function useCategoryStats(
@@ -191,6 +260,18 @@ export function useOtherPartyStats(
   return useQuery({
     queryKey: statisticsQueryKeys.otherParties(accountIds, filters, direction, categories),
     queryFn: () => api<OtherPartySlice[]>(`/statistics/other-parties?${queryString}`),
+    enabled: accountIds.length > 0,
+    staleTime: 30_000,
+  })
+}
+
+export function useNetWorthStats(accountIds: number[], filters: StatsFilters) {
+  // Net worth is independent of categories and direction — both are intentionally
+  // omitted from the request.
+  const queryString = buildStatsQueryString(accountIds, filters, {}, [])
+  return useQuery({
+    queryKey: statisticsQueryKeys.netWorth(accountIds, filters),
+    queryFn: () => api<NetWorthResponse>(`/statistics/net-worth?${queryString}`),
     enabled: accountIds.length > 0,
     staleTime: 30_000,
   })

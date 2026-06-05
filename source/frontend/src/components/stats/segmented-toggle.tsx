@@ -6,7 +6,9 @@ export interface SegmentedOption<T extends string> {
 }
 
 export interface SegmentedToggleProps<T extends string> {
-  value: T
+  /** `null` renders with no segment highlighted — used when the parent state
+   *  doesn't (yet) correspond to any option (e.g. a custom date range). */
+  value: T | null
   options: SegmentedOption<T>[]
   onChange: (next: T) => void
   ariaLabel: string

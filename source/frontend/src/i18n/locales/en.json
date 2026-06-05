@@ -497,6 +497,15 @@
     "accountsLabel": "Accounts",
     "dateFrom": "From",
     "dateTo": "To",
+    "rangeLabel": "Range",
+    "range": {
+      "2w": "2W",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Y",
+      "3y": "3Y"
+    },
     "loading": "Loading …",
     "error": "Could not load.",
     "empty": "No data for this period.",
@@ -524,6 +533,13 @@
       "title": "Surplus & savings rate per month",
       "net": "Surplus",
       "savingsRate": "Savings rate"
+    },
+    "netWorth": {
+      "title": "Net worth over time",
+      "value": "Net worth",
+      "min": "Minimum",
+      "average": "Average",
+      "max": "Maximum"
     },
     "otherParties": {
       "titleOutgoing": "Top recipients",

@@ -29,7 +29,7 @@ export function ChartCard({
   return (
     <section className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4">
       <header className="flex items-center justify-between gap-2">
-        <h2 className="text-foreground text-sm font-semibold">{title}</h2>
+        <h2 className="text-primary text-sm font-semibold">{title}</h2>
         {action}
       </header>
       {isLoading ? (

@@ -49,17 +49,17 @@ describe('buildStatsQueryString', () => {
 })
 
 describe('defaultStatsDateRange', () => {
-  it('spans the three months up to the given day', () => {
+  it('spans the month up to the given day', () => {
     expect(defaultStatsDateRange(new Date(2026, 5, 15))).toEqual({
-      date_from: '2026-03-15',
+      date_from: '2026-05-15',
       date_to: '2026-06-15',
     })
   })
 
   it('handles year boundaries', () => {
-    expect(defaultStatsDateRange(new Date(2026, 1, 10))).toEqual({
-      date_from: '2025-11-10',
-      date_to: '2026-02-10',
+    expect(defaultStatsDateRange(new Date(2026, 0, 10))).toEqual({
+      date_from: '2025-12-10',
+      date_to: '2026-01-10',
     })
   })
 })

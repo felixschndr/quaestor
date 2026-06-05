@@ -14,7 +14,11 @@ vi.mock('recharts', () => {
 })
 
 // The charts fetch via `api`; resolve to empty so queries settle without network.
-vi.mock('@/lib/api', () => ({ api: vi.fn(() => Promise.resolve([])) }))
+vi.mock('@/lib/api', () => ({
+  api: vi.fn((path: string) =>
+    Promise.resolve(path.includes('/net-worth') ? { series: [], summary: null } : []),
+  ),
+}))
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({

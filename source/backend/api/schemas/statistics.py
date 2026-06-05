@@ -22,6 +22,12 @@ class OtherPartyStatisticsQuery(DirectionalStatisticsQuery):
     limit: int = Field(default=15, ge=1, le=100)
 
 
+class NetWorthQuery(BaseModel):
+    account_ids: list[int] = Field(min_length=1)
+    date_from: datetime.date | None = None
+    date_to: datetime.date | None = None
+
+
 class CategorySlice(BaseModel):
     category: TransactionCategory
     total: float
@@ -42,3 +48,19 @@ class MonthlyNetSavings(BaseModel):
 class OtherPartySlice(BaseModel):
     other_party: str
     total: float
+
+
+class DailyNetWorth(BaseModel):
+    date: datetime.date
+    value: float
+
+
+class NetWorthSummary(BaseModel):
+    minimum: float
+    average: float
+    maximum: float
+
+
+class NetWorthResponse(BaseModel):
+    series: list[DailyNetWorth]
+    summary: NetWorthSummary | None = None  # None when the series is empty.

@@ -15,6 +15,7 @@ from tests.backend.conftest import (
     persist_account,
     register,
     seed_for_categories,
+    seed_snapshot,
     setup_account,
 )
 
@@ -23,6 +24,7 @@ STATISTICS_ENDPOINTS = (
     f"{API_PREFIX}/statistics/cashflow",
     f"{API_PREFIX}/statistics/net-savings",
     f"{API_PREFIX}/statistics/other-parties",
+    f"{API_PREFIX}/statistics/net-worth",
 )
 
 
@@ -241,6 +243,118 @@ def test_statistics_span_multiple_accounts(http_client: TestClient, session_fact
     assert response.json() == [{"category": "FUEL", "total": 25.0}]
 
 
+def test_net_worth_carries_forward_latest_snapshot_per_day(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    seed_snapshot(
+        session_factory=session_factory, account_id=account_id, day=date(year=2026, month=1, day=1), balance=1000.0
+    )
+    seed_snapshot(
+        session_factory=session_factory, account_id=account_id, day=date(year=2026, month=1, day=3), balance=1200.0
+    )
+
+    response = http_client.get(
+        "/api/statistics/net-worth",
+        params=[("account_ids", account_id), ("date_from", "2026-01-01"), ("date_to", "2026-01-05")],
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "series": [
+            {"date": "2026-01-01", "value": 1000.0},
+            {"date": "2026-01-02", "value": 1000.0},
+            {"date": "2026-01-03", "value": 1200.0},
+            {"date": "2026-01-04", "value": 1200.0},
+            {"date": "2026-01-05", "value": 1200.0},
+        ],
+        "summary": {"minimum": 1000.0, "average": 1120.0, "maximum": 1200.0},
+    }
+
+
+def test_net_worth_uses_anchor_before_date_from(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    seed_snapshot(
+        session_factory=session_factory, account_id=account_id, day=date(year=2025, month=12, day=20), balance=500.0
+    )
+    seed_snapshot(
+        session_factory=session_factory, account_id=account_id, day=date(year=2026, month=1, day=2), balance=750.0
+    )
+
+    response = http_client.get(
+        "/api/statistics/net-worth",
+        params=[("account_ids", account_id), ("date_from", "2026-01-01"), ("date_to", "2026-01-03")],
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "series": [
+            {"date": "2026-01-01", "value": 500.0},
+            {"date": "2026-01-02", "value": 750.0},
+            {"date": "2026-01-03", "value": 750.0},
+        ],
+        "summary": {"minimum": 500.0, "average": 666.67, "maximum": 750.0},
+    }
+
+
+def test_net_worth_sums_across_accounts_applying_balance_factor(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    giro = persist_account(session_factory=session_factory, credential_id=credential_id, name="Giro")
+    shared = persist_account(
+        session_factory=session_factory, credential_id=credential_id, name="Joint", balance_factor=50
+    )
+    seed_snapshot(session_factory=session_factory, account_id=giro, day=date(year=2026, month=1, day=1), balance=1000.0)
+    seed_snapshot(
+        session_factory=session_factory, account_id=shared, day=date(year=2026, month=1, day=1), balance=400.0
+    )
+
+    response = http_client.get(
+        "/api/statistics/net-worth",
+        params=[
+            ("account_ids", giro),
+            ("account_ids", shared),
+            ("date_from", "2026-01-01"),
+            ("date_to", "2026-01-01"),
+        ],
+    )
+
+    # 1000 + (400 * 50 / 100) = 1200
+    assert response.json() == {
+        "series": [{"date": "2026-01-01", "value": 1200.0}],
+        "summary": {"minimum": 1200.0, "average": 1200.0, "maximum": 1200.0},
+    }
+
+
+def test_net_worth_skips_days_with_no_anchor(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    seed_snapshot(
+        session_factory=session_factory, account_id=account_id, day=date(year=2026, month=1, day=3), balance=100.0
+    )
+
+    response = http_client.get(
+        "/api/statistics/net-worth",
+        params=[("account_ids", account_id), ("date_from", "2026-01-01"), ("date_to", "2026-01-04")],
+    )
+
+    # 2026-01-01 and 2026-01-02 have no anchor; series starts at the first day with data.
+    assert response.json() == {
+        "series": [
+            {"date": "2026-01-03", "value": 100.0},
+            {"date": "2026-01-04", "value": 100.0},
+        ],
+        "summary": {"minimum": 100.0, "average": 100.0, "maximum": 100.0},
+    }
+
+
+def test_net_worth_returns_empty_without_snapshots(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    response = http_client.get(
+        "/api/statistics/net-worth",
+        params=[("account_ids", account_id), ("date_from", "2026-01-01"), ("date_to", "2026-01-05")],
+    )
+    assert response.status_code == 200
+    assert response.json() == {"series": [], "summary": None}
+
+
 @pytest.mark.parametrize(argnames="endpoint", argvalues=STATISTICS_ENDPOINTS)
 def test_statistics_require_authentication(http_client: TestClient, endpoint: str):
     response = http_client.get(endpoint, params=[("account_ids", 1)])
@@ -277,4 +391,6 @@ def test_statistics_return_empty_list_without_matching_transactions(
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     response = http_client.get(endpoint, params=[("account_ids", account_id)])
     assert response.status_code == 200
-    assert response.json() == []
+    # net-worth returns an object ({series, summary}); the others return a bare list.
+    expected = {"series": [], "summary": None} if endpoint.endswith("/net-worth") else []
+    assert response.json() == expected

@@ -13,6 +13,7 @@ from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.db import get_session
 from source.backend.helpers import get_root_path_of_repository
 from source.backend.models.account import Account
+from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
 from source.backend.models.base import Base
 from source.backend.models.credential import Credential
 from source.backend.models.transaction import Transaction
@@ -407,6 +408,12 @@ def seed_for_categories(session_factory: sessionmaker, account_id: int) -> None:
             category=TransactionCategory.SUPERMARKET,
             pending=True,
         )
+        session.commit()
+
+
+def seed_snapshot(session_factory: sessionmaker, account_id: int, day: _date, balance: float) -> None:
+    with session_factory() as session:
+        session.add(AccountBalanceSnapshot(account_id=account_id, date=day, balance=balance))
         session.commit()
 
 

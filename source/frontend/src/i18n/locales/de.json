@@ -497,6 +497,15 @@
     "accountsLabel": "Konten",
     "dateFrom": "Von",
     "dateTo": "Bis",
+    "rangeLabel": "Zeitraum",
+    "range": {
+      "2w": "2 W",
+      "1m": "1 M",
+      "3m": "3 M",
+      "6m": "6 M",
+      "1y": "1 J",
+      "3y": "3 J"
+    },
     "loading": "Wird geladen …",
     "error": "Konnte nicht geladen werden.",
     "empty": "Keine Daten für diesen Zeitraum.",
@@ -524,6 +533,13 @@
       "title": "Überschuss & Sparquote pro Monat",
       "net": "Überschuss",
       "savingsRate": "Sparquote"
+    },
+    "netWorth": {
+      "title": "Vermögensverlauf",
+      "value": "Vermögen",
+      "min": "Minimum",
+      "average": "Durchschnitt",
+      "max": "Maximum"
     },
     "otherParties": {
       "titleOutgoing": "Top-Empfänger",

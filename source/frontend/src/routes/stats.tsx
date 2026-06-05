@@ -13,17 +13,23 @@ import { CashflowChart } from '@/components/stats/cashflow-chart'
 import { ChartCard } from '@/components/stats/chart-card'
 import { OtherPartyChart } from '@/components/stats/other-party-chart'
 import { NetSavingsChart } from '@/components/stats/net-savings-chart'
+import { NetWorthChart } from '@/components/stats/net-worth-chart'
 import { SegmentedToggle } from '@/components/stats/segmented-toggle'
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
 import { TRANSACTION_CATEGORIES, type TransactionCategory } from '@/lib/transaction'
 import {
+  DATE_RANGE_PRESETS,
   defaultStatsDateRange,
   FILTERABLE_CATEGORIES,
+  matchingPreset,
+  presetDateRange,
   useCashflowStats,
   useCategoryStats,
+  useNetWorthStats,
   useOtherPartyStats,
   useNetSavingsStats,
   type ChartType,
+  type DateRangePreset,
   type StatsDirection,
   type StatsFilters,
 } from '@/lib/statistics'
@@ -142,6 +148,9 @@ export function StatsView({ credentials, search, onChange, onOpenSearch }: Stats
     date_from: search.date_from ?? defaults.date_from,
     date_to: search.date_to ?? defaults.date_to,
   })
+  // Last filter range before a preset was applied. Lets the user toggle a
+  // preset off by clicking it again — the previous range is restored.
+  const [previousFilters, setPreviousFilters] = useState<StatsFilters | null>(null)
   const [chartType, setChartType] = useState<ChartType>(search.chart_type ?? 'bar')
   const [direction, setDirection] = useState<StatsDirection>(search.direction ?? 'OUTGOING')
   // No `categories` in the URL → all selected (the default).
@@ -169,6 +178,18 @@ export function StatsView({ credentials, search, onChange, onOpenSearch }: Stats
   }
   const updateFilter = (key: keyof StatsFilters, value: string | undefined) => {
     const next = { ...filters, [key]: value }
+    setFilters(next)
+    setPreviousFilters(null)
+    sync({ filters: next })
+  }
+  const applyPreset = (preset: DateRangePreset) => {
+    const presetRange = presetDateRange(preset)
+    // Re-clicking the active preset → swap back to whatever was selected before
+    // it. Swapping (rather than just restoring) means another click re-applies
+    // the preset, so the action stays reversible in both directions.
+    const isReclick = matchingPreset(filters) === preset
+    const next = isReclick && previousFilters ? previousFilters : presetRange
+    setPreviousFilters(filters)
     setFilters(next)
     sync({ filters: next })
   }
@@ -202,6 +223,7 @@ export function StatsView({ credentials, search, onChange, onOpenSearch }: Stats
   const categories = useCategoryStats(accountIds, filters, direction, categoriesParam)
   const cashflow = useCashflowStats(accountIds, filters, categoriesParam)
   const netSavings = useNetSavingsStats(accountIds, filters, categoriesParam)
+  const netWorth = useNetWorthStats(accountIds, filters)
   const otherParties = useOtherPartyStats(accountIds, filters, direction, categoriesParam)
 
   return (
@@ -255,6 +277,16 @@ export function StatsView({ credentials, search, onChange, onOpenSearch }: Stats
         </div>
         <SegmentedToggle
           fullWidth
+          ariaLabel={t('stats.rangeLabel')}
+          value={matchingPreset(filters)}
+          onChange={applyPreset}
+          options={DATE_RANGE_PRESETS.map((preset) => ({
+            value: preset,
+            label: t(`stats.range.${preset}`),
+          }))}
+        />
+        <SegmentedToggle
+          fullWidth
           ariaLabel={t('stats.directionLabel')}
           value={direction}
           onChange={updateDirection}
@@ -275,6 +307,18 @@ export function StatsView({ credentials, search, onChange, onOpenSearch }: Stats
         </p>
       ) : (
         <>
+          <ChartCard
+            title={t('stats.netWorth.title')}
+            isLoading={netWorth.isLoading}
+            isError={netWorth.isError}
+            isEmpty={(netWorth.data?.series.length ?? 0) === 0}
+          >
+            <NetWorthChart
+              data={netWorth.data?.series ?? []}
+              summary={netWorth.data?.summary ?? null}
+            />
+          </ChartCard>
+
           <ChartCard
             title={t('stats.categories.title')}
             isLoading={categories.isLoading}
