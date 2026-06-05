@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
         with:
           fetch-depth: 2
 
@@ -70,7 +70,7 @@ jobs:
       && (github.ref != 'refs/heads/main' || needs.check_version.outputs.version_changed == 'true')
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
 
       - name: Login to GitHub Container Registry
         # Only trusted runs may push: pushes to main and PRs from this repo.
@@ -114,7 +114,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
         with:
           fetch-depth: 0
 
