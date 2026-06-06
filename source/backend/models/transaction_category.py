@@ -68,7 +68,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
     TransactionCategory.SALARY: ["lohn", "gehalt"],
     TransactionCategory.ALLOWANCE: ["taschengeld", "kindergeld"],
     TransactionCategory.PENSION: ["rente"],
-    TransactionCategory.REIMBURSEMENT: ["reisespesen"],
+    TransactionCategory.REIMBURSEMENT: ["reisespesen", "korrektur"],
     TransactionCategory.INTEREST: ["zinsen"],
     TransactionCategory.INVESTMENT: ["msci", "nasdaq"],
     TransactionCategory.SUBSCRIPTIONS: [
@@ -128,6 +128,9 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "le crobag",
         "pommes",
         "kfc",
+        "kabap",
+        "cuisine",
+        "bratar",
     ],
     TransactionCategory.PERSONAL_CARE: ["friseur", "barber", "waxing", "apotheke", "krankenkasse"],
     TransactionCategory.CLOTHING: ["new yorker", "bijou brigette"],
