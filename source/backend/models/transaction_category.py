@@ -74,7 +74,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
     TransactionCategory.PENSION: ["rente"],
     TransactionCategory.REIMBURSEMENT: ["reisespesen", "korrektur"],
     TransactionCategory.INTEREST: ["zinsen"],
-    TransactionCategory.INVESTMENT: ["msci", "nasdaq"],
+    TransactionCategory.INVESTMENT: ["msci", "nasdaq", "(dist)", "(acc)"],
     TransactionCategory.SUBSCRIPTIONS: [
         "spotify",
         "ionos",
@@ -150,7 +150,6 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "universitaet",
     ],
     TransactionCategory.SAVINGS: ["sparen", "einzahlung"],
-    # TRANSFER: no text matchers — assigned only by the future cross-bank linker.
     TransactionCategory.ONLINE_SHOPPING: [
         "amazon",
         "amzn",
