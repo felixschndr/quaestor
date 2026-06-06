@@ -1,5 +1,18 @@
+import { cloneElement, type ReactElement } from 'react'
 import { render } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('recharts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('recharts')>()
+  return {
+    ...actual,
+    ResponsiveContainer: ({
+      children,
+    }: {
+      children: ReactElement<{ width?: number; height?: number }>
+    }) => cloneElement(children, { width: 400, height: 300 }),
+  }
+})
 
 import '@/i18n'
 import { CategoryChart } from '../category-chart'
@@ -7,7 +20,6 @@ import { CashflowChart } from '../cashflow-chart'
 import { OtherPartyChart } from '../other-party-chart'
 import { NetSavingsChart } from '../net-savings-chart'
 
-// Renders the REAL recharts (no mock) with data, to catch render-time crashes.
 describe('charts render with real recharts', () => {
   it('CategoryChart bar', () => {
     expect(() =>

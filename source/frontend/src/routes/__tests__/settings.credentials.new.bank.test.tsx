@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -126,22 +126,28 @@ class MockWebSocket {
     this.url = url
     MockWebSocket.instances.push(this)
     queueMicrotask(() => {
-      this.readyState = 1
-      this.onopen?.({})
+      act(() => {
+        this.readyState = 1
+        this.onopen?.({})
+      })
     })
   }
 
   send() {}
 
   close() {
-    this.readyState = 3
-    this.onclose?.({})
+    act(() => {
+      this.readyState = 3
+      this.onclose?.({})
+    })
   }
 
   push(message: Partial<SyncJob> & Pick<SyncJob, 'job_id' | 'credential_id' | 'status'>) {
     // Mirror the backend payload: expires_at/error/error_code default to null unless set.
     const full: SyncJob = { expires_at: null, error: null, error_code: null, ...message }
-    this.onmessage?.({ data: JSON.stringify(full) })
+    act(() => {
+      this.onmessage?.({ data: JSON.stringify(full) })
+    })
   }
 }
 

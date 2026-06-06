@@ -11,10 +11,12 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   globalThis.ResizeObserver = NoopResizeObserver as unknown as typeof ResizeObserver
 }
 
-// jsdom under Node 26 doesn't expose localStorage out of the box — install a
-// minimal in-memory shim so code that reads/writes localStorage (e.g. the
-// theme bootstrap) works in tests.
-if (typeof globalThis.localStorage === 'undefined') {
+const localStorageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+const hasUsableLocalStorage =
+  localStorageDescriptor != null &&
+  'value' in localStorageDescriptor &&
+  localStorageDescriptor.value != null
+if (!hasUsableLocalStorage) {
   const store = new Map<string, string>()
   const storage: Storage = {
     get length() {
@@ -30,6 +32,14 @@ if (typeof globalThis.localStorage === 'undefined') {
       store.set(key, String(value))
     },
   }
-  Object.defineProperty(globalThis, 'localStorage', { value: storage, writable: false })
-  Object.defineProperty(window, 'localStorage', { value: storage, writable: false })
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: storage,
+    writable: false,
+    configurable: true,
+  })
+  Object.defineProperty(window, 'localStorage', {
+    value: storage,
+    writable: false,
+    configurable: true,
+  })
 }
