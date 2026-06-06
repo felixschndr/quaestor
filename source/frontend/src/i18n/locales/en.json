@@ -491,6 +491,7 @@
     "linkedTransactionValue": "{{account}} · {{amount}} · {{date}}",
     "unlink": "Remove link",
     "unlinkFailed": "Could not remove the link",
+    "categoryUpdateFailed": "Could not update the category",
     "linkedAccountUnknown": "Other account"
   },
   "stats": {

@@ -491,6 +491,7 @@
     "linkedTransactionValue": "{{account}} · {{amount}} · {{date}}",
     "unlink": "Verbindung lösen",
     "unlinkFailed": "Verbindung konnte nicht gelöst werden",
+    "categoryUpdateFailed": "Kategorie konnte nicht gespeichert werden",
     "linkedAccountUnknown": "Anderes Konto"
   },
   "stats": {

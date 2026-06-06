@@ -345,6 +345,8 @@ function CategorySelect({
         setPending(true)
         try {
           await onChange(next)
+        } catch {
+          toast.error(t('transaction.categoryUpdateFailed'))
         } finally {
           setPending(false)
         }
