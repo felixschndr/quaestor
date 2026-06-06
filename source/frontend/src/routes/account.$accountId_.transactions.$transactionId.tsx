@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   ChevronLeft,
   CircleHelp,
+  CircleSlash,
   Coins,
   Percent,
   Receipt,
@@ -294,7 +295,7 @@ const TRANSACTION_TYPE_ICONS: Record<string, LucideIcon> = {
   FEES_REFUND: Coins,
   TRANSFER_IN: ArrowDownLeft,
   TRANSFER_OUT: ArrowUpRight,
-  ZERO: CircleHelp,
+  ZERO: CircleSlash,
 }
 
 function CategorySelect({
