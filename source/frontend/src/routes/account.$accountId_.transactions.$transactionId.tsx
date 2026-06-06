@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
@@ -365,6 +365,42 @@ function CategorySelect({
   )
 }
 
+const NOTE_URL_PATTERN =
+  /(https?:\/\/[^\s]+|(?<![@\w/.])(?:[a-z0-9][a-z0-9-]*\.)+[a-z]{2,}(?:\/[^\s]*)?)/gi
+
+function linkifyNote(text: string): ReactNode[] {
+  const nodes: ReactNode[] = []
+  let lastIndex = 0
+  let key = 0
+  NOTE_URL_PATTERN.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = NOTE_URL_PATTERN.exec(text)) !== null) {
+    let url = match[0]
+    const trailing = url.match(/[.,;:!?)\]}'"]+$/)?.[0] ?? ''
+    if (trailing) url = url.slice(0, -trailing.length)
+    if (url.length === 0) continue
+
+    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index))
+    const href = /^https?:\/\//i.test(url) ? url : `https://${url}`
+    nodes.push(
+      <a
+        key={key++}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(event) => event.stopPropagation()}
+        className="text-primary break-all underline underline-offset-2 hover:no-underline"
+      >
+        {url}
+      </a>,
+    )
+    if (trailing) nodes.push(trailing)
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex))
+  return nodes
+}
+
 function NoteEditor({
   remoteNote,
   onSave,
@@ -376,6 +412,11 @@ function NoteEditor({
   // The draft is initialised from the loaded transaction once; route-level
   // remounts (different transactionId) reset it via React's natural unmount.
   const [draft, setDraft] = useState(remoteNote)
+  // A textarea cannot host clickable links, so an empty note opens straight
+  // into edit mode while an existing note is shown read-only (with linkified
+  // URLs) until the user clicks into it.
+  const [editing, setEditing] = useState(remoteNote.length === 0)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const status = useDebouncedAutoSave({
     value: draft,
@@ -384,11 +425,44 @@ function NoteEditor({
     onSave: (value) => onSave(value.length === 0 ? null : value),
   })
 
+  useEffect(() => {
+    if (editing) textareaRef.current?.focus()
+  }, [editing])
+
+  if (!editing) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={t('transaction.noteEdit')}
+          onClick={() => setEditing(true)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              setEditing(true)
+            }
+          }}
+          className="border-input hover:border-ring min-h-16 w-full cursor-text rounded-lg border bg-transparent px-2.5 py-1.5 text-sm whitespace-pre-wrap transition-colors dark:bg-input/30"
+        >
+          {draft.length === 0 ? (
+            <span className="text-muted-foreground">{t('transaction.notePlaceholder')}</span>
+          ) : (
+            linkifyNote(draft)
+          )}
+        </div>
+        <NoteStatus status={status} />
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-1.5">
       <textarea
+        ref={textareaRef}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => setEditing(false)}
         placeholder={t('transaction.notePlaceholder')}
         rows={3}
         className="border-input focus-visible:border-ring focus-visible:ring-ring/50 min-h-16 w-full rounded-lg border bg-transparent px-2.5 py-1.5 text-sm outline-none transition-colors focus-visible:ring-3 dark:bg-input/30"

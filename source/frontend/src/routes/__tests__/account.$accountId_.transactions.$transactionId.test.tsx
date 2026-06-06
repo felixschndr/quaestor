@@ -271,11 +271,33 @@ describe('TransactionDetailView — note auto-save', () => {
   it('sends null when the user clears an existing note (per §3.4)', async () => {
     const user = userEvent.setup()
     const { onSaveNote } = renderView({ note: 'existing' })
+    // An existing note renders read-only first; click it to enter edit mode.
+    await user.click(screen.getByRole('button', { name: 'Edit note' }))
     const textarea = screen.getByRole('textbox')
     await user.clear(textarea)
 
     await waitFor(() => expect(onSaveNote).toHaveBeenCalledTimes(1))
     expect(onSaveNote).toHaveBeenCalledWith(null)
+  })
+
+  it('renders a URL inside a note as a clickable link', () => {
+    renderView({ note: 'see https://example.com/x for details' })
+    const link = screen.getByRole('link', { name: 'https://example.com/x' })
+    expect(link).toHaveAttribute('href', 'https://example.com/x')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('linkifies a bare domain without scheme or www prefix', () => {
+    renderView({ note: 'visit example.com/path.' })
+    const link = screen.getByRole('link', { name: 'example.com/path' })
+    expect(link).toHaveAttribute('href', 'https://example.com/path')
+  })
+
+  it('linkifies a www-prefixed domain without scheme', () => {
+    renderView({ note: 'visit www.example.com/path for more' })
+    const link = screen.getByRole('link', { name: 'www.example.com/path' })
+    expect(link).toHaveAttribute('href', 'https://www.example.com/path')
   })
 
   it('shows the "Saved" indicator once the save resolves', async () => {
