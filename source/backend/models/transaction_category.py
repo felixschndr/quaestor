@@ -36,6 +36,7 @@ class TransactionCategory(str, Enum):
     SAVINGS = "SAVINGS"
     WITHDRAWAL = "WITHDRAWAL"
     DEPOSIT = "DEPOSIT"
+    TRANSFER = "TRANSFER"
 
     UNKNOWN = "UNKNOWN"
 

@@ -17,12 +17,7 @@ export interface StatsFilters {
   date_to?: string
 }
 
-// Categories offered in the stats filter. Excludes TRANSFER: it is not a member
-// of the backend's TransactionCategory enum (no transaction ever has it), so
-// sending it would 422.
-export const FILTERABLE_CATEGORIES: TransactionCategory[] = TRANSACTION_CATEGORIES.filter(
-  (category) => category !== 'TRANSFER',
-)
+export const FILTERABLE_CATEGORIES: TransactionCategory[] = [...TRANSACTION_CATEGORIES]
 
 // Response shapes — mirror source/backend/api/schemas/statistics.py.
 export interface CategorySlice {
