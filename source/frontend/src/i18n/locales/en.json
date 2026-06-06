@@ -187,6 +187,7 @@
     "FEES": "Fees",
     "SAVINGS": "Savings",
     "WITHDRAWAL": "Withdrawal",
+    "DEPOSIT": "Deposit",
     "TRANSFER": "Transfer",
     "UNKNOWN": "Unknown"
   },

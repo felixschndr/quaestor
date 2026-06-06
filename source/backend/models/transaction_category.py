@@ -35,6 +35,7 @@ class TransactionCategory(str, Enum):
     FEES = "FEES"
     SAVINGS = "SAVINGS"
     WITHDRAWAL = "WITHDRAWAL"
+    DEPOSIT = "DEPOSIT"
 
     UNKNOWN = "UNKNOWN"
 
@@ -59,6 +60,9 @@ class TransactionCategory(str, Enum):
 
 # Type-based categories take precedence over text matchers
 CATEGORY_BY_TRANSACTION_TYPE: dict[TransactionType, TransactionCategory] = {
+    # DEPOSIT stays mapped to SAVINGS: deposits are predominantly VL/savings-account
+    # contributions (e.g. "AG-Beitrag laufend"). The standalone DEPOSIT category is
+    # manual-only, mirroring TRANSFER.
     TransactionType.DEPOSIT: TransactionCategory.SAVINGS,
     TransactionType.REMOVAL: TransactionCategory.WITHDRAWAL,
 }

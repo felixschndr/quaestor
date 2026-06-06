@@ -66,6 +66,7 @@ export const TRANSACTION_CATEGORIES = [
   'FEES',
   'SAVINGS',
   'WITHDRAWAL',
+  'DEPOSIT',
   'TRANSFER',
   'UNKNOWN',
 ] as const
