@@ -127,6 +127,43 @@
   animation: collapsible-up 200ms ease-in-out;
 }
 
+@keyframes stats-bar-bounce {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.5);
+  }
+}
+
+.stats-icon-bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+}
+
+.group:hover .stats-icon-bar {
+  animation: stats-bar-bounce 700ms ease-in-out;
+}
+
+.group:hover .stats-icon-bar-1 {
+  animation-delay: 0ms;
+}
+
+.group:hover .stats-icon-bar-2 {
+  animation-delay: 160ms;
+}
+
+.group:hover .stats-icon-bar-3 {
+  animation-delay: 320ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .stats-icon-bar {
+    animation: none;
+  }
+}
+
 @layer base {
   :root {
     /* Reserve scrollbar space so mx-auto'd content doesn't recenter (and

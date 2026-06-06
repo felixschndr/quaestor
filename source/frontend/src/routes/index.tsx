@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { Collapsible } from 'radix-ui'
-import { ChartColumn, ChevronRight, Settings } from 'lucide-react'
+import { ChevronRight, Settings } from 'lucide-react'
+import { StatsIcon } from '@/components/stats-icon'
 import { toast } from 'sonner'
 
 import { useAuthMe, useGlobalSync, type AccountRead, type UserRead } from '@/lib/auth'
@@ -135,9 +136,9 @@ export function OverviewView({
           <Link
             to="/stats"
             aria-label={t('overview.statistics')}
-            className="text-primary hover:text-primary/80 rounded-md p-1.5 transition-colors"
+            className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
           >
-            <ChartColumn className="size-5" />
+            <StatsIcon className="size-5" />
           </Link>
           <Link
             to="/settings"

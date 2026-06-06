@@ -1,17 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute, useLocation } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import {
-  ChartColumn,
-  Check,
-  ChevronLeft,
-  Copy,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { Check, ChevronLeft, Copy, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
@@ -37,6 +27,7 @@ import { copyText } from '@/lib/clipboard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ManualTransactionForm } from '@/components/manual-transaction-form'
+import { StatsIcon } from '@/components/stats-icon'
 import { SyncButton } from '@/components/sync-button'
 import { TwoFactorModal } from '@/components/two-factor-modal'
 
@@ -328,9 +319,9 @@ export function AccountDetailView({
                 to="/stats"
                 search={{ account_ids: [account.id] }}
                 aria-label={t('account.statistics')}
-                className="text-primary hover:text-primary/80 rounded-md p-1.5 transition-colors"
+                className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
               >
-                <ChartColumn className="size-5" />
+                <StatsIcon className="size-5" />
               </Link>
               <Link
                 to="/account/$accountId/search"
