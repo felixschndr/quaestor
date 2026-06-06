@@ -69,6 +69,16 @@ def test_get_latest_release_caches_successful_result(monkeypatch: pytest.MonkeyP
     assert get.call_count == 1  # second call served from cache
 
 
+def test_get_latest_release_returns_none_when_response_has_no_tag(monkeypatch: pytest.MonkeyPatch):
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"html_url": "https://example/releases/latest"}
+    get = MagicMock(return_value=response)
+    monkeypatch.setattr(target=version_service.requests, name="get", value=get)
+
+    assert version_service.get_latest_release() is None
+
+
 def test_get_latest_release_returns_none_on_error_and_does_not_cache(monkeypatch: pytest.MonkeyPatch):
     get = MagicMock(side_effect=version_service.requests.RequestException("boom"))
     monkeypatch.setattr(target=version_service.requests, name="get", value=get)

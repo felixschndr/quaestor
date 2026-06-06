@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
-from source.backend.exceptions import UserNameAlreadyExistsError
+from source.backend.exceptions import UserNameAlreadyExistsError, UserNotFoundError
 from source.backend.services import user_service
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -13,6 +13,22 @@ from tests.backend.conftest import (
     VALID_PASSWORD,
     create_user,
 )
+
+
+def test_get_user_by_id_returns_the_user(session_factory: sessionmaker):
+    created = create_user(session_factory, user_name=USER_NAME)
+
+    with session_factory() as session:
+        user = user_service.get_user_by_id(db_session=session, user_id=created.id)
+
+    assert user.id == created.id
+    assert user.user_name == USER_NAME
+
+
+def test_get_user_by_id_raises_when_missing(session_factory: sessionmaker):
+    with session_factory() as session:
+        with pytest.raises(UserNotFoundError, match="ID 999"):
+            user_service.get_user_by_id(db_session=session, user_id=999)
 
 
 def test_list_users_returns_all_users(session_factory: sessionmaker):

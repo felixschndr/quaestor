@@ -38,7 +38,7 @@ def is_newer(current: str, latest: str) -> bool:
 
 def _fetch_latest_release() -> tuple[str, str] | None:
     url = get_github_latest_release_url()
-    logger.info(f"Fetching latest release from GitHub: {url}")
+    logger.debug(f"Fetching latest release from GitHub: {url}")
     try:
         response = requests.get(url, timeout=5)
         response.raise_for_status()
