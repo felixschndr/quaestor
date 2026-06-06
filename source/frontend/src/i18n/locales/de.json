@@ -470,6 +470,7 @@
   },
   "transaction": {
     "back": "Zurück",
+    "account": "Konto",
     "otherParty": "Empfänger / Absender",
     "recipient": "Empfänger",
     "sender": "Absender",

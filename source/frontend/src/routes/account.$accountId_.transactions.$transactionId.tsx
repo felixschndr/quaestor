@@ -19,7 +19,7 @@ import { toast } from 'sonner'
 
 import type { TransactionDetailRead, TransactionRead } from '@/lib/accountHistory'
 import { findAccountInUser } from '@/lib/accountHistory'
-import { formatDate, formatEuro } from '@/lib/format'
+import { formatDate, formatEuro, formatIban, isIban } from '@/lib/format'
 import {
   TRANSACTION_CATEGORIES,
   useTransaction,
@@ -67,10 +67,14 @@ function TransactionDetailPage() {
     ? counterpartAccount.display_name?.trim() || counterpartAccount.name
     : null
 
+  const account = findAccountInUser(user, accountId)?.account
+  const accountName = account ? account.display_name?.trim() || account.name : null
+
   return (
     <TransactionDetailView
       accountId={accountId}
       transaction={query.data}
+      accountName={accountName}
       counterpartAccountName={counterpartAccountName}
       onSaveNote={(note) => update.mutateAsync({ note })}
       onChangeCategory={(category) => update.mutateAsync({ category })}
@@ -92,6 +96,7 @@ function TransactionNotFoundView({ accountId }: { accountId: number }) {
 export interface TransactionDetailViewProps {
   accountId: number
   transaction: TransactionDetailRead
+  accountName?: string | null
   counterpartAccountName?: string | null
   /** Receives `null` when the user clears the note (per §3.4: empty = delete). */
   onSaveNote: (note: string | null) => Promise<unknown>
@@ -102,6 +107,7 @@ export interface TransactionDetailViewProps {
 export function TransactionDetailView({
   accountId,
   transaction,
+  accountName,
   counterpartAccountName,
   onSaveNote,
   onChangeCategory,
@@ -160,6 +166,19 @@ export function TransactionDetailView({
             onUnlink={onUnlink}
           />
         ) : null}
+        <DetailRow label={t('transaction.account')}>
+          {accountName?.trim() ? (
+            <Link
+              to="/account/$accountId"
+              params={{ accountId: String(accountId) }}
+              className="text-primary hover:text-primary/80 transition-colors"
+            >
+              {isIban(accountName) ? formatIban(accountName) : accountName}
+            </Link>
+          ) : (
+            <EmptyValue />
+          )}
+        </DetailRow>
         {transaction.pending ? null : (
           <DetailRow label={t('transaction.note')} align="start">
             <NoteEditor remoteNote={transaction.note ?? ''} onSave={onSaveNote} />
