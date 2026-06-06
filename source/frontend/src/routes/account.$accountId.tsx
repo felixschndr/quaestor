@@ -327,9 +327,9 @@ export function AccountDetailView({
                 to="/account/$accountId/search"
                 params={{ accountId: String(account.id) }}
                 aria-label={t('account.search')}
-                className="text-primary hover:text-primary/80 rounded-md p-1.5 transition-colors"
+                className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
               >
-                <Search className="size-5" />
+                <Search className="search-icon-zoom size-5" />
               </Link>
             </div>
           </header>
