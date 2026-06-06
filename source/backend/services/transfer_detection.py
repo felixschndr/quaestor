@@ -1,7 +1,5 @@
-import asyncio
 from datetime import timedelta
 
-from source.backend.db import SessionLocal
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.credential import Credential
@@ -91,19 +89,3 @@ def detect_transfers_for_user(db_session: Session, user: User) -> int:
 
     logger.info(f"Transfer detection for {user}: {created} new transfer pair(s)")
     return created
-
-
-def detect_all_transfers_sync() -> None:
-    with SessionLocal() as db_session:
-        users = list(db_session.scalars(select(User).where(User.id.in_(select(Credential.user_id).distinct()))))
-        logger.info(f"Running transfer detection for {len(users)} user(s) with credentials")
-        for user in users:
-            detect_transfers_for_user(db_session=db_session, user=user)
-        db_session.commit()
-
-
-async def run_startup_transfer_detection() -> None:
-    try:
-        await asyncio.to_thread(detect_all_transfers_sync)
-    except Exception:
-        logger.exception(message="Startup transfer detection crashed")

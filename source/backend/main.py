@@ -51,7 +51,6 @@ from source.backend.services import (
     playwright_browser,
     session_service,
     sync_scheduler,
-    transfer_detection,
 )
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Scope
@@ -69,7 +68,6 @@ load_dotenv()
 STARTUP_BACKGROUND_TASKS = (
     (bank_info_updater, "run_startup_update"),
     (category_rescan, "run_startup_rescan"),
-    (transfer_detection, "run_startup_transfer_detection"),
     (sync_scheduler, "run_periodic_sync"),
 )
 
