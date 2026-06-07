@@ -26,6 +26,10 @@ class ApiKeyNotFoundError(NotFoundError):
     pass
 
 
+class RecurringTransactionNotFoundError(NotFoundError):
+    pass
+
+
 class ValidationError(Exception):
     pass
 

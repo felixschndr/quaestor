@@ -6,6 +6,11 @@ from source.backend.api.schemas.account import (
     AccountRead,
     AccountUpdate,
 )
+from source.backend.api.schemas.recurring_transaction import (
+    RecurringTransactionCreate,
+    RecurringTransactionRead,
+    RecurringTransactionUpdate,
+)
 from source.backend.api.schemas.transaction import (
     TransactionCreate,
     TransactionDetailRead,
@@ -14,9 +19,15 @@ from source.backend.api.schemas.transaction import (
 )
 from source.backend.db import get_session
 from source.backend.models.account import Account
+from source.backend.models.recurring_transaction import RecurringTransaction
 from source.backend.models.transaction import Transaction
 from source.backend.models.user import User
-from source.backend.services import account_service, credential_service, session_service
+from source.backend.services import (
+    account_service,
+    credential_service,
+    recurring_transaction_service,
+    session_service,
+)
 from sqlalchemy.orm import Session
 
 router = create_router()
@@ -135,6 +146,63 @@ def update_transaction(
         account=account,
         transaction=transaction,
         fields=payload.model_dump(exclude_unset=True),
+    )
+
+
+@router.post("/{account_id}/recurring-transactions", response_model=RecurringTransactionRead, status_code=201)
+def create_recurring_transaction(
+    account_id: int,
+    payload: RecurringTransactionCreate,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> RecurringTransaction:
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
+    fields = payload.model_dump(exclude_unset=True, exclude={"book_immediately"})
+    return recurring_transaction_service.create_recurring_transaction(
+        db_session=db_session, account=account, fields=fields, book_immediately=payload.book_immediately
+    )
+
+
+@router.get("/{account_id}/recurring-transactions", response_model=list[RecurringTransactionRead])
+def list_recurring_transactions(
+    account_id: int,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> list[RecurringTransaction]:
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
+    return recurring_transaction_service.list_recurring_transactions(db_session=db_session, account=account)
+
+
+@router.patch(
+    "/{account_id}/recurring-transactions/{recurring_transaction_id}",
+    response_model=RecurringTransactionRead,
+)
+def update_recurring_transaction(
+    account_id: int,
+    recurring_transaction_id: int,
+    payload: RecurringTransactionUpdate,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> RecurringTransaction:
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
+    return recurring_transaction_service.update_recurring_transaction(
+        db_session=db_session,
+        account=account,
+        recurring_transaction_id=recurring_transaction_id,
+        fields=payload.model_dump(),
+    )
+
+
+@router.delete("/{account_id}/recurring-transactions/{recurring_transaction_id}", status_code=204)
+def delete_recurring_transaction(
+    account_id: int,
+    recurring_transaction_id: int,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> None:
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
+    recurring_transaction_service.delete_recurring_transaction(
+        db_session=db_session, account=account, recurring_transaction_id=recurring_transaction_id
     )
 
 

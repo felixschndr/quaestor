@@ -23,6 +23,7 @@ from sqlalchemy.orm import (
 
 if TYPE_CHECKING:
     from source.backend.models.credential import Credential
+    from source.backend.models.recurring_transaction import RecurringTransaction
     from source.backend.models.transaction import Transaction
 
 logger = get_logger(__name__)
@@ -52,6 +53,9 @@ class Account(Base):
     credential: Mapped["Credential"] = relationship(back_populates="accounts")
     group: Mapped["AccountGroup | None"] = relationship(back_populates="accounts")
     transactions: Mapped[List["Transaction"]] = relationship(back_populates="account", cascade="all, delete-orphan")
+    recurring_transactions: Mapped[List["RecurringTransaction"]] = relationship(
+        back_populates="account", cascade="all, delete-orphan"
+    )
     balance_at_date: Mapped[dict[date, "AccountBalanceSnapshot"]] = relationship(
         back_populates="account",
         cascade="all, delete-orphan",

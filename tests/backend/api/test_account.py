@@ -21,6 +21,7 @@ from tests.backend.conftest import (
     persist_account,
     persist_transaction,
     register,
+    setup_manual_account,
 )
 
 
@@ -919,4 +920,185 @@ def test_unlink_transfer_endpoint_404_for_foreign_account(http_client: TestClien
     login_as(http_client, user_name="intruder")
 
     response = http_client.delete(f"/api/account/{account_id}/transactions/{transaction_id}/transfer-link")
+    assert response.status_code == 404
+
+
+# --- recurring transactions ------------------------------------------------
+
+
+def test_create_recurring_transaction_schedules_rule_without_booking(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    account_id = setup_manual_account(http_client)
+
+    response = http_client.post(
+        f"/api/account/{account_id}/recurring-transactions",
+        json={
+            "amount": -50.0,
+            "purpose": "Rent",
+            "frequency": "MONTHLY",
+            "day_of_month": 28,
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["frequency"] == "MONTHLY"
+    assert body["day_of_month"] == 28
+    assert body["day_of_week"] is None
+    assert body["next_run_date"] is not None
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        assert account.balance == 100.0  # nothing booked yet
+        assert account.transactions == []
+
+
+def test_create_recurring_transaction_with_immediate_booking_books_today(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    account_id = setup_manual_account(http_client)
+
+    response = http_client.post(
+        f"/api/account/{account_id}/recurring-transactions",
+        json={
+            "amount": -50.0,
+            "frequency": "MONTHLY",
+            "day_of_month": 15,
+            "book_immediately": True,
+        },
+    )
+
+    assert response.status_code == 201
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        assert account.balance == 50.0
+        assert len(account.transactions) == 1
+        assert account.transactions[0].date == date.today()
+
+
+def test_create_recurring_transaction_rejects_non_manual_account(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    ing_credential_id = create_credential(http_client).json()["id"]
+    account_id = persist_account(session_factory=session_factory, credential_id=ing_credential_id)
+
+    response = http_client.post(
+        f"/api/account/{account_id}/recurring-transactions",
+        json={"amount": 10.0, "frequency": "WEEKLY", "day_of_week": 0},
+    )
+
+    assert response.status_code == 403
+
+
+def test_create_recurring_transaction_requires_account_of_user(http_client: TestClient):
+    register(http_client)
+
+    response = http_client.post(
+        "/api/account/999999/recurring-transactions",
+        json={"amount": 10.0, "frequency": "WEEKLY", "day_of_week": 0},
+    )
+
+    assert response.status_code == 404
+
+
+def test_create_recurring_transaction_rejects_monthly_without_day(http_client: TestClient):
+    register(http_client)
+    account_id = setup_manual_account(http_client)
+
+    response = http_client.post(
+        f"/api/account/{account_id}/recurring-transactions",
+        json={"amount": -50.0, "frequency": "MONTHLY"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_recurring_transaction_rejects_weekly_without_day(http_client: TestClient):
+    register(http_client)
+    account_id = setup_manual_account(http_client)
+
+    response = http_client.post(
+        f"/api/account/{account_id}/recurring-transactions",
+        json={"amount": -50.0, "frequency": "WEEKLY"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_list_recurring_transactions_returns_rules(http_client: TestClient):
+    register(http_client)
+    account_id = setup_manual_account(http_client)
+    http_client.post(
+        f"/api/account/{account_id}/recurring-transactions",
+        json={"amount": -50.0, "frequency": "MONTHLY", "day_of_month": 1},
+    )
+    http_client.post(
+        f"/api/account/{account_id}/recurring-transactions",
+        json={"amount": 1000.0, "frequency": "WEEKLY", "day_of_week": 4},
+    )
+
+    response = http_client.get(f"/api/account/{account_id}/recurring-transactions")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 2
+    assert {rule["frequency"] for rule in body} == {"MONTHLY", "WEEKLY"}
+
+
+def test_update_recurring_transaction_changes_schedule(http_client: TestClient):
+    register(http_client)
+    account_id = setup_manual_account(http_client)
+    rule_id = http_client.post(
+        f"/api/account/{account_id}/recurring-transactions",
+        json={"amount": -50.0, "frequency": "MONTHLY", "day_of_month": 1},
+    ).json()["id"]
+
+    response = http_client.patch(
+        f"/api/account/{account_id}/recurring-transactions/{rule_id}",
+        json={"amount": -75.0, "frequency": "WEEKLY", "day_of_week": 3},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["amount"] == -75.0
+    assert body["frequency"] == "WEEKLY"
+    assert body["day_of_week"] == 3
+    assert body["day_of_month"] is None
+
+
+def test_update_recurring_transaction_unknown_returns_404(http_client: TestClient):
+    register(http_client)
+    account_id = setup_manual_account(http_client)
+
+    response = http_client.patch(
+        f"/api/account/{account_id}/recurring-transactions/999999",
+        json={"amount": 1.0, "frequency": "WEEKLY", "day_of_week": 0},
+    )
+
+    assert response.status_code == 404
+
+
+def test_delete_recurring_transaction_removes_rule(http_client: TestClient):
+    register(http_client)
+    account_id = setup_manual_account(http_client)
+    rule_id = http_client.post(
+        f"/api/account/{account_id}/recurring-transactions",
+        json={"amount": -50.0, "frequency": "MONTHLY", "day_of_month": 1},
+    ).json()["id"]
+
+    response = http_client.delete(f"/api/account/{account_id}/recurring-transactions/{rule_id}")
+
+    assert response.status_code == 204
+    assert http_client.get(f"/api/account/{account_id}/recurring-transactions").json() == []
+
+
+def test_delete_unknown_recurring_transaction_returns_404(http_client: TestClient):
+    register(http_client)
+    account_id = setup_manual_account(http_client)
+
+    response = http_client.delete(f"/api/account/{account_id}/recurring-transactions/999999")
+
     assert response.status_code == 404

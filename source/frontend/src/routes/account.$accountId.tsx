@@ -15,6 +15,11 @@ import {
 import { useUpdateAccount } from '@/lib/accounts'
 import { useDeleteTransaction } from '@/lib/transaction'
 import {
+  useDeleteRecurringTransaction,
+  useRecurringTransactions,
+  type RecurringTransactionRead,
+} from '@/lib/recurringTransaction'
+import {
   formatDate,
   formatDecimal,
   formatEuro,
@@ -377,6 +382,8 @@ export function AccountDetailView({
           />
         ) : null}
 
+        {isManual ? <RecurringTransactionsList accountId={account.id} /> : null}
+
         {hasAnyTransactions ? (
           <TransactionGroupList
             accountId={account.id}
@@ -733,6 +740,138 @@ function TransactionRow({
         )}
       >
         {formatEuro(transaction.amount)}
+      </span>
+      {confirmingDelete ? (
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="destructive"
+            onClick={() => void onDelete()}
+            disabled={remove.isPending}
+          >
+            {t('credentials.manualTransactions.deleteConfirm')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setConfirmingDelete(false)}
+            disabled={remove.isPending}
+          >
+            {t('credentials.manualTransactions.cancel')}
+          </Button>
+        </div>
+      ) : (
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setEditing(true)}
+            aria-label={t('credentials.manualTransactions.edit')}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Pencil className="size-3.5" aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setConfirmingDelete(true)}
+            aria-label={t('credentials.manualTransactions.delete')}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="size-3.5" aria-hidden="true" />
+          </Button>
+        </div>
+      )}
+    </li>
+  )
+}
+
+function RecurringTransactionsList({ accountId }: { accountId: number }) {
+  const { t } = useTranslation()
+  const { data: rules } = useRecurringTransactions(accountId)
+
+  if (!rules || rules.length === 0) return null
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+        {t('credentials.manualTransactions.recurringTitle')}
+      </h2>
+      <ul className="border-border divide-border bg-card flex flex-col divide-y rounded-lg border">
+        {rules.map((rule) => (
+          <RecurringTransactionRow key={rule.id} accountId={accountId} rule={rule} />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function RecurringTransactionRow({
+  accountId,
+  rule,
+}: {
+  accountId: number
+  rule: RecurringTransactionRead
+}) {
+  const { t } = useTranslation()
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const remove = useDeleteRecurringTransaction(accountId)
+  const negative = rule.amount < 0
+
+  const frequencyLabel = t(`credentials.manualTransactions.frequency.${rule.frequency}`)
+  const scheduleSummary =
+    rule.frequency === 'MONTHLY'
+      ? t('credentials.manualTransactions.dayOfMonthSummary', {
+          day: String(rule.day_of_month).padStart(2, '0'),
+        })
+      : t(`credentials.manualTransactions.weekday.${rule.day_of_week}`)
+
+  const onDelete = async () => {
+    try {
+      await remove.mutateAsync(rule.id)
+      toast.success(t('credentials.manualTransactions.recurringDeleted'))
+    } catch {
+      toast.error(t('credentials.manualTransactions.recurringDeleteFailed'))
+      setConfirmingDelete(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <li className="p-2">
+        <ManualTransactionForm
+          accountId={accountId}
+          mode="edit"
+          recurringTransaction={rule}
+          onDone={() => setEditing(false)}
+        />
+      </li>
+    )
+  }
+
+  return (
+    <li className="flex items-center gap-3 px-3 py-3">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-medium">
+          {rule.other_party?.trim() || frequencyLabel}
+        </span>
+        <span className="text-muted-foreground text-xs">
+          {scheduleSummary} · {t('credentials.manualTransactions.nextRun')}:{' '}
+          {formatDate(rule.next_run_date)}
+        </span>
+      </div>
+      <span
+        className={cn(
+          'text-sm font-semibold tabular-nums',
+          negative ? 'text-destructive' : 'text-success',
+        )}
+      >
+        {formatEuro(rule.amount)}
       </span>
       {confirmingDelete ? (
         <div className="flex gap-1">

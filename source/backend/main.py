@@ -49,6 +49,7 @@ from source.backend.services import (
     category_rescan,
     migrations,
     playwright_browser,
+    recurring_transaction_scheduler,
     session_service,
     sync_scheduler,
 )
@@ -69,6 +70,7 @@ STARTUP_BACKGROUND_TASKS = (
     (bank_info_updater, "run_startup_update"),
     (category_rescan, "run_startup_rescan"),
     (sync_scheduler, "run_periodic_sync"),
+    (recurring_transaction_scheduler, "run_periodic_recurring"),
 )
 
 

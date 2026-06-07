@@ -181,7 +181,9 @@ def _reject_future_date(value: date) -> None:
         raise ValidationError(f"Manual transactions cannot have a future date (got {value.isoformat()})")
 
 
-def create_manual_transaction(db_session: Session, account: Account, fields: dict) -> Transaction:
+def create_manual_transaction(
+    db_session: Session, account: Account, fields: dict, recurring_transaction_id: int | None = None
+) -> Transaction:
     _require_manual_account(account)
     _reject_future_date(fields["date"])
     transaction = Transaction(
@@ -192,6 +194,7 @@ def create_manual_transaction(db_session: Session, account: Account, fields: dic
         other_party=fields.get("other_party"),
         transaction_type=fields.get("transaction_type"),
         note=fields.get("note"),
+        recurring_transaction_id=recurring_transaction_id,
     )
     if fields.get("category") is not None:
         transaction.category = fields["category"]

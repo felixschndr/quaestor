@@ -381,6 +381,16 @@ def setup_account(http_client: TestClient, session_factory: sessionmaker) -> int
     return persist_account(session_factory=session_factory, credential_id=credential_id)
 
 
+def setup_manual_account(http_client: TestClient, *, balance: float = 100.0) -> int:
+    """Create a manual credential and one manual account through the API; return its id.
+    Assumes a user is already registered/logged in on the client."""
+    credential_id = create_credential(http_client, bank="manual", credentials={}).json()["id"]
+    return http_client.post(
+        "/api/account",
+        json={"credential_id": credential_id, "name": "Wallet", "balance": balance},
+    ).json()["id"]
+
+
 def seed_for_categories(session_factory: sessionmaker, account_id: int) -> None:
     """Seed a representative spread for category statistics: two supermarket and one
     restaurant expense, one salary income, plus a pending expense that must be ignored."""

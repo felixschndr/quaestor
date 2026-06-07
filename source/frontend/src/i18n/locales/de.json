@@ -392,7 +392,35 @@
       "fieldType": "Typ",
       "fieldCategory": "Kategorie",
       "fieldNote": "Notiz",
-      "anyOption": "Beliebig"
+      "anyOption": "Beliebig",
+      "fieldRecurring": "Wiederkehrend",
+      "fieldFrequency": "Häufigkeit",
+      "fieldDayOfMonth": "Tag des Monats",
+      "fieldDayOfWeek": "Wochentag",
+      "dayOfMonthHint": "Hat ein Monat diesen Tag nicht (z.B. 30. im Februar), wird die Transaktion am letzten Tag des Monats gebucht.",
+      "bookToday": "Erste Buchung heute erstellen",
+      "recurringTitle": "Wiederkehrende Transaktionen",
+      "nextRun": "Nächste",
+      "recurringCreated": "Wiederkehrende Transaktion angelegt",
+      "recurringCreateFailed": "Wiederkehrende Transaktion konnte nicht angelegt werden.",
+      "recurringUpdated": "Wiederkehrende Transaktion gespeichert",
+      "recurringUpdateFailed": "Wiederkehrende Transaktion konnte nicht gespeichert werden.",
+      "recurringDeleted": "Wiederkehrende Transaktion gelöscht",
+      "recurringDeleteFailed": "Wiederkehrende Transaktion konnte nicht gelöscht werden.",
+      "dayOfMonthSummary": "{{day}}. des Monats",
+      "frequency": {
+        "MONTHLY": "Monatlich",
+        "WEEKLY": "Wöchentlich"
+      },
+      "weekday": {
+        "0": "Montag",
+        "1": "Dienstag",
+        "2": "Mittwoch",
+        "3": "Donnerstag",
+        "4": "Freitag",
+        "5": "Samstag",
+        "6": "Sonntag"
+      }
     }
   },
   "attributions": {

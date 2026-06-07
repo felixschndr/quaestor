@@ -45,6 +45,10 @@ class Transaction(Base):
     transfer_original_type: Mapped[TransactionType | None] = mapped_column(SQLEnum(TransactionType), nullable=True)
     transfer_relink_blocked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
+    recurring_transaction_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recurring_transactions.id", ondelete="SET NULL"), nullable=True
+    )
+
     transfer_counterpart: Mapped["Transaction | None"] = relationship(
         "Transaction",
         remote_side=[id],

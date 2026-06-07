@@ -392,7 +392,35 @@
       "fieldType": "Type",
       "fieldCategory": "Category",
       "fieldNote": "Note",
-      "anyOption": "Any"
+      "anyOption": "Any",
+      "fieldRecurring": "Recurring",
+      "fieldFrequency": "Frequency",
+      "fieldDayOfMonth": "Day of month",
+      "fieldDayOfWeek": "Weekday",
+      "dayOfMonthHint": "If a month doesn't have this day (e.g. 30th of February), the transaction is booked on the last day of that month.",
+      "bookToday": "Book first transaction today",
+      "recurringTitle": "Recurring transactions",
+      "nextRun": "Next",
+      "recurringCreated": "Recurring transaction created",
+      "recurringCreateFailed": "Could not create recurring transaction.",
+      "recurringUpdated": "Recurring transaction saved",
+      "recurringUpdateFailed": "Could not save recurring transaction.",
+      "recurringDeleted": "Recurring transaction deleted",
+      "recurringDeleteFailed": "Could not delete recurring transaction.",
+      "dayOfMonthSummary": "Day {{day}} of the month",
+      "frequency": {
+        "MONTHLY": "Monthly",
+        "WEEKLY": "Weekly"
+      },
+      "weekday": {
+        "0": "Monday",
+        "1": "Tuesday",
+        "2": "Wednesday",
+        "3": "Thursday",
+        "4": "Friday",
+        "5": "Saturday",
+        "6": "Sunday"
+      }
     }
   },
   "attributions": {

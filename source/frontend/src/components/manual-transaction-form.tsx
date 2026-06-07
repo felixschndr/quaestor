@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { Info } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { formatDecimal } from '@/lib/format'
+import { Switch } from '@/components/ui/switch'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   TRANSACTION_CATEGORIES,
   TRANSACTION_TYPES,
@@ -15,7 +17,39 @@ import {
   type TransactionPatch,
   type TransactionType,
 } from '@/lib/transaction'
+import {
+  RECURRENCE_FREQUENCIES,
+  useCreateRecurringTransaction,
+  useUpdateRecurringTransaction,
+  type RecurrenceFrequency,
+  type RecurringTransactionRead,
+} from '@/lib/recurringTransaction'
 import type { TransactionRead } from '@/lib/accountHistory'
+
+const MONTH_DAYS = Array.from({ length: 31 }, (_, index) => index + 1)
+const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] // 0 = Monday, 6 = Sunday
+
+const SELECT_CLASS =
+  'border-input dark:bg-input/30 h-8 rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+
+function openSelectOnEnter(event: React.KeyboardEvent<HTMLSelectElement>): void {
+  if (event.key !== 'Enter') return
+  event.preventDefault()
+  try {
+    event.currentTarget.showPicker()
+  } catch {
+    // showPicker() isn't available in every browser; the form's keydown guard
+    // still prevents an accidental submit, so there's nothing else to do.
+  }
+}
+
+function formatAmount(value: number): string {
+  return value.toLocaleString('de-DE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  })
+}
 
 function todayIso(): string {
   const now = new Date()
@@ -28,41 +62,56 @@ function todayIso(): string {
 interface ManualTransactionFormProps {
   accountId: number
   mode: 'create' | 'edit'
-  /** Required in 'edit' mode — the txn to seed defaults from and PATCH. */
   transaction?: TransactionRead
+  recurringTransaction?: RecurringTransactionRead
   onDone: () => void
 }
 
-/**
- * Form for creating or editing a manual transaction. Used in two places: the
- * account detail page's "add transaction" affordance and per-row edit toggles.
- * Mode is the only thing that differs — the field layout, validation, and
- * change-tracking logic are shared.
- */
 export function ManualTransactionForm({
   accountId,
   mode,
   transaction,
+  recurringTransaction,
   onDone,
 }: ManualTransactionFormProps) {
   const { t } = useTranslation()
+  const isRecurringEdit = mode === 'edit' && !!recurringTransaction
+  const seed = recurringTransaction ?? transaction
   const [date, setDate] = useState(transaction?.date ?? todayIso())
-  const [amount, setAmount] = useState(
-    transaction?.amount !== undefined ? String(transaction.amount) : '',
-  )
-  const [purpose, setPurpose] = useState(transaction?.purpose ?? '')
-  const [otherParty, setOtherParty] = useState(transaction?.other_party ?? '')
+  const [amount, setAmount] = useState(seed?.amount !== undefined ? formatAmount(seed.amount) : '')
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false)
+  const [purpose, setPurpose] = useState(seed?.purpose ?? '')
+  const [otherParty, setOtherParty] = useState(seed?.other_party ?? '')
   const [txnType, setTxnType] = useState<TransactionType | ''>(
-    (transaction?.transaction_type as TransactionType | undefined) ?? '',
+    (seed?.transaction_type as TransactionType | undefined) ?? '',
   )
   const [category, setCategory] = useState<TransactionCategory | ''>(
-    (transaction?.category as TransactionCategory | undefined) ?? '',
+    (seed?.category as TransactionCategory | undefined) ?? '',
   )
-  const [note, setNote] = useState(transaction?.note ?? '')
+  const [note, setNote] = useState(seed?.note ?? '')
+
+  const [recurring, setRecurring] = useState(isRecurringEdit)
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>(
+    recurringTransaction?.frequency ?? 'MONTHLY',
+  )
+  const [dayOfMonth, setDayOfMonth] = useState(
+    () => recurringTransaction?.day_of_month ?? new Date().getDate(),
+  )
+  const [dayOfWeek, setDayOfWeek] = useState(recurringTransaction?.day_of_week ?? 0) // Monday
+  const [bookToday, setBookToday] = useState(false)
 
   const create = useCreateTransaction(accountId)
   const update = useUpdateTransaction(accountId, transaction?.id ?? 0)
-  const pending = mode === 'create' ? create.isPending : update.isPending
+  const createRecurring = useCreateRecurringTransaction(accountId)
+  const updateRecurring = useUpdateRecurringTransaction(accountId)
+  const pending =
+    mode === 'create'
+      ? recurring
+        ? createRecurring.isPending
+        : create.isPending
+      : isRecurringEdit
+        ? updateRecurring.isPending
+        : update.isPending
 
   const parsedAmount = Number(amount.replace(',', '.'))
   const validAmount = amount.trim() !== '' && Number.isFinite(parsedAmount)
@@ -71,18 +120,54 @@ export function ManualTransactionForm({
   // date > today, so mirror that client-side: the date picker's `max` keeps
   // the UI honest and canSubmit guards the case where the user types it.
   const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date) && date <= today
-  const canSubmit = validAmount && validDate && !pending
+  const canSubmit = validAmount && (recurring || validDate) && !pending
 
   const submit = async () => {
-    if (!canSubmit) return
+    if (!canSubmit) {
+      setAttemptedSubmit(true)
+      return
+    }
     const trimmedPurpose = purpose.trim() === '' ? null : purpose.trim()
     const trimmedOther = otherParty.trim() === '' ? null : otherParty.trim()
     const trimmedNote = note.trim() === '' ? null : note.trim()
     const txnTypeValue = txnType === '' ? null : txnType
     const categoryValue = category === '' ? null : category
 
+    const schedule = {
+      day_of_month: frequency === 'MONTHLY' ? dayOfMonth : null,
+      day_of_week: frequency === 'WEEKLY' ? dayOfWeek : null,
+    }
+
     try {
-      if (mode === 'create') {
+      if (mode === 'edit' && recurringTransaction) {
+        await updateRecurring.mutateAsync({
+          recurringTransactionId: recurringTransaction.id,
+          payload: {
+            amount: parsedAmount,
+            purpose: trimmedPurpose,
+            other_party: trimmedOther,
+            transaction_type: txnTypeValue,
+            category: categoryValue,
+            note: trimmedNote,
+            frequency,
+            ...schedule,
+          },
+        })
+        toast.success(t('credentials.manualTransactions.recurringUpdated'))
+      } else if (mode === 'create' && recurring) {
+        await createRecurring.mutateAsync({
+          amount: parsedAmount,
+          purpose: trimmedPurpose,
+          other_party: trimmedOther,
+          transaction_type: txnTypeValue,
+          category: categoryValue,
+          note: trimmedNote,
+          frequency,
+          ...schedule,
+          book_immediately: bookToday,
+        })
+        toast.success(t('credentials.manualTransactions.recurringCreated'))
+      } else if (mode === 'create') {
         await create.mutateAsync({
           amount: parsedAmount,
           date,
@@ -115,14 +200,18 @@ export function ManualTransactionForm({
       onDone()
     } catch {
       toast.error(
-        mode === 'create'
-          ? t('credentials.manualTransactions.createFailed')
-          : t('credentials.manualTransactions.updateFailed'),
+        isRecurringEdit
+          ? t('credentials.manualTransactions.recurringUpdateFailed')
+          : mode === 'create'
+            ? recurring
+              ? t('credentials.manualTransactions.recurringCreateFailed')
+              : t('credentials.manualTransactions.createFailed')
+            : t('credentials.manualTransactions.updateFailed'),
       )
     }
   }
 
-  const fieldIdPrefix = `txn-form-${mode}-${transaction?.id ?? 'new'}`
+  const fieldIdPrefix = `txn-form-${mode}-${recurringTransaction ? 'rec' : 'txn'}-${transaction?.id ?? recurringTransaction?.id ?? 'new'}`
 
   return (
     <form
@@ -130,35 +219,60 @@ export function ManualTransactionForm({
         event.preventDefault()
         void submit()
       }}
+      onKeyDown={(event) => {
+        const target = event.target as HTMLElement
+        if (event.key === 'Enter' && target.tagName !== 'BUTTON' && target.tagName !== 'TEXTAREA') {
+          event.preventDefault()
+        }
+      }}
       className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4"
     >
-      <div className="grid grid-cols-2 gap-3">
-        <FormField
-          id={`${fieldIdPrefix}-date`}
-          label={t('credentials.manualTransactions.fieldDate')}
-        >
-          <Input
-            id={`${fieldIdPrefix}-date`}
-            type="date"
-            value={date}
-            max={today}
-            onChange={(event) => setDate(event.target.value)}
-            aria-invalid={!validDate || undefined}
+      {mode === 'create' ? (
+        <div className="flex items-center justify-between gap-2">
+          <Label
+            htmlFor={`${fieldIdPrefix}-recurring`}
+            className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
+          >
+            {t('credentials.manualTransactions.fieldRecurring')}
+          </Label>
+          <Switch
+            id={`${fieldIdPrefix}-recurring`}
+            checked={recurring}
+            onCheckedChange={setRecurring}
           />
-        </FormField>
+        </div>
+      ) : null}
+      <div className={recurring ? '' : 'grid grid-cols-2 gap-3'}>
+        {recurring ? null : (
+          <FormField
+            id={`${fieldIdPrefix}-date`}
+            label={t('credentials.manualTransactions.fieldDate')}
+          >
+            <Input
+              id={`${fieldIdPrefix}-date`}
+              type="date"
+              value={date}
+              max={today}
+              onChange={(event) => setDate(event.target.value)}
+              aria-invalid={(attemptedSubmit && !validDate) || undefined}
+            />
+          </FormField>
+        )}
         <FormField
           id={`${fieldIdPrefix}-amount`}
           label={t('credentials.manualTransactions.fieldAmount')}
         >
           <Input
             id={`${fieldIdPrefix}-amount`}
-            type="number"
+            type="text"
             inputMode="decimal"
-            step="0.01"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
-            placeholder={formatDecimal(0)}
-            aria-invalid={!validAmount || undefined}
+            onBlur={() => {
+              if (validAmount) setAmount(formatAmount(parsedAmount))
+            }}
+            placeholder={formatAmount(0)}
+            aria-invalid={(attemptedSubmit && !validAmount) || undefined}
           />
         </FormField>
       </div>
@@ -191,7 +305,8 @@ export function ManualTransactionForm({
             id={`${fieldIdPrefix}-type`}
             value={txnType}
             onChange={(event) => setTxnType(event.target.value as TransactionType | '')}
-            className="border-input bg-background h-9 rounded-md border px-2 text-sm"
+            className={SELECT_CLASS}
+            onKeyDown={openSelectOnEnter}
           >
             <option value="">{t('credentials.manualTransactions.anyOption')}</option>
             {TRANSACTION_TYPES.map((type) => (
@@ -209,7 +324,8 @@ export function ManualTransactionForm({
             id={`${fieldIdPrefix}-category`}
             value={category}
             onChange={(event) => setCategory(event.target.value as TransactionCategory | '')}
-            className="border-input bg-background h-9 rounded-md border px-2 text-sm"
+            className={SELECT_CLASS}
+            onKeyDown={openSelectOnEnter}
           >
             <option value="">{t('credentials.manualTransactions.anyOption')}</option>
             {TRANSACTION_CATEGORIES.map((cat) => (
@@ -227,14 +343,102 @@ export function ManualTransactionForm({
           onChange={(event) => setNote(event.target.value)}
         />
       </FormField>
+      {recurring ? (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField
+              id={`${fieldIdPrefix}-frequency`}
+              label={t('credentials.manualTransactions.fieldFrequency')}
+            >
+              <select
+                id={`${fieldIdPrefix}-frequency`}
+                value={frequency}
+                onChange={(event) => setFrequency(event.target.value as RecurrenceFrequency)}
+                className={SELECT_CLASS}
+                onKeyDown={openSelectOnEnter}
+              >
+                {RECURRENCE_FREQUENCIES.map((freq) => (
+                  <option key={freq} value={freq}>
+                    {t(`credentials.manualTransactions.frequency.${freq}`)}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            {frequency === 'MONTHLY' ? (
+              <FormField
+                id={`${fieldIdPrefix}-day-of-month`}
+                label={t('credentials.manualTransactions.fieldDayOfMonth')}
+                hint={<InfoHint text={t('credentials.manualTransactions.dayOfMonthHint')} />}
+              >
+                <select
+                  id={`${fieldIdPrefix}-day-of-month`}
+                  value={dayOfMonth}
+                  onChange={(event) => setDayOfMonth(Number(event.target.value))}
+                  className={SELECT_CLASS}
+                  onKeyDown={openSelectOnEnter}
+                >
+                  {MONTH_DAYS.map((day) => (
+                    <option key={day} value={day}>
+                      {String(day).padStart(2, '0')}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            ) : (
+              <FormField
+                id={`${fieldIdPrefix}-day-of-week`}
+                label={t('credentials.manualTransactions.fieldDayOfWeek')}
+              >
+                <select
+                  id={`${fieldIdPrefix}-day-of-week`}
+                  value={dayOfWeek}
+                  onChange={(event) => setDayOfWeek(Number(event.target.value))}
+                  className={SELECT_CLASS}
+                  onKeyDown={openSelectOnEnter}
+                >
+                  {WEEKDAYS.map((day) => (
+                    <option key={day} value={day}>
+                      {t(`credentials.manualTransactions.weekday.${day}`)}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            )}
+          </div>
+          {/* "Book today" is a one-off action only relevant when creating a rule. */}
+          {mode === 'create' ? (
+            <div className="flex items-center justify-between gap-2">
+              <Label
+                htmlFor={`${fieldIdPrefix}-book-today`}
+                className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
+              >
+                {t('credentials.manualTransactions.bookToday')}
+              </Label>
+              <Switch
+                id={`${fieldIdPrefix}-book-today`}
+                checked={bookToday}
+                onCheckedChange={setBookToday}
+              />
+            </div>
+          ) : null}
+        </>
+      ) : null}
       <div className="flex gap-2">
-        <Button type="submit" disabled={!canSubmit}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onDone}
+          disabled={pending}
+          className="flex-1"
+        >
+          {t('credentials.manualTransactions.cancel')}
+        </Button>
+        {/* Enabled even when invalid so a save attempt can surface the
+            validation state (e.g. an empty amount turns red). */}
+        <Button type="submit" disabled={pending} className="flex-1">
           {pending
             ? t('credentials.manualTransactions.saving')
             : t('credentials.manualTransactions.save')}
-        </Button>
-        <Button type="button" variant="outline" onClick={onDone} disabled={pending}>
-          {t('credentials.manualTransactions.cancel')}
         </Button>
       </div>
     </form>
@@ -244,21 +448,51 @@ export function ManualTransactionForm({
 function FormField({
   id,
   label,
+  hint,
   children,
 }: {
   id: string
   label: string
+  hint?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label
-        htmlFor={id}
-        className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
-      >
-        {label}
-      </Label>
+      <div className="flex items-center gap-1">
+        <Label
+          htmlFor={id}
+          className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
+        >
+          {label}
+        </Label>
+        {hint}
+      </div>
       {children}
     </div>
+  )
+}
+
+function InfoHint({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={text}
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Info className="size-3.5" aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="text-muted-foreground max-w-60 text-xs"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        {text}
+      </PopoverContent>
+    </Popover>
   )
 }
