@@ -1,3 +1,4 @@
+import logging
 from datetime import date as _date
 from datetime import datetime
 from pathlib import Path
@@ -46,6 +47,13 @@ LAST_FETCHING_TIMESTAMP = datetime(year=2026, month=1, day=1)
 TRANSACTION_DATE = _date(year=2026, month=5, day=20)
 TWO_FACTOR_SECRET = "T2UXK5D6ZPTJ3WF2YXHYGGXKIT2G5LUH"  # nosec B105  # gitleaks:allow
 UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def silence_application_log_output():
+    root = logging.getLogger()
+    for handler in [handler for handler in root.handlers if not type(handler).__module__.startswith("_pytest")]:
+        root.removeHandler(handler)
 
 
 @pytest.fixture(autouse=True)
