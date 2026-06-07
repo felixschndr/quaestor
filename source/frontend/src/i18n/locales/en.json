@@ -568,6 +568,7 @@
     },
     "netWorth": {
       "title": "Net worth over time",
+      "viewTransactions": "View all transactions in this chart",
       "value": "Net worth",
       "min": "Minimum",
       "average": "Average",

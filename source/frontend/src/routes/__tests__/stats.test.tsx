@@ -115,6 +115,19 @@ describe('StatsView', () => {
     expect(onChange.mock.calls.at(-1)?.[0].chartType).toBe('pie')
   })
 
+  it('opens the search for every net-worth transaction (no direction/category) via the arrow', async () => {
+    const user = userEvent.setup()
+    const { onOpenSearch } = renderView()
+
+    await user.click(screen.getByRole('button', { name: 'View all transactions in this chart' }))
+
+    expect(onOpenSearch).toHaveBeenCalledTimes(1)
+    const drill = onOpenSearch.mock.calls[0][0]
+    expect(drill.accountIds).toEqual([42])
+    expect(drill.direction).toBeUndefined()
+    expect(drill.category).toBeUndefined()
+  })
+
   it('defaults direction to OUTGOING (expense focus)', async () => {
     const user = userEvent.setup()
     const { onChange } = renderView()

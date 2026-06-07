@@ -11,6 +11,7 @@ import { CategoryChart } from '@/components/stats/category-chart'
 import { CategoryMultiSelect } from '@/components/stats/category-multi-select'
 import { CashflowChart } from '@/components/stats/cashflow-chart'
 import { ChartCard } from '@/components/stats/chart-card'
+import { DrillArrowIcon } from '@/components/stats/chart-parts'
 import { OtherPartyChart } from '@/components/stats/other-party-chart'
 import { NetSavingsChart } from '@/components/stats/net-savings-chart'
 import { NetWorthChart } from '@/components/stats/net-worth-chart'
@@ -121,7 +122,7 @@ export interface StatsDrilldown {
   accountIds: number[]
   dateFrom?: string
   dateTo?: string
-  direction: StatsDirection
+  direction?: StatsDirection
   category?: TransactionCategory
   text?: string
 }
@@ -220,6 +221,11 @@ export function StatsView({ credentials, search, onChange, onOpenSearch }: Stats
       ...extra,
     })
 
+  // Net worth covers every transaction in the selected accounts over the range
+  // (no category/direction), so its drill omits both to show exactly those.
+  const openNetWorthSearch = () =>
+    onOpenSearch({ accountIds, dateFrom: filters.date_from, dateTo: filters.date_to })
+
   const categories = useCategoryStats(accountIds, filters, direction, categoriesParam)
   const cashflow = useCashflowStats(accountIds, filters, categoriesParam)
   const netSavings = useNetSavingsStats(accountIds, filters, categoriesParam)
@@ -312,6 +318,16 @@ export function StatsView({ credentials, search, onChange, onOpenSearch }: Stats
             isLoading={netWorth.isLoading}
             isError={netWorth.isError}
             isEmpty={(netWorth.data?.series.length ?? 0) === 0}
+            action={
+              <button
+                type="button"
+                onClick={openNetWorthSearch}
+                aria-label={t('stats.netWorth.viewTransactions')}
+                className="stats-drill-arrow -m-1 rounded-md p-1"
+              >
+                <DrillArrowIcon />
+              </button>
+            }
           >
             <NetWorthChart
               data={netWorth.data?.series ?? []}

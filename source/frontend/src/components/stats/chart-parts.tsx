@@ -104,6 +104,28 @@ export interface ArrowTickProps {
   onSelect: (key: string) => void
 }
 
+function DrillChevronPath({ transform }: { transform?: string }) {
+  return (
+    <path
+      d="M0 -5 L5 0 L0 5"
+      transform={transform}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  )
+}
+
+export function DrillArrowIcon({ className }: { className?: string }) {
+  return (
+    <svg width={18} height={18} viewBox="0 0 18 18" aria-hidden="true" className={className}>
+      <DrillChevronPath transform="translate(6.5, 9)" />
+    </svg>
+  )
+}
+
 /**
  * Right-axis tick: a clickable chevron per row that drills into the filtered
  * transaction search. Rendered as a category-axis tick so it lines up exactly
@@ -120,14 +142,7 @@ export function ArrowTick({ x = 0, y = 0, payload, onSelect }: ArrowTickProps) {
       onClick={() => onSelect(key)}
     >
       <rect x={0} y={-11} width={22} height={22} fill="transparent" />
-      <path
-        d="M6 -5 L11 0 L6 5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.75}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <DrillChevronPath transform="translate(6, 0)" />
     </g>
   )
 }

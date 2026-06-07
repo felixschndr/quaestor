@@ -568,6 +568,7 @@
     },
     "netWorth": {
       "title": "Vermögensverlauf",
+      "viewTransactions": "Alle Transaktionen dieses Diagramms anzeigen",
       "value": "Vermögen",
       "min": "Minimum",
       "average": "Durchschnitt",
