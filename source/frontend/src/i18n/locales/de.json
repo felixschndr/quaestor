@@ -250,8 +250,7 @@
       "note": "Altersvorsorge bei fin4u. Es werden keine Einzeltransaktionen unterstützt, da die Webseite diese Informationen nicht bereitstellt."
     },
     "trade_republic": {
-      "title": "Trade Republic",
-      "note": "Die Telefonnummer muss im Format +491234567890 sein (mit '+' und Ländervorwahl, ohne Leerzeichen)."
+      "title": "Trade Republic"
     },
     "manual": {
       "title": "Manuelles Konto",

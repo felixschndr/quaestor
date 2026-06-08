@@ -250,8 +250,7 @@
       "note": "Retirement provisioning. There is no support for individual transactions as the frontend does not provide this information."
     },
     "trade_republic": {
-      "title": "Trade Republic",
-      "note": "The phone number has to be in the format +491234567890 (with '+' and country code and no spaces)."
+      "title": "Trade Republic"
     },
     "manual": {
       "title": "Manual account",
