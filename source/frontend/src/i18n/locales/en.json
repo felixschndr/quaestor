@@ -470,7 +470,7 @@
     "namePlaceholder": "e.g. My budgeting script",
     "nameRequired": "Please enter a name",
     "create": "Create API key",
-    "createdTitle": "Copy your API key now",
+    "createdTitle": "Copy your new API key now",
     "createdHint": "This is the only time the key is shown. Store it somewhere safe — you can't see it again.",
     "copy": "Copy",
     "copied": "Copied",

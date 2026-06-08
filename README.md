@@ -4,7 +4,7 @@
 
 Quaestor consolidates the balances and transactions from all your banks into a single view → no more juggling a separate app per bank. Click any account to browse its transactions, grouped by date.
 
-This app is heavily inspired by [Finanzguru](https://github.com/finanzguru/finanzguru), with the key benefit that it is completely free, open source, and **private** since all the data stays on your own server.
+This app is heavily inspired by [Finanzguru](https://finanzguru.de/), with the key benefit that it is completely free, open source, and **private** since all the data stays on your own server.
 
 The tool is strictly read-only: it only ever *reads* your data and can **never** make changes to your accounts or move money.
 
@@ -34,11 +34,23 @@ This app is primarily intended for German users. You can find the reason for thi
 
 <img src="docs/screenshots/account_manual.png" width="400" alt="Manual account">
 
+**Creation of Transaction in manual account**: Create a single or recurring transaction in your manual account
+
+<img src="docs/screenshots/account_manual_transaction.png" width="400" alt="Creation of Transaction in manual account">
+
 **Transaction**: The detail view of a transaction with a personal note
 
 <img src="docs/screenshots/transaction.png" width="400" alt="Transaction detail">
 
-**Settings**
+**Search**: Search for transactions across all accounts with specific filters such as keywords, dates, categories, notes, etc.
+
+<img src="docs/screenshots/transaction_search.png" width="400" alt="Search">
+
+**Statistics**: View diagrams about your financial data, grouped by account, time, and category
+
+<img src="docs/screenshots/statistics.png" width="400" alt="Statistics">
+
+**Settings Overview**
 
 <img src="docs/screenshots/settings.png" width="400" alt="Settings entry point">
 
@@ -62,9 +74,9 @@ This app is primarily intended for German users. You can find the reason for thi
 
 <img src="docs/screenshots/settings_user.png" width="400" alt="User settings">
 
-**Sessions**: Active login sessions with options to log out individual sessions
+**2FA support**: Create a token to enable 2FA for your account (and get backup codes in case you lose access to your device)
 
-<img src="docs/screenshots/settings_sessions.png" width="400" alt="Sessions">
+<img src="docs/screenshots/settings_user_2fa.png" width="400" alt="2FA settings">
 
 </details>
 
@@ -73,10 +85,15 @@ This app is primarily intended for German users. You can find the reason for thi
 - **Unified overview** of all your bank accounts and their balances in one place
 - **Multiple connection types**: Connects to multiple banks to fetch your data, see the [supported banks](#supported-banks) section
 - **Automatic background syncing** on a configurable interval, plus on-demand sync
-- **Transactions grouped by date**, covering past, today, and scheduled entries
-- **Balance on any date**: see what an account's balance was on a given day
+- **Transactions grouped by date**, covering past, today, and future entries (some bank apps, such as ING, don't show future transactions)
+- **Balance on any date**: see what an account's balance or the sum of multiple account balances were on a given day
+- **Statistics**: View diagrams about your financial data, grouped by account, time, and category.
 - **Search** for transactions across all accounts
 - **Automatic and manual categorization** of transactions
+- **Account balance at date**: see what an account's balance was on a given day
+  - This includes your normal bank accounts with simple incoming and outgoing transactions,
+  - But also banks such as Trade Republic. For e.g. Trade Republic in Questor you can see how much your holdings of an individual stock were worth on a given date.
+  - This information is not even visible in their app as their api does not provide it. Questor fetches all relevant data and calculates the balance on the fly.
 - **Custom notes** on transactions
 - **Account groups**: drag accounts into your own groups to organize the overview
 - **Multi-language** interface (English & German (add an issue for another requested language))
@@ -97,8 +114,9 @@ The following connections are currently supported:
     - Sparkasse Karlsruhe
   - But the app gets a list of all banks that support FinTS and they _should_ work. If they don't, please open an issue.
     - This can have some common reasons:
-      - The bank uses an unsupported way to implement 2FA.
+      - The bank uses a (yet) unsupported way to implement 2FA.
       - The FinTS url of the bank is not correct in the upstream database.
+      - The Bank is not listed in the upstream database.
     - If you encounter such a bank, please open an issue and we can work together to implement it.
 - Manual accounts: These allow the user to set the balance and add transactions manually.
 - Deutsche Flugsicherung GmbH retirement plan (http://www.dfs-vorsorgeplan.de / https://www.value-account.eu)
