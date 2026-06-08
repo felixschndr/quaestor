@@ -654,8 +654,8 @@ describe('NewCredentialFormView', () => {
   it('renders the bank-specific note from i18n when one exists', () => {
     renderWithQuery(
       <NewCredentialFormView
-        bankKey="trade_republic"
-        bank={TR_BANK}
+        bankKey="dfs"
+        bank={DFS_BANK}
         isLoading={false}
         onCancel={vi.fn()}
         onConnected={vi.fn()}
@@ -663,7 +663,7 @@ describe('NewCredentialFormView', () => {
       />,
     )
     expect(
-      screen.getByText(/The phone number has to be in the format \+491234567890/),
+      screen.getByText(/Retirement provisioning of the Deutsche Flugsicherung GmbH\./),
     ).toBeInTheDocument()
   })
 

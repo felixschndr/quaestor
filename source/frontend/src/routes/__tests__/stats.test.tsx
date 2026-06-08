@@ -37,7 +37,10 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
 }))
 
-import { StatsView, type StatsSearchParams } from '@/routes/stats'
+import { useState } from 'react'
+
+import { FILTERABLE_CATEGORIES } from '@/lib/statistics'
+import { StatsView, type StatsSearchParams, type StatsViewState } from '@/routes/stats'
 
 const credentials: CredentialRead[] = [
   {
@@ -60,18 +63,41 @@ const credentials: CredentialRead[] = [
   },
 ]
 
-function renderView(search: Partial<StatsSearchParams> = {}) {
+function toSearch(next: StatsViewState): StatsSearchParams {
+  return {
+    account_ids: next.accountIds,
+    date_from: next.filters.date_from,
+    date_to: next.filters.date_to,
+    chart_type: next.chartType,
+    direction: next.direction,
+    categories:
+      next.categories.length === FILTERABLE_CATEGORIES.length ? undefined : next.categories,
+  }
+}
+
+function renderView(initialSearch: Partial<StatsSearchParams> = {}) {
   const onChange = vi.fn()
   const onOpenSearch = vi.fn()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
-    <QueryClientProvider client={client}>
+
+  function Harness() {
+    const [search, setSearch] = useState<StatsSearchParams>(initialSearch as StatsSearchParams)
+    return (
       <StatsView
         credentials={credentials}
-        search={search as StatsSearchParams}
-        onChange={onChange}
+        search={search}
+        onChange={(next) => {
+          onChange(next)
+          setSearch(toSearch(next))
+        }}
         onOpenSearch={onOpenSearch}
       />
+    )
+  }
+
+  render(
+    <QueryClientProvider client={client}>
+      <Harness />
     </QueryClientProvider>,
   )
   return { onChange, onOpenSearch }

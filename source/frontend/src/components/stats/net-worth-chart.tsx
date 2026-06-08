@@ -6,6 +6,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceArea,
   ReferenceDot,
   ResponsiveContainer,
   Tooltip,
@@ -21,6 +22,8 @@ export interface NetWorthChartProps {
   data: DailyNetWorth[]
   // Minimum / average / maximum of the series, computed server-side.
   summary: NetWorthSummary | null
+  // Dragging a horizontal range on the chart commits it as the date filter
+  onSelectRange?: (from: string, to: string) => void
 }
 
 const LOCALES: Record<string, Locale> = { en: enUS, de }
@@ -30,6 +33,7 @@ const LOCALES: Record<string, Locale> = { en: enUS, de }
 // charts it's usually a numeric string (e.g. "3"). We accept both shapes.
 interface ChartMouseState {
   activeTooltipIndex?: number | string | null
+  activeLabel?: string | number | null
 }
 
 /**
@@ -41,7 +45,7 @@ interface ChartMouseState {
  * browser context menu or text selection. `touch-action: pan-y` keeps the page
  * vertically scrollable while reserving horizontal touches for the chart.
  */
-export function NetWorthChart({ data, summary }: NetWorthChartProps) {
+export function NetWorthChart({ data, summary, onSelectRange }: NetWorthChartProps) {
   const { t, i18n } = useTranslation()
   const locale = LOCALES[i18n.language] ?? enUS
 
@@ -51,14 +55,45 @@ export function NetWorthChart({ data, summary }: NetWorthChartProps) {
   const effectiveIndex = activeIndex ?? data.length - 1
   const active = data[effectiveIndex]
 
+  const [selectStart, setSelectStart] = useState<string | null>(null)
+  const [selectEnd, setSelectEnd] = useState<string | null>(null)
+
+  const labelOf = (state: ChartMouseState): string | null =>
+    typeof state?.activeLabel === 'string' ? state.activeLabel : null
+
   const handleMove = (state: ChartMouseState) => {
     const raw = state?.activeTooltipIndex
     const index = typeof raw === 'string' ? Number(raw) : raw
     if (typeof index === 'number' && Number.isFinite(index) && index >= 0 && index < data.length) {
       setActiveIndex(index)
     }
+    if (selectStart != null) {
+      const label = labelOf(state)
+      if (label != null) setSelectEnd(label)
+    }
   }
-  const handleLeave = () => setActiveIndex(null)
+  const handleDown = (state: ChartMouseState) => {
+    if (!onSelectRange) return
+    const label = labelOf(state)
+    if (label != null) {
+      setSelectStart(label)
+      setSelectEnd(label)
+    }
+  }
+  const handleUp = () => {
+    if (onSelectRange && selectStart != null && selectEnd != null && selectStart !== selectEnd) {
+      const [from, to] =
+        selectStart <= selectEnd ? [selectStart, selectEnd] : [selectEnd, selectStart]
+      onSelectRange(from, to)
+    }
+    setSelectStart(null)
+    setSelectEnd(null)
+  }
+  const handleLeave = () => {
+    setActiveIndex(null)
+    setSelectStart(null)
+    setSelectEnd(null)
+  }
 
   if (data.length === 0) {
     return null
@@ -91,7 +126,9 @@ export function NetWorthChart({ data, summary }: NetWorthChartProps) {
             data={data}
             margin={{ left: 8, right: 8, top: 4, bottom: 0 }}
             onClick={handleMove}
+            onMouseDown={handleDown}
             onMouseMove={handleMove}
+            onMouseUp={handleUp}
             onMouseLeave={handleLeave}
             // onTouchStart fires on a tap without movement; onTouchMove handles
             // the scrub. We deliberately do not reset on touchend so the picked
@@ -149,6 +186,16 @@ export function NetWorthChart({ data, summary }: NetWorthChartProps) {
                 stroke="var(--color-background)"
                 strokeWidth={2}
                 ifOverflow="visible"
+              />
+            ) : null}
+            {selectStart != null && selectEnd != null && selectStart !== selectEnd ? (
+              <ReferenceArea
+                x1={selectStart}
+                x2={selectEnd}
+                fill="var(--color-primary)"
+                fillOpacity={0.12}
+                stroke="var(--color-primary)"
+                strokeOpacity={0.3}
               />
             ) : null}
           </LineChart>

@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft } from 'lucide-react'
@@ -83,7 +82,7 @@ function StatsPage() {
             categories:
               next.categories.length === FILTERABLE_CATEGORIES.length ? undefined : next.categories,
           },
-          replace: true,
+          replace: false,
         })
       }
       onOpenSearch={(drill) => {
@@ -142,70 +141,28 @@ export function StatsView({ credentials, search, onChange, onOpenSearch }: Stats
   )
   const defaults = defaultStatsDateRange()
 
-  // Opened from an account detail page → that account is preselected; opened from
-  // the overview → no account_ids in the URL → all accounts.
-  const [accountIds, setAccountIds] = useState<number[]>(search.account_ids ?? allAccountIds)
-  const [filters, setFilters] = useState<StatsFilters>({
+  const accountIds = search.account_ids ?? allAccountIds
+  const filters: StatsFilters = {
     date_from: search.date_from ?? defaults.date_from,
     date_to: search.date_to ?? defaults.date_to,
-  })
-  // Last filter range before a preset was applied. Lets the user toggle a
-  // preset off by clicking it again — the previous range is restored.
-  const [previousFilters, setPreviousFilters] = useState<StatsFilters | null>(null)
-  const [chartType, setChartType] = useState<ChartType>(search.chart_type ?? 'bar')
-  const [direction, setDirection] = useState<StatsDirection>(search.direction ?? 'OUTGOING')
+  }
+  const chartType: ChartType = search.chart_type ?? 'bar'
+  const direction: StatsDirection = search.direction ?? 'OUTGOING'
   // No `categories` in the URL → all selected (the default).
-  const [selectedCategories, setSelectedCategories] = useState<TransactionCategory[]>(
-    search.categories ?? [...FILTERABLE_CATEGORIES],
-  )
+  const selectedCategories: TransactionCategory[] = search.categories ?? [...FILTERABLE_CATEGORIES]
 
-  // Mirror every change into the URL (replace) so the view is deep-linkable
-  // without adding history entries on each tweak.
-  const sync = (next: Partial<StatsViewState>) => {
-    const merged: StatsViewState = {
-      accountIds,
-      filters,
-      chartType,
-      direction,
-      categories: selectedCategories,
-      ...next,
-    }
-    onChange(merged)
-  }
+  const sync = (next: Partial<StatsViewState>) =>
+    onChange({ accountIds, filters, chartType, direction, categories: selectedCategories, ...next })
 
-  const updateAccounts = (next: number[]) => {
-    setAccountIds(next)
-    sync({ accountIds: next })
-  }
-  const updateFilter = (key: keyof StatsFilters, value: string | undefined) => {
-    const next = { ...filters, [key]: value }
-    setFilters(next)
-    setPreviousFilters(null)
-    sync({ filters: next })
-  }
-  const applyPreset = (preset: DateRangePreset) => {
-    const presetRange = presetDateRange(preset)
-    // Re-clicking the active preset → swap back to whatever was selected before
-    // it. Swapping (rather than just restoring) means another click re-applies
-    // the preset, so the action stays reversible in both directions.
-    const isReclick = matchingPreset(filters) === preset
-    const next = isReclick && previousFilters ? previousFilters : presetRange
-    setPreviousFilters(filters)
-    setFilters(next)
-    sync({ filters: next })
-  }
-  const updateChartType = (next: ChartType) => {
-    setChartType(next)
-    sync({ chartType: next })
-  }
-  const updateDirection = (next: StatsDirection) => {
-    setDirection(next)
-    sync({ direction: next })
-  }
-  const updateCategories = (next: TransactionCategory[]) => {
-    setSelectedCategories(next)
-    sync({ categories: next })
-  }
+  const updateAccounts = (next: number[]) => sync({ accountIds: next })
+  const updateFilter = (key: keyof StatsFilters, value: string | undefined) =>
+    sync({ filters: { ...filters, [key]: value } })
+  const applyDateRange = (from: string, to: string) =>
+    sync({ filters: { date_from: from, date_to: to } })
+  const applyPreset = (preset: DateRangePreset) => sync({ filters: presetDateRange(preset) })
+  const updateChartType = (next: ChartType) => sync({ chartType: next })
+  const updateDirection = (next: StatsDirection) => sync({ direction: next })
+  const updateCategories = (next: TransactionCategory[]) => sync({ categories: next })
 
   // All categories selected → send none (the backend then applies no category
   // filter); a subset → send exactly that subset.
@@ -332,6 +289,7 @@ export function StatsView({ credentials, search, onChange, onOpenSearch }: Stats
             <NetWorthChart
               data={netWorth.data?.series ?? []}
               summary={netWorth.data?.summary ?? null}
+              onSelectRange={applyDateRange}
             />
           </ChartCard>
 
