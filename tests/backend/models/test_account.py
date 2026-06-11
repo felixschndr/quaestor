@@ -256,14 +256,36 @@ def test_record_balance_observations_upgrades_existing_computed_snapshot(session
         assert snapshot.source == BalanceSnapshotSource.BANK_REPORTED
 
 
-def test_bank_anchor_resets_the_backward_walk_and_corrects_drift(
+def test_drift_warns_for_actionable_anchors_but_stays_quiet_at_fetch_horizon(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    with session_factory() as session:
+        today = date.today()
+        d1, d2, d3, d4 = (today - timedelta(days=n) for n in (1, 2, 3, 4))
+        account = _persist_account(session=session, balance=100.0, transactions=[(d1, 10.0), (d3, 5.0)])
+        _plant_bank_anchor(account=account, day=d2, balance=80.0)
+        _plant_bank_anchor(account=account, day=d4, balance=60.0)
+        session.flush()
+
+        with caplog.at_level(logging.DEBUG):
+            account.recompute_balances_at_date()
+            session.flush()
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING and "drift" in r.message.lower()]
+        debugs = [r for r in caplog.records if r.levelno == logging.DEBUG and "drift" in r.message.lower()]
+        assert len(warnings) == 1 and str(d2) in warnings[0].message
+        assert len(debugs) == 1 and str(d4) in debugs[0].message
+
+
+def test_bank_anchor_day_with_own_transaction_does_not_double_count(
     session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
     with session_factory() as session:
         today = date.today()
         d1, d2, d3 = today - timedelta(days=1), today - timedelta(days=2), today - timedelta(days=3)
-        # Current balance + transactions alone would compute d3 = 70, but the bank says it was 50.
-        account = _persist_account(session=session, balance=100.0, transactions=[(d1, 30.0), (d3, 20.0)])
+        # Bank reported 50 at d2 *before* the +200 salary that posts on d2. Current balance 260
+        # decomposes as: 50 (anchor, start of d2) + 200 (d2 salary) + 10 (d1) = 260.
+        account = _persist_account(session=session, balance=260.0, transactions=[(d1, 10.0), (d2, 200.0)])
         _plant_bank_anchor(account=account, day=d2, balance=50.0)
         session.flush()
 
@@ -271,8 +293,12 @@ def test_bank_anchor_resets_the_backward_walk_and_corrects_drift(
             account.recompute_balances_at_date()
             session.flush()
 
-        assert _get_persisted_snapshots(session=session, account=account) == {d1: 100.0, d2: 50.0, d3: 50.0}
-        assert any("drift" in record.message.lower() for record in caplog.records)
+        # No drift: the anchor reconciles exactly once the same-day booking is not double-counted.
+        assert not any("drift" in record.message.lower() for record in caplog.records)
+        snapshots = _get_persisted_snapshots(session=session, account=account)
+        assert snapshots[d1] == 260.0  # end of d1, after the d2 salary already happened
+        assert snapshots[d2] == 50.0  # the bank anchor (start of day) survives untouched
+        assert d3 not in snapshots  # no transaction and no anchor before d2 -> walk stops
 
 
 def test_bank_anchor_within_tolerance_does_not_warn(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):

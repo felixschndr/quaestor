@@ -125,23 +125,39 @@ class Account(Base):
             if snapshot.source == BalanceSnapshotSource.BANK_REPORTED and day <= today
         }
 
+        oldest_anchor = min(anchors) if anchors else None
+
         running_balance = self.balance
         for day in sorted(set(daily_totals) | set(anchors), reverse=True):
             if day in anchors:
-                # Trust the bank: reset the walk to its reported balance
-                self._log_balance_drift(day=day, computed=running_balance, reported=anchors[day])
+                # Bank-reported balances are captured before that day's transactions post, so they
+                # represent the start-of-day balance (== end of the previous day). Compare like for
+                # like, then reset the walk to the anchor WITHOUT re-subtracting the day's own
+                # transactions -- they are already excluded from the reported balance. Subtracting
+                # them again would double-count every anchor-day booking across the whole earlier
+                # history.
+                computed_before = round(number=running_balance - daily_totals[day], ndigits=2)
+                self._log_balance_drift(
+                    day=day, computed=computed_before, reported=anchors[day], at_fetch_horizon=day == oldest_anchor
+                )
                 running_balance = anchors[day]
-            elif day not in self.balance_at_date:
+                continue
+            if day not in self.balance_at_date:
                 self.balance_at_date[day] = AccountBalanceSnapshot(date=day, balance=running_balance)
             running_balance = round(number=running_balance - daily_totals[day], ndigits=2)
 
-    def _log_balance_drift(self, day: date, computed: float, reported: float) -> None:
+    def _log_balance_drift(self, day: date, computed: float, reported: float, at_fetch_horizon: bool = False) -> None:
         if abs(computed - reported) <= BALANCE_DRIFT_TOLERANCE:
             return
-        logger.warning(
+        message = (
             f"Balance drift on {self} at {day}: computed {computed:.2f} vs "
             f"bank-reported {reported:.2f} (diff {computed - reported:+.2f})"
         )
+        # Drift at the oldest anchor is unavoidable because we can't fetch ALL transactions
+        if at_fetch_horizon:
+            logger.debug(f"{message} (at fetch horizon, expected)")
+        else:
+            logger.warning(message)
 
     def recompute_balances_at_date(self) -> None:
         if self.is_market_valued:
