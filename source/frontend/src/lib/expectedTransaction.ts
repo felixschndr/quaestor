@@ -6,6 +6,8 @@ export const MATCH_TOLERANCES = [0, 5, 10, 15, 20] as const
 
 export type MatchTolerance = (typeof MATCH_TOLERANCES)[number]
 
+export const DEFAULT_MATCH_TOLERANCE: MatchTolerance = 10
+
 export interface ExpectedTransactionRead {
   id: number
   account_id: number

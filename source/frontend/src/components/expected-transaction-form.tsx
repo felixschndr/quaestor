@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  DEFAULT_MATCH_TOLERANCE,
   MATCH_TOLERANCES,
   useCreateExpectedTransaction,
   useUpdateExpectedTransaction,
@@ -45,7 +46,9 @@ export function ExpectedTransactionForm({
   const [amount, setAmount] = useState(expected ? formatAmount(Math.abs(expected.amount)) : '')
   const [otherParty, setOtherParty] = useState(expected?.other_party ?? '')
   const [note, setNote] = useState(expected?.note ?? '')
-  const [tolerance, setTolerance] = useState<number>(expected?.match_tolerance_percent ?? 0)
+  const [tolerance, setTolerance] = useState<number>(
+    expected?.match_tolerance_percent ?? DEFAULT_MATCH_TOLERANCE,
+  )
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
 
   const create = useCreateExpectedTransaction(accountId)
