@@ -264,6 +264,32 @@
       "pin": "PIN"
     }
   },
+  "expectedTransactions": {
+    "title": "Erwartete Transaktionen",
+    "add": "Erwartete Transaktion",
+    "fieldDirection": "Richtung",
+    "directionIn": "Eingang",
+    "directionOut": "Ausgang",
+    "fieldAmount": "Betrag",
+    "fieldTolerance": "Toleranz",
+    "toleranceHint": "Wie genau der gebuchte Betrag dem erwarteten entsprechen muss, damit er automatisch erkannt wird.",
+    "toleranceExact": "Exakt",
+    "fieldOtherParty": "Absender / Empfänger",
+    "fieldNote": "Notiz",
+    "anyParty": "Beliebiger Absender / Empfänger",
+    "save": "Speichern",
+    "saving": "Speichern …",
+    "cancel": "Abbrechen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "deleteConfirm": "Wirklich löschen?",
+    "created": "Erwartete Transaktion erstellt",
+    "createFailed": "Erwartete Transaktion konnte nicht erstellt werden",
+    "updated": "Erwartete Transaktion aktualisiert",
+    "updateFailed": "Erwartete Transaktion konnte nicht aktualisiert werden",
+    "deleted": "Erwartete Transaktion gelöscht",
+    "deleteFailed": "Erwartete Transaktion konnte nicht gelöscht werden"
+  },
   "credentials": {
     "title": "Bankverbindungen",
     "back": "Zurück",

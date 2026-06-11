@@ -1,7 +1,9 @@
 import logging
+from contextlib import contextmanager
 from datetime import date as _date
 from datetime import datetime
 from pathlib import Path
+from typing import Iterator
 from unittest.mock import AsyncMock, MagicMock
 
 import pyotp
@@ -10,7 +12,12 @@ from fastapi.testclient import TestClient
 from httpx import Response
 from source.backend import main
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
-from source.backend.bank_handlers.base import FetchedTransaction
+from source.backend.bank_handlers.base import (
+    BalanceObservation,
+    BankSession,
+    FetchedAccount,
+    FetchedTransaction,
+)
 from source.backend.db import get_session
 from source.backend.helpers import get_root_path_of_repository
 from source.backend.models.account import Account
@@ -45,6 +52,7 @@ ACCOUNT_IBAN = "DE12 3456 7890"
 SECOND_ACCOUNT_IBAN = "DE98 7654 3210"
 LAST_FETCHING_TIMESTAMP = datetime(year=2026, month=1, day=1)
 TRANSACTION_DATE = _date(year=2026, month=5, day=20)
+EXPECTED_DATE = _date(year=2026, month=5, day=1)
 TWO_FACTOR_SECRET = "T2UXK5D6ZPTJ3WF2YXHYGGXKIT2G5LUH"  # nosec B105  # gitleaks:allow
 UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"
 
@@ -273,6 +281,8 @@ def make_transaction(
     category: TransactionCategory = TransactionCategory.UNKNOWN,
     note: str | None = None,
     pending: bool = False,
+    expected: bool = False,
+    match_tolerance_percent: int | None = None,
 ) -> Transaction:
     account = db_session.get(entity=Account, ident=account_id)
     transaction = Transaction(
@@ -285,6 +295,8 @@ def make_transaction(
         category=category,
         note=note,
         pending=pending,
+        expected=expected,
+        match_tolerance_percent=match_tolerance_percent,
     )
     db_session.add(transaction)
     db_session.flush()
@@ -349,6 +361,8 @@ def persist_transaction(
     category: TransactionCategory = TransactionCategory.UNKNOWN,
     note: str | None = None,
     pending: bool = False,
+    expected: bool = False,
+    match_tolerance_percent: int | None = None,
 ) -> int:
     """Persist a transaction through its own committed session and return its id."""
     with session_factory() as db_session:
@@ -363,6 +377,8 @@ def persist_transaction(
             category=category,
             note=note,
             pending=pending,
+            expected=expected,
+            match_tolerance_percent=match_tolerance_percent,
         )
         db_session.commit()
         return transaction.id
@@ -376,22 +392,27 @@ def persist_credential_with_new_user(
     return persist_credential(session_factory, user_id=user.id, last_fetching_timestamp=last_fetching_timestamp)
 
 
-def persist_account_with_new_user(session_factory: sessionmaker) -> int:
-    """Create a fresh user, credential and account, returning the account id."""
+def persist_account_with_new_user(session_factory: sessionmaker, *, balance: float = 0.0) -> int:
     credential_id = persist_credential_with_new_user(session_factory, last_fetching_timestamp=None)
-    return persist_account(session_factory, credential_id=credential_id)
+    return persist_account(session_factory, credential_id=credential_id, balance=balance)
+
+
+def persist_manual_account_with_new_user(session_factory: sessionmaker) -> int:
+    with session_factory() as session:
+        user = make_user(session)
+        credential = make_credential(session, user_id=user.id, bank=BankProvider.MANUAL, credentials={})
+        account = make_account(session, credential_id=credential.id, name="Wallet")
+        session.commit()
+        return account.id
 
 
 def setup_account(http_client: TestClient, session_factory: sessionmaker) -> int:
-    """Register a user, create a fints credential, and persist one account; return its id."""
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
     return persist_account(session_factory=session_factory, credential_id=credential_id)
 
 
 def setup_manual_account(http_client: TestClient, *, balance: float = 100.0) -> int:
-    """Create a manual credential and one manual account through the API; return its id.
-    Assumes a user is already registered/logged in on the client."""
     credential_id = create_credential(http_client, bank="manual", credentials={}).json()["id"]
     return http_client.post(
         "/api/account",
@@ -400,8 +421,6 @@ def setup_manual_account(http_client: TestClient, *, balance: float = 100.0) -> 
 
 
 def seed_for_categories(session_factory: sessionmaker, account_id: int) -> None:
-    """Seed a representative spread for category statistics: two supermarket and one
-    restaurant expense, one salary income, plus a pending expense that must be ignored."""
     with session_factory() as session:
         make_transaction(
             session, account_id=account_id, amount=-12.50, other_party="Rewe", category=TransactionCategory.SUPERMARKET
@@ -432,6 +451,91 @@ def seed_for_categories(session_factory: sessionmaker, account_id: int) -> None:
 def seed_snapshot(session_factory: sessionmaker, account_id: int, day: _date, balance: float) -> None:
     with session_factory() as session:
         session.add(AccountBalanceSnapshot(account_id=account_id, date=day, balance=balance))
+        session.commit()
+
+
+class FakeBankSession(BankSession):
+    """In-memory bank session for sync tests: returns canned accounts/balances/transactions."""
+
+    def __init__(
+        self,
+        accounts: list[FetchedAccount],
+        balances: dict[str, float],
+        transactions: dict[str, list[FetchedTransaction]],
+        observations: dict[str, list[BalanceObservation]] | None = None,
+        market_values: dict[str, list[BalanceObservation]] | None = None,
+    ):
+        super().__init__()
+        self._accounts = accounts
+        self._balances = balances
+        self._transactions = transactions
+        self._observations = observations or {}
+        self._market_values = market_values or {}
+        self.get_transactions_calls: list[tuple[str, _date]] = []
+
+    def get_accounts(self) -> list[FetchedAccount]:
+        return self._accounts
+
+    def get_balance(self, account: FetchedAccount) -> float:
+        return self._balances[account.name]
+
+    def get_transactions(self, account: FetchedAccount, start_date: _date) -> list[FetchedTransaction]:
+        self.get_transactions_calls.append((account.name, start_date))
+        return self._transactions[account.name] if account.name in self._transactions else []
+
+    def get_balance_observations(self, account: FetchedAccount) -> list[BalanceObservation]:
+        return self._observations.get(account.name, [])  # noqa: FKA100
+
+    def get_market_value_history(self, account: FetchedAccount) -> list[BalanceObservation]:
+        return self._market_values.get(account.name, [])  # noqa: FKA100
+
+
+def build_handler(bank_session: FakeBankSession) -> MagicMock:
+    handler = MagicMock()
+
+    @contextmanager
+    def session_cm() -> Iterator[FakeBankSession]:
+        yield bank_session
+
+    handler.session.side_effect = session_cm
+    return handler
+
+
+def seed_account_with_expectation(
+    session_factory: sessionmaker,
+    credential_id: int,
+    amount: float,
+    tolerance: int,
+    other_party: str | None = None,
+) -> None:
+    with session_factory() as session:
+        account = make_account(session, credential_id=credential_id, name=ACCOUNT_IBAN)
+        make_transaction(
+            session,
+            account_id=account.id,
+            amount=amount,
+            date=EXPECTED_DATE,
+            other_party=other_party,
+            note="expected note",
+            pending=True,
+            expected=True,
+            match_tolerance_percent=tolerance,
+        )
+        session.commit()
+
+
+def sync_with_booked(session_factory: sessionmaker, credential_id: int, booked: list[FetchedTransaction]) -> None:
+    """Sync the credential against a fake bank that returns `booked` for ACCOUNT_IBAN."""
+    handler = build_handler(
+        FakeBankSession(
+            accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
+            balances={ACCOUNT_IBAN: 0.0},
+            transactions={ACCOUNT_IBAN: booked},
+        )
+    )
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.sync(handler)
         session.commit()
 
 

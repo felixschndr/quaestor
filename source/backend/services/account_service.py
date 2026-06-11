@@ -3,6 +3,7 @@ from datetime import date
 from source.backend.bank_handlers import BankProvider
 from source.backend.exceptions import (
     AccountNotFoundError,
+    ExpectedTransactionNotFoundError,
     PermissionDeniedError,
     TransactionNotFoundError,
     ValidationError,
@@ -20,11 +21,23 @@ from sqlalchemy.orm import Session
 logger = get_logger(__name__)
 
 
+def _is_manual_account(account: Account) -> bool:
+    return account.credential.bank == BankProvider.MANUAL
+
+
 def _require_manual_account(account: Account) -> None:
-    if account.credential.bank != BankProvider.MANUAL:
+    if not _is_manual_account(account):
         raise PermissionDeniedError(
             f"This endpoint is only available for accounts on a manual credential; "
             f"{account} belongs to {account.credential.bank.value}"
+        )
+
+
+def _require_synced_account(account: Account) -> None:
+    if _is_manual_account(account):
+        raise PermissionDeniedError(
+            f"This endpoint is only available for accounts for synced accounts; "
+            f"{account} belongs to a manual credential"
         )
 
 
@@ -219,6 +232,74 @@ def delete_transaction(db_session: Session, account: Account, transaction: Trans
     logger.info(f"Deleted manual {transaction} from {account}; new balance {account.balance}")
 
 
+def create_expected_transaction(db_session: Session, account: Account, fields: dict) -> Transaction:
+    _require_synced_account(account)
+    # Anchored at the creation day: the matching pass only resolves bookings dated on or after this,
+    # and there is deliberately no user-facing "expected from" date.
+    transaction = Transaction(
+        account=account,
+        amount=fields["amount"],
+        date=date.today(),
+        other_party=fields.get("other_party"),
+        note=fields.get("note"),
+        match_tolerance_percent=fields.get("match_tolerance_percent", 0),  # noqa: FKA100
+        pending=True,
+        expected=True,
+        category=TransactionCategory.UNKNOWN,
+    )
+    db_session.add(transaction)
+    db_session.commit()
+    logger.info(f"Created expected {transaction}")
+    return transaction
+
+
+def list_expected_transactions(db_session: Session, account: Account) -> list[Transaction]:
+    transactions = list(
+        db_session.scalars(
+            select(Transaction)
+            .where(Transaction.account_id == account.id)
+            .where(Transaction.expected.is_(True))
+            .order_by(Transaction.id.desc())
+        )
+    )
+    logger.debug(f"Found {len(transactions)} expected transaction(s) for {account}")
+    return transactions
+
+
+def _get_expected_transaction_for_account(
+    db_session: Session, account: Account, expected_transaction_id: int
+) -> Transaction:
+    transaction = db_session.get(entity=Transaction, ident=expected_transaction_id)
+    if transaction is None or transaction.account_id != account.id or not transaction.expected:
+        logger.warning(f"Expected transaction {expected_transaction_id} not found for {account}")
+        raise ExpectedTransactionNotFoundError(f"Expected transaction with the ID {expected_transaction_id} not found")
+    return transaction
+
+
+def update_expected_transaction(
+    db_session: Session, account: Account, expected_transaction_id: int, fields: dict
+) -> Transaction:
+    transaction = _get_expected_transaction_for_account(
+        db_session=db_session, account=account, expected_transaction_id=expected_transaction_id
+    )
+    transaction.amount = fields["amount"]
+    transaction.other_party = fields.get("other_party")
+    transaction.note = fields.get("note")
+    transaction.match_tolerance_percent = fields.get("match_tolerance_percent", 0)  # noqa: FKA100
+    db_session.commit()
+    logger.info(f"Updated expected {transaction} on {account}")
+    return transaction
+
+
+def delete_expected_transaction(db_session: Session, account: Account, expected_transaction_id: int) -> None:
+    transaction = _get_expected_transaction_for_account(
+        db_session=db_session, account=account, expected_transaction_id=expected_transaction_id
+    )
+    db_session.delete(transaction)
+    db_session.commit()
+    logger.info(f"Deleted expected transaction {expected_transaction_id} from {account}")
+
+
 def unlink_transfer(db_session: Session, transaction: Transaction) -> None:
     counterpart = None
     if transaction.transfer_counterpart_id is not None:
@@ -243,15 +324,21 @@ def get_history_page(
     page: int = 1,
     page_size: int = DEFAULT_DAYS_PER_PAGE,
 ) -> tuple[list[Transaction], dict[date, float], int]:
-    # `page_size` is the number of distinct transaction days per page (not the number of transactions)
+    # `page_size` is the number of distinct transaction days per page (not the number of transactions).
+    # Expected transactions are excluded here — they live in their own section, not the history.
     total_days = (
-        db_session.scalar(select(func.count(Transaction.date.distinct())).where(Transaction.account_id == account.id))
+        db_session.scalar(
+            select(func.count(Transaction.date.distinct()))
+            .where(Transaction.account_id == account.id)
+            .where(Transaction.expected.is_(False))
+        )
         or 0
     )
     page_dates = list(
         db_session.scalars(
             select(Transaction.date)
             .where(Transaction.account_id == account.id)
+            .where(Transaction.expected.is_(False))
             .group_by(Transaction.date)
             .order_by(Transaction.date.desc())
             .offset((page - 1) * page_size)
@@ -266,6 +353,7 @@ def get_history_page(
         db_session.scalars(
             select(Transaction)
             .where(Transaction.account_id == account.id)
+            .where(Transaction.expected.is_(False))
             .where(Transaction.date.in_(page_dates))
             .order_by(Transaction.date.desc())
             .order_by(Transaction.id.desc())

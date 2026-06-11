@@ -20,6 +20,11 @@ import {
   type RecurringTransactionRead,
 } from '@/lib/recurringTransaction'
 import {
+  useDeleteExpectedTransaction,
+  useExpectedTransactions,
+  type ExpectedTransactionRead,
+} from '@/lib/expectedTransaction'
+import {
   formatDate,
   formatDecimal,
   formatEuro,
@@ -32,6 +37,7 @@ import { copyText } from '@/lib/clipboard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ManualTransactionForm } from '@/components/manual-transaction-form'
+import { ExpectedTransactionForm } from '@/components/expected-transaction-form'
 import { StatsIcon } from '@/components/stats-icon'
 import { SyncButton } from '@/components/sync-button'
 import { TwoFactorModal } from '@/components/two-factor-modal'
@@ -274,6 +280,7 @@ export function AccountDetailView({
   const personalisedName = account.display_name?.trim() || null
   const isManual = bank === MANUAL_BANK
   const [addingTxn, setAddingTxn] = useState(false)
+  const [addingExpected, setAddingExpected] = useState(false)
 
   // The date headers below are sticky too — they need to stop at the bottom
   // edge of this header, not at the viewport top. Measure synchronously
@@ -363,7 +370,19 @@ export function AccountDetailView({
                   {t('credentials.manualTransactions.add')}
                 </Button>
               </div>
-            ) : null}
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAddingExpected((prev) => !prev)}
+                >
+                  <Plus className="size-3.5" aria-hidden="true" />
+                  {t('expectedTransactions.add')}
+                </Button>
+              </div>
+            )}
           </section>
         </div>
       </div>
@@ -382,7 +401,13 @@ export function AccountDetailView({
           />
         ) : null}
 
+        {!isManual && addingExpected ? (
+          <ExpectedTransactionForm accountId={account.id} onDone={() => setAddingExpected(false)} />
+        ) : null}
+
         {isManual ? <RecurringTransactionsList accountId={account.id} /> : null}
+
+        {!isManual ? <ExpectedTransactionsList accountId={account.id} /> : null}
 
         {hasAnyTransactions ? (
           <TransactionGroupList
@@ -912,6 +937,136 @@ function RecurringTransactionRow({
             variant="ghost"
             onClick={() => setConfirmingDelete(true)}
             aria-label={t('credentials.manualTransactions.delete')}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="size-3.5" aria-hidden="true" />
+          </Button>
+        </div>
+      )}
+    </li>
+  )
+}
+
+function ExpectedTransactionsList({ accountId }: { accountId: number }) {
+  const { t } = useTranslation()
+  const { data: expected } = useExpectedTransactions(accountId)
+
+  if (!expected || expected.length === 0) return null
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+        {t('expectedTransactions.title')}
+      </h2>
+      <ul className="border-border divide-border bg-card flex flex-col divide-y rounded-lg border">
+        {expected.map((expectation) => (
+          <ExpectedTransactionRow
+            key={expectation.id}
+            accountId={accountId}
+            expectation={expectation}
+          />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function ExpectedTransactionRow({
+  accountId,
+  expectation,
+}: {
+  accountId: number
+  expectation: ExpectedTransactionRead
+}) {
+  const { t } = useTranslation()
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const remove = useDeleteExpectedTransaction(accountId)
+  const negative = expectation.amount < 0
+  const tolerance = expectation.match_tolerance_percent ?? 0
+  const toleranceLabel =
+    tolerance === 0 ? t('expectedTransactions.toleranceExact') : `± ${tolerance} %`
+
+  const onDelete = async () => {
+    try {
+      await remove.mutateAsync(expectation.id)
+      toast.success(t('expectedTransactions.deleted'))
+    } catch {
+      toast.error(t('expectedTransactions.deleteFailed'))
+      setConfirmingDelete(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <li className="p-2">
+        <ExpectedTransactionForm
+          accountId={accountId}
+          expected={expectation}
+          onDone={() => setEditing(false)}
+        />
+      </li>
+    )
+  }
+
+  return (
+    <li className="flex items-center gap-3 px-3 py-3">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-medium">
+          {expectation.other_party?.trim() || t('expectedTransactions.anyParty')}
+        </span>
+        <span className="text-muted-foreground text-xs">
+          {toleranceLabel}
+          {expectation.note?.trim() ? ` · ${expectation.note.trim()}` : ''}
+        </span>
+      </div>
+      <span
+        className={cn(
+          'text-sm font-semibold tabular-nums',
+          negative ? 'text-destructive' : 'text-success',
+        )}
+      >
+        {formatEuro(expectation.amount)}
+      </span>
+      {confirmingDelete ? (
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="destructive"
+            onClick={() => void onDelete()}
+            disabled={remove.isPending}
+          >
+            {t('expectedTransactions.deleteConfirm')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setConfirmingDelete(false)}
+            disabled={remove.isPending}
+          >
+            {t('expectedTransactions.cancel')}
+          </Button>
+        </div>
+      ) : (
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setEditing(true)}
+            aria-label={t('expectedTransactions.edit')}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Pencil className="size-3.5" aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setConfirmingDelete(true)}
+            aria-label={t('expectedTransactions.delete')}
             className="text-muted-foreground hover:text-destructive"
           >
             <Trash2 className="size-3.5" aria-hidden="true" />

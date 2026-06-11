@@ -1,10 +1,8 @@
-from contextlib import contextmanager
 from datetime import date, datetime
 from unittest.mock import MagicMock
 
 from source.backend.bank_handlers.base import (
     BalanceObservation,
-    BankSession,
     FetchedAccount,
     FetchedTransaction,
 )
@@ -15,59 +13,20 @@ from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
+    EXPECTED_DATE,
     LAST_FETCHING_TIMESTAMP,
     SECOND_ACCOUNT_IBAN,
     TRANSACTION_DATE,
+    FakeBankSession,
+    build_handler,
     make_account,
     make_credential,
+    make_transaction,
     make_user,
     persist_credential_with_new_user,
+    seed_account_with_expectation,
+    sync_with_booked,
 )
-
-
-class _FakeBankSession(BankSession):
-    def __init__(
-        self,
-        accounts: list[FetchedAccount],
-        balances: dict[str, float],
-        transactions: dict[str, list[FetchedTransaction]],
-        observations: dict[str, list[BalanceObservation]] | None = None,
-        market_values: dict[str, list[BalanceObservation]] | None = None,
-    ):
-        super().__init__()
-        self._accounts = accounts
-        self._balances = balances
-        self._transactions = transactions
-        self._observations = observations or {}
-        self._market_values = market_values or {}
-        self.get_transactions_calls: list[tuple[str, date]] = []
-
-    def get_accounts(self) -> list[FetchedAccount]:
-        return self._accounts
-
-    def get_balance(self, account: FetchedAccount) -> float:
-        return self._balances[account.name]
-
-    def get_transactions(self, account: FetchedAccount, start_date: date) -> list[FetchedTransaction]:
-        self.get_transactions_calls.append((account.name, start_date))
-        return self._transactions[account.name] if account.name in self._transactions else []
-
-    def get_balance_observations(self, account: FetchedAccount) -> list[BalanceObservation]:
-        return self._observations.get(account.name, [])  # noqa: FKA100
-
-    def get_market_value_history(self, account: FetchedAccount) -> list[BalanceObservation]:
-        return self._market_values.get(account.name, [])  # noqa: FKA100
-
-
-def _build_handler(bank_session: _FakeBankSession) -> MagicMock:
-    handler = MagicMock()
-
-    @contextmanager
-    def session_cm():
-        yield bank_session
-
-    handler.session.side_effect = session_cm
-    return handler
 
 
 def test_sync_creates_new_account_with_balance_and_transactions(session_factory: sessionmaker):
@@ -89,8 +48,8 @@ def test_sync_creates_new_account_with_balance_and_transactions(session_factory:
             transaction_type=TransactionType.INCOMING,
         ),
     ]
-    handler = _build_handler(
-        _FakeBankSession(
+    handler = build_handler(
+        FakeBankSession(
             accounts=[fake_account],
             balances={ACCOUNT_IBAN: 1000.0},
             transactions={ACCOUNT_IBAN: transactions},
@@ -120,8 +79,8 @@ def test_sync_matches_existing_account_by_name_and_adds_missing_ones(session_fac
         make_account(session, credential_id=credential_id, name=ACCOUNT_IBAN)
         session.commit()
 
-    handler = _build_handler(
-        _FakeBankSession(
+    handler = build_handler(
+        FakeBankSession(
             accounts=[FetchedAccount(name=ACCOUNT_IBAN), FetchedAccount(name=SECOND_ACCOUNT_IBAN)],
             balances={ACCOUNT_IBAN: 50.0, SECOND_ACCOUNT_IBAN: 0.0},
             transactions={},
@@ -149,8 +108,8 @@ def test_sync_does_not_duplicate_already_existing_transactions(session_factory: 
         transaction_type=TransactionType.OUTGOING,
     )
 
-    handler = _build_handler(
-        _FakeBankSession(
+    handler = build_handler(
+        FakeBankSession(
             accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
             balances={ACCOUNT_IBAN: 0.0},
             transactions={ACCOUNT_IBAN: [existing_tx]},
@@ -190,8 +149,8 @@ def _pending_transaction(amount: float, day: int) -> FetchedTransaction:
 
 def test_sync_stores_pending_flag(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
-    handler = _build_handler(
-        _FakeBankSession(
+    handler = build_handler(
+        FakeBankSession(
             accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
             balances={ACCOUNT_IBAN: 0.0},
             transactions={
@@ -212,14 +171,14 @@ def test_sync_stores_pending_flag(session_factory: sessionmaker):
 
 def test_sync_rebuilds_pending_each_time_without_accumulating(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
-    bank = _FakeBankSession(
+    bank = FakeBankSession(
         accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
         balances={ACCOUNT_IBAN: 0.0},
         transactions={
             ACCOUNT_IBAN: [_booked_transaction(amount=-10.0, day=10), _pending_transaction(amount=-20.0, day=11)]
         },
     )
-    handler = _build_handler(bank)
+    handler = build_handler(bank)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -245,12 +204,12 @@ def test_sync_rebuilds_pending_each_time_without_accumulating(session_factory: s
 
 def test_pending_that_becomes_booked_is_not_duplicated(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
-    bank = _FakeBankSession(
+    bank = FakeBankSession(
         accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
         balances={ACCOUNT_IBAN: 0.0},
         transactions={ACCOUNT_IBAN: [_pending_transaction(amount=-142.0, day=4)]},
     )
-    handler = _build_handler(bank)
+    handler = build_handler(bank)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -271,8 +230,8 @@ def test_pending_that_becomes_booked_is_not_duplicated(session_factory: sessionm
 
 def test_pending_transactions_are_excluded_from_balance_history(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
-    handler = _build_handler(
-        _FakeBankSession(
+    handler = build_handler(
+        FakeBankSession(
             accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
             balances={ACCOUNT_IBAN: 0.0},
             transactions={
@@ -293,11 +252,234 @@ def test_pending_transactions_are_excluded_from_balance_history(session_factory:
         assert date(year=2026, month=5, day=12) not in balance_days
 
 
+def test_sync_keeps_expected_transactions_while_wiping_bank_pending(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    with session_factory() as session:
+        account = make_account(session, credential_id=credential_id, name=ACCOUNT_IBAN)
+        make_transaction(session, account_id=account.id, amount=-500.0, date=EXPECTED_DATE, pending=True, expected=True)
+        make_transaction(session, account_id=account.id, amount=-7.0, date=EXPECTED_DATE, pending=True)
+        session.commit()
+
+    sync_with_booked(session_factory=session_factory, credential_id=credential_id, booked=[])
+
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert len(transactions) == 1
+        assert transactions[0].expected is True
+        assert transactions[0].amount == -500.0
+
+
+def test_sync_resolves_expected_within_tolerance_and_moves_note(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    seed_account_with_expectation(
+        session_factory=session_factory, credential_id=credential_id, amount=-100.0, tolerance=10
+    )
+
+    sync_with_booked(
+        session_factory=session_factory, credential_id=credential_id, booked=[_booked_transaction(amount=-105.0, day=5)]
+    )
+
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert len(transactions) == 1
+        booking = transactions[0]
+        assert booking.expected is False
+        assert booking.pending is False
+        assert booking.amount == -105.0
+        assert booking.note == "expected note"
+
+
+def test_sync_keeps_expected_when_amount_outside_tolerance(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    seed_account_with_expectation(
+        session_factory=session_factory, credential_id=credential_id, amount=-100.0, tolerance=10
+    )
+
+    sync_with_booked(
+        session_factory=session_factory, credential_id=credential_id, booked=[_booked_transaction(amount=-120.0, day=5)]
+    )
+
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert {tx.expected for tx in transactions} == {True, False}
+        assert len(transactions) == 2  # expectation kept, booking added separately
+
+
+def test_sync_does_not_match_expected_with_opposite_sign(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    seed_account_with_expectation(
+        session_factory=session_factory, credential_id=credential_id, amount=100.0, tolerance=20
+    )
+
+    sync_with_booked(
+        session_factory=session_factory, credential_id=credential_id, booked=[_booked_transaction(amount=-100.0, day=5)]
+    )
+
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert len(transactions) == 2
+
+
+def test_sync_matches_expected_by_other_party_substring(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    seed_account_with_expectation(
+        session_factory=session_factory, credential_id=credential_id, amount=-50.0, tolerance=0, other_party="Netflix"
+    )
+
+    booking = FetchedTransaction(
+        amount=-50.0,
+        purpose="Subscription",
+        date=date(year=2026, month=5, day=6),
+        other_party="NETFLIX INTL BV",
+    )
+    sync_with_booked(session_factory=session_factory, credential_id=credential_id, booked=[booking])
+
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert len(transactions) == 1
+        assert transactions[0].expected is False
+        assert transactions[0].other_party == "NETFLIX INTL BV"
+
+
+def test_sync_keeps_expected_when_other_party_does_not_match(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    seed_account_with_expectation(
+        session_factory=session_factory, credential_id=credential_id, amount=-50.0, tolerance=0, other_party="Netflix"
+    )
+
+    booking = FetchedTransaction(
+        amount=-50.0,
+        purpose="Subscription",
+        date=date(year=2026, month=5, day=6),
+        other_party="Spotify AB",
+    )
+    sync_with_booked(session_factory=session_factory, credential_id=credential_id, booked=[booking])
+
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert len(transactions) == 2
+
+
+def test_sync_consumes_only_one_expectation_per_booking(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    with session_factory() as session:
+        account = make_account(session, credential_id=credential_id, name=ACCOUNT_IBAN)
+        make_transaction(
+            session,
+            account_id=account.id,
+            amount=-100.0,
+            date=EXPECTED_DATE,
+            pending=True,
+            expected=True,
+            match_tolerance_percent=0,
+        )
+        make_transaction(
+            session,
+            account_id=account.id,
+            amount=-100.0,
+            date=EXPECTED_DATE,
+            pending=True,
+            expected=True,
+            match_tolerance_percent=0,
+        )
+        session.commit()
+
+    sync_with_booked(
+        session_factory=session_factory, credential_id=credential_id, booked=[_booked_transaction(amount=-100.0, day=5)]
+    )
+
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert len(transactions) == 2  # one expectation resolved, one still pending
+        assert sum(tx.expected for tx in transactions) == 1
+        assert sum(not tx.expected for tx in transactions) == 1
+
+
+def test_sync_tolerance_zero_requires_exact_amount(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    seed_account_with_expectation(
+        session_factory=session_factory, credential_id=credential_id, amount=-9.99, tolerance=0
+    )
+
+    # Booking off by one cent must NOT match at tolerance 0.
+    sync_with_booked(
+        session_factory=session_factory, credential_id=credential_id, booked=[_booked_transaction(amount=-9.98, day=5)]
+    )
+    with session_factory() as session:
+        assert len(session.get(entity=Credential, ident=credential_id).accounts[0].transactions) == 2
+
+    # The exact amount resolves it (and float noise around 9.99 is tolerated by the epsilon).
+    sync_with_booked(
+        session_factory=session_factory, credential_id=credential_id, booked=[_booked_transaction(amount=-9.99, day=6)]
+    )
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert sum(tx.expected for tx in transactions) == 0
+
+
+def test_sync_appends_expected_note_when_booking_already_has_one(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    with session_factory() as session:
+        account = make_account(session, credential_id=credential_id, name=ACCOUNT_IBAN)
+        make_transaction(
+            session,
+            account_id=account.id,
+            amount=-30.0,
+            date=EXPECTED_DATE,
+            note="from grandma",
+            pending=True,
+            expected=True,
+            match_tolerance_percent=0,
+        )
+        make_transaction(
+            session,
+            account_id=account.id,
+            amount=-30.0,
+            date=date(year=2026, month=5, day=7),
+            other_party="ACME",
+            note="bank note",
+        )
+        session.commit()
+
+    sync_with_booked(session_factory=session_factory, credential_id=credential_id, booked=[])
+
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert len(transactions) == 1
+        assert transactions[0].note == "bank note\nfrom grandma"
+
+
+def test_sync_does_not_match_a_booking_that_predates_the_expectation(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    with session_factory() as session:
+        account = make_account(session, credential_id=credential_id, name=ACCOUNT_IBAN)
+        make_transaction(
+            session, account_id=account.id, amount=-30.0, date=date(year=2026, month=4, day=15), other_party="ACME"
+        )
+        make_transaction(
+            session,
+            account_id=account.id,
+            amount=-30.0,
+            date=EXPECTED_DATE,
+            pending=True,
+            expected=True,
+            match_tolerance_percent=0,
+        )
+        session.commit()
+
+    sync_with_booked(session_factory=session_factory, credential_id=credential_id, booked=[])
+
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert len(transactions) == 2  # the old booking stays, the expectation is kept
+        assert sum(tx.expected for tx in transactions) == 1
+
+
 def test_sync_records_bank_reported_balance_observations_as_anchors(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
     anchor_day = TRANSACTION_DATE
-    handler = _build_handler(
-        _FakeBankSession(
+    handler = build_handler(
+        FakeBankSession(
             accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
             balances={ACCOUNT_IBAN: 1000.0},
             transactions={ACCOUNT_IBAN: []},
@@ -318,16 +500,13 @@ def test_sync_records_bank_reported_balance_observations_as_anchors(session_fact
 
 
 def test_sync_passes_a_plain_date_to_handlers_when_credential_was_synced_before(session_factory: sessionmaker):
-    # last_fetching_timestamp is a datetime, but handlers are contracted to receive a date
-    # (get_transactions(start_date: date)). Passing a datetime breaks handlers that compare it
-    # against transaction dates (e.g. DFS: `transaction.date >= start_date`).
     credential_id = persist_credential_with_new_user(session_factory)
-    fake_session = _FakeBankSession(
+    fake_session = FakeBankSession(
         accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
         balances={ACCOUNT_IBAN: 0.0},
         transactions={ACCOUNT_IBAN: []},
     )
-    handler = _build_handler(fake_session)
+    handler = build_handler(fake_session)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -345,12 +524,12 @@ def test_sync_fetches_full_history_when_credential_was_never_synced(session_fact
         session.commit()
         credential_id = credential.id
 
-    fake_session = _FakeBankSession(
+    fake_session = FakeBankSession(
         accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
         balances={ACCOUNT_IBAN: 0.0},
         transactions={ACCOUNT_IBAN: []},
     )
-    handler = _build_handler(fake_session)
+    handler = build_handler(fake_session)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -363,8 +542,8 @@ def test_sync_fetches_full_history_when_credential_was_never_synced(session_fact
 
 
 def _market_valued_handler(market_day: date, transactions: list[FetchedTransaction] | None = None) -> MagicMock:
-    return _build_handler(
-        _FakeBankSession(
+    return build_handler(
+        FakeBankSession(
             accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
             balances={ACCOUNT_IBAN: 4200.0},
             transactions={ACCOUNT_IBAN: transactions or []},

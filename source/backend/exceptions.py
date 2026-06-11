@@ -30,6 +30,10 @@ class RecurringTransactionNotFoundError(NotFoundError):
     pass
 
 
+class ExpectedTransactionNotFoundError(NotFoundError):
+    pass
+
+
 class ValidationError(Exception):
     pass
 

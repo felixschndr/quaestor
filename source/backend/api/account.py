@@ -6,6 +6,11 @@ from source.backend.api.schemas.account import (
     AccountRead,
     AccountUpdate,
 )
+from source.backend.api.schemas.expected_transaction import (
+    ExpectedTransactionCreate,
+    ExpectedTransactionRead,
+    ExpectedTransactionUpdate,
+)
 from source.backend.api.schemas.recurring_transaction import (
     RecurringTransactionCreate,
     RecurringTransactionRead,
@@ -203,6 +208,62 @@ def delete_recurring_transaction(
     account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
     recurring_transaction_service.delete_recurring_transaction(
         db_session=db_session, account=account, recurring_transaction_id=recurring_transaction_id
+    )
+
+
+@router.post("/{account_id}/expected-transactions", response_model=ExpectedTransactionRead, status_code=201)
+def create_expected_transaction(
+    account_id: int,
+    payload: ExpectedTransactionCreate,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> Transaction:
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
+    return account_service.create_expected_transaction(
+        db_session=db_session, account=account, fields=payload.model_dump(exclude_unset=True)
+    )
+
+
+@router.get("/{account_id}/expected-transactions", response_model=list[ExpectedTransactionRead])
+def list_expected_transactions(
+    account_id: int,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> list[Transaction]:
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
+    return account_service.list_expected_transactions(db_session=db_session, account=account)
+
+
+@router.patch(
+    "/{account_id}/expected-transactions/{expected_transaction_id}",
+    response_model=ExpectedTransactionRead,
+)
+def update_expected_transaction(
+    account_id: int,
+    expected_transaction_id: int,
+    payload: ExpectedTransactionUpdate,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> Transaction:
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
+    return account_service.update_expected_transaction(
+        db_session=db_session,
+        account=account,
+        expected_transaction_id=expected_transaction_id,
+        fields=payload.model_dump(exclude_unset=True),
+    )
+
+
+@router.delete("/{account_id}/expected-transactions/{expected_transaction_id}", status_code=204)
+def delete_expected_transaction(
+    account_id: int,
+    expected_transaction_id: int,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> None:
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
+    account_service.delete_expected_transaction(
+        db_session=db_session, account=account, expected_transaction_id=expected_transaction_id
     )
 
 

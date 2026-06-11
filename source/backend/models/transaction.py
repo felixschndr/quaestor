@@ -9,7 +9,7 @@ from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 from sqlalchemy import Boolean, Date
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import Float, ForeignKey, String, event, update
+from sqlalchemy import Float, ForeignKey, Integer, String, event, update
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -38,6 +38,9 @@ class Transaction(Base):
     note: Mapped[str | None] = mapped_column(String, nullable=True)
 
     pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+
+    expected: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    match_tolerance_percent: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     transfer_counterpart_id: Mapped[int | None] = mapped_column(
         ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True, unique=True

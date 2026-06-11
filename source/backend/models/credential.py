@@ -114,13 +114,19 @@ class Credential(Base):
     ) -> int:
         fetched_transactions = bank_session.get_transactions(account=fetched_account, start_date=transactions_since)
 
-        # Pending entries ("Vormerkungen") have no stable identity — their date/purpose/other_party
-        # can still change before they book. Instead of trying to match them across syncs (which
-        # creates duplicates), we treat them as ephemeral: drop the old ones and rebuild from scratch.
-        for pending_transactions in [transaction for transaction in account.transactions if transaction.pending]:
-            account.transactions.remove(pending_transactions)
+        # Bank "Vormerkungen" (pending, NOT expected) have no stable identity — their
+        # date/purpose/other_party can still change before they book. Instead of trying to match them
+        # across syncs (which creates duplicates), we treat them as ephemeral: drop the old ones and
+        # rebuild from scratch. User-created expected transactions (pending AND expected) are kept.
+        pending_transactions = [
+            transaction for transaction in account.transactions if transaction.pending and not transaction.expected
+        ]
+        for pending_transaction in pending_transactions:
+            account.transactions.remove(pending_transaction)
 
-        existing_transactions = {get_key_of_transaction(transaction) for transaction in account.transactions}
+        existing_transactions = {
+            get_key_of_transaction(transaction) for transaction in account.transactions if not transaction.expected
+        }
         created_transactions = 0
 
         for fetched_transaction in fetched_transactions:
@@ -135,4 +141,71 @@ class Credential(Base):
             account.transactions.append(Transaction.from_fetched(fetched_transaction))
             existing_transactions.add(key)
             created_transactions += 1
+
+        Credential._match_expected_transactions(account=account)
         return created_transactions
+
+    _TOLERANCE_FOR_EXACT_COMPARISON = 0.005
+
+    @staticmethod
+    def _match_expected_transactions(account: Account) -> None:
+        """Resolve user-created expected transactions against freshly booked ones.
+
+        For each expected transaction, find a booked (non-pending, non-expected) transaction dated on or after the
+        expectation's date, with the same sign and an amount (+tolerance).
+        If an other_party is given on the expectation, additionally require a loose match.
+        On a match, the expectation's note is carried over into the booked transaction and the expectation is removed.
+        """
+        expected_transactions = [t for t in account.transactions if t.expected]
+        if not expected_transactions:
+            return
+
+        booked_transactions = [t for t in account.transactions if not t.pending and not t.expected]
+
+        consumed_transaction_ids: set[int] = set()
+        matched_expected_transactions = 0
+        for expected_transaction in sorted(expected_transactions, key=lambda t: t.id):
+            tolerance = (expected_transaction.match_tolerance_percent or 0) / 100.0
+            allowed = abs(expected_transaction.amount) * tolerance + Credential._TOLERANCE_FOR_EXACT_COMPARISON
+            needle = expected_transaction.other_party.strip().lower() if expected_transaction.other_party else None
+
+            candidates = []
+            for booked_transaction in booked_transactions:
+                if id(booked_transaction) in consumed_transaction_ids:
+                    continue
+                if booked_transaction.date < expected_transaction.date:
+                    continue
+                if (booked_transaction.amount >= 0) != (expected_transaction.amount >= 0):
+                    continue
+                if abs(booked_transaction.amount - expected_transaction.amount) > allowed:
+                    continue
+                if needle is not None:
+                    haystack = " ".join(
+                        filter(None, [booked_transaction.other_party, booked_transaction.purpose])
+                    ).lower()
+                    if needle not in haystack:
+                        continue
+                candidates.append(booked_transaction)
+
+            if not candidates:
+                continue
+            best_match = min(candidates, key=lambda b: (abs(b.amount - expected_transaction.amount), b.date, b.id or 0))
+            Credential._carry_over_expected_note(
+                booked_transaction=best_match, expected_transaction=expected_transaction
+            )
+            consumed_transaction_ids.add(id(best_match))
+            account.transactions.remove(expected_transaction)
+            matched_expected_transactions += 1
+
+        if matched_expected_transactions:
+            logger.info(f"Resolved {matched_expected_transactions} expected transaction(s) on {account}")
+
+    @staticmethod
+    def _carry_over_expected_note(booked_transaction: Transaction, expected_transaction: Transaction) -> None:
+        if not expected_transaction.note:
+            return
+        booked_transaction.note = (
+            expected_transaction.note
+            if not booked_transaction.note
+            else f"{booked_transaction.note}\n{expected_transaction.note}"
+        )
