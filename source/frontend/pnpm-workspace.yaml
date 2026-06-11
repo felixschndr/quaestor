@@ -1,0 +1,8 @@
+minimumReleaseAge: 1440
+# These are browserslist data packages that publish (almost) daily. Dependabot
+# regenerates the lockfile on every rebase and pulls their freshest versions,
+# which the 24h cutoff would otherwise reject and break CI
+minimumReleaseAgeExclude:
+  - caniuse-lite
+  - electron-to-chromium
+  - baseline-browser-mapping
