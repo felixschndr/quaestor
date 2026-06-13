@@ -12,7 +12,6 @@ import argparse
 import os
 import secrets
 import sys
-import tempfile
 from pathlib import Path
 
 import sqlcipher3
@@ -21,32 +20,19 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from source.backend.db import (  # noqa: E402
-    DB_PATH,
-    ENV_FILE_PATH,
-    KEY_ENV_VARIABLE_NAME,
-)
-
-
-def _env_lines_and_line_index_of_key(env_path: Path) -> tuple[list[str], int]:
-    lines = env_path.read_text().splitlines(keepends=True)
-    for idx, line in enumerate(lines):
-        if line.lstrip().startswith(f"{KEY_ENV_VARIABLE_NAME}="):
-            return lines, idx
-    sys.exit(f"{KEY_ENV_VARIABLE_NAME} not found in {env_path}.")  # Should never happen
+from source.backend.db import KEY_ENV_VARIABLE_NAME  # noqa: E402
+from source.backend.paths import DATABASE_PATH, ENV_FILE_PATH  # noqa: E402
 
 
 def _write_env_key(env_path: Path, new_value: str) -> None:
-    lines, idx = _env_lines_and_line_index_of_key(env_path)
-    eol = "\r\n" if lines[idx].endswith("\r\n") else "\n"
-    lines[idx] = f"{KEY_ENV_VARIABLE_NAME}={new_value}{eol}"
-
-    mode = env_path.stat().st_mode & 0o777
-    fd, tmp = tempfile.mkstemp(prefix=".env.", dir=str(env_path.parent))
-    with os.fdopen(fd, "w") as fh:
-        fh.writelines(lines)
-    os.chmod(tmp, mode)
-    os.replace(tmp, env_path)
+    lines = env_path.read_text().splitlines(keepends=True)
+    for idx, line in enumerate(lines):
+        if line.lstrip().startswith(f"{KEY_ENV_VARIABLE_NAME}="):
+            eol = "\r\n" if line.endswith("\r\n") else "\n"
+            lines[idx] = f"{KEY_ENV_VARIABLE_NAME}={new_value}{eol}"
+            env_path.write_text("".join(lines))
+            return
+    sys.exit(f"{KEY_ENV_VARIABLE_NAME} not found in {env_path}.")
 
 
 def _escape(key: str) -> str:
@@ -80,7 +66,7 @@ def _set_new_key(db_path: Path, old_key: str, new_key: str) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="write changes (default is dry-run)")
-    parser.add_argument("--db", type=Path, default=DB_PATH, help=f"sqlite path (default: {DB_PATH})")
+    parser.add_argument("--db", type=Path, default=DATABASE_PATH, help=f"sqlite path (default: {DATABASE_PATH})")
     parser.add_argument("--env", type=Path, default=ENV_FILE_PATH, help=f".env path (default: {ENV_FILE_PATH})")
     args = parser.parse_args()
 
