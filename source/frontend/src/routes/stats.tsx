@@ -43,7 +43,7 @@ const searchParamsSchema = z.object({
   chart_type: z.enum(['bar', 'pie']).optional(),
   direction: z.enum(['INCOMING', 'OUTGOING']).optional(),
   account_ids: z
-    .union([z.coerce.number(), z.array(z.coerce.number())])
+    .union([z.array(z.coerce.number()), z.coerce.number()])
     .transform((value) => (Array.isArray(value) ? value : [value]))
     .optional(),
   categories: z

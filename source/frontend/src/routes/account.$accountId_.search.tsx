@@ -33,15 +33,10 @@ const searchParamsSchema = z.object({
   transaction_type: z.enum(TRANSACTION_TYPES).optional(),
   category: z.enum(TRANSACTION_CATEGORIES).optional(),
   linked: z.enum(['linked', 'unlinked']).optional(),
-  // Multi-select: list of account ids to search. URL form:
-  // ?account_ids=1&account_ids=2 → zod sees ['1','2'] → coerce to numbers.
-  // Single-value URL (?account_ids=1) gets normalised to [1].
   account_ids: z
-    .union([z.coerce.number(), z.array(z.coerce.number())])
+    .union([z.array(z.coerce.number()), z.coerce.number()])
     .transform((value) => (Array.isArray(value) ? value : [value]))
     .optional(),
-  // `submitted=1` tells the page "user pressed Suchen at least once", which
-  // gates fetching + the result list. Without it the page is the blank form.
   submitted: z.literal('1').optional(),
 })
 
