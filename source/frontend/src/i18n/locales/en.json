@@ -113,7 +113,14 @@
     "error": "Search failed. Please try again.",
     "resultsHeading": "Search results",
     "resultsCount": "{{count}} result",
-    "resultsCount_other": "{{count}} results"
+    "resultsCount_other": "{{count}} results",
+    "sortLabel": "Sort",
+    "sortDateDesc": "Newest first",
+    "sortDateAsc": "Oldest first",
+    "sortAmountDesc": "Amount: high to low",
+    "sortAmountAsc": "Amount: low to high",
+    "sortAmountAbsDesc": "Magnitude: high to low",
+    "sortAmountAbsAsc": "Magnitude: low to high"
   },
   "transactionType": {
     "INCOMING": "Incoming",

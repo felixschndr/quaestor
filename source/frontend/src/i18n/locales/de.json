@@ -113,7 +113,14 @@
     "error": "Suche fehlgeschlagen. Bitte erneut versuchen.",
     "resultsHeading": "Suchergebnisse",
     "resultsCount": "{{count}} Treffer",
-    "resultsCount_other": "{{count}} Treffer"
+    "resultsCount_other": "{{count}} Treffer",
+    "sortLabel": "Sortieren",
+    "sortDateDesc": "Neueste zuerst",
+    "sortDateAsc": "Älteste zuerst",
+    "sortAmountDesc": "Betrag absteigend",
+    "sortAmountAsc": "Betrag aufsteigend",
+    "sortAmountAbsDesc": "Betragshöhe absteigend",
+    "sortAmountAbsAsc": "Betragshöhe aufsteigend"
   },
   "transactionType": {
     "INCOMING": "Eingang",

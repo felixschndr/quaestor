@@ -5,7 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 import type { AccountRead } from '@/lib/auth'
-import { formatDate } from '@/lib/format'
+import { formatDateWithoutYear } from '@/lib/format'
 import type { RecurringTransactionRead } from '@/lib/recurringTransaction'
 
 vi.mock('@tanstack/react-router', () => ({
@@ -105,8 +105,9 @@ describe('RecurringTransactionsList', () => {
 
     expect(screen.getByText('Recurring transactions')).toBeInTheDocument()
     expect(screen.getByText('-50,00 €')).toBeInTheDocument()
+    expect(screen.getByText('Day 15 of the month')).toBeInTheDocument()
     expect(
-      screen.getByText(`Day 15 of the month · Next: ${formatDate('2026-07-15')}`),
+      screen.getByText(`Next booking: ${formatDateWithoutYear('2026-07-15')}`),
     ).toBeInTheDocument()
   })
 
@@ -116,8 +117,9 @@ describe('RecurringTransactionsList', () => {
     >)
     renderManualAccount()
 
+    expect(screen.getByText('Day 05 of the month')).toBeInTheDocument()
     expect(
-      screen.getByText(`Day 05 of the month · Next: ${formatDate('2026-07-15')}`),
+      screen.getByText(`Next booking: ${formatDateWithoutYear('2026-07-15')}`),
     ).toBeInTheDocument()
   })
 
@@ -127,7 +129,10 @@ describe('RecurringTransactionsList', () => {
     } as unknown as ReturnType<typeof useRecurringTransactions>)
     renderManualAccount()
 
-    expect(screen.getByText(`Wednesday · Next: ${formatDate('2026-07-15')}`)).toBeInTheDocument()
+    expect(screen.getByText('Wednesday')).toBeInTheDocument()
+    expect(
+      screen.getByText(`Next booking: ${formatDateWithoutYear('2026-07-15')}`),
+    ).toBeInTheDocument()
   })
 
   it('deletes a rule after confirmation', async () => {

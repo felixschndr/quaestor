@@ -399,6 +399,23 @@ function NativeSelect({
   )
 }
 
+type SortKey =
+  | 'date_desc'
+  | 'date_asc'
+  | 'amount_desc'
+  | 'amount_asc'
+  | 'amount_abs_desc'
+  | 'amount_abs_asc'
+
+const SORT_COMPARATORS: Record<SortKey, (a: TransactionRead, b: TransactionRead) => number> = {
+  date_desc: (a, b) => b.date.localeCompare(a.date) || b.id - a.id,
+  date_asc: (a, b) => a.date.localeCompare(b.date) || a.id - b.id,
+  amount_desc: (a, b) => b.amount - a.amount || b.id - a.id,
+  amount_asc: (a, b) => a.amount - b.amount || a.id - b.id,
+  amount_abs_desc: (a, b) => Math.abs(b.amount) - Math.abs(a.amount) || b.id - a.id,
+  amount_abs_asc: (a, b) => Math.abs(a.amount) - Math.abs(b.amount) || a.id - b.id,
+}
+
 function SearchResults({
   accountIds,
   credentials,
@@ -410,6 +427,7 @@ function SearchResults({
 }) {
   const { t } = useTranslation()
   const query = useSearchTransactions(accountIds, filters)
+  const [sort, setSort] = useState<SortKey>('date_desc')
   // Only show the per-row account label when the search spans more than
   // one account — otherwise it'd be redundant.
   const showAccountLabel = accountIds.length > 1
@@ -420,6 +438,10 @@ function SearchResults({
     }
     return map
   }, [credentials])
+  const results = useMemo(
+    () => [...(query.data ?? [])].sort(SORT_COMPARATORS[sort]),
+    [query.data, sort],
+  )
 
   if (query.isLoading) {
     return <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
@@ -427,16 +449,30 @@ function SearchResults({
   if (query.isError) {
     return <p className="text-destructive text-sm">{t('search.error')}</p>
   }
-  const results = query.data ?? []
   if (results.length === 0) {
     return <p className="text-muted-foreground text-sm">{t('search.empty')}</p>
   }
 
   return (
     <section aria-label={t('search.resultsHeading')} className="flex flex-col gap-2">
-      <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-        {t('search.resultsCount', { count: results.length })}
-      </h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+          {t('search.resultsCount', { count: results.length })}
+        </h2>
+        <select
+          aria-label={t('search.sortLabel')}
+          value={sort}
+          onChange={(event) => setSort(event.target.value as SortKey)}
+          className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-auto rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 dark:bg-input/30"
+        >
+          <option value="date_desc">{t('search.sortDateDesc')}</option>
+          <option value="date_asc">{t('search.sortDateAsc')}</option>
+          <option value="amount_desc">{t('search.sortAmountDesc')}</option>
+          <option value="amount_asc">{t('search.sortAmountAsc')}</option>
+          <option value="amount_abs_desc">{t('search.sortAmountAbsDesc')}</option>
+          <option value="amount_abs_asc">{t('search.sortAmountAbsAsc')}</option>
+        </select>
+      </div>
       <ul className="flex flex-col">
         {results.map((transaction) => (
           <ResultRow
