@@ -462,9 +462,9 @@ function ResultRow({
         }}
         className="hover:bg-muted/60 grid grid-cols-[1fr_auto] items-baseline gap-3 rounded-md px-2 py-3 transition-colors"
       >
-        <span className="flex flex-col">
+        <span className="flex min-w-0 flex-col">
           <span className="truncate text-sm font-medium">{otherParty}</span>
-          <span className="text-muted-foreground text-xs">
+          <span className="text-muted-foreground truncate text-xs">
             {formatDate(transaction.date)}
             {accountName ? ` · ${accountName}` : ''}
           </span>
