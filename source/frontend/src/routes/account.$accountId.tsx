@@ -26,6 +26,7 @@ import {
 } from '@/lib/expectedTransaction'
 import {
   formatDate,
+  formatDateWithoutYear,
   formatDecimal,
   formatEuro,
   formatIban,
@@ -885,9 +886,15 @@ function RecurringTransactionRow({
         <span className="truncate text-sm font-medium">
           {rule.other_party?.trim() || frequencyLabel}
         </span>
-        <span className="text-muted-foreground text-xs">
-          {scheduleSummary} · {t('credentials.manualTransactions.nextRun')}:{' '}
-          {formatDate(rule.next_run_date)}
+        <span className="text-muted-foreground flex flex-col text-xs sm:flex-row sm:gap-1">
+          <span>{scheduleSummary}</span>
+          <span className="hidden sm:inline" aria-hidden="true">
+            ·
+          </span>
+          <span>
+            {t('credentials.manualTransactions.nextRun')}:{' '}
+            {formatDateWithoutYear(rule.next_run_date)}
+          </span>
         </span>
       </div>
       <span

@@ -425,7 +425,7 @@
       "dayOfMonthHint": "If a month doesn't have this day (e.g. 30th of February), the transaction is booked on the last day of that month.",
       "bookToday": "Book first transaction today",
       "recurringTitle": "Recurring transactions",
-      "nextRun": "Next",
+      "nextRun": "Next booking",
       "recurringCreated": "Recurring transaction created",
       "recurringCreateFailed": "Could not create recurring transaction.",
       "recurringUpdated": "Recurring transaction saved",

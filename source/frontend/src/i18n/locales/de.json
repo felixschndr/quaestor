@@ -425,7 +425,7 @@
       "dayOfMonthHint": "Hat ein Monat diesen Tag nicht (z.B. 30. im Februar), wird die Transaktion am letzten Tag des Monats gebucht.",
       "bookToday": "Erste Buchung heute erstellen",
       "recurringTitle": "Wiederkehrende Transaktionen",
-      "nextRun": "Nächste",
+      "nextRun": "Nächste Buchung",
       "recurringCreated": "Wiederkehrende Transaktion angelegt",
       "recurringCreateFailed": "Wiederkehrende Transaktion konnte nicht angelegt werden.",
       "recurringUpdated": "Wiederkehrende Transaktion gespeichert",

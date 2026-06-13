@@ -78,6 +78,15 @@ export function formatDateShortWeekday(d: Date | string): string {
   )
 }
 
+const DATE_NO_YEAR_OPTIONS: Intl.DateTimeFormatOptions = { ...DATE_OPTIONS, year: undefined }
+const noYearDateFormatters = new Map<string, Intl.DateTimeFormat>()
+
+export function formatDateWithoutYear(d: Date | string): string {
+  return getDateFormatter(noYearDateFormatters, DATE_NO_YEAR_OPTIONS).format(
+    typeof d === 'string' ? new Date(d) : d,
+  )
+}
+
 const IBAN_PATTERN = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/
 
 /**
