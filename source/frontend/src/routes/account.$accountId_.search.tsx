@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, useCanGoBack, useNavigate, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft } from 'lucide-react'
 import { z } from 'zod'
@@ -122,10 +122,18 @@ export function TransactionSearchView({
 
 function BackLink({ accountId }: { accountId: number }) {
   const { t } = useTranslation()
+  const router = useRouter()
+  const canGoBack = useCanGoBack()
   return (
     <Link
       to="/account/$accountId"
       params={{ accountId: String(accountId) }}
+      onClick={(event) => {
+        if (canGoBack) {
+          event.preventDefault()
+          router.history.back()
+        }
+      }}
       aria-label={t('search.back')}
       className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
     >
