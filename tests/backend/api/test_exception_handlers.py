@@ -55,7 +55,7 @@ def test_unmapped_exception_is_not_swallowed(client: TestClient):
 
 
 def test_known_exception_detail_is_logged(client: TestClient, caplog: pytest.LogCaptureFixture):
-    with caplog.at_level(logging.ERROR):
+    with caplog.at_level(logging.WARNING):
         client.get("/raise/validation")
 
     assert "ValidationError" in caplog.text

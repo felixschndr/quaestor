@@ -35,7 +35,10 @@ def register_exception_handlers(app: FastAPI) -> None:
     def make_handler(code: int) -> Callable:
         def handler(request: Request, exc: Exception) -> JSONResponse:
             message = f"{type(exc).__name__} on [{request.method}] [{request.url.path}] -> {code}: {exc}"
-            logger.exception(message, exc_info=exc)
+            if code >= 500:
+                logger.exception(message, exc_info=exc)
+            else:
+                logger.warning(message)
             return JSONResponse(status_code=code, content={"detail": str(exc)})
 
         return handler
