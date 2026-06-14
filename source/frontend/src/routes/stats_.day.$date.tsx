@@ -205,11 +205,12 @@ function AccountChangeRow({
         </Collapsible.Trigger>
         <Collapsible.Content className="collapsible-content overflow-hidden">
           {transactions.length === 0 ? (
-            <p className="text-muted-foreground px-2 py-2 pl-12 text-xs">
+            // Indent to line up with the account name above (chevron + logo + gaps).
+            <p className="text-muted-foreground py-2 pr-2 pl-[4.875rem] text-xs">
               {t('stats.day.noTransactions')}
             </p>
           ) : (
-            <ul className="flex flex-col pb-1 pl-9">
+            <ul className="flex flex-col pb-1">
               {transactions.map((transaction) => (
                 <TransactionLine key={transaction.id} transaction={transaction} />
               ))}
@@ -226,21 +227,31 @@ function TransactionLine({ transaction }: { transaction: TransactionRead }) {
   const negative = transaction.amount < 0
   const otherParty = formatIban(transaction.other_party?.trim() || '') || t('account.unknownParty')
   return (
-    <li className="grid grid-cols-[1fr_auto] items-baseline gap-3 px-2 py-2">
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate text-sm">{otherParty}</span>
-        {transaction.purpose ? (
-          <span className="text-muted-foreground truncate text-xs">{transaction.purpose}</span>
-        ) : null}
-      </span>
-      <span
-        className={cn(
-          'text-sm font-semibold tabular-nums',
-          negative ? 'text-destructive' : 'text-success',
-        )}
+    <li>
+      <Link
+        to="/account/$accountId/transactions/$transactionId"
+        params={{
+          accountId: String(transaction.account_id),
+          transactionId: String(transaction.id),
+        }}
+        // Left padding lines the text up with the account name above.
+        className="hover:bg-muted/60 grid grid-cols-[1fr_auto] items-baseline gap-3 rounded-md py-2 pr-2 pl-[4.875rem] transition-colors"
       >
-        {formatEuro(transaction.amount)}
-      </span>
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-sm">{otherParty}</span>
+          {transaction.purpose ? (
+            <span className="text-muted-foreground truncate text-xs">{transaction.purpose}</span>
+          ) : null}
+        </span>
+        <span
+          className={cn(
+            'text-sm font-semibold tabular-nums',
+            negative ? 'text-destructive' : 'text-success',
+          )}
+        >
+          {formatEuro(transaction.amount)}
+        </span>
+      </Link>
     </li>
   )
 }
