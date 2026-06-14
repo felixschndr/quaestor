@@ -1,6 +1,4 @@
 import { Outlet, createRootRouteWithContext, useRouter } from '@tanstack/react-router'
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'sonner'
 import { Loader2, CloudOff, AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -38,12 +36,6 @@ function RootComponent() {
     <>
       <Outlet />
       <Toaster position="bottom-center" theme={resolved === 'DARK' ? 'dark' : 'light'} richColors />
-      {import.meta.env.DEV && (
-        <>
-          <TanStackRouterDevtools position="bottom-right" />
-          <ReactQueryDevtools buttonPosition="bottom-left" />
-        </>
-      )}
     </>
   )
 }
