@@ -1,4 +1,3 @@
-import hashlib
 import os
 import secrets
 from datetime import timedelta
@@ -10,7 +9,7 @@ from source.backend.exceptions import (
     InvalidCredentialsError,
     SessionNotFoundError,
 )
-from source.backend.helpers import utc_now
+from source.backend.helpers import hash_token, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.session import UserSession
 from source.backend.models.user import User
@@ -22,10 +21,6 @@ logger = get_logger(__name__)
 
 SESSION_DURATION = timedelta(days=14)
 COOKIE_NAME = "session"
-
-
-def _hash_token(raw_token: str) -> str:
-    return hashlib.sha256(raw_token.encode()).hexdigest()
 
 
 def cookie_is_secure() -> bool:
@@ -43,7 +38,7 @@ def create_session(
     now = utc_now()
     user_session = UserSession(
         user_id=user.id,
-        token_hash=_hash_token(raw_token),
+        token_hash=hash_token(raw_token),
         created_at=now,
         expires_at=now + SESSION_DURATION,
         last_used_at=now,
@@ -58,7 +53,7 @@ def create_session(
 
 
 def _get_session_by_raw_token(db_session: Session, raw_token: str) -> UserSession | None:
-    user_session = db_session.scalar(select(UserSession).where(UserSession.token_hash == _hash_token(raw_token)))
+    user_session = db_session.scalar(select(UserSession).where(UserSession.token_hash == hash_token(raw_token)))
     if user_session is None:
         logger.debug("Presented session token does not match any known session")
         return None
@@ -89,7 +84,7 @@ def list_sessions_for_user(db_session: Session, user: User) -> list[UserSession]
 
 
 def is_current_session(user_session: UserSession, raw_token: str | None) -> bool:
-    return raw_token is not None and user_session.token_hash == _hash_token(raw_token)
+    return raw_token is not None and user_session.token_hash == hash_token(raw_token)
 
 
 def revoke_all_other_sessions_for_user(db_session: Session, user: User, current_raw_token: str | None) -> int:

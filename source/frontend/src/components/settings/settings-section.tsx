@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ApiError } from '@/lib/api'
 
 /**
  * Layout shell shared by every user-setting sub-page: a centred column with a header
@@ -82,20 +81,3 @@ export const FieldRow = ({ id, label, error, hideLabel, ...rest }: FieldRowProps
     ) : null}
   </div>
 )
-
-export function readApiErrorMessage(err: unknown, t: (key: string) => string): string {
-  if (err instanceof ApiError) {
-    if (err.status === 422 && err.body && typeof err.body === 'object') {
-      const detail = (err.body as { detail?: unknown }).detail
-      if (Array.isArray(detail) && detail.length > 0) {
-        const first = detail[0]
-        if (first && typeof first === 'object' && 'msg' in first) {
-          return String((first as { msg: unknown }).msg)
-        }
-      }
-      if (typeof detail === 'string') return detail
-    }
-    if (err.status === 429) return t('login.rateLimited')
-  }
-  return t('login.genericError')
-}

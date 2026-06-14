@@ -55,7 +55,6 @@ function buildTransaction(overrides: Partial<TransactionDetailRead> = {}): Trans
     transaction_type: 'OUTGOING',
     category: 'SUPERMARKET',
     note: null,
-    transfer_counterpart_id: null,
     transfer_counterpart: null,
     ...overrides,
   }
@@ -185,9 +184,8 @@ describe('TransactionDetailView', () => {
       transaction_type: 'TRANSFER_IN',
       category: 'TRANSFER',
       note: null,
-      transfer_counterpart_id: 7,
     }
-    renderView({ transfer_counterpart_id: 99, transfer_counterpart: counterpart })
+    renderView({ transfer_counterpart: counterpart })
     const link = screen.getByRole('link', { name: /Sparkonto/ })
     expect(link).toHaveAttribute('href', '/account/55?focus=99')
   })
@@ -204,10 +202,8 @@ describe('TransactionDetailView', () => {
       transaction_type: 'TRANSFER_IN',
       category: 'TRANSFER',
       note: null,
-      transfer_counterpart_id: 7,
     }
     const { onUnlink } = renderView({
-      transfer_counterpart_id: 99,
       transfer_counterpart: counterpart,
     })
     await user.click(screen.getByRole('button', { name: 'Remove link' }))
@@ -225,9 +221,8 @@ describe('TransactionDetailView', () => {
       transaction_type: 'TRANSFER_IN',
       category: 'TRANSFER',
       note: null,
-      transfer_counterpart_id: 7,
     }
-    renderView({ transfer_counterpart_id: 99, transfer_counterpart: counterpart })
+    renderView({ transfer_counterpart: counterpart })
     const terms = screen.getAllByRole('term').map((node) => node.textContent)
     expect(terms).toEqual([
       'Recipient',

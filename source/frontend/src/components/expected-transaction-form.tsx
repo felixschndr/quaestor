@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormField, SELECT_INPUT_CLASS } from '@/components/form-field'
 import {
   DEFAULT_MATCH_TOLERANCE,
   MATCH_TOLERANCES,
@@ -12,19 +12,9 @@ import {
   useUpdateExpectedTransaction,
   type ExpectedTransactionRead,
 } from '@/lib/expectedTransaction'
-
-const SELECT_CLASS =
-  'border-input dark:bg-input/30 h-8 rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+import { formatAmountForInput } from '@/lib/format'
 
 type Direction = 'in' | 'out'
-
-function formatAmount(value: number): string {
-  return value.toLocaleString('de-DE', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-    useGrouping: false,
-  })
-}
 
 interface ExpectedTransactionFormProps {
   accountId: number
@@ -43,7 +33,9 @@ export function ExpectedTransactionForm({
   const [direction, setDirection] = useState<Direction>(
     expected && expected.amount < 0 ? 'out' : 'in',
   )
-  const [amount, setAmount] = useState(expected ? formatAmount(Math.abs(expected.amount)) : '')
+  const [amount, setAmount] = useState(
+    expected ? formatAmountForInput(Math.abs(expected.amount)) : '',
+  )
   const [otherParty, setOtherParty] = useState(expected?.other_party ?? '')
   const [note, setNote] = useState(expected?.note ?? '')
   const [tolerance, setTolerance] = useState<number>(
@@ -115,7 +107,7 @@ export function ExpectedTransactionForm({
             id={`${fieldIdPrefix}-direction`}
             value={direction}
             onChange={(event) => setDirection(event.target.value as Direction)}
-            className={SELECT_CLASS}
+            className={SELECT_INPUT_CLASS}
           >
             <option value="in">{t('expectedTransactions.directionIn')}</option>
             <option value="out">{t('expectedTransactions.directionOut')}</option>
@@ -129,9 +121,9 @@ export function ExpectedTransactionForm({
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
             onBlur={() => {
-              if (validAmount) setAmount(formatAmount(parsedAmount))
+              if (validAmount) setAmount(formatAmountForInput(parsedAmount))
             }}
-            placeholder={formatAmount(0)}
+            placeholder={formatAmountForInput(0)}
             aria-invalid={(attemptedSubmit && !validAmount) || undefined}
           />
         </FormField>
@@ -145,7 +137,7 @@ export function ExpectedTransactionForm({
           id={`${fieldIdPrefix}-tolerance`}
           value={tolerance}
           onChange={(event) => setTolerance(Number(event.target.value))}
-          className={SELECT_CLASS}
+          className={SELECT_INPUT_CLASS}
         >
           {MATCH_TOLERANCES.map((value) => (
             <option key={value} value={value}>
@@ -183,30 +175,5 @@ export function ExpectedTransactionForm({
         </Button>
       </div>
     </form>
-  )
-}
-
-function FormField({
-  id,
-  label,
-  hint,
-  children,
-}: {
-  id: string
-  label: string
-  hint?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label
-        htmlFor={id}
-        className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
-      >
-        {label}
-      </Label>
-      {children}
-      {hint ? <p className="text-muted-foreground text-xs">{hint}</p> : null}
-    </div>
   )
 }

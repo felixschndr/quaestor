@@ -1,4 +1,3 @@
-import hashlib
 import re
 import secrets
 from datetime import timedelta
@@ -6,7 +5,7 @@ from datetime import timedelta
 import pyotp
 import segno
 from source.backend.exceptions import InvalidTwoFactorError
-from source.backend.helpers import get_project_name, utc_now
+from source.backend.helpers import get_project_name, hash_token, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.backup_code import BackupCode
 from source.backend.models.two_factor_challenge import TwoFactorChallenge
@@ -26,10 +25,6 @@ _BACKUP_CODE_GROUPS = 3
 _BACKUP_CODE_GROUP_LENGTH = 5
 # A TOTP code is six digits; anything else is treated as a backup code at login.
 _TOTP_CODE_PATTERN = re.compile(r"^\d{6}$")
-
-
-def _hash_token(raw_token: str) -> str:
-    return hashlib.sha256(raw_token.encode()).hexdigest()
 
 
 def generate_secret() -> str:
@@ -148,7 +143,7 @@ def create_challenge(db_session: Session, user: User) -> str:
     now = utc_now()
     challenge = TwoFactorChallenge(
         user_id=user.id,
-        token_hash=_hash_token(raw_token),
+        token_hash=hash_token(raw_token),
         created_at=now,
         expires_at=now + CHALLENGE_DURATION,
     )
@@ -160,7 +155,7 @@ def create_challenge(db_session: Session, user: User) -> str:
 
 def _get_challenge(db_session: Session, raw_token: str) -> TwoFactorChallenge | None:
     challenge = db_session.scalar(
-        select(TwoFactorChallenge).where(TwoFactorChallenge.token_hash == _hash_token(raw_token))
+        select(TwoFactorChallenge).where(TwoFactorChallenge.token_hash == hash_token(raw_token))
     )
     if challenge is None:
         return None
@@ -179,7 +174,7 @@ def resolve_challenge(db_session: Session, raw_token: str) -> User | None:
 
 def delete_challenge(db_session: Session, raw_token: str) -> None:
     challenge = db_session.scalar(
-        select(TwoFactorChallenge).where(TwoFactorChallenge.token_hash == _hash_token(raw_token))
+        select(TwoFactorChallenge).where(TwoFactorChallenge.token_hash == hash_token(raw_token))
     )
     if challenge is not None:
         db_session.delete(challenge)

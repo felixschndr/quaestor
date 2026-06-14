@@ -1,13 +1,51 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import i18n from '@/i18n'
 import {
+  formatAmountForInput,
   formatEuro,
   formatDate,
   formatDateTime,
   formatIban,
   relativeDateKey,
   setDisplayTimeZone,
+  todayIso,
 } from '../format'
+
+describe('formatAmountForInput', () => {
+  it('renders two decimals with a German comma and no thousands separator', () => {
+    expect(formatAmountForInput(1234.5)).toBe('1234,50')
+  })
+
+  it('formats zero', () => {
+    expect(formatAmountForInput(0)).toBe('0,00')
+  })
+
+  it('formats negative values with a minus sign', () => {
+    expect(formatAmountForInput(-42)).toBe('-42,00')
+  })
+
+  it('rounds to two decimals', () => {
+    expect(formatAmountForInput(1.239)).toBe('1,24')
+  })
+})
+
+describe('todayIso', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('formats the current local date as YYYY-MM-DD', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 4, 20, 12, 0, 0))
+    expect(todayIso()).toBe('2026-05-20')
+  })
+
+  it('zero-pads single-digit months and days', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 0, 9, 12, 0, 0))
+    expect(todayIso()).toBe('2026-01-09')
+  })
+})
 
 describe('formatEuro', () => {
   it('formats positive amounts in de-DE', () => {

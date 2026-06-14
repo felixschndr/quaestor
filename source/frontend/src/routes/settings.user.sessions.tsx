@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { useAuthMe, type UserRead } from '@/lib/auth'
-import { ApiError } from '@/lib/api'
+import { readApiErrorMessage } from '@/lib/apiError'
 import {
   useRevokeAllOtherSessions,
   useRevokeSession,
@@ -218,15 +218,4 @@ function SessionRow({
       </div>
     </li>
   )
-}
-
-function readApiErrorMessage(err: unknown, t: (key: string) => string): string {
-  if (err instanceof ApiError) {
-    if (err.status === 429) return t('login.rateLimited')
-    if (err.status === 422 && err.body && typeof err.body === 'object') {
-      const detail = (err.body as { detail?: unknown }).detail
-      if (typeof detail === 'string') return detail
-    }
-  }
-  return t('login.genericError')
 }

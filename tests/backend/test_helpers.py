@@ -4,6 +4,7 @@ from typing import Any
 import pytest
 from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.helpers import (
+    apply_fields,
     epoch_ms_to_date,
     format_transaction_for_categorization,
     get_backend_source_path,
@@ -14,6 +15,7 @@ from source.backend.helpers import (
     get_project_name,
     get_project_repository,
     get_root_path_of_repository,
+    hash_token,
     parse_german_decimal,
 )
 from source.backend.models.transaction import Transaction
@@ -143,6 +145,40 @@ def test_format_transaction_for_categorization_renders_identifying_fields():
         f"<Transaction(id={transaction.id}, amount={transaction.amount}, purpose={transaction.purpose}, "
         f"other_party={transaction.other_party}, transaction_type={transaction.transaction_type})>"
     )
+
+
+def test_hash_token_is_deterministic_sha256_hex():
+    # sha256("hello") — a fixed, well-known digest so a change of algorithm is caught.
+    assert hash_token("hello") == "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+    assert hash_token("hello") == hash_token("hello")
+
+
+def test_hash_token_differs_for_different_inputs():
+    assert hash_token("token-a") != hash_token("token-b")
+
+
+def test_apply_fields_sets_each_key_as_an_attribute():
+    class Entity:
+        def __init__(self):
+            self.name = "old"
+            self.amount = 1
+
+    entity = Entity()
+    apply_fields(entity=entity, fields={"name": "new", "amount": 42})
+
+    assert entity.name == "new"
+    assert entity.amount == 42
+
+
+def test_apply_fields_with_empty_dict_leaves_entity_unchanged():
+    class Entity:
+        def __init__(self):
+            self.name = "unchanged"
+
+    entity = Entity()
+    apply_fields(entity=entity, fields={})
+
+    assert entity.name == "unchanged"
 
 
 def test_backend_and_frontend_are_siblings_under_the_repo_root():

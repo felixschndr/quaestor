@@ -13,10 +13,6 @@ export interface TransactionRead {
   transaction_type: string | null
   category: string
   note: string | null
-  // Backend always returns this; kept optional so existing test fixtures
-  // (search/history tests) keep type-checking without changes.
-  // TODO: Remove this
-  transfer_counterpart_id?: number | null
   pending?: boolean
 }
 

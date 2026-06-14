@@ -12,6 +12,7 @@ from source.backend.exceptions import (
     MissingCredentialFieldError,
     ReauthenticationRequiredError,
 )
+from source.backend.helpers import apply_fields
 from source.backend.logging_utils import get_logger
 from source.backend.models.credential import Credential
 from source.backend.models.user import User
@@ -119,8 +120,7 @@ def create_credential(
 def update_credential(db_session: Session, credential: Credential, fields: dict) -> Credential:
     logger.debug(f"Updating {credential} with fields {sorted(fields)}")
     credential_before_change = str(credential)
-    for key, value in fields.items():
-        setattr(credential, key, value)
+    apply_fields(entity=credential, fields=fields)
     db_session.commit()
     logger.info(f"Updated credential {credential_before_change} --> {credential}")
     return credential

@@ -9,8 +9,7 @@ import { toast } from 'sonner'
 import type { TFunction } from 'i18next'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FieldRow } from '@/components/settings/settings-section'
 import { ApiError } from '@/lib/api'
 import { ibanToBlz } from '@/lib/bankIdentity'
 import {
@@ -401,29 +400,6 @@ function handleCreateError(
   }
   toast.error(t('credentials.connectFailed', { bank: bankTitle }))
 }
-
-interface FieldRowProps extends React.ComponentProps<'input'> {
-  id: string
-  label: string
-  error?: string
-}
-
-const FieldRow = ({ id, label, error, ...rest }: FieldRowProps) => (
-  <div className="flex flex-col gap-1.5">
-    <Label htmlFor={id}>{label}</Label>
-    <Input
-      id={id}
-      aria-invalid={error ? true : undefined}
-      aria-describedby={error ? `${id}-error` : undefined}
-      {...rest}
-    />
-    {error ? (
-      <p id={`${id}-error`} role="alert" className="text-destructive text-xs">
-        {error}
-      </p>
-    ) : null}
-  </div>
-)
 
 function displayName(t: TFunction, bank: SupportedBank): string {
   return bank.provider === bank.key

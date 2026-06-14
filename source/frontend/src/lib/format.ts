@@ -70,6 +70,27 @@ export function formatDecimal(value: number): string {
   return decimalFormatter.format(value)
 }
 
+const inputAmountFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+  useGrouping: false,
+})
+
+// Renders an amount for editing inside a text input: two decimals, no thousands
+// separators (so the value round-trips through the form without reformatting).
+export function formatAmountForInput(value: number): string {
+  return inputAmountFormatter.format(value)
+}
+
+// Today's date as a local-time YYYY-MM-DD string, suitable for a date input's value.
+export function todayIso(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const percentFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
   style: 'percent',
   minimumFractionDigits: 1,

@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ApiError } from '@/lib/api'
+import { readApiErrorMessage } from '@/lib/apiError'
 import { copyText } from '@/lib/clipboard'
 import { useAuthMe } from '@/lib/auth'
 import { formatDateTime } from '@/lib/format'
@@ -240,15 +240,4 @@ function BackLink() {
       <ChevronLeft className="size-5" />
     </Link>
   )
-}
-
-function readApiErrorMessage(err: unknown, t: (key: string) => string): string {
-  if (err instanceof ApiError) {
-    if (err.status === 429) return t('login.rateLimited')
-    if (err.status === 422 && err.body && typeof err.body === 'object') {
-      const detail = (err.body as { detail?: unknown }).detail
-      if (typeof detail === 'string') return detail
-    }
-  }
-  return t('login.genericError')
 }

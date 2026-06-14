@@ -8,12 +8,8 @@ import { Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import {
-  FieldRow,
-  Section,
-  SettingsSubPage,
-  readApiErrorMessage,
-} from '@/components/settings/settings-section'
+import { FieldRow, Section, SettingsSubPage } from '@/components/settings/settings-section'
+import { readApiErrorMessage } from '@/lib/apiError'
 import { ApiError } from '@/lib/api'
 import {
   evaluatePassword,

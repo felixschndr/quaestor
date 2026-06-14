@@ -8,6 +8,7 @@ from source.backend.exceptions import (
     TransactionNotFoundError,
     ValidationError,
 )
+from source.backend.helpers import apply_fields
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
@@ -103,8 +104,7 @@ def update_transaction(db_session: Session, account: Account, transaction: Trans
     previous_amount = transaction.amount
     previous_date = transaction.date
     transaction_before_change = str(transaction)
-    for key, value in fields.items():
-        setattr(transaction, key, value)
+    apply_fields(entity=transaction, fields=fields)
 
     amount_changed = "amount" in fields and transaction.amount != previous_amount
     date_changed = "date" in fields and transaction.date != previous_date
@@ -137,8 +137,7 @@ def update_account(db_session: Session, account: Account, fields: dict) -> Accou
             fields.pop("balance")
             balance_in_payload = False
     account_before_change = str(account)
-    for key, value in fields.items():
-        setattr(account, key, value)
+    apply_fields(entity=account, fields=fields)
     if balance_in_payload:
         account.recompute_balances_at_date()
     db_session.commit()

@@ -1,9 +1,8 @@
-import hashlib
 import secrets
 
 from fastapi import Request
 from source.backend.exceptions import ApiKeyNotFoundError
-from source.backend.helpers import utc_now
+from source.backend.helpers import hash_token, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.api_key import ApiKey
 from source.backend.models.user import User
@@ -16,10 +15,6 @@ TOKEN_PREFIX = "qk_"  # nosec B105
 _PREFIX_DISPLAY_LENGTH = len(TOKEN_PREFIX) + 6
 _AUTHORIZATION_HEADER = "Authorization"
 _BEARER_SCHEME = "Bearer "
-
-
-def _hash_token(raw_token: str) -> str:
-    return hashlib.sha256(raw_token.encode()).hexdigest()
 
 
 def extract_bearer_token(request: Request) -> str | None:
@@ -39,7 +34,7 @@ def create_api_key(db_session: Session, user: User, name: str) -> tuple[str, Api
     api_key = ApiKey(
         user_id=user.id,
         name=name,
-        token_hash=_hash_token(raw_token),
+        token_hash=hash_token(raw_token),
         prefix=raw_token[:_PREFIX_DISPLAY_LENGTH],
         created_at=utc_now(),
         last_used_at=None,
@@ -73,7 +68,7 @@ def delete_api_key(db_session: Session, api_key: ApiKey) -> None:
 
 
 def authenticate(db_session: Session, raw_token: str) -> User | None:
-    api_key = db_session.scalar(select(ApiKey).where(ApiKey.token_hash == _hash_token(raw_token)))
+    api_key = db_session.scalar(select(ApiKey).where(ApiKey.token_hash == hash_token(raw_token)))
     if api_key is None:
         logger.debug("Presented API key does not match any known key")
         return None
@@ -87,5 +82,5 @@ def resolve_log_label(db_session: Session, request: Request) -> str | None:
     raw_token = extract_bearer_token(request)
     if raw_token is None:
         return None
-    api_key = db_session.scalar(select(ApiKey).where(ApiKey.token_hash == _hash_token(raw_token)))
+    api_key = db_session.scalar(select(ApiKey).where(ApiKey.token_hash == hash_token(raw_token)))
     return api_key.log_label() if api_key is not None else None

@@ -1,6 +1,7 @@
 import os
 
 from source.backend.exceptions import UserNameAlreadyExistsError, UserNotFoundError
+from source.backend.helpers import apply_fields
 from source.backend.logging_utils import get_logger
 from source.backend.models.theme import Theme
 from source.backend.models.user import User
@@ -87,8 +88,7 @@ def update_user(db_session: Session, user: User, fields: dict) -> User:
         if conflicting_id is not None:
             raise UserNameAlreadyExistsError(f"User name {new_user_name!r} is already taken")
     user_before_change = str(user)
-    for key, value in fields.items():
-        setattr(user, key, value)
+    apply_fields(entity=user, fields=fields)
     try:
         db_session.commit()
     except IntegrityError:

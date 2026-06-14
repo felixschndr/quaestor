@@ -4,11 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import {
-  Section,
-  SettingsSubPage,
-  readApiErrorMessage,
-} from '@/components/settings/settings-section'
+import { Section, SettingsSubPage } from '@/components/settings/settings-section'
+import { readApiErrorMessage } from '@/lib/apiError'
 import { useAuthMe, type UserRead } from '@/lib/auth'
 import { useDeleteUser } from '@/lib/user'
 

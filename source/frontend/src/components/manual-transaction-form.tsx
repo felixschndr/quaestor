@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { FormField, SELECT_INPUT_CLASS } from '@/components/form-field'
 import {
   TRANSACTION_CATEGORIES,
   TRANSACTION_TYPES,
@@ -25,12 +26,10 @@ import {
   type RecurringTransactionRead,
 } from '@/lib/recurringTransaction'
 import type { TransactionRead } from '@/lib/accountHistory'
+import { formatAmountForInput, todayIso } from '@/lib/format'
 
 const MONTH_DAYS = Array.from({ length: 31 }, (_, index) => index + 1)
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] // 0 = Monday, 6 = Sunday
-
-const SELECT_CLASS =
-  'border-input dark:bg-input/30 h-8 rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
 function openSelectOnEnter(event: React.KeyboardEvent<HTMLSelectElement>): void {
   if (event.key !== 'Enter') return
@@ -41,22 +40,6 @@ function openSelectOnEnter(event: React.KeyboardEvent<HTMLSelectElement>): void 
     // showPicker() isn't available in every browser; the form's keydown guard
     // still prevents an accidental submit, so there's nothing else to do.
   }
-}
-
-function formatAmount(value: number): string {
-  return value.toLocaleString('de-DE', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-    useGrouping: false,
-  })
-}
-
-function todayIso(): string {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
 }
 
 interface ManualTransactionFormProps {
@@ -78,7 +61,9 @@ export function ManualTransactionForm({
   const isRecurringEdit = mode === 'edit' && !!recurringTransaction
   const seed = recurringTransaction ?? transaction
   const [date, setDate] = useState(transaction?.date ?? todayIso())
-  const [amount, setAmount] = useState(seed?.amount !== undefined ? formatAmount(seed.amount) : '')
+  const [amount, setAmount] = useState(
+    seed?.amount !== undefined ? formatAmountForInput(seed.amount) : '',
+  )
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
   const [purpose, setPurpose] = useState(seed?.purpose ?? '')
   const [otherParty, setOtherParty] = useState(seed?.other_party ?? '')
@@ -269,9 +254,9 @@ export function ManualTransactionForm({
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
             onBlur={() => {
-              if (validAmount) setAmount(formatAmount(parsedAmount))
+              if (validAmount) setAmount(formatAmountForInput(parsedAmount))
             }}
-            placeholder={formatAmount(0)}
+            placeholder={formatAmountForInput(0)}
             aria-invalid={(attemptedSubmit && !validAmount) || undefined}
           />
         </FormField>
@@ -305,7 +290,7 @@ export function ManualTransactionForm({
             id={`${fieldIdPrefix}-type`}
             value={txnType}
             onChange={(event) => setTxnType(event.target.value as TransactionType | '')}
-            className={SELECT_CLASS}
+            className={SELECT_INPUT_CLASS}
             onKeyDown={openSelectOnEnter}
           >
             <option value="">{t('credentials.manualTransactions.anyOption')}</option>
@@ -324,7 +309,7 @@ export function ManualTransactionForm({
             id={`${fieldIdPrefix}-category`}
             value={category}
             onChange={(event) => setCategory(event.target.value as TransactionCategory | '')}
-            className={SELECT_CLASS}
+            className={SELECT_INPUT_CLASS}
             onKeyDown={openSelectOnEnter}
           >
             <option value="">{t('credentials.manualTransactions.anyOption')}</option>
@@ -354,7 +339,7 @@ export function ManualTransactionForm({
                 id={`${fieldIdPrefix}-frequency`}
                 value={frequency}
                 onChange={(event) => setFrequency(event.target.value as RecurrenceFrequency)}
-                className={SELECT_CLASS}
+                className={SELECT_INPUT_CLASS}
                 onKeyDown={openSelectOnEnter}
               >
                 {RECURRENCE_FREQUENCIES.map((freq) => (
@@ -368,13 +353,13 @@ export function ManualTransactionForm({
               <FormField
                 id={`${fieldIdPrefix}-day-of-month`}
                 label={t('credentials.manualTransactions.fieldDayOfMonth')}
-                hint={<InfoHint text={t('credentials.manualTransactions.dayOfMonthHint')} />}
+                labelHint={<InfoHint text={t('credentials.manualTransactions.dayOfMonthHint')} />}
               >
                 <select
                   id={`${fieldIdPrefix}-day-of-month`}
                   value={dayOfMonth}
                   onChange={(event) => setDayOfMonth(Number(event.target.value))}
-                  className={SELECT_CLASS}
+                  className={SELECT_INPUT_CLASS}
                   onKeyDown={openSelectOnEnter}
                 >
                   {MONTH_DAYS.map((day) => (
@@ -393,7 +378,7 @@ export function ManualTransactionForm({
                   id={`${fieldIdPrefix}-day-of-week`}
                   value={dayOfWeek}
                   onChange={(event) => setDayOfWeek(Number(event.target.value))}
-                  className={SELECT_CLASS}
+                  className={SELECT_INPUT_CLASS}
                   onKeyDown={openSelectOnEnter}
                 >
                   {WEEKDAYS.map((day) => (
@@ -442,33 +427,6 @@ export function ManualTransactionForm({
         </Button>
       </div>
     </form>
-  )
-}
-
-function FormField({
-  id,
-  label,
-  hint,
-  children,
-}: {
-  id: string
-  label: string
-  hint?: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1">
-        <Label
-          htmlFor={id}
-          className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
-        >
-          {label}
-        </Label>
-        {hint}
-      </div>
-      {children}
-    </div>
   )
 }
 

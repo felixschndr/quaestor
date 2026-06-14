@@ -4,11 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import i18n from 'i18next'
 
-import {
-  Section,
-  SettingsSubPage,
-  readApiErrorMessage,
-} from '@/components/settings/settings-section'
+import { Section, SettingsSubPage } from '@/components/settings/settings-section'
+import { readApiErrorMessage } from '@/lib/apiError'
 import { useAuthMe, type Theme, type UserRead } from '@/lib/auth'
 import { useSupportedLanguages, useUpdateUser } from '@/lib/user'
 import { applyTheme, THEME_VALUES } from '@/lib/theme'

@@ -1,4 +1,5 @@
 import functools
+import hashlib
 import pathlib
 import tomllib
 from datetime import date, datetime, timezone
@@ -12,6 +13,15 @@ if TYPE_CHECKING:
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def hash_token(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode()).hexdigest()
+
+
+def apply_fields(entity: object, fields: dict) -> None:
+    for key, value in fields.items():
+        setattr(entity, key, value)
 
 
 def get_key_of_transaction(transaction: "FetchedTransaction | Transaction") -> str:
