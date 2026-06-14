@@ -17,6 +17,14 @@ PatchSync = Callable[[SyncOutcome], None]
 PatchConfirm = Callable[[SyncOutcome], None]
 
 
+async def _wait_until(predicate: Callable[[], bool]) -> None:
+    deadline = asyncio.get_running_loop().time() + 5
+    while not predicate():
+        if asyncio.get_running_loop().time() >= deadline:
+            return
+        await asyncio.sleep(0.01)
+
+
 @pytest.fixture(autouse=True)
 def _reset_state() -> Iterator[None]:
     sync_jobs._jobs.clear()
@@ -140,20 +148,14 @@ def test_submit_two_factor_advances_the_job(patch_sync: PatchSync, patch_confirm
 
     async def scenario():
         job = await sync_jobs.start_sync(credential_id=42)
-        for _ in range(50):
-            if job.status == JobStatus.AWAITING_TWO_FACTOR:
-                break
-            await asyncio.sleep(0)
+        await _wait_until(lambda: job.status == JobStatus.AWAITING_TWO_FACTOR)
 
         result = await sync_jobs.submit_two_factor(job_id=job.job_id, code="1234")
         assert result is job
         assert job.status == JobStatus.RUNNING
         assert job.challenge_token is None  # consumed
 
-        for _ in range(50):
-            if job.finished_at is not None:
-                break
-            await asyncio.sleep(0)
+        await _wait_until(lambda: job.finished_at is not None)
         assert job.status == JobStatus.COMPLETED
 
     asyncio.run(scenario())
