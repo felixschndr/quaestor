@@ -17,27 +17,28 @@ import { formatEuro, formatIban } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const searchParamsSchema = z.object({
-  // Optional "before" reference date. When absent it defaults to the day
-  // before the end date, reproducing a single-day view.
   start: z.string().optional(),
+  end: z.string().optional(),
   account_ids: z
     .union([z.array(z.coerce.number()), z.coerce.number()])
     .transform((value) => (Array.isArray(value) ? value : [value]))
     .optional(),
 })
 
-/** Shift an ISO yyyy-mm-dd date by `delta` days, returning ISO yyyy-mm-dd. */
-function shiftIsoDay(iso: string, delta: number): string {
-  const [year, month, day] = iso.split('-').map(Number)
-  const date = new Date(year, month - 1, day + delta)
+function formatIsoDate(date: Date): string {
   const yyyy = date.getFullYear()
   const mm = String(date.getMonth() + 1).padStart(2, '0')
   const dd = String(date.getDate()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd}`
 }
 
-export const Route = createFileRoute('/stats_/day/$date')({
-  component: NetWorthDayPage,
+function shiftIsoDay(iso: string, delta: number): string {
+  const [year, month, day] = iso.split('-').map(Number)
+  return formatIsoDate(new Date(year, month - 1, day + delta))
+}
+
+export const Route = createFileRoute('/stats_/detail')({
+  component: NetWorthDetailPage,
   validateSearch: (search) => searchParamsSchema.parse(search),
 })
 
@@ -45,39 +46,37 @@ function formatSignedEuro(value: number): string {
   return value > 0 ? `+${formatEuro(value)}` : formatEuro(value)
 }
 
-export function NetWorthDayPage() {
-  const { date } = Route.useParams()
+export function NetWorthDetailPage() {
   const search = Route.useSearch()
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { data: user } = useAuthMe()
   const layout = useAccountGroupLayout()
   const accountIds = search.account_ids ?? []
-  // `date` (the route param) is the end of the range; the start defaults to
-  // the day before, which reproduces the original single-day comparison.
-  const startDate = search.start ?? shiftIsoDay(date, -1)
-  const range = useNetWorthRange(startDate, date, accountIds)
+  // `end` is the closing day (defaults to today); the start defaults to the
+  // day before, which reproduces the original single-day comparison.
+  const endDate = search.end ?? formatIsoDate(new Date())
+  const startDate = search.start ?? shiftIsoDay(endDate, -1)
+  const range = useNetWorthRange(startDate, endDate, accountIds)
 
   const changeStart = (next: string) => {
     if (!next) return
     // The start can never sit after the end; clamp it to the end date.
-    const clamped = next > date ? date : next
+    const clamped = next > endDate ? endDate : next
     navigate({
-      to: '/stats/day/$date',
-      params: { date },
-      search: { account_ids: accountIds, start: clamped },
+      to: '/stats/detail',
+      search: { account_ids: accountIds, start: clamped, end: endDate },
     })
   }
 
   const changeEnd = (next: string) => {
-    if (!next || next === date) return
+    if (!next || next === endDate) return
     // Keep an explicit start only while it still precedes the new end;
     // otherwise drop it so it falls back to "the day before".
     const keepStart = search.start && search.start <= next ? search.start : undefined
     navigate({
-      to: '/stats/day/$date',
-      params: { date: next },
-      search: { account_ids: accountIds, start: keepStart },
+      to: '/stats/detail',
+      search: { account_ids: accountIds, start: keepStart, end: next },
     })
   }
 
@@ -114,7 +113,7 @@ export function NetWorthDayPage() {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="day-end">{t('stats.day.to')}</Label>
-          <DatePicker id="day-end" value={date} onChange={changeEnd} />
+          <DatePicker id="day-end" value={endDate} onChange={changeEnd} />
         </div>
       </div>
 

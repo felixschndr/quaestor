@@ -8,18 +8,22 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
     children,
+    params,
     ...rest
-  }: { to: string; children: React.ReactNode } & Omit<
-    React.AnchorHTMLAttributes<HTMLAnchorElement>,
-    'children'
-  >) => (
-    <a href={to} {...rest}>
-      {children}
-    </a>
-  ),
+  }: {
+    to: string
+    children: React.ReactNode
+    params?: Record<string, string>
+  } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'children'>) => {
+    void params // not forwarded to the DOM <a> in this mock
+    return (
+      <a href={to} {...rest}>
+        {children}
+      </a>
+    )
+  },
   createFileRoute: () => () => ({
-    useParams: () => ({ date: '2026-05-20' }),
-    useSearch: () => ({ account_ids: [42, 43] }),
+    useSearch: () => ({ account_ids: [42, 43], end: '2026-05-20' }),
   }),
   useNavigate: () => vi.fn(),
 }))
@@ -106,11 +110,11 @@ vi.mock('@/lib/statistics', () => ({
   }),
 }))
 
-import { NetWorthDayPage } from '@/routes/stats_.day.$date'
+import { NetWorthDetailPage } from '@/routes/stats_.detail'
 
-describe('NetWorthDayPage', () => {
+describe('NetWorthDetailPage', () => {
   it('lists the selected accounts and reveals their transactions on expand', async () => {
-    render(<NetWorthDayPage />)
+    render(<NetWorthDetailPage />)
 
     expect(screen.getByText('Girokonto')).toBeInTheDocument()
     expect(screen.getByText('Depot')).toBeInTheDocument()

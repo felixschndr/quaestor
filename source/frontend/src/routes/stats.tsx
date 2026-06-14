@@ -107,9 +107,8 @@ function StatsPage() {
       }}
       onOpenDay={(date, accountIds) =>
         navigate({
-          to: '/stats/day/$date',
-          params: { date },
-          search: { account_ids: accountIds },
+          to: '/stats/detail',
+          search: { end: date, account_ids: accountIds },
         })
       }
     />
