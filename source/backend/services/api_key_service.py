@@ -1,9 +1,9 @@
 import hashlib
 import secrets
-from datetime import datetime
 
 from fastapi import Request
 from source.backend.exceptions import ApiKeyNotFoundError
+from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.api_key import ApiKey
 from source.backend.models.user import User
@@ -41,7 +41,7 @@ def create_api_key(db_session: Session, user: User, name: str) -> tuple[str, Api
         name=name,
         token_hash=_hash_token(raw_token),
         prefix=raw_token[:_PREFIX_DISPLAY_LENGTH],
-        created_at=datetime.now(),
+        created_at=utc_now(),
         last_used_at=None,
     )
     db_session.add(api_key)
@@ -77,7 +77,7 @@ def authenticate(db_session: Session, raw_token: str) -> User | None:
     if api_key is None:
         logger.debug("Presented API key does not match any known key")
         return None
-    api_key.last_used_at = datetime.now()
+    api_key.last_used_at = utc_now()
     db_session.commit()
     logger.debug(f"Authenticated request via {api_key}")
     return api_key.user

@@ -1,7 +1,7 @@
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, field_validator
+from source.backend.api.schemas.common import UtcDatetime
 
 if TYPE_CHECKING:
     from pydantic.v1.main import ModelMetaclass
@@ -29,8 +29,8 @@ class ApiKeyRead(BaseModel):
     id: int
     name: str
     prefix: str
-    created_at: datetime
-    last_used_at: datetime | None
+    created_at: UtcDatetime
+    last_used_at: UtcDatetime | None
 
 
 class ApiKeyCreated(ApiKeyRead):

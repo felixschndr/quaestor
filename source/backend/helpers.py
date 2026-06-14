@@ -10,6 +10,10 @@ if TYPE_CHECKING:
     from source.backend.models.transaction import Transaction
 
 
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 def get_key_of_transaction(transaction: "FetchedTransaction | Transaction") -> str:
     # Only use fields that cannot change
     return f"{transaction.date} {transaction.purpose} {transaction.other_party} {transaction.amount}"

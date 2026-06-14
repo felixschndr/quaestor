@@ -1,7 +1,11 @@
 from datetime import datetime, timedelta
 
 import requests
-from source.backend.helpers import get_content_of_pyproject_toml, get_project_version
+from source.backend.helpers import (
+    get_content_of_pyproject_toml,
+    get_project_version,
+    utc_now,
+)
 from source.backend.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -58,7 +62,7 @@ def _fetch_latest_release() -> tuple[str, str] | None:
 
 def get_latest_release() -> tuple[str, str] | None:
     global _latest_release_cache
-    now = datetime.now()
+    now = utc_now()
     if _latest_release_cache is not None and now - _latest_release_cache[0] < _CACHE_TTL:
         return _latest_release_cache[1]
 

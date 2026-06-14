@@ -8,6 +8,7 @@ from typing import ClassVar
 
 from source.backend.db import SessionLocal
 from source.backend.exceptions import InvalidCredentialsError
+from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.base import format_repr
 from source.backend.services import credential_service
@@ -45,7 +46,7 @@ class SyncJob:
     expires_at: datetime | None = None
     error: str | None = None
     error_code: JobErrorCode | None = None
-    started_at: datetime = field(default_factory=datetime.now)
+    started_at: datetime = field(default_factory=utc_now)
     finished_at: datetime | None = None
 
     def __repr__(self) -> str:
@@ -65,7 +66,7 @@ def _spawn(coro: "asyncio.coroutines.Coroutine") -> None:
 
 
 def _cleanup_old_jobs() -> None:
-    cutoff_time = datetime.now() - JOB_RETENTION_DURATION
+    cutoff_time = utc_now() - JOB_RETENTION_DURATION
     stale_jobs = [job_id for job_id, job in _jobs.items() if job.finished_at and job.finished_at < cutoff_time]
     for job_id in stale_jobs:
         _jobs.pop(job_id, None)
@@ -153,7 +154,7 @@ def _mark_terminal(
     job.status = status
     job.error = error
     job.error_code = error_code
-    job.finished_at = datetime.now()
+    job.finished_at = utc_now()
 
 
 async def submit_two_factor(job_id: str, code: str) -> SyncJob | None:

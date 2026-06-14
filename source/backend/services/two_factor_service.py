@@ -1,12 +1,12 @@
 import hashlib
 import re
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pyotp
 import segno
 from source.backend.exceptions import InvalidTwoFactorError
-from source.backend.helpers import get_project_name
+from source.backend.helpers import get_project_name, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.backup_code import BackupCode
 from source.backend.models.two_factor_challenge import TwoFactorChallenge
@@ -145,7 +145,7 @@ def _replace_backup_codes(user: User) -> None:
 
 def create_challenge(db_session: Session, user: User) -> str:
     raw_token = secrets.token_urlsafe(32)
-    now = datetime.now()
+    now = utc_now()
     challenge = TwoFactorChallenge(
         user_id=user.id,
         token_hash=_hash_token(raw_token),
@@ -164,7 +164,7 @@ def _get_challenge(db_session: Session, raw_token: str) -> TwoFactorChallenge | 
     )
     if challenge is None:
         return None
-    if challenge.expires_at < datetime.now():
+    if challenge.expires_at < utc_now():
         logger.debug(f"2FA challenge {challenge.id} expired at {challenge.expires_at:%Y-%m-%d %H:%M:%S}")
         db_session.delete(challenge)
         db_session.commit()

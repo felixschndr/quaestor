@@ -7,6 +7,7 @@ from pathlib import Path
 import requests
 from pytr.api import TradeRepublicApi
 from source.backend.exceptions import InvalidCredentialsError, InvalidTwoFactorError
+from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -30,7 +31,7 @@ def _cleanup(entry: _PendingLogin) -> None:
 
 
 def _cleanup_expired_pending_logins() -> None:
-    now = datetime.now()
+    now = utc_now()
     expired = [t for t, e in _pending_logins.items() if e.expires_at < now]
     for token in expired:
         _cleanup(_pending_logins.pop(token))
@@ -68,7 +69,7 @@ def start(credential_id: int, phone_no: str, pin: str) -> tuple[str, datetime]:
         raise InvalidCredentialsError(error_message) from e
 
     token = secrets.token_urlsafe(24)
-    expires_at = datetime.now() + DURATION_FOR_VALID_2FA_CODE
+    expires_at = utc_now() + DURATION_FOR_VALID_2FA_CODE
     _pending_logins[token] = _PendingLogin(
         trade_republic_client=trade_republic_client,
         cookies_path=cookies_path,

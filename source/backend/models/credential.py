@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, List
 
 from source.backend.bank_handlers import BankHandler, BankProvider, handler_for
 from source.backend.bank_handlers.base import BankSession, FetchedAccount
-from source.backend.helpers import get_key_of_transaction
+from source.backend.helpers import get_key_of_transaction, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.base import Base
@@ -63,7 +63,7 @@ class Credential(Base):
             created_accounts, updated_accounts, created_transactions = self._sync_accounts_of_credential(
                 bank_session=bank, by_name=by_name, transactions_since=transactions_since
             )
-        self.last_fetching_timestamp = datetime.now()
+        self.last_fetching_timestamp = utc_now()
         logger.info(
             f"Credential {self.id}: {created_accounts} account(s) created, "
             f"{updated_accounts} account(s) updated, {created_transactions} transaction(s) created"

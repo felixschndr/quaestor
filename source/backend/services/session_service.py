@@ -1,7 +1,7 @@
 import hashlib
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import Depends, Request, Response
 from source.backend.db import get_session
@@ -10,6 +10,7 @@ from source.backend.exceptions import (
     InvalidCredentialsError,
     SessionNotFoundError,
 )
+from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.session import UserSession
 from source.backend.models.user import User
@@ -39,7 +40,7 @@ def create_session(
     user_agent: str | None = None,
 ) -> str:
     raw_token = secrets.token_urlsafe(32)
-    now = datetime.now()
+    now = utc_now()
     user_session = UserSession(
         user_id=user.id,
         token_hash=_hash_token(raw_token),
@@ -61,7 +62,7 @@ def _get_session_by_raw_token(db_session: Session, raw_token: str) -> UserSessio
     if user_session is None:
         logger.debug("Presented session token does not match any known session")
         return None
-    if user_session.expires_at < datetime.now():
+    if user_session.expires_at < utc_now():
         logger.debug(f"Session {user_session} expired at {user_session.expires_at:%Y-%m-%d %H:%M:%S}")
         return None
     logger.debug(f"Matched session {user_session}")
@@ -72,7 +73,7 @@ def renew_session(db_session: Session, raw_token: str) -> UserSession | None:
     user_session = _get_session_by_raw_token(db_session=db_session, raw_token=raw_token)
     if user_session is None:
         return None
-    now = datetime.now()
+    now = utc_now()
     new_expiry = now + SESSION_DURATION
     logger.debug(f"Renewing session {user_session} expiry: {user_session.expires_at} --> {new_expiry}")
     user_session.expires_at = new_expiry

@@ -27,6 +27,14 @@ def test_create_returns_the_raw_token_exactly_once(http_client: TestClient):
     assert body["token"].startswith(body["prefix"])
 
 
+def test_created_at_is_served_as_explicit_utc(http_client: TestClient):
+    register(http_client)
+
+    created_at = create_api_key(http_client).json()["created_at"]
+
+    assert created_at.endswith("+00:00")
+
+
 def test_list_never_exposes_the_raw_token(http_client: TestClient):
     register(http_client)
     created = create_api_key(http_client).json()

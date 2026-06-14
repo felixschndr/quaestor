@@ -1,9 +1,10 @@
 import re
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pyotp
 import pytest
 from source.backend.exceptions import InvalidTwoFactorError
+from source.backend.helpers import utc_now
 from source.backend.models.two_factor_challenge import TwoFactorChallenge
 from source.backend.models.user import User
 from source.backend.services import two_factor_service
@@ -144,7 +145,7 @@ def test_challenge_resolves_until_expired(session_factory: sessionmaker):
         assert resolved is not None and resolved.id == user.id
 
         challenge = db_session.scalar(select(TwoFactorChallenge))
-        challenge.expires_at = datetime.now() - timedelta(seconds=1)
+        challenge.expires_at = utc_now() - timedelta(seconds=1)
         db_session.commit()
 
         assert two_factor_service.resolve_challenge(db_session=db_session, raw_token=raw_token) is None

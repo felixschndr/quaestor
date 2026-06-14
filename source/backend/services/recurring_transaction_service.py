@@ -1,7 +1,8 @@
 import calendar
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from source.backend.exceptions import RecurringTransactionNotFoundError
+from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.recurrence_frequency import RecurrenceFrequency
@@ -97,7 +98,7 @@ def create_recurring_transaction(
         frequency=fields["frequency"],
         day_of_month=fields.get("day_of_month"),
         day_of_week=fields.get("day_of_week"),
-        created_at=datetime.now(),
+        created_at=utc_now(),
         next_run_date=today,  # Provisional; finalised below once we know whether we book today.
     )
     db_session.add(rule)

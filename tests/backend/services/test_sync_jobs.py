@@ -1,10 +1,11 @@
 import asyncio
 from collections.abc import Callable, Iterator
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Union
 
 import pytest
 from source.backend.exceptions import InvalidCredentialsError
+from source.backend.helpers import utc_now
 from source.backend.services import sync_jobs
 from source.backend.services.credential_service import SyncResult, SyncStatus
 from source.backend.services.sync_jobs import JobErrorCode, JobStatus, SyncJob
@@ -116,7 +117,7 @@ def test_start_sync_tags_unexpected_failure_with_unknown_error_code(patch_sync: 
 
 
 def test_start_sync_holds_awaiting_two_factor(patch_sync: PatchSync):
-    expires = datetime.now() + timedelta(minutes=5)
+    expires = utc_now() + timedelta(minutes=5)
     patch_sync(SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN, expires_at=expires))
 
     async def scenario():
@@ -169,7 +170,7 @@ def test_submit_two_factor_returns_none_when_job_not_awaiting():
 
 
 def test_subscribe_yields_terminal_state_for_finished_job():
-    job = SyncJob(job_id="abc", credential_id=1, status=JobStatus.COMPLETED, finished_at=datetime.now())
+    job = SyncJob(job_id="abc", credential_id=1, status=JobStatus.COMPLETED, finished_at=utc_now())
     sync_jobs._jobs[job.job_id] = job
 
     async def scenario() -> list[SyncJob]:
@@ -210,12 +211,12 @@ def test_subscribe_returns_immediately_for_unknown_job():
 
 
 def test_cleanup_drops_old_finished_jobs():
-    fresh = SyncJob(job_id="fresh", credential_id=1, status=JobStatus.COMPLETED, finished_at=datetime.now())
+    fresh = SyncJob(job_id="fresh", credential_id=1, status=JobStatus.COMPLETED, finished_at=utc_now())
     stale = SyncJob(
         job_id="stale",
         credential_id=1,
         status=JobStatus.COMPLETED,
-        finished_at=datetime.now() - sync_jobs.JOB_RETENTION_DURATION - timedelta(minutes=1),
+        finished_at=utc_now() - sync_jobs.JOB_RETENTION_DURATION - timedelta(minutes=1),
     )
     sync_jobs._jobs[fresh.job_id] = fresh
     sync_jobs._jobs[stale.job_id] = stale

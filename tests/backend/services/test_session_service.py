@@ -1,8 +1,9 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from unittest.mock import MagicMock
 
 import pytest
 from source.backend.exceptions import InvalidCredentialsError
+from source.backend.helpers import utc_now
 from source.backend.models.session import UserSession
 from source.backend.services import session_service
 from sqlalchemy import select
@@ -22,7 +23,7 @@ def test_lookup_returns_none_for_expired_session(session_factory: sessionmaker):
     with session_factory() as db_session:
         raw_token = session_service.create_session(db_session=db_session, user=user)
         only_session = db_session.scalars(select(UserSession)).one()
-        only_session.expires_at = datetime.now() - timedelta(seconds=1)
+        only_session.expires_at = utc_now() - timedelta(seconds=1)
         db_session.commit()
 
     with session_factory() as db_session:
