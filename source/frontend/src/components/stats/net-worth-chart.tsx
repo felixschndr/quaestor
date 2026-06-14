@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { de, enUS, type Locale } from 'date-fns/locale'
 import { format, parseISO } from 'date-fns'
 import { useTranslation } from 'react-i18next'
@@ -17,6 +17,7 @@ import {
 } from 'recharts'
 
 import { formatDate, formatEuro } from '@/lib/format'
+import { readPinnedDate, writePinnedDate } from '@/lib/netWorthPin'
 import type { DailyNetWorth, NetWorthSummary } from '@/lib/statistics'
 import { AXIS_TICK, euroFormat } from './chartTheme'
 
@@ -51,15 +52,19 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
   const locale = LOCALES[i18n.language] ?? enUS
 
   // Two layers drive the headline value + cursor dot: a transient `hoverIndex`
-  // that follows the mouse, and a `pinnedIndex` committed on click/touch that
+  // that follows the mouse, and a pinned day committed on click/touch that
   // survives mouse-leave — so a clicked day stays highlighted (and reachable by
   // the "view day" button) on desktop, the same way scrubbing sticks on touch.
   // Falls back to the last point so the chart opens showing "today".
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
-  const [pinnedIndex, setPinnedIndex] = useState<number | null>(null)
-  const rawIndex = hoverIndex ?? pinnedIndex ?? data.length - 1
+  const [pinnedDate, setPinnedDate] = useState<string | null>(() => readPinnedDate())
+  const pinnedIndex = pinnedDate != null ? data.findIndex((point) => point.date === pinnedDate) : -1
+  const rawIndex = hoverIndex ?? (pinnedIndex >= 0 ? pinnedIndex : null) ?? data.length - 1
   const effectiveIndex = Math.min(Math.max(rawIndex, 0), data.length - 1)
   const active = data[effectiveIndex]
+  const hasSelection = hoverIndex != null || pinnedIndex >= 0
+
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const [selectStart, setSelectStart] = useState<string | null>(null)
   const [selectEnd, setSelectEnd] = useState<string | null>(null)
@@ -88,8 +93,9 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
   const handlePick = (state: ChartMouseState) => {
     const index = indexOf(state)
     if (index != null) {
-      setPinnedIndex(index)
+      setPinnedDate(data[index].date)
       setHoverIndex(index)
+      writePinnedDate(data[index].date)
     }
   }
   const handleDown = (state: ChartMouseState) => {
@@ -115,12 +121,26 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
     setSelectEnd(null)
   }
 
+  useEffect(() => {
+    if (!hasSelection) return
+    const handleOutside = (event: PointerEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setHoverIndex(null)
+        setPinnedDate(null)
+        writePinnedDate(null)
+      }
+    }
+    document.addEventListener('pointerdown', handleOutside)
+    return () => document.removeEventListener('pointerdown', handleOutside)
+  }, [hasSelection])
+
   if (data.length === 0) {
     return null
   }
 
   return (
     <div
+      ref={containerRef}
       className="w-full select-none"
       style={{
         // Keep page-scroll responsive (vertical drags pan the page) while
@@ -189,7 +209,7 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
               ]}
             />
             <Tooltip content={() => null} cursor={false} />
-            {active ? (
+            {hasSelection && active ? (
               <ReferenceLine
                 x={active.date}
                 stroke="var(--color-muted-foreground)"
@@ -212,7 +232,7 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
               }}
               isAnimationActive={false}
             />
-            {active ? (
+            {hasSelection && active ? (
               <ReferenceDot
                 x={active.date}
                 y={active.value}

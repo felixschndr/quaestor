@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 
@@ -62,6 +62,12 @@ const data = [
   { date: '2026-01-10', value: 120 },
 ]
 
+// The chart persists the pinned day in sessionStorage; clear it so cases stay
+// independent.
+beforeEach(() => {
+  sessionStorage.clear()
+})
+
 describe('NetWorthChart drag-to-select', () => {
   it('commits the dragged range as the date filter', async () => {
     const user = userEvent.setup()
@@ -122,5 +128,19 @@ describe('NetWorthChart view day', () => {
     await user.click(viewDayButton())
 
     expect(onOpenDay).toHaveBeenCalledWith('2026-01-10')
+  })
+
+  it('restores the pinned day after remounting (e.g. navigating back)', async () => {
+    const user = userEvent.setup()
+    const onOpenDay = vi.fn()
+    const { unmount } = render(<NetWorthChart data={data} summary={null} onOpenDay={onOpenDay} />)
+
+    await user.click(screen.getByTestId('pick-early')) // pin 2026-01-02
+    unmount()
+
+    render(<NetWorthChart data={data} summary={null} onOpenDay={onOpenDay} />)
+    await user.click(viewDayButton())
+
+    expect(onOpenDay).toHaveBeenCalledWith('2026-01-02')
   })
 })
