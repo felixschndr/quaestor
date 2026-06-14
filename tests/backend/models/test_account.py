@@ -297,8 +297,40 @@ def test_bank_anchor_day_with_own_transaction_does_not_double_count(
         assert not any("drift" in record.message.lower() for record in caplog.records)
         snapshots = _get_persisted_snapshots(session=session, account=account)
         assert snapshots[d1] == 260.0  # end of d1, after the d2 salary already happened
-        assert snapshots[d2] == 50.0  # the bank anchor (start of day) survives untouched
+        # d2 is within the transaction range, so its snapshot is the transaction-driven END-of-day value
+        # (50 start + 200 salary = 250); the day's bookings are thus attributed to d2, not leaked onto d1.
+        assert snapshots[d2] == 250.0
+        assert account.balance_at_date[d2].source == BalanceSnapshotSource.COMPUTED
         assert d3 not in snapshots  # no transaction and no anchor before d2 -> walk stops
+
+
+def test_backdated_transaction_missing_from_anchor_does_not_leak_across_seam(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    # Regression for the phantom-jump bug: a back-dated transfer (+150 on d5) is in today's real
+    # balance but the bank's daily anchors for d4/d5 never saw it. The old algorithm reset the walk to
+    # those stale anchors, so the 150 leaked across the bank->computed seam and surfaced as a phantom
+    # jump on the first computed day (d3). With the fix, the in-range anchors are validated-only and the
+    # series stays transaction-driven, so each day's delta equals its own bookings.
+    with session_factory() as session:
+        today = date.today()
+        d3, d4, d5 = (today - timedelta(days=n) for n in (3, 4, 5))
+        # End-of-d5 = 1000 (anchor start) + 150 = 1150; d4 unchanged; d3 -36.90 -> 1113.10 = today's balance.
+        account = _persist_account(session=session, balance=1113.10, transactions=[(d5, 150.0), (d3, -36.90)])
+        _plant_bank_anchor(account=account, day=d5, balance=1000.0)
+        _plant_bank_anchor(account=account, day=d4, balance=1000.0)  # bank never saw the +150
+        session.flush()
+
+        with caplog.at_level(logging.WARNING):
+            account.recompute_balances_at_date()
+            session.flush()
+
+        snapshots = _get_persisted_snapshots(session=session, account=account)
+        assert snapshots[d5] == 1150.0  # +150 attributed to its real day
+        assert snapshots[d4] == 1150.0  # no bookings on d4 -> no change
+        assert snapshots[d3] == 1113.10  # d4 -> d3 delta is exactly the -36.90 booking, no phantom +150
+        # The stale d4 anchor (1000 vs walk 1150) is flagged, not silently absorbed.
+        assert any("drift" in record.message.lower() for record in caplog.records)
 
 
 def test_bank_anchor_within_tolerance_does_not_warn(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):

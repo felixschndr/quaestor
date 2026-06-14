@@ -126,21 +126,24 @@ class Account(Base):
         }
 
         oldest_anchor = min(anchors) if anchors else None
+        earliest_transaction = min(daily_totals) if daily_totals else None
 
         running_balance = self.balance
         for day in sorted(set(daily_totals) | set(anchors), reverse=True):
+            in_transaction_range = earliest_transaction is not None and day >= earliest_transaction
             if day in anchors:
                 # Bank-reported balances are captured before that day's transactions post, so they
-                # represent the start-of-day balance (== end of the previous day). Compare like for
-                # like, then reset the walk to the anchor WITHOUT re-subtracting the day's own
-                # transactions -- they are already excluded from the reported balance. Subtracting
-                # them again would double-count every anchor-day booking across the whole earlier
-                # history.
+                # represent the start-of-day balance (== end of the previous day).
                 computed_before = round(number=running_balance - daily_totals[day], ndigits=2)
                 self._log_balance_drift(
                     day=day, computed=computed_before, reported=anchors[day], at_fetch_horizon=day == oldest_anchor
                 )
-                running_balance = anchors[day]
+                if not in_transaction_range:
+                    running_balance = anchors[day]
+                    continue
+                self.balance_at_date[day].balance = running_balance
+                self.balance_at_date[day].source = BalanceSnapshotSource.COMPUTED
+                running_balance = round(number=running_balance - daily_totals[day], ndigits=2)
                 continue
             if day not in self.balance_at_date:
                 self.balance_at_date[day] = AccountBalanceSnapshot(date=day, balance=running_balance)
