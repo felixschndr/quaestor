@@ -6,18 +6,20 @@ import { ChevronRight, Settings } from 'lucide-react'
 import { StatsIcon } from '@/components/stats-icon'
 import { toast } from 'sonner'
 
-import { useAuthMe, useGlobalSync, type AccountRead, type UserRead } from '@/lib/auth'
+import { useAuthMe, useGlobalSync, type UserRead } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { SyncButton } from '@/components/sync-button'
 import { TwoFactorModal } from '@/components/two-factor-modal'
 import { formatDecimal, formatEuro } from '@/lib/format'
 import { accountDisplayName, displayNameOrUserName } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
+import { useAccountGroupLayout } from '@/lib/accountGroups'
 import {
-  useAccountGroupLayout,
-  type AccountGroupAccountRef,
-  type AccountGroupLayout,
-} from '@/lib/accountGroups'
+  buildDisplayGroups,
+  sumFactoredBalance,
+  type AccountWithBank,
+  type DisplayGroup,
+} from '@/lib/accountDisplayGroups'
 import { useCollapsedGroups } from '@/lib/collapsedGroups'
 import { cn } from '@/lib/utils'
 
@@ -159,90 +161,6 @@ export function OverviewView({
   )
 }
 
-interface DisplayGroup {
-  /** React key per row. */
-  key: string
-  /** Visible heading. Null = no heading (legacy "by bank" layout). */
-  heading: string | null
-  accounts: AccountWithBank[]
-}
-
-interface AccountWithBank extends AccountRead {
-  bank: string
-  /** Resolved bank name + logo of the owning credential (for the row's logo/monogram). */
-  bankName: string | null
-  bankIcon: string | null
-}
-
-function buildDisplayGroups(
-  user: UserRead,
-  layout: AccountGroupLayout | undefined,
-): DisplayGroup[] {
-  const usesCustomLayout = !!layout && layout.groups.length > 0
-  if (!usesCustomLayout) {
-    // Original behaviour: no headings, each account shows its own bank logo. Group by
-    // credential (one bank connection) — generic FinTS banks all share provider "fints",
-    // so grouping by provider would collapse different banks into one block.
-    return [...user.credentials]
-      .sort((a, b) => (a.bank_name ?? a.bank).localeCompare(b.bank_name ?? b.bank))
-      .map((credential) => ({
-        key: `cred-${credential.id}`,
-        heading: null,
-        accounts: credential.accounts
-          .filter((account) => !account.is_hidden)
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .map((account) => ({
-            ...account,
-            bank: credential.bank,
-            bankName: credential.bank_name,
-            bankIcon: credential.bank_icon,
-          })),
-      }))
-      .filter((group) => group.accounts.length > 0)
-  }
-  const lookup = buildAccountLookup(user)
-  // Hidden accounts also disappear from custom-grouped layouts. We resolve
-  // them by id (so the layout's stored ordering is honored), then drop the
-  // hidden ones; the group still renders even if every account in it is
-  // hidden, just with an empty list.
-  const resolveAccounts = (refs: AccountGroupAccountRef[]) =>
-    refs
-      .map((ref) => lookup.get(ref.id))
-      .filter((account): account is AccountWithBank => !!account && !account.is_hidden)
-
-  const groups: DisplayGroup[] = layout!.groups.map((group) => ({
-    key: `group-${group.id}`,
-    heading: group.name,
-    accounts: resolveAccounts(group.accounts),
-  }))
-  const ungroupedAccounts = resolveAccounts(layout!.ungrouped)
-  if (ungroupedAccounts.length > 0) {
-    groups.push({
-      key: 'ungrouped',
-      // i18n key resolved in OverviewView's render path via t() — pass the
-      // already-resolved string here to keep DisplayGroup pure-data.
-      heading: '__ungrouped__',
-      accounts: ungroupedAccounts,
-    })
-  }
-  return groups
-}
-
-function buildAccountLookup(user: UserRead): Map<number, AccountWithBank> {
-  const map = new Map<number, AccountWithBank>()
-  for (const credential of user.credentials) {
-    for (const account of credential.accounts) {
-      map.set(account.id, {
-        ...account,
-        bank: credential.bank,
-        bankName: credential.bank_name,
-        bankIcon: credential.bank_icon,
-      })
-    }
-  }
-  return map
-}
-
 function AccountGroupList({ groups }: { groups: DisplayGroup[] }) {
   const { t } = useTranslation()
   const { isCollapsed, toggle } = useCollapsedGroups()
@@ -292,15 +210,6 @@ function AccountGroupList({ groups }: { groups: DisplayGroup[] }) {
         )
       })}
     </ul>
-  )
-}
-
-export function sumFactoredBalance(
-  accounts: { balance: number; balance_factor: number }[],
-): number {
-  return accounts.reduce(
-    (sum, account) => sum + (account.balance * account.balance_factor) / 100,
-    0,
   )
 }
 

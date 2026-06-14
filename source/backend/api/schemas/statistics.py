@@ -1,7 +1,8 @@
-import datetime
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, Field
+from source.backend.api.schemas.transaction import TransactionRead
 from source.backend.models.transaction_category import TransactionCategory
 
 StatisticsDirection = Literal["INCOMING", "OUTGOING"]
@@ -9,8 +10,8 @@ StatisticsDirection = Literal["INCOMING", "OUTGOING"]
 
 class StatisticsQuery(BaseModel):
     account_ids: list[int] = Field(min_length=1)
-    date_from: datetime.date | None = None
-    date_to: datetime.date | None = None
+    date_from: date | None = None
+    date_to: date | None = None
     categories: list[TransactionCategory] = Field(default_factory=list)
 
 
@@ -24,8 +25,8 @@ class OtherPartyStatisticsQuery(DirectionalStatisticsQuery):
 
 class NetWorthQuery(BaseModel):
     account_ids: list[int] = Field(min_length=1)
-    date_from: datetime.date | None = None
-    date_to: datetime.date | None = None
+    date_from: date | None = None
+    date_to: date | None = None
 
 
 class CategorySlice(BaseModel):
@@ -51,7 +52,7 @@ class OtherPartySlice(BaseModel):
 
 
 class DailyNetWorth(BaseModel):
-    date: datetime.date
+    date: date
     value: float
 
 
@@ -64,3 +65,24 @@ class NetWorthSummary(BaseModel):
 class NetWorthResponse(BaseModel):
     series: list[DailyNetWorth]
     summary: NetWorthSummary | None = None  # None when the series is empty.
+
+
+class NetWorthDayQuery(BaseModel):
+    day: date
+    account_ids: list[int] = Field(min_length=1)
+
+
+class DayAccountChange(BaseModel):
+    account_id: int
+    balance_at_end_of_day_before: float | None
+    balance_at_end_of_current_day: float | None
+    difference: float
+    transactions: list[TransactionRead]
+
+
+class NetWorthDayResponse(BaseModel):
+    date: date
+    accounts: list[DayAccountChange]
+    total_at_end_of_day_before: float
+    total_at_end_of_current_day: float
+    total_difference: float

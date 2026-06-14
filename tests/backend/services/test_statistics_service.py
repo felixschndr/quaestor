@@ -3,6 +3,7 @@ import inspect
 
 import pytest
 from source.backend.models.account import Account
+from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.user import User
 from source.backend.services import statistics_service
 from sqlalchemy.orm import Session, sessionmaker
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from tests.backend.conftest import (
     make_account,
     make_credential,
+    make_transaction,
     make_user,
     seed_snapshot,
 )
@@ -102,3 +104,87 @@ def test_daily_net_worth_returns_empty_when_range_is_inverted(session_factory: s
             date_to=None,
         )
     assert result.series == []
+
+
+def test_net_worth_day_reports_before_after_and_transactions(session_factory: sessionmaker):
+    day = datetime.date(year=2026, month=5, day=20)
+    with session_factory() as session:
+        user, account = _user_with_account(session)
+        session.commit()
+        user_id, account_id = user.id, account.id
+    # End of the previous day was 100; two booked transactions on `day` push it to 130.
+    seed_snapshot(session_factory, account_id=account_id, day=day - datetime.timedelta(days=1), balance=100.0)
+    seed_snapshot(session_factory, account_id=account_id, day=day, balance=130.0)
+    with session_factory() as session:
+        first = make_transaction(session, account_id=account_id, amount=50.0, date=day)
+        second = make_transaction(session, account_id=account_id, amount=-20.0, date=day)
+        make_transaction(session, account_id=account_id, amount=-999.0, date=day, pending=True)
+        make_transaction(session, account_id=account_id, amount=7.0, date=day - datetime.timedelta(days=1))
+        session.commit()
+        first_id, second_id = first.id, second.id
+
+    with session_factory() as session:
+        result = statistics_service.get_net_worth_of_day(
+            db_session=session,
+            user=session.get(entity=User, ident=user_id),
+            account_ids=[account_id],
+            day=day,
+        )
+
+    def booked(transaction_id: int, amount: float) -> dict:
+        return {
+            "id": transaction_id,
+            "account_id": account_id,
+            "amount": amount,
+            "purpose": None,
+            "date": day,
+            "other_party": None,
+            "transaction_type": None,
+            "category": TransactionCategory.UNKNOWN,
+            "note": None,
+            "transfer_counterpart_id": None,
+            "pending": False,
+        }
+
+    assert result.model_dump() == {
+        "date": day,
+        "total_at_end_of_day_before": 100.0,
+        "total_at_end_of_current_day": 130.0,
+        "total_difference": 30.0,
+        "accounts": [
+            {
+                "account_id": account_id,
+                "balance_at_end_of_day_before": 100.0,
+                "balance_at_end_of_current_day": 130.0,
+                "difference": 30.0,
+                "transactions": [
+                    booked(transaction_id=second_id, amount=-20.0),
+                    booked(transaction_id=first_id, amount=50.0),
+                ],
+            }
+        ],
+    }
+
+
+def test_net_worth_day_handles_account_without_prior_snapshot(session_factory: sessionmaker):
+    # A market-valued account whose balance moved without any transaction
+    day = datetime.date(year=2026, month=5, day=20)
+    with session_factory() as session:
+        user, account = _user_with_account(session)
+        session.commit()
+        user_id, account_id = user.id, account.id
+    seed_snapshot(session_factory, account_id=account_id, day=day, balance=250.0)
+
+    with session_factory() as session:
+        result = statistics_service.get_net_worth_of_day(
+            db_session=session,
+            user=session.get(entity=User, ident=user_id),
+            account_ids=[account_id],
+            day=day,
+        )
+
+    change = result.accounts[0]
+    assert change.balance_at_end_of_day_before is None
+    assert change.balance_at_end_of_current_day == 250.0
+    assert change.difference == 250.0
+    assert change.transactions == []

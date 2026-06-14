@@ -78,6 +78,7 @@ function toSearch(next: StatsViewState): StatsSearchParams {
 function renderView(initialSearch: Partial<StatsSearchParams> = {}) {
   const onChange = vi.fn()
   const onOpenSearch = vi.fn()
+  const onOpenDay = vi.fn()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   function Harness() {
@@ -91,6 +92,7 @@ function renderView(initialSearch: Partial<StatsSearchParams> = {}) {
           setSearch(toSearch(next))
         }}
         onOpenSearch={onOpenSearch}
+        onOpenDay={onOpenDay}
       />
     )
   }

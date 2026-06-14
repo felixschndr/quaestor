@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { de, enUS, type Locale } from 'date-fns/locale'
 import { format, parseISO } from 'date-fns'
 import { useTranslation } from 'react-i18next'
+import { ChevronRight } from 'lucide-react'
 import {
   CartesianGrid,
   Line,
   LineChart,
   ReferenceArea,
   ReferenceDot,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -20,10 +22,9 @@ import { AXIS_TICK, euroFormat } from './chartTheme'
 
 export interface NetWorthChartProps {
   data: DailyNetWorth[]
-  // Minimum / average / maximum of the series, computed server-side.
   summary: NetWorthSummary | null
-  // Dragging a horizontal range on the chart commits it as the date filter
   onSelectRange?: (from: string, to: string) => void
+  onOpenDay?: (date: string) => void
 }
 
 const LOCALES: Record<string, Locale> = { en: enUS, de }
@@ -45,14 +46,19 @@ interface ChartMouseState {
  * browser context menu or text selection. `touch-action: pan-y` keeps the page
  * vertically scrollable while reserving horizontal touches for the chart.
  */
-export function NetWorthChart({ data, summary, onSelectRange }: NetWorthChartProps) {
+export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWorthChartProps) {
   const { t, i18n } = useTranslation()
   const locale = LOCALES[i18n.language] ?? enUS
 
-  // Active index drives the headline value + cursor dot. Defaults to the last
-  // point so opening the chart shows "today" without requiring interaction.
-  const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  const effectiveIndex = activeIndex ?? data.length - 1
+  // Two layers drive the headline value + cursor dot: a transient `hoverIndex`
+  // that follows the mouse, and a `pinnedIndex` committed on click/touch that
+  // survives mouse-leave — so a clicked day stays highlighted (and reachable by
+  // the "view day" button) on desktop, the same way scrubbing sticks on touch.
+  // Falls back to the last point so the chart opens showing "today".
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+  const [pinnedIndex, setPinnedIndex] = useState<number | null>(null)
+  const rawIndex = hoverIndex ?? pinnedIndex ?? data.length - 1
+  const effectiveIndex = Math.min(Math.max(rawIndex, 0), data.length - 1)
   const active = data[effectiveIndex]
 
   const [selectStart, setSelectStart] = useState<string | null>(null)
@@ -61,15 +67,29 @@ export function NetWorthChart({ data, summary, onSelectRange }: NetWorthChartPro
   const labelOf = (state: ChartMouseState): string | null =>
     typeof state?.activeLabel === 'string' ? state.activeLabel : null
 
-  const handleMove = (state: ChartMouseState) => {
+  const indexOf = (state: ChartMouseState): number | null => {
     const raw = state?.activeTooltipIndex
     const index = typeof raw === 'string' ? Number(raw) : raw
     if (typeof index === 'number' && Number.isFinite(index) && index >= 0 && index < data.length) {
-      setActiveIndex(index)
+      return index
     }
+    return null
+  }
+
+  const handleMove = (state: ChartMouseState) => {
+    const index = indexOf(state)
+    if (index != null) setHoverIndex(index)
     if (selectStart != null) {
       const label = labelOf(state)
       if (label != null) setSelectEnd(label)
+    }
+  }
+  // Click (or tap) pins the day so it persists once the cursor leaves the chart.
+  const handlePick = (state: ChartMouseState) => {
+    const index = indexOf(state)
+    if (index != null) {
+      setPinnedIndex(index)
+      setHoverIndex(index)
     }
   }
   const handleDown = (state: ChartMouseState) => {
@@ -90,7 +110,7 @@ export function NetWorthChart({ data, summary, onSelectRange }: NetWorthChartPro
     setSelectEnd(null)
   }
   const handleLeave = () => {
-    setActiveIndex(null)
+    setHoverIndex(null)
     setSelectStart(null)
     setSelectEnd(null)
   }
@@ -112,12 +132,25 @@ export function NetWorthChart({ data, summary, onSelectRange }: NetWorthChartPro
         userSelect: 'none',
       }}
     >
-      <div className="text-foreground px-1 pb-2 text-sm tabular-nums">
-        {active ? (
-          <>
-            <span>{formatDate(active.date)}: </span>
-            <span className="font-semibold">{formatEuro(active.value)}</span>
-          </>
+      <div className="text-foreground flex items-center justify-between gap-2 px-1 pb-2 text-sm tabular-nums">
+        <span className="min-w-0 truncate">
+          {active ? (
+            <>
+              <span>{formatDate(active.date)}: </span>
+              <span className="font-semibold">{formatEuro(active.value)}</span>
+            </>
+          ) : null}
+        </span>
+        {onOpenDay && active ? (
+          <button
+            type="button"
+            onClick={() => onOpenDay(active.date)}
+            className="text-primary hover:text-primary/80 inline-flex shrink-0 items-center gap-1 rounded-md text-xs font-medium transition-colors"
+          >
+            <span className="sm:hidden">{t('stats.netWorth.viewDayShort')}</span>
+            <span className="hidden sm:inline">{t('stats.netWorth.viewDay')}</span>
+            <ChevronRight className="size-3.5" />
+          </button>
         ) : null}
       </div>
       <div className="h-72 w-full">
@@ -125,7 +158,7 @@ export function NetWorthChart({ data, summary, onSelectRange }: NetWorthChartPro
           <LineChart
             data={data}
             margin={{ left: 8, right: 8, top: 4, bottom: 0 }}
-            onClick={handleMove}
+            onClick={handlePick}
             onMouseDown={handleDown}
             onMouseMove={handleMove}
             onMouseUp={handleUp}
@@ -155,13 +188,15 @@ export function NetWorthChart({ data, summary, onSelectRange }: NetWorthChartPro
                 (dataMax: number) => dataMax + Math.abs(dataMax) * 0.02,
               ]}
             />
-            {/* No visible tooltip — the headline above the chart carries the
-                active value. The Tooltip stays mounted so recharts emits the
-                activeTooltipIndex on mouse/touch move. */}
-            <Tooltip
-              content={() => null}
-              cursor={{ stroke: 'var(--color-muted-foreground)', strokeDasharray: '3 3' }}
-            />
+            <Tooltip content={() => null} cursor={false} />
+            {active ? (
+              <ReferenceLine
+                x={active.date}
+                stroke="var(--color-muted-foreground)"
+                strokeDasharray="3 3"
+                ifOverflow="visible"
+              />
+            ) : null}
             <Line
               type="monotone"
               dataKey="value"
@@ -181,7 +216,7 @@ export function NetWorthChart({ data, summary, onSelectRange }: NetWorthChartPro
               <ReferenceDot
                 x={active.date}
                 y={active.value}
-                r={5}
+                r={7}
                 fill="var(--color-primary)"
                 stroke="var(--color-background)"
                 strokeWidth={2}

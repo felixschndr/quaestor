@@ -3,13 +3,16 @@ import datetime
 from source.backend.api.schemas.statistics import (
     CategorySlice,
     DailyNetWorth,
+    DayAccountChange,
     MonthlyCashflow,
     MonthlyNetSavings,
+    NetWorthDayResponse,
     NetWorthResponse,
     NetWorthSummary,
     OtherPartySlice,
     StatisticsDirection,
 )
+from source.backend.api.schemas.transaction import TransactionRead
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
@@ -290,6 +293,63 @@ def daily_net_worth(
     logger.debug(f"Computed daily net worth over {len(result)} day(s) for {user}")
     summary = _net_worth_summary(result)
     return NetWorthResponse(series=result, summary=summary)
+
+
+def _get_balance_as_of(db_session: Session, account_id: int, cutoff: datetime.date) -> float | None:
+    return db_session.scalar(
+        select(AccountBalanceSnapshot.balance)
+        .where(AccountBalanceSnapshot.account_id == account_id)
+        .where(AccountBalanceSnapshot.date <= cutoff)
+        .order_by(AccountBalanceSnapshot.date.desc())
+        .limit(1)
+    )
+
+
+def get_net_worth_of_day(
+    db_session: Session,
+    user: User,
+    account_ids: list[int],
+    day: datetime.date,
+) -> NetWorthDayResponse:
+    owned_account_ids = account_service.resolve_owned_account_ids(
+        db_session=db_session, user=user, account_ids=account_ids
+    )
+    previous_day = day - datetime.timedelta(days=1)
+    changes: list[DayAccountChange] = []
+    total_at_end_of_day_before = 0.0
+    total_at_end_of_current_day = 0.0
+    for account_id in owned_account_ids:
+        before = _get_balance_as_of(db_session=db_session, account_id=account_id, cutoff=previous_day)
+        after = _get_balance_as_of(db_session=db_session, account_id=account_id, cutoff=day)
+        transactions = list(
+            db_session.scalars(
+                select(Transaction)
+                .where(Transaction.account_id == account_id)
+                .where(Transaction.date == day)
+                .where(Transaction.pending.is_(False))
+                .order_by(Transaction.id.desc())
+            )
+        )
+        changes.append(
+            DayAccountChange(
+                account_id=account_id,
+                balance_at_end_of_day_before=before,
+                balance_at_end_of_current_day=after,
+                difference=round(number=(after or 0.0) - (before or 0.0), ndigits=2),
+                transactions=[TransactionRead.model_validate(transaction) for transaction in transactions],
+            )
+        )
+        total_at_end_of_day_before += before or 0.0
+        total_at_end_of_current_day += after or 0.0
+
+    logger.debug(f"Computed net worth day breakdown for {day} over {len(changes)} account(s) for {user}")
+    return NetWorthDayResponse(
+        date=day,
+        accounts=changes,
+        total_at_end_of_day_before=round(number=total_at_end_of_day_before, ndigits=2),
+        total_at_end_of_current_day=round(number=total_at_end_of_current_day, ndigits=2),
+        total_difference=round(number=total_at_end_of_current_day - total_at_end_of_day_before, ndigits=2),
+    )
 
 
 def _net_worth_summary(series: list[DailyNetWorth]) -> NetWorthSummary | None:

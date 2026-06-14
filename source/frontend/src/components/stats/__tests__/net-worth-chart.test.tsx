@@ -8,14 +8,18 @@ vi.mock('recharts', () => {
   const Passthrough = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>
   const LineChart = ({
     children,
+    onClick,
     onMouseDown,
     onMouseMove,
     onMouseUp,
+    onMouseLeave,
   }: {
     children?: React.ReactNode
+    onClick?: (state: unknown) => void
     onMouseDown?: (state: unknown) => void
     onMouseMove?: (state: unknown) => void
     onMouseUp?: () => void
+    onMouseLeave?: () => void
   }) => (
     <div>
       <button data-testid="down" onClick={() => onMouseDown?.({ activeLabel: '2026-01-05' })} />
@@ -28,6 +32,11 @@ vi.mock('recharts', () => {
         onClick={() => onMouseMove?.({ activeLabel: '2026-01-02', activeTooltipIndex: 0 })}
       />
       <button data-testid="up" onClick={() => onMouseUp?.()} />
+      <button
+        data-testid="pick-early"
+        onClick={() => onClick?.({ activeLabel: '2026-01-02', activeTooltipIndex: 0 })}
+      />
+      <button data-testid="leave" onClick={() => onMouseLeave?.()} />
       {children}
     </div>
   )
@@ -41,6 +50,7 @@ vi.mock('recharts', () => {
     Tooltip: Passthrough,
     ReferenceDot: Passthrough,
     ReferenceArea: Passthrough,
+    ReferenceLine: Passthrough,
   }
 })
 
@@ -86,5 +96,31 @@ describe('NetWorthChart drag-to-select', () => {
     await user.click(screen.getByTestId('up'))
 
     expect(onSelectRange).not.toHaveBeenCalled()
+  })
+})
+
+describe('NetWorthChart view day', () => {
+  const viewDayButton = () => screen.getByRole('button', { name: /aufschlüsseln|Details/i })
+
+  it('opens the clicked day and keeps it after the cursor leaves the chart', async () => {
+    const user = userEvent.setup()
+    const onOpenDay = vi.fn()
+    render(<NetWorthChart data={data} summary={null} onOpenDay={onOpenDay} />)
+
+    await user.click(screen.getByTestId('pick-early')) // pin 2026-01-02
+    await user.click(screen.getByTestId('leave')) // cursor leaves; pinned day must survive
+    await user.click(viewDayButton())
+
+    expect(onOpenDay).toHaveBeenCalledWith('2026-01-02')
+  })
+
+  it('defaults to the last day when nothing was picked', async () => {
+    const user = userEvent.setup()
+    const onOpenDay = vi.fn()
+    render(<NetWorthChart data={data} summary={null} onOpenDay={onOpenDay} />)
+
+    await user.click(viewDayButton())
+
+    expect(onOpenDay).toHaveBeenCalledWith('2026-01-10')
   })
 })

@@ -601,10 +601,21 @@
     "netWorth": {
       "title": "Net worth over time",
       "viewTransactions": "View all transactions in this chart",
+      "viewDay": "Break down this day",
+      "viewDayShort": "Details",
       "value": "Net worth",
       "min": "Minimum",
       "average": "Average",
       "max": "Maximum"
+    },
+    "day": {
+      "title": "Net worth change",
+      "back": "Back to statistics",
+      "total": "Total",
+      "noTransactions": "No transactions on this day",
+      "loading": "Loading …",
+      "error": "Could not load the day breakdown.",
+      "empty": "No data for this day."
     },
     "otherParties": {
       "titleOutgoing": "Top recipients",

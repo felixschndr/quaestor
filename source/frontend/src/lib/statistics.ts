@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { format, subMonths, subWeeks, subYears } from 'date-fns'
 
 import { api } from './api'
+import type { TransactionRead } from './accountHistory'
 import { TRANSACTION_CATEGORIES, type TransactionCategory } from './transaction'
 
 // Direction of money flow a statistic is computed over. Mirrors the backend's
@@ -56,6 +57,22 @@ export interface NetWorthSummary {
 export interface NetWorthResponse {
   series: DailyNetWorth[]
   summary: NetWorthSummary | null // null when the series is empty.
+}
+
+export interface DayAccountChange {
+  account_id: number
+  balance_at_end_of_day_before: number | null
+  balance_at_end_of_current_day: number | null
+  difference: number
+  transactions: TransactionRead[]
+}
+
+export interface NetWorthDayResponse {
+  date: string
+  accounts: DayAccountChange[]
+  total_at_end_of_day_before: number
+  total_at_end_of_current_day: number
+  total_difference: number
 }
 
 /** Identifier for the shortcut buttons of the date-range picker. */
@@ -200,6 +217,8 @@ export const statisticsQueryKeys = {
     ] as const,
   netWorth: (accountIds: number[], filters: StatsFilters) =>
     ['statistics', 'net-worth', sortedIds(accountIds), filters] as const,
+  netWorthDay: (date: string, accountIds: number[]) =>
+    ['statistics', 'net-worth', 'day', date, sortedIds(accountIds)] as const,
 }
 
 export function useCategoryStats(
@@ -268,6 +287,20 @@ export function useNetWorthStats(accountIds: number[], filters: StatsFilters) {
     queryKey: statisticsQueryKeys.netWorth(accountIds, filters),
     queryFn: () => api<NetWorthResponse>(`/statistics/net-worth?${queryString}`),
     enabled: accountIds.length > 0,
+    staleTime: 30_000,
+  })
+}
+
+export function useNetWorthDay(date: string, accountIds: number[]) {
+  const params = new URLSearchParams()
+  params.append('day', date)
+  for (const accountId of accountIds) {
+    params.append('account_ids', String(accountId))
+  }
+  return useQuery({
+    queryKey: statisticsQueryKeys.netWorthDay(date, accountIds),
+    queryFn: () => api<NetWorthDayResponse>(`/statistics/net-worth/day?${params.toString()}`),
+    enabled: accountIds.length > 0 && date.length > 0,
     staleTime: 30_000,
   })
 }

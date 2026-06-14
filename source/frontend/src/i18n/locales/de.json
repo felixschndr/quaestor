@@ -601,10 +601,21 @@
     "netWorth": {
       "title": "Vermögensverlauf",
       "viewTransactions": "Alle Transaktionen dieses Diagramms anzeigen",
+      "viewDay": "Tag aufschlüsseln",
+      "viewDayShort": "Details",
       "value": "Vermögen",
       "min": "Minimum",
       "average": "Durchschnitt",
       "max": "Maximum"
+    },
+    "day": {
+      "title": "Vermögensänderung",
+      "back": "Zurück zur Statistik",
+      "total": "Gesamt",
+      "noTransactions": "Keine Transaktionen an diesem Tag",
+      "loading": "Wird geladen …",
+      "error": "Die Tagesübersicht konnte nicht geladen werden.",
+      "empty": "Für diesen Tag gibt es keine Daten."
     },
     "otherParties": {
       "titleOutgoing": "Top-Empfänger",

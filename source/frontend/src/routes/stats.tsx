@@ -105,6 +105,13 @@ function StatsPage() {
           },
         })
       }}
+      onOpenDay={(date, accountIds) =>
+        navigate({
+          to: '/stats/day/$date',
+          params: { date },
+          search: { account_ids: accountIds },
+        })
+      }
     />
   )
 }
@@ -130,11 +137,17 @@ export interface StatsViewProps {
   credentials: CredentialRead[]
   search: StatsSearchParams
   onChange: (next: StatsViewState) => void
-  /** Open the transaction search pre-filtered to a clicked bar's transactions. */
   onOpenSearch: (drill: StatsDrilldown) => void
+  onOpenDay: (date: string, accountIds: number[]) => void
 }
 
-export function StatsView({ credentials, search, onChange, onOpenSearch }: StatsViewProps) {
+export function StatsView({
+  credentials,
+  search,
+  onChange,
+  onOpenSearch,
+  onOpenDay,
+}: StatsViewProps) {
   const { t } = useTranslation()
   const allAccountIds = credentials.flatMap((credential) =>
     credential.accounts.map((account) => account.id),
@@ -290,6 +303,7 @@ export function StatsView({ credentials, search, onChange, onOpenSearch }: Stats
               data={netWorth.data?.series ?? []}
               summary={netWorth.data?.summary ?? null}
               onSelectRange={applyDateRange}
+              onOpenDay={(date) => onOpenDay(date, accountIds)}
             />
           </ChartCard>
 

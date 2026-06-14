@@ -37,12 +37,6 @@ def get_default_language() -> str:
 
 
 def get_display_timezone() -> str:
-    """IANA time zone the frontend should render timestamps in.
-
-    Validated eagerly at startup (see `validate_display_timezone`) so a typo
-    aborts the boot instead of silently mislabelling every timestamp. An unset
-    or empty value means "use the default"; any other invalid value raises.
-    """
     configured = os.environ.get(DISPLAY_TIMEZONE_ENV_VARIABLE_NAME)
     if configured is None:
         return DEFAULT_TIMEZONE
@@ -61,6 +55,5 @@ def get_display_timezone() -> str:
 
 
 def validate_display_timezone() -> None:
-    """Resolve `DISPLAY_TIMEZONE` once at startup, failing fast on a bad value."""
     timezone = get_display_timezone()
     logger.info(f"Rendering timestamps in time zone {timezone!r}")

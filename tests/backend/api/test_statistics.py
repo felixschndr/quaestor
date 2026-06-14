@@ -13,6 +13,7 @@ from tests.backend.conftest import (
     login_as,
     make_transaction,
     persist_account,
+    persist_transaction,
     register,
     seed_for_categories,
     seed_snapshot,
@@ -394,3 +395,66 @@ def test_statistics_return_empty_list_without_matching_transactions(
     # net-worth returns an object ({series, summary}); the others return a bare list.
     expected = {"series": [], "summary": None} if endpoint.endswith("/net-worth") else []
     assert response.json() == expected
+
+
+def test_net_worth_day_breaks_down_change_per_account(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    seed_snapshot(
+        session_factory=session_factory, account_id=account_id, day=date(year=2026, month=5, day=19), balance=100.0
+    )
+    seed_snapshot(
+        session_factory=session_factory, account_id=account_id, day=date(year=2026, month=5, day=20), balance=130.0
+    )
+    transaction_id = persist_transaction(
+        session_factory, account_id=account_id, amount=30.0, date=date(year=2026, month=5, day=20)
+    )
+
+    response = http_client.get(
+        "/api/statistics/net-worth/day", params=[("day", "2026-05-20"), ("account_ids", account_id)]
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "date": "2026-05-20",
+        "total_at_end_of_day_before": 100.0,
+        "total_at_end_of_current_day": 130.0,
+        "total_difference": 30.0,
+        "accounts": [
+            {
+                "account_id": account_id,
+                "balance_at_end_of_day_before": 100.0,
+                "balance_at_end_of_current_day": 130.0,
+                "difference": 30.0,
+                "transactions": [
+                    {
+                        "id": transaction_id,
+                        "account_id": account_id,
+                        "amount": 30.0,
+                        "purpose": None,
+                        "date": "2026-05-20",
+                        "other_party": None,
+                        "transaction_type": None,
+                        "category": "UNKNOWN",
+                        "note": None,
+                        "transfer_counterpart_id": None,
+                        "pending": False,
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def test_net_worth_day_rejects_foreign_account(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+
+    register(http_client, user_name="intruder")
+    login_as(http_client, user_name="intruder")
+
+    response = http_client.get(
+        "/api/statistics/net-worth/day", params=[("day", "2026-05-20"), ("account_ids", account_id)]
+    )
+
+    assert response.status_code == 404
