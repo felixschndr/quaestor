@@ -59,6 +59,7 @@ export default defineConfig({
     host: true,
     port: FRONTEND_PORT,
     strictPort: true,
+    open: process.env.OPEN_BROWSER ? true : undefined,
     proxy: {
       '/api': {
         target: `http://localhost:${BACKEND_DEV_PORT}`,
