@@ -53,10 +53,6 @@ class PasswordRequirements(BaseModel):
     rules: list[PasswordRule]
 
 
-class RegistrationAllowed(BaseModel):
-    allowed: bool
-
-
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

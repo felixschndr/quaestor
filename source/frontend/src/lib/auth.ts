@@ -39,10 +39,6 @@ export interface UserRead {
   credentials: CredentialRead[]
 }
 
-export interface RegistrationAllowed {
-  allowed: boolean
-}
-
 export interface PasswordRule {
   name: string
   regex: string
@@ -56,7 +52,6 @@ export interface PasswordRequirements {
 
 export const authQueryKeys = {
   me: ['auth', 'me'] as const,
-  registrationAllowed: ['auth', 'registration_allowed'] as const,
   passwordRequirements: ['auth', 'password_requirements'] as const,
 }
 
@@ -109,13 +104,6 @@ export async function ensureAuthenticated(args: {
     }
     throw err
   }
-}
-
-export function useRegistrationAllowed() {
-  return useQuery({
-    queryKey: authQueryKeys.registrationAllowed,
-    queryFn: () => api<RegistrationAllowed>('/auth/registration_allowed'),
-  })
 }
 
 export function usePasswordRequirements() {

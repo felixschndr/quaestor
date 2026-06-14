@@ -358,8 +358,17 @@ describe('LoginPageContent', () => {
   it('renders the disabled-registration message when registration is off', async () => {
     const user = userEvent.setup()
     ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
-      if (url === '/api/auth/registration_allowed') {
-        return Promise.resolve(jsonResponse({ status: 200, body: { allowed: false } }))
+      if (url === '/api/settings') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 200,
+            body: {
+              allow_new_user_registration: false,
+              default_language: 'en',
+              display_timezone: 'UTC',
+            },
+          }),
+        )
       }
       return Promise.reject(new Error(`unexpected fetch: ${url}`))
     })

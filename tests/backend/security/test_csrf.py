@@ -22,23 +22,23 @@ def raw_http_client(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPat
 
 
 def test_get_request_does_not_require_csrf_token(raw_http_client: TestClient):
-    response = raw_http_client.get("/api/auth/registration_allowed")
+    response = raw_http_client.get("/api/settings")
 
     assert response.status_code == 200
 
 
 def test_get_request_issues_csrf_cookie_when_not_present(raw_http_client: TestClient):
-    response = raw_http_client.get("/api/auth/registration_allowed")
+    response = raw_http_client.get("/api/settings")
 
     assert csrf.COOKIE_NAME in response.cookies
     assert response.cookies[csrf.COOKIE_NAME]
 
 
 def test_get_request_does_not_re_issue_csrf_cookie_when_already_present(raw_http_client: TestClient):
-    first = raw_http_client.get("/api/auth/registration_allowed")
+    first = raw_http_client.get("/api/settings")
     initial_token = first.cookies[csrf.COOKIE_NAME]
 
-    second = raw_http_client.get("/api/auth/registration_allowed")
+    second = raw_http_client.get("/api/settings")
 
     assert csrf.COOKIE_NAME not in second.cookies  # not re-issued
     assert raw_http_client.cookies.get(csrf.COOKIE_NAME) == initial_token
@@ -54,7 +54,7 @@ def test_mutation_without_any_csrf_data_is_rejected(raw_http_client: TestClient)
 
 
 def test_mutation_with_cookie_but_no_header_is_rejected(raw_http_client: TestClient):
-    raw_http_client.get("/api/auth/registration_allowed")  # primes cookie only
+    raw_http_client.get("/api/settings")  # primes cookie only
 
     response = raw_http_client.post(
         "/api/auth/register", json={"user_name": USER_NAME, "display_name": DISPLAY_NAME, "password": VALID_PASSWORD}
@@ -64,7 +64,7 @@ def test_mutation_with_cookie_but_no_header_is_rejected(raw_http_client: TestCli
 
 
 def test_mutation_with_mismatched_header_is_rejected(raw_http_client: TestClient):
-    raw_http_client.get("/api/auth/registration_allowed")
+    raw_http_client.get("/api/settings")
     raw_http_client.headers[csrf.HEADER_NAME] = "definitely-not-the-cookie-value"
 
     response = raw_http_client.post(
@@ -75,7 +75,7 @@ def test_mutation_with_mismatched_header_is_rejected(raw_http_client: TestClient
 
 
 def test_mutation_with_matching_token_succeeds(raw_http_client: TestClient):
-    raw_http_client.get("/api/auth/registration_allowed")
+    raw_http_client.get("/api/settings")
     raw_http_client.headers[csrf.HEADER_NAME] = raw_http_client.cookies[csrf.COOKIE_NAME]
 
     response = raw_http_client.post(
@@ -95,7 +95,7 @@ def test_non_api_mutation_is_not_validated(raw_http_client: TestClient):
 
 
 def test_csrf_cookie_is_not_httponly_so_the_spa_can_read_it(raw_http_client: TestClient):
-    response = raw_http_client.get("/api/auth/registration_allowed")
+    response = raw_http_client.get("/api/settings")
 
     set_cookie_header = response.headers["set-cookie"]
     assert csrf.COOKIE_NAME in set_cookie_header

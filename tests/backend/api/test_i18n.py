@@ -36,3 +36,47 @@ def test_get_default_language_falls_back_on_unsupported_value(monkeypatch: pytes
     monkeypatch.setenv(name=i18n_service.DEFAULT_LANGUAGE_ENV_VARIABLE_NAME, value="fr")
 
     assert i18n_service.get_default_language() == i18n_service.DEFAULT_LANGUAGE
+
+
+def test_get_display_timezone_falls_back_when_unset(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv(i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, raising=False)
+
+    assert i18n_service.get_display_timezone() == i18n_service.DEFAULT_TIMEZONE
+
+
+def test_get_display_timezone_honours_a_valid_zone(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(name=i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, value="Europe/Berlin")
+
+    assert i18n_service.get_display_timezone() == "Europe/Berlin"
+
+
+def test_get_display_timezone_strips_whitespace(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(name=i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, value="  Europe/Berlin  ")
+
+    assert i18n_service.get_display_timezone() == "Europe/Berlin"
+
+
+def test_get_display_timezone_falls_back_on_empty_value(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(name=i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, value="   ")
+
+    assert i18n_service.get_display_timezone() == i18n_service.DEFAULT_TIMEZONE
+
+
+def test_get_display_timezone_raises_on_invalid_zone(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(name=i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, value="Not/AZone")
+
+    with pytest.raises(ValueError, match="Not/AZone"):
+        i18n_service.get_display_timezone()
+
+
+def test_validate_display_timezone_passes_for_a_valid_zone(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(name=i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, value="Europe/Berlin")
+
+    i18n_service.validate_display_timezone()
+
+
+def test_validate_display_timezone_raises_on_invalid_zone(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(name=i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, value="Europde")
+
+    with pytest.raises(ValueError, match="Europde"):
+        i18n_service.validate_display_timezone()

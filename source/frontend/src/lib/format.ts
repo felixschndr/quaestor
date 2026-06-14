@@ -20,22 +20,39 @@ const DATE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   minute: '2-digit',
 }
 
+let displayTimeZone = 'UTC'
+
+export function setDisplayTimeZone(timeZone: string): void {
+  displayTimeZone = timeZone
+}
+
+const HAS_TIMEZONE_DESIGNATOR = /[zZ]|[+-]\d{2}:?\d{2}$/
+
+function parseTimestamp(d: Date | string): Date {
+  if (typeof d !== 'string') return d
+  if (d.includes('T') && !HAS_TIMEZONE_DESIGNATOR.test(d)) return new Date(`${d}Z`)
+  return new Date(d)
+}
+
 // Date formatters depend on the user's active UI language (i18next), so weekday
 // and month names follow whatever language is selected — not a fixed German
-// locale. Formatters are cached per locale because constructing an
-// `Intl.DateTimeFormat` is comparatively expensive.
+// locale. Formatters are cached per locale (and, for datetimes, per display
+// zone) because constructing an `Intl.DateTimeFormat` is comparatively
+// expensive.
 const dateFormatters = new Map<string, Intl.DateTimeFormat>()
 const dateTimeFormatters = new Map<string, Intl.DateTimeFormat>()
 
 function getDateFormatter(
   cache: Map<string, Intl.DateTimeFormat>,
   options: Intl.DateTimeFormatOptions,
+  timeZone?: string,
 ): Intl.DateTimeFormat {
   const locale = i18n.language || i18n.options.fallbackLng?.toString() || 'en'
-  let formatter = cache.get(locale)
+  const key = timeZone ? `${locale}|${timeZone}` : locale
+  let formatter = cache.get(key)
   if (!formatter) {
-    formatter = new Intl.DateTimeFormat(locale, options)
-    cache.set(locale, formatter)
+    formatter = new Intl.DateTimeFormat(locale, timeZone ? { ...options, timeZone } : options)
+    cache.set(key, formatter)
   }
   return formatter
 }
@@ -108,8 +125,8 @@ export function isIban(value: string): boolean {
 }
 
 export function formatDateTime(d: Date | string): string {
-  return getDateFormatter(dateTimeFormatters, DATE_TIME_OPTIONS).format(
-    typeof d === 'string' ? new Date(d) : d,
+  return getDateFormatter(dateTimeFormatters, DATE_TIME_OPTIONS, displayTimeZone).format(
+    parseTimestamp(d),
   )
 }
 

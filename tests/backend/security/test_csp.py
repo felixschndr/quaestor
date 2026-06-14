@@ -5,7 +5,7 @@ from tests.backend.conftest import VALID_PASSWORD
 
 
 def test_csp_header_is_set_on_api_responses(http_client: TestClient):
-    response = http_client.get("/api/auth/registration_allowed")
+    response = http_client.get("/api/settings")
 
     assert response.headers[HEADER_NAME] == DEFAULT_POLICY
 

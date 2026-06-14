@@ -19,10 +19,10 @@ import {
   useLogin,
   usePasswordRequirements,
   useRegister,
-  useRegistrationAllowed,
   type PasswordRequirements,
   type Theme,
 } from '@/lib/auth'
+import { useAppSettings } from '@/lib/settings'
 import { useVerifyTwoFactorLogin } from '@/lib/twoFactor'
 import { applyTheme, readStoredTheme, THEME_VALUES } from '@/lib/theme'
 import { cn } from '@/lib/utils'
@@ -60,7 +60,7 @@ export function LoginPageContent({
 }) {
   const { t } = useTranslation()
   const [mode, setMode] = useState<Mode>('login')
-  const { data: registrationAllowed } = useRegistrationAllowed()
+  const { data: settings } = useAppSettings()
 
   const handleSuccess = () => {
     onSuccess(safeNext(next))
@@ -85,7 +85,7 @@ export function LoginPageContent({
 
       {mode === 'login' ? (
         <LoginForm onSuccess={handleSuccess} />
-      ) : registrationAllowed?.allowed === false ? (
+      ) : settings?.allow_new_user_registration === false ? (
         <p role="status" className="text-muted-foreground text-sm">
           {t('login.registrationDisabled')}
         </p>

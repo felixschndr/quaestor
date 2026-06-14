@@ -160,7 +160,7 @@ def test_server_honors_x_forwarded_for_when_proxy_is_trusted(isolated_app: None,
     with running_server():
         # First prime the csrf_token cookie with an honest GET.
         with httpx.Client(base_url=f"http://127.0.0.1:{port}") as client:
-            client.get("/api/auth/registration_allowed")
+            client.get("/api/settings")
             csrf_token = client.cookies.get("csrf_token")
             client.headers["X-CSRF-Token"] = csrf_token
             # Now pretend to be a reverse proxy forwarding a real client at 203.0.113.7.

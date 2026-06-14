@@ -253,26 +253,6 @@ def test_register_rejects_invalid_theme(http_client: TestClient):
     assert response.status_code == 422
 
 
-def test_registration_allowed_returns_true_by_default(http_client: TestClient):
-    response = http_client.get("/api/auth/registration_allowed")
-
-    assert response.status_code == 200
-    assert response.json() == {"allowed": True}
-
-
-def test_registration_allowed_reflects_env_variable(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv(name=ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME, value="false")
-
-    response = http_client.get("/api/auth/registration_allowed")
-
-    assert response.status_code == 200
-    assert response.json() == {"allowed": False}
-
-
-def test_registration_allowed_is_public(http_client: TestClient):
-    assert http_client.get("/api/auth/registration_allowed").status_code == 200
-
-
 def test_password_requirements_returns_current_rules(http_client: TestClient):
     response = http_client.get("/api/auth/password_requirements")
 
@@ -329,7 +309,7 @@ def test_register_succeeds_when_registration_is_explicitly_enabled(
 @pytest.fixture
 def second_http_client(http_client: TestClient) -> Iterator[TestClient]:
     with TestClient(main.app) as client:
-        client.get("/api/auth/registration_allowed")
+        client.get("/api/settings")
         csrf_token = client.cookies.get(csrf.COOKIE_NAME)
         if csrf_token:
             client.headers[csrf.HEADER_NAME] = csrf_token

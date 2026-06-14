@@ -17,6 +17,7 @@ from source.backend.api import (
     auth,
     credentials,
     i18n,
+    settings,
     statistics,
     transactions,
     users,
@@ -47,6 +48,7 @@ from source.backend.services import (
     api_key_service,
     bank_info_updater,
     category_rescan,
+    i18n_service,
     migrations,
     playwright_browser,
     recurring_transaction_scheduler,
@@ -82,6 +84,7 @@ async def _run_as_system_task(module: Any, name: str) -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator:
     _route_third_party_loggers_to_root()
+    i18n_service.validate_display_timezone()
     log_database_location()
     migrations.upgrade_to_head()
 
@@ -282,6 +285,7 @@ for api_object in [
     auth,
     credentials,
     i18n,
+    settings,
     statistics,
     transactions,
     users,

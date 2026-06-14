@@ -9,7 +9,6 @@ from source.backend.api.schemas.user import (
     PASSWORD_RULES,
     PasswordRequirements,
     PasswordRule,
-    RegistrationAllowed,
     UserCreate,
     UserLogin,
     UserRead,
@@ -114,11 +113,6 @@ def _start_session(request: Request, response: Response, db_session: Session, us
 @router.get("/me", response_model=UserRead)
 def me(current_user: User = Depends(session_service.get_current_user_from_request)) -> User:
     return current_user
-
-
-@router.get("/registration_allowed", response_model=RegistrationAllowed)
-def registration_allowed() -> RegistrationAllowed:
-    return RegistrationAllowed(allowed=user_service.new_user_registration_allowed())
 
 
 @router.get("/password_requirements", response_model=PasswordRequirements)

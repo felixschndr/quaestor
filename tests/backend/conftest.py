@@ -29,6 +29,7 @@ from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 from source.backend.models.user import User
 from source.backend.security import csrf, rate_limit
+from source.backend.services import i18n_service
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -62,6 +63,14 @@ def silence_application_log_output():
     root = logging.getLogger()
     for handler in [handler for handler in root.handlers if not type(handler).__module__.startswith("_pytest")]:
         root.removeHandler(handler)
+
+
+@pytest.fixture(autouse=True)
+def clear_display_timezone(monkeypatch: pytest.MonkeyPatch):
+    # The app validates DISPLAY_TIMEZONE on startup (and the http_client fixture
+    # boots the app). Clear it by default so a developer's local .env can't make
+    # the suite depend on ambient config; tests that care set it explicitly.
+    monkeypatch.delenv(i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, raising=False)
 
 
 @pytest.fixture(autouse=True)
@@ -111,7 +120,7 @@ def http_client(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
         # Mimic what a real SPA does: prime the csrf_token cookie via a GET, then echo it
         # back in the X-CSRF-Token header on every subsequent request. Without this every
         # POST/PATCH/PUT/DELETE in the test suite would 403 on the CSRF middleware.
-        test_client.get("/api/auth/registration_allowed")
+        test_client.get("/api/settings")
         csrf_token = test_client.cookies.get(csrf.COOKIE_NAME)
         if csrf_token:
             test_client.headers[csrf.HEADER_NAME] = csrf_token

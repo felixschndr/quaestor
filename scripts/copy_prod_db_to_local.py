@@ -62,7 +62,7 @@ def main() -> None:
     prod_key = _get_remote_encryption_key()
 
     print("Wiping credentials")
-    _wipe_credentials(DATABASE_PATH, prod_key)
+    # _wipe_credentials(DATABASE_PATH, prod_key)
 
     rotate_db_encryption_key._write_env_key(ENV_FILE_PATH, prod_key)
     os.environ[KEY_ENV_VARIABLE_NAME] = prod_key

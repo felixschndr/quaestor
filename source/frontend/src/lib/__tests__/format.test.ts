@@ -1,6 +1,13 @@
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import i18n from '@/i18n'
-import { formatEuro, formatDate, formatIban, relativeDateKey } from '../format'
+import {
+  formatEuro,
+  formatDate,
+  formatDateTime,
+  formatIban,
+  relativeDateKey,
+  setDisplayTimeZone,
+} from '../format'
 
 describe('formatEuro', () => {
   it('formats positive amounts in de-DE', () => {
@@ -39,6 +46,31 @@ describe('formatDate', () => {
     await i18n.changeLanguage('en')
     // 2026-05-20 is a Wednesday → "Wednesday, May 20, 2026".
     expect(formatDate('2026-05-20T12:00:00Z')).toMatch(/^Wednesday, May 20, 2026/)
+  })
+})
+
+describe('formatDateTime', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('de')
+  })
+  afterAll(async () => {
+    setDisplayTimeZone('UTC')
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders a naive backend timestamp as UTC by default', () => {
+    setDisplayTimeZone('UTC')
+    expect(formatDateTime('2026-05-20T12:00:00')).toMatch(/20\. Mai 2026 um 12:00/)
+  })
+
+  it('converts a naive (UTC) timestamp into the configured display zone', () => {
+    setDisplayTimeZone('Europe/Berlin')
+    expect(formatDateTime('2026-05-20T12:00:00')).toMatch(/20\. Mai 2026 um 14:00/)
+  })
+
+  it('treats a timestamp that already carries a Z as UTC', () => {
+    setDisplayTimeZone('Europe/Berlin')
+    expect(formatDateTime('2026-05-20T12:00:00Z')).toMatch(/20\. Mai 2026 um 14:00/)
   })
 })
 

@@ -9,18 +9,21 @@ import type { QueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { NetworkError } from '@/lib/api'
 import { ensureAuthenticated, useAuthMe } from '@/lib/auth'
+import { ensureAppSettings } from '@/lib/settings'
 import { readStoredTheme, useResolvedTheme } from '@/lib/theme'
 import { useApplyUserLanguage } from '@/i18n'
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
-  beforeLoad: ({ context, location }) =>
-    ensureAuthenticated({
+  beforeLoad: async ({ context, location }) => {
+    await ensureAppSettings(context.queryClient)
+    await ensureAuthenticated({
       queryClient: context.queryClient,
       pathname: location.pathname,
       search: location.searchStr,
-    }),
+    })
+  },
   component: RootComponent,
   pendingComponent: LoadingScreen,
   errorComponent: RootErrorScreen,

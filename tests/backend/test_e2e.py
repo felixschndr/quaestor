@@ -46,7 +46,7 @@ def make_request_and_send_response(data_of_request: dict, _http_session: Session
 
 
 def _bootstrap_csrf(_http_session: Session) -> None:
-    make_request_and_send_response({"method": "GET", "url": f"{URL}/api/auth/registration_allowed"}, _http_session)
+    make_request_and_send_response({"method": "GET", "url": f"{URL}/api/settings"}, _http_session)
 
 
 def test_e2e_full_flow() -> None:
