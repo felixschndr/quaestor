@@ -86,7 +86,7 @@ function TransactionDetailPage() {
 function TransactionNotFoundView({ accountId }: { accountId: number }) {
   const { t } = useTranslation()
   return (
-    <main className="mx-auto max-w-2xl p-4">
+    <main className="mx-auto max-w-3xl p-4">
       <BackLink accountId={accountId} />
       <p className="text-muted-foreground mt-6 text-sm">{t('transaction.notFound')}</p>
     </main>
@@ -117,7 +117,7 @@ export function TransactionDetailView({
   const negative = transaction.amount < 0
 
   return (
-    <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-8 p-4">
+    <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-8 p-4">
       <header className="flex items-center">
         <BackLink accountId={accountId} />
       </header>

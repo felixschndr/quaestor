@@ -60,7 +60,7 @@ const ATTRIBUTIONS: Attribution[] = [
 export function SettingsAttributionsPage() {
   const { t } = useTranslation()
   return (
-    <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-4">
+    <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
         <BackLink />
         <h1 className="text-foreground text-2xl font-semibold">{t('attributions.title')}</h1>

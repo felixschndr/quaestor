@@ -179,7 +179,7 @@ function AccountDetailPage() {
 function AccountNotFoundView() {
   const { t } = useTranslation()
   return (
-    <main className="mx-auto max-w-2xl p-4">
+    <main className="mx-auto max-w-3xl p-4">
       <BackLink />
       <p className="text-muted-foreground mt-6 text-sm">{t('account.notFound')}</p>
     </main>
@@ -313,7 +313,7 @@ export function AccountDetailView({
     // an explicit padding-top equal to the measured header height.
     <main className="flex min-h-full flex-col">
       <div ref={stickyHeaderRef} className="bg-background fixed top-0 right-0 left-0 z-20">
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 pt-4 pb-3">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pt-4 pb-3">
           <header className="flex items-center justify-between gap-2">
             <BackLink />
             {/* translate-y nudge matches the magnifier below: optical alignment
@@ -389,7 +389,7 @@ export function AccountDetailView({
       </div>
 
       <div
-        className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pb-4"
+        className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pb-4"
         // pt = measured header height + the visual gap (~0.5rem) the old
         // `pt-2` provided between header and first transaction group.
         style={{ paddingTop: `${stickyHeaderHeight + 8}px` }}

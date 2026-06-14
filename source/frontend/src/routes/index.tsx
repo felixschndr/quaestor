@@ -116,7 +116,7 @@ export function OverviewView({
   const hasAccounts = displayGroups.some((group) => group.accounts.length > 0)
 
   return (
-    <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-4">
+    <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 p-4">
       <header className="flex items-start justify-between px-2">
         <h1 className="text-foreground text-2xl font-semibold">
           <Trans

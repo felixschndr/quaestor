@@ -20,7 +20,7 @@ export function SettingsSubPage({
 }) {
   const { t } = useTranslation()
   return (
-    <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-8 p-4">
+    <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-8 p-4">
       <header className="flex items-center gap-2">
         <Link
           to="/settings/user"
