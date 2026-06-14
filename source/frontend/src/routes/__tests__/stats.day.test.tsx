@@ -64,19 +64,20 @@ vi.mock('@/lib/accountGroups', () => ({
 }))
 
 vi.mock('@/lib/statistics', () => ({
-  useNetWorthDay: () => ({
+  useNetWorthRange: () => ({
     isLoading: false,
     isError: false,
     data: {
-      date: '2026-05-20',
-      total_at_end_of_day_before: 350,
-      total_at_end_of_current_day: 630,
+      start: '2026-05-19',
+      end: '2026-05-20',
+      total_at_start: 350,
+      total_at_end: 630,
       total_difference: 280,
       accounts: [
         {
           account_id: 42,
-          balance_at_end_of_day_before: 100,
-          balance_at_end_of_current_day: 130,
+          balance_at_start: 100,
+          balance_at_end: 130,
           difference: 30,
           transactions: [
             {
@@ -95,8 +96,8 @@ vi.mock('@/lib/statistics', () => ({
         // A depot whose balance moved without any booked transaction (market valuation).
         {
           account_id: 43,
-          balance_at_end_of_day_before: 250,
-          balance_at_end_of_current_day: 500,
+          balance_at_start: 250,
+          balance_at_end: 500,
           difference: 250,
           transactions: [],
         },
@@ -121,6 +122,6 @@ describe('NetWorthDayPage', () => {
 
     // The depot has no transactions to explain its market-driven change.
     await userEvent.click(screen.getByRole('button', { name: /Depot/ }))
-    expect(screen.getByText('No transactions on this day')).toBeInTheDocument()
+    expect(screen.getByText('No transactions in this period')).toBeInTheDocument()
   })
 })

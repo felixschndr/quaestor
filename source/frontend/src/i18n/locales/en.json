@@ -611,11 +611,13 @@
     "day": {
       "title": "Net worth change",
       "back": "Back to statistics",
+      "from": "From",
+      "to": "To",
       "total": "Total",
-      "noTransactions": "No transactions on this day",
+      "noTransactions": "No transactions in this period",
       "loading": "Loading …",
-      "error": "Could not load the day breakdown.",
-      "empty": "No data for this day."
+      "error": "Could not load the breakdown.",
+      "empty": "No data for this period."
     },
     "otherParties": {
       "titleOutgoing": "Top recipients",

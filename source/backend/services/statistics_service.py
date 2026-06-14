@@ -1,12 +1,12 @@
 import datetime
 
 from source.backend.api.schemas.statistics import (
+    AccountRangeChange,
     CategorySlice,
     DailyNetWorth,
-    DayAccountChange,
     MonthlyCashflow,
     MonthlyNetSavings,
-    NetWorthDayResponse,
+    NetWorthRangeResponse,
     NetWorthResponse,
     NetWorthSummary,
     OtherPartySlice,
@@ -305,50 +305,53 @@ def _get_balance_as_of(db_session: Session, account_id: int, cutoff: datetime.da
     )
 
 
-def get_net_worth_of_day(
+def get_net_worth_of_range(
     db_session: Session,
     user: User,
     account_ids: list[int],
-    day: datetime.date,
-) -> NetWorthDayResponse:
+    start: datetime.date,
+    end: datetime.date,
+) -> NetWorthRangeResponse:
     owned_account_ids = account_service.resolve_owned_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
     )
-    previous_day = day - datetime.timedelta(days=1)
-    changes: list[DayAccountChange] = []
-    total_at_end_of_day_before = 0.0
-    total_at_end_of_current_day = 0.0
+    changes: list[AccountRangeChange] = []
+    total_at_start = 0.0
+    total_at_end = 0.0
     for account_id in owned_account_ids:
-        before = _get_balance_as_of(db_session=db_session, account_id=account_id, cutoff=previous_day)
-        after = _get_balance_as_of(db_session=db_session, account_id=account_id, cutoff=day)
+        before = _get_balance_as_of(db_session=db_session, account_id=account_id, cutoff=start)
+        after = _get_balance_as_of(db_session=db_session, account_id=account_id, cutoff=end)
         transactions = list(
             db_session.scalars(
                 select(Transaction)
                 .where(Transaction.account_id == account_id)
-                .where(Transaction.date == day)
+                .where(Transaction.date > start)
+                .where(Transaction.date <= end)
                 .where(Transaction.pending.is_(False))
+                .order_by(Transaction.date.desc())
                 .order_by(Transaction.id.desc())
             )
         )
         changes.append(
-            DayAccountChange(
+            AccountRangeChange(
                 account_id=account_id,
-                balance_at_end_of_day_before=before,
-                balance_at_end_of_current_day=after,
+                balance_at_start=before,
+                balance_at_end=after,
                 difference=round(number=(after or 0.0) - (before or 0.0), ndigits=2),
                 transactions=[TransactionRead.model_validate(transaction) for transaction in transactions],
             )
         )
-        total_at_end_of_day_before += before or 0.0
-        total_at_end_of_current_day += after or 0.0
+        total_at_start += before or 0.0
+        total_at_end += after or 0.0
 
-    logger.debug(f"Computed net worth day breakdown for {day} over {len(changes)} account(s) for {user}")
-    return NetWorthDayResponse(
-        date=day,
+    logger.debug(f"Computed net worth breakdown for {start}..{end} over {len(changes)} account(s) for {user}")
+    return NetWorthRangeResponse(
+        start=start,
+        end=end,
         accounts=changes,
-        total_at_end_of_day_before=round(number=total_at_end_of_day_before, ndigits=2),
-        total_at_end_of_current_day=round(number=total_at_end_of_current_day, ndigits=2),
-        total_difference=round(number=total_at_end_of_current_day - total_at_end_of_day_before, ndigits=2),
+        total_at_start=round(number=total_at_start, ndigits=2),
+        total_at_end=round(number=total_at_end, ndigits=2),
+        total_difference=round(number=total_at_end - total_at_start, ndigits=2),
     )
 
 

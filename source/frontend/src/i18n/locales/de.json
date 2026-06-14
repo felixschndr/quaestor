@@ -611,11 +611,13 @@
     "day": {
       "title": "Vermögensänderung",
       "back": "Zurück zur Statistik",
+      "from": "Von",
+      "to": "Bis",
       "total": "Gesamt",
-      "noTransactions": "Keine Transaktionen an diesem Tag",
+      "noTransactions": "Keine Transaktionen in diesem Zeitraum",
       "loading": "Wird geladen …",
-      "error": "Die Tagesübersicht konnte nicht geladen werden.",
-      "empty": "Für diesen Tag gibt es keine Daten."
+      "error": "Die Übersicht konnte nicht geladen werden.",
+      "empty": "Für diesen Zeitraum gibt es keine Daten."
     },
     "otherParties": {
       "titleOutgoing": "Top-Empfänger",

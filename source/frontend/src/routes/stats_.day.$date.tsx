@@ -6,21 +6,35 @@ import { z } from 'zod'
 
 import { BankLogo } from '@/components/BankLogo'
 import { DatePicker } from '@/components/ui/date-picker'
+import { Label } from '@/components/ui/label'
 import { useAuthMe } from '@/lib/auth'
 import { useAccountGroupLayout } from '@/lib/accountGroups'
 import { buildDisplayGroups, type AccountWithBank } from '@/lib/accountDisplayGroups'
-import { useNetWorthDay, type DayAccountChange } from '@/lib/statistics'
+import { useNetWorthRange, type AccountRangeChange } from '@/lib/statistics'
 import type { TransactionRead } from '@/lib/accountHistory'
 import { accountDisplayName } from '@/lib/accounts'
 import { formatEuro, formatIban } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const searchParamsSchema = z.object({
+  // Optional "before" reference date. When absent it defaults to the day
+  // before the end date, reproducing a single-day view.
+  start: z.string().optional(),
   account_ids: z
     .union([z.array(z.coerce.number()), z.coerce.number()])
     .transform((value) => (Array.isArray(value) ? value : [value]))
     .optional(),
 })
+
+/** Shift an ISO yyyy-mm-dd date by `delta` days, returning ISO yyyy-mm-dd. */
+function shiftIsoDay(iso: string, delta: number): string {
+  const [year, month, day] = iso.split('-').map(Number)
+  const date = new Date(year, month - 1, day + delta)
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
 
 export const Route = createFileRoute('/stats_/day/$date')({
   component: NetWorthDayPage,
@@ -39,23 +53,39 @@ export function NetWorthDayPage() {
   const { data: user } = useAuthMe()
   const layout = useAccountGroupLayout()
   const accountIds = search.account_ids ?? []
-  const day = useNetWorthDay(date, accountIds)
+  // `date` (the route param) is the end of the range; the start defaults to
+  // the day before, which reproduces the original single-day comparison.
+  const startDate = search.start ?? shiftIsoDay(date, -1)
+  const range = useNetWorthRange(startDate, date, accountIds)
 
-  const goToDay = (next: string) => {
-    if (next && next !== date) {
-      navigate({
-        to: '/stats/day/$date',
-        params: { date: next },
-        search: { account_ids: accountIds },
-      })
-    }
+  const changeStart = (next: string) => {
+    if (!next) return
+    // The start can never sit after the end; clamp it to the end date.
+    const clamped = next > date ? date : next
+    navigate({
+      to: '/stats/day/$date',
+      params: { date },
+      search: { account_ids: accountIds, start: clamped },
+    })
+  }
+
+  const changeEnd = (next: string) => {
+    if (!next || next === date) return
+    // Keep an explicit start only while it still precedes the new end;
+    // otherwise drop it so it falls back to "the day before".
+    const keepStart = search.start && search.start <= next ? search.start : undefined
+    navigate({
+      to: '/stats/day/$date',
+      params: { date: next },
+      search: { account_ids: accountIds, start: keepStart },
+    })
   }
 
   if (!user) return null // root guard already redirected on 401
 
   const selectedIds = new Set(accountIds)
-  const changeByAccount = new Map<number, DayAccountChange>(
-    (day.data?.accounts ?? []).map((change) => [change.account_id, change]),
+  const changeByAccount = new Map<number, AccountRangeChange>(
+    (range.data?.accounts ?? []).map((change) => [change.account_id, change]),
   )
   const groups = buildDisplayGroups(user, layout.data)
     .map((group) => ({
@@ -75,12 +105,22 @@ export function NetWorthDayPage() {
           <ChevronLeft className="size-5" />
         </Link>
         <h1 className="text-foreground flex-1 text-lg font-semibold">{t('stats.day.title')}</h1>
-        <DatePicker id="day-date" value={date} onChange={goToDay} className="w-auto" />
       </header>
 
-      {day.isLoading ? (
+      <div className="grid grid-cols-2 gap-3 px-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="day-start">{t('stats.day.from')}</Label>
+          <DatePicker id="day-start" value={startDate} onChange={changeStart} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="day-end">{t('stats.day.to')}</Label>
+          <DatePicker id="day-end" value={date} onChange={changeEnd} />
+        </div>
+      </div>
+
+      {range.isLoading ? (
         <p className="text-muted-foreground text-sm">{t('stats.day.loading')}</p>
-      ) : day.isError ? (
+      ) : range.isError ? (
         <p className="text-destructive text-sm">{t('stats.day.error')}</p>
       ) : groups.length === 0 ? (
         <p className="text-muted-foreground border-border bg-card rounded-lg border border-dashed p-8 text-center text-sm">
@@ -115,12 +155,12 @@ export function NetWorthDayPage() {
             })}
           </ul>
 
-          {day.data ? (
-            <div className="border-border flex items-center justify-between border-t px-2 pt-3 text-sm font-semibold tabular-nums">
+          {range.data ? (
+            <div className="border-border mx-2 flex items-center justify-between border-t pt-3 text-sm font-semibold tabular-nums">
               <span>{t('stats.day.total')}</span>
               <span className="flex items-baseline gap-3">
-                <span>{formatEuro(day.data.total_at_end_of_current_day)}</span>
-                <DifferenceAmount value={day.data.total_difference} />
+                <span>{formatEuro(range.data.total_at_end)}</span>
+                <DifferenceAmount value={range.data.total_difference} />
               </span>
             </div>
           ) : null}
@@ -135,7 +175,7 @@ function AccountChangeRow({
   change,
 }: {
   account: AccountWithBank
-  change: DayAccountChange | undefined
+  change: AccountRangeChange | undefined
 }) {
   const { t } = useTranslation()
   const difference = change?.difference ?? 0
@@ -157,8 +197,8 @@ function AccountChangeRow({
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-sm font-medium">{accountDisplayName(account)}</span>
             <span className="text-muted-foreground truncate text-xs tabular-nums">
-              {formatEuro(change?.balance_at_end_of_day_before ?? 0)} →{' '}
-              {formatEuro(change?.balance_at_end_of_current_day ?? 0)}
+              {formatEuro(change?.balance_at_start ?? 0)} →{' '}
+              {formatEuro(change?.balance_at_end ?? 0)}
             </span>
           </span>
           <DifferenceAmount value={difference} />

@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from source.backend.api.schemas.transaction import TransactionRead
 from source.backend.models.transaction_category import TransactionCategory
 
@@ -67,22 +67,30 @@ class NetWorthResponse(BaseModel):
     summary: NetWorthSummary | None = None  # None when the series is empty.
 
 
-class NetWorthDayQuery(BaseModel):
-    day: date
+class NetWorthRangeQuery(BaseModel):
+    start: date
+    end: date
     account_ids: list[int] = Field(min_length=1)
 
+    @model_validator(mode="after")
+    def _check_order(self) -> "NetWorthRangeQuery":
+        if self.end < self.start:
+            raise ValueError("end must be on or after start")
+        return self
 
-class DayAccountChange(BaseModel):
+
+class AccountRangeChange(BaseModel):
     account_id: int
-    balance_at_end_of_day_before: float | None
-    balance_at_end_of_current_day: float | None
+    balance_at_start: float | None
+    balance_at_end: float | None
     difference: float
     transactions: list[TransactionRead]
 
 
-class NetWorthDayResponse(BaseModel):
-    date: date
-    accounts: list[DayAccountChange]
-    total_at_end_of_day_before: float
-    total_at_end_of_current_day: float
+class NetWorthRangeResponse(BaseModel):
+    start: date
+    end: date
+    accounts: list[AccountRangeChange]
+    total_at_start: float
+    total_at_end: float
     total_difference: float

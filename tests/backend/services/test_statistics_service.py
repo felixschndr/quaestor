@@ -106,29 +106,32 @@ def test_daily_net_worth_returns_empty_when_range_is_inverted(session_factory: s
     assert result.series == []
 
 
-def test_net_worth_day_reports_before_after_and_transactions(session_factory: sessionmaker):
-    day = datetime.date(year=2026, month=5, day=20)
+def test_net_worth_range_reports_before_after_and_transactions(session_factory: sessionmaker):
+    end = datetime.date(year=2026, month=5, day=20)
+    start = end - datetime.timedelta(days=1)
     with session_factory() as session:
         user, account = _user_with_account(session)
         session.commit()
         user_id, account_id = user.id, account.id
-    # End of the previous day was 100; two booked transactions on `day` push it to 130.
-    seed_snapshot(session_factory, account_id=account_id, day=day - datetime.timedelta(days=1), balance=100.0)
-    seed_snapshot(session_factory, account_id=account_id, day=day, balance=130.0)
+    # Balance at the end of `start` was 100; two booked transactions push it to 130 by `end`.
+    seed_snapshot(session_factory, account_id=account_id, day=start, balance=100.0)
+    seed_snapshot(session_factory, account_id=account_id, day=end, balance=130.0)
     with session_factory() as session:
-        first = make_transaction(session, account_id=account_id, amount=50.0, date=day)
-        second = make_transaction(session, account_id=account_id, amount=-20.0, date=day)
-        make_transaction(session, account_id=account_id, amount=-999.0, date=day, pending=True)
-        make_transaction(session, account_id=account_id, amount=7.0, date=day - datetime.timedelta(days=1))
+        first = make_transaction(session, account_id=account_id, amount=50.0, date=end)
+        second = make_transaction(session, account_id=account_id, amount=-20.0, date=end)
+        make_transaction(session, account_id=account_id, amount=-999.0, date=end, pending=True)
+        # A transaction on `start` itself is part of the "before" snapshot, not the range.
+        make_transaction(session, account_id=account_id, amount=7.0, date=start)
         session.commit()
         first_id, second_id = first.id, second.id
 
     with session_factory() as session:
-        result = statistics_service.get_net_worth_of_day(
+        result = statistics_service.get_net_worth_of_range(
             db_session=session,
             user=session.get(entity=User, ident=user_id),
             account_ids=[account_id],
-            day=day,
+            start=start,
+            end=end,
         )
 
     def booked(transaction_id: int, amount: float) -> dict:
@@ -137,7 +140,7 @@ def test_net_worth_day_reports_before_after_and_transactions(session_factory: se
             "account_id": account_id,
             "amount": amount,
             "purpose": None,
-            "date": day,
+            "date": end,
             "other_party": None,
             "transaction_type": None,
             "category": TransactionCategory.UNKNOWN,
@@ -147,15 +150,16 @@ def test_net_worth_day_reports_before_after_and_transactions(session_factory: se
         }
 
     assert result.model_dump() == {
-        "date": day,
-        "total_at_end_of_day_before": 100.0,
-        "total_at_end_of_current_day": 130.0,
+        "start": start,
+        "end": end,
+        "total_at_start": 100.0,
+        "total_at_end": 130.0,
         "total_difference": 30.0,
         "accounts": [
             {
                 "account_id": account_id,
-                "balance_at_end_of_day_before": 100.0,
-                "balance_at_end_of_current_day": 130.0,
+                "balance_at_start": 100.0,
+                "balance_at_end": 130.0,
                 "difference": 30.0,
                 "transactions": [
                     booked(transaction_id=second_id, amount=-20.0),
@@ -166,25 +170,27 @@ def test_net_worth_day_reports_before_after_and_transactions(session_factory: se
     }
 
 
-def test_net_worth_day_handles_account_without_prior_snapshot(session_factory: sessionmaker):
+def test_net_worth_range_handles_account_without_prior_snapshot(session_factory: sessionmaker):
     # A market-valued account whose balance moved without any transaction
-    day = datetime.date(year=2026, month=5, day=20)
+    end = datetime.date(year=2026, month=5, day=20)
+    start = end - datetime.timedelta(days=1)
     with session_factory() as session:
         user, account = _user_with_account(session)
         session.commit()
         user_id, account_id = user.id, account.id
-    seed_snapshot(session_factory, account_id=account_id, day=day, balance=250.0)
+    seed_snapshot(session_factory, account_id=account_id, day=end, balance=250.0)
 
     with session_factory() as session:
-        result = statistics_service.get_net_worth_of_day(
+        result = statistics_service.get_net_worth_of_range(
             db_session=session,
             user=session.get(entity=User, ident=user_id),
             account_ids=[account_id],
-            day=day,
+            start=start,
+            end=end,
         )
 
     change = result.accounts[0]
-    assert change.balance_at_end_of_day_before is None
-    assert change.balance_at_end_of_current_day == 250.0
+    assert change.balance_at_start is None
+    assert change.balance_at_end == 250.0
     assert change.difference == 250.0
     assert change.transactions == []

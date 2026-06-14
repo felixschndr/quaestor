@@ -7,9 +7,9 @@ from source.backend.api.schemas.statistics import (
     DirectionalStatisticsQuery,
     MonthlyCashflow,
     MonthlyNetSavings,
-    NetWorthDayQuery,
-    NetWorthDayResponse,
     NetWorthQuery,
+    NetWorthRangeQuery,
+    NetWorthRangeResponse,
     NetWorthResponse,
     OtherPartySlice,
     OtherPartyStatisticsQuery,
@@ -105,15 +105,16 @@ def net_worth_statistics(
     )
 
 
-@router.get("/net-worth/day", response_model=NetWorthDayResponse)
-def net_worth_day_statistics(
-    query: Annotated[NetWorthDayQuery, Query()],
+@router.get("/net-worth/range", response_model=NetWorthRangeResponse)
+def net_worth_range_statistics(
+    query: Annotated[NetWorthRangeQuery, Query()],
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
-) -> NetWorthDayResponse:
-    return statistics_service.get_net_worth_of_day(
+) -> NetWorthRangeResponse:
+    return statistics_service.get_net_worth_of_range(
         db_session=db_session,
         user=current_user,
         account_ids=query.account_ids,
-        day=query.day,
+        start=query.start,
+        end=query.end,
     )

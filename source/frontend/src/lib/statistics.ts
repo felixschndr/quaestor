@@ -59,19 +59,20 @@ export interface NetWorthResponse {
   summary: NetWorthSummary | null // null when the series is empty.
 }
 
-export interface DayAccountChange {
+export interface AccountRangeChange {
   account_id: number
-  balance_at_end_of_day_before: number | null
-  balance_at_end_of_current_day: number | null
+  balance_at_start: number | null
+  balance_at_end: number | null
   difference: number
   transactions: TransactionRead[]
 }
 
-export interface NetWorthDayResponse {
-  date: string
-  accounts: DayAccountChange[]
-  total_at_end_of_day_before: number
-  total_at_end_of_current_day: number
+export interface NetWorthRangeResponse {
+  start: string
+  end: string
+  accounts: AccountRangeChange[]
+  total_at_start: number
+  total_at_end: number
   total_difference: number
 }
 
@@ -217,8 +218,8 @@ export const statisticsQueryKeys = {
     ] as const,
   netWorth: (accountIds: number[], filters: StatsFilters) =>
     ['statistics', 'net-worth', sortedIds(accountIds), filters] as const,
-  netWorthDay: (date: string, accountIds: number[]) =>
-    ['statistics', 'net-worth', 'day', date, sortedIds(accountIds)] as const,
+  netWorthRange: (start: string, end: string, accountIds: number[]) =>
+    ['statistics', 'net-worth', 'range', start, end, sortedIds(accountIds)] as const,
 }
 
 export function useCategoryStats(
@@ -291,16 +292,17 @@ export function useNetWorthStats(accountIds: number[], filters: StatsFilters) {
   })
 }
 
-export function useNetWorthDay(date: string, accountIds: number[]) {
+export function useNetWorthRange(start: string, end: string, accountIds: number[]) {
   const params = new URLSearchParams()
-  params.append('day', date)
+  params.append('start', start)
+  params.append('end', end)
   for (const accountId of accountIds) {
     params.append('account_ids', String(accountId))
   }
   return useQuery({
-    queryKey: statisticsQueryKeys.netWorthDay(date, accountIds),
-    queryFn: () => api<NetWorthDayResponse>(`/statistics/net-worth/day?${params.toString()}`),
-    enabled: accountIds.length > 0 && date.length > 0,
+    queryKey: statisticsQueryKeys.netWorthRange(start, end, accountIds),
+    queryFn: () => api<NetWorthRangeResponse>(`/statistics/net-worth/range?${params.toString()}`),
+    enabled: accountIds.length > 0 && start.length > 0 && end.length > 0,
     staleTime: 30_000,
   })
 }

@@ -397,7 +397,7 @@ def test_statistics_return_empty_list_without_matching_transactions(
     assert response.json() == expected
 
 
-def test_net_worth_day_breaks_down_change_per_account(http_client: TestClient, session_factory: sessionmaker):
+def test_net_worth_range_breaks_down_change_per_account(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     seed_snapshot(
         session_factory=session_factory, account_id=account_id, day=date(year=2026, month=5, day=19), balance=100.0
@@ -410,20 +410,22 @@ def test_net_worth_day_breaks_down_change_per_account(http_client: TestClient, s
     )
 
     response = http_client.get(
-        "/api/statistics/net-worth/day", params=[("day", "2026-05-20"), ("account_ids", account_id)]
+        "/api/statistics/net-worth/range",
+        params=[("start", "2026-05-19"), ("end", "2026-05-20"), ("account_ids", account_id)],
     )
 
     assert response.status_code == 200
     assert response.json() == {
-        "date": "2026-05-20",
-        "total_at_end_of_day_before": 100.0,
-        "total_at_end_of_current_day": 130.0,
+        "start": "2026-05-19",
+        "end": "2026-05-20",
+        "total_at_start": 100.0,
+        "total_at_end": 130.0,
         "total_difference": 30.0,
         "accounts": [
             {
                 "account_id": account_id,
-                "balance_at_end_of_day_before": 100.0,
-                "balance_at_end_of_current_day": 130.0,
+                "balance_at_start": 100.0,
+                "balance_at_end": 130.0,
                 "difference": 30.0,
                 "transactions": [
                     {
@@ -445,7 +447,7 @@ def test_net_worth_day_breaks_down_change_per_account(http_client: TestClient, s
     }
 
 
-def test_net_worth_day_rejects_foreign_account(http_client: TestClient, session_factory: sessionmaker):
+def test_net_worth_range_rejects_foreign_account(http_client: TestClient, session_factory: sessionmaker):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
     account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
@@ -454,7 +456,8 @@ def test_net_worth_day_rejects_foreign_account(http_client: TestClient, session_
     login_as(http_client, user_name="intruder")
 
     response = http_client.get(
-        "/api/statistics/net-worth/day", params=[("day", "2026-05-20"), ("account_ids", account_id)]
+        "/api/statistics/net-worth/range",
+        params=[("start", "2026-05-19"), ("end", "2026-05-20"), ("account_ids", account_id)],
     )
 
     assert response.status_code == 404
