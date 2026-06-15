@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Info } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -233,14 +234,7 @@ export function ManualTransactionForm({
             id={`${fieldIdPrefix}-date`}
             label={t('credentials.manualTransactions.fieldDate')}
           >
-            <Input
-              id={`${fieldIdPrefix}-date`}
-              type="date"
-              value={date}
-              max={today}
-              onChange={(event) => setDate(event.target.value)}
-              aria-invalid={(attemptedSubmit && !validDate) || undefined}
-            />
+            <DatePicker id={`${fieldIdPrefix}-date`} value={date} max={today} onChange={setDate} />
           </FormField>
         )}
         <FormField

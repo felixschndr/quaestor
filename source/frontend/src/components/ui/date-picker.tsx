@@ -18,6 +18,7 @@ export interface DatePickerProps {
   onChange: (next: string) => void
   placeholder?: string
   className?: string
+  max?: string
 }
 
 /**
@@ -27,10 +28,11 @@ export interface DatePickerProps {
  * as `<input type="date">` had — so the surrounding form state doesn't
  * need to know about Date objects.
  */
-function DatePicker({ id, value, onChange, placeholder, className }: DatePickerProps) {
+function DatePicker({ id, value, onChange, placeholder, className, max }: DatePickerProps) {
   const { i18n } = useTranslation()
   const locale = LOCALES[i18n.language] ?? enUS
   const selected = value ? parseIsoDate(value) : undefined
+  const maxDate = max ? parseIsoDate(max) : undefined
 
   const fullLabel = selected ? formatDate(selected) : (placeholder ?? '')
   const shortLabel = selected ? formatDateShortWeekday(selected) : (placeholder ?? '')
@@ -67,6 +69,7 @@ function DatePicker({ id, value, onChange, placeholder, className }: DatePickerP
           weekStartsOn={1}
           selected={selected}
           defaultMonth={selected}
+          disabled={maxDate ? { after: maxDate } : undefined}
           onSelect={(date) => {
             onChange(date ? formatIsoDate(date) : '')
           }}
