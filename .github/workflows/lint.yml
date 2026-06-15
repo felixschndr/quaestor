@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: "3.14"
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.8
         with:
           version: 11
 
