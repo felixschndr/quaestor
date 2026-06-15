@@ -1,10 +1,12 @@
 import json
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import partialmethod
 from typing import Any
+
+from source.backend.models.base import Base, describe_update
 
 REDACTION_PLACEHOLDER = "XXXXXX"
 
@@ -149,6 +151,9 @@ class StructuredLogger:
 
     def exception(self, message: str, extra: Any = None, *, exc_info: Any = True) -> None:
         self.log(message, extra=extra, level=logging.ERROR, exc_info=exc_info)
+
+    def update(self, *, state_before_update: Mapping[str, Any], entity_after_update: Base) -> None:
+        self.info(describe_update(state_before_update=state_before_update, entity_after_update=entity_after_update))
 
 
 def get_logger(name: str) -> StructuredLogger:

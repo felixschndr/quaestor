@@ -14,6 +14,7 @@ from source.backend.exceptions import (
 )
 from source.backend.helpers import apply_fields
 from source.backend.logging_utils import get_logger
+from source.backend.models.base import snapshot_columns
 from source.backend.models.credential import Credential
 from source.backend.models.user import User
 from source.backend.services import bank_catalog, transfer_detection
@@ -119,10 +120,10 @@ def create_credential(
 
 def update_credential(db_session: Session, credential: Credential, fields: dict) -> Credential:
     logger.debug(f"Updating {credential} with fields {sorted(fields)}")
-    credential_before_change = str(credential)
+    state_before_update = snapshot_columns(credential)
     apply_fields(entity=credential, fields=fields)
     db_session.commit()
-    logger.info(f"Updated credential {credential_before_change} --> {credential}")
+    logger.update(state_before_update=state_before_update, entity_after_update=credential)
     return credential
 
 

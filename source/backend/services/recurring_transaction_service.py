@@ -5,6 +5,7 @@ from source.backend.exceptions import RecurringTransactionNotFoundError
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
+from source.backend.models.base import snapshot_columns
 from source.backend.models.recurrence_frequency import RecurrenceFrequency
 from source.backend.models.recurring_transaction import RecurringTransaction
 from source.backend.models.transaction import Transaction
@@ -126,6 +127,7 @@ def update_recurring_transaction(
         or fields.get("day_of_month") != rule.day_of_month
         or fields.get("day_of_week") != rule.day_of_week
     )
+    state_before_update = snapshot_columns(rule)
     rule.amount = fields["amount"]
     rule.purpose = fields.get("purpose")
     rule.other_party = fields.get("other_party")
@@ -140,7 +142,7 @@ def update_recurring_transaction(
         # amount/note leaves the next booking date untouched.
         rule.next_run_date = _next_occurrence(rule, from_date=date.today(), after=False)
     db_session.commit()
-    logger.info(f"Updated {rule} on {account}; next run {rule.next_run_date}")
+    logger.update(state_before_update=state_before_update, entity_after_update=rule)
     return rule
 
 
