@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { CalendarIcon } from 'lucide-react'
 import { de, enUS, type Locale } from 'date-fns/locale'
 import { useTranslation } from 'react-i18next'
@@ -30,6 +31,7 @@ export interface DatePickerProps {
  */
 function DatePicker({ id, value, onChange, placeholder, className, max }: DatePickerProps) {
   const { i18n } = useTranslation()
+  const [open, setOpen] = useState(false)
   const locale = LOCALES[i18n.language] ?? enUS
   const selected = value ? parseIsoDate(value) : undefined
   const maxDate = max ? parseIsoDate(max) : undefined
@@ -38,11 +40,19 @@ function DatePicker({ id, value, onChange, placeholder, className, max }: DatePi
   const shortLabel = selected ? formatDateShortWeekday(selected) : (placeholder ?? '')
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         id={id}
         type="button"
         aria-label={fullLabel}
+        onKeyDown={(event) => {
+          // Arrow keys open the calendar too (on top of the default Enter/Space),
+          // mirroring the native <input type="date"> affordance.
+          if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+            event.preventDefault()
+            setOpen(true)
+          }
+        }}
         className={cn(
           'border-input flex h-8 w-full min-w-0 items-center gap-2 rounded-lg border bg-transparent px-2.5 py-1 text-left text-sm transition-colors outline-none',
           'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3',
@@ -62,9 +72,15 @@ function DatePicker({ id, value, onChange, placeholder, className, max }: DatePi
           <span className="truncate">{fullLabel}</span>
         )}
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-2">
+      {/* Prevent the popover from focusing its first element (the prev-month
+          chevron); `autoFocus` on the calendar focuses the selected day instead. */}
+      <PopoverContent className="w-auto p-2" onOpenAutoFocus={(event) => event.preventDefault()}>
         <Calendar
           mode="single"
+          // `required` keeps the current day selected when it's re-confirmed
+          // (e.g. pressing Enter on it) instead of toggling it off and clearing.
+          required
+          autoFocus
           locale={locale}
           weekStartsOn={1}
           selected={selected}
@@ -72,6 +88,7 @@ function DatePicker({ id, value, onChange, placeholder, className, max }: DatePi
           disabled={maxDate ? { after: maxDate } : undefined}
           onSelect={(date) => {
             onChange(date ? formatIsoDate(date) : '')
+            setOpen(false)
           }}
         />
       </PopoverContent>

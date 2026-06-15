@@ -206,9 +206,12 @@ export function ManualTransactionForm({
         void submit()
       }}
       onKeyDown={(event) => {
-        const target = event.target as HTMLElement
-        if (event.key === 'Enter' && target.tagName !== 'BUTTON' && target.tagName !== 'TEXTAREA') {
+        // Enter in a plain text/number field saves the form. The date picker is
+        // a button (opens its calendar instead) and selects open their dropdown
+        // via openSelectOnEnter, so those are intentionally left alone.
+        if (event.key === 'Enter' && (event.target as HTMLElement).tagName === 'INPUT') {
           event.preventDefault()
+          void submit()
         }
       }}
       className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4"
