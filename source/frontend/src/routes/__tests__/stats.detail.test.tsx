@@ -1,8 +1,13 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
+
+const routerState = vi.hoisted(() => ({
+  search: { account_ids: [42, 43], end: '2026-05-20' } as Record<string, unknown>,
+  navigate: vi.fn(),
+}))
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
@@ -23,9 +28,9 @@ vi.mock('@tanstack/react-router', () => ({
     )
   },
   createFileRoute: () => () => ({
-    useSearch: () => ({ account_ids: [42, 43], end: '2026-05-20' }),
+    useSearch: () => routerState.search,
   }),
-  useNavigate: () => vi.fn(),
+  useNavigate: () => routerState.navigate,
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -113,19 +118,34 @@ vi.mock('@/lib/statistics', () => ({
 import { NetWorthDetailPage } from '@/routes/stats_.detail'
 
 describe('NetWorthDetailPage', () => {
-  it('lists the selected accounts and reveals their transactions on expand', async () => {
+  beforeEach(() => {
+    routerState.search = { account_ids: [42, 43], end: '2026-05-20' }
+    routerState.navigate.mockClear()
+  })
+
+  it('keeps a row collapsed until it is in the expanded URL state', async () => {
     render(<NetWorthDetailPage />)
 
     expect(screen.getByText('Girokonto')).toBeInTheDocument()
     expect(screen.getByText('Depot')).toBeInTheDocument()
-    // Transactions are collapsed initially.
     expect(screen.queryByText('Rewe')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /Girokonto/ }))
-    expect(screen.getByText('Rewe')).toBeInTheDocument()
+    expect(routerState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: '/stats/detail',
+        replace: true,
+        search: expect.objectContaining({ expanded: [42] }),
+      }),
+    )
+  })
 
+  it('reveals the transactions of rows listed in the expanded URL state', () => {
+    routerState.search = { account_ids: [42, 43], end: '2026-05-20', expanded: [42, 43] }
+    render(<NetWorthDetailPage />)
+
+    expect(screen.getByText('Rewe')).toBeInTheDocument()
     // The depot has no transactions to explain its market-driven change.
-    await userEvent.click(screen.getByRole('button', { name: /Depot/ }))
     expect(screen.getByText('No transactions in this period')).toBeInTheDocument()
   })
 

@@ -16,13 +16,16 @@ import { accountDisplayName } from '@/lib/accounts'
 import { formatDecimal, formatEuro, formatIban } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
+const idListSchema = z
+  .union([z.array(z.coerce.number()), z.coerce.number()])
+  .transform((value) => (Array.isArray(value) ? value : [value]))
+  .optional()
+
 const searchParamsSchema = z.object({
   start: z.string().optional(),
   end: z.string().optional(),
-  account_ids: z
-    .union([z.array(z.coerce.number()), z.coerce.number()])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional(),
+  account_ids: idListSchema,
+  expanded: idListSchema,
 })
 
 function formatIsoDate(date: Date): string {
@@ -65,7 +68,7 @@ export function NetWorthDetailPage() {
     const clamped = next > endDate ? endDate : next
     navigate({
       to: '/stats/detail',
-      search: { account_ids: accountIds, start: clamped, end: endDate },
+      search: { ...search, start: clamped, end: endDate },
     })
   }
 
@@ -76,7 +79,19 @@ export function NetWorthDetailPage() {
     const keepStart = search.start && search.start <= next ? search.start : undefined
     navigate({
       to: '/stats/detail',
-      search: { account_ids: accountIds, start: keepStart, end: next },
+      search: { ...search, start: keepStart, end: next },
+    })
+  }
+
+  const expandedIds = new Set(search.expanded ?? [])
+  const setExpanded = (accountId: number, open: boolean) => {
+    const next = new Set(expandedIds)
+    if (open) next.add(accountId)
+    else next.delete(accountId)
+    navigate({
+      to: '/stats/detail',
+      search: { ...search, expanded: next.size ? [...next] : undefined },
+      replace: true,
     })
   }
 
@@ -157,6 +172,8 @@ export function NetWorthDetailPage() {
                         key={account.id}
                         account={account}
                         change={changeByAccount.get(account.id)}
+                        open={expandedIds.has(account.id)}
+                        onOpenChange={(next) => setExpanded(account.id, next)}
                       />
                     ))}
                   </ul>
@@ -183,9 +200,13 @@ export function NetWorthDetailPage() {
 function AccountChangeRow({
   account,
   change,
+  open,
+  onOpenChange,
 }: {
   account: AccountWithBank
   change: AccountRangeChange | undefined
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation()
   const difference = change?.difference ?? 0
@@ -193,7 +214,7 @@ function AccountChangeRow({
 
   return (
     <li>
-      <Collapsible.Root>
+      <Collapsible.Root open={open} onOpenChange={onOpenChange}>
         <Collapsible.Trigger className="group/row hover:bg-muted/60 focus-visible:ring-ring flex w-full items-center gap-3 rounded-md px-2 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none">
           <ChevronRight
             aria-hidden="true"
@@ -251,8 +272,7 @@ function TransactionLine({ transaction }: { transaction: TransactionRead }) {
           accountId: String(transaction.account_id),
           transactionId: String(transaction.id),
         }}
-        // Left padding lines the text up with the account name above.
-        className="hover:bg-muted/60 grid grid-cols-[1fr_auto] items-baseline gap-3 rounded-md py-2 pr-2 pl-[4.875rem] transition-colors"
+        className="hover:bg-muted/60 ml-[4.375rem] grid grid-cols-[1fr_auto] items-baseline gap-3 rounded-md px-2 py-2 transition-colors"
       >
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-sm">{otherParty}</span>
