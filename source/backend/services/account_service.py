@@ -12,6 +12,7 @@ from source.backend.helpers import apply_fields
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
+from source.backend.models.base import snapshot_columns
 from source.backend.models.credential import Credential
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
@@ -100,10 +101,9 @@ def update_transaction(db_session: Session, account: Account, transaction: Trans
     if "date" in fields:
         _reject_future_date(fields["date"])
 
-    previous_category = transaction.category
     previous_amount = transaction.amount
     previous_date = transaction.date
-    transaction_before_change = str(transaction)
+    state_before_update = snapshot_columns(transaction)
     apply_fields(entity=transaction, fields=fields)
 
     amount_changed = "amount" in fields and transaction.amount != previous_amount
@@ -115,11 +115,7 @@ def update_transaction(db_session: Session, account: Account, transaction: Trans
         account.recompute_balances_at_date()
 
     db_session.commit()
-    logger.info(f"Updated transaction {transaction_before_change} --> {transaction}")
-    if "category" in fields and fields["category"] != previous_category:
-        logger.info(
-            f"Category override on {transaction}: previous={previous_category.value} new={transaction.category.value}"
-        )
+    logger.update(state_before_update=state_before_update, entity_after_update=transaction)
     return transaction
 
 
@@ -136,12 +132,12 @@ def update_account(db_session: Session, account: Account, fields: dict) -> Accou
         if fields.get("balance") is None:
             fields.pop("balance")
             balance_in_payload = False
-    account_before_change = str(account)
+    state_before_update = snapshot_columns(account)
     apply_fields(entity=account, fields=fields)
     if balance_in_payload:
         account.recompute_balances_at_date()
     db_session.commit()
-    logger.info(f"Updated account {account_before_change} --> {account}")
+    logger.update(state_before_update=state_before_update, entity_after_update=account)
     return account
 
 
@@ -281,12 +277,13 @@ def update_expected_transaction(
     transaction = _get_expected_transaction_for_account(
         db_session=db_session, account=account, expected_transaction_id=expected_transaction_id
     )
+    state_before_update = snapshot_columns(transaction)
     transaction.amount = fields["amount"]
     transaction.other_party = fields.get("other_party")
     transaction.note = fields.get("note")
     transaction.match_tolerance_percent = fields.get("match_tolerance_percent", 0)  # noqa: FKA100
     db_session.commit()
-    logger.info(f"Updated expected {transaction} on {account}")
+    logger.update(state_before_update=state_before_update, entity_after_update=transaction)
     return transaction
 
 

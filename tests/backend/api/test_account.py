@@ -1,6 +1,5 @@
 from datetime import date, timedelta
 
-import pytest
 from fastapi.testclient import TestClient
 from source.backend.api.schemas.transaction import TransactionDetailRead
 from source.backend.bank_handlers import BankProvider
@@ -432,41 +431,6 @@ def test_update_transaction_rejects_unknown_category(http_client: TestClient, se
     )
 
     assert response.status_code == 422
-
-
-def test_update_transaction_logs_category_override(
-    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
-):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
-    transaction_id = persist_transaction(
-        session_factory=session_factory, account_id=account_id, other_party="Some Tiny Cafe"
-    )
-
-    with caplog.at_level("INFO", logger="services.account_service"):
-        http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"category": "DRUGSTORE"})
-
-    override_logs = [r for r in caplog.records if "Category override" in r.message]
-    assert override_logs, "expected a 'Category override' log line"
-    log_message = override_logs[0].message
-    assert "previous=UNKNOWN" in log_message
-    assert "new=DRUGSTORE" in log_message
-    assert "Some Tiny Cafe" in log_message
-
-
-def test_update_transaction_does_not_log_override_when_category_unchanged(
-    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
-):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
-    transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
-
-    with caplog.at_level("INFO", logger="services.account_service"):
-        http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"note": "just a note"})
-
-    assert not any("Category override" in r.message for r in caplog.records)
 
 
 # --- Manual accounts -------------------------------------------------------

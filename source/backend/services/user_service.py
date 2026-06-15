@@ -3,6 +3,7 @@ import os
 from source.backend.exceptions import UserNameAlreadyExistsError, UserNotFoundError
 from source.backend.helpers import apply_fields
 from source.backend.logging_utils import get_logger
+from source.backend.models.base import snapshot_columns
 from source.backend.models.theme import Theme
 from source.backend.models.user import User
 from source.backend.services import i18n_service
@@ -87,14 +88,14 @@ def update_user(db_session: Session, user: User, fields: dict) -> User:
         conflicting_id = db_session.scalar(select(User.id).where(User.user_name == new_user_name))
         if conflicting_id is not None:
             raise UserNameAlreadyExistsError(f"User name {new_user_name!r} is already taken")
-    user_before_change = str(user)
+    state_before_update = snapshot_columns(user)
     apply_fields(entity=user, fields=fields)
     try:
         db_session.commit()
     except IntegrityError:
         db_session.rollback()
         raise UserNameAlreadyExistsError(f"User name {new_user_name!r} is already taken")
-    logger.info(f"Updated user {user_before_change} --> {user}")
+    logger.update(state_before_update=state_before_update, entity_after_update=user)
     return user
 
 

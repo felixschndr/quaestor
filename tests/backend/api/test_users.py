@@ -29,7 +29,7 @@ def test_update_user_changes_display_name(http_client: TestClient, caplog: pytes
 
     assert response.status_code == 200
     assert response.json()["display_name"] == "Renamed"
-    updated = next(record for record in caplog.records if "Updated user" in record.getMessage())
+    updated = next(record for record in caplog.records if "Updated User" in record.getMessage())
     assert updated.session not in (None, NO_SESSION_LOG_LABEL)
 
 

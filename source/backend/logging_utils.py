@@ -1,10 +1,17 @@
+from __future__ import annotations
+
 import json
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import partialmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    # Type-only import: keeps this low-level logging module free of the ORM/sqlalchemy
+    # dependency at runtime (e.g. transaction_category imports get_logger).
+    from source.backend.models.base import Base
 
 REDACTION_PLACEHOLDER = "XXXXXX"
 
@@ -149,6 +156,9 @@ class StructuredLogger:
 
     def exception(self, message: str, extra: Any = None, *, exc_info: Any = True) -> None:
         self.log(message, extra=extra, level=logging.ERROR, exc_info=exc_info)
+
+    def update(self, *, state_before_update: Mapping[str, Any], entity_after_update: Base) -> None:
+        self.info(entity_after_update.describe_update(state_before_update=state_before_update))
 
 
 def get_logger(name: str) -> StructuredLogger:
