@@ -13,7 +13,7 @@ import { buildDisplayGroups, type AccountWithBank } from '@/lib/accountDisplayGr
 import { useNetWorthRange, type AccountRangeChange } from '@/lib/statistics'
 import type { TransactionRead } from '@/lib/accountHistory'
 import { accountDisplayName } from '@/lib/accounts'
-import { formatEuro, formatIban } from '@/lib/format'
+import { formatDecimal, formatEuro, formatIban } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const searchParamsSchema = z.object({
@@ -93,6 +93,17 @@ export function NetWorthDetailPage() {
     }))
     .filter((group) => group.accounts.length > 0)
 
+  const factored = (balance: number | null, account: AccountWithBank) =>
+    ((balance ?? 0) * account.balance_factor) / 100
+  let totalAtEnd = 0
+  let totalAtStart = 0
+  for (const account of groups.flatMap((group) => group.accounts)) {
+    const change = changeByAccount.get(account.id)
+    totalAtEnd += factored(change?.balance_at_end ?? null, account)
+    totalAtStart += factored(change?.balance_at_start ?? null, account)
+  }
+  const totalDifference = Math.round((totalAtEnd - totalAtStart) * 100) / 100
+
   return (
     <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
@@ -158,8 +169,8 @@ export function NetWorthDetailPage() {
             <div className="border-border mx-2 flex items-center justify-between border-t pt-3 text-sm font-semibold tabular-nums">
               <span>{t('stats.day.total')}</span>
               <span className="flex items-baseline gap-3">
-                <span>{formatEuro(range.data.total_at_end)}</span>
-                <DifferenceAmount value={range.data.total_difference} />
+                <span>{formatEuro(totalAtEnd)}</span>
+                <DifferenceAmount value={totalDifference} />
               </span>
             </div>
           ) : null}
@@ -194,7 +205,14 @@ function AccountChangeRow({
             seed={account.bankName ?? account.bank}
           />
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-sm font-medium">{accountDisplayName(account)}</span>
+            <span className="flex items-baseline gap-1.5">
+              <span className="truncate text-sm font-medium">{accountDisplayName(account)}</span>
+              {account.balance_factor !== 100 ? (
+                <span className="text-muted-foreground shrink-0 text-xs font-normal tabular-nums">
+                  x {formatDecimal(account.balance_factor / 100)}
+                </span>
+              ) : null}
+            </span>
             <span className="text-muted-foreground truncate text-xs tabular-nums">
               {formatEuro(change?.balance_at_start ?? 0)} →{' '}
               {formatEuro(change?.balance_at_end ?? 0)}

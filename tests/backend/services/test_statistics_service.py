@@ -74,6 +74,7 @@ def test_daily_net_worth_anchors_to_earliest_snapshot_when_no_start_given(sessio
     snapshot_day = datetime.date.today() - datetime.timedelta(days=2)
     with session_factory() as session:
         user, account = _user_with_account(session)
+        account.balance = 123.0
         session.commit()
         user_id, account_id = user.id, account.id
     seed_snapshot(session_factory, account_id=account_id, day=snapshot_day, balance=123.0)
@@ -89,6 +90,30 @@ def test_daily_net_worth_anchors_to_earliest_snapshot_when_no_start_given(sessio
 
     assert result.series
     assert result.series[-1].value == 123.0
+
+
+def test_daily_net_worth_uses_live_balance_for_todays_point(session_factory: sessionmaker):
+    snapshot_day = datetime.date.today() - datetime.timedelta(days=2)
+    with session_factory() as session:
+        user, account = _user_with_account(session)
+        account.balance = 150.0
+        session.commit()
+        user_id, account_id = user.id, account.id
+    seed_snapshot(session_factory, account_id=account_id, day=snapshot_day, balance=123.0)
+
+    with session_factory() as session:
+        result = statistics_service.daily_net_worth(
+            db_session=session,
+            user=session.get(entity=User, ident=user_id),
+            account_ids=[account_id],
+            date_from=None,
+            date_to=None,
+        )
+
+    assert result.series[-1].date == datetime.date.today()
+    assert result.series[-1].value == 150.0
+    # Earlier points still reflect the snapshot, not the live balance.
+    assert result.series[0].value == 123.0
 
 
 def test_daily_net_worth_returns_empty_when_range_is_inverted(session_factory: sessionmaker):
@@ -194,3 +219,27 @@ def test_net_worth_range_handles_account_without_prior_snapshot(session_factory:
     assert change.balance_at_end == 250.0
     assert change.difference == 250.0
     assert change.transactions == []
+
+
+def test_net_worth_range_uses_live_balance_for_today(session_factory: sessionmaker):
+    today = datetime.date.today()
+    start = today - datetime.timedelta(days=1)
+    with session_factory() as session:
+        user = make_user(session)
+        credential = make_credential(session, user_id=user.id)
+        account = make_account(session, credential_id=credential.id, balance=80.0)
+        session.commit()
+        user_id, account_id = user.id, account.id
+
+    with session_factory() as session:
+        result = statistics_service.get_net_worth_of_range(
+            db_session=session,
+            user=session.get(entity=User, ident=user_id),
+            account_ids=[account_id],
+            start=start,
+            end=today,
+        )
+
+    change = result.accounts[0]
+    assert change.balance_at_end == 80.0
+    assert result.total_at_end == 80.0

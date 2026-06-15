@@ -53,7 +53,7 @@ vi.mock('@/lib/auth', () => ({
               name: 'Depot',
               display_name: null,
               balance: 500,
-              balance_factor: 100,
+              balance_factor: 150,
               is_hidden: false,
             },
           ],
@@ -127,5 +127,15 @@ describe('NetWorthDetailPage', () => {
     // The depot has no transactions to explain its market-driven change.
     await userEvent.click(screen.getByRole('button', { name: /Depot/ }))
     expect(screen.getByText('No transactions in this period')).toBeInTheDocument()
+  })
+
+  it('weighs the total by each account balance factor and shows the factor', async () => {
+    render(<NetWorthDetailPage />)
+
+    expect(screen.getByText('x 1,50')).toBeInTheDocument()
+
+    // Total at end = 130 * 1.0 + 500 * 1.5 = 880; difference = 30 * 1.0 + 250 * 1.5 = 405.
+    expect(screen.getByText('880,00 €')).toBeInTheDocument()
+    expect(screen.getByText('+405,00 €')).toBeInTheDocument()
   })
 })

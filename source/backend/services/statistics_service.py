@@ -230,6 +230,7 @@ def daily_net_worth(
 
     accounts = list(db_session.scalars(select(Account).where(Account.id.in_(owned_account_ids))))  # noqa: FKA100
     balance_factors = {account.id: account.balance_factor for account in accounts}
+    live_balances = {account.id: account.balance for account in accounts}
 
     # When the caller didn't pin the start, anchor to the earliest snapshot across selected accounts
     if date_from is None:
@@ -283,9 +284,10 @@ def daily_net_worth(
                 index += 1
             step_indices[account_id] = index
 
-        if any(balance is not None for balance in current_balance.values()):
+        day_balances = live_balances if day == today else current_balance
+        if any(balance is not None for balance in day_balances.values()):
             net = sum(
-                (balance or 0.0) * balance_factors[account_id] / 100 for account_id, balance in current_balance.items()
+                (balance or 0.0) * balance_factors[account_id] / 100 for account_id, balance in day_balances.items()
             )
             result.append(DailyNetWorth(date=day, value=round(number=net, ndigits=2)))
         day += one_day
@@ -305,6 +307,12 @@ def _get_balance_as_of(db_session: Session, account_id: int, cutoff: datetime.da
     )
 
 
+def _balance_at_end_of(db_session: Session, account: Account, cutoff: datetime.date) -> float | None:
+    if cutoff >= datetime.date.today():
+        return account.balance
+    return _get_balance_as_of(db_session=db_session, account_id=account.id, cutoff=cutoff)
+
+
 def get_net_worth_of_range(
     db_session: Session,
     user: User,
@@ -315,12 +323,17 @@ def get_net_worth_of_range(
     owned_account_ids = account_service.resolve_owned_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
     )
+    accounts_by_id = {
+        account.id: account
+        for account in db_session.scalars(select(Account).where(Account.id.in_(owned_account_ids)))  # noqa: FKA100
+    }
     changes: list[AccountRangeChange] = []
     total_at_start = 0.0
     total_at_end = 0.0
     for account_id in owned_account_ids:
-        before = _get_balance_as_of(db_session=db_session, account_id=account_id, cutoff=start)
-        after = _get_balance_as_of(db_session=db_session, account_id=account_id, cutoff=end)
+        account = accounts_by_id[account_id]
+        before = _balance_at_end_of(db_session=db_session, account=account, cutoff=start)
+        after = _balance_at_end_of(db_session=db_session, account=account, cutoff=end)
         transactions = list(
             db_session.scalars(
                 select(Transaction)
