@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
+import { accountQueryKeys } from './accountHistory'
 import { authQueryKeys, type AccountRead } from './auth'
 import { formatIban } from './format'
 
@@ -40,8 +41,10 @@ export function useUpdateAccount() {
   return useMutation({
     mutationFn: ({ accountId, ...body }: AccountUpdatePayload & { accountId: number }) =>
       api<AccountRead>(`/account/${accountId}`, { method: 'PATCH', body }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(variables.accountId) })
+      queryClient.invalidateQueries({ queryKey: ['statistics'] })
     },
   })
 }
