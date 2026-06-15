@@ -1,5 +1,4 @@
 import tomllib
-from typing import Iterator
 from unittest.mock import MagicMock
 
 import pytest
@@ -38,13 +37,6 @@ def test_github_latest_release_url_built_from_pyproject_repository():
     assert url == "https://api.github.com/repos/felixschndr/quaestor/releases/latest"
 
 
-@pytest.fixture(autouse=True)
-def _reset_release_cache() -> Iterator[None]:
-    version_service._latest_release_cache = None
-    yield
-    version_service._latest_release_cache = None
-
-
 def _github_response(tag: str, url: str) -> MagicMock:
     response = MagicMock()
     response.raise_for_status.return_value = None
@@ -59,14 +51,14 @@ def test_get_latest_release_parses_tag_and_url(monkeypatch: pytest.MonkeyPatch):
     assert version_service.get_latest_release() == ("0.1.9", "https://example/releases/0.1.9")
 
 
-def test_get_latest_release_caches_successful_result(monkeypatch: pytest.MonkeyPatch):
+def test_get_latest_release_is_not_cached(monkeypatch: pytest.MonkeyPatch):
     get = MagicMock(return_value=_github_response(tag="0.1.9", url="https://example/0.1.9"))
     monkeypatch.setattr(target=version_service.requests, name="get", value=get)
 
     version_service.get_latest_release()
     version_service.get_latest_release()
 
-    assert get.call_count == 1  # second call served from cache
+    assert get.call_count == 2  # no cache
 
 
 def test_get_latest_release_returns_none_when_response_has_no_tag(monkeypatch: pytest.MonkeyPatch):

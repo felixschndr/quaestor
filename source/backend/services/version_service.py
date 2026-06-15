@@ -1,19 +1,11 @@
-from datetime import datetime, timedelta
-
 import requests
 from source.backend.helpers import (
     get_content_of_pyproject_toml,
     get_project_version,
-    utc_now,
 )
 from source.backend.logging_utils import get_logger
 
 logger = get_logger(__name__)
-
-_CACHE_TTL = timedelta(hours=1)
-
-# (cached_at, (version, release_url)) for the last successful fetch.
-_latest_release_cache: tuple[datetime, tuple[str, str]] | None = None
 
 
 def get_current_version() -> str:
@@ -40,7 +32,7 @@ def is_newer(current: str, latest: str) -> bool:
         return False
 
 
-def _fetch_latest_release() -> tuple[str, str] | None:
+def get_latest_release() -> tuple[str, str] | None:
     url = get_github_latest_release_url()
     logger.debug(f"Fetching latest release from GitHub: {url}")
     try:
@@ -58,15 +50,3 @@ def _fetch_latest_release() -> tuple[str, str] | None:
         return None
     logger.info(f"Latest release on GitHub is {tag} ({release_url})")
     return tag, release_url
-
-
-def get_latest_release() -> tuple[str, str] | None:
-    global _latest_release_cache
-    now = utc_now()
-    if _latest_release_cache is not None and now - _latest_release_cache[0] < _CACHE_TTL:
-        return _latest_release_cache[1]
-
-    result = _fetch_latest_release()
-    if result is not None:
-        _latest_release_cache = (now, result)
-    return result

@@ -13,11 +13,12 @@ export const versionQueryKeys = {
   version: ['version'] as const,
 }
 
-/** GET /api/version. Cached for an hour to match the server-side cache. */
 export function useServerVersion() {
   return useQuery({
     queryKey: versionQueryKeys.version,
     queryFn: () => api<VersionInfo>('/version'),
-    staleTime: 60 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   })
 }
