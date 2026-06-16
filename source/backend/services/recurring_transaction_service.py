@@ -156,7 +156,8 @@ def delete_recurring_transaction(db_session: Session, account: Account, recurrin
     logger.info(f"Deleted recurring transaction {recurring_transaction_id} from {account}")
 
 
-def book_due_recurring_transactions(db_session: Session) -> int:
+def book_due_recurring_transactions(db_session: Session) -> None:
+    logger.debug("Checking for due recurring transactions")
     today = date.today()
     due_rules = list(
         db_session.scalars(select(RecurringTransaction).where(RecurringTransaction.next_run_date <= today))
@@ -164,13 +165,10 @@ def book_due_recurring_transactions(db_session: Session) -> int:
     booked = 0
     for rule in due_rules:
         account = rule.account
-        catch_up = 0
         while rule.next_run_date <= today:
             _book_occurrence(db_session=db_session, account=account, rule=rule, on_date=rule.next_run_date)
             rule.next_run_date = _next_occurrence(rule, from_date=rule.next_run_date, after=True)
             booked += 1
-            catch_up += 1
         db_session.commit()
     if booked:
         logger.info(f"Booked {booked} due recurring transaction(s) across {len(due_rules)} rule(s)")
-    return booked

@@ -160,8 +160,7 @@ def test_book_due_books_a_due_occurrence_and_advances_cursor(
         # next_run_date is today (Saturday); nothing booked yet.
 
     with session_factory() as session:
-        booked = recurring_transaction_service.book_due_recurring_transactions(session)
-        assert booked == 1
+        recurring_transaction_service.book_due_recurring_transactions(session)
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
@@ -190,9 +189,7 @@ def test_book_due_catches_up_multiple_missed_monthly_occurrences(
 
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
     with session_factory() as session:
-        booked = recurring_transaction_service.book_due_recurring_transactions(session)
-        # Due dates 03-15, 04-15, 05-15 are all <= 06-06; 06-15 is still ahead.
-        assert booked == 3
+        recurring_transaction_service.book_due_recurring_transactions(session)
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)

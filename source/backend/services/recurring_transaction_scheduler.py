@@ -8,10 +8,11 @@ from source.backend.services import recurring_transaction_service
 logger = get_logger(__name__)
 
 
-def _seconds_until_next_midnight() -> float:
+def _get_seconds_until_next_midnight() -> float:
     now = datetime.now()
     next_midnight = datetime.combine(date=now.date() + timedelta(days=1), time=time.min)
-    return (next_midnight - now).total_seconds()
+    # Ensure that we run AFTER midnight to really be sure not to book anything not supposed to be booked yet
+    return (next_midnight - now).total_seconds() + 5
 
 
 def _book_due_recurring_transactions() -> None:
@@ -20,11 +21,10 @@ def _book_due_recurring_transactions() -> None:
 
 
 async def run_periodic_recurring() -> None:
-    logger.info("Recurring transaction booking scheduled daily, just after midnight")
     while True:
-        # Run to catch occurrences missed while the app was down.
+        # Run to catch occurrences missed while the app was down; then sleep
         try:
             await asyncio.to_thread(_book_due_recurring_transactions)
         except Exception as e:
             logger.exception(message="Recurring transaction booking run crashed", exc_info=e)
-        await asyncio.sleep(_seconds_until_next_midnight())
+        await asyncio.sleep(_get_seconds_until_next_midnight())

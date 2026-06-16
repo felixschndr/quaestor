@@ -27,7 +27,7 @@ def test_sleeps_until_the_next_midnight(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(target=recurring_transaction_scheduler, name="datetime", value=_FixedDateTime)
 
-    assert recurring_transaction_scheduler._seconds_until_next_midnight() == 3600
+    assert recurring_transaction_scheduler._get_seconds_until_next_midnight() == 3600 + 5
 
 
 def test_app_startup_schedules_periodic_recurring(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
