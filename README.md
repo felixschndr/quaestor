@@ -183,7 +183,7 @@ As this image does not run as `root` you **MUST** ensure that the user with the 
 
 ### Access the DB
 
-If you need/want to access the database you can to so with
+If you need/want to access the database, you can do so with
 
 | Native                                                                                                           | Container                                                                    |
 |------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|

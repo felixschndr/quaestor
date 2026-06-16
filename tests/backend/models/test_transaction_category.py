@@ -157,6 +157,24 @@ def test_ag_beitrag_with_deposit_type_yields_savings():
     assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.SAVINGS
 
 
+@pytest.mark.parametrize(
+    argnames="transaction_type",
+    argvalues=[
+        TransactionType.BUY,
+        TransactionType.SELL,
+        TransactionType.DIVIDEND,
+        TransactionType.SPINOFF,
+        TransactionType.SPLIT,
+        TransactionType.SWAP,
+        TransactionType.TAX_REFUND,
+    ],
+)
+def test_brokerage_types_yield_investment_regardless_of_text(transaction_type: TransactionType):
+    fetched = create_fetched_transaction(other_party="Tesla", purpose=None, transaction_type=transaction_type)
+
+    assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.INVESTMENT
+
+
 def test_outgoing_type_does_not_short_circuit():
     # Only DEPOSIT/REMOVAL are type-based; OUTGOING still goes through the text matchers.
     fetched = create_fetched_transaction(

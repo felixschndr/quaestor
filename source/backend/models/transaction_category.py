@@ -61,11 +61,15 @@ class TransactionCategory(str, Enum):
 
 # Type-based categories take precedence over text matchers
 CATEGORY_BY_TRANSACTION_TYPE: dict[TransactionType, TransactionCategory] = {
-    # DEPOSIT stays mapped to SAVINGS: deposits are predominantly VL/savings-account
-    # contributions (e.g. "AG-Beitrag laufend"). The standalone DEPOSIT category is
-    # manual-only, mirroring TRANSFER.
     TransactionType.DEPOSIT: TransactionCategory.SAVINGS,
     TransactionType.REMOVAL: TransactionCategory.WITHDRAWAL,
+    TransactionType.BUY: TransactionCategory.INVESTMENT,
+    TransactionType.SELL: TransactionCategory.INVESTMENT,
+    TransactionType.DIVIDEND: TransactionCategory.INVESTMENT,
+    TransactionType.SPINOFF: TransactionCategory.INVESTMENT,
+    TransactionType.SPLIT: TransactionCategory.INVESTMENT,
+    TransactionType.SWAP: TransactionCategory.INVESTMENT,
+    TransactionType.TAX_REFUND: TransactionCategory.INVESTMENT,
 }
 
 
@@ -73,7 +77,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
     TransactionCategory.SALARY: ["lohn", "gehalt"],
     TransactionCategory.ALLOWANCE: ["taschengeld", "kindergeld"],
     TransactionCategory.PENSION: ["rente"],
-    TransactionCategory.REIMBURSEMENT: ["reisespesen", "korrektur"],
+    TransactionCategory.REIMBURSEMENT: ["reisespesen", "korrektur", "erstatt"],
     TransactionCategory.INTEREST: ["zinsen"],
     TransactionCategory.INVESTMENT: ["msci", "nasdaq", "(dist)", "(acc)"],
     TransactionCategory.SUBSCRIPTIONS: [
@@ -84,12 +88,13 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "apple services",
         "itunes",
         "google workspace",
+        "netflix",
     ],
     TransactionCategory.RENT: ["miete"],
     TransactionCategory.UTILITIES: ["vattenfall", "vodafone", "rundfunk", "strom"],
-    TransactionCategory.TRAVEL: ["vw leasing", "auto", "tuv", "tuev", "db", "bahn", "hotel"],
-    TransactionCategory.FUEL: ["tankstelle", "aral station", "bft"],
-    TransactionCategory.FITNESS: ["fit-in", "fitness"],
+    TransactionCategory.TRAVEL: ["vw leasing", "auto", "tuv", "tuev", "db", "bahn", "hotel", "vbk", "urlaub", "beach"],
+    TransactionCategory.FUEL: ["tankstelle", "aral station", "bft", "tanken"],
+    TransactionCategory.FITNESS: ["fit-in", "fitness", "gym"],
     TransactionCategory.SUPERMARKET: [
         "rewe",
         "billa",
@@ -136,11 +141,27 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "kabap",
         "cuisine",
         "bratar",
+        "the door",
+        "la cage",
+        "cinnamood",
     ],
     TransactionCategory.PERSONAL_CARE: ["friseur", "barber", "waxing", "apotheke", "krankenkasse"],
-    TransactionCategory.CLOTHING: ["new yorker", "bijou brigette"],
-    TransactionCategory.GIFTS: ["blume 2000"],
-    TransactionCategory.ENTERTAINMENT: ["steam games", "nintendo", "baedergesel", "nzb", "feier", "triviar"],
+    TransactionCategory.CLOTHING: ["new yorker", "bijou brigette", "deichmann"],
+    TransactionCategory.GIFTS: ["blume 2000", "geburtstag", "schenkung"],
+    TransactionCategory.ENTERTAINMENT: [
+        "steam games",
+        "nintendo",
+        "baedergesel",
+        "nzb",
+        "feier",
+        "triviar",
+        "fest",
+        "sprungbude",
+        "buchhandlung",
+        "theater",
+        "therme",
+        "spiele pyramide",
+    ],
     TransactionCategory.FEES: [
         "gocardless",
         "bewohnerparkausweis",
@@ -149,6 +170,12 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "hochschule",
         "university",
         "universitaet",
+        "abrechnung kontostand",
+        "krankenvers",
+        "parken",
+        "inkasso",
+        "aktenzeichen",
+        "kartensperre",
     ],
     TransactionCategory.SAVINGS: ["sparen", "einzahlung"],
     TransactionCategory.ONLINE_SHOPPING: [
