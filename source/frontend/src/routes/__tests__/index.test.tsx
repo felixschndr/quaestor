@@ -14,11 +14,13 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
     params,
+    search,
     children,
     ...rest
   }: {
     to: string
     params?: Record<string, string>
+    search?: Record<string, unknown>
     children: React.ReactNode
   } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'children'>) => {
     let href = to
@@ -26,6 +28,16 @@ vi.mock('@tanstack/react-router', () => ({
       for (const [key, value] of Object.entries(params)) {
         href = href.replace(`$${key}`, value)
       }
+    }
+    if (search) {
+      const query = new URLSearchParams()
+      for (const [key, value] of Object.entries(search)) {
+        for (const item of Array.isArray(value) ? value : [value]) {
+          query.append(key, String(item))
+        }
+      }
+      const queryString = query.toString()
+      if (queryString) href = `${href}?${queryString}`
     }
     return (
       <a href={href} {...rest}>
@@ -110,6 +122,49 @@ describe('OverviewView', () => {
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings')
   })
 
+  it('renders the search link anchored on the first account with all accounts pre-selected', () => {
+    const user = buildUser({
+      credentials: [
+        {
+          id: 10,
+          bank: 'ing',
+          bank_name: null,
+          bank_icon: null,
+          accounts: [
+            {
+              id: 5,
+              name: 'Girokonto',
+              display_name: null,
+              balance: 0,
+              balance_factor: 100,
+              is_hidden: false,
+            },
+            {
+              id: 7,
+              name: 'Tagesgeld',
+              display_name: null,
+              balance: 0,
+              balance_factor: 100,
+              is_hidden: false,
+            },
+          ],
+          last_fetching_timestamp: null,
+          requires_two_factor_authentication: false,
+        },
+      ],
+    })
+    render_(user)
+    const search = screen.getByRole('link', { name: 'Search transactions' })
+    expect(search).toHaveAttribute('href', '/account/5/search?account_ids=5&account_ids=7')
+    const settings = screen.getByRole('link', { name: 'Settings' })
+    expect(search.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('omits the search link when there are no accounts', () => {
+    render_(buildUser({ credentials: [] }))
+    expect(screen.queryByRole('link', { name: 'Search transactions' })).not.toBeInTheDocument()
+  })
+
   it('groups accounts by bank (alphabetical) and sorts accounts within each bank', () => {
     const user = buildUser({
       credentials: [
@@ -163,7 +218,7 @@ describe('OverviewView', () => {
     render_(user)
     const accountLinks = screen
       .getAllByRole('link')
-      .filter((link) => link.getAttribute('href')?.startsWith('/account/'))
+      .filter((link) => /^\/account\/\d+$/.test(link.getAttribute('href') ?? ''))
     // ing rows come first (banks alphabetical: ing < trade_republic);
     // within ing, Girokonto < Tagesgeld.
     expect(accountLinks.map((link) => link.textContent)).toEqual([

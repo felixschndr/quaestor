@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { Collapsible } from 'radix-ui'
-import { ChevronRight, Settings } from 'lucide-react'
+import { ChevronRight, Search, Settings } from 'lucide-react'
 import { StatsIcon } from '@/components/stats-icon'
 import { toast } from 'sonner'
 
@@ -116,6 +116,10 @@ export function OverviewView({
     [user, customLayout.data],
   )
   const hasAccounts = displayGroups.some((group) => group.accounts.length > 0)
+  const allAccountIds = user.credentials.flatMap((credential) =>
+    credential.accounts.map((account) => account.id),
+  )
+  const searchAnchorId = allAccountIds[0]
 
   return (
     <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 p-4">
@@ -142,6 +146,17 @@ export function OverviewView({
           >
             <StatsIcon className="size-5" />
           </Link>
+          {searchAnchorId !== undefined ? (
+            <Link
+              to="/account/$accountId/search"
+              params={{ accountId: String(searchAnchorId) }}
+              search={{ account_ids: allAccountIds }}
+              aria-label={t('overview.search')}
+              className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
+            >
+              <Search className="search-icon-zoom size-5" />
+            </Link>
+          ) : null}
           <Link
             to="/settings"
             aria-label={t('overview.settings')}

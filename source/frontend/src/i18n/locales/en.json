@@ -58,7 +58,8 @@
     "syncAll": {
       "aria": "Sync all accounts"
     },
-    "statistics": "Statistics"
+    "statistics": "Statistics",
+    "search": "Search transactions"
   },
   "account": {
     "back": "Back",
