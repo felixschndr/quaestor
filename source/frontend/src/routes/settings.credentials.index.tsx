@@ -6,7 +6,7 @@ import type { TFunction } from 'i18next'
 import { Button } from '@/components/ui/button'
 import { BankLogo } from '@/components/BankLogo'
 import { useAuthMe, type CredentialRead, type UserRead } from '@/lib/auth'
-import { formatDateTime } from '@/lib/format'
+import { formatRelativeDateTime } from '@/lib/format'
 
 function bankTitle(t: TFunction, credential: CredentialRead): string {
   return (
@@ -90,7 +90,7 @@ function CredentialRow({ credential }: { credential: CredentialRead }) {
   const { t } = useTranslation()
   const title = bankTitle(t, credential)
   const lastSyncedLabel = credential.last_fetching_timestamp
-    ? `${t('credentials.lastSynced')}: ${formatDateTime(credential.last_fetching_timestamp)}`
+    ? `${t('credentials.lastSynced')}: ${formatRelativeDateTime(credential.last_fetching_timestamp, t)}`
     : t('credentials.neverSynced')
   return (
     <li className="border-border/40 border-t first:border-t-0">

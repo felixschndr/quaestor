@@ -41,7 +41,7 @@ function makeUser(): UserRead {
             is_hidden: false,
           },
         ],
-        last_fetching_timestamp: null,
+        last_fetching_timestamp: '2026-06-15T08:30:00Z',
         requires_two_factor_authentication: false,
       },
       {
@@ -79,6 +79,11 @@ describe('findAccountInUser', () => {
     const result = findAccountInUser(makeUser(), 2)
     expect(result?.account.name).toBe('Tagesgeld')
     expect(result?.bank).toBe('ing')
+  })
+
+  it("surfaces the owning credential's last sync timestamp", () => {
+    expect(findAccountInUser(makeUser(), 2)?.lastFetchingTimestamp).toBe('2026-06-15T08:30:00Z')
+    expect(findAccountInUser(makeUser(), 3)?.lastFetchingTimestamp).toBeNull()
   })
 
   it('finds accounts that live under a different credential', () => {

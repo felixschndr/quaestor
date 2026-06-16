@@ -151,42 +151,63 @@ export function formatDateTime(d: Date | string): string {
   )
 }
 
-/**
- * Treats two `Date`s as the same day if their local year/month/date match.
- * `Date.toDateString()` collapses to ISO-month/day in the local zone, which is
- * exactly what the account view needs when grouping transactions.
- */
-function isSameLocalDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
+const TIME_OPTIONS: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
+const timeFormatters = new Map<string, Intl.DateTimeFormat>()
+const zonedDateFormatters = new Map<string, Intl.DateTimeFormat>()
+
+function formatTime(d: Date): string {
+  return getDateFormatter(timeFormatters, TIME_OPTIONS, displayTimeZone).format(d)
 }
 
-/**
- * Returns the i18n key (or a translated label, depending on context) for a
- * date relative to `today`. Caller is expected to translate the returned key
- * via i18next. For older dates, returns null so the caller can fall back to
- * `formatDate`.
- */
+const RUNTIME_TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+
+function zonedDayStartUtc(date: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const value = (type: string) => Number(parts.find((part) => part.type === type)!.value)
+  return Date.UTC(value('year'), value('month') - 1, value('day'))
+}
+
 export function relativeDateKey(
   date: Date,
   today: Date = new Date(),
-): 'future' | 'today' | 'yesterday' | 'tomorrow' | 'dayAfterTomorrow' | null {
-  if (isSameLocalDay(date, today)) return 'today'
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (isSameLocalDay(date, yesterday)) return 'yesterday'
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  if (isSameLocalDay(date, tomorrow)) return 'tomorrow'
-  const dayAfterTomorrow = new Date(today)
-  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2)
-  if (isSameLocalDay(date, dayAfterTomorrow)) return 'dayAfterTomorrow'
-  const startOfDayAfterTomorrow = new Date(today)
-  startOfDayAfterTomorrow.setHours(0, 0, 0, 0)
-  startOfDayAfterTomorrow.setDate(startOfDayAfterTomorrow.getDate() + 3)
-  if (date.getTime() >= startOfDayAfterTomorrow.getTime()) return 'future'
+  timeZone: string = RUNTIME_TIME_ZONE,
+):
+  | 'future'
+  | 'today'
+  | 'yesterday'
+  | 'dayBeforeYesterday'
+  | 'tomorrow'
+  | 'dayAfterTomorrow'
+  | null {
+  const diffDays = Math.round(
+    (zonedDayStartUtc(date, timeZone) - zonedDayStartUtc(today, timeZone)) / 86_400_000,
+  )
+  if (diffDays === 0) return 'today'
+  if (diffDays === -1) return 'yesterday'
+  if (diffDays === -2) return 'dayBeforeYesterday'
+  if (diffDays === 1) return 'tomorrow'
+  if (diffDays === 2) return 'dayAfterTomorrow'
+  if (diffDays >= 3) return 'future'
   return null
+}
+
+export function formatRelativeDateTime(
+  d: Date | string,
+  t: (key: string, options?: Record<string, unknown>) => string,
+  now: Date = new Date(),
+): string {
+  const date = parseTimestamp(d)
+  const relativeKey = relativeDateKey(date, now, displayTimeZone)
+  const dayLabel =
+    relativeKey === 'today' || relativeKey === 'yesterday' || relativeKey === 'dayBeforeYesterday'
+      ? t(`account.${relativeKey}`)
+      : getDateFormatter(zonedDateFormatters, DATE_OPTIONS, displayTimeZone).format(date)
+  // The day/time connector is locale-specific ("um … Uhr" in German, "at …" in
+  // English), so it lives in a translation template rather than a literal join.
+  return t('account.dateTimeAt', { day: dayLabel, time: formatTime(date) })
 }

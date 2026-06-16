@@ -64,6 +64,7 @@
   "account": {
     "back": "Zurück",
     "search": "Transaktionen durchsuchen",
+    "lastUpdated": "Zuletzt aktualisiert",
     "sync": {
       "aria": "Konto synchronisieren"
     },
@@ -75,6 +76,8 @@
     "balance": "Aktueller Kontostand",
     "today": "Heute",
     "yesterday": "Gestern",
+    "dayBeforeYesterday": "Vorgestern",
+    "dateTimeAt": "{{day}} um {{time}} Uhr",
     "tomorrow": "Geplant für morgen",
     "dayAfterTomorrow": "Geplant für übermorgen",
     "future": "Geplant für {{date}}",

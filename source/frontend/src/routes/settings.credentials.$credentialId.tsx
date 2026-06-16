@@ -19,7 +19,7 @@ import {
 } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
 import { useDeleteCredential } from '@/lib/credentials'
-import { formatDateTime, formatDecimal, formatEuro } from '@/lib/format'
+import { formatDecimal, formatEuro, formatRelativeDateTime } from '@/lib/format'
 
 const MANUAL_BANK = 'manual'
 
@@ -116,7 +116,7 @@ function NotFoundFallback() {
 function BankHeader({ credential, bankTitle }: { credential: CredentialRead; bankTitle: string }) {
   const { t } = useTranslation()
   const lastSyncedLabel = credential.last_fetching_timestamp
-    ? `${t('credentials.lastSynced')}: ${formatDateTime(credential.last_fetching_timestamp)}`
+    ? `${t('credentials.lastSynced')}: ${formatRelativeDateTime(credential.last_fetching_timestamp, t)}`
     : t('credentials.neverSynced')
   return (
     <section className="flex flex-col items-center gap-2 text-center">

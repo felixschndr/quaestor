@@ -162,6 +162,28 @@ describe('AccountDetailView', () => {
     expect(screen.getByText('DE12 3456 7890 0001')).toBeInTheDocument()
   })
 
+  it('shows the last-updated time beside the IBAN when a timestamp is given', () => {
+    render(
+      withClient(
+        <AccountDetailView
+          account={account}
+          lastUpdated="2026-06-15T08:30:00Z"
+          pages={[]}
+          isFetchingNextPage={false}
+          hasNextPage={false}
+          onLoadMore={vi.fn()}
+          today={new Date(2026, 4, 22)}
+        />,
+      ),
+    )
+    expect(screen.getByText(/^Last updated:/)).toBeInTheDocument()
+  })
+
+  it('omits the last-updated time when no timestamp is given', () => {
+    renderView([])
+    expect(screen.queryByText(/^Last updated:/)).not.toBeInTheDocument()
+  })
+
   it('shows only the IBAN when no personalised name is set', () => {
     render(
       withClient(

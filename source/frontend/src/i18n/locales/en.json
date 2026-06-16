@@ -64,6 +64,7 @@
   "account": {
     "back": "Back",
     "search": "Search transactions",
+    "lastUpdated": "Last updated",
     "sync": {
       "aria": "Sync account"
     },
@@ -75,6 +76,8 @@
     "balance": "Current balance",
     "today": "Today",
     "yesterday": "Yesterday",
+    "dayBeforeYesterday": "Day before yesterday",
+    "dateTimeAt": "{{day}} at {{time}}",
     "tomorrow": "Scheduled for tomorrow",
     "dayAfterTomorrow": "Scheduled for the day after tomorrow",
     "future": "Scheduled for {{date}}",

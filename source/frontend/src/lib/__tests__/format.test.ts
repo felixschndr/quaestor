@@ -6,6 +6,7 @@ import {
   formatDate,
   formatDateTime,
   formatIban,
+  formatRelativeDateTime,
   relativeDateKey,
   setDisplayTimeZone,
   todayIso,
@@ -112,6 +113,49 @@ describe('formatDateTime', () => {
   })
 })
 
+describe('formatRelativeDateTime', () => {
+  const t = (key: string, options?: Record<string, unknown>) => i18n.t(key, options)
+  const now = new Date('2026-05-20T12:00:00Z')
+
+  beforeAll(async () => {
+    await i18n.changeLanguage('de')
+  })
+  afterAll(async () => {
+    setDisplayTimeZone('UTC')
+    await i18n.changeLanguage('en')
+  })
+
+  it('labels the same calendar day as "today" with the time', () => {
+    setDisplayTimeZone('UTC')
+    expect(formatRelativeDateTime('2026-05-20T08:30:00Z', t, now)).toBe('Heute um 08:30 Uhr')
+  })
+
+  it('labels the previous calendar day as "yesterday"', () => {
+    setDisplayTimeZone('UTC')
+    expect(formatRelativeDateTime('2026-05-19T23:00:00Z', t, now)).toBe('Gestern um 23:00 Uhr')
+  })
+
+  it('labels two calendar days ago as "the day before yesterday"', () => {
+    setDisplayTimeZone('UTC')
+    expect(formatRelativeDateTime('2026-05-18T09:15:00Z', t, now)).toBe('Vorgestern um 09:15 Uhr')
+  })
+
+  it('falls back to the full long date for older timestamps', () => {
+    setDisplayTimeZone('UTC')
+    expect(formatRelativeDateTime('2026-05-10T08:30:00Z', t, now)).toMatch(
+      /10\. Mai 2026 um 08:30 Uhr/,
+    )
+  })
+
+  it('classifies the day and renders the time in the configured display zone', () => {
+    // 22:30 UTC on the 19th is 00:30 on the 20th in Berlin. Relative to 14:00
+    // Berlin on the 20th that is the *same* day ("today"), whereas in UTC it
+    // would be "yesterday" — proving the zone shifts day and time together.
+    setDisplayTimeZone('Europe/Berlin')
+    expect(formatRelativeDateTime('2026-05-19T22:30:00Z', t, now)).toBe('Heute um 00:30 Uhr')
+  })
+})
+
 describe('formatIban', () => {
   it('groups a German IBAN into 4-char blocks', () => {
     expect(formatIban('DE89370400440532013000')).toBe('DE89 3704 0044 0532 0130 00')
@@ -155,8 +199,13 @@ describe('relativeDateKey', () => {
     expect(relativeDateKey(yesterday, today)).toBe('yesterday')
   })
 
-  it('returns null for older dates', () => {
-    expect(relativeDateKey(older, today)).toBeNull()
+  it('returns "dayBeforeYesterday" for two local days ago', () => {
+    expect(relativeDateKey(new Date(2026, 4, 20), today)).toBe('dayBeforeYesterday')
+  })
+
+  it('returns null for dates older than the day before yesterday', () => {
+    expect(relativeDateKey(new Date(2026, 4, 19), today)).toBeNull()
+    expect(relativeDateKey(older, new Date(2026, 4, 23))).toBeNull()
   })
 
   it('handles month boundaries correctly', () => {

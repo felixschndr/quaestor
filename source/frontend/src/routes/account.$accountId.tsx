@@ -30,6 +30,7 @@ import {
   formatDecimal,
   formatEuro,
   formatIban,
+  formatRelativeDateTime,
   isIban,
   relativeDateKey,
 } from '@/lib/format'
@@ -53,8 +54,30 @@ export const Route = createFileRoute('/account/$accountId')({
   },
 })
 
-/** Muted IBAN label with a copy-to-clipboard button when `value` is an IBAN.
- *  Non-IBAN names (e.g. "Girokonto") render as plain text without a button. */
+function IbanRow({
+  value,
+  id,
+  lastUpdated,
+  today,
+}: {
+  value: string
+  id?: string
+  lastUpdated?: string | null
+  today?: Date
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+      <IbanLabel id={id} value={value} />
+      {lastUpdated ? (
+        <p className="text-muted-foreground shrink-0 text-sm sm:text-right">
+          {t('account.lastUpdated')}: {formatRelativeDateTime(lastUpdated, t, today)}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 function IbanLabel({ value, id }: { value: string; id?: string }) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
@@ -135,6 +158,7 @@ function AccountDetailPage() {
       <AccountDetailView
         account={accountInfo.account}
         bank={accountInfo.bank}
+        lastUpdated={accountInfo.lastFetchingTimestamp}
         pages={history.data?.pages ?? []}
         isFetchingNextPage={history.isFetchingNextPage}
         hasNextPage={!!history.hasNextPage}
@@ -188,9 +212,8 @@ function AccountNotFoundView() {
 
 export interface AccountDetailViewProps {
   account: AccountRead
-  /** Defaults to undefined for tests; the page sets it from useAuthMe. Manual
-   *  accounts unlock the inline edit-balance / add-transaction affordances. */
   bank?: string
+  lastUpdated?: string | null
   pages: AccountHistoryPage[]
   isFetchingNextPage: boolean
   hasNextPage: boolean
@@ -217,6 +240,7 @@ export interface AccountDetailViewProps {
 export function AccountDetailView({
   account,
   bank,
+  lastUpdated,
   pages,
   isFetchingNextPage,
   hasNextPage,
@@ -353,10 +377,20 @@ export function AccountDetailView({
                 <p className="text-foreground text-xl font-semibold leading-tight">
                   {personalisedName}
                 </p>
-                <IbanLabel id="account-balance-label" value={account.name} />
+                <IbanRow
+                  id="account-balance-label"
+                  value={account.name}
+                  lastUpdated={lastUpdated}
+                  today={today}
+                />
               </>
             ) : (
-              <IbanLabel id="account-balance-label" value={account.name} />
+              <IbanRow
+                id="account-balance-label"
+                value={account.name}
+                lastUpdated={lastUpdated}
+                today={today}
+              />
             )}
             <BalanceDisplay account={account} isManual={isManual} negative={negative} />
             {isManual ? (

@@ -33,6 +33,7 @@ export interface AccountWithBank {
   account: AccountRead
   bank: string
   credentialId: number
+  lastFetchingTimestamp: string | null
 }
 
 export const accountQueryKeys = {
@@ -47,7 +48,12 @@ export function findAccountInUser(
   for (const credential of user.credentials) {
     for (const account of credential.accounts) {
       if (account.id === accountId) {
-        return { account, bank: credential.bank, credentialId: credential.id }
+        return {
+          account,
+          bank: credential.bank,
+          credentialId: credential.id,
+          lastFetchingTimestamp: credential.last_fetching_timestamp,
+        }
       }
     }
   }
