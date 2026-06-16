@@ -406,17 +406,10 @@ export function AccountDetailView({
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setAddingExpected((prev) => !prev)}
-                >
-                  <Plus className="size-3.5" aria-hidden="true" />
-                  {t('expectedTransactions.add')}
-                </Button>
-              </div>
+              <ExpectedAddHeaderButton
+                accountId={account.id}
+                onToggle={() => setAddingExpected((prev) => !prev)}
+              />
             )}
           </section>
         </div>
@@ -442,7 +435,12 @@ export function AccountDetailView({
 
         {isManual ? <RecurringTransactionsList accountId={account.id} /> : null}
 
-        {!isManual ? <ExpectedTransactionsList accountId={account.id} /> : null}
+        {!isManual ? (
+          <ExpectedTransactionsList
+            accountId={account.id}
+            onAdd={() => setAddingExpected((prev) => !prev)}
+          />
+        ) : null}
 
         {hasAnyTransactions ? (
           <TransactionGroupList
@@ -988,7 +986,29 @@ function RecurringTransactionRow({
   )
 }
 
-function ExpectedTransactionsList({ accountId }: { accountId: number }) {
+function ExpectedAddHeaderButton({
+  accountId,
+  onToggle,
+}: {
+  accountId: number
+  onToggle: () => void
+}) {
+  const { t } = useTranslation()
+  const { data: expected } = useExpectedTransactions(accountId)
+
+  if (expected && expected.length > 0) return null
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      <Button type="button" size="sm" variant="outline" onClick={onToggle}>
+        <Plus className="size-3.5" aria-hidden="true" />
+        {t('expectedTransactions.add')}
+      </Button>
+    </div>
+  )
+}
+
+function ExpectedTransactionsList({ accountId, onAdd }: { accountId: number; onAdd: () => void }) {
   const { t } = useTranslation()
   const { data: expected } = useExpectedTransactions(accountId)
 
@@ -996,9 +1016,15 @@ function ExpectedTransactionsList({ accountId }: { accountId: number }) {
 
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-        {t('expectedTransactions.title')}
-      </h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+          {t('expectedTransactions.title')}
+        </h2>
+        <Button type="button" size="sm" variant="outline" onClick={onAdd}>
+          <Plus className="size-3.5" aria-hidden="true" />
+          {t('expectedTransactions.addShort')}
+        </Button>
+      </div>
       <ul className="border-border divide-border bg-card flex flex-col divide-y rounded-lg border">
         {expected.map((expectation) => (
           <ExpectedTransactionRow

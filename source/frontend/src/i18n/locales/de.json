@@ -278,6 +278,7 @@
   "expectedTransactions": {
     "title": "Erwartete Transaktionen",
     "add": "Erwartete Transaktion",
+    "addShort": "Hinzufügen",
     "fieldDirection": "Richtung",
     "directionIn": "Eingang",
     "directionOut": "Ausgang",

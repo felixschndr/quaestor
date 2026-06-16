@@ -278,6 +278,7 @@
   "expectedTransactions": {
     "title": "Expected transactions",
     "add": "Expected transaction",
+    "addShort": "Add",
     "fieldDirection": "Direction",
     "directionIn": "Incoming",
     "directionOut": "Outgoing",

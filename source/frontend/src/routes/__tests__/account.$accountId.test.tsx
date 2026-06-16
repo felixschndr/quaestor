@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 import type { AccountRead } from '@/lib/auth'
@@ -33,7 +33,16 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
 }))
 
+const { mockUseExpectedTransactions } = vi.hoisted(() => ({
+  mockUseExpectedTransactions: vi.fn(),
+}))
+vi.mock('@/lib/expectedTransaction', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/expectedTransaction')>()),
+  useExpectedTransactions: mockUseExpectedTransactions,
+}))
+
 import { AccountDetailView } from '@/routes/account.$accountId'
+import type { ExpectedTransactionRead } from '@/lib/expectedTransaction'
 
 beforeAll(() => {
   // jsdom does not implement scrollIntoView.
@@ -48,6 +57,10 @@ beforeAll(() => {
     globalThis.IntersectionObserver =
       NoopIntersectionObserver as unknown as typeof IntersectionObserver
   }
+})
+
+beforeEach(() => {
+  mockUseExpectedTransactions.mockReturnValue({ data: undefined })
 })
 
 const account: AccountRead = {
@@ -141,6 +154,30 @@ describe('AccountDetailView', () => {
   it('renders the back link to "/"', () => {
     renderView([])
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/')
+  })
+
+  it('shows the prominent add button and no list heading when there are no expected transactions', () => {
+    mockUseExpectedTransactions.mockReturnValue({ data: [] })
+    renderView([])
+    expect(screen.getByRole('button', { name: 'Expected transaction' })).toBeInTheDocument()
+    expect(screen.queryByText('Expected transactions')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument()
+  })
+
+  it('moves the add button into the list heading labelled "Add" once expectations exist', () => {
+    const expectation: ExpectedTransactionRead = {
+      id: 1,
+      account_id: 42,
+      amount: -50,
+      other_party: 'Landlord',
+      note: null,
+      match_tolerance_percent: 0,
+    }
+    mockUseExpectedTransactions.mockReturnValue({ data: [expectation] })
+    renderView([])
+    expect(screen.getByText('Expected transactions')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Expected transaction' })).not.toBeInTheDocument()
   })
 
   it('shows the personalised name above the IBAN when one is set', () => {
