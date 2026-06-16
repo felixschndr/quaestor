@@ -89,7 +89,7 @@ async def start_sync(credential_id: int) -> SyncJob:
     _cleanup_old_jobs()
     job = SyncJob(job_id=secrets.token_urlsafe(16), credential_id=credential_id)
     _jobs[job.job_id] = job
-    logger.info(f"Sync job {job} started")
+    logger.info(f"{job} started")
     _spawn(_run_sync(job))
     # Yield once so the background task gets a chance to start before we return.
     await asyncio.sleep(0)
@@ -102,10 +102,10 @@ async def _run_sync(job: SyncJob) -> None:
         result = await asyncio.to_thread(_sync_in_thread, job.credential_id, notify_two_factor_state)  # noqa FKA100
         _apply_result(job=job, result=result)
     except InvalidCredentialsError as e:
-        logger.warning(f"Sync job {job} failed: invalid credentials")
+        logger.warning(f"{job} failed: invalid credentials")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.INVALID_CREDENTIALS)
     except Exception as e:
-        logger.exception(f"Sync job {job} failed")
+        logger.exception(f"{job} failed")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.UNKNOWN)
     await _notify(job)
 
@@ -142,10 +142,10 @@ def _apply_result(job: SyncJob, result: SyncResult) -> None:
         job.status = JobStatus.AWAITING_TWO_FACTOR
         job.challenge_token = result.challenge_token
         job.expires_at = result.expires_at
-        logger.info(f"Sync job {job} awaiting 2FA")
+        logger.info(f"{job} awaiting 2FA")
     else:
         _mark_terminal(job=job, status=JobStatus.COMPLETED)
-        logger.info(f"Sync job {job} completed")
+        logger.info(f"{job} completed")
 
 
 def _mark_terminal(
@@ -178,10 +178,10 @@ async def _run_confirm(job: SyncJob, challenge_token: str, code: str) -> None:
         )
         _apply_result(job=job, result=result)
     except InvalidCredentialsError as e:
-        logger.warning(f"Sync job {job} 2FA confirmation failed: invalid credentials")
+        logger.warning(f"{job} 2FA confirmation failed: invalid credentials")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.INVALID_CREDENTIALS)
     except Exception as e:
-        logger.exception(f"Sync job {job} 2FA confirmation failed")
+        logger.exception(f"{job} 2FA confirmation failed")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.UNKNOWN)
     await _notify(job)
 
