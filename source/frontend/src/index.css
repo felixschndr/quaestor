@@ -189,6 +189,19 @@
   }
 }
 
+@media (min-width: 601px) {
+  [data-sonner-toaster][data-x-position='center'] {
+    width: min(48rem, calc(100vw - 2rem));
+  }
+  [data-sonner-toaster] [data-sonner-toast][data-x-position='center'] {
+    left: 0;
+    right: 0;
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
+  }
+}
+
 @layer base {
   :root {
     /* Reserve scrollbar space so mx-auto'd content doesn't recenter (and

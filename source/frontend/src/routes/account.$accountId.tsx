@@ -143,6 +143,18 @@ function AccountDetailPage() {
   // restoration on; `state.key` is undefined on some navigation paths.
   const focusNavKey = useLocation({ select: (location) => location.state.__TSR_key })
 
+  // A sync that fails *after* a successful 2FA submit (e.g. the bank rejects the
+  // portfolio subscription) resolves the POST with 200, so the submit handler
+  // below never sees it. `failedAt` is the only signal that the async job died —
+  // surface it as a toast, mirroring the overview's failed-job notification.
+  const syncFailedAt = sync.failedAt
+  const syncBank = accountInfo?.bank
+  useEffect(() => {
+    if (syncFailedAt === null || syncBank === undefined) return
+    const bankTitle = t(`banks.${syncBank}.title`, { defaultValue: syncBank })
+    toast.error(t('sync.failed', { bank: bankTitle }))
+  }, [syncFailedAt, syncBank, t])
+
   if (!user) return null // Root guard already redirected on 401.
 
   if (!accountInfo) {

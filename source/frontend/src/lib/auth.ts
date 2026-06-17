@@ -411,6 +411,7 @@ export interface UseCredentialSyncResult {
    *  successfully. Callers watch this as a useEffect dep to fire a one-shot
    *  success animation; null until the first success after mount. */
   succeededAt: number | null
+  failedAt: number | null
 }
 
 /**
@@ -428,6 +429,7 @@ export function useCredentialSync(credentialId: number): UseCredentialSyncResult
   // dismissed yet. Mirrors useGlobalSync's queue, simplified for one credential.
   const [awaitingTwoFactor, setAwaitingTwoFactor] = useState(false)
   const [succeededAt, setSucceededAt] = useState<number | null>(null)
+  const [failedAt, setFailedAt] = useState<number | null>(null)
 
   const phaseRef = useRef(phase)
   useEffect(() => {
@@ -451,6 +453,7 @@ export function useCredentialSync(credentialId: number): UseCredentialSyncResult
     setJob(null)
     setAwaitingTwoFactor(false)
     setSucceededAt(null)
+    setFailedAt(null)
     void (async () => {
       try {
         const started = await api<SyncJob>(`/credentials/${credentialId}/sync`, { method: 'POST' })
@@ -489,6 +492,8 @@ export function useCredentialSync(credentialId: number): UseCredentialSyncResult
     setPhase('done')
     if (job.status === 'completed') {
       setSucceededAt(Date.now())
+    } else {
+      setFailedAt(Date.now())
     }
     queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     // Drop every cached account-history page so the new transactions appear.
@@ -533,7 +538,7 @@ export function useCredentialSync(credentialId: number): UseCredentialSyncResult
     setAwaitingTwoFactor(false)
   }, [])
 
-  return { start, status, current2fa, submit2fa, skip2fa, succeededAt }
+  return { start, status, current2fa, submit2fa, skip2fa, succeededAt, failedAt }
 }
 
 /**
