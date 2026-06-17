@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import date, datetime, timedelta
 
@@ -15,7 +16,15 @@ from source.backend.bank_handlers.trade_republic import (
 from source.backend.models.transaction_type import TransactionType
 from source.backend.services import trade_republic_login
 
-from tests.backend.conftest import CHALLENGE_TOKEN, PHONE_NUMBER, PIN
+from tests.backend.conftest import (
+    ACCOUNT_IBAN,
+    CHALLENGE_TOKEN,
+    ETF_NAME,
+    ISIN,
+    PHONE_NUMBER,
+    PIN,
+    SECOND_ISIN,
+)
 
 
 def test_information_for_user_exposes_phone_and_pin_field_rules():
@@ -58,9 +67,9 @@ def _patch_pytr(monkeypatch: pytest.MonkeyPatch, rows: list[dict], captured: dic
 
 def _session() -> _TradeRepublicSession:
     session = _TradeRepublicSession(trade_republic_client=object())
-    session._cash_account_name = "DE00 1234"
-    session._account("DE00 1234")
-    session._account("Core MSCI World USD (Acc)")["isin"] = "IE00B4L5Y983"
+    session._cash_account_name = ACCOUNT_IBAN
+    session._account(ACCOUNT_IBAN)
+    session._account(ETF_NAME)["isin"] = ISIN
     return session
 
 
@@ -71,18 +80,16 @@ def test_cash_and_position_transactions_are_routed_to_the_right_account(monkeypa
             "date": "2025-03-24",
             "type": "Buy",
             "value": -54801.0,
-            "note": "Core MSCI World USD (Acc)",
-            "isin": "IE00B4L5Y983",
+            "note": ETF_NAME,
+            "isin": ISIN,
         },
         {"date": "2025-01-01", "type": "Tax Refund", "value": None, "note": "skip me", "isin": None},
     ]
     _patch_pytr(monkeypatch=monkeypatch, rows=rows, captured={})
     session = _session()
 
-    cash = session.get_transactions(FetchedAccount(name="DE00 1234"), start_date=date(year=2025, month=1, day=1))
-    position = session.get_transactions(
-        FetchedAccount(name="Core MSCI World USD (Acc)"), start_date=date(year=2025, month=1, day=1)
-    )
+    cash = session.get_transactions(FetchedAccount(name=ACCOUNT_IBAN), start_date=date(year=2025, month=1, day=1))
+    position = session.get_transactions(FetchedAccount(name=ETF_NAME), start_date=date(year=2025, month=1, day=1))
 
     assert [(t.amount, t.transaction_type, t.date) for t in cash] == [
         (-500.0, TransactionType.REMOVAL, date(year=2026, month=5, day=13)),
@@ -100,17 +107,15 @@ def test_position_trades_also_appear_in_the_cash_account(monkeypatch: pytest.Mon
             "date": "2026-05-14",
             "type": "Buy",
             "value": -600.0,
-            "note": "Core MSCI World USD (Acc)",
-            "isin": "IE00B4L5Y983",
+            "note": ETF_NAME,
+            "isin": ISIN,
         },
     ]
     _patch_pytr(monkeypatch=monkeypatch, rows=rows, captured={})
     session = _session()
 
-    cash = session.get_transactions(FetchedAccount(name="DE00 1234"), start_date=date(year=2026, month=1, day=1))
-    position = session.get_transactions(
-        FetchedAccount(name="Core MSCI World USD (Acc)"), start_date=date(year=2026, month=1, day=1)
-    )
+    cash = session.get_transactions(FetchedAccount(name=ACCOUNT_IBAN), start_date=date(year=2026, month=1, day=1))
+    position = session.get_transactions(FetchedAccount(name=ETF_NAME), start_date=date(year=2026, month=1, day=1))
 
     assert [(t.amount, t.transaction_type, t.date) for t in cash] == [
         (1000.0, TransactionType.DEPOSIT, date(year=2026, month=5, day=13)),
@@ -129,22 +134,22 @@ def test_get_accounts_lists_cash_and_positions(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(target=session, name="_fetch", value=_noop)
 
-    assert {account.name for account in session.get_accounts()} == {"DE00 1234", "Core MSCI World USD (Acc)"}
+    assert {account.name for account in session.get_accounts()} == {ACCOUNT_IBAN, ETF_NAME}
 
 
 def test_share_moves_only_count_buys_and_sells(monkeypatch: pytest.MonkeyPatch):
     rows = [
-        {"date": "2025-03-24", "type": "Buy", "isin": "IE00B4L5Y983", "shares": "10"},
-        {"date": "2025-04-01", "type": "Buy", "isin": "IE00B4L5Y983", "shares": "5"},
-        {"date": "2025-05-01", "type": "Sell", "isin": "IE00B4L5Y983", "shares": "3"},
-        {"date": "2025-06-27", "type": "Dividend", "isin": "IE00B4L5Y983", "shares": "12"},  # holding, not a move
+        {"date": "2025-03-24", "type": "Buy", "isin": ISIN, "shares": "10"},
+        {"date": "2025-04-01", "type": "Buy", "isin": ISIN, "shares": "5"},
+        {"date": "2025-05-01", "type": "Sell", "isin": ISIN, "shares": "3"},
+        {"date": "2025-06-27", "type": "Dividend", "isin": ISIN, "shares": "12"},  # holding, not a move
         {"date": "2025-03-24", "type": "Deposit", "isin": None, "shares": None},  # cash, ignored
     ]
     _patch_pytr(monkeypatch=monkeypatch, rows=[], captured={})
 
     moves = _TradeRepublicSession._share_moves_by_isin(rows)
 
-    assert moves["IE00B4L5Y983"] == [
+    assert moves[ISIN] == [
         (date(year=2025, month=3, day=24), 10.0),
         (date(year=2025, month=4, day=1), 5.0),
         (date(year=2025, month=5, day=1), -3.0),
@@ -160,7 +165,7 @@ def test_value_series_multiplies_holding_by_daily_close():
         date(year=2025, month=4, day=1): 120.0,
     }
 
-    series = _TradeRepublicSession._market_value_series(name="World", isin="IE00B4L5Y983", moves=moves, prices=prices)
+    series = _TradeRepublicSession._market_value_series(name="World", isin=ISIN, moves=moves, prices=prices)
 
     assert [(observation.date, observation.amount) for observation in series] == [
         (date(year=2025, month=3, day=24), 1000.0),
@@ -174,7 +179,7 @@ def test_value_series_logs_debug_summary(caplog: pytest.LogCaptureFixture):
     prices = {date(year=2025, month=3, day=24): 100.0}
 
     with caplog.at_level(logging.DEBUG):
-        _TradeRepublicSession._market_value_series(name="World", isin="IE00B4L5Y983", moves=moves, prices=prices)
+        _TradeRepublicSession._market_value_series(name="World", isin=ISIN, moves=moves, prices=prices)
 
     assert any("valued World" in record.message for record in caplog.records)
 
@@ -182,13 +187,13 @@ def test_value_series_logs_debug_summary(caplog: pytest.LogCaptureFixture):
 def test_value_series_without_prices_is_empty():
     moves = [(date(year=2025, month=3, day=24), 10.0)]
 
-    assert _TradeRepublicSession._market_value_series(name="World", isin="IE00B4L5Y983", moves=moves, prices={}) == []
+    assert _TradeRepublicSession._market_value_series(name="World", isin=ISIN, moves=moves, prices={}) == []
 
 
 def test_market_value_history_is_empty_for_cash_account():
     session = _session()
 
-    assert session.get_market_value_history(FetchedAccount(name="DE00 1234")) == []
+    assert session.get_market_value_history(FetchedAccount(name=ACCOUNT_IBAN)) == []
 
 
 def test_market_value_history_is_fetched_once_and_cached(monkeypatch: pytest.MonkeyPatch):
@@ -198,12 +203,12 @@ def test_market_value_history_is_fetched_once_and_cached(monkeypatch: pytest.Mon
 
     async def fake_fetch_value_history() -> dict:  # noqa: ASYNC124 — must be awaitable for asyncio.run
         calls["count"] += 1
-        return {"Core MSCI World USD (Acc)": expected}
+        return {ETF_NAME: expected}
 
     monkeypatch.setattr(target=session, name="_fetch_value_history", value=fake_fetch_value_history)
 
-    first = session.get_market_value_history(FetchedAccount(name="Core MSCI World USD (Acc)"))
-    second = session.get_market_value_history(FetchedAccount(name="Core MSCI World USD (Acc)"))
+    first = session.get_market_value_history(FetchedAccount(name=ETF_NAME))
+    second = session.get_market_value_history(FetchedAccount(name=ETF_NAME))
 
     assert first == second == expected
     assert calls["count"] == 1
@@ -215,7 +220,7 @@ def test_start_date_is_passed_to_the_timeline_as_not_before(monkeypatch: pytest.
     session = _session()
 
     start_date = date(year=2025, month=3, day=4)
-    session.get_transactions(FetchedAccount(name="DE00 1234"), start_date=start_date)
+    session.get_transactions(FetchedAccount(name=ACCOUNT_IBAN), start_date=start_date)
 
     expected = datetime.combine(date=start_date, time=datetime.min.time()).astimezone().timestamp()
     assert captured["not_before"] == expected
@@ -236,10 +241,8 @@ def test_timeline_is_only_fetched_once_per_session(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(target=trade_republic, name="TransactionExporter", value=_FakeExporter)
     session = _session()
 
-    session.get_transactions(FetchedAccount(name="DE00 1234"), start_date=date(year=2025, month=1, day=1))
-    session.get_transactions(
-        FetchedAccount(name="Core MSCI World USD (Acc)"), start_date=date(year=2025, month=1, day=1)
-    )
+    session.get_transactions(FetchedAccount(name=ACCOUNT_IBAN), start_date=date(year=2025, month=1, day=1))
+    session.get_transactions(FetchedAccount(name=ETF_NAME), start_date=date(year=2025, month=1, day=1))
 
     assert calls["count"] == 1
 
@@ -281,3 +284,51 @@ def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest
 
     assert session_state == {"cookies": "fresh-cookie"}
     assert calls == [{"challenge_token": CHALLENGE_TOKEN, "credential_id": 7, "code": "0000"}]
+
+
+def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.MonkeyPatch):
+    class _FakeClient:
+        async def close(self) -> None:  # noqa: ASYNC124
+            pass
+
+    session = _TradeRepublicSession(trade_republic_client=_FakeClient())
+
+    async def fake_subscribe_once(*, payload: dict, expected_type: str):  # noqa: ASYNC124
+        if expected_type == "cash":
+            return [{"accountNumber": ACCOUNT_IBAN, "currencyId": "EUR", "amount": 100.5}]
+        if expected_type == "compactPortfolioByType":
+            return {
+                "categories": [
+                    {
+                        "categoryType": "stocksAndETFs",
+                        "positions": [
+                            {"isin": ISIN, "name": ETF_NAME, "netSize": "10", "bondInfo": None},
+                        ],
+                    },
+                    {
+                        "categoryType": "bonds",
+                        "positions": [
+                            {"isin": SECOND_ISIN, "name": "Some Bond 2030", "netSize": "1000", "bondInfo": {"x": 1}},
+                        ],
+                    },
+                ]
+            }
+        if expected_type == "ticker":
+            price = {f"{ISIN}.LSX": "120.0", f"{SECOND_ISIN}.LSX": "98.5"}[payload["id"]]
+            return {"last": {"price": price}}
+        raise AssertionError(f"unexpected topic {expected_type}")
+
+    async def fake_instrument_exchange(isin: str) -> str:  # noqa: ASYNC124
+        return "LSX"
+
+    monkeypatch.setattr(target=session, name="_subscribe_once", value=fake_subscribe_once)
+    monkeypatch.setattr(target=session, name="_instrument_exchange", value=fake_instrument_exchange)
+
+    asyncio.run(session._fetch())
+
+    assert session._cash_account_name == ACCOUNT_IBAN
+    assert session._account(ACCOUNT_IBAN)["balance"] == 100.5
+    assert session._account(ETF_NAME)["balance"] == 1200.0  # = 10 * 120.0
+    assert session._account(ETF_NAME)["isin"] == ISIN
+    assert session._account("Some Bond 2030")["balance"] == 985.0  # price is per 100 of face value -> 98.5 / 100 * 1000
+    assert session._account("Some Bond 2030")["isin"] == SECOND_ISIN

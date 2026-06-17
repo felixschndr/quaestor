@@ -4,11 +4,10 @@ from collections import defaultdict
 from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, TypedDict
 
 from pytr.api import TradeRepublicApi
 from pytr.event import Event
-from pytr.portfolio import Portfolio
 from pytr.timeline import Timeline
 from pytr.transactions import TransactionExporter
 from source.backend.bank_handlers.base import (
@@ -61,19 +60,25 @@ _LABEL_TO_TRANSACTION_TYPE: dict[str, TransactionType] = {
 }
 
 
+class _AccountState(TypedDict):
+    balance: float
+    transactions: list[FetchedTransaction]
+    isin: str | None  # None for the cash account, the instrument ISIN for a position
+
+
 class _TradeRepublicSession(BankSession):
     def __init__(self, trade_republic_client: TradeRepublicApi):
         super().__init__()
 
         self._trade_republic_client = trade_republic_client
 
-        self._accounts: dict[str, dict] = {}
+        self._accounts: dict[str, _AccountState] = {}
         self._cash_account_name: str | None = None
 
         self._transactions_loaded = False
         self._value_history: dict[str, list[BalanceObservation]] | None = None
 
-    def _account(self, name: str) -> dict:
+    def _account(self, name: str) -> _AccountState:
         if name not in self._accounts:
             self._accounts[name] = {"balance": 0.0, "transactions": [], "isin": None}
         return self._accounts[name]
@@ -106,25 +111,55 @@ class _TradeRepublicSession(BankSession):
         return self._value_history.get(account.name) or []
 
     async def _fetch(self) -> None:
-        portfolio = Portfolio(self._trade_republic_client, lang="de")
+        # We bypass pytr's Portfolio.portfolio_loop() because it subscribes to the
+        # retired `compactPortfolio` topic, which Trade Republic now rejects with
+        # BAD_SUBSCRIPTION_TYPE ("Unknown topic type: compactPortfolio.31"); the legacy
+        # `portfolio` topic is gone too. `compactPortfolioByType` is the live
+        # replacement, but it carries no market value, so (like portfolio_loop did
+        # internally) we value each position ourselves from a live ticker quote.
         try:
-            await portfolio.portfolio_loop()
+            cash_accounts = await self._subscribe_once(payload={"type": "cash"}, expected_type="cash")
+            positions = await self._fetch_positions()
+            valued_positions: list[tuple[dict, float]] = []
+            for position in positions:
+                valued_positions.append((position, await self._position_net_value(position)))
         finally:
             await self._trade_republic_client.close()
 
-        cash = portfolio.cash[0]
-        self._cash_account_name = cash["accountNumber"]
-        self._account(self._cash_account_name)["balance"] = float(cash["amount"])
+        cash = cash_accounts[0]
+        cash_account_name: str = cash["accountNumber"]
+        self._cash_account_name = cash_account_name
+        self._account(cash_account_name)["balance"] = float(cash["amount"])
 
-        for position in portfolio.portfolio:
+        for position, net_value in valued_positions:
             account = self._account(position["name"])
-            account["balance"] = float(position["netValue"])
-            account["isin"] = position["instrumentId"]
+            account["balance"] = net_value
+            account["isin"] = position["isin"]
 
-        logger.debug(
-            f"Trade Republic portfolio fetched: {len(portfolio.cash)} cash account(s), "
-            f"{len(portfolio.portfolio)} portfolio position(s)"
+        logger.debug(f"Trade Republic portfolio fetched: {len(positions)} portfolio position(s)")
+
+    async def _fetch_positions(self) -> list[dict]:
+        # compactPortfolioByType groups holdings by category (stocksAndETFs, bonds, ...); flatten them.
+        response = await self._subscribe_once(
+            payload={"type": "compactPortfolioByType"}, expected_type="compactPortfolioByType"
         )
+        return [
+            position
+            for category in (response.get("categories") or [])
+            for position in (category.get("positions") or [])
+        ]
+
+    async def _position_net_value(self, position: dict) -> float:
+        isin = position["isin"]
+        exchange = await self._instrument_exchange(isin)
+        ticker = await self._subscribe_once(
+            payload={"type": "ticker", "id": f"{isin}.{exchange}"}, expected_type="ticker"
+        )
+        price = float(ticker["last"]["price"])
+        # Bonds are quoted per 100 of face value while their netSize is the nominal amount.
+        if position.get("bondInfo") is not None:
+            price /= 100
+        return round(number=price * float(position["netSize"]), ndigits=2)
 
     async def _fetch_transactions(self, start_date: date) -> None:
         # Mirrors `pytr export_transactions`: pull the timeline, then convert each
@@ -172,15 +207,16 @@ class _TradeRepublicSession(BankSession):
         )
 
     async def _fetch_value_history(self) -> dict[str, list[BalanceObservation]]:
-        positions = {name: state for name, state in self._accounts.items() if state["isin"] is not None}
+        # Map each securities position to its ISIN (cash accounts carry no ISIN). The walrus
+        # narrows the optional ISIN to a plain str so the downstream lookups stay well-typed.
+        positions = {name: isin for name, state in self._accounts.items() if (isin := state["isin"]) is not None}
         if not positions:
             return {}
 
         share_moves = self._share_moves_by_isin(await self._load_full_events())
         try:
             history: dict[str, list[BalanceObservation]] = {}
-            for name, state in positions.items():
-                isin = state["isin"]
+            for name, isin in positions.items():
                 moves = sorted(share_moves.get(isin) or [])
                 if not moves:
                     logger.debug(f"Trade Republic: no share moves for {name} ({isin}); skipping value history")
@@ -218,7 +254,8 @@ class _TradeRepublicSession(BankSession):
         for raw_event in events:
             for row in exporter.from_event(Event.from_dict(raw_event)):
                 isin, shares = row[isin_field], row[shares_field]
-                sign = _SHARE_MOVE_SIGN.get(_LABEL_TO_TRANSACTION_TYPE.get(row[type_field]))
+                transaction_type = _LABEL_TO_TRANSACTION_TYPE.get(row[type_field])
+                sign = _SHARE_MOVE_SIGN.get(transaction_type) if transaction_type is not None else None
                 if not isin or shares in (None, "") or sign is None:
                     continue
                 moves[isin].append((date.fromisoformat(str(row[date_field])), sign * float(shares)))

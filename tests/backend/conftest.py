@@ -51,6 +51,9 @@ BANK_USERNAME = "bankuser"
 BANK_PASSWORD = "bankpass"  # nosec B105
 ACCOUNT_IBAN = "DE12 3456 7890"
 SECOND_ACCOUNT_IBAN = "DE98 7654 3210"
+ISIN = "IE00B4L5Y983"
+SECOND_ISIN = "US6311031081"
+ETF_NAME = "Core MSCI World USD (Acc)"
 LAST_FETCHING_TIMESTAMP = datetime(year=2026, month=1, day=1)
 TRANSACTION_DATE = _date(year=2026, month=5, day=20)
 EXPECTED_DATE = _date(year=2026, month=5, day=1)
