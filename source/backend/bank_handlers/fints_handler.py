@@ -3,12 +3,14 @@ from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date, timedelta
 from time import sleep
-from typing import TYPE_CHECKING, Iterator, TypeVar
+from typing import Iterator, TypeVar
 
 import fints_url
+from fints.camt_parser import camt053_to_dict
 from fints.client import FinTS3PinTanClient, NeedTANResponse
 from fints.exceptions import FinTSClientPINError
 from fints.models import SEPAAccount
+from fints.models import Transaction as FinTSTransaction
 from source.backend.bank_handlers.base import (
     BalanceObservation,
     BankHandler,
@@ -25,9 +27,6 @@ from source.backend.exceptions import (
 from source.backend.helpers import get_key_of_transaction
 from source.backend.logging_utils import get_logger
 from source.backend.models.transaction_type import TransactionType
-
-if TYPE_CHECKING:
-    from mt940.models import Transaction as RawTransaction
 
 logger = get_logger(__name__)
 
@@ -94,8 +93,11 @@ class _FinTSSession(BankSession):
     def _fetch_transactions(
         self, sepa_account: SEPAAccount, start_date: date, include_pending: bool
     ) -> list[FetchedTransaction]:
-        raw_transactions = self._resolve(
-            self._client.get_transactions(sepa_account, start_date=start_date, include_pending=include_pending)
+        raw_transactions = _parse_camt_if_needed(
+            self._resolve(
+                self._fetch_raw_transactions(sepa_account, start_date=start_date, include_pending=include_pending)
+            ),
+            include_pending=include_pending,
         )
         self._balance_observations.setdefault(sepa_account.iban, []).extend(  # noqa: FKA100
             _extract_balance_observations(raw_transactions)
@@ -115,13 +117,38 @@ class _FinTSSession(BankSession):
             )
         return transactions
 
+    def _fetch_raw_transactions(
+        self, sepa_account: SEPAAccount, start_date: date, include_pending: bool
+    ) -> "list | tuple | NeedTANResponse":
+        if self._client.bpd.find_segment_first("HIKAZS") is not None:
+            return self._client.get_transactions(sepa_account, start_date=start_date, include_pending=include_pending)
+        return self._client.get_transactions_xml(sepa_account, start_date=start_date)
+
     def _resolve(self, response: T) -> T:
         return _resolve_decoupled(
             client=self._client, response=response, notify_two_factor_state=self._notify_two_factor_state
         )
 
 
-def _extract_balance_observations(raw_transactions: list["RawTransaction"]) -> list[BalanceObservation]:
+def _parse_camt_if_needed(result: object, include_pending: bool) -> list:
+    # python-fints' get_transactions normally returns a ready list of (mt940) Transaction objects.
+    # But banks that only offer CAMT XML (e.g., Volksbank) take a special path: when a decoupled
+    # TAN interrupts the fetch, get_transactions returns the NeedTANResponse *before* its own CAMT
+    # parsing runs. Once we resolve the TAN via send_tan, the bank hands back the raw
+    # (booked_streams, pending_streams) tuple of XML bytestrings instead (the library's parsing is
+    # never reached). Reproduce that parsing here so both paths yield the same Transaction list.
+    if not isinstance(result, tuple):
+        return result
+    booked_streams, pending_streams = result
+    transactions = [FinTSTransaction(data) for stream in booked_streams for data in camt053_to_dict(stream)]
+    if include_pending:
+        transactions += [
+            FinTSTransaction(data) for stream in pending_streams if stream for data in camt053_to_dict(stream)
+        ]
+    return transactions
+
+
+def _extract_balance_observations(raw_transactions: list) -> list[BalanceObservation]:
     # python-fints returns a list of mt940 Transaction objects; each holds a back-reference to its
     # statement collection, whose .data carries the statement-level balances. When the period had no
     # transactions the list is empty and the bank gives us no anchor.
@@ -132,7 +159,11 @@ def _extract_balance_observations(raw_transactions: list["RawTransaction"]) -> l
     # drift warnings when it disagrees with the HKSAL balance.
     if not raw_transactions:
         return []
-    balance = raw_transactions[0].transactions.data.get("final_opening_balance")  # noqa: FKA100
+    try:
+        balance = raw_transactions[0].transactions.data.get("final_opening_balance")  # noqa: FKA100
+    except AttributeError:
+        # CAMT-only banks (e.g., Volksbank) yield camt Transaction objects without a statement back-reference
+        return []
     if balance is None or balance.date is None or balance.amount is None:
         return []
     observation_date = date(year=balance.date.year, month=balance.date.month, day=balance.date.day)

@@ -16,7 +16,9 @@ logger = get_logger(__name__)
 _GENERIC_FINTS_PROVIDER = "fints"
 _NON_FINTS_PROVIDERS = frozenset({"dfs", "fin4u", "trade_republic", "manual"})
 
-_TESTED_FINTS_PROVIDERS = frozenset({"ING-DiBa", "Deutsche Kreditbank", "Sparkasse"})
+_TESTED_FINTS_PROVIDERS = frozenset(
+    {"ING-DiBa", "Deutsche Kreditbank Berlin", "Sparkasse", "Raiffeisenbank", "Volksbank"}
+)
 
 
 @dataclass(frozen=True)

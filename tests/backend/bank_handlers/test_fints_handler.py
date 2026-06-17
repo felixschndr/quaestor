@@ -257,18 +257,68 @@ def test_session_resolves_tan_responses_from_get_transactions(monkeypatch: pytes
     client.send_tan.side_effect = [pending, [fake_transaction], pending, [fake_transaction]]
 
     session = module._FinTSSession(client=client)
-    session._account_mapping = {"DE00 1234": MagicMock()}
+    session._account_mapping = {ACCOUNT_IBAN: MagicMock()}
 
     # We don't care about the parsed values here, just that the call doesn't raise
     # 'NeedTANResponse object is not iterable'.
 
     transactions = session.get_transactions(
-        account=module.FetchedAccount(name="DE00 1234"), start_date=date(year=2025, month=1, day=1)
+        account=module.FetchedAccount(name=ACCOUNT_IBAN), start_date=TRANSACTION_DATE
     )
 
     assert len(transactions) == 1
     assert client.get_transactions.call_count == 2
     assert client.send_tan.call_count == 4
+
+
+def test_parse_camt_if_needed_passes_non_tuple_through_unchanged() -> None:
+    # The mt940 path already hands us a parsed Transaction list; it must be returned as-is.
+    parsed = [MagicMock()]
+    assert module._parse_camt_if_needed(parsed, include_pending=True) is parsed
+
+
+def test_parse_camt_if_needed_parses_booked_only_when_pending_excluded(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(target=module, name="camt053_to_dict", value=lambda stream: [{"stream": stream}])
+
+    result = module._parse_camt_if_needed(([b"booked"], [b"pending"]), include_pending=False)
+
+    assert [transaction.data for transaction in result] == [{"stream": b"booked"}]
+
+
+def test_parse_camt_if_needed_includes_pending_and_skips_none_streams(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The bank reports a None pending stream when there is nothing pending; camt053_to_dict(None)
+    # would crash, so _parse_camt_if_needed must skip it while still including real pending streams.
+    monkeypatch.setattr(target=module, name="camt053_to_dict", value=lambda stream: [{"stream": stream}])
+
+    result = module._parse_camt_if_needed(([b"booked"], [None, b"pending"]), include_pending=True)
+
+    assert [transaction.data for transaction in result] == [{"stream": b"booked"}, {"stream": b"pending"}]
+
+
+def test_session_uses_camt_xml_for_banks_without_mt940(monkeypatch: pytest.MonkeyPatch) -> None:
+    # e.g. Volksbank
+    monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
+    monkeypatch.setattr(
+        target=module,
+        name="camt053_to_dict",
+        value=lambda stream: [{"amount": MagicMock(amount=1.0), "purpose": "x", "date": TRANSACTION_DATE}],
+    )
+
+    client = MagicMock()
+    client.bpd.find_segment_first.return_value = None  # no HIKAZS -> CAMT-only bank
+    client.get_transactions_xml.return_value = ([b"<booked/>"], [None])
+
+    session = module._FinTSSession(client=client)
+    session._account_mapping = {ACCOUNT_IBAN: MagicMock(iban=ACCOUNT_IBAN)}
+
+    transactions = session.get_transactions(
+        account=module.FetchedAccount(name=ACCOUNT_IBAN), start_date=TRANSACTION_DATE
+    )
+
+    assert client.get_transactions_xml.call_count == 2
+    assert client.get_transactions.call_count == 0
+    assert len(transactions) == 1
+    assert transactions[0].pending is False
 
 
 def test_session_translates_missing_system_id_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch) -> None:

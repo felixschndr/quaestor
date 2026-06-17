@@ -23,6 +23,11 @@ DEFAULT_MAX_AGE = timedelta(days=7)
 _BANK_INFO_OVERRIDES: dict[str, dict[str, str]] = {
     # https://github.com/aqbanking/aqbanking/pull/16
     "12030000": {"blz": "12030000", "name": "Deutsche Kreditbank Berlin", "fints": "https://fints.dkb.de/fints"},
+    "51390000": {
+        "blz": "51390000",
+        "name": "Volksbank Mittelhessen",
+        "fints": "https://fints2.atruvia.de/cgi-bin/hbciservlet",
+    },
 }
 
 _MIN_PLAUSIBLE_ENTRIES = 1000
