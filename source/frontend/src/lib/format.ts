@@ -70,6 +70,15 @@ export function formatDecimal(value: number): string {
   return decimalFormatter.format(value)
 }
 
+const factorMultiplierFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 4,
+})
+
+export function formatFactorMultiplier(value: number): string {
+  return factorMultiplierFormatter.format(value)
+}
+
 const inputAmountFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,

@@ -10,7 +10,7 @@ import { useAuthMe, useGlobalSync, type UserRead } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { SyncButton } from '@/components/sync-button'
 import { TwoFactorModal } from '@/components/two-factor-modal'
-import { formatDecimal, formatEuro } from '@/lib/format'
+import { formatEuro, formatFactorMultiplier } from '@/lib/format'
 import { accountDisplayName, displayNameOrUserName } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
 import { useAccountGroupLayout } from '@/lib/accountGroups'
@@ -250,7 +250,7 @@ function AccountRow({ account }: { account: AccountWithBank }) {
         <span className="text-sm font-semibold tabular-nums">
           {hasFactor ? (
             <span className="text-muted-foreground mr-1.5 font-normal">
-              {formatDecimal(account.balance_factor / 100)} x
+              {formatFactorMultiplier(account.balance_factor / 100)} x
             </span>
           ) : null}
           <span className={cn(negative && 'text-destructive')}>{formatEuro(account.balance)}</span>

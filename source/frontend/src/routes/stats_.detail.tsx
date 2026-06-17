@@ -13,7 +13,7 @@ import { buildDisplayGroups, type AccountWithBank } from '@/lib/accountDisplayGr
 import { useNetWorthRange, type AccountRangeChange } from '@/lib/statistics'
 import type { TransactionRead } from '@/lib/accountHistory'
 import { accountDisplayName } from '@/lib/accounts'
-import { formatDecimal, formatEuro, formatIban } from '@/lib/format'
+import { formatEuro, formatFactorMultiplier, formatIban } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const idListSchema = z
@@ -230,7 +230,7 @@ function AccountChangeRow({
               <span className="truncate text-sm font-medium">{accountDisplayName(account)}</span>
               {account.balance_factor !== 100 ? (
                 <span className="text-muted-foreground shrink-0 text-xs font-normal tabular-nums">
-                  x {formatDecimal(account.balance_factor / 100)}
+                  x {formatFactorMultiplier(account.balance_factor / 100)}
                 </span>
               ) : null}
             </span>

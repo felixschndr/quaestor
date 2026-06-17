@@ -12,7 +12,7 @@ class AccountRead(BaseModel):
     name: str
     display_name: str | None
     balance: float
-    balance_factor: int
+    balance_factor: float
     is_hidden: bool
 
 
@@ -21,11 +21,11 @@ class AccountCreate(BaseModel):  # Only allowed for manual accounts
     name: Annotated[str, Field(min_length=1, max_length=120)]
     display_name: Annotated[str, Field(max_length=150)] | None = None
     balance: float = 0.0
-    balance_factor: Annotated[int, Field(ge=0, le=100)] = 100
+    balance_factor: Annotated[float, Field(ge=0, le=100)] = 100.0
 
 
 class AccountUpdate(BaseModel):
-    balance_factor: Annotated[int, Field(ge=0, le=100)] | None = None
+    balance_factor: Annotated[float, Field(ge=0, le=100)] | None = None
     display_name: Annotated[str, Field(max_length=150)] | None = None
     is_hidden: bool | None = None
 

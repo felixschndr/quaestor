@@ -41,7 +41,7 @@ class Account(Base):
     name: Mapped[str] = mapped_column(String(120))
     display_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
     balance: Mapped[float] = mapped_column(Float, default=0.0)
-    balance_factor: Mapped[int] = mapped_column(default=100)
+    balance_factor: Mapped[float] = mapped_column(Float, default=100.0)
     is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     # User-defined grouping for the overview. NULL = "ungrouped" (rendered in a

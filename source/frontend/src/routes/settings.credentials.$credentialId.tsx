@@ -286,9 +286,10 @@ function AccountRow({ account, isManual }: { account: AccountRead; isManual: boo
   // safe to depend on directly without a ref.
   const { mutateAsync } = useUpdateAccount()
 
-  const parsed = Number(factor)
+  const normalisedFactor = factor.replace(',', '.')
+  const parsed = Number(normalisedFactor)
   const isValidFactor =
-    factor.length > 0 && Number.isInteger(parsed) && parsed >= 0 && parsed <= 100
+    normalisedFactor.length > 0 && Number.isFinite(parsed) && parsed >= 0 && parsed <= 100
   const factorDirty = isValidFactor && parsed !== account.balance_factor
 
   const trimmedDisplay = displayName.trim()
@@ -401,10 +402,10 @@ function AccountRow({ account, isManual }: { account: AccountRead; isManual: boo
             <Input
               id={factorInputId}
               type="number"
-              inputMode="numeric"
+              inputMode="decimal"
               min={0}
               max={100}
-              step={1}
+              step={0.01}
               value={factor}
               onChange={(event) => setFactor(event.target.value)}
               aria-invalid={!isValidFactor || undefined}

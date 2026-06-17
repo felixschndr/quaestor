@@ -164,7 +164,7 @@ describe('CredentialDetailView', () => {
 
     const input = screen.getByLabelText('Balance factor')
     await user.clear(input)
-    await user.type(input, '60')
+    await user.type(input, '60.3')
 
     await waitFor(
       () => {
@@ -172,7 +172,7 @@ describe('CredentialDetailView', () => {
           ([url, init]) => url === '/api/account/1' && init?.method === 'PATCH',
         )
         expect(call).toBeDefined()
-        expect(JSON.parse(call![1].body)).toEqual({ balance_factor: 60 })
+        expect(JSON.parse(call![1].body)).toEqual({ balance_factor: 60.3 })
       },
       { timeout: 2000 },
     )

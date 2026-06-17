@@ -147,7 +147,7 @@ def create_manual_account(
     name: str,
     display_name: str | None,
     balance: float,
-    balance_factor: int,
+    balance_factor: float,
 ) -> Account:
     if credential.bank != BankProvider.MANUAL:
         raise PermissionDeniedError(
