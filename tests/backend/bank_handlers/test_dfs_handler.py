@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import date, datetime, timezone
+from datetime import date
 
 import pytest
 import requests
@@ -8,21 +8,28 @@ from source.backend.bank_handlers import dfs_handler
 from source.backend.bank_handlers.base import BalanceObservation, FetchedAccount
 from source.backend.bank_handlers.dfs_handler import DFSHandler, _DFSSession
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
-from source.backend.helpers import epoch_ms_to_date
 from source.backend.models.transaction_type import TransactionType
 
-from tests.backend.conftest import USER_NAME, VALID_PASSWORD, get_backend_test_path
+from tests.backend.conftest import (
+    LAST_FETCHING_TIMESTAMP,
+    LATEST_DATE,
+    LATEST_DATE_MS,
+    OLDER_DATE,
+    OLDER_DATE_MS,
+    RECENT_DATE,
+    RECENT_DATE_MS,
+    USER_NAME,
+    VALID_PASSWORD,
+    date_to_epoch_ms,
+    get_backend_test_path,
+)
 
-FIXTURES = get_backend_test_path() / "fixtures"
-DASHBOARD_SNAPSHOT = json.loads((FIXTURES / "dfs_dashboard_snapshot_response.json").read_text())
-TRANSACTIONS = json.loads((FIXTURES / "dfs_transactions_response.json").read_text())
+FIXTURES = get_backend_test_path() / "fixtures" / "dfs"
+DASHBOARD_SNAPSHOT = json.loads((FIXTURES / "dashboard_snapshot_response.json").read_text())
+TRANSACTIONS = json.loads((FIXTURES / "transactions_response.json").read_text())
 
 LOGIN_URL = f"{_DFSSession.BASE_URL}/acapif/portal-{_DFSSession.CUSTOMER}/public_login.prt"
 DASHBOARD_REDIRECT_URL = f"{_DFSSession.BASE_URL}/acaphc/Dashboard.action"
-# 1777500000000 ms ≈ 2026-04-29; 1774908000000 ms ≈ 2026-03-30; 1780272000000 ms ≈ 2026-06-01
-RECENT_DATE = epoch_ms_to_date(1777500000000)
-OLDER_DATE = epoch_ms_to_date(1774908000000)
-LATEST_DATE = epoch_ms_to_date(1780272000000)
 
 # Maps each fund to its price-series id; the series are an index (price per unit) over time.
 KURSE_LIST = {
@@ -34,8 +41,8 @@ KURSE_LIST = {
     }
 }
 KURSE_SERIES_BY_ID = {
-    "1:STANDARD_BAV": {"series": [{"data": [[1774908000000, 35], [1777500000000, 15], [1780272000000, 100]]}]},
-    "2:STANDARD_BAV": {"series": [{"data": [[1774908000000, 45], [1777500000000, 25], [1780272000000, 50]]}]},
+    "1:STANDARD_BAV": {"series": [{"data": [[OLDER_DATE_MS, 35], [RECENT_DATE_MS, 15], [LATEST_DATE_MS, 100]]}]},
+    "2:STANDARD_BAV": {"series": [{"data": [[OLDER_DATE_MS, 45], [RECENT_DATE_MS, 25], [LATEST_DATE_MS, 50]]}]},
 }
 
 
@@ -219,6 +226,35 @@ def test_get_market_value_history_is_empty_without_price_series(monkeypatch: pyt
     assert dfs_session().get_market_value_history(FetchedAccount(name="Stock A")) == []
 
 
+def test_get_market_value_history_is_empty_for_unknown_account(monkeypatch: pytest.MonkeyPatch):
+    patch_session(monkeypatch=monkeypatch, fake=FakeSession())
+
+    assert dfs_session().get_market_value_history(FetchedAccount(name="Does Not Exist")) == []
+
+
+def test_transactions_naming_unknown_fund_are_skipped(monkeypatch: pytest.MonkeyPatch):
+    transactions = json.loads(json.dumps(TRANSACTIONS))
+    transactions["daten"]["grid"]["dataSource"].append(
+        {
+            "anlage": "Ghost Fund",
+            "belegdatum": "1777500000000",
+            "anteile": "1",
+            "betrag": "99",
+            "modell": "",
+            "kurs": "1",
+            "kaufdatum": "1777500000000",
+            "vorgang": "Einzahlung",
+            "lohnart": "AG-Beitrag laufend",
+        }
+    )
+    patch_session(monkeypatch=monkeypatch, fake=FakeSession(transactions_data=transactions))
+    session = dfs_session()
+
+    assert session.get_accounts() == [FetchedAccount(name="Stock A"), FetchedAccount(name="Stock B")]
+    assert session.get_transactions(FetchedAccount(name="Stock A"), start_date=OLDER_DATE)
+    assert "Ghost Fund" not in {account.name for account in session.get_accounts()}
+
+
 def test_get_market_value_history_logs_debug_summary(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
     patch_session(monkeypatch=monkeypatch, fake=FakeSession())
     session = dfs_session()
@@ -237,15 +273,11 @@ def test_market_value_history_returns_balance_observations(monkeypatch: pytest.M
     assert all(isinstance(observation, BalanceObservation) for observation in history)
 
 
-def _ms(day: date) -> int:
-    return int(datetime(year=day.year, month=day.month, day=day.day, tzinfo=timezone.utc).timestamp() * 1000)
-
-
 def test_value_series_fills_transaction_days_with_carried_forward_price():
     priced_day = date(year=2026, month=5, day=1)
     transaction_day = date(year=2026, month=5, day=3)  # no price point on this day
     later_priced_day = date(year=2026, month=5, day=5)
-    kurs_series = [[_ms(priced_day), 10], [_ms(later_priced_day), 20]]
+    kurs_series = [[date_to_epoch_ms(priced_day), 10], [date_to_epoch_ms(later_priced_day), 20]]
 
     series = _DFSSession._market_value_series(
         name="Fund",
@@ -259,6 +291,17 @@ def test_value_series_fills_transaction_days_with_carried_forward_price():
         (transaction_day, 20.0),  # 2 units * last known price 10 (carried forward)
         (later_priced_day, 40.0),  # 2 units * 20
     ]
+
+
+def test_value_series_is_empty_without_unit_moves():
+    series = _DFSSession._market_value_series(
+        name="Fund",
+        kurs_series=[[date_to_epoch_ms(LAST_FETCHING_TIMESTAMP), 10]],
+        units_moves=[],
+        transaction_days=[],
+    )
+
+    assert series == []
 
 
 def test_login_request_sends_credentials_and_return_url(monkeypatch: pytest.MonkeyPatch):

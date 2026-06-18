@@ -36,7 +36,7 @@ const ATTRIBUTIONS: Attribution[] = [
     href: 'https://www.mygermanfinances.de/dkb-logo-square-2/',
   },
   {
-    textKey: 'attributions.text.fin4uLogo', // gitleaks:allow — i18n key, not a secret
+    textKey: 'attributions.text.fin4uLogo',
     href: 'https://play.google.com/store/apps/details?id=de.alteleipziger.fin4u&hl=de',
   },
   {

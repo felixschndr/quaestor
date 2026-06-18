@@ -1,0 +1,143 @@
+{
+  "insuranceContractCount": 2,
+  "insuranceContractPremiumTotalAmountPerYearEur": 2400.00,
+  "insuranceContracts": [
+    {
+      "id": "11111111-1111-1111-1111-111111111111",
+      "insuranceGroup": "LIFE",
+      "insuranceLogoId": "alh",
+      "insurancePolicyNr": "00001234567",
+      "insurancePremiumDue": true,
+      "insurancePremiumIntervalLabel": "monatlich",
+      "insurancePremiumNote": "Beitrag monatlich",
+      "insurancePremiumPerIntervalAmount": "100.00 EUR",
+      "productName": "Moderne klassische Rente (Betriebsrente)",
+      "readOnly": true,
+      "selfUrl": "https://app.fin4u.de/20210906/insurances/insurance/11111111-1111-1111-1111-111111111111"
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222222",
+      "insuranceGroup": "LIFE",
+      "insuranceLogoId": "allianz",
+      "insurancePremiumDue": true,
+      "insurancePremiumIntervalLabel": "Monatlich",
+      "insurancePremiumPerIntervalAmount": "100.00 EUR",
+      "productName": "Betriebliche Altersversorgung",
+      "readOnly": false,
+      "selfUrl": "https://app.fin4u.de/20210906/insurances/insurance/22222222-2222-2222-2222-222222222222"
+    }
+  ],
+  "insurancesSum": {
+    "comprehensiveInsuranceTotalSum": 0,
+    "healthInsuranceTotalSum": 0,
+    "insuranceTotalSum": 2400.00,
+    "lifeInsuranceTotalSum": 2400.00
+  },
+  "reloadInsuranceContractsSuccessful": true,
+  "totalAssetStructure": [
+    {
+      "attributes": [
+        {
+          "hidden": false,
+          "id": "Guthaben aus Versicherung-48",
+          "label": "Guthaben gesamt",
+          "roles": [],
+          "type": "MONEY_AMOUNT",
+          "value": "1234.56 EUR"
+        },
+        {
+          "hidden": false,
+          "id": "Guthaben aus Versicherung-49",
+          "label": "Trennstrich",
+          "roles": [],
+          "type": "HORIZONTAL_RULE"
+        },
+        {
+          "attributes": [
+            {
+              "hidden": false,
+              "id": "11111111-1111-1111-1111-111111111111",
+              "label": "Moderne klassische Rente (Betriebsrente) (1234567)",
+              "roles": [],
+              "type": "MONEY_AMOUNT",
+              "value": "1234.56 EUR"
+            }
+          ],
+          "label": "Aus Vertragsguthaben"
+        }
+      ],
+      "label": "Guthaben aus Versicherung"
+    },
+    {
+      "label": "Hilfe zur Vertragsansicht",
+      "payload": {
+        "label": "Hilfe zur Vertragsansicht",
+        "attributes": [
+          {
+            "attributes": [
+              {
+                "hidden": false,
+                "id": "Guthaben aus Versicherung-53",
+                "label": "",
+                "roles": [],
+                "type": "HELPTEXT",
+                "value": "Die Werte entsprechen den unter den einzelnen Verträgen ausgewiesenen Werten."
+              },
+              {
+                "hidden": false,
+                "id": "Guthaben aus Versicherung-54",
+                "label": "Bei Renten mit Fondsanlage: ",
+                "roles": [],
+                "type": "HELPTEXT",
+                "value": "Werte unter Fondsbestand"
+              },
+              {
+                "hidden": false,
+                "id": "Guthaben aus Versicherung-55",
+                "label": "Bei modernen klassischen und flexiblen Renten sowie der smarten Rente: ",
+                "roles": [],
+                "type": "HELPTEXT",
+                "value": "Werte unter Vertragsguthaben."
+              },
+              {
+                "hidden": false,
+                "id": "Guthaben aus Versicherung-56",
+                "label": "Bei Renten mit klassischer Anlage und kapitalbildenden Lebensversicherungen: ",
+                "roles": [],
+                "type": "HELPTEXT",
+                "value": "Rückkaufswert unter Leistungen."
+              },
+              {
+                "hidden": false,
+                "id": "Guthaben aus Versicherung-57",
+                "label": "Bei Berufsunfähigkeits-, Risiko- , Pflege- und Grundfähigkeitsversicherungen mit Überschussverwendungsart Investmentfonds: ",
+                "roles": [],
+                "type": "HELPTEXT",
+                "value": "Werte unter Fondsbestand"
+              },
+              {
+                "hidden": false,
+                "id": "Guthaben aus Versicherung-58",
+                "label": "Bei Renten mit klassischer Anlage und Überschussverwendungsart Investmentfonds, die kein Rückkaufsrecht haben: ",
+                "roles": [],
+                "type": "HELPTEXT",
+                "value": "Werte unter Fondsbestand"
+              },
+              {
+                "hidden": false,
+                "id": "Guthaben aus Versicherung-59",
+                "label": "",
+                "roles": [],
+                "type": "HELPTEXT",
+                "value": "Bitte beachten Sie auch ggf. vorhandene Hinweise bzw. Verfügungsbeschränkungen zu den Werten."
+              }
+            ],
+            "label": "Guthaben aus Versicherungen"
+          }
+        ]
+      },
+      "urn": "FIN4U:HELP"
+    }
+  ],
+  "totalAssetValue": 1234.56
+}

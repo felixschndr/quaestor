@@ -1,5 +1,5 @@
 import base64
-import textwrap
+import json
 
 import pytest
 import requests
@@ -9,37 +9,42 @@ from cryptography.hazmat.primitives.asymmetric.padding import MGF1, OAEP
 from cryptography.hazmat.primitives.hashes import SHA1, SHA256
 from source.backend.bank_handlers import fin4u_handler
 from source.backend.bank_handlers.base import FetchedAccount
-from source.backend.bank_handlers.fin4u_handler import Fin4uHandler, _Fin4uSession
+from source.backend.bank_handlers.fin4u_handler import (
+    _API_VERSION_RE,
+    _MAIN_JS_RE,
+    _PUBKEY_RE,
+    Fin4uHandler,
+    _Fin4uSession,
+)
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
 
-from tests.backend.conftest import HTTP_SESSION_TOKEN, USER_NAME, VALID_PASSWORD
+from tests.backend.conftest import (
+    RECENT_DATE,
+    USER_NAME,
+    VALID_PASSWORD,
+    get_backend_test_path,
+)
 
-# A throwaway RSA-2048 keypair
+FIXTURES = get_backend_test_path() / "fixtures" / "fin4u"
+SPA_INDEX_HTML = (FIXTURES / "index.html").read_text()
+BUNDLE_TEXT = (FIXTURES / "bundle_fragment.js").read_text()
+TOKEN_RESPONSE = json.loads((FIXTURES / "token_response.json").read_text())
+INSURANCE_RESPONSE = json.loads((FIXTURES / "insurance_response.json").read_text())
+
+BUNDLE_NAME = _MAIN_JS_RE.search(SPA_INDEX_HTML).group(1)
+API_VERSION = _API_VERSION_RE.search(BUNDLE_TEXT).group(1)
+REAL_PUBKEY_PEM = _PUBKEY_RE.search(BUNDLE_TEXT).group(0).encode("ascii")
+EXPECTED_ACCESS_TOKEN = TOKEN_RESPONSE["access_token"]
+EXPECTED_TOTAL_ASSET_VALUE = INSURANCE_RESPONSE["totalAssetValue"]
+
+# A throwaway RSA-2048 keypair used only for the encryption round-trip test
 _TEST_PRIVATE_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _TEST_PUBLIC_KEY_PEM = _TEST_PRIVATE_KEY.public_key().public_bytes(
     encoding=serialization.Encoding.PEM,
     format=serialization.PublicFormat.SubjectPublicKeyInfo,
 )
 
-
-# Shaped after the real SPA index
-# The only thing the handler cares about is matching `<script src="main.<hash>.js"`
-SPA_INDEX_HTML = textwrap.dedent("""
-    <html><head><title>fin4u</title></head><body>
-    <app-root></app-root>
-    <script src="runtime.deadbeef.js" type="module"></script>
-    <script src="main.abc123def456.js" type="module"></script>
-    </body></html>
-    """).strip()
-
-
-def _build_bundle(public_key_pem: bytes = _TEST_PUBLIC_KEY_PEM, api_version: str = "20260527") -> str:
-    # Minified bundle fragment containing the two values the handler scrapes.
-    # Mirrors the real layout: a "fin4u-<x.y>" version marker, then a one-char
-    # minified variable bound to the YYYYMMDD API version literal. Crucially
-    # `=` (chained var-assignment) not `:` (object literal) — that's how the
-    # real bundle minifies, and the API_VERSION regex anchors on it.
-    return 'var foo="bar";\n' + public_key_pem.decode("ascii") + f'\nvar D="fin4u-2.0",_="{api_version}",P=1e3;\n'
+_UNSET = object()
 
 
 class _MockedResponse:
@@ -60,17 +65,17 @@ class MockedSession:
     def __init__(
         self,
         spa_html: str = SPA_INDEX_HTML,
-        bundle_text: str | None = None,
+        bundle_text: str = BUNDLE_TEXT,
         token_status: int = 200,
         insurance_status: int = 200,
         insurance_data: dict | None = None,
-        access_token: str | None = HTTP_SESSION_TOKEN,
+        access_token: object = _UNSET,
     ) -> None:
         self.spa_html = spa_html
-        self.bundle_text = bundle_text if bundle_text is not None else _build_bundle()
+        self.bundle_text = bundle_text
         self.token_status = token_status
         self.insurance_status = insurance_status
-        self.insurance_data = insurance_data if insurance_data is not None else {"totalAssetValue": 381.4}
+        self.insurance_data = insurance_data if insurance_data is not None else INSURANCE_RESPONSE
         self.access_token = access_token
         self.calls: list[tuple[str, str, dict]] = []
 
@@ -80,11 +85,18 @@ class MockedSession:
     def __exit__(self, *args: object) -> bool:
         return False
 
+    def _token_body(self) -> dict:
+        if self.access_token is _UNSET:
+            return TOKEN_RESPONSE
+        if self.access_token is None:
+            return {key: value for key, value in TOKEN_RESPONSE.items() if key != "access_token"}
+        return {**TOKEN_RESPONSE, "access_token": self.access_token}
+
     def get(self, url: str, **kwargs: object) -> _MockedResponse:
         self.calls.append(("GET", url, kwargs))
         if url == f"{_Fin4uSession.BASE_URL}/":
             return _MockedResponse(text=self.spa_html)
-        if "main.abc123def456.js" in url:
+        if BUNDLE_NAME in url:
             return _MockedResponse(text=self.bundle_text)
         if "/dashboard/insurance" in url:
             return _MockedResponse(status_code=self.insurance_status, json_data=self.insurance_data)
@@ -93,8 +105,7 @@ class MockedSession:
     def post(self, url: str, **kwargs: object) -> _MockedResponse:
         self.calls.append(("POST", url, kwargs))
         if url.endswith(_Fin4uSession.TOKEN_PATH):
-            body: dict[str, object] = {"access_token": self.access_token} if self.access_token else {}
-            return _MockedResponse(status_code=self.token_status, json_data=body)
+            return _MockedResponse(status_code=self.token_status, json_data=self._token_body())
         raise AssertionError(f"unexpected POST {url}")
 
 
@@ -112,11 +123,11 @@ def test_load_bundle_secrets_extracts_pubkey_and_version(monkeypatch: pytest.Mon
 
     fin4u_session().get_balance(FetchedAccount(name=_Fin4uSession.ACCOUNT_NAME))
 
-    bundle_calls = [c for c in mocked_session.calls if "main." in c[1]]
+    bundle_calls = [c for c in mocked_session.calls if BUNDLE_NAME in c[1]]
     assert len(bundle_calls) == 1
-    assert bundle_calls[0][1].endswith("/main.abc123def456.js")
+    assert bundle_calls[0][1].endswith(f"/{BUNDLE_NAME}")
     insurance_calls = [c for c in mocked_session.calls if "/dashboard/insurance" in c[1]]
-    assert insurance_calls[0][1] == f"{_Fin4uSession.BASE_URL}/api/20260527/dashboard/insurance"
+    assert insurance_calls[0][1] == f"{_Fin4uSession.BASE_URL}/api/{API_VERSION}/dashboard/insurance"
 
 
 def test_load_bundle_secrets_raises_when_bundle_url_missing(monkeypatch: pytest.MonkeyPatch):
@@ -137,7 +148,7 @@ def test_load_bundle_secrets_raises_when_pubkey_missing(monkeypatch: pytest.Monk
 
 
 def test_load_bundle_secrets_raises_when_api_version_missing(monkeypatch: pytest.MonkeyPatch):
-    bundle_without_version = _TEST_PUBLIC_KEY_PEM.decode("ascii") + '\nvar x="something else";'
+    bundle_without_version = REAL_PUBKEY_PEM.decode("ascii") + '\nvar x="something else";'
     patch_session(monkeypatch=monkeypatch, fake=MockedSession(bundle_text=bundle_without_version))
 
     with pytest.raises(UnknownInternalError, match="API version"):
@@ -163,7 +174,7 @@ def test_load_bundle_secrets_raises_when_bundle_request_fails(monkeypatch: pytes
     real_get = mocked_session.get
 
     def selective_500(url: str, **kwargs: object) -> _MockedResponse:
-        if "main.abc123def456.js" in url:
+        if BUNDLE_NAME in url:
             mocked_session.calls.append(("GET", url, kwargs))
             return _MockedResponse(status_code=500)
         return real_get(url, **kwargs)
@@ -193,19 +204,17 @@ def test_get_accounts_returns_single_virtual_altersvorsorge_account(monkeypatch:
 
 
 def test_get_balance_returns_total_asset_value(monkeypatch: pytest.MonkeyPatch):
-    patch_session(monkeypatch=monkeypatch, fake=MockedSession(insurance_data={"totalAssetValue": 1234.56}))
+    patch_session(monkeypatch=monkeypatch, fake=MockedSession())
 
     balance = fin4u_session().get_balance(FetchedAccount(name="Altersvorsorge"))
 
-    assert balance == 1234.56
+    assert balance == EXPECTED_TOTAL_ASSET_VALUE
 
 
 def test_get_transactions_is_always_empty(monkeypatch: pytest.MonkeyPatch):
     patch_session(monkeypatch=monkeypatch, fake=MockedSession())
 
-    transactions = fin4u_session().get_transactions(
-        FetchedAccount(name="Altersvorsorge"), start_date=__import__("datetime").date(year=2020, month=1, day=1)
-    )
+    transactions = fin4u_session().get_transactions(FetchedAccount(name="Altersvorsorge"), start_date=RECENT_DATE)
 
     assert transactions == []
 
@@ -222,7 +231,7 @@ def test_login_request_sends_username_and_oauth_grant(monkeypatch: pytest.Monkey
     assert data["grant_type"] == "password"
     assert data["client_id"] == _Fin4uSession.CLIENT_ID
     assert VALID_PASSWORD not in data["password"]  # The password is encrypted before sending
-    assert len(base64.b64decode(data["password"])) == 256
+    assert len(base64.b64decode(data["password"])) == 256  # RSA-2048 ciphertext
 
 
 def test_insurance_request_sends_bearer_token(monkeypatch: pytest.MonkeyPatch):
@@ -233,7 +242,7 @@ def test_insurance_request_sends_bearer_token(monkeypatch: pytest.MonkeyPatch):
 
     [insurance_call] = [c for c in mocked_session.calls if "/dashboard/insurance" in c[1]]
     headers = insurance_call[2]["headers"]
-    assert headers["Authorization"] == f"Bearer {HTTP_SESSION_TOKEN}"
+    assert headers["Authorization"] == f"Bearer {EXPECTED_ACCESS_TOKEN}"
 
 
 def test_remote_data_is_only_fetched_once(monkeypatch: pytest.MonkeyPatch):
@@ -246,7 +255,7 @@ def test_remote_data_is_only_fetched_once(monkeypatch: pytest.MonkeyPatch):
     session.get_balance(FetchedAccount(name="Altersvorsorge"))
 
     assert len([c for c in mocked_session.calls if c[1] == f"{_Fin4uSession.BASE_URL}/"]) == 1
-    assert len([c for c in mocked_session.calls if "main." in c[1]]) == 1
+    assert len([c for c in mocked_session.calls if BUNDLE_NAME in c[1]]) == 1
     assert len([c for c in mocked_session.calls if c[1].endswith(_Fin4uSession.TOKEN_PATH)]) == 1
     assert len([c for c in mocked_session.calls if "/dashboard/insurance" in c[1]]) == 1
 

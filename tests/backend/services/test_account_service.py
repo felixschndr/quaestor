@@ -14,9 +14,9 @@ from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
+    RECENT_DATE,
     SECOND_ACCOUNT_IBAN,
     SECOND_USER_NAME,
-    TRANSACTION_DATE,
     make_account,
     make_credential,
     make_transaction,
@@ -141,7 +141,7 @@ def test_create_manual_transaction_updates_balance_and_snapshots(session_factory
             account=account,
             fields={
                 "amount": -25.0,
-                "date": TRANSACTION_DATE,
+                "date": RECENT_DATE,
                 "purpose": "Coffee run",
                 "other_party": "Rewe",
                 "transaction_type": TransactionType.OUTGOING,
@@ -149,7 +149,7 @@ def test_create_manual_transaction_updates_balance_and_snapshots(session_factory
         )
         assert transaction.id is not None
         assert account.balance == 75.0
-        assert account.balance_at_date[TRANSACTION_DATE].balance == 75.0
+        assert account.balance_at_date[RECENT_DATE].balance == 75.0
 
     with session_factory() as session:
         user = session.get(entity=User, ident=user_id)
@@ -170,7 +170,7 @@ def test_create_manual_transaction_honours_explicit_category(session_factory: se
             account=account,
             fields={
                 "amount": -10.0,
-                "date": TRANSACTION_DATE,
+                "date": RECENT_DATE,
                 "other_party": "REWE",
                 "category": TransactionCategory.GIFTS,
             },
@@ -215,7 +215,7 @@ def test_create_manual_transaction_auto_categorises_when_no_category_given(
             account=account,
             fields={
                 "amount": -19.99,
-                "date": TRANSACTION_DATE,
+                "date": RECENT_DATE,
                 "other_party": "REWE Markt",
             },
         )
@@ -236,7 +236,7 @@ def test_create_manual_transaction_rejects_non_manual_account(session_factory: s
             account_service.create_manual_transaction(
                 db_session=session,
                 account=account,
-                fields={"amount": 10.0, "date": TRANSACTION_DATE},
+                fields={"amount": 10.0, "date": RECENT_DATE},
             )
 
 
@@ -252,7 +252,7 @@ def test_delete_transaction_restores_balance(session_factory: sessionmaker):
         transaction = account_service.create_manual_transaction(
             db_session=session,
             account=account,
-            fields={"amount": -50.0, "date": TRANSACTION_DATE},
+            fields={"amount": -50.0, "date": RECENT_DATE},
         )
         assert account.balance == 150.0
         transaction_id = transaction.id
@@ -314,7 +314,7 @@ def test_update_account_balance_recomputes_snapshots_on_manual_account(session_f
             session,
             account_id=account.id,
             amount=-20.0,
-            date=TRANSACTION_DATE,
+            date=RECENT_DATE,
         )
         account.update_balance_at_date()
         session.commit()
@@ -322,12 +322,12 @@ def test_update_account_balance_recomputes_snapshots_on_manual_account(session_f
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
-        original_snapshot = account.balance_at_date[TRANSACTION_DATE].balance
+        original_snapshot = account.balance_at_date[RECENT_DATE].balance
         assert original_snapshot == 100.0
 
         account_service.update_account(db_session=session, account=account, fields={"balance": 500.0})
         assert account.balance == 500.0
-        assert account.balance_at_date[TRANSACTION_DATE].balance == 500.0
+        assert account.balance_at_date[RECENT_DATE].balance == 500.0
 
 
 def test_get_filtered_transactions_for_user_returns_empty_when_no_account_ids(session_factory: sessionmaker):

@@ -6,7 +6,7 @@ from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 
-from tests.backend.conftest import TRANSACTION_DATE
+from tests.backend.conftest import RECENT_DATE
 
 
 def test_transaction_repr_contains_identifying_fields():
@@ -15,7 +15,7 @@ def test_transaction_repr_contains_identifying_fields():
         account_id=42,
         amount=-19.99,
         purpose="Coffee",
-        date=TRANSACTION_DATE,
+        date=RECENT_DATE,
         other_party="Café",
         transaction_type=TransactionType.OUTGOING,
         category=TransactionCategory.UNKNOWN,
@@ -24,7 +24,7 @@ def test_transaction_repr_contains_identifying_fields():
 
     assert repr(transaction) == (
         "<Transaction(id=99, account_id=42, amount=-19.99, purpose=Coffee, "
-        "date=2026-05-20, other_party=Café, transaction_type=OUTGOING, "
+        "date=2026-04-29, other_party=Café, transaction_type=OUTGOING, "
         "category=UNKNOWN, note=Birthday gift, pending=None, expected=None, "
         "match_tolerance_percent=None, transfer_counterpart_id=None, "
         "transfer_original_type=None, transfer_relink_blocked=None, recurring_transaction_id=None)>"

@@ -21,7 +21,7 @@ from source.backend.helpers import (
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_type import TransactionType
 
-from tests.backend.conftest import TRANSACTION_DATE, create_fetched_transaction
+from tests.backend.conftest import RECENT_DATE, create_fetched_transaction
 
 
 def test_key_is_identical_for_two_identical_transactions():
@@ -131,7 +131,7 @@ def test_format_transaction_for_categorization_renders_identifying_fields():
         amount=-19.99,
         purpose="Coffee",
         other_party="Café",
-        date=TRANSACTION_DATE,
+        date=RECENT_DATE,
         transaction_type=TransactionType.OUTGOING,
     )
     transaction = Transaction.from_fetched(fetched_transaction)

@@ -1,7 +1,7 @@
 import logging
 from contextlib import contextmanager
 from datetime import date as _date
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 from unittest.mock import AsyncMock, MagicMock
@@ -55,10 +55,20 @@ ISIN = "IE00B4L5Y983"
 SECOND_ISIN = "US6311031081"
 ETF_NAME = "Core MSCI World USD (Acc)"
 LAST_FETCHING_TIMESTAMP = datetime(year=2026, month=1, day=1)
-TRANSACTION_DATE = _date(year=2026, month=5, day=20)
-EXPECTED_DATE = _date(year=2026, month=5, day=1)
+OLDER_DATE = _date(year=2026, month=3, day=30)
+RECENT_DATE = _date(year=2026, month=4, day=29)
+LATEST_DATE = _date(year=2026, month=6, day=1)
 TWO_FACTOR_SECRET = "T2UXK5D6ZPTJ3WF2YXHYGGXKIT2G5LUH"  # nosec B105  # gitleaks:allow
 UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"
+
+
+def date_to_epoch_ms(day: _date) -> int:
+    return int(datetime(year=day.year, month=day.month, day=day.day, tzinfo=timezone.utc).timestamp() * 1000)
+
+
+OLDER_DATE_MS = date_to_epoch_ms(OLDER_DATE)
+RECENT_DATE_MS = date_to_epoch_ms(RECENT_DATE)
+LATEST_DATE_MS = date_to_epoch_ms(LATEST_DATE)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -187,7 +197,7 @@ def create_credential(
 def create_fetched_transaction(
     amount: float = -12.34,
     purpose: str | None = None,
-    date: _date = TRANSACTION_DATE,
+    date: _date = RECENT_DATE,
     other_party: str | None = None,
     transaction_type: TransactionType | None = TransactionType.OUTGOING,
 ) -> FetchedTransaction:
@@ -288,7 +298,7 @@ def make_transaction(
     amount: float = -1.0,
     purpose: str | None = None,
     other_party: str | None = None,
-    date: _date = TRANSACTION_DATE,
+    date: _date = RECENT_DATE,
     transaction_type: TransactionType | None = None,
     category: TransactionCategory = TransactionCategory.UNKNOWN,
     note: str | None = None,
@@ -368,7 +378,7 @@ def persist_transaction(
     amount: float = -1.0,
     purpose: str | None = None,
     other_party: str | None = None,
-    date: _date = TRANSACTION_DATE,
+    date: _date = RECENT_DATE,
     transaction_type: TransactionType | None = None,
     category: TransactionCategory = TransactionCategory.UNKNOWN,
     note: str | None = None,
@@ -526,7 +536,7 @@ def seed_account_with_expectation(
             session,
             account_id=account.id,
             amount=amount,
-            date=EXPECTED_DATE,
+            date=OLDER_DATE,
             other_party=other_party,
             note="expected note",
             pending=True,

@@ -28,8 +28,8 @@ from tests.backend.conftest import (
     CHALLENGE_TOKEN,
     LAST_FETCHING_TIMESTAMP,
     PIN,
+    RECENT_DATE,
     SECOND_ACCOUNT_IBAN,
-    TRANSACTION_DATE,
 )
 
 
@@ -262,9 +262,7 @@ def test_session_resolves_tan_responses_from_get_transactions(monkeypatch: pytes
     # We don't care about the parsed values here, just that the call doesn't raise
     # 'NeedTANResponse object is not iterable'.
 
-    transactions = session.get_transactions(
-        account=module.FetchedAccount(name=ACCOUNT_IBAN), start_date=TRANSACTION_DATE
-    )
+    transactions = session.get_transactions(account=module.FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE)
 
     assert len(transactions) == 1
     assert client.get_transactions.call_count == 2
@@ -301,7 +299,7 @@ def test_session_uses_camt_xml_for_banks_without_mt940(monkeypatch: pytest.Monke
     monkeypatch.setattr(
         target=module,
         name="camt053_to_dict",
-        value=lambda stream: [{"amount": MagicMock(amount=1.0), "purpose": "x", "date": TRANSACTION_DATE}],
+        value=lambda stream: [{"amount": MagicMock(amount=1.0), "purpose": "x", "date": RECENT_DATE}],
     )
 
     client = MagicMock()
@@ -311,9 +309,7 @@ def test_session_uses_camt_xml_for_banks_without_mt940(monkeypatch: pytest.Monke
     session = module._FinTSSession(client=client)
     session._account_mapping = {ACCOUNT_IBAN: MagicMock(iban=ACCOUNT_IBAN)}
 
-    transactions = session.get_transactions(
-        account=module.FetchedAccount(name=ACCOUNT_IBAN), start_date=TRANSACTION_DATE
-    )
+    transactions = session.get_transactions(account=module.FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE)
 
     assert client.get_transactions_xml.call_count == 2
     assert client.get_transactions.call_count == 0
@@ -402,9 +398,7 @@ def _fake_raw_statement(balances: dict[str, _FakeMt940Balance]) -> list[MagicMoc
 def test_extract_balance_observations_reads_opening_balance_and_ignores_closing() -> None:
     raw = _fake_raw_statement(
         {
-            "final_opening_balance": _FakeMt940Balance(
-                amount=_FakeMt940Amount(Decimal("625.15")), date=TRANSACTION_DATE
-            ),
+            "final_opening_balance": _FakeMt940Balance(amount=_FakeMt940Amount(Decimal("625.15")), date=RECENT_DATE),
             "final_closing_balance": _FakeMt940Balance(
                 amount=_FakeMt940Amount(Decimal("700.00")), date=LAST_FETCHING_TIMESTAMP.date()
             ),
@@ -414,7 +408,7 @@ def test_extract_balance_observations_reads_opening_balance_and_ignores_closing(
     observations = module._extract_balance_observations(raw)
 
     assert [(observation.date, observation.amount) for observation in observations] == [
-        (TRANSACTION_DATE, 625.15),
+        (RECENT_DATE, 625.15),
     ]
 
 
@@ -434,7 +428,7 @@ def test_get_balance_observations_returns_captured_anchors_for_account() -> None
     session = module._FinTSSession(client=MagicMock())
     sepa_account = MagicMock(iban=ACCOUNT_IBAN)
     session._account_mapping = {ACCOUNT_IBAN: sepa_account}
-    anchors = [BalanceObservation(date=TRANSACTION_DATE, amount=625.15)]
+    anchors = [BalanceObservation(date=RECENT_DATE, amount=625.15)]
     session._balance_observations = {ACCOUNT_IBAN: anchors}
 
     assert session.get_balance_observations(FetchedAccount(name=ACCOUNT_IBAN)) == anchors
@@ -472,9 +466,7 @@ def test_get_transactions_accumulates_opening_anchor_from_both_fetches() -> None
     booked = _statement_with_opening(
         amount=-10.0, txn_day=booked_opening_day, opening_balance=100.0, opening_day=booked_opening_day
     )
-    pending = _statement_with_opening(
-        amount=-20.0, txn_day=TRANSACTION_DATE, opening_balance=300.0, opening_day=TRANSACTION_DATE
-    )
+    pending = _statement_with_opening(amount=-20.0, txn_day=RECENT_DATE, opening_balance=300.0, opening_day=RECENT_DATE)
     session._client.get_transactions.side_effect = [booked, pending]
 
     session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=booked_opening_day)
@@ -482,7 +474,7 @@ def test_get_transactions_accumulates_opening_anchor_from_both_fetches() -> None
     observations = session.get_balance_observations(FetchedAccount(name=ACCOUNT_IBAN))
     assert [(observation.date, observation.amount) for observation in observations] == [
         (booked_opening_day, 100.0),
-        (TRANSACTION_DATE, 300.0),
+        (RECENT_DATE, 300.0),
     ]
 
 
@@ -490,11 +482,11 @@ def test_get_transactions_resets_anchors_between_calls() -> None:
     # Two get_transactions calls (e.g. two syncs) must not let anchors pile up across calls.
     session = _session_with_mapped_account()
     statement = _statement_with_opening(
-        amount=-10.0, txn_day=TRANSACTION_DATE, opening_balance=100.0, opening_day=TRANSACTION_DATE
+        amount=-10.0, txn_day=RECENT_DATE, opening_balance=100.0, opening_day=RECENT_DATE
     )
     session._client.get_transactions.side_effect = [statement, [], statement, []]
 
-    session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=TRANSACTION_DATE)
-    session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=TRANSACTION_DATE)
+    session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE)
+    session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE)
 
     assert len(session.get_balance_observations(FetchedAccount(name=ACCOUNT_IBAN))) == 1

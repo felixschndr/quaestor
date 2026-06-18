@@ -1,0 +1,5 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+paths = ['''tests/backend/fixtures/''']
