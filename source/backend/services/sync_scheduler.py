@@ -25,6 +25,10 @@ def _sync_interval() -> timedelta:
         return DEFAULT_SYNC_INTERVAL
 
 
+def sync_interval_hours() -> float:
+    return _sync_interval().total_seconds() / 3600
+
+
 def _sync_all_due_credentials() -> None:
     with SessionLocal() as db_session:
         credential_service.sync_all_due_credentials(db_session)

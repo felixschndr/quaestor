@@ -19,6 +19,7 @@ import {
 } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
 import { useDeleteCredential } from '@/lib/credentials'
+import { useAppSettings } from '@/lib/settings'
 import { formatDecimal, formatEuro, formatRelativeDateTime } from '@/lib/format'
 
 const MANUAL_BANK = 'manual'
@@ -128,7 +129,39 @@ function BankHeader({ credential, bankTitle }: { credential: CredentialRead; ban
       />
       <h1 className="text-foreground text-2xl font-semibold">{bankTitle}</h1>
       <p className="text-muted-foreground text-sm">{lastSyncedLabel}</p>
+      <AutoSyncStatus credential={credential} />
     </section>
+  )
+}
+
+function AutoSyncStatus({ credential }: { credential: CredentialRead }) {
+  const { t } = useTranslation()
+  if (credential.bank === MANUAL_BANK) return null
+
+  const accountCount = credential.accounts.length
+
+  if (credential.requires_two_factor_authentication) {
+    return (
+      <p className="text-muted-foreground text-xs">
+        {t('credentials.autoSync.disabled', { count: accountCount })}
+      </p>
+    )
+  }
+
+  return <AutoSyncEnabledLabel accountCount={accountCount} />
+}
+
+function AutoSyncEnabledLabel({ accountCount }: { accountCount: number }) {
+  const { t } = useTranslation()
+  const { data } = useAppSettings()
+  if (!data) return null
+  return (
+    <p className="text-muted-foreground text-xs">
+      {t('credentials.autoSync.enabled', {
+        count: accountCount,
+        hours: data.sync_interval_hours,
+      })}
+    </p>
   )
 }
 

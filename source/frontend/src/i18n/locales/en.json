@@ -347,6 +347,12 @@
     },
     "lastSynced": "Last synced",
     "neverSynced": "Never synced",
+    "autoSync": {
+      "enabled_one": "This account is synced automatically on a {{hours}}-hour schedule.",
+      "enabled_other": "These accounts are synced automatically on a {{hours}}-hour schedule.",
+      "disabled_one": "This account is not synced automatically because a second factor is required.",
+      "disabled_other": "These accounts are not synced automatically because a second factor is required."
+    },
     "groups": {
       "title": "Account groups",
       "back": "Back",

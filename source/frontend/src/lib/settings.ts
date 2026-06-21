@@ -6,6 +6,7 @@ export interface AppSettings {
   allow_new_user_registration: boolean
   default_language: string
   display_timezone: string
+  sync_interval_hours: number
 }
 
 export const settingsQueryKey = ['settings'] as const

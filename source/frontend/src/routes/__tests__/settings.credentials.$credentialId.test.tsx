@@ -60,6 +60,10 @@ function jsonResponse({ status, body }: MockResponse): Response {
   })
 }
 
+function mutatingFetchCalls(fetchMock: Mock) {
+  return fetchMock.mock.calls.filter(([, init]) => init?.method && init.method !== 'GET')
+}
+
 function renderWithQuery(ui: React.ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -195,7 +199,7 @@ describe('CredentialDetailView', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('The value must between 0 and 100.')
     // Give the debounce a chance to fire — invalid input must not produce a PATCH.
     await new Promise((resolve) => setTimeout(resolve, 800))
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(mutatingFetchCalls(fetchMock)).toHaveLength(0)
   })
 
   it('does not show a save button — the form auto-saves silently', () => {
@@ -227,7 +231,7 @@ describe('CredentialDetailView', () => {
 
     await user.click(screen.getByRole('button', { name: 'Delete connection' }))
     // The first click flips to confirm mode; DELETE isn't sent yet.
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(mutatingFetchCalls(fetchMock)).toHaveLength(0)
 
     await user.click(screen.getByRole('button', { name: 'Yes, delete this connection' }))
 
@@ -249,7 +253,7 @@ describe('CredentialDetailView', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(screen.getByRole('button', { name: 'Delete connection' })).toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(mutatingFetchCalls(fetchMock)).toHaveLength(0)
   })
 
   it('pre-fills the personalised name input from the server value', () => {
@@ -389,5 +393,106 @@ describe('CredentialDetailView', () => {
       },
       { timeout: 2000 },
     )
+  })
+
+  function mockSettings(syncIntervalHours: number) {
+    ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
+      if (url === '/api/settings') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 200,
+            body: {
+              allow_new_user_registration: true,
+              default_language: 'en',
+              display_timezone: 'UTC',
+              sync_interval_hours: syncIntervalHours,
+            },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`))
+    })
+  }
+
+  it('shows the automatic-sync interval (plural) when 2FA is not required', async () => {
+    mockSettings(12)
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential({
+          requires_two_factor_authentication: false,
+          accounts: [buildAccount({ id: 1 }), buildAccount({ id: 2 })],
+        })}
+        onDeleted={vi.fn()}
+      />,
+    )
+
+    expect(
+      await screen.findByText('These accounts are synced automatically on a 12-hour schedule.'),
+    ).toBeInTheDocument()
+  })
+
+  it('uses the singular wording when the credential has a single account', async () => {
+    mockSettings(8)
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential({
+          requires_two_factor_authentication: false,
+          accounts: [buildAccount({ id: 1 })],
+        })}
+        onDeleted={vi.fn()}
+      />,
+    )
+
+    expect(
+      await screen.findByText('This account is synced automatically on a 8-hour schedule.'),
+    ).toBeInTheDocument()
+  })
+
+  it('states (plural) that a 2FA credential is not synced automatically and why', () => {
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential({
+          requires_two_factor_authentication: true,
+          accounts: [buildAccount({ id: 1 }), buildAccount({ id: 2 })],
+        })}
+        onDeleted={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.getByText(
+        'These accounts are not synced automatically because a second factor is required.',
+      ),
+    ).toBeInTheDocument()
+    // No interval lookup is needed for 2FA credentials.
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  it('uses the singular wording for a single-account 2FA credential', () => {
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential({
+          requires_two_factor_authentication: true,
+          accounts: [buildAccount({ id: 1 })],
+        })}
+        onDeleted={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.getByText(
+        'This account is not synced automatically because a second factor is required.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('hides the automatic-sync status for manual credentials', () => {
+    renderWithQuery(
+      <CredentialDetailView credential={buildCredential({ bank: 'manual' })} onDeleted={vi.fn()} />,
+    )
+
+    expect(screen.queryByText(/not synced automatically/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/-hour schedule/)).not.toBeInTheDocument()
+    expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 })

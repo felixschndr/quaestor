@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
@@ -12,7 +12,7 @@ from source.backend.exceptions import (
     MissingCredentialFieldError,
     ReauthenticationRequiredError,
 )
-from source.backend.helpers import apply_fields
+from source.backend.helpers import apply_fields, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.base import snapshot_columns
 from source.backend.models.credential import Credential
@@ -22,6 +22,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
+
+TWO_FACTOR_REEVALUATION_MIN_GAP = timedelta(hours=24)
 
 
 class SyncStatus(str, Enum):
@@ -141,7 +143,11 @@ def sync_credential(
 ) -> SyncResult:
     logger.debug(f"Sync requested for credential {credential_id}")
     credential = get_credential(db_session=db_session, credential_id=credential_id)
-    result = sync_credential_object(credential=credential, notify_two_factor_state=notify_two_factor_state)
+    result = sync_credential_object(
+        credential=credential,
+        notify_two_factor_state=notify_two_factor_state,
+        reevaluate_two_factor_requirement=True,
+    )
     if result.status == SyncStatus.COMPLETED:
         transfer_detection.detect_transfers_for_user(db_session=db_session, user=credential.user)
     db_session.commit()
@@ -151,6 +157,7 @@ def sync_credential(
 def sync_credential_object(
     credential: Credential,
     notify_two_factor_state: TwoFactorStateCallback | None = None,
+    reevaluate_two_factor_requirement: bool = False,
 ) -> SyncResult:
     logger.info(f"Syncing {credential}")
     handler = credential.handler
@@ -168,6 +175,8 @@ def sync_credential_object(
     handler.notify_two_factor_state = track_two_factor_state
     handler.session_state = credential.session_state
 
+    previous_fetching_timestamp = credential.last_fetching_timestamp
+
     try:
         credential.sync(handler)
     except ReauthenticationRequiredError:
@@ -183,10 +192,21 @@ def sync_credential_object(
         )
 
     credential.session_state = handler.session_state
-    if two_factor_used:
-        credential.requires_two_factor_authentication = True
+    if reevaluate_two_factor_requirement and _should_reevaluate_two_factor(previous_fetching_timestamp):
+        if credential.requires_two_factor_authentication != two_factor_used:
+            logger.info(
+                f"{credential} 2FA requirement re-evaluated: "
+                f"{credential.requires_two_factor_authentication} -> {two_factor_used}"
+            )
+        credential.requires_two_factor_authentication = two_factor_used
     logger.info(f"Synced {credential}")
     return SyncResult(status=SyncStatus.COMPLETED)
+
+
+def _should_reevaluate_two_factor(previous_fetching_timestamp: datetime | None) -> bool:
+    if previous_fetching_timestamp is None:
+        return True
+    return utc_now() - previous_fetching_timestamp >= TWO_FACTOR_REEVALUATION_MIN_GAP
 
 
 def sync_all_due_credentials(db_session: Session) -> None:

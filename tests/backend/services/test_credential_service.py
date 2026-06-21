@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -192,7 +192,9 @@ def test_sync_marks_credential_when_handler_requests_two_factor(
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
-        result = credential_service.sync_credential_object(credential=credential)
+        result = credential_service.sync_credential_object(
+            credential=credential, reevaluate_two_factor_requirement=True
+        )
         assert credential.requires_two_factor_authentication is True
 
     assert result.status == credential_service.SyncStatus.COMPLETED
@@ -208,8 +210,65 @@ def test_sync_leaves_two_factor_flag_unset_without_two_factor(
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
-        credential_service.sync_credential_object(credential=credential)
+        credential_service.sync_credential_object(credential=credential, reevaluate_two_factor_requirement=True)
         assert credential.requires_two_factor_authentication is False
+
+
+def test_reevaluating_sync_clears_two_factor_flag_when_no_longer_needed(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(
+        session_factory,
+        user_id=user_id,
+        requires_two_factor_authentication=True,
+        last_fetching_timestamp=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=25),
+    )
+
+    monkeypatch.setattr(target=Credential, name="sync", value=lambda self, handler: None)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential_service.sync_credential_object(credential=credential, reevaluate_two_factor_requirement=True)
+        assert credential.requires_two_factor_authentication is False
+
+
+def test_reevaluating_sync_keeps_two_factor_flag_when_previous_fetch_too_recent(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(
+        session_factory,
+        user_id=user_id,
+        requires_two_factor_authentication=True,
+        last_fetching_timestamp=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1),
+    )
+
+    monkeypatch.setattr(target=Credential, name="sync", value=lambda self, handler: None)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential_service.sync_credential_object(credential=credential, reevaluate_two_factor_requirement=True)
+        assert credential.requires_two_factor_authentication is True
+
+
+def test_non_reevaluating_sync_does_not_touch_two_factor_flag(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(
+        session_factory,
+        user_id=user_id,
+        requires_two_factor_authentication=True,
+        last_fetching_timestamp=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=48),
+    )
+
+    monkeypatch.setattr(target=Credential, name="sync", value=lambda self, handler: None)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential_service.sync_credential_object(credential=credential)
+        assert credential.requires_two_factor_authentication is True
 
 
 def test_sync_reraises_reauth_when_handler_has_no_interactive_challenge(

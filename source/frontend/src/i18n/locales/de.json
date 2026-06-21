@@ -347,6 +347,12 @@
     },
     "lastSynced": "Zuletzt synchronisiert",
     "neverSynced": "Noch nie synchronisiert",
+    "autoSync": {
+      "enabled_one": "Dieses Konto wird automatisch im {{hours}}-Stunden-Takt synchronisiert.",
+      "enabled_other": "Diese Konten werden automatisch im {{hours}}-Stunden-Takt synchronisiert.",
+      "disabled_one": "Dieses Konto wird nicht automatisch synchronisiert, da ein zweiter Faktor benötigt wird.",
+      "disabled_other": "Diese Konten werden nicht automatisch synchronisiert, da ein zweiter Faktor benötigt wird."
+    },
     "groups": {
       "title": "Kontogruppen",
       "back": "Zurück",
