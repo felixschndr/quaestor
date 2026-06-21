@@ -24,7 +24,7 @@ from source.backend.api import (
     version,
 )
 from source.backend.api.exception_handlers import register_exception_handlers
-from source.backend.api.openapi import API_DESCRIPTION, configure_openapi
+from source.backend.api.openapi import API_DESCRIPTION
 from source.backend.constants import API_PREFIX
 from source.backend.db import SessionLocal, close_engine, log_database_location
 from source.backend.helpers import (
@@ -293,7 +293,6 @@ for api_object in [
 ]:
     app.include_router(api_object.router, prefix=API_PREFIX)
 register_exception_handlers(app)
-configure_openapi(app)
 
 app.mount(path="/static", app=StaticFiles(directory=(get_backend_source_path() / "static")), name="static")
 

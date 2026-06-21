@@ -2,7 +2,8 @@ import os
 import secrets
 from datetime import timedelta
 
-from fastapi import Depends, Request, Response
+from fastapi import Depends, Request, Response, Security
+from fastapi.security import APIKeyCookie, HTTPBearer
 from source.backend.db import get_session
 from source.backend.exceptions import (
     CannotRevokeCurrentSessionError,
@@ -21,6 +22,9 @@ logger = get_logger(__name__)
 
 SESSION_DURATION = timedelta(days=14)
 COOKIE_NAME = "session"
+
+_session_cookie_scheme = APIKeyCookie(name=COOKIE_NAME, scheme_name="Session cookie", auto_error=False)
+_api_key_bearer_scheme = HTTPBearer(scheme_name="API key", auto_error=False)
 
 
 def cookie_is_secure() -> bool:
@@ -156,7 +160,11 @@ def clear_session_cookie(response: Response) -> None:
     response.delete_cookie(COOKIE_NAME, path="/")
 
 
-def get_current_user_from_session(request: Request, db_session: Session = Depends(get_session)) -> User:
+def get_current_user_from_session(
+    request: Request,
+    db_session: Session = Depends(get_session),
+    _cookie: str | None = Security(_session_cookie_scheme),
+) -> User:
     raw_token = request.cookies.get(COOKIE_NAME)
     if not raw_token:
         logger.debug(f"[{request.method}] [{request.url.path}]: no session cookie, authentication failed")
@@ -181,7 +189,12 @@ def _authenticate_via_api_key(request: Request, db_session: Session) -> User:
     return user
 
 
-def get_current_user_from_request(request: Request, db_session: Session = Depends(get_session)) -> User:
+def get_current_user_from_request(
+    request: Request,
+    db_session: Session = Depends(get_session),
+    _cookie: str | None = Security(_session_cookie_scheme),
+    _bearer: object = Security(_api_key_bearer_scheme),
+) -> User:
     if api_key_service.request_carries_api_key(request):
         return _authenticate_via_api_key(request=request, db_session=db_session)
     return get_current_user_from_session(request=request, db_session=db_session)
