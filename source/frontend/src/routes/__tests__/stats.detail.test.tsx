@@ -7,6 +7,8 @@ import '@/i18n'
 const routerState = vi.hoisted(() => ({
   search: { account_ids: [42, 43], end: '2026-05-20' } as Record<string, unknown>,
   navigate: vi.fn(),
+  back: vi.fn(),
+  canGoBack: true,
 }))
 
 vi.mock('@tanstack/react-router', () => ({
@@ -31,6 +33,8 @@ vi.mock('@tanstack/react-router', () => ({
     useSearch: () => routerState.search,
   }),
   useNavigate: () => routerState.navigate,
+  useRouter: () => ({ history: { back: routerState.back } }),
+  useCanGoBack: () => routerState.canGoBack,
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -120,7 +124,26 @@ import { NetWorthDetailPage } from '@/routes/stats_.detail'
 describe('NetWorthDetailPage', () => {
   beforeEach(() => {
     routerState.search = { account_ids: [42, 43], end: '2026-05-20' }
+    routerState.canGoBack = true
     routerState.navigate.mockClear()
+    routerState.back.mockClear()
+  })
+
+  it('returns through history so the stats filters are restored', async () => {
+    render(<NetWorthDetailPage />)
+
+    await userEvent.click(screen.getByRole('link', { name: 'Back to statistics' }))
+    expect(routerState.back).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to the stats link when there is no history to go back to', async () => {
+    routerState.canGoBack = false
+    render(<NetWorthDetailPage />)
+
+    const back = screen.getByRole('link', { name: 'Back to statistics' })
+    expect(back).toHaveAttribute('href', '/stats')
+    await userEvent.click(back)
+    expect(routerState.back).not.toHaveBeenCalled()
   })
 
   it('keeps a row collapsed until it is in the expanded URL state', async () => {

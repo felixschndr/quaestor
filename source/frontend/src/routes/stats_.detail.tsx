@@ -1,4 +1,4 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, useCanGoBack, useNavigate, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Collapsible } from 'radix-ui'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -53,6 +53,8 @@ export function NetWorthDetailPage() {
   const search = Route.useSearch()
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const router = useRouter()
+  const canGoBack = useCanGoBack()
   const { data: user } = useAuthMe()
   const layout = useAccountGroupLayout()
   const accountIds = search.account_ids ?? []
@@ -124,6 +126,12 @@ export function NetWorthDetailPage() {
       <header className="flex items-center gap-2">
         <Link
           to="/stats"
+          onClick={(event) => {
+            if (canGoBack) {
+              event.preventDefault()
+              router.history.back()
+            }
+          }}
           aria-label={t('stats.day.back')}
           className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
         >
