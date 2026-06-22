@@ -177,6 +177,12 @@ describe('TransactionSearchView — form', () => {
     expect(onSubmit.mock.calls[0][0].filters.amount_from).toBe(7)
   })
 
+  it('prefills the type and transfer selects from the URL (a stats drill-in)', () => {
+    renderView({ search: { transaction_type: 'FEES', linked: 'linked' } })
+    expect((screen.getByLabelText('Type') as HTMLSelectElement).value).toBe('FEES')
+    expect((screen.getByLabelText('Transfer') as HTMLSelectElement).value).toBe('linked')
+  })
+
   it('renders translated labels for the transaction type select', () => {
     renderView()
     const select = screen.getByLabelText('Type') as HTMLSelectElement

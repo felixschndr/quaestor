@@ -112,6 +112,8 @@ function StatsPage() {
             date_to: drill.dateTo,
             category: drill.category,
             text: drill.text,
+            transaction_type: drill.transactionType,
+            linked: drill.linked,
             amount_from: drill.direction === 'INCOMING' ? 0 : undefined,
             amount_to: drill.direction === 'OUTGOING' ? 0 : undefined,
             submitted: '1',
@@ -145,6 +147,8 @@ export interface StatsDrilldown {
   direction?: StatsDirection
   category?: TransactionCategory
   text?: string
+  transactionType?: TransactionType
+  linked?: StatsLinked
 }
 
 export interface StatsViewProps {
@@ -212,12 +216,17 @@ export function StatsView({
     selectedCategories.length === FILTERABLE_CATEGORIES.length ? [] : selectedCategories
   const typeFilters: StatsTypeFilters = { transaction_type: transactionType, linked }
 
+  const singleCategory = selectedCategories.length === 1 ? selectedCategories[0] : undefined
+
   const openSearch = (extra: { category?: TransactionCategory; text?: string }) =>
     onOpenSearch({
       accountIds,
       dateFrom: filters.date_from,
       dateTo: filters.date_to,
       direction,
+      transactionType,
+      linked,
+      category: singleCategory,
       ...extra,
     })
 
