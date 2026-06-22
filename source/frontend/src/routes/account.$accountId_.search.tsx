@@ -159,6 +159,21 @@ function SearchForm({
   const { t } = useTranslation()
   const [accountIds, setAccountIds] = useState<number[]>(initialAccountIds)
   const [draft, setDraft] = useState<TransactionFilters>(initialFilters)
+  // The from/to amount signs are independent, but the range must stay ordered:
+  // "from +, to −" is nonsensical, so making "to" negative pulls "from" negative
+  // too, and making "from" positive pushes "to" positive too. Every other combo
+  // (incl. from −, to +) is left untouched.
+  const [fromNegative, setFromNegative] = useState<boolean>((initialFilters.amount_from ?? 0) < 0)
+  const [toNegative, setToNegative] = useState<boolean>((initialFilters.amount_to ?? 0) < 0)
+
+  const handleFromNegativeChange = (next: boolean) => {
+    setFromNegative(next)
+    if (!next) setToNegative(false)
+  }
+  const handleToNegativeChange = (next: boolean) => {
+    setToNegative(next)
+    if (next) setFromNegative(true)
+  }
 
   const update = <K extends keyof TransactionFilters>(key: K, value: TransactionFilters[K]) =>
     setDraft((prev) => ({ ...prev, [key]: value }))
@@ -199,6 +214,8 @@ function SearchForm({
             id="search-amount-from"
             value={draft.amount_from}
             onChange={(value) => update('amount_from', value)}
+            negative={fromNegative}
+            onNegativeChange={handleFromNegativeChange}
           />
         </Field>
         <Field id="search-amount-to" label={t('search.amountTo')}>
@@ -206,6 +223,8 @@ function SearchForm({
             id="search-amount-to"
             value={draft.amount_to}
             onChange={(value) => update('amount_to', value)}
+            negative={toNegative}
+            onNegativeChange={handleToNegativeChange}
           />
         </Field>
       </Pair>

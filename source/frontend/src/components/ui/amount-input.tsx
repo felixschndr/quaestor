@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Input } from '@/components/ui/input'
@@ -16,6 +16,8 @@ export function AmountInput({
   onKeyDown,
   className,
   inputClassName,
+  negative,
+  onNegativeChange,
   'aria-label': ariaLabel,
   'aria-invalid': ariaInvalid,
 }: {
@@ -29,6 +31,11 @@ export function AmountInput({
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
   className?: string
   inputClassName?: string
+  // Controlled sign: pass `negative` (plus `onNegativeChange`) to let a parent
+  // link the sign across several inputs — e.g. a from/to range that flips both
+  // signs together. When omitted, the toggle manages its own sign internally.
+  negative?: boolean
+  onNegativeChange?: (next: boolean) => void
   'aria-label'?: string
   'aria-invalid'?: boolean
 }) {
@@ -41,7 +48,9 @@ export function AmountInput({
         ? formatAmountForInput(Math.abs(value))
         : String(Math.abs(value))
   const [magnitude, setMagnitude] = useState<string>(initialMagnitude)
-  const [isNegative, setIsNegative] = useState<boolean>(initialNegative)
+  const [internalNegative, setInternalNegative] = useState<boolean>(initialNegative)
+  const controlled = negative !== undefined
+  const isNegative = controlled ? negative : internalNegative
 
   const parseMagnitude = (raw: string): number | null => {
     const trimmed = raw.trim().replace(',', '.')
@@ -55,6 +64,27 @@ export function AmountInput({
     onChange(parsed === null ? undefined : nextNegative ? -parsed : parsed)
   }
 
+  // When the controlled sign changes from the outside (a linked input was
+  // toggled), re-sign this field's current magnitude so its value follows.
+  const prevNegative = useRef(negative)
+  useEffect(() => {
+    if (!controlled || prevNegative.current === negative) return
+    prevNegative.current = negative
+    emit(magnitude, negative)
+    // Only react to sign changes; magnitude edits emit through onChange already.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [negative])
+
+  const toggleSign = () => {
+    const next = !isNegative
+    if (controlled) {
+      onNegativeChange?.(next)
+    } else {
+      setInternalNegative(next)
+      emit(magnitude, next)
+    }
+  }
+
   return (
     <div className={cn('flex min-w-0 items-center gap-1.5', className)}>
       <button
@@ -62,11 +92,7 @@ export function AmountInput({
         aria-label={isNegative ? t('search.amountMakePositive') : t('search.amountMakeNegative')}
         aria-pressed={isNegative}
         disabled={disabled}
-        onClick={() => {
-          const next = !isNegative
-          setIsNegative(next)
-          emit(magnitude, next)
-        }}
+        onClick={toggleSign}
         className={cn(
           'border-input flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-transparent text-sm font-medium transition-colors',
           'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3',
