@@ -70,6 +70,8 @@ function toSearch(next: StatsViewState): StatsSearchParams {
     date_to: next.filters.date_to,
     chart_type: next.chartType,
     direction: next.direction,
+    transaction_type: next.transactionType,
+    linked: next.linked === undefined ? 'any' : next.linked === 'unlinked' ? undefined : 'linked',
     categories:
       next.categories.length === FILTERABLE_CATEGORIES.length ? undefined : next.categories,
   }
@@ -132,6 +134,49 @@ describe('StatsView', () => {
 
     expect(onChange).toHaveBeenCalled()
     expect(onChange.mock.calls.at(-1)?.[0].direction).toBe('INCOMING')
+  })
+
+  it('renders the category, type and transfer filters together', () => {
+    renderView()
+    expect(screen.getByLabelText('Categories')).toBeInTheDocument()
+    expect(screen.getByLabelText('Type')).toBeInTheDocument()
+    expect(screen.getByLabelText('Transfer')).toBeInTheDocument()
+  })
+
+  it('fires onChange with the picked transaction type', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderView()
+
+    await user.selectOptions(screen.getByLabelText('Type'), 'FEES')
+
+    expect(onChange.mock.calls.at(-1)?.[0].transactionType).toBe('FEES')
+  })
+
+  it('fires onChange restricting to transfers (Umbuchungen)', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderView()
+
+    await user.selectOptions(screen.getByLabelText('Transfer'), 'linked')
+
+    expect(onChange.mock.calls.at(-1)?.[0].linked).toBe('linked')
+  })
+
+  it('defaults the transfer filter to "no transfer" (Keine Umbuchung)', () => {
+    renderView()
+    expect((screen.getByLabelText('Transfer') as HTMLSelectElement).value).toBe('unlinked')
+  })
+
+  it('lets the user opt into "Any" transfers and persists it', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderView()
+    const transfer = screen.getByLabelText('Transfer') as HTMLSelectElement
+
+    await user.selectOptions(transfer, '')
+
+    // The view echoes "no restriction" (undefined) and the round-tripped URL
+    // keeps the select on "Any" rather than snapping back to the default.
+    expect(onChange.mock.calls.at(-1)?.[0].linked).toBeUndefined()
+    expect(transfer.value).toBe('')
   })
 
   it('fires onChange with chartType pie when switching the category chart to Pie', async () => {

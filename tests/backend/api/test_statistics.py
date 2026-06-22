@@ -127,6 +127,66 @@ def test_categories_include_transfers(http_client: TestClient, session_factory: 
     assert response.json() == [{"category": "SALARY", "total": 200.0}, {"category": "SAVINGS", "total": 100.0}]
 
 
+def test_categories_filter_by_transaction_type(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    with session_factory() as session:
+        make_transaction(
+            session,
+            account_id=account_id,
+            amount=-10.0,
+            category=TransactionCategory.FUEL,
+            transaction_type=TransactionType.OUTGOING,
+        )
+        make_transaction(
+            session,
+            account_id=account_id,
+            amount=-20.0,
+            category=TransactionCategory.FEES,
+            transaction_type=TransactionType.FEES,
+        )
+        session.commit()
+
+    response = http_client.get(
+        "/api/statistics/categories",
+        params=[("account_ids", account_id), ("transaction_type", "FEES")],
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [{"category": "FEES", "total": 20.0}]
+
+
+def test_categories_filter_by_linked_transfers_only(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    with session_factory() as session:
+        out = make_transaction(session, account_id=account_id, amount=-100.0, category=TransactionCategory.SAVINGS)
+        back = make_transaction(session, account_id=account_id, amount=-100.0, category=TransactionCategory.RENT)
+        session.flush()
+        out.transfer_counterpart_id = back.id
+        session.commit()
+
+    linked = http_client.get(
+        "/api/statistics/categories",
+        params=[("account_ids", account_id), ("linked", "linked")],
+    )
+    unlinked = http_client.get(
+        "/api/statistics/categories",
+        params=[("account_ids", account_id), ("linked", "unlinked")],
+    )
+
+    assert linked.status_code == 200
+    assert linked.json() == [{"category": "SAVINGS", "total": 100.0}]
+    assert unlinked.json() == [{"category": "RENT", "total": 100.0}]
+
+
+def test_categories_rejects_invalid_transaction_type(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    response = http_client.get(
+        "/api/statistics/categories",
+        params=[("account_ids", account_id), ("transaction_type", "NONSENSE")],
+    )
+    assert response.status_code == 422
+
+
 def test_categories_filter_restricts_results(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     with session_factory() as session:

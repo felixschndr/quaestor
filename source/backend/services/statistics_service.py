@@ -11,6 +11,7 @@ from source.backend.api.schemas.statistics import (
     NetWorthSummary,
     OtherPartySlice,
     StatisticsDirection,
+    StatisticsLinked,
 )
 from source.backend.api.schemas.transaction import TransactionRead
 from source.backend.logging_utils import get_logger
@@ -18,6 +19,7 @@ from source.backend.models.account import Account
 from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
+from source.backend.models.transaction_type import TransactionType
 from source.backend.models.user import User
 from source.backend.services import account_service
 from sqlalchemy import ColumnElement, case, func, select
@@ -34,6 +36,8 @@ def _base_conditions(
     date_from: datetime.date | None,
     date_to: datetime.date | None,
     categories: list[TransactionCategory],
+    transaction_type: TransactionType | None = None,
+    linked: StatisticsLinked | None = None,
 ) -> list[ColumnElement[bool]]:
     # Conditions shared by every statistic
     conditions: list[ColumnElement[bool]] = [
@@ -46,6 +50,13 @@ def _base_conditions(
         conditions.append(Transaction.date <= date_to)
     if categories:
         conditions.append(Transaction.category.in_(categories))
+    if transaction_type is not None:
+        conditions.append(Transaction.transaction_type == transaction_type)
+    if linked is not None:
+        if linked == "linked":
+            conditions.append(Transaction.transfer_counterpart_id.isnot(None))
+        else:
+            conditions.append(Transaction.transfer_counterpart_id.is_(None))
     return conditions
 
 
@@ -64,6 +75,8 @@ def category_breakdown(
     date_to: datetime.date | None,
     direction: StatisticsDirection,
     categories: list[TransactionCategory],
+    transaction_type: TransactionType | None = None,
+    linked: StatisticsLinked | None = None,
 ) -> list[CategorySlice]:
     owned_account_ids = account_service.resolve_owned_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
@@ -76,7 +89,12 @@ def category_breakdown(
         select(Transaction.category, total)  # noqa: FKA100
         .where(
             *_base_conditions(
-                account_ids=owned_account_ids, date_from=date_from, date_to=date_to, categories=categories
+                account_ids=owned_account_ids,
+                date_from=date_from,
+                date_to=date_to,
+                categories=categories,
+                transaction_type=transaction_type,
+                linked=linked,
             )
         )
         .where(_direction_condition(direction))
@@ -96,13 +114,24 @@ def _monthly_cashflow(
     date_from: datetime.date | None,
     date_to: datetime.date | None,
     categories: list[TransactionCategory],
+    transaction_type: TransactionType | None = None,
+    linked: StatisticsLinked | None = None,
 ) -> list[MonthlyCashflow]:
     month = func.strftime("%Y-%m", Transaction.date)  # noqa: FKA100
     income = func.sum(case((Transaction.amount > 0, Transaction.amount), else_=0.0))
     expenses = func.sum(case((Transaction.amount < 0, -Transaction.amount), else_=0.0))
     rows = db_session.execute(
         select(month, income, expenses)  # noqa: FKA100
-        .where(*_base_conditions(account_ids=account_ids, date_from=date_from, date_to=date_to, categories=categories))
+        .where(
+            *_base_conditions(
+                account_ids=account_ids,
+                date_from=date_from,
+                date_to=date_to,
+                categories=categories,
+                transaction_type=transaction_type,
+                linked=linked,
+            )
+        )
         .group_by(month)
         .order_by(month)
     ).all()
@@ -124,6 +153,8 @@ def monthly_cashflow(
     date_from: datetime.date | None,
     date_to: datetime.date | None,
     categories: list[TransactionCategory],
+    transaction_type: TransactionType | None = None,
+    linked: StatisticsLinked | None = None,
 ) -> list[MonthlyCashflow]:
     owned_account_ids = account_service.resolve_owned_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
@@ -136,6 +167,8 @@ def monthly_cashflow(
         date_from=date_from,
         date_to=date_to,
         categories=categories,
+        transaction_type=transaction_type,
+        linked=linked,
     )
     logger.debug(f"Computed monthly cashflow over {len(cashflow)} month(s) for {user}")
     return cashflow
@@ -149,6 +182,8 @@ def monthly_net_savings(
     date_from: datetime.date | None,
     date_to: datetime.date | None,
     categories: list[TransactionCategory],
+    transaction_type: TransactionType | None = None,
+    linked: StatisticsLinked | None = None,
 ) -> list[MonthlyNetSavings]:
     owned_account_ids = account_service.resolve_owned_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
@@ -161,6 +196,8 @@ def monthly_net_savings(
         date_from=date_from,
         date_to=date_to,
         categories=categories,
+        transaction_type=transaction_type,
+        linked=linked,
     )
     result = []
     for entry in cashflow:
@@ -180,6 +217,8 @@ def top_other_parties(
     date_to: datetime.date | None,
     direction: StatisticsDirection,
     categories: list[TransactionCategory],
+    transaction_type: TransactionType | None = None,
+    linked: StatisticsLinked | None = None,
     limit: int = DEFAULT_TOP_OTHER_PARTIES_LIMIT,
 ) -> list[OtherPartySlice]:
     owned_account_ids = account_service.resolve_owned_account_ids(
@@ -193,7 +232,12 @@ def top_other_parties(
         select(Transaction.other_party, total)  # noqa: FKA100
         .where(
             *_base_conditions(
-                account_ids=owned_account_ids, date_from=date_from, date_to=date_to, categories=categories
+                account_ids=owned_account_ids,
+                date_from=date_from,
+                date_to=date_to,
+                categories=categories,
+                transaction_type=transaction_type,
+                linked=linked,
             )
         )
         .where(_direction_condition(direction))

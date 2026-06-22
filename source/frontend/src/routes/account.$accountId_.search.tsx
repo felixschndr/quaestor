@@ -6,9 +6,11 @@ import { z } from 'zod'
 
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
 import { Button } from '@/components/ui/button'
-import { DatePicker } from '@/components/ui/date-picker'
+import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
+import { TransactionFilterFields } from '@/components/ui/transaction-filter-fields'
 import type { TransactionRead } from '@/lib/accountHistory'
 import { accountDisplayName } from '@/lib/accounts'
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
@@ -17,7 +19,6 @@ import {
   TRANSACTION_CATEGORIES,
   TRANSACTION_TYPES,
   type TransactionCategory,
-  type TransactionType,
 } from '@/lib/transaction'
 import { useSearchTransactions, type TransactionFilters } from '@/lib/transactionSearch'
 import { cn } from '@/lib/utils'
@@ -165,11 +166,6 @@ function SearchForm({
     onSubmit({ accountIds, filters: draft })
   }
 
-  const typeOptions = [...TRANSACTION_TYPES].sort((a, b) => {
-    if (a === 'ZERO') return 1
-    if (b === 'ZERO') return -1
-    return t(`transactionType.${a}`).localeCompare(t(`transactionType.${b}`), i18n.language)
-  })
   const categoryOptions = [...TRANSACTION_CATEGORIES].sort((a, b) => {
     if (a === 'UNKNOWN') return 1
     if (b === 'UNKNOWN') return -1
@@ -215,75 +211,43 @@ function SearchForm({
         </Field>
       </Pair>
 
-      <Pair>
-        <Field id="search-date-from" label={t('search.dateFrom')}>
-          <DatePicker
-            id="search-date-from"
-            value={draft.date_from ?? ''}
-            onChange={(next) => update('date_from', next || undefined)}
-            placeholder={t('search.datePlaceholder')}
-          />
-        </Field>
-        <Field id="search-date-to" label={t('search.dateTo')}>
-          <DatePicker
-            id="search-date-to"
-            value={draft.date_to ?? ''}
-            onChange={(next) => update('date_to', next || undefined)}
-            placeholder={t('search.datePlaceholder')}
-          />
-        </Field>
-      </Pair>
+      <DateRangeFields
+        idPrefix="search"
+        placeholder={t('search.datePlaceholder')}
+        dateFrom={draft.date_from}
+        dateTo={draft.date_to}
+        onDateFromChange={(next) => update('date_from', next)}
+        onDateToChange={(next) => update('date_to', next)}
+      />
 
-      <Field id="search-type" label={t('search.transactionType')}>
-        <NativeSelect
-          id="search-type"
-          value={draft.transaction_type ?? ''}
-          onChange={(event) =>
-            update(
-              'transaction_type',
-              (event.target.value || undefined) as TransactionType | undefined,
-            )
-          }
-        >
-          <option value="">{t('search.anyOption')}</option>
-          {typeOptions.map((typeValue) => (
-            <option key={typeValue} value={typeValue}>
-              {t(`transactionType.${typeValue}`)}
-            </option>
-          ))}
-        </NativeSelect>
-      </Field>
-
-      <Field id="search-category" label={t('search.category')}>
-        <NativeSelect
-          id="search-category"
-          value={draft.category ?? ''}
-          onChange={(event) =>
-            update('category', (event.target.value || undefined) as TransactionCategory | undefined)
-          }
-        >
-          <option value="">{t('search.anyOption')}</option>
-          {categoryOptions.map((categoryValue) => (
-            <option key={categoryValue} value={categoryValue}>
-              {t(`category.${categoryValue}`)}
-            </option>
-          ))}
-        </NativeSelect>
-      </Field>
-
-      <Field id="search-linked" label={t('search.linked')}>
-        <NativeSelect
-          id="search-linked"
-          value={draft.linked ?? ''}
-          onChange={(event) =>
-            update('linked', (event.target.value || undefined) as TransactionFilters['linked'])
-          }
-        >
-          <option value="">{t('search.anyOption')}</option>
-          <option value="linked">{t('search.linkedYes')}</option>
-          <option value="unlinked">{t('search.linkedNo')}</option>
-        </NativeSelect>
-      </Field>
+      <TransactionFilterFields
+        idPrefix="search"
+        categoryLabel={t('search.category')}
+        categoryControlId="search-category"
+        categoryControl={
+          <NativeSelect
+            id="search-category"
+            value={draft.category ?? ''}
+            onChange={(event) =>
+              update(
+                'category',
+                (event.target.value || undefined) as TransactionCategory | undefined,
+              )
+            }
+          >
+            <option value="">{t('filters.anyOption')}</option>
+            {categoryOptions.map((categoryValue) => (
+              <option key={categoryValue} value={categoryValue}>
+                {t(`category.${categoryValue}`)}
+              </option>
+            ))}
+          </NativeSelect>
+        }
+        transactionType={draft.transaction_type}
+        onTransactionTypeChange={(next) => update('transaction_type', next)}
+        transfer={draft.linked}
+        onTransferChange={(next) => update('linked', next)}
+      />
 
       <Button type="submit" disabled={accountIds.length === 0}>
         {t('search.submit')}
@@ -374,29 +338,6 @@ function Field({ id, label, children }: { id: string; label: string; children: R
 
 function Pair({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-2 gap-3">{children}</div>
-}
-
-function NativeSelect({
-  id,
-  value,
-  onChange,
-  children,
-}: {
-  id: string
-  value: string
-  onChange: (event: React.ChangeEvent<HTMLSelectElement>) => void
-  children: React.ReactNode
-}) {
-  return (
-    <select
-      id={id}
-      value={value}
-      onChange={onChange}
-      className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 dark:bg-input/30"
-    >
-      {children}
-    </select>
-  )
 }
 
 type SortKey =

@@ -4,8 +4,10 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 from source.backend.api.schemas.transaction import TransactionRead
 from source.backend.models.transaction_category import TransactionCategory
+from source.backend.models.transaction_type import TransactionType
 
 StatisticsDirection = Literal["INCOMING", "OUTGOING"]
+StatisticsLinked = Literal["linked", "unlinked"]
 
 
 class StatisticsQuery(BaseModel):
@@ -13,6 +15,8 @@ class StatisticsQuery(BaseModel):
     date_from: date | None = None
     date_to: date | None = None
     categories: list[TransactionCategory] = Field(default_factory=list)
+    transaction_type: TransactionType | None = None
+    linked: StatisticsLinked | None = None
 
 
 class DirectionalStatisticsQuery(StatisticsQuery):

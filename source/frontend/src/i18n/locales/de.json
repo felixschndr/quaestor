@@ -103,15 +103,8 @@
     "amountTo": "Betrag bis",
     "amountMakeNegative": "Negativ machen",
     "amountMakePositive": "Positiv machen",
-    "dateFrom": "Datum von",
-    "dateTo": "Datum bis",
     "datePlaceholder": "Datum wählen",
-    "transactionType": "Typ",
     "category": "Kategorie",
-    "linked": "Umbuchung",
-    "linkedYes": "Umbuchung",
-    "linkedNo": "Keine Umbuchung",
-    "anyOption": "Beliebig",
     "submit": "Suchen",
     "empty": "Keine Transaktionen passen zu deinen Filtern.",
     "error": "Suche fehlgeschlagen. Bitte erneut versuchen.",
@@ -567,12 +560,21 @@
     "categoryUpdateFailed": "Kategorie konnte nicht gespeichert werden",
     "linkedAccountUnknown": "Anderes Konto"
   },
+  "filters": {
+    "typeLabel": "Typ",
+    "transferLabel": "Umbuchung",
+    "anyOption": "Beliebig",
+    "transfer": {
+      "linked": "Umbuchung",
+      "unlinked": "Keine Umbuchung"
+    },
+    "dateFrom": "Datum von",
+    "dateTo": "Bis"
+  },
   "stats": {
     "title": "Statistiken",
     "back": "Zurück",
     "accountsLabel": "Konten",
-    "dateFrom": "Von",
-    "dateTo": "Bis",
     "rangeLabel": "Zeitraum",
     "range": {
       "2w": "2 W",

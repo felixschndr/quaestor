@@ -4,8 +4,9 @@ import { ChevronLeft } from 'lucide-react'
 import { z } from 'zod'
 
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
-import { DatePicker } from '@/components/ui/date-picker'
+import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { Label } from '@/components/ui/label'
+import { TransactionFilterFields } from '@/components/ui/transaction-filter-fields'
 import { CategoryChart } from '@/components/stats/category-chart'
 import { CategoryMultiSelect } from '@/components/stats/category-multi-select'
 import { CashflowChart } from '@/components/stats/cashflow-chart'
@@ -16,7 +17,12 @@ import { NetSavingsChart } from '@/components/stats/net-savings-chart'
 import { NetWorthChart } from '@/components/stats/net-worth-chart'
 import { SegmentedToggle } from '@/components/stats/segmented-toggle'
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
-import { TRANSACTION_CATEGORIES, type TransactionCategory } from '@/lib/transaction'
+import {
+  TRANSACTION_CATEGORIES,
+  TRANSACTION_TYPES,
+  type TransactionCategory,
+  type TransactionType,
+} from '@/lib/transaction'
 import {
   DATE_RANGE_PRESETS,
   defaultStatsDateRange,
@@ -32,6 +38,8 @@ import {
   type DateRangePreset,
   type StatsDirection,
   type StatsFilters,
+  type StatsLinked,
+  type StatsTypeFilters,
 } from '@/lib/statistics'
 
 // URL-state schema. `account_ids` may be omitted (→ all accounts) or carry a
@@ -42,6 +50,8 @@ const searchParamsSchema = z.object({
   date_to: z.string().optional(),
   chart_type: z.enum(['bar', 'pie']).optional(),
   direction: z.enum(['INCOMING', 'OUTGOING']).optional(),
+  transaction_type: z.enum(TRANSACTION_TYPES).optional(),
+  linked: z.enum(['linked', 'unlinked', 'any']).optional(),
   account_ids: z
     .union([z.array(z.coerce.number()), z.coerce.number()])
     .transform((value) => (Array.isArray(value) ? value : [value]))
@@ -78,6 +88,9 @@ function StatsPage() {
             date_to: next.filters.date_to,
             chart_type: next.chartType,
             direction: next.direction,
+            transaction_type: next.transactionType,
+            linked:
+              next.linked === undefined ? 'any' : next.linked === 'unlinked' ? undefined : 'linked',
             // Omit from the URL when all are selected (the default).
             categories:
               next.categories.length === FILTERABLE_CATEGORIES.length ? undefined : next.categories,
@@ -121,6 +134,8 @@ export interface StatsViewState {
   chartType: ChartType
   direction: StatsDirection
   categories: TransactionCategory[]
+  transactionType?: TransactionType
+  linked?: StatsLinked
 }
 
 export interface StatsDrilldown {
@@ -162,9 +177,21 @@ export function StatsView({
   const direction: StatsDirection = search.direction ?? 'OUTGOING'
   // No `categories` in the URL → all selected (the default).
   const selectedCategories: TransactionCategory[] = search.categories ?? [...FILTERABLE_CATEGORIES]
+  const transactionType = search.transaction_type
+  const linked: StatsLinked | undefined =
+    search.linked === 'any' ? undefined : (search.linked ?? 'unlinked')
 
   const sync = (next: Partial<StatsViewState>) =>
-    onChange({ accountIds, filters, chartType, direction, categories: selectedCategories, ...next })
+    onChange({
+      accountIds,
+      filters,
+      chartType,
+      direction,
+      categories: selectedCategories,
+      transactionType,
+      linked,
+      ...next,
+    })
 
   const updateAccounts = (next: number[]) => sync({ accountIds: next })
   const updateFilter = (key: keyof StatsFilters, value: string | undefined) =>
@@ -175,11 +202,15 @@ export function StatsView({
   const updateChartType = (next: ChartType) => sync({ chartType: next })
   const updateDirection = (next: StatsDirection) => sync({ direction: next })
   const updateCategories = (next: TransactionCategory[]) => sync({ categories: next })
+  const updateTransactionType = (next: TransactionType | undefined) =>
+    sync({ transactionType: next })
+  const updateLinked = (next: StatsLinked | undefined) => sync({ linked: next })
 
   // All categories selected → send none (the backend then applies no category
   // filter); a subset → send exactly that subset.
   const categoriesParam =
     selectedCategories.length === FILTERABLE_CATEGORIES.length ? [] : selectedCategories
+  const typeFilters: StatsTypeFilters = { transaction_type: transactionType, linked }
 
   const openSearch = (extra: { category?: TransactionCategory; text?: string }) =>
     onOpenSearch({
@@ -195,11 +226,17 @@ export function StatsView({
   const openNetWorthSearch = () =>
     onOpenSearch({ accountIds, dateFrom: filters.date_from, dateTo: filters.date_to })
 
-  const categories = useCategoryStats(accountIds, filters, direction, categoriesParam)
-  const cashflow = useCashflowStats(accountIds, filters, categoriesParam)
-  const netSavings = useNetSavingsStats(accountIds, filters, categoriesParam)
+  const categories = useCategoryStats(accountIds, filters, direction, categoriesParam, typeFilters)
+  const cashflow = useCashflowStats(accountIds, filters, categoriesParam, typeFilters)
+  const netSavings = useNetSavingsStats(accountIds, filters, categoriesParam, typeFilters)
   const netWorth = useNetWorthStats(accountIds, filters)
-  const otherParties = useOtherPartyStats(accountIds, filters, direction, categoriesParam)
+  const otherParties = useOtherPartyStats(
+    accountIds,
+    filters,
+    direction,
+    categoriesParam,
+    typeFilters,
+  )
 
   return (
     <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 p-4">
@@ -224,32 +261,13 @@ export function StatsView({
             onChange={updateAccounts}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="stats-categories">{t('stats.categoriesLabel')}</Label>
-          <CategoryMultiSelect
-            id="stats-categories"
-            selectedIds={selectedCategories}
-            onChange={updateCategories}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="stats-date-from">{t('stats.dateFrom')}</Label>
-            <DatePicker
-              id="stats-date-from"
-              value={filters.date_from ?? ''}
-              onChange={(next) => updateFilter('date_from', next || undefined)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="stats-date-to">{t('stats.dateTo')}</Label>
-            <DatePicker
-              id="stats-date-to"
-              value={filters.date_to ?? ''}
-              onChange={(next) => updateFilter('date_to', next || undefined)}
-            />
-          </div>
-        </div>
+        <DateRangeFields
+          idPrefix="stats"
+          dateFrom={filters.date_from}
+          dateTo={filters.date_to}
+          onDateFromChange={(next) => updateFilter('date_from', next)}
+          onDateToChange={(next) => updateFilter('date_to', next)}
+        />
         <SegmentedToggle
           fullWidth
           ariaLabel={t('stats.rangeLabel')}
@@ -269,6 +287,22 @@ export function StatsView({
             { value: 'OUTGOING', label: t('stats.direction.OUTGOING') },
             { value: 'INCOMING', label: t('stats.direction.INCOMING') },
           ]}
+        />
+        <TransactionFilterFields
+          idPrefix="stats"
+          categoryLabel={t('stats.categoriesLabel')}
+          categoryControlId="stats-categories"
+          categoryControl={
+            <CategoryMultiSelect
+              id="stats-categories"
+              selectedIds={selectedCategories}
+              onChange={updateCategories}
+            />
+          }
+          transactionType={transactionType}
+          onTransactionTypeChange={updateTransactionType}
+          transfer={linked}
+          onTransferChange={updateLinked}
         />
       </section>
 

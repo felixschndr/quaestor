@@ -103,15 +103,8 @@
     "amountTo": "Amount to",
     "amountMakeNegative": "Make negative",
     "amountMakePositive": "Make positive",
-    "dateFrom": "From date",
-    "dateTo": "To date",
     "datePlaceholder": "Pick a date",
-    "transactionType": "Type",
     "category": "Category",
-    "linked": "Transfer",
-    "linkedYes": "Transfer",
-    "linkedNo": "Not a transfer",
-    "anyOption": "Any",
     "submit": "Search",
     "empty": "No transactions match your filters.",
     "error": "Search failed. Please try again.",
@@ -567,12 +560,21 @@
     "categoryUpdateFailed": "Could not update the category",
     "linkedAccountUnknown": "Other account"
   },
+  "filters": {
+    "typeLabel": "Type",
+    "transferLabel": "Transfer",
+    "anyOption": "Any",
+    "transfer": {
+      "linked": "Transfer",
+      "unlinked": "No transfer"
+    },
+    "dateFrom": "From date",
+    "dateTo": "To"
+  },
   "stats": {
     "title": "Statistics",
     "back": "Back",
     "accountsLabel": "Accounts",
-    "dateFrom": "From",
-    "dateTo": "To",
     "rangeLabel": "Range",
     "range": {
       "2w": "2W",
