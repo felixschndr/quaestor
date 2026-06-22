@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 20
 
@@ -81,7 +81,7 @@ jobs:
       && (github.ref != 'refs/heads/main' || needs.check_version.outputs.version_changed == 'true')
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ (github.ref == 'refs/heads/main' && needs.check_version.outputs.version_changed == 'true') && needs.check_version.outputs.bump_sha || '' }}
 
@@ -127,7 +127,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 0
           ref: ${{ needs.check_version.outputs.bump_sha }}
