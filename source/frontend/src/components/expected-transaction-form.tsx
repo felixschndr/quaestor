@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FormField, SELECT_INPUT_CLASS } from '@/components/form-field'
@@ -13,8 +14,6 @@ import {
   type ExpectedTransactionRead,
 } from '@/lib/expectedTransaction'
 import { formatAmountForInput } from '@/lib/format'
-
-type Direction = 'in' | 'out'
 
 interface ExpectedTransactionFormProps {
   accountId: number
@@ -30,12 +29,7 @@ export function ExpectedTransactionForm({
 }: ExpectedTransactionFormProps) {
   const { t } = useTranslation()
   const isEdit = !!expected
-  const [direction, setDirection] = useState<Direction>(
-    expected && expected.amount < 0 ? 'out' : 'in',
-  )
-  const [amount, setAmount] = useState(
-    expected ? formatAmountForInput(Math.abs(expected.amount)) : '',
-  )
+  const [amount, setAmount] = useState<number | undefined>(expected?.amount)
   const [otherParty, setOtherParty] = useState(expected?.other_party ?? '')
   const [note, setNote] = useState(expected?.note ?? '')
   const [tolerance, setTolerance] = useState<number>(
@@ -47,9 +41,7 @@ export function ExpectedTransactionForm({
   const update = useUpdateExpectedTransaction(accountId)
   const pending = isEdit ? update.isPending : create.isPending
 
-  // The user always enters a positive magnitude; the direction toggle sets the sign.
-  const parsedAmount = Math.abs(Number(amount.replace(',', '.')))
-  const validAmount = amount.trim() !== '' && Number.isFinite(parsedAmount) && parsedAmount !== 0
+  const validAmount = amount !== undefined && amount !== 0
   const canSubmit = validAmount && !pending
 
   const submit = async () => {
@@ -57,11 +49,10 @@ export function ExpectedTransactionForm({
       setAttemptedSubmit(true)
       return
     }
-    const signedAmount = direction === 'out' ? -parsedAmount : parsedAmount
     const trimmedOther = otherParty.trim() === '' ? null : otherParty.trim()
     const trimmedNote = note.trim() === '' ? null : note.trim()
     const payload = {
-      amount: signedAmount,
+      amount: amount ?? 0,
       other_party: trimmedOther,
       note: trimmedNote,
       match_tolerance_percent: tolerance,
@@ -98,36 +89,16 @@ export function ExpectedTransactionForm({
       }}
       className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4"
     >
-      <div className="grid grid-cols-2 gap-3">
-        <FormField
-          id={`${fieldIdPrefix}-direction`}
-          label={t('expectedTransactions.fieldDirection')}
-        >
-          <select
-            id={`${fieldIdPrefix}-direction`}
-            value={direction}
-            onChange={(event) => setDirection(event.target.value as Direction)}
-            className={SELECT_INPUT_CLASS}
-          >
-            <option value="in">{t('expectedTransactions.directionIn')}</option>
-            <option value="out">{t('expectedTransactions.directionOut')}</option>
-          </select>
-        </FormField>
-        <FormField id={`${fieldIdPrefix}-amount`} label={t('expectedTransactions.fieldAmount')}>
-          <Input
-            id={`${fieldIdPrefix}-amount`}
-            type="text"
-            inputMode="decimal"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            onBlur={() => {
-              if (validAmount) setAmount(formatAmountForInput(parsedAmount))
-            }}
-            placeholder={formatAmountForInput(0)}
-            aria-invalid={(attemptedSubmit && !validAmount) || undefined}
-          />
-        </FormField>
-      </div>
+      <FormField id={`${fieldIdPrefix}-amount`} label={t('expectedTransactions.fieldAmount')}>
+        <AmountInput
+          id={`${fieldIdPrefix}-amount`}
+          value={amount}
+          onChange={setAmount}
+          placeholder={formatAmountForInput(0)}
+          aria-invalid={(attemptedSubmit && !validAmount) || undefined}
+          formatOnBlur
+        />
+      </FormField>
       <FormField
         id={`${fieldIdPrefix}-tolerance`}
         label={t('expectedTransactions.fieldTolerance')}

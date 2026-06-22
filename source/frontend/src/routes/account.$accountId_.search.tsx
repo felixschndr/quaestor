@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react'
 import { z } from 'zod'
 
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
+import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
 import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { Input } from '@/components/ui/input'
@@ -236,77 +237,6 @@ function SearchForm({
         {t('search.submit')}
       </Button>
     </form>
-  )
-}
-
-/**
- * Amount input that supports negative values on iOS. iOS Safari's decimal
- * pad has no `-` key (no keyboard config exposes it), so the input is split:
- * the magnitude (digits + decimal point) lives in a normal text input that
- * gets the decimal pad on iOS, and the sign lives in a one-tap toggle
- * button. Submitting combines the two into a signed number.
- */
-function AmountInput({
-  id,
-  value,
-  onChange,
-}: {
-  id: string
-  value: number | undefined
-  onChange: (next: number | undefined) => void
-}) {
-  const { t } = useTranslation()
-  const initialNegative = value !== undefined && value < 0
-  const initialMagnitude = value === undefined ? '' : String(Math.abs(value))
-  const [magnitude, setMagnitude] = useState<string>(initialMagnitude)
-  const [isNegative, setIsNegative] = useState<boolean>(initialNegative)
-
-  const emit = (nextMagnitude: string, nextNegative: boolean) => {
-    if (nextMagnitude === '' || nextMagnitude === '.') {
-      onChange(undefined)
-      return
-    }
-    const parsed = Number(nextMagnitude)
-    if (!Number.isFinite(parsed)) {
-      onChange(undefined)
-      return
-    }
-    onChange(nextNegative ? -parsed : parsed)
-  }
-
-  return (
-    <div className="flex min-w-0 gap-1.5">
-      <button
-        type="button"
-        aria-label={isNegative ? t('search.amountMakePositive') : t('search.amountMakeNegative')}
-        aria-pressed={isNegative}
-        onClick={() => {
-          const next = !isNegative
-          setIsNegative(next)
-          emit(magnitude, next)
-        }}
-        className={cn(
-          'border-input flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-transparent text-sm font-medium transition-colors',
-          'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3',
-          'dark:bg-input/30',
-          isNegative ? 'text-destructive' : 'text-success',
-        )}
-      >
-        {isNegative ? '−' : '+'}
-      </button>
-      <Input
-        id={id}
-        type="text"
-        inputMode="decimal"
-        autoComplete="off"
-        value={magnitude}
-        onChange={(event) => {
-          const raw = event.target.value
-          setMagnitude(raw)
-          emit(raw, isNegative)
-        }}
-      />
-    </div>
   )
 }
 

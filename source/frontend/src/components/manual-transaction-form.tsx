@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Info } from 'lucide-react'
 
+import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
@@ -62,9 +63,7 @@ export function ManualTransactionForm({
   const isRecurringEdit = mode === 'edit' && !!recurringTransaction
   const seed = recurringTransaction ?? transaction
   const [date, setDate] = useState(transaction?.date ?? todayIso())
-  const [amount, setAmount] = useState(
-    seed?.amount !== undefined ? formatAmountForInput(seed.amount) : '',
-  )
+  const [amount, setAmount] = useState<number | undefined>(seed?.amount)
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
   const [purpose, setPurpose] = useState(seed?.purpose ?? '')
   const [otherParty, setOtherParty] = useState(seed?.other_party ?? '')
@@ -99,8 +98,8 @@ export function ManualTransactionForm({
         ? updateRecurring.isPending
         : update.isPending
 
-  const parsedAmount = Number(amount.replace(',', '.'))
-  const validAmount = amount.trim() !== '' && Number.isFinite(parsedAmount)
+  const validAmount = amount !== undefined
+  const parsedAmount = amount ?? 0
   const today = todayIso()
   // The backend (account_service.create_manual_transaction) hard-rejects
   // date > today, so mirror that client-side: the date picker's `max` keeps
@@ -244,17 +243,13 @@ export function ManualTransactionForm({
           id={`${fieldIdPrefix}-amount`}
           label={t('credentials.manualTransactions.fieldAmount')}
         >
-          <Input
+          <AmountInput
             id={`${fieldIdPrefix}-amount`}
-            type="text"
-            inputMode="decimal"
             value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            onBlur={() => {
-              if (validAmount) setAmount(formatAmountForInput(parsedAmount))
-            }}
+            onChange={setAmount}
             placeholder={formatAmountForInput(0)}
             aria-invalid={(attemptedSubmit && !validAmount) || undefined}
+            formatOnBlur
           />
         </FormField>
       </div>

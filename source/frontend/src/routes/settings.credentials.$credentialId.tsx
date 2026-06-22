@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -209,17 +210,16 @@ function AddManualAccountForm({
   const { t } = useTranslation()
   const [open, setOpen] = useState(initiallyOpen)
   const [name, setName] = useState('')
-  const [balance, setBalance] = useState('')
+  const [balance, setBalance] = useState<number | undefined>(undefined)
   const create = useCreateManualAccount()
 
   const trimmedName = name.trim()
-  const parsedBalance = balance.trim() === '' ? 0 : Number(balance)
-  const balanceValid = balance.trim() === '' || Number.isFinite(parsedBalance)
-  const canSubmit = trimmedName.length > 0 && balanceValid && !create.isPending
+  const parsedBalance = balance ?? 0
+  const canSubmit = trimmedName.length > 0 && !create.isPending
 
   const reset = () => {
     setName('')
-    setBalance('')
+    setBalance(undefined)
     setOpen(false)
   }
 
@@ -284,15 +284,12 @@ function AddManualAccountForm({
         >
           {t('credentials.detail.newAccountBalance')}
         </Label>
-        <Input
+        <AmountInput
           id={`new-account-balance-${credentialId}`}
-          type="number"
-          inputMode="decimal"
-          step="0.01"
           value={balance}
-          onChange={(event) => setBalance(event.target.value)}
+          onChange={setBalance}
           placeholder={formatDecimal(0)}
-          aria-invalid={!balanceValid || undefined}
+          formatOnBlur
         />
       </div>
       <div className="flex gap-2">

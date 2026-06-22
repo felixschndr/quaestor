@@ -36,8 +36,8 @@ import {
 } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { copyText } from '@/lib/clipboard'
+import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { ManualTransactionForm } from '@/components/manual-transaction-form'
 import { ExpectedTransactionForm } from '@/components/expected-transaction-form'
 import { StatsIcon } from '@/components/stats-icon'
@@ -486,19 +486,18 @@ function BalanceDisplay({
 }) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(String(account.balance))
+  const [draft, setDraft] = useState<number | undefined>(account.balance)
   const update = useUpdateAccount()
 
-  const parsed = Number(draft.replace(',', '.'))
-  const valid = draft.trim() !== '' && Number.isFinite(parsed)
+  const valid = draft !== undefined
 
   const commit = async () => {
-    if (!valid || parsed === account.balance) {
+    if (draft === undefined || draft === account.balance) {
       setEditing(false)
       return
     }
     try {
-      await update.mutateAsync({ accountId: account.id, balance: parsed })
+      await update.mutateAsync({ accountId: account.id, balance: draft })
       toast.success(t('credentials.detail.saved'))
       setEditing(false)
     } catch {
@@ -507,20 +506,20 @@ function BalanceDisplay({
   }
 
   const cancel = () => {
-    setDraft(String(account.balance))
+    setDraft(account.balance)
     setEditing(false)
   }
 
   if (editing) {
     return (
       <div className="flex items-center gap-2">
-        <Input
-          autoFocus
-          type="number"
-          inputMode="decimal"
-          step="0.01"
+        <AmountInput
+          id={`account-balance-${account.id}`}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={setDraft}
+          autoFocus
+          formatOnBlur
+          disabled={update.isPending}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault()
@@ -532,9 +531,8 @@ function BalanceDisplay({
           }}
           aria-label={t('credentials.detail.balance')}
           placeholder={formatDecimal(0)}
-          className="h-10 max-w-[10rem] text-xl font-semibold tabular-nums"
+          inputClassName="h-10 max-w-[10rem] text-xl font-semibold tabular-nums"
           aria-invalid={!valid || undefined}
-          disabled={update.isPending}
         />
         <Button
           type="button"
@@ -578,7 +576,7 @@ function BalanceDisplay({
           size="sm"
           variant="ghost"
           onClick={() => {
-            setDraft(String(account.balance))
+            setDraft(account.balance)
             setEditing(true)
           }}
           aria-label={t('credentials.detail.balance')}

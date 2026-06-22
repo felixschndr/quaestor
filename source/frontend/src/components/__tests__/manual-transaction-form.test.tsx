@@ -52,7 +52,8 @@ describe('ManualTransactionForm — recurring', () => {
     renderForm()
 
     await user.click(screen.getByRole('switch', { name: 'Recurring' }))
-    await user.type(screen.getByLabelText('Amount'), '-50')
+    await user.type(screen.getByLabelText('Amount'), '50')
+    await user.click(screen.getByRole('button', { name: 'Make negative' }))
     await user.selectOptions(screen.getByLabelText('Day of month'), '15')
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
@@ -168,8 +169,8 @@ describe('ManualTransactionForm — recurring', () => {
       ),
     )
 
-    // Pre-filled, recurring fields shown, no date field, no "book today".
-    expect(screen.getByLabelText('Amount')).toHaveValue('-50,00')
+    expect(screen.getByLabelText('Amount')).toHaveValue('50,00')
+    expect(screen.getByRole('button', { name: 'Make positive' })).toBeInTheDocument()
     expect(screen.getByLabelText('Frequency')).toBeInTheDocument()
     expect(screen.queryByLabelText('Date')).not.toBeInTheDocument()
     expect(
