@@ -1,80 +1,54 @@
 import { useTranslation } from 'react-i18next'
 
+import { CategoryMultiSelect } from '@/components/ui/category-multi-select'
 import { Label } from '@/components/ui/label'
-import { NativeSelect } from '@/components/ui/native-select'
-import { TRANSACTION_TYPES, type TransactionType } from '@/lib/transaction'
+import { TypeMultiSelect } from '@/components/ui/type-multi-select'
+import { TransferMultiSelect, type TransferFilter } from '@/components/ui/transfer-multi-select'
+import type { TransactionCategory, TransactionType } from '@/lib/transaction'
 
-export type TransferFilter = 'linked' | 'unlinked'
+export type { TransferFilter }
 
 export interface TransactionFilterFieldsProps {
-  categoryLabel: string
-  categoryControlId: string
-  categoryControl: React.ReactNode
-  transactionType: TransactionType | undefined
-  onTransactionTypeChange: (next: TransactionType | undefined) => void
+  selectedCategories: TransactionCategory[]
+  onCategoriesChange: (next: TransactionCategory[]) => void
+  selectedTypes: TransactionType[]
+  onTypesChange: (next: TransactionType[]) => void
   transfer: TransferFilter | undefined
   onTransferChange: (next: TransferFilter | undefined) => void
   idPrefix?: string
 }
 
 export function TransactionFilterFields({
-  categoryLabel,
-  categoryControlId,
-  categoryControl,
-  transactionType,
-  onTransactionTypeChange,
+  selectedCategories,
+  onCategoriesChange,
+  selectedTypes,
+  onTypesChange,
   transfer,
   onTransferChange,
   idPrefix = 'filter',
 }: TransactionFilterFieldsProps) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
+  const categoriesId = `${idPrefix}-categories`
   const typeId = `${idPrefix}-type`
   const transferId = `${idPrefix}-transfer`
-
-  const typeOptions = [...TRANSACTION_TYPES].sort((a, b) => {
-    if (a === 'ZERO') return 1
-    if (b === 'ZERO') return -1
-    return t(`transactionType.${a}`).localeCompare(t(`transactionType.${b}`), i18n.language)
-  })
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={categoryControlId}>{categoryLabel}</Label>
-        {categoryControl}
+        <Label htmlFor={categoriesId}>{t('filters.categoriesLabel')}</Label>
+        <CategoryMultiSelect
+          id={categoriesId}
+          selectedIds={selectedCategories}
+          onChange={onCategoriesChange}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={typeId}>{t('filters.typeLabel')}</Label>
-        <NativeSelect
-          id={typeId}
-          value={transactionType ?? ''}
-          onChange={(event) =>
-            onTransactionTypeChange(
-              (event.target.value || undefined) as TransactionType | undefined,
-            )
-          }
-        >
-          <option value="">{t('filters.anyOption')}</option>
-          {typeOptions.map((typeValue) => (
-            <option key={typeValue} value={typeValue}>
-              {t(`transactionType.${typeValue}`)}
-            </option>
-          ))}
-        </NativeSelect>
+        <TypeMultiSelect id={typeId} selected={selectedTypes} onChange={onTypesChange} />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={transferId}>{t('filters.transferLabel')}</Label>
-        <NativeSelect
-          id={transferId}
-          value={transfer ?? ''}
-          onChange={(event) =>
-            onTransferChange((event.target.value || undefined) as TransferFilter | undefined)
-          }
-        >
-          <option value="">{t('filters.anyOption')}</option>
-          <option value="linked">{t('filters.transfer.linked')}</option>
-          <option value="unlinked">{t('filters.transfer.unlinked')}</option>
-        </NativeSelect>
+        <TransferMultiSelect id={transferId} value={transfer} onChange={onTransferChange} />
       </div>
     </div>
   )

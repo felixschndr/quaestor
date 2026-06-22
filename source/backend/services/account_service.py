@@ -425,10 +425,10 @@ def _filter_transactions(db_session: Session, account_ids: list[int], filter_par
     if (date_to := filter_parameters.get("date_to")) is not None:
         query = query.where(Transaction.date <= date_to)
 
-    if transaction_type := filter_parameters.get("transaction_type"):
-        query = query.where(Transaction.transaction_type == transaction_type)
-    if category := filter_parameters.get("category"):
-        query = query.where(Transaction.category == category)
+    if transaction_types := filter_parameters.get("transaction_types"):
+        query = query.where(Transaction.transaction_type.in_(transaction_types))
+    if categories := filter_parameters.get("categories"):
+        query = query.where(Transaction.category.in_(categories))
 
     if note := filter_parameters.get("note"):
         query = query.where(Transaction.note.ilike(f"%{note}%"))

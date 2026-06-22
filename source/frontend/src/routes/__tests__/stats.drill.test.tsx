@@ -94,23 +94,23 @@ async function renderAndGetArrows(search: Partial<StatsSearchParams>) {
 }
 
 describe('StatsView drill-in carries the active filters', () => {
-  it('passes the category plus the active type and transfer filters', async () => {
+  it('passes the clicked category plus the active type and transfer filters', async () => {
     const { onOpenSearch, arrows } = await renderAndGetArrows({
-      transaction_type: 'FEES',
+      transaction_types: ['FEES'],
       linked: 'linked',
     })
 
     fireEvent.click(arrows[0]) // the "By category" bar
 
     const drill = onOpenSearch.mock.calls.at(-1)?.[0]
-    expect(drill.category).toBe('FUEL')
-    expect(drill.transactionType).toBe('FEES')
+    expect(drill.categories).toEqual(['FUEL'])
+    expect(drill.transactionTypes).toEqual(['FEES'])
     expect(drill.linked).toBe('linked')
   })
 
   it('passes the party plus the active type and transfer filters', async () => {
     const { onOpenSearch, arrows } = await renderAndGetArrows({
-      transaction_type: 'FEES',
+      transaction_types: ['FEES'],
       linked: 'linked',
     })
 
@@ -118,18 +118,18 @@ describe('StatsView drill-in carries the active filters', () => {
 
     const drill = onOpenSearch.mock.calls.at(-1)?.[0]
     expect(drill.text).toBe('Rewe')
-    expect(drill.transactionType).toBe('FEES')
+    expect(drill.transactionTypes).toEqual(['FEES'])
     expect(drill.linked).toBe('linked')
   })
 
-  it('carries a single selected category into the party drill', async () => {
+  it('carries the selected category subset into the party drill', async () => {
     const { onOpenSearch, arrows } = await renderAndGetArrows({ categories: ['FUEL'] })
 
     fireEvent.click(arrows[1]) // top recipients
 
     const drill = onOpenSearch.mock.calls.at(-1)?.[0]
     expect(drill.text).toBe('Rewe')
-    expect(drill.category).toBe('FUEL')
+    expect(drill.categories).toEqual(['FUEL'])
   })
 
   it('omits the category in the party drill when all categories are selected', async () => {
@@ -137,7 +137,7 @@ describe('StatsView drill-in carries the active filters', () => {
 
     fireEvent.click(arrows[1])
 
-    expect(onOpenSearch.mock.calls.at(-1)?.[0].category).toBeUndefined()
+    expect(onOpenSearch.mock.calls.at(-1)?.[0].categories).toEqual([])
   })
 
   it('defaults the transfer drill to "unlinked" (Keine Umbuchung) with no URL filter', async () => {
@@ -146,7 +146,7 @@ describe('StatsView drill-in carries the active filters', () => {
     fireEvent.click(arrows[0])
 
     const drill = onOpenSearch.mock.calls.at(-1)?.[0]
-    expect(drill.transactionType).toBeUndefined()
+    expect(drill.transactionTypes).toEqual([])
     expect(drill.linked).toBe('unlinked')
   })
 })

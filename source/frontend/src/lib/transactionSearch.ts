@@ -5,18 +5,13 @@ import type { TransactionRead } from './accountHistory'
 import type { TransactionCategory, TransactionType } from './transaction'
 
 export interface TransactionFilters {
-  // `text` is the unified free-text search — the backend matches it against
-  // purpose, other_party AND note, so the UI doesn't expose a separate
-  // note filter.
   text?: string
   amount_from?: number
   amount_to?: number
   date_from?: string // ISO yyyy-mm-dd
   date_to?: string
-  transaction_type?: TransactionType
-  category?: TransactionCategory
-  // `linked` filters by transfer (Umbuchung) status: 'linked' = has a transfer
-  // counterpart, 'unlinked' = none. Omitted means "any".
+  transaction_types?: TransactionType[]
+  categories?: TransactionCategory[]
   linked?: 'linked' | 'unlinked'
 }
 
@@ -32,6 +27,10 @@ export function buildFilterQueryString(accountIds: number[], filters: Transactio
   }
   for (const [key, value] of Object.entries(filters)) {
     if (value === undefined || value === null) continue
+    if (Array.isArray(value)) {
+      for (const item of value) params.append(key, String(item))
+      continue
+    }
     if (typeof value === 'string' && value.length === 0) continue
     params.append(key, String(value))
   }

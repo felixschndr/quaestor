@@ -116,7 +116,7 @@ describe('TransactionSearchView — form', () => {
     const dateTriggers = screen.getAllByRole('button', { name: 'Pick a date' })
     expect(dateTriggers).toHaveLength(2)
     expect(screen.getByLabelText('Type')).toBeInTheDocument()
-    expect(screen.getByLabelText('Category')).toBeInTheDocument()
+    expect(screen.getByLabelText('Categories')).toBeInTheDocument()
     expect(screen.getByLabelText('Transfer')).toBeInTheDocument()
   })
 
@@ -124,7 +124,9 @@ describe('TransactionSearchView — form', () => {
     const user = userEvent.setup()
     const { onSubmit } = renderView()
 
-    await user.selectOptions(screen.getByLabelText('Transfer'), 'linked')
+    // Default is "Any" (both checked); dropping "No transfer" isolates transfers.
+    await user.click(screen.getByLabelText('Transfer'))
+    await user.click(document.getElementById('transfer-multi-unlinked')!)
     await user.click(screen.getByRole('button', { name: 'Search' }))
 
     expect(onSubmit.mock.calls[0][0].filters.linked).toBe('linked')
@@ -177,19 +179,19 @@ describe('TransactionSearchView — form', () => {
     expect(onSubmit.mock.calls[0][0].filters.amount_from).toBe(7)
   })
 
-  it('prefills the type and transfer selects from the URL (a stats drill-in)', () => {
-    renderView({ search: { transaction_type: 'FEES', linked: 'linked' } })
-    expect((screen.getByLabelText('Type') as HTMLSelectElement).value).toBe('FEES')
-    expect((screen.getByLabelText('Transfer') as HTMLSelectElement).value).toBe('linked')
+  it('prefills the type and transfer pickers from the URL (a stats drill-in)', () => {
+    renderView({ search: { transaction_types: ['FEES'], linked: 'linked' } })
+    expect(screen.getByLabelText('Type').textContent).toContain('1 type')
+    expect(screen.getByLabelText('Transfer').textContent).toContain('Transfer')
   })
 
-  it('renders translated labels for the transaction type select', () => {
+  it('renders translated labels for the transaction type options', async () => {
+    const user = userEvent.setup()
     renderView()
-    const select = screen.getByLabelText('Type') as HTMLSelectElement
-    const labels = Array.from(select.options).map((o) => o.textContent)
-    expect(labels).toContain('Incoming')
-    expect(labels).toContain('Outgoing')
-    expect(labels).not.toContain('INCOMING')
+    await user.click(screen.getByLabelText('Type'))
+    expect(screen.getByText('Incoming')).toBeInTheDocument()
+    expect(screen.getByText('Outgoing')).toBeInTheDocument()
+    expect(screen.queryByText('INCOMING')).toBeNull()
   })
 
   it('renders a Popover-based date picker (consistent UI across browsers)', () => {
@@ -401,7 +403,7 @@ describe('TransactionSearchView — request building', () => {
         text: 'rewe',
         amount_from: -100,
         date_from: '2026-01-01',
-        transaction_type: 'OUTGOING',
+        transaction_types: ['OUTGOING'],
         linked: 'linked',
         account_ids: [42, 99],
         submitted: '1',
@@ -416,7 +418,7 @@ describe('TransactionSearchView — request building', () => {
     expect(url).toContain('text=rewe')
     expect(url).toContain('amount_from=-100')
     expect(url).toContain('date_from=2026-01-01')
-    expect(url).toContain('transaction_type=OUTGOING')
+    expect(url).toContain('transaction_types=OUTGOING')
     expect(url).toContain('linked=linked')
     expect(url).not.toContain('submitted=')
   })

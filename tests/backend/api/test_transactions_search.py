@@ -133,8 +133,8 @@ def test_search_only_returns_selected_accounts(http_client: TestClient, session_
         ([("text", "vacation")], {"atm"}),  # also matches note
         ([("amount_from", 0), ("amount_to", 5000)], {"salary"}),
         ([("date_from", "2026-04-01"), ("date_to", "2026-04-30")], {"salary"}),
-        ([("transaction_type", "OUTGOING")], {"rewe", "atm"}),
-        ([("category", "WITHDRAWAL")], {"atm"}),
+        ([("transaction_types", "OUTGOING")], {"rewe", "atm"}),
+        ([("categories", "WITHDRAWAL")], {"atm"}),
     ],
     ids=["text-purpose", "text-other-party", "text-note", "amount-range", "date-range", "transaction-type", "category"],
 )
@@ -167,12 +167,26 @@ def test_search_combines_filters_with_and(http_client: TestClient, session_facto
         "/api/transactions/search",
         params=[
             ("account_ids", account_id),
-            ("transaction_type", "OUTGOING"),
+            ("transaction_types", "OUTGOING"),
             ("amount_from", -50),
         ],
     )
 
     assert [row["id"] for row in response.json()] == [ids["rewe"]]
+
+
+def test_search_filters_by_multiple_categories(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("categories", "SUPERMARKET"), ("categories", "WITHDRAWAL")],
+    )
+
+    assert {row["id"] for row in response.json()} == {ids["rewe"], ids["atm"]}
 
 
 def test_search_returns_empty_when_no_match(http_client: TestClient, session_factory: sessionmaker):
@@ -198,7 +212,7 @@ def test_search_rejects_unknown_transaction_type(http_client: TestClient, sessio
 
     response = http_client.get(
         "/api/transactions/search",
-        params=[("account_ids", account_id), ("transaction_type", "NOT_A_REAL_TYPE")],
+        params=[("account_ids", account_id), ("transaction_types", "NOT_A_REAL_TYPE")],
     )
 
     assert response.status_code == 422
@@ -212,7 +226,7 @@ def test_search_rejects_unknown_category(http_client: TestClient, session_factor
 
     response = http_client.get(
         "/api/transactions/search",
-        params=[("account_ids", account_id), ("category", "NOT_A_REAL_CATEGORY")],
+        params=[("account_ids", account_id), ("categories", "NOT_A_REAL_CATEGORY")],
     )
 
     assert response.status_code == 422

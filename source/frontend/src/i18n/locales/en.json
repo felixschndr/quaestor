@@ -104,7 +104,6 @@
     "amountMakeNegative": "Make negative",
     "amountMakePositive": "Make positive",
     "datePlaceholder": "Pick a date",
-    "category": "Category",
     "submit": "Search",
     "empty": "No transactions match your filters.",
     "error": "Search failed. Please try again.",
@@ -569,7 +568,16 @@
       "unlinked": "No transfer"
     },
     "dateFrom": "From date",
-    "dateTo": "To"
+    "dateTo": "To",
+    "categoriesLabel": "Categories",
+    "categoriesNone": "No categories",
+    "categoriesAll": "All categories",
+    "categoriesCount_one": "{{count}} category",
+    "categoriesCount_other": "{{count}} categories",
+    "typeAll": "All types",
+    "typeNone": "No types",
+    "typeCount_one": "{{count}} type",
+    "typeCount_other": "{{count}} types"
   },
   "stats": {
     "title": "Statistics",
@@ -637,11 +645,6 @@
       "titleOutgoing": "Top recipients",
       "titleIncoming": "Top senders"
     },
-    "categoriesLabel": "Categories",
-    "categoriesAll": "All categories",
-    "categoriesNone": "No categories",
-    "categoriesCount_one": "{{count}} category",
-    "categoriesCount_other": "{{count}} categories",
     "noCategories": "Select at least one category to see statistics."
   }
 }

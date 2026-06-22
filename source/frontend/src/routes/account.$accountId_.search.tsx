@@ -9,17 +9,12 @@ import { Button } from '@/components/ui/button'
 import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { NativeSelect } from '@/components/ui/native-select'
 import { TransactionFilterFields } from '@/components/ui/transaction-filter-fields'
 import type { TransactionRead } from '@/lib/accountHistory'
 import { accountDisplayName } from '@/lib/accounts'
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
 import { formatDate, formatEuro, formatIban } from '@/lib/format'
-import {
-  TRANSACTION_CATEGORIES,
-  TRANSACTION_TYPES,
-  type TransactionCategory,
-} from '@/lib/transaction'
+import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from '@/lib/transaction'
 import { useSearchTransactions, type TransactionFilters } from '@/lib/transactionSearch'
 import { cn } from '@/lib/utils'
 
@@ -31,8 +26,14 @@ const searchParamsSchema = z.object({
   amount_to: z.coerce.number().optional(),
   date_from: z.string().optional(),
   date_to: z.string().optional(),
-  transaction_type: z.enum(TRANSACTION_TYPES).optional(),
-  category: z.enum(TRANSACTION_CATEGORIES).optional(),
+  transaction_types: z
+    .union([z.enum(TRANSACTION_TYPES), z.array(z.enum(TRANSACTION_TYPES))])
+    .transform((value) => (Array.isArray(value) ? value : [value]))
+    .optional(),
+  categories: z
+    .union([z.enum(TRANSACTION_CATEGORIES), z.array(z.enum(TRANSACTION_CATEGORIES))])
+    .transform((value) => (Array.isArray(value) ? value : [value]))
+    .optional(),
   linked: z.enum(['linked', 'unlinked']).optional(),
   account_ids: z
     .union([z.array(z.coerce.number()), z.coerce.number()])
@@ -154,7 +155,7 @@ function SearchForm({
   initialFilters: TransactionFilters
   onSubmit: (payload: { accountIds: number[]; filters: TransactionFilters }) => void
 }) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const [accountIds, setAccountIds] = useState<number[]>(initialAccountIds)
   const [draft, setDraft] = useState<TransactionFilters>(initialFilters)
 
@@ -166,11 +167,8 @@ function SearchForm({
     onSubmit({ accountIds, filters: draft })
   }
 
-  const categoryOptions = [...TRANSACTION_CATEGORIES].sort((a, b) => {
-    if (a === 'UNKNOWN') return 1
-    if (b === 'UNKNOWN') return -1
-    return t(`category.${a}`).localeCompare(t(`category.${b}`), i18n.language)
-  })
+  const selectedCategories = draft.categories ?? [...TRANSACTION_CATEGORIES]
+  const selectedTypes = draft.transaction_types ?? [...TRANSACTION_TYPES]
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
@@ -222,29 +220,14 @@ function SearchForm({
 
       <TransactionFilterFields
         idPrefix="search"
-        categoryLabel={t('search.category')}
-        categoryControlId="search-category"
-        categoryControl={
-          <NativeSelect
-            id="search-category"
-            value={draft.category ?? ''}
-            onChange={(event) =>
-              update(
-                'category',
-                (event.target.value || undefined) as TransactionCategory | undefined,
-              )
-            }
-          >
-            <option value="">{t('filters.anyOption')}</option>
-            {categoryOptions.map((categoryValue) => (
-              <option key={categoryValue} value={categoryValue}>
-                {t(`category.${categoryValue}`)}
-              </option>
-            ))}
-          </NativeSelect>
+        selectedCategories={selectedCategories}
+        onCategoriesChange={(next) =>
+          update('categories', next.length === TRANSACTION_CATEGORIES.length ? undefined : next)
         }
-        transactionType={draft.transaction_type}
-        onTransactionTypeChange={(next) => update('transaction_type', next)}
+        selectedTypes={selectedTypes}
+        onTypesChange={(next) =>
+          update('transaction_types', next.length === TRANSACTION_TYPES.length ? undefined : next)
+        }
         transfer={draft.linked}
         onTransferChange={(next) => update('linked', next)}
       />

@@ -25,7 +25,7 @@ export interface StatsFilters {
 export type StatsLinked = 'linked' | 'unlinked'
 
 export interface StatsTypeFilters {
-  transaction_type?: TransactionType
+  transaction_types?: TransactionType[]
   linked?: StatsLinked
 }
 
@@ -160,7 +160,7 @@ export function matchingPreset(
 export function buildStatsQueryString(
   accountIds: number[],
   filters: StatsFilters,
-  extra: Record<string, string | number | undefined> = {},
+  extra: Record<string, string | number | string[] | undefined> = {},
   categories: TransactionCategory[] = [],
 ): string {
   const params = new URLSearchParams()
@@ -173,6 +173,10 @@ export function buildStatsQueryString(
   }
   for (const [key, value] of Object.entries({ ...filters, ...extra })) {
     if (value === undefined || value === null) continue
+    if (Array.isArray(value)) {
+      for (const item of value) params.append(key, String(item))
+      continue
+    }
     if (typeof value === 'string' && value.length === 0) continue
     params.append(key, String(value))
   }

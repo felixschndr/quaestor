@@ -37,7 +37,7 @@ def category_statistics(
         date_to=query.date_to,
         categories=query.categories,
         direction=query.direction,
-        transaction_type=query.transaction_type,
+        transaction_types=query.transaction_types,
         linked=query.linked,
     )
 
@@ -55,7 +55,7 @@ def cashflow_statistics(
         date_from=query.date_from,
         date_to=query.date_to,
         categories=query.categories,
-        transaction_type=query.transaction_type,
+        transaction_types=query.transaction_types,
         linked=query.linked,
     )
 
@@ -73,7 +73,7 @@ def net_savings_statistics(
         date_from=query.date_from,
         date_to=query.date_to,
         categories=query.categories,
-        transaction_type=query.transaction_type,
+        transaction_types=query.transaction_types,
         linked=query.linked,
     )
 
@@ -92,7 +92,7 @@ def other_party_statistics(
         date_to=query.date_to,
         categories=query.categories,
         direction=query.direction,
-        transaction_type=query.transaction_type,
+        transaction_types=query.transaction_types,
         linked=query.linked,
         limit=query.limit,
     )

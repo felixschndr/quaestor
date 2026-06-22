@@ -20,8 +20,8 @@ describe('buildFilterQueryString', () => {
       amount_to: 0,
       date_from: '2026-01-01',
       date_to: '2026-12-31',
-      transaction_type: 'OUTGOING',
-      category: 'SUPERMARKET',
+      transaction_types: ['OUTGOING', 'FEES'],
+      categories: ['SUPERMARKET'],
     })
     const params = new URLSearchParams(result)
     expect(params.get('account_ids')).toBe('42')
@@ -30,15 +30,15 @@ describe('buildFilterQueryString', () => {
     expect(params.get('amount_to')).toBe('0')
     expect(params.get('date_from')).toBe('2026-01-01')
     expect(params.get('date_to')).toBe('2026-12-31')
-    expect(params.get('transaction_type')).toBe('OUTGOING')
-    expect(params.get('category')).toBe('SUPERMARKET')
+    expect(params.getAll('transaction_types')).toEqual(['OUTGOING', 'FEES'])
+    expect(params.get('categories')).toBe('SUPERMARKET')
   })
 
   it('skips empty strings (treats them as "no filter")', () => {
-    const result = buildFilterQueryString([42], { text: '', category: 'SALARY' })
+    const result = buildFilterQueryString([42], { text: '', categories: ['SALARY'] })
     const params = new URLSearchParams(result)
     expect(params.get('text')).toBeNull()
-    expect(params.get('category')).toBe('SALARY')
+    expect(params.get('categories')).toBe('SALARY')
   })
 
   it('keeps the literal value 0 — `amount_from=0` is a real filter', () => {

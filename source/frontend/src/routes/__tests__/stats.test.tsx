@@ -40,6 +40,7 @@ vi.mock('@tanstack/react-router', () => ({
 import { useState } from 'react'
 
 import { FILTERABLE_CATEGORIES } from '@/lib/statistics'
+import { TRANSACTION_TYPES } from '@/lib/transaction'
 import { StatsView, type StatsSearchParams, type StatsViewState } from '@/routes/stats'
 
 const credentials: CredentialRead[] = [
@@ -70,7 +71,8 @@ function toSearch(next: StatsViewState): StatsSearchParams {
     date_to: next.filters.date_to,
     chart_type: next.chartType,
     direction: next.direction,
-    transaction_type: next.transactionType,
+    transaction_types:
+      next.transactionTypes.length === TRANSACTION_TYPES.length ? undefined : next.transactionTypes,
     linked: next.linked === undefined ? 'any' : next.linked === 'unlinked' ? undefined : 'linked',
     categories:
       next.categories.length === FILTERABLE_CATEGORIES.length ? undefined : next.categories,
@@ -143,40 +145,40 @@ describe('StatsView', () => {
     expect(screen.getByLabelText('Transfer')).toBeInTheDocument()
   })
 
-  it('fires onChange with the picked transaction type', async () => {
+  it('fires onChange with the picked transaction types', async () => {
     const user = userEvent.setup()
     const { onChange } = renderView()
 
-    await user.selectOptions(screen.getByLabelText('Type'), 'FEES')
+    await user.click(screen.getByLabelText('Type'))
+    await user.click(screen.getByRole('button', { name: 'None' }))
+    await user.click(document.getElementById('type-multi-FEES')!)
 
-    expect(onChange.mock.calls.at(-1)?.[0].transactionType).toBe('FEES')
+    expect(onChange.mock.calls.at(-1)?.[0].transactionTypes).toEqual(['FEES'])
   })
 
-  it('fires onChange restricting to transfers (Umbuchungen)', async () => {
+  it('fires onChange restricting to transfers when only "Transfer" stays checked', async () => {
     const user = userEvent.setup()
-    const { onChange } = renderView()
+    const { onChange } = renderView({ linked: 'any' })
 
-    await user.selectOptions(screen.getByLabelText('Transfer'), 'linked')
+    await user.click(screen.getByLabelText('Transfer'))
+    await user.click(document.getElementById('transfer-multi-unlinked')!)
 
     expect(onChange.mock.calls.at(-1)?.[0].linked).toBe('linked')
   })
 
-  it('defaults the transfer filter to "no transfer" (Keine Umbuchung)', () => {
+  it('defaults the transfer filter to "No transfer" (Keine Umbuchung)', () => {
     renderView()
-    expect((screen.getByLabelText('Transfer') as HTMLSelectElement).value).toBe('unlinked')
+    expect(screen.getByLabelText('Transfer').textContent).toContain('No transfer')
   })
 
-  it('lets the user opt into "Any" transfers and persists it', async () => {
+  it('opting both transfer states back in means "Any"', async () => {
     const user = userEvent.setup()
-    const { onChange } = renderView()
-    const transfer = screen.getByLabelText('Transfer') as HTMLSelectElement
+    const { onChange } = renderView() // default: only "No transfer"
 
-    await user.selectOptions(transfer, '')
+    await user.click(screen.getByLabelText('Transfer'))
+    await user.click(document.getElementById('transfer-multi-linked')!)
 
-    // The view echoes "no restriction" (undefined) and the round-tripped URL
-    // keeps the select on "Any" rather than snapping back to the default.
     expect(onChange.mock.calls.at(-1)?.[0].linked).toBeUndefined()
-    expect(transfer.value).toBe('')
   })
 
   it('fires onChange with chartType pie when switching the category chart to Pie', async () => {

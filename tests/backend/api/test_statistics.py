@@ -148,11 +148,46 @@ def test_categories_filter_by_transaction_type(http_client: TestClient, session_
 
     response = http_client.get(
         "/api/statistics/categories",
-        params=[("account_ids", account_id), ("transaction_type", "FEES")],
+        params=[("account_ids", account_id), ("transaction_types", "FEES")],
     )
 
     assert response.status_code == 200
     assert response.json() == [{"category": "FEES", "total": 20.0}]
+
+
+def test_categories_filter_by_multiple_transaction_types(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    with session_factory() as session:
+        make_transaction(
+            session,
+            account_id=account_id,
+            amount=-10.0,
+            category=TransactionCategory.FUEL,
+            transaction_type=TransactionType.OUTGOING,
+        )
+        make_transaction(
+            session,
+            account_id=account_id,
+            amount=-20.0,
+            category=TransactionCategory.FEES,
+            transaction_type=TransactionType.FEES,
+        )
+        make_transaction(
+            session,
+            account_id=account_id,
+            amount=-5.0,
+            category=TransactionCategory.GIFTS,
+            transaction_type=TransactionType.BUY,
+        )
+        session.commit()
+
+    response = http_client.get(
+        "/api/statistics/categories",
+        params=[("account_ids", account_id), ("transaction_types", "FEES"), ("transaction_types", "OUTGOING")],
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [{"category": "FEES", "total": 20.0}, {"category": "FUEL", "total": 10.0}]
 
 
 def test_categories_filter_by_linked_transfers_only(http_client: TestClient, session_factory: sessionmaker):
@@ -182,7 +217,7 @@ def test_categories_rejects_invalid_transaction_type(http_client: TestClient, se
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     response = http_client.get(
         "/api/statistics/categories",
-        params=[("account_ids", account_id), ("transaction_type", "NONSENSE")],
+        params=[("account_ids", account_id), ("transaction_types", "NONSENSE")],
     )
     assert response.status_code == 422
 

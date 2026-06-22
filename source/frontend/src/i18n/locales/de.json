@@ -104,7 +104,6 @@
     "amountMakeNegative": "Negativ machen",
     "amountMakePositive": "Positiv machen",
     "datePlaceholder": "Datum wählen",
-    "category": "Kategorie",
     "submit": "Suchen",
     "empty": "Keine Transaktionen passen zu deinen Filtern.",
     "error": "Suche fehlgeschlagen. Bitte erneut versuchen.",
@@ -569,7 +568,16 @@
       "unlinked": "Keine Umbuchung"
     },
     "dateFrom": "Datum von",
-    "dateTo": "Bis"
+    "dateTo": "Bis",
+    "categoriesLabel": "Kategorien",
+    "categoriesNone": "Keine Kategorien",
+    "categoriesAll": "Alle Kategorien",
+    "categoriesCount_one": "{{count}} Kategorie",
+    "categoriesCount_other": "{{count}} Kategorien",
+    "typeAll": "Alle Typen",
+    "typeNone": "Keine Typen",
+    "typeCount_one": "{{count}} Typ",
+    "typeCount_other": "{{count}} Typen"
   },
   "stats": {
     "title": "Statistiken",
@@ -637,11 +645,6 @@
       "titleOutgoing": "Top-Empfänger",
       "titleIncoming": "Top-Sender"
     },
-    "categoriesLabel": "Kategorien",
-    "categoriesAll": "Alle Kategorien",
-    "categoriesNone": "Keine Kategorien",
-    "categoriesCount_one": "{{count}} Kategorie",
-    "categoriesCount_other": "{{count}} Kategorien",
     "noCategories": "Bitte wähle mindestens eine Kategorie, um Statistiken zu sehen."
   }
 }

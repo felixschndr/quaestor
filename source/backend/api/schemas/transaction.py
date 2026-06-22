@@ -52,15 +52,15 @@ class TransactionFilter(BaseModel):
     amount_to: float | None = None
     date_from: datetime.date | None = None
     date_to: datetime.date | None = None
-    transaction_type: TransactionType | None = None
-    category: TransactionCategory | None = None
+    transaction_types: list[TransactionType] = Field(default_factory=list)
+    categories: list[TransactionCategory] = Field(default_factory=list)
     note: str | None = None
     # "linked" = transaction is part of a transfer (has a counterpart),
     # "unlinked" = no counterpart. Missing means "no filter".
     linked: Literal["linked", "unlinked"] | None = None
 
     def to_filter_parameters(self) -> dict:
-        return {key: value for key, value in self.model_dump().items() if value is not None}
+        return {key: value for key, value in self.model_dump().items() if value is not None and value != []}
 
 
 class TransactionSearchQuery(TransactionFilter):
@@ -68,4 +68,4 @@ class TransactionSearchQuery(TransactionFilter):
 
     def to_filter_parameters(self) -> dict:
         data = self.model_dump(exclude={"account_ids"})
-        return {key: value for key, value in data.items() if value is not None}
+        return {key: value for key, value in data.items() if value is not None and value != []}

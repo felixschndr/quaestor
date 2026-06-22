@@ -390,8 +390,8 @@ def test_resolve_owned_account_ids_raises_for_foreign_account(session_factory: s
         ({"date_from": "2026-01-01"}, []),
         ({"date_from": "2026-01-01", "date_to": "2026-01-31"}, []),
         ({"date_to": "2026-01-31"}, []),
-        ({"transaction_type": "INCOMING"}, []),
-        ({"category": "INTEREST"}, []),
+        ({"transaction_types": ["INCOMING"]}, []),
+        ({"categories": ["INTEREST"]}, []),
         ({"note": "first car"}, []),
         # `text` is the unified free-text search and must also cover note.
         ({"text": "first car"}, []),
@@ -401,8 +401,8 @@ def test_resolve_owned_account_ids_raises_for_foreign_account(session_factory: s
         ({"amount_to": 9}, [0, 1]),
         ({"date_from": "2026-01-02"}, [0, 1]),
         ({"date_to": "2025-12-31"}, [0, 1]),
-        ({"transaction_type": "OUTGOING"}, [0, 1]),
-        ({"category": "SUPERMARKET"}, [0, 1]),
+        ({"transaction_types": ["OUTGOING"]}, [0, 1]),
+        ({"categories": ["SUPERMARKET"]}, [0, 1]),
         ({"note": "no such note"}, [0, 1]),
         ({"text": "missing"}, [0, 1]),
         # Combined filters must AND together.

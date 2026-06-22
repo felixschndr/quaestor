@@ -8,7 +8,6 @@ import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { Label } from '@/components/ui/label'
 import { TransactionFilterFields } from '@/components/ui/transaction-filter-fields'
 import { CategoryChart } from '@/components/stats/category-chart'
-import { CategoryMultiSelect } from '@/components/stats/category-multi-select'
 import { CashflowChart } from '@/components/stats/cashflow-chart'
 import { ChartCard } from '@/components/stats/chart-card'
 import { DrillArrowIcon } from '@/components/stats/chart-parts'
@@ -50,7 +49,10 @@ const searchParamsSchema = z.object({
   date_to: z.string().optional(),
   chart_type: z.enum(['bar', 'pie']).optional(),
   direction: z.enum(['INCOMING', 'OUTGOING']).optional(),
-  transaction_type: z.enum(TRANSACTION_TYPES).optional(),
+  transaction_types: z
+    .union([z.enum(TRANSACTION_TYPES), z.array(z.enum(TRANSACTION_TYPES))])
+    .transform((value) => (Array.isArray(value) ? value : [value]))
+    .optional(),
   linked: z.enum(['linked', 'unlinked', 'any']).optional(),
   account_ids: z
     .union([z.array(z.coerce.number()), z.coerce.number()])
@@ -88,10 +90,12 @@ function StatsPage() {
             date_to: next.filters.date_to,
             chart_type: next.chartType,
             direction: next.direction,
-            transaction_type: next.transactionType,
+            transaction_types:
+              next.transactionTypes.length === TRANSACTION_TYPES.length
+                ? undefined
+                : next.transactionTypes,
             linked:
               next.linked === undefined ? 'any' : next.linked === 'unlinked' ? undefined : 'linked',
-            // Omit from the URL when all are selected (the default).
             categories:
               next.categories.length === FILTERABLE_CATEGORIES.length ? undefined : next.categories,
           },
@@ -110,9 +114,9 @@ function StatsPage() {
             account_ids: drill.accountIds,
             date_from: drill.dateFrom,
             date_to: drill.dateTo,
-            category: drill.category,
+            categories: drill.categories?.length ? drill.categories : undefined,
             text: drill.text,
-            transaction_type: drill.transactionType,
+            transaction_types: drill.transactionTypes?.length ? drill.transactionTypes : undefined,
             linked: drill.linked,
             amount_from: drill.direction === 'INCOMING' ? 0 : undefined,
             amount_to: drill.direction === 'OUTGOING' ? 0 : undefined,
@@ -136,7 +140,7 @@ export interface StatsViewState {
   chartType: ChartType
   direction: StatsDirection
   categories: TransactionCategory[]
-  transactionType?: TransactionType
+  transactionTypes: TransactionType[]
   linked?: StatsLinked
 }
 
@@ -145,9 +149,9 @@ export interface StatsDrilldown {
   dateFrom?: string
   dateTo?: string
   direction?: StatsDirection
-  category?: TransactionCategory
+  categories?: TransactionCategory[]
   text?: string
-  transactionType?: TransactionType
+  transactionTypes?: TransactionType[]
   linked?: StatsLinked
 }
 
@@ -179,9 +183,8 @@ export function StatsView({
   }
   const chartType: ChartType = search.chart_type ?? 'bar'
   const direction: StatsDirection = search.direction ?? 'OUTGOING'
-  // No `categories` in the URL → all selected (the default).
   const selectedCategories: TransactionCategory[] = search.categories ?? [...FILTERABLE_CATEGORIES]
-  const transactionType = search.transaction_type
+  const selectedTypes: TransactionType[] = search.transaction_types ?? [...TRANSACTION_TYPES]
   const linked: StatsLinked | undefined =
     search.linked === 'any' ? undefined : (search.linked ?? 'unlinked')
 
@@ -192,7 +195,7 @@ export function StatsView({
       chartType,
       direction,
       categories: selectedCategories,
-      transactionType,
+      transactionTypes: selectedTypes,
       linked,
       ...next,
     })
@@ -206,27 +209,23 @@ export function StatsView({
   const updateChartType = (next: ChartType) => sync({ chartType: next })
   const updateDirection = (next: StatsDirection) => sync({ direction: next })
   const updateCategories = (next: TransactionCategory[]) => sync({ categories: next })
-  const updateTransactionType = (next: TransactionType | undefined) =>
-    sync({ transactionType: next })
+  const updateTypes = (next: TransactionType[]) => sync({ transactionTypes: next })
   const updateLinked = (next: StatsLinked | undefined) => sync({ linked: next })
 
-  // All categories selected → send none (the backend then applies no category
-  // filter); a subset → send exactly that subset.
   const categoriesParam =
     selectedCategories.length === FILTERABLE_CATEGORIES.length ? [] : selectedCategories
-  const typeFilters: StatsTypeFilters = { transaction_type: transactionType, linked }
+  const typesParam = selectedTypes.length === TRANSACTION_TYPES.length ? [] : selectedTypes
+  const typeFilters: StatsTypeFilters = { transaction_types: typesParam, linked }
 
-  const singleCategory = selectedCategories.length === 1 ? selectedCategories[0] : undefined
-
-  const openSearch = (extra: { category?: TransactionCategory; text?: string }) =>
+  const openSearch = (extra: { categories?: TransactionCategory[]; text?: string }) =>
     onOpenSearch({
       accountIds,
       dateFrom: filters.date_from,
       dateTo: filters.date_to,
       direction,
-      transactionType,
+      transactionTypes: typesParam,
       linked,
-      category: singleCategory,
+      categories: categoriesParam,
       ...extra,
     })
 
@@ -299,17 +298,10 @@ export function StatsView({
         />
         <TransactionFilterFields
           idPrefix="stats"
-          categoryLabel={t('stats.categoriesLabel')}
-          categoryControlId="stats-categories"
-          categoryControl={
-            <CategoryMultiSelect
-              id="stats-categories"
-              selectedIds={selectedCategories}
-              onChange={updateCategories}
-            />
-          }
-          transactionType={transactionType}
-          onTransactionTypeChange={updateTransactionType}
+          selectedCategories={selectedCategories}
+          onCategoriesChange={updateCategories}
+          selectedTypes={selectedTypes}
+          onTypesChange={updateTypes}
           transfer={linked}
           onTransferChange={updateLinked}
         />
@@ -369,7 +361,7 @@ export function StatsView({
             <CategoryChart
               slices={categories.data ?? []}
               chartType={chartType}
-              onDrill={(category) => openSearch({ category })}
+              onDrill={(category) => openSearch({ categories: [category] })}
             />
           </ChartCard>
 

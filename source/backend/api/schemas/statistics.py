@@ -15,7 +15,7 @@ class StatisticsQuery(BaseModel):
     date_from: date | None = None
     date_to: date | None = None
     categories: list[TransactionCategory] = Field(default_factory=list)
-    transaction_type: TransactionType | None = None
+    transaction_types: list[TransactionType] = Field(default_factory=list)
     linked: StatisticsLinked | None = None
 
 

@@ -36,7 +36,7 @@ def _base_conditions(
     date_from: datetime.date | None,
     date_to: datetime.date | None,
     categories: list[TransactionCategory],
-    transaction_type: TransactionType | None = None,
+    transaction_types: list[TransactionType] | None = None,
     linked: StatisticsLinked | None = None,
 ) -> list[ColumnElement[bool]]:
     # Conditions shared by every statistic
@@ -50,8 +50,8 @@ def _base_conditions(
         conditions.append(Transaction.date <= date_to)
     if categories:
         conditions.append(Transaction.category.in_(categories))
-    if transaction_type is not None:
-        conditions.append(Transaction.transaction_type == transaction_type)
+    if transaction_types:
+        conditions.append(Transaction.transaction_type.in_(transaction_types))
     if linked is not None:
         if linked == "linked":
             conditions.append(Transaction.transfer_counterpart_id.isnot(None))
@@ -75,7 +75,7 @@ def category_breakdown(
     date_to: datetime.date | None,
     direction: StatisticsDirection,
     categories: list[TransactionCategory],
-    transaction_type: TransactionType | None = None,
+    transaction_types: list[TransactionType] | None = None,
     linked: StatisticsLinked | None = None,
 ) -> list[CategorySlice]:
     owned_account_ids = account_service.resolve_owned_account_ids(
@@ -93,7 +93,7 @@ def category_breakdown(
                 date_from=date_from,
                 date_to=date_to,
                 categories=categories,
-                transaction_type=transaction_type,
+                transaction_types=transaction_types,
                 linked=linked,
             )
         )
@@ -114,7 +114,7 @@ def _monthly_cashflow(
     date_from: datetime.date | None,
     date_to: datetime.date | None,
     categories: list[TransactionCategory],
-    transaction_type: TransactionType | None = None,
+    transaction_types: list[TransactionType] | None = None,
     linked: StatisticsLinked | None = None,
 ) -> list[MonthlyCashflow]:
     month = func.strftime("%Y-%m", Transaction.date)  # noqa: FKA100
@@ -128,7 +128,7 @@ def _monthly_cashflow(
                 date_from=date_from,
                 date_to=date_to,
                 categories=categories,
-                transaction_type=transaction_type,
+                transaction_types=transaction_types,
                 linked=linked,
             )
         )
@@ -153,7 +153,7 @@ def monthly_cashflow(
     date_from: datetime.date | None,
     date_to: datetime.date | None,
     categories: list[TransactionCategory],
-    transaction_type: TransactionType | None = None,
+    transaction_types: list[TransactionType] | None = None,
     linked: StatisticsLinked | None = None,
 ) -> list[MonthlyCashflow]:
     owned_account_ids = account_service.resolve_owned_account_ids(
@@ -167,7 +167,7 @@ def monthly_cashflow(
         date_from=date_from,
         date_to=date_to,
         categories=categories,
-        transaction_type=transaction_type,
+        transaction_types=transaction_types,
         linked=linked,
     )
     logger.debug(f"Computed monthly cashflow over {len(cashflow)} month(s) for {user}")
@@ -182,7 +182,7 @@ def monthly_net_savings(
     date_from: datetime.date | None,
     date_to: datetime.date | None,
     categories: list[TransactionCategory],
-    transaction_type: TransactionType | None = None,
+    transaction_types: list[TransactionType] | None = None,
     linked: StatisticsLinked | None = None,
 ) -> list[MonthlyNetSavings]:
     owned_account_ids = account_service.resolve_owned_account_ids(
@@ -196,7 +196,7 @@ def monthly_net_savings(
         date_from=date_from,
         date_to=date_to,
         categories=categories,
-        transaction_type=transaction_type,
+        transaction_types=transaction_types,
         linked=linked,
     )
     result = []
@@ -217,7 +217,7 @@ def top_other_parties(
     date_to: datetime.date | None,
     direction: StatisticsDirection,
     categories: list[TransactionCategory],
-    transaction_type: TransactionType | None = None,
+    transaction_types: list[TransactionType] | None = None,
     linked: StatisticsLinked | None = None,
     limit: int = DEFAULT_TOP_OTHER_PARTIES_LIMIT,
 ) -> list[OtherPartySlice]:
@@ -236,7 +236,7 @@ def top_other_parties(
                 date_from=date_from,
                 date_to=date_to,
                 categories=categories,
-                transaction_type=transaction_type,
+                transaction_types=transaction_types,
                 linked=linked,
             )
         )
