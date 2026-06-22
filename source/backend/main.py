@@ -294,7 +294,15 @@ for api_object in [
     app.include_router(api_object.router, prefix=API_PREFIX)
 register_exception_handlers(app)
 
-app.mount(path="/static", app=StaticFiles(directory=(get_backend_source_path() / "static")), name="static")
+
+class _CachedStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        response = await super().get_response(path=path, scope=scope)
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        return response
+
+
+app.mount(path="/static", app=_CachedStaticFiles(directory=(get_backend_source_path() / "static")), name="static")
 
 
 class _SpaStaticFiles(StaticFiles):

@@ -37,7 +37,7 @@ async def csrf_middleware(request: Request, call_next: Callable[[Request], Await
 
     response = await call_next(request)
 
-    if COOKIE_NAME not in request.cookies:
+    if COOKIE_NAME not in request.cookies and not request.url.path.startswith("/static"):
         response.set_cookie(
             key=COOKIE_NAME,
             value=secrets.token_urlsafe(32),

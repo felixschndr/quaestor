@@ -23,6 +23,28 @@ def _get_session_set_cookies(response: Response) -> list[str]:
     return [cookie for cookie in response.headers.get_list("set-cookie") if cookie.startswith("session=")]
 
 
+def _get_csrf_set_cookies(response: Response) -> list[str]:
+    return [cookie for cookie in response.headers.get_list("set-cookie") if cookie.startswith(f"{csrf.COOKIE_NAME}=")]
+
+
+def test_public_static_asset_is_cacheable(http_client: TestClient):
+    response = http_client.get("/static/banks/manual.png")
+
+    assert response.status_code == 200
+    cache_control = response.headers.get(key="cache-control")
+    assert "max-age=86400" in cache_control
+    assert "no-store" not in cache_control
+
+
+def test_public_static_asset_does_not_set_csrf_cookie(http_client: TestClient):
+    http_client.cookies.delete(csrf.COOKIE_NAME)
+
+    response = http_client.get("/static/banks/manual.png")
+
+    assert _get_csrf_set_cookies(response) == []
+    assert "no-store" not in response.headers.get(key="cache-control")
+
+
 def test_static_response_does_not_set_session_cookie(http_client: TestClient):
     register(http_client)
 
