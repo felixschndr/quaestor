@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from source.backend.models.api_key import ApiKey
     from source.backend.models.backup_code import BackupCode
     from source.backend.models.credential import Credential
+    from source.backend.models.push_subscription import PushSubscription
     from source.backend.models.session import UserSession
 
 
@@ -33,6 +34,9 @@ class User(Base):
     sessions: Mapped[List["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     api_keys: Mapped[List["ApiKey"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     backup_codes: Mapped[List["BackupCode"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    push_subscriptions: Mapped[List["PushSubscription"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
     account_groups: Mapped[List["AccountGroup"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",

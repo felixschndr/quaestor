@@ -49,6 +49,7 @@ export default defineConfig({
       workbox: {
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/redoc/],
+        importScripts: ['push-sw.js'],
       },
     }),
   ],
