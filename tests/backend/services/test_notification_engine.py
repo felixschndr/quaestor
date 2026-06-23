@@ -381,3 +381,28 @@ def test_sync_credential_triggers_notification_end_to_end(
 
     assert len(sent) == 1
     assert "Corner Shop" in sent[0].body
+
+
+def test_notifications_are_rendered_in_recipient_language(session_factory: sessionmaker) -> None:
+    with session_factory() as db_session:
+        user = make_user(db_session, language="de")
+        credential = make_credential(db_session, user_id=user.id)
+        account = make_account(db_session, credential_id=credential.id)
+        expected = make_transaction(db_session, account_id=account.id, amount=100.0, expected=True, pending=True)
+        _make_notification_rule(
+            db_session,
+            user_id=user.id,
+            trigger=NotificationTrigger.EXPECTED_TRANSACTION,
+            account_ids=[account.id],
+        )
+        db_session.flush()
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        account.transactions.remove(expected)
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert len(notifications) == 1
+    assert notifications[0].title == "Erwartete Transaktion gebucht"
+    assert "gebucht" in notifications[0].body

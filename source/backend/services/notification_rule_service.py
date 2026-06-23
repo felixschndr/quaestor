@@ -30,7 +30,7 @@ def create_rule(db_session: Session, user: User, fields: dict) -> NotificationRu
     rule = NotificationRule(user_id=user.id, **fields)
     db_session.add(rule)
     db_session.commit()
-    logger.info(f"Created {rule.trigger.value} notification rule {rule.id} for {user}")
+    logger.info(f"Created {rule} for {user}")
     return rule
 
 

@@ -8,7 +8,7 @@ from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.push_subscription import PushSubscription
 from source.backend.models.user import User
-from source.backend.services import push_service, session_service
+from source.backend.services import notification_messages, push_service, session_service
 from source.backend.services.notification_service import (
     Notification,
     NotificationResult,
@@ -84,7 +84,9 @@ def _notify_in_thread(user_id: int, notification: Notification) -> NotificationR
 async def send_test(
     current_user: User = Depends(session_service.get_current_user_from_request),
 ) -> TestResult:
-    notification = Notification(title="Quaestor", body="🔔 Test notification — push works!")
+    notification = Notification(
+        title="Quaestor", body=notification_messages.translate(current_user.language, key="test.body")
+    )
     result = await asyncio.to_thread(_notify_in_thread, current_user.id, notification)  # noqa FKA100
     logger.info(f"Sent test push: {result.delivered} delivered for {current_user}")
     return TestResult(sent=result.delivered, failed=result.pruned + result.failed, error=result.error)

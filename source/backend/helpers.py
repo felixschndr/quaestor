@@ -86,5 +86,9 @@ def get_backend_source_path() -> Path:
     return _get_source_path() / "backend"
 
 
-def get_frontend_source_path() -> Path:
+def get_frontend_path() -> Path:
     return _get_source_path() / "frontend"
+
+
+def get_frontend_source_path() -> Path:
+    return get_frontend_path() / "src"

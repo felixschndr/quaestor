@@ -12,7 +12,11 @@ from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 from source.backend.models.user import User
-from source.backend.services import notification_rule_service, notification_service
+from source.backend.services import (
+    notification_messages,
+    notification_rule_service,
+    notification_service,
+)
 from source.backend.services.notification_service import Notification
 from sqlalchemy.orm import Session
 
@@ -63,6 +67,7 @@ def collect_notifications(db_session: Session, credential: Credential, snapshot:
         return []
     logger.debug(f"Evaluating {len(rules)} enabled notification rule(s) for {credential.user} after {credential}")
 
+    language = credential.user.language
     notifications: list[Notification] = []
     for account in credential.accounts:
         before = snapshot.accounts.get(account.id)
@@ -97,6 +102,7 @@ def collect_notifications(db_session: Session, credential: Credential, snapshot:
                 new_transactions=new_transactions,
                 booked_expected_transactions=booked_expected_transactions,
                 balance_before=before.balance,
+                language=language,
             )
             if rule_notifications:
                 logger.info(f"{rule} matched on {account}: {len(rule_notifications)} notification(s)")
@@ -125,14 +131,20 @@ def _notifications_for_rule(
     new_transactions: list[Transaction],
     booked_expected_transactions: list[Transaction],
     balance_before: float,
+    language: str,
 ) -> list[Notification]:
     if rule.trigger is NotificationTrigger.EXPECTED_TRANSACTION:
         notifications = [
             _build_notification(
                 rule=rule,
                 account=account,
-                default_title="Expected transaction booked",
-                body=f"{account.display_label}: {format_amount(transaction.amount)} booked.",
+                default_title=notification_messages.translate(language, key="expected_transaction.title"),
+                body=notification_messages.translate(
+                    language,
+                    key="expected_transaction.body",
+                    account=account.display_label,
+                    amount=format_amount(transaction.amount),
+                ),
             )
             for transaction in booked_expected_transactions
         ]
@@ -145,11 +157,21 @@ def _notifications_for_rule(
         for transaction in new_transactions:
             if not _transaction_matches(rule=rule, transaction=transaction):
                 continue
-            body = f"{account.display_label}: {format_amount(transaction.amount)}"
+            body = notification_messages.translate(
+                language,
+                key="transaction.body",
+                account=account.display_label,
+                amount=format_amount(transaction.amount),
+            )
             if transaction.other_party:
                 body += f" · {transaction.other_party}"
             notifications.append(
-                _build_notification(rule=rule, account=account, default_title="Transaction booked", body=body)
+                _build_notification(
+                    rule=rule,
+                    account=account,
+                    default_title=notification_messages.translate(language, key="transaction.title"),
+                    body=body,
+                )
             )
         logger.debug(f"{rule}: matched {len(notifications)}/{len(new_transactions)} new transaction(s) on {account}")
         return notifications
@@ -164,10 +186,13 @@ def _notifications_for_rule(
                 _build_notification(
                     rule=rule,
                     account=account,
-                    default_title="Balance below threshold",
-                    body=(
-                        f"{account.display_label}: {format_amount(account.balance)} "
-                        f"(threshold {format_amount(rule.threshold)})"
+                    default_title=notification_messages.translate(language, key="balance_below.title"),
+                    body=notification_messages.translate(
+                        language,
+                        key="balance_below.body",
+                        account=account.display_label,
+                        amount=format_amount(account.balance),
+                        threshold=format_amount(rule.threshold),
                     ),
                     # Collapse repeated balance alerts for the same account/rule.
                     tag=f"balance-{rule.id}-{account.id}",

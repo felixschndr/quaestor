@@ -77,7 +77,7 @@ repos:
         name: check i18n keys
         language: system
         entry: python3 scripts/check_i18n.py
-        files: '^source/frontend/src/(.*\.(ts|tsx)|i18n/locales/.*\.json)$'
+        files: '^(source/frontend/src/(.*\.(ts|tsx)|i18n/locales/.*\.json)|source/backend/.*\.py)$'
         pass_filenames: false
 
       - id: check-transaction-category-mapping

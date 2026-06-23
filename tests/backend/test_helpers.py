@@ -10,6 +10,7 @@ from source.backend.helpers import (
     format_transaction_for_categorization,
     get_backend_source_path,
     get_content_of_pyproject_toml,
+    get_frontend_path,
     get_frontend_source_path,
     get_key_of_transaction,
     get_project_description,
@@ -108,13 +109,22 @@ def test_get_backend_source_path_points_at_source_backend():
     assert (backend / "main.py").is_file()
 
 
-def test_get_frontend_source_path_points_at_source_frontend():
-    frontend = get_frontend_source_path()
+def test_get_frontend_path_points_at_source_frontend():
+    frontend = get_frontend_path()
 
     assert frontend.is_dir()
     assert frontend.name == "frontend"
     assert frontend.parent.name == "source"
     assert (frontend / "package.json").is_file()
+
+
+def test_get_frontend_source_path_points_at_frontend_src():
+    frontend_src = get_frontend_source_path()
+
+    assert frontend_src.is_dir()
+    assert frontend_src.name == "src"
+    assert frontend_src.parent.name == "frontend"
+    assert (frontend_src / "main.tsx").is_file()
 
 
 def test_get_project_name_reads_the_name_from_pyproject():
@@ -198,7 +208,7 @@ def test_apply_fields_with_empty_dict_leaves_entity_unchanged():
 def test_backend_and_frontend_are_siblings_under_the_repo_root():
     root = get_root_path_of_repository()
     backend = get_backend_source_path()
-    frontend = get_frontend_source_path()
+    frontend = get_frontend_path()
 
     assert backend.parent == frontend.parent
     assert backend.parent.parent == root

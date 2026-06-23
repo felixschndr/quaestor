@@ -21,7 +21,7 @@ from source.backend.services.bank_catalog import get_catalog  # noqa: E402
 
 
 def _provider_notes() -> dict[str, dict[str, str]]:
-    locale = get_frontend_source_path() / "src" / "i18n" / "locales" / "en.json"
+    locale = get_frontend_source_path() / "i18n" / "locales" / "en.json"
     try:
         banks = json.loads(locale.read_text(encoding="utf-8")).get("banks", {})
     except OSError:
