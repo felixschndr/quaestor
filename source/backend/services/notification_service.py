@@ -49,9 +49,11 @@ def notify_user(db_session: Session, user: User, notification: Notification) -> 
         return result
 
     payload = notification.to_payload()
+    logger.debug(f"Sending {notification} to {len(subscriptions_of_user)} subscription(s) of {user}")
     expired = []
     for subscription in subscriptions_of_user:
         push_result = push_service.send(subscription_info=subscription.to_subscription_info(), payload=payload)
+        logger.debug(f"Push to {subscription}: {push_result}")
         if push_result.outcome is PushOutcome.DELIVERED:
             result.delivered += 1
         elif push_result.outcome is PushOutcome.EXPIRED:
@@ -68,5 +70,5 @@ def notify_user(db_session: Session, user: User, notification: Notification) -> 
         result.pruned = len(expired)
         logger.info(f"Pruned {result.pruned} expired push subscription(s) for {user}")
 
-    logger.info(f"Notified {user}: {result.delivered} delivered, {result.pruned} pruned, {result.failed} failed")
+    logger.info(f"Notified {user}: {result}")
     return result

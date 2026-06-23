@@ -67,6 +67,10 @@ class Account(Base):
         return cls(name=fetched_account.name)
 
     @property
+    def display_label(self) -> str:
+        return self.display_name or self.name
+
+    @property
     def is_market_valued(self) -> bool:
         # Market-valued accounts (depots/funds) carry MARKET_VALUED snapshots and are priced by the
         # handler instead of the transaction-driven backward walk.

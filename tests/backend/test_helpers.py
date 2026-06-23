@@ -6,6 +6,7 @@ from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.helpers import (
     apply_fields,
     epoch_ms_to_date,
+    format_amount,
     format_transaction_for_categorization,
     get_backend_source_path,
     get_content_of_pyproject_toml,
@@ -22,6 +23,19 @@ from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_type import TransactionType
 
 from tests.backend.conftest import RECENT_DATE, create_fetched_transaction
+
+
+@pytest.mark.parametrize(
+    argnames="amount, expected",
+    argvalues=[
+        (0.0, "0.00 €"),
+        (12.5, "12.50 €"),
+        (-9.99, "-9.99 €"),
+        (1234.567, "1234.57 €"),
+    ],
+)
+def test_format_amount(amount: float, expected: str):
+    assert format_amount(amount) == expected
 
 
 def test_key_is_identical_for_two_identical_transactions():

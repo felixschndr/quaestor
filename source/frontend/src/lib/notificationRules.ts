@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { api } from './api'
 import type { TransactionCategory, TransactionType } from './transaction'
 
 export const NOTIFICATION_TRIGGERS = [
@@ -65,53 +66,23 @@ export function ruleSignature(rule: NotificationRule | NotificationRuleDraft): s
   return JSON.stringify({ trigger: rule.trigger, accounts })
 }
 
-/* -------------------------------------------------------------------------- */
-/* MOCK STORE                                                                 */
-/* The notification-rule backend does not exist yet. To let the UI be         */
-/* reviewed end-to-end, rules are persisted in localStorage. Once the backend */
-/* lands, replace each function body with the matching `api(...)` call — the   */
-/* hooks and types below stay exactly the same.                               */
-/* -------------------------------------------------------------------------- */
+const BASE_PATH = '/notification_rules'
 
-const STORAGE_KEY = 'quaestor.notificationRules.mock'
-
-function readStore(): NotificationRule[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as NotificationRule[]) : []
-  } catch {
-    return []
-  }
+function listRules(): Promise<NotificationRule[]> {
+  return api<NotificationRule[]>(BASE_PATH)
 }
 
-function writeStore(rules: NotificationRule[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(rules))
+function createRule(draft: NotificationRuleDraft): Promise<NotificationRule> {
+  return api<NotificationRule>(BASE_PATH, { method: 'POST', body: draft })
 }
 
-async function listRules(): Promise<NotificationRule[]> {
-  return readStore()
+function updateRule(id: number, draft: NotificationRuleDraft): Promise<NotificationRule> {
+  return api<NotificationRule>(`${BASE_PATH}/${id}`, { method: 'PUT', body: draft })
 }
 
-async function createRule(draft: NotificationRuleDraft): Promise<NotificationRule> {
-  const rules = readStore()
-  const nextId = rules.reduce((max, rule) => Math.max(max, rule.id), 0) + 1
-  const created = { ...draft, id: nextId } as NotificationRule
-  writeStore([...rules, created])
-  return created
+function removeRule(id: number): Promise<void> {
+  return api<void>(`${BASE_PATH}/${id}`, { method: 'DELETE' })
 }
-
-async function updateRule(id: number, draft: NotificationRuleDraft): Promise<NotificationRule> {
-  const rules = readStore()
-  const updated = { ...draft, id } as NotificationRule
-  writeStore(rules.map((rule) => (rule.id === id ? updated : rule)))
-  return updated
-}
-
-async function removeRule(id: number): Promise<void> {
-  writeStore(readStore().filter((rule) => rule.id !== id))
-}
-
-/* -------------------------------------------------------------------------- */
 
 export const notificationRuleQueryKeys = {
   list: ['notification-rules'] as const,

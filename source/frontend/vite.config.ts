@@ -51,6 +51,11 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api/, /^\/redoc/],
         importScripts: ['push-sw.js'],
       },
+      // Register the service worker during `pnpm dev` too, otherwise push notifications
+      // (which need an active SW) can't be tested without a production build.
+      devOptions: {
+        enabled: true,
+      },
     }),
   ],
   server: {

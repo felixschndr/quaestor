@@ -17,7 +17,12 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.base import snapshot_columns
 from source.backend.models.credential import Credential
 from source.backend.models.user import User
-from source.backend.services import bank_catalog, transfer_detection
+from source.backend.services import (
+    bank_catalog,
+    notification_engine,
+    transfer_detection,
+)
+from source.backend.services.notification_service import Notification
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -143,14 +148,22 @@ def sync_credential(
 ) -> SyncResult:
     logger.debug(f"Sync requested for credential {credential_id}")
     credential = get_credential(db_session=db_session, credential_id=credential_id)
+    snapshot = notification_engine.capture_sync_snapshot(credential)
     result = sync_credential_object(
         credential=credential,
         notify_two_factor_state=notify_two_factor_state,
         reevaluate_two_factor_requirement=True,
     )
+    notifications: list[Notification] = []
     if result.status == SyncStatus.COMPLETED:
         transfer_detection.detect_transfers_for_user(db_session=db_session, user=credential.user)
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
     db_session.commit()
+
+    notification_engine.dispatch(db_session=db_session, user=credential.user, notifications=notifications)
+
     return result
 
 
@@ -214,21 +227,35 @@ def sync_all_due_credentials(db_session: Session) -> None:
     credentials = list(db_session.scalars(select(Credential)))
     synced, skipped, failed = 0, 0, 0
     synced_users: dict[int, User] = {}
+    synced_credentials: list[tuple[Credential, notification_engine.SyncSnapshot]] = []
     for credential in credentials:
         if credential.requires_two_factor_authentication:
             skipped += 1
             continue
 
         try:
+            snapshot = notification_engine.capture_sync_snapshot(credential)
             sync_credential_object(credential=credential)
             synced += 1
             synced_users[credential.user_id] = credential.user
+            synced_credentials.append((credential, snapshot))
         except Exception:
             failed += 1
             logger.exception(f"Periodic sync failed for {credential}")
     for user in synced_users.values():
         transfer_detection.detect_transfers_for_user(db_session=db_session, user=user)
+    pending_notifications = [
+        (credential.user, notification)
+        for credential, snapshot in synced_credentials
+        for notification in notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+    ]
     db_session.commit()
+
+    for user, notification in pending_notifications:
+        notification_engine.dispatch(db_session=db_session, user=user, notifications=[notification])
+
     logger.info(
         f"Periodic sync finished: {synced} synced, {skipped} skipped due to 2FA, "
         f"{failed} failed out of {len(credentials)} credential(s)"
@@ -241,8 +268,14 @@ def confirm_two_factor(db_session: Session, credential_id: int, challenge_token:
     credential.session_state = credential.handler.complete_two_factor_challenge(
         challenge_token=challenge_token, credential_id=credential_id, code=code
     )
+    snapshot = notification_engine.capture_sync_snapshot(credential)
     result = sync_credential_object(credential=credential)
+    notifications: list[Notification] = []
     if result.status == SyncStatus.COMPLETED:
         transfer_detection.detect_transfers_for_user(db_session=db_session, user=credential.user)
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
     db_session.commit()
+    notification_engine.dispatch(db_session=db_session, user=credential.user, notifications=notifications)
     return result
