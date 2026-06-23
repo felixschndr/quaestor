@@ -643,5 +643,58 @@
       "titleIncoming": "Top senders"
     },
     "noCategories": "Select at least one category to see statistics."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "Custom rules for push notifications.",
+    "empty": "No notifications yet.",
+    "new": "New rule",
+    "edit": "Edit notification",
+    "create": "New notification",
+    "save": "Save",
+    "delete": "Delete",
+    "confirmDelete": "Confirm",
+    "deleted": "Notification deleted",
+    "enabledLabel": "Enabled",
+    "triggerLabel": "Trigger",
+    "trigger": {
+      "expected_transaction": "Expected transaction booked",
+      "transaction": "Transaction booked",
+      "balance_below": "Balance fell below"
+    },
+    "triggerHint": {
+      "expected_transaction": "Notify me when a transaction I entered manually as expected is booked.",
+      "transaction": "Notify me when a booked transaction matches the criteria below.",
+      "balance_below": "Notify me when an account's balance falls under the threshold."
+    },
+    "accountsLabel": "Accounts",
+    "allAccounts": "All accounts",
+    "senderLabel": "Sender / recipient contains",
+    "senderPlaceholder": "e.g. Netflix",
+    "categoriesLabel": "Categories",
+    "typesLabel": "Types",
+    "amountFromLabel": "Amount from",
+    "amountToLabel": "Amount to",
+    "thresholdLabel": "Threshold",
+    "anyAmount": "any amount",
+    "summary": {
+      "amountFrom": "from {{amount}}",
+      "amountTo": "up to {{amount}}",
+      "amountBetween": "{{from}} - {{to}}"
+    },
+    "navTitle": "Notification rules",
+    "accountsRequired": "Please select at least one account.",
+    "duplicate": "An identical rule already exists.",
+    "nameLabel": "Name (optional)",
+    "namePlaceholder": "e.g. Rent received",
+    "amountLabel": "Amount",
+    "allCategories": "All categories",
+    "allTypes": "All types",
+    "thresholdRequired": "Please enter a threshold.",
+    "sendTest": "Send test",
+    "testSent": "Test notification sent.",
+    "testFailed": "Test notification could not be delivered.",
+    "testDenied": "Notifications are blocked in your browser settings.",
+    "testUnsupported": "Push notifications are not supported on this device."
   }
 }
