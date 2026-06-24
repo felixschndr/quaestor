@@ -3,6 +3,7 @@
 import { ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useWheelScroll } from '@/lib/use-wheel-scroll'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
@@ -35,6 +36,7 @@ export function MultiSelectPopover<T extends string>({
   checkboxIdPrefix,
   className,
 }: MultiSelectPopoverProps<T>) {
+  const listRef = useWheelScroll<HTMLUListElement>()
   const selectedSet = new Set(selected)
   const selectedCount = selected.length
 
@@ -86,7 +88,7 @@ export function MultiSelectPopover<T extends string>({
             </div>
           </div>
         ) : null}
-        <ul aria-label={ariaLabel} className="max-h-72 overflow-y-auto py-1">
+        <ul ref={listRef} aria-label={ariaLabel} className="max-h-72 overflow-y-auto py-1">
           {options.map((option) => {
             const checkboxId = `${checkboxIdPrefix}-${option.value}`
             return (

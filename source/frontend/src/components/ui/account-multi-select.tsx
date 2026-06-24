@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useWheelScroll } from '@/lib/use-wheel-scroll'
 import { accountDisplayName } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
 import type { CredentialRead } from '@/lib/auth'
@@ -32,6 +33,7 @@ function AccountMultiSelect({
   className,
 }: AccountMultiSelectProps) {
   const { t } = useTranslation()
+  const listRef = useWheelScroll<HTMLUListElement>()
   // Group by credential (one bank connection) — generic FinTS banks share provider "fints",
   // so grouping by provider would merge different banks and pick the wrong/missing logo.
   const groups = [...credentials]
@@ -104,7 +106,11 @@ function AccountMultiSelect({
             </button>
           </div>
         </div>
-        <ul aria-label={t('search.accountsLabel')} className="max-h-72 overflow-y-auto py-1">
+        <ul
+          ref={listRef}
+          aria-label={t('search.accountsLabel')}
+          className="max-h-72 overflow-y-auto py-1"
+        >
           {groups.map((group) => (
             <li key={group.key} className="flex flex-col">
               {group.accounts.map((account) => {
