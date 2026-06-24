@@ -119,7 +119,7 @@ class _FinTSSession(BankSession):
 
     def _fetch_raw_transactions(
         self, sepa_account: SEPAAccount, start_date: date, include_pending: bool
-    ) -> "list | tuple | NeedTANResponse":
+    ) -> list | tuple | NeedTANResponse:
         if self._client.bpd.find_segment_first("HIKAZS") is not None:
             return self._client.get_transactions(sepa_account, start_date=start_date, include_pending=include_pending)
         return self._client.get_transactions_xml(sepa_account, start_date=start_date)

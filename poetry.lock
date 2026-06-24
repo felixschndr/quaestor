@@ -1596,20 +1596,19 @@ files = [
 
 [[package]]
 name = "mt-940"
-version = "5.0.0"
+version = "4.30.0"
 description = "A library to parse MT940 files and returns smart Python collections for statistics and manipulation."
 optional = false
-python-versions = ">=3.10"
+python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "mt_940-5.0.0-py3-none-any.whl", hash = "sha256:731ad50dd74bd9b4c74c7baab62dead534e30867ef00217841060dd7a7e3201a"},
-    {file = "mt_940-5.0.0.tar.gz", hash = "sha256:82d914988837a95bae21e772c74fb925b716735723f718c3ddd93cf3ad2b0f3a"},
+    {file = "mt-940-4.30.0.tar.gz", hash = "sha256:da14e2ec84d6c6e85604d2a6b8a800b08ec6000351acde501c41eb662819295c"},
+    {file = "mt_940-4.30.0-py2.py3-none-any.whl", hash = "sha256:66fa0c1e942478fd7970b791be017b1ca46556f54d44115008f3982e97ae0a9b"},
 ]
 
 [package.extras]
-docs = ["furo (>=2024.8)", "sphinx (>=8.0)"]
-tests = ["coverage (>=7.0)", "pytest (>=8.0)", "pytest-cov (>=5.0)", "pyyaml", "types-pyyaml"]
-tox = ["tox (>=4.0)", "tox-gh-actions (>=3.0)", "tox-uv (>=1.0)"]
+docs = ["GitPython (>=2.1.9)", "sphinx (>=1.7.2)", "sphinx2rst"]
+tests = ["flake8", "pytest", "pytest-cache", "pytest-cover", "pytest-flake8", "pyyaml"]
 
 [[package]]
 name = "multidict"
@@ -2988,4 +2987,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.14"
-content-hash = "ac2fd030e590f0cee01715661a1bd61b13597916d1039ad521f330ff185d2a31"
+content-hash = "fce502c7eab98c81af8341a0df4a7731d6c5b13e95069519c4bfb1fc8ec2e002"

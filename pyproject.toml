@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "Quaestor"
 description = "Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts"
-version = "0.1.55"
+version = "0.1.56"
 authors = ["Felix Schneider <mail@fschneider.me>"]
 repository = "https://github.com/felixschndr/quaestor"
 package-mode = false
@@ -18,6 +18,10 @@ python-dotenv = "^1.2.2"
 requests = "^2.33.1"
 fints = "^5.0.0"
 fints-url = "^0.7"
+# Pinned: mt-940 5.0.0 remaps :86: subfield ?31 from applicant_iban to applicant_name, prepending the
+# counterparty IBAN to other_party. That breaks transaction dedup (key includes other_party) and creates
+# duplicate bookings. fints declares mt-940 unpinned, so we cap it here until the regression is fixed upstream.
+mt-940 = "4.30.0"
 pytr = "^0.4.9"
 argon2-cffi = "^25.1.0"
 pyotp = "^2.10.0"
