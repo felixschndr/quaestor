@@ -220,3 +220,14 @@ sqlite> SELECT id, user_id, bank, username FROM credentials;
 ## Future changes
 
 Ideas I might want to implement in the future are tracked as [`enhancement` issues](https://github.com/felixschndr/quaestor/issues?q=is%3Aissue+state%3Aopen+label%3Aenhancement). If you think anything is missing, feel free to open an issue/PR.
+
+## Troubleshooting
+
+### Why don't push notifications arrive on desktop?
+
+Sometimes the browser's persistent connection to its push service (Chrome's FCM channel) breaks (e.g., stuck after a network or VPN change).
+
+Open [chrome://gcm-internals](chrome://gcm-internals) and check the `Connection State` under `Device Info`:
+
+- If it shows `CONNECTED`, the channel is up and the problem is elsewhere; most likely browser or OS settings. Make sure notifications are allowed for the site in the browser, that the browser is allowed to send notifications in your OS settings, and that no focus/do-not-disturb mode is suppressing them.
+- If it shows anything else (e.g. `WAITING FOR NETWORK CHANGE`), the browser isn't connected to the push service, so nothing can be delivered. Restart the browser and re-establish the internet connection (e.g. toggle Wi-Fi off and on). Reload `chrome://gcm-internals` afterwards to confirm the state is now `CONNECTED`.
