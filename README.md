@@ -8,9 +8,6 @@ This app is heavily inspired by [Finanzguru](https://finanzguru.de/), with the k
 
 The tool is strictly read-only: it only ever *reads* your data and can **never** make changes to your accounts or move money.
 
-> [!NOTE]
-> This project is still in early development and [might include major changes in the near future](#future-changes).
-
 This app is primarily intended for German users. You can find the reason for this in the [supported banks](#supported-banks) section.
 
 ## Screenshots
@@ -50,10 +47,6 @@ This app is primarily intended for German users. You can find the reason for thi
 
 <img src="docs/screenshots/statistics.png" width="400" alt="Statistics">
 
-**Settings Overview**
-
-<img src="docs/screenshots/settings.png" width="400" alt="Settings entry point">
-
 **Bank connections**: The list of connected banks
 
 <img src="docs/screenshots/settings_credentials.png" width="400" alt="Bank connections">
@@ -78,6 +71,10 @@ This app is primarily intended for German users. You can find the reason for thi
 
 <img src="docs/screenshots/settings_user_2fa.png" width="400" alt="2FA settings">
 
+**Notifications**: Create custom rules for notifications based on account balances, transaction amounts, or other criteria.
+
+<img src="docs/screenshots/settings_user_notifications.png" width="400" alt="Notifications settings">
+
 </details>
 
 ## Features
@@ -86,20 +83,22 @@ This app is primarily intended for German users. You can find the reason for thi
 - **Multiple connection types**: Connects to multiple banks to fetch your data, see the [supported banks](#supported-banks) section
 - **Automatic background syncing** on a configurable interval, plus on-demand sync
 - **Transactions grouped by date**, covering past, today, and future entries (some bank apps, such as ING, don't show future transactions)
-- **Balance on any date**: see what an account's balance or the sum of multiple account balances were on a given day
+- **Balance on any date**: See what an account's balance or the sum of multiple account balances were on a given day
 - **Statistics**: View diagrams about your financial data, grouped by account, time, and category.
 - **Search** for transactions across all accounts
 - **Automatic and manual categorization** of transactions
-- **Account balance at date**: see what an account's balance was on a given day
+- **Account balance at date**: See what an account's balance was on a given day
   - This includes your normal bank accounts with simple incoming and outgoing transactions,
   - But also banks such as Trade Republic. For e.g. Trade Republic in Questor you can see how much your holdings of an individual stock were worth on a given date.
   - This information is not even visible in their app as their api does not provide it. Questor fetches all relevant data and calculates the balance on the fly.
 - **Custom notes** on transactions
-- **Account groups**: drag accounts into your own groups to organize the overview
+- **Account groups**: Drag accounts into your own groups to organize the overview
 - **Multi-language** interface (English & German (add an issue for another requested language))
-- **Session management**: review active logins and sign out individual sessions
+- **Session management**: Review active logins and sign out individual sessions
 - **Light & dark mode**
 - **API keys**: Create personal API keys in your settings to interact with the backend programmatically with the same access as the frontend; keys are shown once, stored as hashed values, and can be revoked at any time. The docs are available on `<your instance url>/redoc` and on [GitHub](https://quaestordocs.fschneider.me/).
+- **Notifications**: Create custom rules for notifications based on account balances, transaction amounts, or other criteria.
+  - These fire on your phone even when the app is not running.
 
 ## Supported banks
 
@@ -220,3 +219,22 @@ sqlite> SELECT id, user_id, bank, username FROM credentials;
 ## Future changes
 
 Ideas I might want to implement in the future are tracked as [`enhancement` issues](https://github.com/felixschndr/quaestor/issues?q=is%3Aissue+state%3Aopen+label%3Aenhancement). If you think anything is missing, feel free to open an issue/PR.
+
+## Troubleshooting
+
+### Notifications
+
+#### General
+
+**Q: My notifications don't work at all?**
+
+**A:** Make sure your instance is served over `HTTPS`. Browsers only allow push notifications (and the service worker they rely on) in a secure context, so notifications will never work over plain `http://`. See the `SSL_CERTFILE`/`SSL_KEYFILE` and `SESSION_COOKIE_SECURE` environment variables, or terminate TLS at a reverse proxy in front of the app.
+
+#### Desktop
+
+**Q: Why don't notifications arrive on desktop?**
+
+**A:** The cause is usually that the browser's persistent connection to its push service (Chrome's FCM channel) broke (e.g., stuck after a network or VPN change). Open [chrome://gcm-internals](chrome://gcm-internals) and check the `Connection State` under `Device Info`:
+
+- If it shows `CONNECTED`, the channel is up and the problem is elsewhere; most likely browser or OS settings. Make sure notifications are allowed for the site in the browser, that the browser is allowed to send notifications in your OS settings, and that no focus/do-not-disturb mode is suppressing them.
+- If it shows anything else (e.g. `WAITING FOR NETWORK CHANGE`), the browser isn't connected to the push service, so nothing can be delivered. Restart the browser and re-establish the internet connection (e.g. toggle Wi-Fi off and on). Reload `chrome://gcm-internals` afterwards to confirm the state is now `CONNECTED`.

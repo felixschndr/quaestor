@@ -5,7 +5,7 @@ import { ChevronLeft } from 'lucide-react'
 import { z } from 'zod'
 
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
-import { AmountInput } from '@/components/ui/amount-input'
+import { AmountRangeFields } from '@/components/ui/amount-range-fields'
 import { Button } from '@/components/ui/button'
 import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { Input } from '@/components/ui/input'
@@ -159,21 +159,6 @@ function SearchForm({
   const { t } = useTranslation()
   const [accountIds, setAccountIds] = useState<number[]>(initialAccountIds)
   const [draft, setDraft] = useState<TransactionFilters>(initialFilters)
-  // The from/to amount signs are independent, but the range must stay ordered:
-  // "from +, to −" is nonsensical, so making "to" negative pulls "from" negative
-  // too, and making "from" positive pushes "to" positive too. Every other combo
-  // (incl. from −, to +) is left untouched.
-  const [fromNegative, setFromNegative] = useState<boolean>((initialFilters.amount_from ?? 0) < 0)
-  const [toNegative, setToNegative] = useState<boolean>((initialFilters.amount_to ?? 0) < 0)
-
-  const handleFromNegativeChange = (next: boolean) => {
-    setFromNegative(next)
-    if (!next) setToNegative(false)
-  }
-  const handleToNegativeChange = (next: boolean) => {
-    setToNegative(next)
-    if (next) setFromNegative(true)
-  }
 
   const update = <K extends keyof TransactionFilters>(key: K, value: TransactionFilters[K]) =>
     setDraft((prev) => ({ ...prev, [key]: value }))
@@ -208,26 +193,15 @@ function SearchForm({
         />
       </Field>
 
-      <Pair>
-        <Field id="search-amount-from" label={t('search.amountFrom')}>
-          <AmountInput
-            id="search-amount-from"
-            value={draft.amount_from}
-            onChange={(value) => update('amount_from', value)}
-            negative={fromNegative}
-            onNegativeChange={handleFromNegativeChange}
-          />
-        </Field>
-        <Field id="search-amount-to" label={t('search.amountTo')}>
-          <AmountInput
-            id="search-amount-to"
-            value={draft.amount_to}
-            onChange={(value) => update('amount_to', value)}
-            negative={toNegative}
-            onNegativeChange={handleToNegativeChange}
-          />
-        </Field>
-      </Pair>
+      <AmountRangeFields
+        idPrefix="search"
+        fromLabel={t('search.amountFrom')}
+        toLabel={t('search.amountTo')}
+        from={draft.amount_from}
+        to={draft.amount_to}
+        onFromChange={(value) => update('amount_from', value)}
+        onToChange={(value) => update('amount_to', value)}
+      />
 
       <DateRangeFields
         idPrefix="search"
@@ -266,10 +240,6 @@ function Field({ id, label, children }: { id: string; label: string; children: R
       {children}
     </div>
   )
-}
-
-function Pair({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 gap-3">{children}</div>
 }
 
 type SortKey =

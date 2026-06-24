@@ -643,5 +643,73 @@
       "titleIncoming": "Top-Sender"
     },
     "noCategories": "Bitte wähle mindestens eine Kategorie, um Statistiken zu sehen."
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "description": "Eigene Regeln für Push-Benachrichtigungen.",
+    "empty": "Noch keine Benachrichtigungen.",
+    "new": "Neue Regel",
+    "edit": "Benachrichtigung bearbeiten",
+    "create": "Neue Benachrichtigung",
+    "save": "Speichern",
+    "delete": "Löschen",
+    "confirmDelete": "Bestätigen",
+    "deleted": "Benachrichtigung gelöscht",
+    "enabledLabel": "Aktiv",
+    "includeContentLabel": "Details anzeigen",
+    "includeContentHint": "Wenn deaktiviert, nennt die Benachrichtigung nur das Konto und verbirgt Beträge, Gegenpartei, Kontostand und Schwellwert.",
+    "includeContentOn": "Details sichtbar",
+    "includeContentOff": "Nur Konto",
+    "triggerLabel": "Auslöser",
+    "trigger": {
+      "expected_transaction": "Erwartete Transaktion gebucht",
+      "transaction": "Transaktion gebucht",
+      "balance_threshold": "Kontostand-Schwelle"
+    },
+    "triggerHint": {
+      "expected_transaction": "Benachrichtige mich, wenn eine von mir manuell eingetragene erwartete Transaktion gebucht wird.",
+      "transaction": "Benachrichtige mich, wenn eine gebuchte Transaktion die folgenden Kriterien erfüllt.",
+      "balance_threshold": "Benachrichtige mich, wenn der Kontostand eines Kontos den Schwellwert in der gewählten Richtung überschreitet."
+    },
+    "directionLabel": "Richtung",
+    "direction": {
+      "below": "Fällt unter",
+      "above": "Steigt über"
+    },
+    "accountsLabel": "Konten",
+    "allAccounts": "Alle Konten",
+    "senderLabel": "Absender / Empfänger enthält",
+    "senderPlaceholder": "z. B. Netflix",
+    "categoriesLabel": "Kategorien",
+    "typesLabel": "Typen",
+    "amountFromLabel": "Betrag von",
+    "amountToLabel": "Betrag bis",
+    "thresholdLabel": "Schwellwert",
+    "anyAmount": "Beliebiger Betrag",
+    "summary": {
+      "amountFrom": "ab {{amount}}",
+      "amountTo": "bis {{amount}}",
+      "amountBetween": "{{from}} - {{to}}"
+    },
+    "pwa": {
+      "intro": "Auf dem Handy funktionieren Push-Benachrichtigungen nur, wenn Quaestor als App installiert ist (zum Startbildschirm hinzugefügt).",
+      "ios": "Im Browser auf das Teilen-Symbol tippen und „Zum Home-Bildschirm“ wählen (möglicherweise unter „mehr“), danach Quaestor vom Startbildschirm öffnen.",
+      "android": "In Chrome das Menü (⋮) öffnen und „App installieren“ bzw. „Zum Startbildschirm hinzufügen“ wählen.",
+      "desktop": "Quaestor über das Installationssymbol in der Adressleiste des Browsers installieren, um auch bei geschlossenem Tab Benachrichtigungen zu erhalten."
+    },
+    "navTitle": "Benachrichtigungsregeln",
+    "accountsRequired": "Bitte mindestens ein Konto auswählen.",
+    "duplicate": "Eine identische Regel existiert bereits.",
+    "nameLabel": "Name (optional)",
+    "namePlaceholder": "z. B. Miete eingegangen",
+    "amountLabel": "Betrag",
+    "allCategories": "Alle Kategorien",
+    "allTypes": "Alle Typen",
+    "thresholdRequired": "Bitte einen Schwellwert angeben.",
+    "sendTest": "Test senden",
+    "testSent": "Testbenachrichtigung gesendet.",
+    "testFailed": "Testbenachrichtigung konnte nicht zugestellt werden.",
+    "testDenied": "Benachrichtigungen sind in den Browser-Einstellungen blockiert.",
+    "testUnsupported": "Push-Benachrichtigungen werden auf diesem Gerät nicht unterstützt."
   }
 }

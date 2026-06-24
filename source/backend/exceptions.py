@@ -34,6 +34,10 @@ class ExpectedTransactionNotFoundError(NotFoundError):
     pass
 
 
+class NotificationRuleNotFoundError(NotFoundError):
+    pass
+
+
 class ValidationError(Exception):
     pass
 

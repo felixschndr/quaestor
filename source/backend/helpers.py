@@ -38,6 +38,10 @@ def epoch_ms_to_date(value: str | int) -> date:
     return datetime.fromtimestamp(timestamp=int(value) / 1000, tz=timezone.utc).date()
 
 
+def format_amount(amount: float) -> str:
+    return f"{amount:.2f} €"
+
+
 def parse_german_decimal(value: str) -> float:
     # Some sources mix formats: amounts use a dot ("460.80"), share counts a German comma ("3,761").
     # Only when a comma is present do we treat dots as thousands separators.
@@ -82,5 +86,9 @@ def get_backend_source_path() -> Path:
     return _get_source_path() / "backend"
 
 
-def get_frontend_source_path() -> Path:
+def get_frontend_path() -> Path:
     return _get_source_path() / "frontend"
+
+
+def get_frontend_source_path() -> Path:
+    return get_frontend_path() / "src"

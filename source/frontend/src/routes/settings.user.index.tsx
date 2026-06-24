@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
+  Bell,
   ChevronLeft,
   ChevronRight,
   KeyRound,
@@ -24,6 +25,7 @@ type UserSettingsRoute =
   | '/settings/user/authentication'
   | '/settings/user/sessions'
   | '/settings/user/api-keys'
+  | '/settings/user/notifications'
   | '/settings/user/delete'
 
 export function SettingsUserIndexView() {
@@ -56,16 +58,22 @@ export function SettingsUserIndexView() {
             description={t('settings.authenticationDescription')}
           />
           <NavLink
-            to="/settings/user/sessions"
-            icon={MonitorSmartphone}
-            label={t('settings.sessions')}
-            description={t('settings.sessionsDescription')}
+            to="/settings/user/notifications"
+            icon={Bell}
+            label={t('notifications.navTitle')}
+            description={t('notifications.description')}
           />
           <NavLink
             to="/settings/user/api-keys"
             icon={KeyRound}
             label={t('apiKeys.title')}
             description={t('apiKeys.description')}
+          />
+          <NavLink
+            to="/settings/user/sessions"
+            icon={MonitorSmartphone}
+            label={t('settings.sessions')}
+            description={t('settings.sessionsDescription')}
           />
         </ul>
 

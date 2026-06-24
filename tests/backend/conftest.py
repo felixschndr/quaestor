@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pyotp
 import pytest
 from fastapi.testclient import TestClient
-from httpx import Response
+from httpx import Response  # noqa ASYNC127
 from source.backend import main
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
 from source.backend.bank_handlers.base import (

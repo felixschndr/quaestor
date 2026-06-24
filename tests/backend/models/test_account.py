@@ -19,6 +19,14 @@ from tests.backend.conftest import (
 )
 
 
+def test_display_label_prefers_display_name():
+    assert Account(name="DE123", display_name="Checking").display_label == "Checking"
+
+
+def test_display_label_falls_back_to_name_when_no_display_name():
+    assert Account(name="DE123", display_name=None).display_label == "DE123"
+
+
 def _persist_account(session: Session, balance: float, transactions: list[tuple[date, float]]) -> Account:
     user = make_user(session)
     credential = make_credential(session, user_id=user.id)

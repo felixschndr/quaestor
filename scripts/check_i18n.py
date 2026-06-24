@@ -1,12 +1,25 @@
 #!/usr/bin/env python3
+import ast
 import json
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "source/frontend/src"
-LOCALES = SRC / "i18n/locales"
+sys.path.insert(0, str(ROOT))
+
+from source.backend.helpers import (  # noqa: E402
+    get_backend_source_path,
+    get_frontend_source_path,
+)
+from source.backend.services.i18n_service import SUPPORTED_LANGUAGES  # noqa: E402
+from source.backend.services.notification_messages import (  # noqa: E402
+    _TRANSLATION_CATALOG,
+)
+
+FRONTEND_SOURCE_PATH = get_frontend_source_path()
+FRONTEND_LOCALES_PATH = FRONTEND_SOURCE_PATH / "i18n/locales"
+BACKEND_SOURCE_PATH = get_backend_source_path()
 
 PLURAL_SUFFIXES = ("_zero", "_one", "_two", "_few", "_many", "_other")
 
@@ -14,6 +27,9 @@ LITERAL_RE = re.compile(r"""\bt\(\s*['"]([a-zA-Z0-9_.]+)['"]""")
 TEMPLATE_RE = re.compile(r"""\bt\(\s*`([^`]+)`""")
 I18NKEY_RE = re.compile(r"""i18nKey\s*=\s*['"]([a-zA-Z0-9_.]+)['"]""")
 ANY_STRING_RE = re.compile(r"""['"`]([a-zA-Z][a-zA-Z0-9_.]*)['"`]""")
+
+KEY_LIKE_RE = re.compile(r"^[a-z0-9_]+(?:\.[a-z0-9_]+)+$")
+BACKEND_CATALOG_FILENAME = "notification_messages.py"
 
 
 def template_to_regex(raw: str) -> re.Pattern:
@@ -62,40 +78,108 @@ def matches_any(key: str, patterns: list[re.Pattern]) -> bool:
     return any(p.match(key) for p in patterns)
 
 
-def main() -> int:
-    literals, patterns, any_strings = extract_keys(SRC)
-    locales = {p.stem: flatten(json.loads(p.read_text())) for p in sorted(LOCALES.glob("*.json"))}
-
-    errors: list[str] = []
-
-    union = set().union(*(set(k) for k in locales.values())) if locales else set()
-    for lang, keys in locales.items():
-        for k in sorted(union - set(keys)):
-            errors.append(f"[{lang}] key missing (present in other languages): {k}")
-
-    for lang, keys in locales.items():
-        present = set(keys)
-        for lit in sorted(literals):
-            if lit in present:
+def extract_backend_translate_keys(backend_dir: Path) -> set[str]:
+    # Collect every key passed to notification_messages.translate(..., key="...")
+    keys: set[str] = set()
+    for path in backend_dir.rglob("*.py"):
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
                 continue
-            if any(f"{lit}{suf}" in present for suf in PLURAL_SUFFIXES):
+            func = node.func
+            is_translate = (
+                isinstance(func, ast.Attribute)
+                and func.attr == "translate"
+                and isinstance(func.value, ast.Name)
+                and func.value.id == "notification_messages"
+            )
+            if not is_translate:
                 continue
-            if matches_any(lit, patterns):
+            for keyword in node.keywords:
+                if keyword.arg == "key" and isinstance(keyword.value, ast.Constant):
+                    keys.add(keyword.value.value)
+    return keys
+
+
+def extract_backend_key_like_strings(backend_dir: Path) -> set[str]:
+    strings: set[str] = set()
+    for path in backend_dir.rglob("*.py"):
+        if path.name == BACKEND_CATALOG_FILENAME:
+            continue
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and KEY_LIKE_RE.match(node.value):
+                strings.add(node.value)
+    return strings
+
+
+def report_languages_must_match_supported(errors: list[str], languages: set[str], label: str) -> None:
+    supported_languages = set(SUPPORTED_LANGUAGES)
+    if languages != supported_languages:
+        errors.append(
+            f"[{label}] languages {sorted(languages)} do not match supported languages {sorted(supported_languages)}"
+        )
+
+
+def report_keys_missing_in_some_language(
+    errors: list[str], keys_by_language: dict[str, set[str]], label: str
+) -> set[str]:
+    union = set().union(*keys_by_language.values()) if keys_by_language else set()
+    for language, keys in keys_by_language.items():
+        for key in sorted(union - keys):
+            errors.append(f"[{label}:{language}] key missing (present in other languages): {key}")
+    return union
+
+
+def check_frontend_messages(errors: list[str]) -> None:
+    literals, patterns, any_strings = extract_keys(FRONTEND_SOURCE_PATH)
+    keys_by_language = {
+        path.stem: set(flatten(json.loads(path.read_text()))) for path in sorted(FRONTEND_LOCALES_PATH.glob("*.json"))
+    }
+
+    report_languages_must_match_supported(errors, languages=set(keys_by_language), label="frontend")
+    report_keys_missing_in_some_language(errors, keys_by_language, label="frontend")
+
+    for language, keys in keys_by_language.items():
+        for literal in sorted(literals):
+            if literal in keys:
                 continue
-            errors.append(f"[{lang}] missing translation for key: {lit}")
-        for key in sorted(present):
+            if any(f"{literal}{suffix}" in keys for suffix in PLURAL_SUFFIXES):
+                continue
+            if matches_any(literal, patterns):
+                continue
+            errors.append(f"[frontend:{language}] missing translation for key used in code: {literal}")
+        for key in sorted(keys):
             base = strip_plural(key)
             if key in any_strings or base in any_strings:
                 continue
             if matches_any(key, patterns) or matches_any(base, patterns):
                 continue
-            errors.append(f"[{lang}] unused translation key: {key}")
+            errors.append(f"[frontend:{language}] unused translation key: {key}")
 
-    if errors:
-        for e in errors:
-            print(e)
-        return 1
-    return 0
+
+def check_backend_messages(errors: list[str]) -> None:
+    keys_by_language = {language: set(keys) for language, keys in _TRANSLATION_CATALOG.items()}
+
+    report_languages_must_match_supported(errors, languages=set(keys_by_language), label="backend")
+    message_keys = report_keys_missing_in_some_language(errors, keys_by_language, label="backend")
+
+    # The keys used in code must be exactly the keys defined in _MESSAGES.
+    used_keys = extract_backend_translate_keys(BACKEND_SOURCE_PATH)
+    for key in sorted(used_keys - message_keys):
+        errors.append(f"[backend] notification key used in code but missing from translation catalog: {key}")
+    referenced_keys = used_keys | extract_backend_key_like_strings(BACKEND_SOURCE_PATH)
+    for key in sorted(message_keys - referenced_keys):
+        errors.append(f"[backend] notification key defined in translation catalog but unused in code: {key}")
+
+
+def main() -> int:
+    errors: list[str] = []
+    check_frontend_messages(errors)
+    check_backend_messages(errors)
+    for error in errors:
+        print(error)
+    return 1 if errors else 0
 
 
 if __name__ == "__main__":

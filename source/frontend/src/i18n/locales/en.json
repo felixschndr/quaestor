@@ -643,5 +643,73 @@
       "titleIncoming": "Top senders"
     },
     "noCategories": "Select at least one category to see statistics."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "Custom rules for push notifications.",
+    "empty": "No notifications yet.",
+    "new": "New rule",
+    "edit": "Edit notification",
+    "create": "New notification",
+    "save": "Save",
+    "delete": "Delete",
+    "confirmDelete": "Confirm",
+    "deleted": "Notification deleted",
+    "enabledLabel": "Enabled",
+    "includeContentLabel": "Show details",
+    "includeContentHint": "When off, the notification only names the account and hides amounts, the other party, balance and threshold.",
+    "includeContentOn": "Details shown",
+    "includeContentOff": "Account only",
+    "triggerLabel": "Trigger",
+    "trigger": {
+      "expected_transaction": "Expected transaction booked",
+      "transaction": "Transaction booked",
+      "balance_threshold": "Balance crosses threshold"
+    },
+    "triggerHint": {
+      "expected_transaction": "Notify me when a transaction I entered manually as expected is booked.",
+      "transaction": "Notify me when a booked transaction matches the criteria below.",
+      "balance_threshold": "Notify me when an account's balance crosses the threshold in the chosen direction."
+    },
+    "directionLabel": "Direction",
+    "direction": {
+      "below": "Falls below",
+      "above": "Rises above"
+    },
+    "accountsLabel": "Accounts",
+    "allAccounts": "All accounts",
+    "senderLabel": "Sender / recipient contains",
+    "senderPlaceholder": "e.g. Netflix",
+    "categoriesLabel": "Categories",
+    "typesLabel": "Types",
+    "amountFromLabel": "Amount from",
+    "amountToLabel": "Amount to",
+    "thresholdLabel": "Threshold",
+    "anyAmount": "any amount",
+    "summary": {
+      "amountFrom": "from {{amount}}",
+      "amountTo": "up to {{amount}}",
+      "amountBetween": "{{from}} - {{to}}"
+    },
+    "pwa": {
+      "intro": "On phones, push notifications only work when Quaestor is installed as an app (added to your home screen).",
+      "ios": "In your browser, tap the Share icon and choose “Add to Home Screen” (possibly under “more”), then open Quaestor from your home screen.",
+      "android": "In Chrome, open the menu (⋮) and choose “Install app” or “Add to Home screen”.",
+      "desktop": "Install Quaestor via the install icon in your browser's address bar to receive notifications even when the tab is closed."
+    },
+    "navTitle": "Notification rules",
+    "accountsRequired": "Please select at least one account.",
+    "duplicate": "An identical rule already exists.",
+    "nameLabel": "Name (optional)",
+    "namePlaceholder": "e.g. Rent received",
+    "amountLabel": "Amount",
+    "allCategories": "All categories",
+    "allTypes": "All types",
+    "thresholdRequired": "Please enter a threshold.",
+    "sendTest": "Send test",
+    "testSent": "Test notification sent.",
+    "testFailed": "Test notification could not be delivered.",
+    "testDenied": "Notifications are blocked in your browser settings.",
+    "testUnsupported": "Push notifications are not supported on this device."
   }
 }

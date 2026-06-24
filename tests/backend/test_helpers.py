@@ -6,9 +6,11 @@ from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.helpers import (
     apply_fields,
     epoch_ms_to_date,
+    format_amount,
     format_transaction_for_categorization,
     get_backend_source_path,
     get_content_of_pyproject_toml,
+    get_frontend_path,
     get_frontend_source_path,
     get_key_of_transaction,
     get_project_description,
@@ -22,6 +24,19 @@ from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_type import TransactionType
 
 from tests.backend.conftest import RECENT_DATE, create_fetched_transaction
+
+
+@pytest.mark.parametrize(
+    argnames="amount, expected",
+    argvalues=[
+        (0.0, "0.00 €"),
+        (12.5, "12.50 €"),
+        (-9.99, "-9.99 €"),
+        (1234.567, "1234.57 €"),
+    ],
+)
+def test_format_amount(amount: float, expected: str):
+    assert format_amount(amount) == expected
 
 
 def test_key_is_identical_for_two_identical_transactions():
@@ -94,13 +109,22 @@ def test_get_backend_source_path_points_at_source_backend():
     assert (backend / "main.py").is_file()
 
 
-def test_get_frontend_source_path_points_at_source_frontend():
-    frontend = get_frontend_source_path()
+def test_get_frontend_path_points_at_source_frontend():
+    frontend = get_frontend_path()
 
     assert frontend.is_dir()
     assert frontend.name == "frontend"
     assert frontend.parent.name == "source"
     assert (frontend / "package.json").is_file()
+
+
+def test_get_frontend_source_path_points_at_frontend_src():
+    frontend_src = get_frontend_source_path()
+
+    assert frontend_src.is_dir()
+    assert frontend_src.name == "src"
+    assert frontend_src.parent.name == "frontend"
+    assert (frontend_src / "main.tsx").is_file()
 
 
 def test_get_project_name_reads_the_name_from_pyproject():
@@ -184,7 +208,7 @@ def test_apply_fields_with_empty_dict_leaves_entity_unchanged():
 def test_backend_and_frontend_are_siblings_under_the_repo_root():
     root = get_root_path_of_repository()
     backend = get_backend_source_path()
-    frontend = get_frontend_source_path()
+    frontend = get_frontend_path()
 
     assert backend.parent == frontend.parent
     assert backend.parent.parent == root

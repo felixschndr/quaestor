@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-import httpx
+import httpx  # noqa ASYNC127
 import pytest
 import uvicorn
 from cryptography import x509

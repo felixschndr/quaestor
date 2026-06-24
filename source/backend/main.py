@@ -17,6 +17,8 @@ from source.backend.api import (
     auth,
     credentials,
     i18n,
+    notification_rules,
+    push,
     settings,
     statistics,
     transactions,
@@ -29,7 +31,7 @@ from source.backend.constants import API_PREFIX
 from source.backend.db import SessionLocal, close_engine, log_database_location
 from source.backend.helpers import (
     get_backend_source_path,
-    get_frontend_source_path,
+    get_frontend_path,
     get_project_name,
     get_project_version,
 )
@@ -285,6 +287,8 @@ for api_object in [
     auth,
     credentials,
     i18n,
+    notification_rules,
+    push,
     settings,
     statistics,
     transactions,
@@ -339,7 +343,7 @@ def resolve_frontend_dist(dist_path: Path) -> Path | None:
     )
 
 
-_FRONTEND_DIST = resolve_frontend_dist(get_frontend_source_path() / "dist")
+_FRONTEND_DIST = resolve_frontend_dist(get_frontend_path() / "dist")
 if _FRONTEND_DIST is not None:
     app.mount(path="/", app=_SpaStaticFiles(directory=_FRONTEND_DIST, html=True), name="frontend")
     logger.info(f"Serving SPA from {_FRONTEND_DIST}")
