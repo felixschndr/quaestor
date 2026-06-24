@@ -1,6 +1,3 @@
-# Updates the bundled FinTS bank DB (bank_info.pickle) on startup.
-
-
 import asyncio
 import contextlib
 import io

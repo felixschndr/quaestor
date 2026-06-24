@@ -1,4 +1,5 @@
 import asyncio
+import re
 import sys
 from pathlib import Path
 
@@ -10,10 +11,35 @@ logger = get_logger(__name__)
 
 BROWSER = "chromium"
 
+# playwright emits its download progress bars using carriage returns, so split on both.
+
 
 async def _chromium_executable_path() -> Path:
     async with async_playwright() as playwright:
         return Path(playwright.chromium.executable_path)
+
+
+async def _stream_install_output(stream: asyncio.StreamReader) -> str:
+    _line_separators = re.compile(rb"[\r\n]")
+
+    collected_lines = []
+    buffer = b""
+    while True:
+        chunk = await stream.read(256)
+        if not chunk:
+            break
+        buffer += chunk
+        *complete, buffer = _line_separators.split(buffer)
+        for part in complete:
+            line = part.decode(errors="replace").strip()
+            if line:
+                logger.info(line)
+                collected_lines.append(line)
+    line = buffer.decode(errors="replace").strip()
+    if line:
+        logger.info(line)
+        collected_lines.append(line)
+    return "\n".join(collected_lines)
 
 
 async def _download_chromium() -> None:
@@ -21,12 +47,11 @@ async def _download_chromium() -> None:
     process = await asyncio.create_subprocess_exec(
         *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
     )
-    stdout, _ = await process.communicate()
-    output = stdout.decode(errors="replace").strip()
+    assert process.stdout is not None
+    output = await _stream_install_output(process.stdout)
+    await process.wait()
     if process.returncode != 0:
         raise RuntimeError(f"`playwright install {BROWSER}` failed (exit code {process.returncode}):\n{output}")
-    if output:
-        logger.debug(f"Playwright install output:\n{output}")
 
 
 async def ensure_chromium_installed() -> None:
