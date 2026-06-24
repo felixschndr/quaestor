@@ -192,14 +192,15 @@ As an alternative, you can use a named volume instead. A commented out volume mo
 
 If you need/want to access the database, you can do so with
 
-| Native                                                                                                           | Container                                                                    |
-|------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
-| `source .env && sqlcipher -cmd "PRAGMA key='${DATABASE_ENCRYPTION_KEY}'" <path to db> # e.g. ./data/Quaestor.db` | `sqlcipher -cmd "PRAGMA key='${DATABASE_ENCRYPTION_KEY}'" /data/Quaestor.db` |
+| Native                                                                                                           | Container                                                                                                         |
+|------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
+| `source .env && sqlcipher -cmd "PRAGMA key='${DATABASE_ENCRYPTION_KEY}'" <path to db> # e.g. ./data/Quaestor.db` | `docker exec -it quaestor sh -c 'sqlcipher -cmd "PRAGMA key='\''$DATABASE_ENCRYPTION_KEY'\''" /data/Quaestor.db'` |
 
 Then you can use standard sqlite syntax such as
 ````
 sqlite> .tables
-sqlite> SELECT id, user_id, bank, username FROM credentials;
+sqlite> .mode box
+sqlite> SELECT * FROM users;
 ````
 
 `sqlcipher` is installed in the container image.
@@ -208,13 +209,13 @@ sqlite> SELECT id, user_id, bank, username FROM credentials;
 
 | Name                          | Description                                                                                                                                                                                                 | Default value                                                   |
 |-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
-| `HOST`                        | The host the server is listening on                                                                                                                                                                         | `127.0.0.1`                                                     |
-| `PORT`                        | The port the server is listening on                                                                                                                                                                         | `8000`                                                          |
-| `DATA_DIR`                    | Directory holding all persistent data                                                                                                                                                                       | `<REPO_ROOT>/data` or `/data` (when running inside a container) |
+| `HOST`                        | The host the server is listening on.                                                                                                                                                                        | `127.0.0.1`                                                     |
+| `PORT`                        | The port the server is listening on.                                                                                                                                                                        | `8000`                                                          |
+| `DATA_DIR`                    | Directory holding all persistent data.                                                                                                                                                                      | `<REPO_ROOT>/data` or `/data` (when running inside a container) |
 | `DATABASE_ENCRYPTION_KEY`     | The key to encrypt the database with. **Must** be provided.                                                                                                                                                 | -                                                               |
-| `SSL_CERTFILE`                | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_KEYFILE`                                                                                                                     | -                                                               |
-| `SSL_KEYFILE`                 | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_CERTFILE`                                                                                                                    | -                                                               |
-| `ALLOW_NEW_USER_REGISTRATION` | Whether new users may register; set to anything other than `true` to disable                                                                                                                                | `true`                                                          |
+| `SSL_CERTFILE`                | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_KEYFILE`.                                                                                                                    | -                                                               |
+| `SSL_KEYFILE`                 | The path to SSL certfile to use for HTTPS, only valid in combination with `SSL_CERTFILE`.                                                                                                                   | -                                                               |
+| `ALLOW_NEW_USER_REGISTRATION` | Whether new users may register; set to anything other than `true` to disable.                                                                                                                               | `true`                                                          |
 | `DEFAULT_LANGUAGE`            | The language new users start with (e.g. `en`, `de`). Each user can change it later in their settings. Unsupported values fall back to `en`.                                                                 | `en`                                                            |
 | `DISPLAY_TIMEZONE`            | The IANA time zone (e.g. `Europe/Berlin`) the frontend renders timestamps in.                                                                                                                               | `UTC`                                                           |
 | `LOG_LEVEL`                   | The level to log at. When set to `DEBUG` all the http request and response data is logged. The app tries (but not ensures) to redact all sensible data. Don't set the `LOG_LEVEL` to `DEBUG` in production. | `INFO`                                                          |
