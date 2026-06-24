@@ -656,6 +656,10 @@
     "confirmDelete": "Bestätigen",
     "deleted": "Benachrichtigung gelöscht",
     "enabledLabel": "Aktiv",
+    "includeContentLabel": "Details anzeigen",
+    "includeContentHint": "Wenn deaktiviert, nennt die Benachrichtigung nur das Konto und verbirgt Beträge, Gegenpartei, Kontostand und Schwellwert.",
+    "includeContentOn": "Details sichtbar",
+    "includeContentOff": "Nur Konto",
     "triggerLabel": "Auslöser",
     "trigger": {
       "expected_transaction": "Erwartete Transaktion gebucht",

@@ -275,6 +275,7 @@ function RuleRow({
 interface RuleFormModel {
   trigger: NotificationTrigger
   enabled: boolean
+  include_content: boolean
   name: string
   account_ids: number[]
   other_party_contains: string
@@ -296,6 +297,7 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
   const base: RuleFormModel = {
     trigger: rule?.trigger ?? 'transaction',
     enabled: rule?.enabled ?? true,
+    include_content: rule?.include_content ?? true,
     name: rule?.name ?? '',
     account_ids: rule?.account_ids ?? defaults.accountIds,
     other_party_contains: '',
@@ -320,6 +322,7 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
 function modelToDraft(model: RuleFormModel): NotificationRuleDraft {
   const shared = {
     enabled: model.enabled,
+    include_content: model.include_content,
     name: model.name.trim() || null,
     account_ids: model.account_ids,
   }
@@ -526,6 +529,20 @@ function RuleDialog({
             </div>
           ) : null}
 
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <Label htmlFor="rule-include-content">{t('notifications.includeContentLabel')}</Label>
+              <p className="text-muted-foreground text-xs">
+                {t('notifications.includeContentHint')}
+              </p>
+            </div>
+            <Switch
+              id="rule-include-content"
+              checked={model.include_content}
+              onCheckedChange={(next) => set('include_content', next)}
+            />
+          </div>
+
           <div className="flex items-center justify-between">
             <Label htmlFor="rule-enabled">{t('notifications.enabledLabel')}</Label>
             <Switch
@@ -605,6 +622,13 @@ function ruleSummaryLines(
       value: formatEuro(rule.threshold ?? 0),
     })
   }
+
+  lines.push({
+    label: t('notifications.includeContentLabel'),
+    value: rule.include_content
+      ? t('notifications.includeContentOn')
+      : t('notifications.includeContentOff'),
+  })
 
   return lines
 }

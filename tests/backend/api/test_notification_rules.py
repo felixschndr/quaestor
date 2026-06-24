@@ -42,9 +42,20 @@ def test_create_and_list_balance_rule(http_client: TestClient, session_factory: 
     assert created["threshold"] == 100.0
     assert created["account_ids"] == [account_id]
     assert created["name"] == "Low balance"
+    assert created["include_content"] is True
 
     listed = http_client.get("/api/notification_rules").json()
     assert [rule["id"] for rule in listed] == [created["id"]]
+
+
+def test_create_rule_can_opt_out_of_content(http_client: TestClient, session_factory: sessionmaker) -> None:
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+
+    created = http_client.post(
+        "/api/notification_rules", json=_balance_rule_payload(account_id, include_content=False)
+    ).json()
+
+    assert created["include_content"] is False
 
 
 def test_create_transaction_rule_round_trips_criteria(http_client: TestClient, session_factory: sessionmaker) -> None:

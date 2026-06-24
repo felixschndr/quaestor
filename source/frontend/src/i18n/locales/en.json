@@ -656,6 +656,10 @@
     "confirmDelete": "Confirm",
     "deleted": "Notification deleted",
     "enabledLabel": "Enabled",
+    "includeContentLabel": "Show details",
+    "includeContentHint": "When off, the notification only names the account and hides amounts, the other party, balance and threshold.",
+    "includeContentOn": "Details shown",
+    "includeContentOff": "Account only",
     "triggerLabel": "Trigger",
     "trigger": {
       "expected_transaction": "Expected transaction booked",

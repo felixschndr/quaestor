@@ -13,9 +13,8 @@ export type NotificationTrigger = (typeof NOTIFICATION_TRIGGERS)[number]
 interface RuleBase {
   id: number
   enabled: boolean
-  // Optional user-given label; falls back to the trigger description when empty.
+  include_content: boolean
   name: string | null
-  // Accounts the rule applies to (at least one; selecting every account means "all").
   account_ids: number[]
 }
 

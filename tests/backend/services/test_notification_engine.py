@@ -41,6 +41,7 @@ def _make_notification_rule(
     trigger: NotificationTrigger,
     account_ids: list[int],
     enabled: bool = True,
+    include_content: bool = True,
     name: str | None = None,
     other_party_contains: str | None = None,
     categories: list[str] | None = None,
@@ -54,6 +55,7 @@ def _make_notification_rule(
         trigger=trigger,
         account_ids=account_ids,
         enabled=enabled,
+        include_content=include_content,
         name=name,
         other_party_contains=other_party_contains,
         categories=categories if categories is not None else [],
@@ -317,6 +319,82 @@ def test_balance_below_rule_quiet_when_already_below(session_factory: sessionmak
         )
 
     assert notifications == []
+
+
+# --- include_content (content redaction) -----------------------------------
+
+
+def test_transaction_rule_without_content_omits_amount_and_other_party(session_factory: sessionmaker) -> None:
+    with session_factory() as db_session:
+        credential, account_id = _account_with_notification_rule(
+            db_session,
+            trigger=NotificationTrigger.TRANSACTION,
+            categories=ALL_CATEGORIES,
+            types=ALL_TYPES,
+            include_content=False,
+        )
+        account_label = credential.accounts[0].display_label
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        make_transaction(db_session, account_id=account_id, amount=-42.50, other_party="Netflix Intl.")
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert len(notifications) == 1
+    assert notifications[0].body == account_label
+    assert "42" not in notifications[0].body
+    assert "Netflix" not in notifications[0].body
+
+
+def test_balance_below_rule_without_content_omits_balance_and_threshold(session_factory: sessionmaker) -> None:
+    with session_factory() as db_session:
+        credential, account_id = _account_with_notification_rule(
+            db_session,
+            trigger=NotificationTrigger.BALANCE_BELOW,
+            threshold=50.0,
+            balance=100.0,
+            include_content=False,
+        )
+        account_label = credential.accounts[0].display_label
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        credential.accounts[0].balance = 40.0
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert len(notifications) == 1
+    assert notifications[0].body == account_label
+    assert "40" not in notifications[0].body
+    assert "50" not in notifications[0].body
+
+
+def test_expected_transaction_rule_without_content_omits_amount(session_factory: sessionmaker) -> None:
+    with session_factory() as db_session:
+        user = make_user(db_session)
+        credential = make_credential(db_session, user_id=user.id)
+        account = make_account(db_session, credential_id=credential.id)
+        expected = make_transaction(db_session, account_id=account.id, amount=123.45, expected=True, pending=True)
+        _make_notification_rule(
+            db_session,
+            user_id=user.id,
+            trigger=NotificationTrigger.EXPECTED_TRANSACTION,
+            account_ids=[account.id],
+            include_content=False,
+        )
+        db_session.flush()
+        account_label = account.display_label
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        account.transactions.remove(expected)
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert len(notifications) == 1
+    assert notifications[0].body == account_label
+    assert "123" not in notifications[0].body
 
 
 # --- dispatch + full sync wiring -------------------------------------------

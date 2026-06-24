@@ -24,6 +24,7 @@ class NotificationRule(Base):
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
+    include_content: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     name: Mapped[str | None] = mapped_column(String, nullable=True)
     trigger: Mapped[NotificationTrigger] = mapped_column(SQLEnum(NotificationTrigger))
     account_ids: Mapped[list[int]] = mapped_column(JSON, default=list)

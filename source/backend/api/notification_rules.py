@@ -19,6 +19,7 @@ router = create_router()
 
 class _RuleInBase(BaseModel):
     enabled: bool = True
+    include_content: bool = True
     name: str | None = None
     account_ids: list[int] = Field(min_length=1)
 
@@ -53,6 +54,7 @@ class RuleRead(BaseModel):
 
     id: int
     enabled: bool
+    include_content: bool
     name: str | None
     trigger: NotificationTrigger
     account_ids: list[int]
@@ -65,9 +67,10 @@ class RuleRead(BaseModel):
 
 
 def _columns(payload: ExpectedRuleIn | TransactionRuleIn | BalanceRuleIn) -> dict:
-    """Map a validated, trigger-specific payload onto the model's flat column set."""
+    # Map a validated, trigger-specific payload onto the model's flat column set
     columns = {
         "enabled": payload.enabled,
+        "include_content": payload.include_content,
         "name": payload.name,
         "trigger": NotificationTrigger(payload.trigger),
         "account_ids": payload.account_ids,

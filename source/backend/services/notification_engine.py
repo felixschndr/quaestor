@@ -139,11 +139,17 @@ def _notifications_for_rule(
                 rule=rule,
                 account=account,
                 default_title=notification_messages.translate(language, key="expected_transaction.title"),
-                body=notification_messages.translate(
-                    language,
-                    key="expected_transaction.body",
-                    account=account.display_label,
-                    amount=format_amount(transaction.amount),
+                body=(
+                    notification_messages.translate(
+                        language,
+                        key="expected_transaction.body",
+                        account=account.display_label,
+                        amount=format_amount(transaction.amount),
+                    )
+                    if rule.include_content
+                    else notification_messages.translate(
+                        language, key="expected_transaction.body_minimal", account=account.display_label
+                    )
                 ),
             )
             for transaction in booked_expected_transactions
@@ -157,14 +163,19 @@ def _notifications_for_rule(
         for transaction in new_transactions:
             if not _transaction_matches(rule=rule, transaction=transaction):
                 continue
-            body = notification_messages.translate(
-                language,
-                key="transaction.body",
-                account=account.display_label,
-                amount=format_amount(transaction.amount),
-            )
-            if transaction.other_party:
-                body += f" · {transaction.other_party}"
+            if rule.include_content:
+                body = notification_messages.translate(
+                    language,
+                    key="transaction.body",
+                    account=account.display_label,
+                    amount=format_amount(transaction.amount),
+                )
+                if transaction.other_party:
+                    body += f" · {transaction.other_party}"
+            else:
+                body = notification_messages.translate(
+                    language, key="transaction.body_minimal", account=account.display_label
+                )
             notifications.append(
                 _build_notification(
                     rule=rule,
@@ -187,12 +198,18 @@ def _notifications_for_rule(
                     rule=rule,
                     account=account,
                     default_title=notification_messages.translate(language, key="balance_below.title"),
-                    body=notification_messages.translate(
-                        language,
-                        key="balance_below.body",
-                        account=account.display_label,
-                        amount=format_amount(account.balance),
-                        threshold=format_amount(rule.threshold),
+                    body=(
+                        notification_messages.translate(
+                            language,
+                            key="balance_below.body",
+                            account=account.display_label,
+                            amount=format_amount(account.balance),
+                            threshold=format_amount(rule.threshold),
+                        )
+                        if rule.include_content
+                        else notification_messages.translate(
+                            language, key="balance_below.body_minimal", account=account.display_label
+                        )
                     ),
                     # Collapse repeated balance alerts for the same account/rule.
                     tag=f"balance-{rule.id}-{account.id}",
