@@ -2,6 +2,7 @@ import pytest
 from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.models.credential import Credential
 from source.backend.models.notification_rule import (
+    BalanceDirection,
     NotificationRule,
     NotificationTrigger,
 )
@@ -49,6 +50,7 @@ def _make_notification_rule(
     min_amount: float | None = None,
     max_amount: float | None = None,
     threshold: float | None = None,
+    direction: BalanceDirection | None = None,
 ) -> NotificationRule:
     rule = NotificationRule(
         user_id=user_id,
@@ -63,6 +65,7 @@ def _make_notification_rule(
         min_amount=min_amount,
         max_amount=max_amount,
         threshold=threshold,
+        direction=direction,
     )
     db_session.add(rule)
     db_session.flush()
@@ -279,14 +282,15 @@ def test_expected_transaction_rule_quiet_when_nothing_booked(session_factory: se
     assert notifications == []
 
 
-# --- balance-below trigger -------------------------------------------------
+# --- balance-threshold trigger ---------------------------------------------
 
 
-def test_balance_below_rule_triggers_on_crossing(session_factory: sessionmaker) -> None:
+def test_balance_below_rule_triggers_on_downward_crossing(session_factory: sessionmaker) -> None:
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
-            trigger=NotificationTrigger.BALANCE_BELOW,
+            trigger=NotificationTrigger.BALANCE_THRESHOLD,
+            direction=BalanceDirection.BELOW,
             threshold=50.0,
             balance=100.0,
         )
@@ -306,13 +310,55 @@ def test_balance_below_rule_quiet_when_already_below(session_factory: sessionmak
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
-            trigger=NotificationTrigger.BALANCE_BELOW,
+            trigger=NotificationTrigger.BALANCE_THRESHOLD,
+            direction=BalanceDirection.BELOW,
             threshold=50.0,
             balance=40.0,
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
         account = credential.accounts[0]
         account.balance = 30.0
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert notifications == []
+
+
+def test_balance_above_rule_triggers_on_upward_crossing(session_factory: sessionmaker) -> None:
+    with session_factory() as db_session:
+        credential, account_id = _account_with_notification_rule(
+            db_session,
+            trigger=NotificationTrigger.BALANCE_THRESHOLD,
+            direction=BalanceDirection.ABOVE,
+            threshold=50.0,
+            balance=40.0,
+        )
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        account = credential.accounts[0]
+        account.balance = 60.0
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert len(notifications) == 1
+    assert "above" in notifications[0].title.lower()
+
+
+def test_balance_above_rule_does_not_trigger_on_downward_crossing(session_factory: sessionmaker) -> None:
+    with session_factory() as db_session:
+        credential, account_id = _account_with_notification_rule(
+            db_session,
+            trigger=NotificationTrigger.BALANCE_THRESHOLD,
+            direction=BalanceDirection.ABOVE,
+            threshold=50.0,
+            balance=100.0,
+        )
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        account = credential.accounts[0]
+        account.balance = 40.0
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -351,7 +397,8 @@ def test_balance_below_rule_without_content_omits_balance_and_threshold(session_
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
-            trigger=NotificationTrigger.BALANCE_BELOW,
+            trigger=NotificationTrigger.BALANCE_THRESHOLD,
+            direction=BalanceDirection.BELOW,
             threshold=50.0,
             balance=100.0,
             include_content=False,

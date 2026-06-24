@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from source.backend.api.create_router import create_router
 from source.backend.db import get_session
 from source.backend.models.notification_rule import (
+    BalanceDirection,
     NotificationRule,
     NotificationTrigger,
 )
@@ -38,8 +39,9 @@ class TransactionRuleIn(_RuleInBase):
 
 
 class BalanceRuleIn(_RuleInBase):
-    trigger: Literal["balance_below"]
+    trigger: Literal["balance_threshold"]
     threshold: float
+    direction: BalanceDirection
 
 
 RuleIn = Annotated[
@@ -64,6 +66,7 @@ class RuleRead(BaseModel):
     min_amount: float | None = None
     max_amount: float | None = None
     threshold: float | None = None
+    direction: BalanceDirection | None = None
 
 
 def _columns(payload: ExpectedRuleIn | TransactionRuleIn | BalanceRuleIn) -> dict:
@@ -80,6 +83,7 @@ def _columns(payload: ExpectedRuleIn | TransactionRuleIn | BalanceRuleIn) -> dic
         "min_amount": None,
         "max_amount": None,
         "threshold": None,
+        "direction": None,
     }
     if isinstance(payload, TransactionRuleIn):
         columns.update(
@@ -90,7 +94,7 @@ def _columns(payload: ExpectedRuleIn | TransactionRuleIn | BalanceRuleIn) -> dic
             max_amount=payload.max_amount,
         )
     elif isinstance(payload, BalanceRuleIn):
-        columns.update(threshold=payload.threshold)
+        columns.update(threshold=payload.threshold, direction=payload.direction)
     return columns
 
 

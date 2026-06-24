@@ -10,7 +10,9 @@ _TRANSLATION_CATALOG: dict[str, dict[str, str]] = {
         "transaction.body_minimal": "{account}",
         "balance_below.title": "Balance below threshold",
         "balance_below.body": "{account}: {amount} (threshold {threshold})",
-        "balance_below.body_minimal": "{account}",
+        "balance_above.title": "Balance above threshold",
+        "balance_above.body": "{account}: {amount} (threshold {threshold})",
+        "balance_threshold.body_minimal": "{account}",
         "test.body": "🔔 Test notification → push works!",
     },
     "de": {
@@ -22,7 +24,9 @@ _TRANSLATION_CATALOG: dict[str, dict[str, str]] = {
         "transaction.body_minimal": "{account}",
         "balance_below.title": "Kontostand unterschritten",
         "balance_below.body": "{account}: {amount} (Schwelle {threshold})",
-        "balance_below.body_minimal": "{account}",
+        "balance_above.title": "Kontostand überschritten",
+        "balance_above.body": "{account}: {amount} (Schwelle {threshold})",
+        "balance_threshold.body_minimal": "{account}",
         "test.body": "🔔 Testbenachrichtigung → Push funktioniert!",
     },
 }

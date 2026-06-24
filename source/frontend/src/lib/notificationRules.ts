@@ -6,9 +6,12 @@ import type { TransactionCategory, TransactionType } from './transaction'
 export const NOTIFICATION_TRIGGERS = [
   'expected_transaction',
   'transaction',
-  'balance_below',
+  'balance_threshold',
 ] as const
 export type NotificationTrigger = (typeof NOTIFICATION_TRIGGERS)[number]
+
+export const BALANCE_DIRECTIONS = ['below', 'above'] as const
+export type BalanceDirection = (typeof BALANCE_DIRECTIONS)[number]
 
 interface RuleBase {
   id: number
@@ -31,16 +34,17 @@ export interface TransactionRule extends RuleBase {
   max_amount: number | null
 }
 
-export interface BalanceBelowRule extends RuleBase {
-  trigger: 'balance_below'
+export interface BalanceThresholdRule extends RuleBase {
+  trigger: 'balance_threshold'
   threshold: number
+  direction: BalanceDirection
 }
 
-export type NotificationRule = ExpectedTransactionRule | TransactionRule | BalanceBelowRule
+export type NotificationRule = ExpectedTransactionRule | TransactionRule | BalanceThresholdRule
 export type NotificationRuleDraft =
   | Omit<ExpectedTransactionRule, 'id'>
   | Omit<TransactionRule, 'id'>
-  | Omit<BalanceBelowRule, 'id'>
+  | Omit<BalanceThresholdRule, 'id'>
 
 /**
  * A stable key for a rule's *meaning* (trigger + criteria), ignoring id and the
@@ -59,8 +63,13 @@ export function ruleSignature(rule: NotificationRule | NotificationRuleDraft): s
       max_amount: rule.max_amount ?? null,
     })
   }
-  if (rule.trigger === 'balance_below') {
-    return JSON.stringify({ trigger: rule.trigger, accounts, threshold: rule.threshold })
+  if (rule.trigger === 'balance_threshold') {
+    return JSON.stringify({
+      trigger: rule.trigger,
+      accounts,
+      threshold: rule.threshold,
+      direction: rule.direction,
+    })
   }
   return JSON.stringify({ trigger: rule.trigger, accounts })
 }

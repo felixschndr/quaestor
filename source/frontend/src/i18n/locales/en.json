@@ -664,12 +664,17 @@
     "trigger": {
       "expected_transaction": "Expected transaction booked",
       "transaction": "Transaction booked",
-      "balance_below": "Balance fell below"
+      "balance_threshold": "Balance crosses threshold"
     },
     "triggerHint": {
       "expected_transaction": "Notify me when a transaction I entered manually as expected is booked.",
       "transaction": "Notify me when a booked transaction matches the criteria below.",
-      "balance_below": "Notify me when an account's balance falls under the threshold."
+      "balance_threshold": "Notify me when an account's balance crosses the threshold in the chosen direction."
+    },
+    "directionLabel": "Direction",
+    "direction": {
+      "below": "Falls below",
+      "above": "Rises above"
     },
     "accountsLabel": "Accounts",
     "allAccounts": "All accounts",

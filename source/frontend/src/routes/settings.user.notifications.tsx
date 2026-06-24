@@ -11,6 +11,7 @@ import {
   Smartphone,
   Trash2,
   TrendingDown,
+  TrendingUp,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { LucideIcon } from 'lucide-react'
@@ -46,12 +47,14 @@ import {
   type TransactionType,
 } from '@/lib/transaction'
 import {
+  BALANCE_DIRECTIONS,
   NOTIFICATION_TRIGGERS,
   useCreateNotificationRule,
   useDeleteNotificationRule,
   useNotificationRules,
   useUpdateNotificationRule,
   ruleSignature,
+  type BalanceDirection,
   type NotificationRule,
   type NotificationRuleDraft,
   type NotificationTrigger,
@@ -64,7 +67,7 @@ export const Route = createFileRoute('/settings/user/notifications')({
 const TRIGGER_ICONS: Record<NotificationTrigger, LucideIcon> = {
   expected_transaction: CalendarClock,
   transaction: ArrowLeftRight,
-  balance_below: TrendingDown,
+  balance_threshold: TrendingDown,
 }
 
 function SettingsNotificationsPage() {
@@ -202,7 +205,10 @@ function RuleRow({
   const update = useUpdateNotificationRule()
   const remove = useDeleteNotificationRule()
   const [confirming, setConfirming] = useState(false)
-  const Icon = TRIGGER_ICONS[rule.trigger]
+  const Icon =
+    rule.trigger === 'balance_threshold' && rule.direction === 'above'
+      ? TrendingUp
+      : TRIGGER_ICONS[rule.trigger]
 
   const toggleEnabled = async (enabled: boolean) => {
     const { id, ...draft } = rule
@@ -304,6 +310,7 @@ interface RuleFormModel {
   min_amount: number | undefined
   max_amount: number | undefined
   threshold: number | undefined
+  direction: BalanceDirection
 }
 
 // New rules start with every account, category and type selected.
@@ -326,6 +333,7 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
     min_amount: undefined,
     max_amount: undefined,
     threshold: undefined,
+    direction: 'below',
   }
   if (rule?.trigger === 'transaction') {
     base.other_party_contains = rule.other_party_contains ?? ''
@@ -333,8 +341,9 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
     base.types = rule.types
     base.min_amount = rule.min_amount ?? undefined
     base.max_amount = rule.max_amount ?? undefined
-  } else if (rule?.trigger === 'balance_below') {
+  } else if (rule?.trigger === 'balance_threshold') {
     base.threshold = rule.threshold
+    base.direction = rule.direction
   }
   return base
 }
@@ -349,8 +358,13 @@ function modelToDraft(model: RuleFormModel): NotificationRuleDraft {
   switch (model.trigger) {
     case 'expected_transaction':
       return { ...shared, trigger: 'expected_transaction' }
-    case 'balance_below':
-      return { ...shared, trigger: 'balance_below', threshold: model.threshold ?? 0 }
+    case 'balance_threshold':
+      return {
+        ...shared,
+        trigger: 'balance_threshold',
+        threshold: model.threshold ?? 0,
+        direction: model.direction,
+      }
     case 'transaction':
       return {
         ...shared,
@@ -406,8 +420,8 @@ function RuleDialog({
       setAccountError(true)
       return
     }
-    // The balance threshold is mandatory for the balance_below trigger.
-    if (model.trigger === 'balance_below' && model.threshold === undefined) {
+    // The balance threshold is mandatory for the balance_threshold trigger.
+    if (model.trigger === 'balance_threshold' && model.threshold === undefined) {
       setThresholdError(true)
       return
     }
@@ -538,24 +552,40 @@ function RuleDialog({
             </>
           ) : null}
 
-          {model.trigger === 'balance_below' ? (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="rule-threshold">{t('notifications.thresholdLabel')}</Label>
-              <AmountInput
-                id="rule-threshold"
-                value={model.threshold}
-                aria-invalid={thresholdError || undefined}
-                onChange={(next) => {
-                  set('threshold', next)
-                  if (next !== undefined) setThresholdError(false)
-                }}
-              />
-              {thresholdError ? (
-                <p role="alert" className="text-destructive text-xs">
-                  {t('notifications.thresholdRequired')}
-                </p>
-              ) : null}
-            </div>
+          {model.trigger === 'balance_threshold' ? (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="rule-direction">{t('notifications.directionLabel')}</Label>
+                <NativeSelect
+                  id="rule-direction"
+                  value={model.direction}
+                  onChange={(event) => set('direction', event.target.value as BalanceDirection)}
+                >
+                  {BALANCE_DIRECTIONS.map((direction) => (
+                    <option key={direction} value={direction}>
+                      {t(`notifications.direction.${direction}`)}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="rule-threshold">{t('notifications.thresholdLabel')}</Label>
+                <AmountInput
+                  id="rule-threshold"
+                  value={model.threshold}
+                  aria-invalid={thresholdError || undefined}
+                  onChange={(next) => {
+                    set('threshold', next)
+                    if (next !== undefined) setThresholdError(false)
+                  }}
+                />
+                {thresholdError ? (
+                  <p role="alert" className="text-destructive text-xs">
+                    {t('notifications.thresholdRequired')}
+                  </p>
+                ) : null}
+              </div>
+            </>
           ) : null}
 
           <div className="flex items-start justify-between gap-4">
@@ -636,7 +666,11 @@ function ruleSummaryLines(
       label: t('notifications.amountLabel'),
       value: describeAmountRange(rule.min_amount, rule.max_amount, t),
     })
-  } else if (rule.trigger === 'balance_below') {
+  } else if (rule.trigger === 'balance_threshold') {
+    lines.push({
+      label: t('notifications.directionLabel'),
+      value: t(`notifications.direction.${rule.direction}`),
+    })
     lines.push({
       label: t('notifications.thresholdLabel'),
       value: formatEuro(rule.threshold ?? 0),

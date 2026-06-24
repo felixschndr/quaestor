@@ -14,7 +14,12 @@ if TYPE_CHECKING:
 class NotificationTrigger(str, enum.Enum):
     EXPECTED_TRANSACTION = "expected_transaction"
     TRANSACTION = "transaction"
-    BALANCE_BELOW = "balance_below"
+    BALANCE_THRESHOLD = "balance_threshold"
+
+
+class BalanceDirection(str, enum.Enum):
+    BELOW = "below"  # from above to below
+    ABOVE = "above"
 
 
 class NotificationRule(Base):
@@ -36,7 +41,8 @@ class NotificationRule(Base):
     min_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
     max_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    # "balance_below" trigger
+    # "balance_threshold" trigger
     threshold: Mapped[float | None] = mapped_column(Float, nullable=True)
+    direction: Mapped[BalanceDirection | None] = mapped_column(SQLEnum(BalanceDirection), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="notification_rules")

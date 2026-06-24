@@ -22,7 +22,7 @@ def test_translate_falls_back_to_default_language_for_unknown_language():
 
 @pytest.mark.parametrize(
     argnames="key",
-    argvalues=["transaction.body_minimal", "expected_transaction.body_minimal", "balance_below.body_minimal"],
+    argvalues=["transaction.body_minimal", "expected_transaction.body_minimal", "balance_threshold.body_minimal"],
 )
 @pytest.mark.parametrize(argnames="language", argvalues=["en", "de"])
 def test_minimal_body_only_contains_the_account(language: str, key: str):

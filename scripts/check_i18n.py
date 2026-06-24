@@ -28,6 +28,9 @@ TEMPLATE_RE = re.compile(r"""\bt\(\s*`([^`]+)`""")
 I18NKEY_RE = re.compile(r"""i18nKey\s*=\s*['"]([a-zA-Z0-9_.]+)['"]""")
 ANY_STRING_RE = re.compile(r"""['"`]([a-zA-Z][a-zA-Z0-9_.]*)['"`]""")
 
+KEY_LIKE_RE = re.compile(r"^[a-z0-9_]+(?:\.[a-z0-9_]+)+$")
+BACKEND_CATALOG_FILENAME = "notification_messages.py"
+
 
 def template_to_regex(raw: str) -> re.Pattern:
     parts = re.split(r"\$\{[^}]+\}", raw)
@@ -98,6 +101,18 @@ def extract_backend_translate_keys(backend_dir: Path) -> set[str]:
     return keys
 
 
+def extract_backend_key_like_strings(backend_dir: Path) -> set[str]:
+    strings: set[str] = set()
+    for path in backend_dir.rglob("*.py"):
+        if path.name == BACKEND_CATALOG_FILENAME:
+            continue
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and KEY_LIKE_RE.match(node.value):
+                strings.add(node.value)
+    return strings
+
+
 def report_languages_must_match_supported(errors: list[str], languages: set[str], label: str) -> None:
     supported_languages = set(SUPPORTED_LANGUAGES)
     if languages != supported_languages:
@@ -153,7 +168,8 @@ def check_backend_messages(errors: list[str]) -> None:
     used_keys = extract_backend_translate_keys(BACKEND_SOURCE_PATH)
     for key in sorted(used_keys - message_keys):
         errors.append(f"[backend] notification key used in code but missing from translation catalog: {key}")
-    for key in sorted(message_keys - used_keys):
+    referenced_keys = used_keys | extract_backend_key_like_strings(BACKEND_SOURCE_PATH)
+    for key in sorted(message_keys - referenced_keys):
         errors.append(f"[backend] notification key defined in translation catalog but unused in code: {key}")
 
 

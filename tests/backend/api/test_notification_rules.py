@@ -8,10 +8,11 @@ from tests.backend.conftest import setup_account
 
 def _balance_rule_payload(account_id: int, **overrides: Any) -> dict:
     payload = {
-        "trigger": "balance_below",
+        "trigger": "balance_threshold",
         "name": "Low balance",
         "account_ids": [account_id],
         "threshold": 100.0,
+        "direction": "below",
     }
     payload.update(overrides)
     return payload
@@ -38,8 +39,9 @@ def test_create_and_list_balance_rule(http_client: TestClient, session_factory: 
 
     assert response.status_code == 201
     created = response.json()
-    assert created["trigger"] == "balance_below"
+    assert created["trigger"] == "balance_threshold"
     assert created["threshold"] == 100.0
+    assert created["direction"] == "below"
     assert created["account_ids"] == [account_id]
     assert created["name"] == "Low balance"
     assert created["include_content"] is True

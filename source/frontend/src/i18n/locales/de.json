@@ -664,12 +664,17 @@
     "trigger": {
       "expected_transaction": "Erwartete Transaktion gebucht",
       "transaction": "Transaktion gebucht",
-      "balance_below": "Kontostand unterschritten"
+      "balance_threshold": "Kontostand-Schwelle"
     },
     "triggerHint": {
       "expected_transaction": "Benachrichtige mich, wenn eine von mir manuell eingetragene erwartete Transaktion gebucht wird.",
       "transaction": "Benachrichtige mich, wenn eine gebuchte Transaktion die folgenden Kriterien erfüllt.",
-      "balance_below": "Benachrichtige mich, wenn der Kontostand eines Kontos unter den Schwellwert fällt."
+      "balance_threshold": "Benachrichtige mich, wenn der Kontostand eines Kontos den Schwellwert in der gewählten Richtung überschreitet."
+    },
+    "directionLabel": "Richtung",
+    "direction": {
+      "below": "Fällt unter",
+      "above": "Steigt über"
     },
     "accountsLabel": "Konten",
     "allAccounts": "Alle Konten",

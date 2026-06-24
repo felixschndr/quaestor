@@ -5,6 +5,7 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
 from source.backend.models.credential import Credential
 from source.backend.models.notification_rule import (
+    BalanceDirection,
     NotificationRule,
     NotificationTrigger,
 )
@@ -187,34 +188,43 @@ def _notifications_for_rule(
         logger.debug(f"{rule}: matched {len(notifications)}/{len(new_transactions)} new transaction(s) on {account}")
         return notifications
 
-    if rule.trigger is NotificationTrigger.BALANCE_BELOW:
+    if rule.trigger is NotificationTrigger.BALANCE_THRESHOLD:
         if rule.threshold is None:
             return []
-        crossed = balance_before >= rule.threshold > account.balance
-        logger.debug(f"{rule}: {account} (balance was {balance_before:.2f} before sync, crossed below={crossed})")
-        if crossed:
-            return [
-                _build_notification(
-                    rule=rule,
-                    account=account,
-                    default_title=notification_messages.translate(language, key="balance_below.title"),
-                    body=(
-                        notification_messages.translate(
-                            language,
-                            key="balance_below.body",
-                            account=account.display_label,
-                            amount=format_amount(account.balance),
-                            threshold=format_amount(rule.threshold),
-                        )
-                        if rule.include_content
-                        else notification_messages.translate(
-                            language, key="balance_below.body_minimal", account=account.display_label
-                        )
-                    ),
-                    # Collapse repeated balance alerts for the same account/rule.
-                    tag=f"balance-{rule.id}-{account.id}",
-                )
-            ]
+
+        if rule.direction is BalanceDirection.ABOVE:
+            crossed = balance_before <= rule.threshold < account.balance
+            title_key = "balance_above.title"
+            body_key = "balance_above.body"
+        else:
+            crossed = balance_before >= rule.threshold > account.balance
+            title_key = "balance_below.title"
+            body_key = "balance_below.body"
+        logger.debug(f"Evaluated {rule}: balance was {balance_before:.2f} before sync (crossed={crossed})")
+        if not crossed:
+            return []
+
+        if rule.include_content:
+            body = notification_messages.translate(
+                language,
+                key=body_key,
+                account=account.display_label,
+                amount=format_amount(account.balance),
+                threshold=format_amount(rule.threshold),
+            )
+        else:
+            body = notification_messages.translate(
+                language, key="balance_threshold.body_minimal", account=account.display_label
+            )
+        return [
+            _build_notification(
+                rule=rule,
+                account=account,
+                default_title=notification_messages.translate(language, key=title_key),
+                body=body,
+                tag=f"balance-{rule.id}-{account.id}",
+            )
+        ]
 
     return []
 
@@ -255,5 +265,5 @@ def _build_notification(
         title=rule.name or default_title,
         body=body,
         url=f"/account/{account.id}",
-        tag=tag,
+        tag=tag,  # Collapse repeated balance alerts for the same account/rule.
     )
