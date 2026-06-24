@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   Pencil,
   Plus,
+  Smartphone,
   Trash2,
   TrendingDown,
 } from 'lucide-react'
@@ -37,6 +38,7 @@ import { accountDisplayName } from '@/lib/accounts'
 import { formatEuro } from '@/lib/format'
 import { readApiErrorMessage } from '@/lib/apiError'
 import { sendTestNotification } from '@/lib/push'
+import { detectPlatform, isStandalone } from '@/lib/platform'
 import { FILTERABLE_CATEGORIES } from '@/lib/statistics'
 import {
   TRANSACTION_TYPES,
@@ -137,6 +139,8 @@ export function SettingsNotificationsView({ user }: { user: UserRead }) {
         </Button>
       </div>
 
+      <PwaInstallNotice />
+
       {rules.isLoading ? (
         <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
       ) : list.length === 0 ? (
@@ -164,6 +168,22 @@ export function SettingsNotificationsView({ user }: { user: UserRead }) {
         />
       ) : null}
     </main>
+  )
+}
+
+function PwaInstallNotice() {
+  const { t } = useTranslation()
+  if (isStandalone()) return null
+
+  const platform = detectPlatform()
+  return (
+    <div className="border-border bg-muted/40 text-muted-foreground flex gap-3 rounded-lg border p-3 text-sm">
+      <Smartphone className="text-primary mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <div className="flex flex-col gap-1">
+        {platform === 'desktop' ? null : <p>{t('notifications.pwa.intro')}</p>}
+        <p>{t(`notifications.pwa.${platform}`)}</p>
+      </div>
+    </div>
   )
 }
 
@@ -425,6 +445,15 @@ function RuleDialog({
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="rule-enabled">{t('notifications.enabledLabel')}</Label>
+            <Switch
+              id="rule-enabled"
+              checked={model.enabled}
+              onCheckedChange={(next) => set('enabled', next)}
+            />
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="rule-name">{t('notifications.nameLabel')}</Label>
             <Input
@@ -540,15 +569,6 @@ function RuleDialog({
               id="rule-include-content"
               checked={model.include_content}
               onCheckedChange={(next) => set('include_content', next)}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Label htmlFor="rule-enabled">{t('notifications.enabledLabel')}</Label>
-            <Switch
-              id="rule-enabled"
-              checked={model.enabled}
-              onCheckedChange={(next) => set('enabled', next)}
             />
           </div>
 

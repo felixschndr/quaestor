@@ -686,6 +686,12 @@
       "amountTo": "up to {{amount}}",
       "amountBetween": "{{from}} - {{to}}"
     },
+    "pwa": {
+      "intro": "On phones, push notifications only work when Quaestor is installed as an app (added to your home screen).",
+      "ios": "In your browser, tap the Share icon and choose “Add to Home Screen” (possibly under “more”), then open Quaestor from your home screen.",
+      "android": "In Chrome, open the menu (⋮) and choose “Install app” or “Add to Home screen”.",
+      "desktop": "Install Quaestor via the install icon in your browser's address bar to receive notifications even when the tab is closed."
+    },
     "navTitle": "Notification rules",
     "accountsRequired": "Please select at least one account.",
     "duplicate": "An identical rule already exists.",
