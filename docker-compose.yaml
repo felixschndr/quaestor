@@ -4,7 +4,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/data # Ensure that the user with the ID 1000 can write to the directory on the host!
+      - ./data:/data # Ensure that the user with the ID 1000 owns this directory recursively on the host! See README.md
       # - quaestor-data:/data # See the README for this
     environment:
       HOST: 0.0.0.0
