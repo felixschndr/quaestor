@@ -63,6 +63,18 @@ def test_detects_biweekly_series(session_factory: sessionmaker):
         assert session.query(Contract).one().frequency == ContractFrequency.BIWEEKLY
 
 
+def test_blacklisted_other_party_does_not_form_a_contract(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        _seed(session, account_id=account.id, other_party="EDEKA Markt Mueller", amount=-42.0, day_offsets=[0, 30, 60])
+        session.commit()
+
+        detected = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        assert detected == 0
+        assert session.query(Contract).count() == 0
+
+
 def test_too_few_occurrences_do_not_form_a_contract(session_factory: sessionmaker):
     with session_factory() as session:
         account = make_account_with_new_user(session)

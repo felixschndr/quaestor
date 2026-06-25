@@ -32,6 +32,17 @@ ELIGIBLE_TRANSACTION_TYPES = frozenset(
     }
 )
 
+BLACKLISTED_CATEGORIES = frozenset(
+    {
+        TransactionCategory.SUPERMARKET,
+        TransactionCategory.DRUGSTORE,
+        TransactionCategory.RESTAURANTS,
+        TransactionCategory.CLOTHING,
+        TransactionCategory.GIFTS,
+        TransactionCategory.REIMBURSEMENT,
+    }
+)
+
 
 def detect_contracts_for_user(db_session: Session, user: User) -> None:
     accounts = db_session.scalars(
@@ -98,6 +109,9 @@ def _get_eligible_transactions(db_session: Session, account: Account) -> list[Tr
 def _group_by_fingerprint(transactions: list[Transaction]) -> dict[tuple[str, str], list[Transaction]]:
     groups: dict[tuple[str, str], list[Transaction]] = defaultdict(list)
     for transaction in transactions:
+        if _is_transaction_blacklisted_for_automatic_contract_detection(transaction):
+            logger.debug(f"Skipping blacklisted other party '{transaction.other_party}' for contract detection")
+            continue
         fingerprint = compute_fingerprint(transaction)
         if fingerprint is None:
             continue
@@ -107,6 +121,10 @@ def _group_by_fingerprint(transactions: list[Transaction]) -> dict[tuple[str, st
         groups[(key, fingerprint.display_name)].append(transaction)
 
     return groups
+
+
+def _is_transaction_blacklisted_for_automatic_contract_detection(transaction: Transaction) -> bool:
+    return TransactionCategory.from_transaction(transaction=transaction) in BLACKLISTED_CATEGORIES
 
 
 def _classify_cadence(dates: list[datetime.date]) -> tuple[ContractFrequency | None, int | None]:
