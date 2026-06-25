@@ -2,7 +2,6 @@ import base64
 import json
 
 import pytest
-import requests
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.padding import MGF1, OAEP
@@ -22,6 +21,7 @@ from tests.backend.conftest import (
     RECENT_DATE,
     USER_NAME,
     VALID_PASSWORD,
+    FakeHttpResponse,
     get_backend_test_path,
 )
 
@@ -47,20 +47,6 @@ _TEST_PUBLIC_KEY_PEM = _TEST_PRIVATE_KEY.public_key().public_bytes(
 _UNSET = object()
 
 
-class _MockedResponse:
-    def __init__(self, *, text: str = "", json_data: object = None, status_code: int = 200) -> None:
-        self.text = text
-        self._json = json_data
-        self.status_code = status_code
-
-    def raise_for_status(self) -> None:
-        if self.status_code >= 400:
-            raise requests.HTTPError(f"{self.status_code} error", response=self)
-
-    def json(self) -> object:
-        return self._json
-
-
 class MockedSession:
     def __init__(
         self,
@@ -70,7 +56,7 @@ class MockedSession:
         insurance_status: int = 200,
         insurance_data: dict | None = None,
         access_token: object = _UNSET,
-    ) -> None:
+    ):
         self.spa_html = spa_html
         self.bundle_text = bundle_text
         self.token_status = token_status
@@ -92,20 +78,20 @@ class MockedSession:
             return {key: value for key, value in TOKEN_RESPONSE.items() if key != "access_token"}
         return {**TOKEN_RESPONSE, "access_token": self.access_token}
 
-    def get(self, url: str, **kwargs: object) -> _MockedResponse:
+    def get(self, url: str, **kwargs: object) -> FakeHttpResponse:
         self.calls.append(("GET", url, kwargs))
         if url == f"{_Fin4uSession.BASE_URL}/":
-            return _MockedResponse(text=self.spa_html)
+            return FakeHttpResponse(text=self.spa_html)
         if BUNDLE_NAME in url:
-            return _MockedResponse(text=self.bundle_text)
+            return FakeHttpResponse(text=self.bundle_text)
         if "/dashboard/insurance" in url:
-            return _MockedResponse(status_code=self.insurance_status, json_data=self.insurance_data)
+            return FakeHttpResponse(status_code=self.insurance_status, json_data=self.insurance_data)
         raise AssertionError(f"unexpected GET {url}")
 
-    def post(self, url: str, **kwargs: object) -> _MockedResponse:
+    def post(self, url: str, **kwargs: object) -> FakeHttpResponse:
         self.calls.append(("POST", url, kwargs))
         if url.endswith(_Fin4uSession.TOKEN_PATH):
-            return _MockedResponse(status_code=self.token_status, json_data=self._token_body())
+            return FakeHttpResponse(status_code=self.token_status, json_data=self._token_body())
         raise AssertionError(f"unexpected POST {url}")
 
 
@@ -158,9 +144,9 @@ def test_load_bundle_secrets_raises_when_api_version_missing(monkeypatch: pytest
 def test_load_bundle_secrets_raises_when_index_request_fails(monkeypatch: pytest.MonkeyPatch):
     mocked_session = MockedSession()
 
-    def get_500(url: str, **kwargs: object) -> _MockedResponse:
+    def get_500(url: str, **kwargs: object) -> FakeHttpResponse:
         mocked_session.calls.append(("GET", url, kwargs))
-        return _MockedResponse(status_code=500)
+        return FakeHttpResponse(status_code=500)
 
     mocked_session.get = get_500
     patch_session(monkeypatch=monkeypatch, fake=mocked_session)
@@ -173,10 +159,10 @@ def test_load_bundle_secrets_raises_when_bundle_request_fails(monkeypatch: pytes
     mocked_session = MockedSession()
     real_get = mocked_session.get
 
-    def selective_500(url: str, **kwargs: object) -> _MockedResponse:
+    def selective_500(url: str, **kwargs: object) -> FakeHttpResponse:
         if BUNDLE_NAME in url:
             mocked_session.calls.append(("GET", url, kwargs))
-            return _MockedResponse(status_code=500)
+            return FakeHttpResponse(status_code=500)
         return real_get(url, **kwargs)
 
     mocked_session.get = selective_500
@@ -260,17 +246,20 @@ def test_remote_data_is_only_fetched_once(monkeypatch: pytest.MonkeyPatch):
     assert len([c for c in mocked_session.calls if "/dashboard/insurance" in c[1]]) == 1
 
 
-def test_login_401_raises_invalid_credentials(monkeypatch: pytest.MonkeyPatch):
-    patch_session(monkeypatch=monkeypatch, fake=MockedSession(token_status=401))
+@pytest.mark.parametrize(
+    argnames="session_kwargs, expected_exception",
+    argvalues=[
+        ({"token_status": 401}, InvalidCredentialsError),  # nosec B105
+        ({"token_status": 500}, UnknownInternalError),  # nosec B105
+        ({"insurance_status": 500}, UnknownInternalError),
+    ],
+)
+def test_http_error_responses_raise(
+    monkeypatch: pytest.MonkeyPatch, session_kwargs: dict, expected_exception: type[Exception]
+):
+    patch_session(monkeypatch=monkeypatch, fake=MockedSession(**session_kwargs))
 
-    with pytest.raises(InvalidCredentialsError):
-        fin4u_session().get_accounts()
-
-
-def test_login_500_raises_unknown_internal(monkeypatch: pytest.MonkeyPatch):
-    patch_session(monkeypatch=monkeypatch, fake=MockedSession(token_status=500))
-
-    with pytest.raises(UnknownInternalError):
+    with pytest.raises(expected_exception):
         fin4u_session().get_accounts()
 
 
@@ -278,13 +267,6 @@ def test_token_endpoint_missing_access_token_raises_unknown_internal(monkeypatch
     patch_session(monkeypatch=monkeypatch, fake=MockedSession(access_token=None))
 
     with pytest.raises(UnknownInternalError, match="access_token"):
-        fin4u_session().get_accounts()
-
-
-def test_insurance_500_raises_unknown_internal(monkeypatch: pytest.MonkeyPatch):
-    patch_session(monkeypatch=monkeypatch, fake=MockedSession(insurance_status=500))
-
-    with pytest.raises(UnknownInternalError):
         fin4u_session().get_accounts()
 
 

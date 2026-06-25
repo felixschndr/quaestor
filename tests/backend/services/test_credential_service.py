@@ -214,61 +214,36 @@ def test_sync_leaves_two_factor_flag_unset_without_two_factor(
         assert credential.requires_two_factor_authentication is False
 
 
-def test_reevaluating_sync_clears_two_factor_flag_when_no_longer_needed(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    argnames="hours_since_last_fetch, reevaluate, expected_flag",
+    argvalues=[
+        (25, True, False),  # stale enough and reevaluation requested -> flag cleared
+        (1, True, True),  # previous fetch too recent to reevaluate -> flag kept
+        (48, False, True),  # no reevaluation requested -> flag untouched
+    ],
+)
+def test_sync_reevaluates_two_factor_flag(
+    session_factory: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+    hours_since_last_fetch: int,
+    reevaluate: bool,
+    expected_flag: bool,
 ):
     user_id = create_user(session_factory).id
     credential_id = persist_credential(
         session_factory,
         user_id=user_id,
         requires_two_factor_authentication=True,
-        last_fetching_timestamp=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=25),
+        last_fetching_timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
+        - timedelta(hours=hours_since_last_fetch),
     )
 
     monkeypatch.setattr(target=Credential, name="sync", value=lambda self, handler: None)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
-        credential_service.sync_credential_object(credential=credential, reevaluate_two_factor_requirement=True)
-        assert credential.requires_two_factor_authentication is False
-
-
-def test_reevaluating_sync_keeps_two_factor_flag_when_previous_fetch_too_recent(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
-):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(
-        session_factory,
-        user_id=user_id,
-        requires_two_factor_authentication=True,
-        last_fetching_timestamp=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1),
-    )
-
-    monkeypatch.setattr(target=Credential, name="sync", value=lambda self, handler: None)
-
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential_service.sync_credential_object(credential=credential, reevaluate_two_factor_requirement=True)
-        assert credential.requires_two_factor_authentication is True
-
-
-def test_non_reevaluating_sync_does_not_touch_two_factor_flag(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
-):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(
-        session_factory,
-        user_id=user_id,
-        requires_two_factor_authentication=True,
-        last_fetching_timestamp=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=48),
-    )
-
-    monkeypatch.setattr(target=Credential, name="sync", value=lambda self, handler: None)
-
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential_service.sync_credential_object(credential=credential)
-        assert credential.requires_two_factor_authentication is True
+        credential_service.sync_credential_object(credential=credential, reevaluate_two_factor_requirement=reevaluate)
+        assert credential.requires_two_factor_authentication is expected_flag
 
 
 def test_sync_reraises_reauth_when_handler_has_no_interactive_challenge(
@@ -351,9 +326,7 @@ def test_confirm_two_factor_completes_login_and_syncs_credential(
         assert session.get(entity=Credential, ident=credential_id).session_state == {"cookies": "cookies-from-2fa"}
 
 
-def test_create_generic_fints_credential_persists_blz(
-    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_create_generic_fints_credential_persists_blz(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     user_id = create_user(session_factory).id
 
     with session_factory() as session:
@@ -373,7 +346,7 @@ def test_create_generic_fints_credential_persists_blz(
     assert BANK_PASSWORD not in caplog.text
 
 
-def test_create_generic_fints_credential_rejects_missing_blz(session_factory: sessionmaker) -> None:
+def test_create_generic_fints_credential_rejects_missing_blz(session_factory: sessionmaker):
     user_id = create_user(session_factory).id
 
     with session_factory() as session:

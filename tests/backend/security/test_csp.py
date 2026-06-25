@@ -1,26 +1,24 @@
+import pytest
 from fastapi.testclient import TestClient
 from source.backend.security.csp import DEFAULT_POLICY, DOCS_POLICY, HEADER_NAME
 
 from tests.backend.conftest import VALID_PASSWORD
 
 
-def test_csp_header_is_set_on_api_responses(http_client: TestClient):
-    response = http_client.get("/api/settings")
+@pytest.mark.parametrize(
+    argnames="method, path, json_body, expected_status",
+    argvalues=[
+        ("get", "/api/settings", None, 200),  # API response
+        ("post", "/api/auth/login", {"user_name": "ghost", "password": VALID_PASSWORD}, 401),  # error response
+        ("get", "/openapi.json", None, 200),  # non-API response
+    ],
+)
+def test_csp_header_is_set_on_every_response(
+    http_client: TestClient, method: str, path: str, json_body: dict | None, expected_status: int
+):
+    response = http_client.request(method=method, url=path, json=json_body)
 
-    assert response.headers[HEADER_NAME] == DEFAULT_POLICY
-
-
-def test_csp_header_is_set_on_error_responses(http_client: TestClient):
-    response = http_client.post("/api/auth/login", json={"user_name": "ghost", "password": VALID_PASSWORD})
-
-    assert response.status_code == 401
-    assert response.headers[HEADER_NAME] == DEFAULT_POLICY
-
-
-def test_csp_header_is_set_on_non_api_responses(http_client: TestClient):
-    response = http_client.get("/openapi.json")
-
-    assert response.status_code == 200
+    assert response.status_code == expected_status
     assert response.headers[HEADER_NAME] == DEFAULT_POLICY
 
 
@@ -51,9 +49,6 @@ def test_csp_default_policy_blocks_unsafe_script_sources():
     assert "'unsafe-inline'" not in DEFAULT_POLICY.split("script-src")[1].split(";")[0]
 
 
-def test_csp_default_policy_blocks_framing():
-    assert "frame-ancestors 'none'" in DEFAULT_POLICY
-
-
-def test_csp_default_policy_blocks_objects():
-    assert "object-src 'none'" in DEFAULT_POLICY
+@pytest.mark.parametrize(argnames="directive", argvalues=["frame-ancestors 'none'", "object-src 'none'"])
+def test_csp_default_policy_contains_blocking_directive(directive: str):
+    assert directive in DEFAULT_POLICY

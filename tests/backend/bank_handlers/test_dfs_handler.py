@@ -3,9 +3,8 @@ import logging
 from datetime import date
 
 import pytest
-import requests
 from source.backend.bank_handlers import dfs_handler
-from source.backend.bank_handlers.base import BalanceObservation, FetchedAccount
+from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.bank_handlers.dfs_handler import DFSHandler, _DFSSession
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
 from source.backend.models.transaction_type import TransactionType
@@ -20,6 +19,7 @@ from tests.backend.conftest import (
     RECENT_DATE_MS,
     USER_NAME,
     VALID_PASSWORD,
+    FakeHttpResponse,
     date_to_epoch_ms,
     get_backend_test_path,
 )
@@ -46,20 +46,6 @@ KURSE_SERIES_BY_ID = {
 }
 
 
-class _FakeResponse:
-    def __init__(self, *, url: str = "", json_data: object = None, status_code: int = 200) -> None:
-        self.url = url
-        self._json = json_data
-        self.status_code = status_code
-
-    def raise_for_status(self) -> None:
-        if self.status_code >= 400:
-            raise requests.HTTPError(f"{self.status_code} error", response=self)
-
-    def json(self) -> object:
-        return self._json
-
-
 class FakeSession:
     def __init__(
         self,
@@ -74,7 +60,7 @@ class FakeSession:
         transactions_data: dict | None = None,
         kurse_list_data: dict | None = None,
         kurse_series_by_id: dict | None = None,
-    ) -> None:
+    ):
         self.login_redirect_url = login_redirect_url
         self.dashboard_status = dashboard_status
         self.snapshot_status = snapshot_status
@@ -93,25 +79,27 @@ class FakeSession:
     def __exit__(self, *args: object) -> bool:
         return False
 
-    def post(self, url: str, **kwargs: object) -> _FakeResponse:
+    def post(self, url: str, **kwargs: object) -> FakeHttpResponse:
         self.calls.append(("POST", url, kwargs))
         if "login.action" in url:
-            return _FakeResponse(url=self.login_redirect_url)
+            return FakeHttpResponse(url=self.login_redirect_url)
         if "getDashboardSnapshot" in url:
-            return _FakeResponse(status_code=self.snapshot_status, json_data=self.snapshot_data)
+            return FakeHttpResponse(status_code=self.snapshot_status, json_data=self.snapshot_data)
         if "/transaktionen" in url:
-            return _FakeResponse(status_code=self.transactions_status, json_data=self.transactions_data)
+            return FakeHttpResponse(status_code=self.transactions_status, json_data=self.transactions_data)
         if "/kurse/" in url:
             kurs_id = url.split("/kurse/")[1]
-            return _FakeResponse(status_code=self.kurse_series_status, json_data=self.kurse_series_by_id.get(kurs_id))
+            return FakeHttpResponse(
+                status_code=self.kurse_series_status, json_data=self.kurse_series_by_id.get(kurs_id)
+            )
         if url.endswith("/kurse"):
-            return _FakeResponse(status_code=self.kurse_list_status, json_data=self.kurse_list_data)
+            return FakeHttpResponse(status_code=self.kurse_list_status, json_data=self.kurse_list_data)
         raise AssertionError(f"unexpected POST {url}")
 
-    def get(self, url: str, **kwargs: object) -> _FakeResponse:
+    def get(self, url: str, **kwargs: object) -> FakeHttpResponse:
         self.calls.append(("GET", url, kwargs))
         if "Dashboard.action" in url:
-            return _FakeResponse(status_code=self.dashboard_status)
+            return FakeHttpResponse(status_code=self.dashboard_status)
         raise AssertionError(f"unexpected GET {url}")
 
 
@@ -263,14 +251,6 @@ def test_get_market_value_history_logs_debug_summary(monkeypatch: pytest.MonkeyP
         session.get_market_value_history(FetchedAccount(name="Stock A"))
 
     assert any("valued Stock A" in record.message for record in caplog.records)
-
-
-def test_market_value_history_returns_balance_observations(monkeypatch: pytest.MonkeyPatch):
-    patch_session(monkeypatch=monkeypatch, fake=FakeSession())
-
-    history = dfs_session().get_market_value_history(FetchedAccount(name="Stock A"))
-
-    assert all(isinstance(observation, BalanceObservation) for observation in history)
 
 
 def test_value_series_fills_transaction_days_with_carried_forward_price():

@@ -131,20 +131,19 @@ def test_from_fetched_does_not_log_unknown_for_matched_transaction(caplog: pytes
     assert not any("No category matched" in record.message for record in caplog.records)
 
 
-def test_deposit_type_yields_savings_regardless_of_text():
-    fetched = create_fetched_transaction(
-        other_party="Felix Schneider", purpose=None, transaction_type=TransactionType.DEPOSIT
-    )
+@pytest.mark.parametrize(
+    argnames="transaction_type, expected",
+    argvalues=[
+        (TransactionType.DEPOSIT, TransactionCategory.SAVINGS),
+        (TransactionType.REMOVAL, TransactionCategory.WITHDRAWAL),
+    ],
+)
+def test_type_short_circuits_to_category_regardless_of_text(
+    transaction_type: TransactionType, expected: TransactionCategory
+):
+    fetched = create_fetched_transaction(other_party="Felix Schneider", purpose=None, transaction_type=transaction_type)
 
-    assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.SAVINGS
-
-
-def test_removal_type_yields_withdrawal_regardless_of_text():
-    fetched = create_fetched_transaction(
-        other_party="Felix Schneider", purpose=None, transaction_type=TransactionType.REMOVAL
-    )
-
-    assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.WITHDRAWAL
+    assert TransactionCategory.from_transaction(transaction=fetched) == expected
 
 
 def test_ag_beitrag_with_deposit_type_yields_savings():
@@ -175,16 +174,9 @@ def test_brokerage_types_yield_investment_regardless_of_text(transaction_type: T
     assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.INVESTMENT
 
 
-def test_outgoing_type_does_not_short_circuit():
-    # Only DEPOSIT/REMOVAL are type-based; OUTGOING still goes through the text matchers.
-    fetched = create_fetched_transaction(
-        other_party="REWE Markt", purpose=None, transaction_type=TransactionType.OUTGOING
-    )
-
-    assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.SUPERMARKET
-
-
-def test_unknown_type_does_not_short_circuit():
-    fetched = create_fetched_transaction(other_party="REWE Markt", purpose=None, transaction_type=None)
+@pytest.mark.parametrize(argnames="transaction_type", argvalues=[TransactionType.OUTGOING, None])
+def test_non_type_based_transaction_falls_through_to_text_matchers(transaction_type: TransactionType | None):
+    # Only DEPOSIT/REMOVAL are type-based; other types still go through the text matchers.
+    fetched = create_fetched_transaction(other_party="REWE Markt", purpose=None, transaction_type=transaction_type)
 
     assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.SUPERMARKET

@@ -288,7 +288,7 @@ def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest
 
 def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.MonkeyPatch):
     class _FakeClient:
-        async def close(self) -> None:  # noqa: ASYNC124
+        async def close(self):  # noqa: ASYNC124
             pass
 
     session = _TradeRepublicSession(trade_republic_client=_FakeClient())

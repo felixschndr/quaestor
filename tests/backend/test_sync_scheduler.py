@@ -70,7 +70,7 @@ def test_run_periodic_sync_logs_and_keeps_running_on_exception(
 
     sleep_calls = 0
 
-    async def fake_sleep(_seconds: float) -> None:  # noqa: ASYNC124
+    async def fake_sleep(_seconds: float):  # noqa: ASYNC124
         nonlocal sleep_calls
         sleep_calls += 1
         if sleep_calls > 1:
@@ -93,7 +93,7 @@ def test_run_periodic_sync_calls_the_sync_function(monkeypatch: pytest.MonkeyPat
     sync = Mock()
     monkeypatch.setattr(target=sync_scheduler, name="_sync_all_due_credentials", value=sync)
 
-    async def fake_sleep(_seconds: float) -> None:  # noqa: ASYNC124
+    async def fake_sleep(_seconds: float):  # noqa: ASYNC124
         # The loop sleeps before each sync; trip the loop on the second sleep so
         # exactly one sync runs in between.
         if sync.called:

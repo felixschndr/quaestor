@@ -30,7 +30,7 @@ def _by_key(catalog: list[CatalogEntry], key: str) -> CatalogEntry:
     return next(e for e in catalog if e.key == key)
 
 
-def test_generic_fints_entry_has_login_and_password_only() -> None:
+def test_generic_fints_entry_has_login_and_password_only():
     entry = _by_key(_build(), key="70150000")
 
     assert entry.provider == "fints"
@@ -38,14 +38,14 @@ def test_generic_fints_entry_has_login_and_password_only() -> None:
     assert entry.field_rules == {}
 
 
-def test_schwifty_enriches_name_and_bic() -> None:
+def test_schwifty_enriches_name_and_bic():
     entry = _by_key(_build(), key="10070000")
 
     assert entry.name == "Deutsche Bank"
     assert entry.bic == "DEUTDEFFXXX"
 
 
-def test_same_named_banks_are_grouped_into_one_entry() -> None:
+def test_same_named_banks_are_grouped_into_one_entry():
     catalog = _build()
 
     db_entries = [e for e in catalog if e.provider == "fints" and e.name == "Deutsche Bank"]
@@ -55,18 +55,18 @@ def test_same_named_banks_are_grouped_into_one_entry() -> None:
 
 
 @pytest.mark.parametrize(argnames="blz, expected_tested", argvalues=[("70150000", True), ("10070000", False)])
-def test_entry_is_tested_via_keyword(blz: str, expected_tested: bool) -> None:
+def test_entry_is_tested_via_keyword(blz: str, expected_tested: bool):
     assert _by_key(_build(), key=blz).tested is expected_tested
 
 
-def test_deprecated_alt_entries_are_excluded() -> None:
+def test_deprecated_alt_entries_are_excluded():
     catalog = _build()
 
     assert not any("-alt-" in e.name for e in catalog)
     assert not any("13061008" in e.blzs for e in catalog)
 
 
-def test_custom_providers_are_injected() -> None:
+def test_custom_providers_are_injected():
     catalog = _build()
 
     providers = {e.provider for e in catalog}
@@ -76,22 +76,22 @@ def test_custom_providers_are_injected() -> None:
     assert tr.blzs == []
 
 
-def test_icon_uses_logo_slug_for_fints_entries() -> None:
+def test_icon_uses_logo_slug_for_fints_entries():
     assert _by_key(_build(), key="70150000").icon == "/static/banks/sparkasse.png"
 
 
-def test_fints_entries_carry_their_family() -> None:
+def test_fints_entries_carry_their_family():
     catalog = _build()
 
     assert _by_key(catalog, key="70150000").family == CatalogFamily(slug="sparkasse", label="Sparkasse")
     assert _by_key(catalog, key="10070000").family is None
 
 
-def test_non_fints_providers_have_no_family() -> None:
+def test_non_fints_providers_have_no_family():
     assert _by_key(_build(), key="trade_republic").family is None
 
 
-def test_get_catalog_serializes_entries_to_plain_dicts() -> None:
+def test_get_catalog_serializes_entries_to_plain_dicts():
     entry = next(e for e in bank_catalog.get_catalog() if e["provider"] == "manual")
     assert isinstance(entry, dict)
     assert entry["family"] is None
@@ -110,18 +110,18 @@ def test_get_catalog_serializes_entries_to_plain_dicts() -> None:
         ("manual", "manual", True),
     ],
 )
-def test_is_tested(provider: str, name: str, expected: bool) -> None:
+def test_is_tested(provider: str, name: str, expected: bool):
     assert bank_catalog.is_tested(provider=provider, name=name) is expected
 
 
-def test_credential_display_resolves_a_fints_blz_to_name_and_icon() -> None:
+def test_credential_display_resolves_a_fints_blz_to_name_and_icon():
     name, icon = bank_catalog.get_name_and_icon_of_provider(provider="fints", blz="50010517")
 
     assert name == "ING-DiBa"
     assert icon == "/static/banks/ing-diba.png"
 
 
-def test_credential_display_for_curated_provider_has_icon_but_no_name() -> None:
+def test_credential_display_for_curated_provider_has_icon_but_no_name():
     # The localised name of a curated provider comes from the frontend, so name is None.
     name, icon = bank_catalog.get_name_and_icon_of_provider(provider="manual", blz=None)
 
@@ -129,5 +129,5 @@ def test_credential_display_for_curated_provider_has_icon_but_no_name() -> None:
     assert icon is not None
 
 
-def test_credential_display_falls_back_to_the_blz_for_an_unknown_bank() -> None:
+def test_credential_display_falls_back_to_the_blz_for_an_unknown_bank():
     assert bank_catalog.get_name_and_icon_of_provider(provider="fints", blz="99999999") == ("99999999", None)

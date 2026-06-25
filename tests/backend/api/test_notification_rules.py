@@ -32,7 +32,7 @@ def _transaction_rule_payload(account_id: int, **overrides: Any) -> dict:
     return payload
 
 
-def test_create_and_list_balance_rule(http_client: TestClient, session_factory: sessionmaker) -> None:
+def test_create_and_list_balance_rule(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     response = http_client.post("/api/notification_rules", json=_balance_rule_payload(account_id))
@@ -50,7 +50,7 @@ def test_create_and_list_balance_rule(http_client: TestClient, session_factory: 
     assert [rule["id"] for rule in listed] == [created["id"]]
 
 
-def test_create_rule_can_opt_out_of_content(http_client: TestClient, session_factory: sessionmaker) -> None:
+def test_create_rule_can_opt_out_of_content(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     created = http_client.post(
@@ -60,7 +60,7 @@ def test_create_rule_can_opt_out_of_content(http_client: TestClient, session_fac
     assert created["include_content"] is False
 
 
-def test_create_transaction_rule_round_trips_criteria(http_client: TestClient, session_factory: sessionmaker) -> None:
+def test_create_transaction_rule_round_trips_criteria(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     created = http_client.post("/api/notification_rules", json=_transaction_rule_payload(account_id)).json()
@@ -72,7 +72,7 @@ def test_create_transaction_rule_round_trips_criteria(http_client: TestClient, s
     assert created["min_amount"] == -50.0
 
 
-def test_update_rule(http_client: TestClient, session_factory: sessionmaker) -> None:
+def test_update_rule(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     rule_id = http_client.post("/api/notification_rules", json=_balance_rule_payload(account_id)).json()["id"]
 
@@ -88,7 +88,7 @@ def test_update_rule(http_client: TestClient, session_factory: sessionmaker) -> 
     assert updated["name"] == "Updated"
 
 
-def test_delete_rule(http_client: TestClient, session_factory: sessionmaker) -> None:
+def test_delete_rule(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     rule_id = http_client.post("/api/notification_rules", json=_balance_rule_payload(account_id)).json()["id"]
@@ -97,7 +97,7 @@ def test_delete_rule(http_client: TestClient, session_factory: sessionmaker) -> 
     assert http_client.get("/api/notification_rules").json() == []
 
 
-def test_create_rule_requires_at_least_one_account(http_client: TestClient, session_factory: sessionmaker) -> None:
+def test_create_rule_requires_at_least_one_account(http_client: TestClient, session_factory: sessionmaker):
     setup_account(http_client=http_client, session_factory=session_factory)
 
     response = http_client.post("/api/notification_rules", json=_balance_rule_payload(account_id=0, account_ids=[]))
@@ -105,7 +105,7 @@ def test_create_rule_requires_at_least_one_account(http_client: TestClient, sess
     assert response.status_code == 422
 
 
-def test_create_rule_rejects_foreign_account(http_client: TestClient, session_factory: sessionmaker) -> None:
+def test_create_rule_rejects_foreign_account(http_client: TestClient, session_factory: sessionmaker):
     setup_account(http_client=http_client, session_factory=session_factory)
 
     response = http_client.post(
@@ -115,7 +115,7 @@ def test_create_rule_rejects_foreign_account(http_client: TestClient, session_fa
     assert response.status_code == 404
 
 
-def test_unknown_rule_returns_404(http_client: TestClient, session_factory: sessionmaker) -> None:
+def test_unknown_rule_returns_404(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     assert http_client.delete("/api/notification_rules/999999").status_code == 404

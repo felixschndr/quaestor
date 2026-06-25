@@ -8,11 +8,12 @@ from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
     create_credential,
-    login_as,
     make_transaction,
     persist_account,
     persist_transaction,
     register,
+    register_and_login,
+    setup_account,
 )
 
 
@@ -72,9 +73,7 @@ def _ids_in_response(response_json: list[dict]) -> set[int]:
 
 
 def test_search_returns_only_transactions_for_requested_account(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get("/api/transactions/search", params=[("account_ids", account_id)])
@@ -84,9 +83,7 @@ def test_search_returns_only_transactions_for_requested_account(http_client: Tes
 
 
 def test_search_returns_account_id_on_every_row(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get("/api/transactions/search", params=[("account_ids", account_id)])
@@ -136,7 +133,6 @@ def test_search_only_returns_selected_accounts(http_client: TestClient, session_
         ([("transaction_types", "OUTGOING")], {"rewe", "atm"}),
         ([("categories", "WITHDRAWAL")], {"atm"}),
     ],
-    ids=["text-purpose", "text-other-party", "text-note", "amount-range", "date-range", "transaction-type", "category"],
 )
 def test_search_filters_match_expected_transactions(
     http_client: TestClient,
@@ -144,9 +140,7 @@ def test_search_filters_match_expected_transactions(
     extra_params: list[tuple[str, object]],
     expected_keys: set[str],
 ):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get(
@@ -158,9 +152,7 @@ def test_search_filters_match_expected_transactions(
 
 
 def test_search_combines_filters_with_and(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get(
@@ -176,9 +168,7 @@ def test_search_combines_filters_with_and(http_client: TestClient, session_facto
 
 
 def test_search_filters_by_multiple_categories(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get(
@@ -190,9 +180,7 @@ def test_search_filters_by_multiple_categories(http_client: TestClient, session_
 
 
 def test_search_returns_empty_when_no_match(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get(
@@ -205,9 +193,7 @@ def test_search_returns_empty_when_no_match(http_client: TestClient, session_fac
 
 
 def test_search_rejects_unknown_transaction_type(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get(
@@ -219,9 +205,7 @@ def test_search_rejects_unknown_transaction_type(http_client: TestClient, sessio
 
 
 def test_search_rejects_unknown_category(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get(
@@ -238,8 +222,7 @@ def test_search_rejects_account_owned_by_a_different_user(http_client: TestClien
     account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
     _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
-    register(http_client, user_name="intruder")
-    login_as(http_client, user_name="intruder")
+    register_and_login(http_client, user_name="intruder")
 
     response = http_client.get("/api/transactions/search", params=[("account_ids", account_id)])
 
@@ -253,8 +236,7 @@ def test_search_rejects_when_only_some_accounts_are_owned(http_client: TestClien
     owner_cred = create_credential(http_client).json()["id"]
     owner_account = persist_account(session_factory=session_factory, credential_id=owner_cred, name="Owner")
 
-    register(http_client, user_name="intruder")
-    login_as(http_client, user_name="intruder")
+    register_and_login(http_client, user_name="intruder")
     intruder_cred = create_credential(http_client).json()["id"]
     intruder_account = persist_account(session_factory=session_factory, credential_id=intruder_cred, name="Intruder")
 
@@ -278,9 +260,7 @@ def test_search_requires_authentication(http_client: TestClient):
 
 
 def test_search_linked_returns_only_transfer_transactions(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     ids = _seed_linked_pair_and_single(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get(
@@ -293,9 +273,7 @@ def test_search_linked_returns_only_transfer_transactions(http_client: TestClien
 
 
 def test_search_unlinked_returns_only_standalone_transactions(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     ids = _seed_linked_pair_and_single(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get(
@@ -308,9 +286,7 @@ def test_search_unlinked_returns_only_standalone_transactions(http_client: TestC
 
 
 def test_search_without_linked_filter_returns_both(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     ids = _seed_linked_pair_and_single(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get("/api/transactions/search", params=[("account_ids", account_id)])
@@ -320,9 +296,7 @@ def test_search_without_linked_filter_returns_both(http_client: TestClient, sess
 
 
 def test_search_rejects_invalid_linked_value(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     response = http_client.get(
         "/api/transactions/search",

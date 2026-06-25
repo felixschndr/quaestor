@@ -5,6 +5,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import httpx  # noqa ASYNC127
 import pytest
@@ -21,8 +22,6 @@ from tests.backend.conftest import VALID_PASSWORD
 
 
 def test_run_invokes_uvicorn_with_resolved_options(monkeypatch: pytest.MonkeyPatch):
-    from unittest.mock import MagicMock
-
     uvicorn_run = MagicMock()
     monkeypatch.setattr(target=server.uvicorn, name="run", value=uvicorn_run)
     fake_options = {"host": "0.0.0.0", "port": 1234, "proxy_headers": True, "forwarded_allow_ips": "*"}  # nosec B104

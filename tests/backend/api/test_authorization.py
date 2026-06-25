@@ -1,6 +1,11 @@
 from fastapi.testclient import TestClient
 
-from tests.backend.conftest import USER_NAME, create_credential, login_as, register
+from tests.backend.conftest import (
+    USER_NAME,
+    create_credential,
+    register_and_get_id,
+    register_and_login,
+)
 
 
 def test_credential_endpoints_require_authentication(http_client: TestClient):
@@ -13,32 +18,27 @@ def test_user_endpoints_require_authentication(http_client: TestClient):
 
 
 def test_user_cannot_read_other_users_credential(http_client: TestClient):
-    register(http_client, user_name="owner")
-    login_as(http_client, user_name="owner")
+    register_and_login(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
 
-    register(http_client, user_name="intruder")
-    login_as(http_client, user_name="intruder")
+    register_and_login(http_client, user_name="intruder")
 
     assert http_client.get(f"/api/credentials/{credential_id}").status_code == 404
 
 
 def test_user_cannot_modify_or_delete_other_users_credential(http_client: TestClient):
-    register(http_client, user_name="owner")
-    login_as(http_client, user_name="owner")
+    register_and_login(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
 
-    register(http_client, user_name="intruder")
-    login_as(http_client, user_name="intruder")
+    register_and_login(http_client, user_name="intruder")
 
     assert http_client.patch(f"/api/credentials/{credential_id}", json={"username": "x"}).status_code == 404
     assert http_client.delete(f"/api/credentials/{credential_id}").status_code == 404
 
 
 def test_user_cannot_delete_other_users_account(http_client: TestClient):
-    first_user_id = register(http_client, user_name=USER_NAME).json()["id"]
-    register(http_client, user_name="other")
-    login_as(http_client, user_name="other")
+    first_user_id = register_and_get_id(http_client, user_name=USER_NAME)
+    register_and_login(http_client, user_name="other")
 
     response = http_client.delete(f"/api/users/{first_user_id}")
 
@@ -46,9 +46,8 @@ def test_user_cannot_delete_other_users_account(http_client: TestClient):
 
 
 def test_user_cannot_patch_other_users_account(http_client: TestClient):
-    first_user_id = register(http_client, user_name=USER_NAME).json()["id"]
-    register(http_client, user_name="other")
-    login_as(http_client, user_name="other")
+    first_user_id = register_and_get_id(http_client, user_name=USER_NAME)
+    register_and_login(http_client, user_name="other")
 
     response = http_client.patch(f"/api/users/{first_user_id}", json={"display_name": "Hacked"})
 

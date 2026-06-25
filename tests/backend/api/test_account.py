@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 from source.backend.api.schemas.transaction import TransactionDetailRead
 from source.backend.bank_handlers import BankProvider
@@ -14,12 +15,14 @@ from tests.backend.conftest import (
     SECOND_USER_NAME,
     USER_NAME,
     create_credential,
-    login_as,
+    create_manual_credential,
     make_credential,
     make_user,
     persist_account,
     persist_transaction,
     register,
+    register_and_login,
+    setup_account,
     setup_manual_account,
 )
 
@@ -30,7 +33,7 @@ def _create_manual_account_payload(credential_id: int) -> dict:
 
 def test_create_manual_account_succeeds_on_owned_manual_credential(http_client: TestClient):
     register(http_client)
-    credential_id = create_credential(http_client, bank="manual", credentials={}).json()["id"]
+    credential_id = create_manual_credential(http_client)
 
     response = http_client.post("/api/account", json=_create_manual_account_payload(credential_id))
 
@@ -72,9 +75,7 @@ def test_create_manual_account_on_non_manual_credential_returns_403(http_client:
 
 
 def test_update_account_changes_balance_factor(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     response = http_client.patch(f"/api/account/{account_id}", json={"balance_factor": 50})
 
@@ -83,9 +84,7 @@ def test_update_account_changes_balance_factor(http_client: TestClient, session_
 
 
 def test_update_account_persists_balance_factor(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     http_client.patch(f"/api/account/{account_id}", json={"balance_factor": 25})
 
     with session_factory() as session:
@@ -94,20 +93,13 @@ def test_update_account_persists_balance_factor(http_client: TestClient, session
         assert stored.balance_factor == 25
 
 
-def test_update_account_rejects_negative_balance_factor(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+@pytest.mark.parametrize(argnames="balance_factor", argvalues=[-1, 101])
+def test_update_account_rejects_out_of_range_balance_factor(
+    http_client: TestClient, session_factory: sessionmaker, balance_factor: int
+):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
-    assert http_client.patch(f"/api/account/{account_id}", json={"balance_factor": -1}).status_code == 422
-
-
-def test_update_account_rejects_balance_factor_above_100(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
-
-    assert http_client.patch(f"/api/account/{account_id}", json={"balance_factor": 101}).status_code == 422
+    assert http_client.patch(f"/api/account/{account_id}", json={"balance_factor": balance_factor}).status_code == 422
 
 
 def test_update_account_for_other_users_account_returns_404(http_client: TestClient, session_factory: sessionmaker):
@@ -115,8 +107,7 @@ def test_update_account_for_other_users_account_returns_404(http_client: TestCli
     credential_id = create_credential(http_client).json()["id"]
     account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
 
-    register(http_client, user_name="intruder")
-    login_as(http_client, user_name="intruder")
+    register_and_login(http_client, user_name="intruder")
 
     assert http_client.patch(f"/api/account/{account_id}", json={"balance_factor": 50}).status_code == 404
 
@@ -126,9 +117,7 @@ def test_update_account_requires_authentication(http_client: TestClient):
 
 
 def test_account_response_has_null_display_name_by_default(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     response = http_client.patch(f"/api/account/{account_id}", json={"balance_factor": 100})
 
@@ -137,9 +126,7 @@ def test_account_response_has_null_display_name_by_default(http_client: TestClie
 
 
 def test_update_account_sets_display_name(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     response = http_client.patch(f"/api/account/{account_id}", json={"display_name": "Hauptkonto"})
 
@@ -152,9 +139,7 @@ def test_update_account_sets_display_name(http_client: TestClient, session_facto
 
 
 def test_update_account_clears_display_name_with_null(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     http_client.patch(f"/api/account/{account_id}", json={"display_name": "to be cleared"})
 
     response = http_client.patch(f"/api/account/{account_id}", json={"display_name": None})
@@ -168,9 +153,7 @@ def test_update_account_clears_display_name_with_null(http_client: TestClient, s
 
 
 def test_update_account_rejects_overlong_display_name(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     response = http_client.patch(f"/api/account/{account_id}", json={"display_name": "x" * 151})
 
@@ -178,9 +161,7 @@ def test_update_account_rejects_overlong_display_name(http_client: TestClient, s
 
 
 def test_update_account_accepts_display_name_at_max_length(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     response = http_client.patch(f"/api/account/{account_id}", json={"display_name": "x" * 150})
 
@@ -191,9 +172,7 @@ def test_update_account_accepts_display_name_at_max_length(http_client: TestClie
 def test_update_account_display_name_alone_leaves_balance_factor_untouched(
     http_client: TestClient, session_factory: sessionmaker
 ):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     http_client.patch(f"/api/account/{account_id}", json={"balance_factor": 42})
 
     response = http_client.patch(f"/api/account/{account_id}", json={"display_name": "Sparkonto"})
@@ -207,9 +186,7 @@ def test_update_account_display_name_alone_leaves_balance_factor_untouched(
 def test_update_account_balance_factor_alone_leaves_display_name_untouched(
     http_client: TestClient, session_factory: sessionmaker
 ):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     http_client.patch(f"/api/account/{account_id}", json={"display_name": "Bleibt"})
 
     response = http_client.patch(f"/api/account/{account_id}", json={"balance_factor": 25})
@@ -223,9 +200,7 @@ def test_update_account_balance_factor_alone_leaves_display_name_untouched(
 def test_update_account_null_balance_factor_is_ignored(http_client: TestClient, session_factory: sessionmaker):
     # balance_factor is non-nullable in the DB; an explicit null must be a no-op
     # rather than producing a 500 at commit time.
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     http_client.patch(f"/api/account/{account_id}", json={"balance_factor": 75})
 
     response = http_client.patch(f"/api/account/{account_id}", json={"balance_factor": None})
@@ -235,9 +210,7 @@ def test_update_account_null_balance_factor_is_ignored(http_client: TestClient, 
 
 
 def test_get_transaction_returns_transaction(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(
         session_factory=session_factory,
         account_id=account_id,
@@ -269,9 +242,7 @@ def test_get_transaction_returns_404_when_transaction_does_not_belong_to_account
 
 
 def test_get_transaction_returns_404_for_unknown_transaction(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     assert http_client.get(f"/api/account/{account_id}/transactions/999999").status_code == 404
 
@@ -282,8 +253,7 @@ def test_get_transaction_for_other_users_account_returns_404(http_client: TestCl
     account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
 
-    register(http_client, user_name="intruder")
-    login_as(http_client, user_name="intruder")
+    register_and_login(http_client, user_name="intruder")
 
     assert http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}").status_code == 404
 
@@ -293,9 +263,7 @@ def test_get_transaction_requires_authentication(http_client: TestClient):
 
 
 def test_update_transaction_set_note(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
 
     response = http_client.patch(
@@ -307,9 +275,7 @@ def test_update_transaction_set_note(http_client: TestClient, session_factory: s
 
 
 def test_update_transaction_rejects_editing_pending(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id, pending=True)
 
     response = http_client.patch(
@@ -322,9 +288,7 @@ def test_update_transaction_rejects_editing_pending(http_client: TestClient, ses
 
 
 def test_pending_flag_is_exposed_in_transaction_read(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id, pending=True)
 
     response = http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}")
@@ -334,9 +298,7 @@ def test_pending_flag_is_exposed_in_transaction_read(http_client: TestClient, se
 
 
 def test_update_transaction_persists_note(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
     http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"note": "Persisted"})
 
@@ -347,9 +309,7 @@ def test_update_transaction_persists_note(http_client: TestClient, session_facto
 
 
 def test_update_transaction_null_note_clears_existing_note(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
     http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"note": "to be cleared"})
 
@@ -380,8 +340,7 @@ def test_update_transaction_for_other_users_account_returns_404(http_client: Tes
     account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
 
-    register(http_client, user_name="intruder")
-    login_as(http_client, user_name="intruder")
+    register_and_login(http_client, user_name="intruder")
 
     assert (
         http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"note": "x"}).status_code
@@ -394,18 +353,14 @@ def test_update_transaction_requires_authentication(http_client: TestClient):
 
 
 def test_get_transaction_returns_default_unknown_category(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
 
     assert http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}").json()["category"] == "UNKNOWN"
 
 
 def test_update_transaction_sets_category(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
 
     response = http_client.patch(
@@ -421,9 +376,7 @@ def test_update_transaction_sets_category(http_client: TestClient, session_facto
 
 
 def test_update_transaction_rejects_unknown_category(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
 
     response = http_client.patch(
@@ -436,13 +389,9 @@ def test_update_transaction_rejects_unknown_category(http_client: TestClient, se
 # --- Manual accounts -------------------------------------------------------
 
 
-def _create_manual_credential(http_client: TestClient) -> int:
-    return create_credential(http_client, bank="manual", credentials={}).json()["id"]
-
-
 def test_create_manual_account_returns_persisted_account(http_client: TestClient, session_factory: sessionmaker):
     register(http_client)
-    credential_id = _create_manual_credential(http_client)
+    credential_id = create_manual_credential(http_client)
 
     response = http_client.post(
         "/api/account",
@@ -478,10 +427,9 @@ def test_create_manual_account_rejects_non_manual_credential(http_client: TestCl
 
 def test_create_manual_account_rejects_credential_of_other_user(http_client: TestClient, session_factory: sessionmaker):
     register(http_client, user_name=USER_NAME)
-    first_user_credential_id = _create_manual_credential(http_client)
+    first_user_credential_id = create_manual_credential(http_client)
 
-    register(http_client, user_name=SECOND_USER_NAME)
-    login_as(http_client, user_name=SECOND_USER_NAME)
+    register_and_login(http_client, user_name=SECOND_USER_NAME)
 
     response = http_client.post(
         "/api/account",
@@ -504,7 +452,7 @@ def test_create_manual_account_rejects_credential_of_other_user(http_client: Tes
 
 def test_create_manual_account_requires_authentication(http_client: TestClient):
     register(http_client)
-    credential_id = _create_manual_credential(http_client)
+    credential_id = create_manual_credential(http_client)
     http_client.cookies.delete("session")
 
     response = http_client.post("/api/account", json={"credential_id": credential_id, "name": "Wallet"})
@@ -516,7 +464,7 @@ def test_create_transaction_appends_to_manual_account_and_updates_balance(
     http_client: TestClient, session_factory: sessionmaker
 ):
     register(http_client)
-    credential_id = _create_manual_credential(http_client)
+    credential_id = create_manual_credential(http_client)
     account_id = http_client.post(
         "/api/account",
         json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0},
@@ -558,14 +506,13 @@ def test_create_transaction_rejects_non_manual_account(http_client: TestClient, 
 
 def test_create_transaction_requires_account_to_belong_to_user(http_client: TestClient):
     register(http_client, user_name=USER_NAME)
-    credential_id = _create_manual_credential(http_client)
+    credential_id = create_manual_credential(http_client)
     first_account_account_id = http_client.post(
         "/api/account",
         json={"credential_id": credential_id, "name": f"{USER_NAME}'s Wallet"},
     ).json()["id"]
 
-    register(http_client, user_name=SECOND_USER_NAME)
-    login_as(http_client, user_name=SECOND_USER_NAME)
+    register_and_login(http_client, user_name=SECOND_USER_NAME)
 
     response = http_client.post(
         f"/api/account/{first_account_account_id}/transactions",
@@ -577,7 +524,7 @@ def test_create_transaction_requires_account_to_belong_to_user(http_client: Test
 
 def test_delete_transaction_removes_it_and_restores_balance(http_client: TestClient, session_factory: sessionmaker):
     register(http_client)
-    credential_id = _create_manual_credential(http_client)
+    credential_id = create_manual_credential(http_client)
     account_id = http_client.post(
         "/api/account",
         json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0},
@@ -611,7 +558,7 @@ def test_delete_account_removes_manual_account_with_its_transactions(
     http_client: TestClient, session_factory: sessionmaker
 ):
     register(http_client)
-    credential_id = _create_manual_credential(http_client)
+    credential_id = create_manual_credential(http_client)
     account_id = http_client.post(
         "/api/account",
         json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0},
@@ -631,7 +578,7 @@ def test_delete_account_removes_manual_account_with_its_transactions(
 
 def test_delete_last_manual_account_also_deletes_its_credential(http_client: TestClient, session_factory: sessionmaker):
     register(http_client)
-    credential_id = _create_manual_credential(http_client)
+    credential_id = create_manual_credential(http_client)
     account_id = http_client.post("/api/account", json={"credential_id": credential_id, "name": "Wallet"}).json()["id"]
 
     response = http_client.delete(f"/api/account/{account_id}")
@@ -646,7 +593,7 @@ def test_delete_one_of_many_manual_accounts_leaves_credential_intact(
     http_client: TestClient, session_factory: sessionmaker
 ):
     register(http_client)
-    credential_id = _create_manual_credential(http_client)
+    credential_id = create_manual_credential(http_client)
     first_account_id = http_client.post("/api/account", json={"credential_id": credential_id, "name": "Wallet"}).json()[
         "id"
     ]
@@ -674,7 +621,7 @@ def test_delete_account_rejects_non_manual_account(http_client: TestClient, sess
 
 def test_update_account_balance_accepted_for_manual_account(http_client: TestClient, session_factory: sessionmaker):
     register(http_client)
-    credential_id = _create_manual_credential(http_client)
+    credential_id = create_manual_credential(http_client)
     account_id = http_client.post(
         "/api/account",
         json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0},
@@ -702,7 +649,7 @@ def test_update_transaction_amount_shifts_manual_account_balance(
     http_client: TestClient, session_factory: sessionmaker
 ):
     register(http_client)
-    credential_id = _create_manual_credential(http_client)
+    credential_id = create_manual_credential(http_client)
     account_id = http_client.post(
         "/api/account",
         json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0},
@@ -728,9 +675,7 @@ def test_update_transaction_amount_shifts_manual_account_balance(
 def test_update_transaction_rejects_financial_fields_for_non_manual_account(
     http_client: TestClient, session_factory: sessionmaker
 ):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
 
     response = http_client.patch(
@@ -743,7 +688,7 @@ def test_update_transaction_rejects_financial_fields_for_non_manual_account(
 
 def test_create_transaction_rejects_future_date(http_client: TestClient):
     register(http_client)
-    credential_id = _create_manual_credential(http_client)
+    credential_id = create_manual_credential(http_client)
     account_id = http_client.post(
         "/api/account", json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0}
     ).json()["id"]
@@ -760,7 +705,7 @@ def test_create_transaction_rejects_future_date(http_client: TestClient):
 
 def test_update_transaction_rejects_future_date(http_client: TestClient):
     register(http_client)
-    credential_id = _create_manual_credential(http_client)
+    credential_id = create_manual_credential(http_client)
     account_id = http_client.post(
         "/api/account", json={"credential_id": credential_id, "name": "Wallet", "balance": 100.0}
     ).json()["id"]
@@ -781,9 +726,7 @@ def test_update_transaction_rejects_future_date(http_client: TestClient):
 def test_update_transaction_still_accepts_note_on_non_manual_account(
     http_client: TestClient, session_factory: sessionmaker
 ):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
 
     response = http_client.patch(
@@ -880,8 +823,7 @@ def test_unlink_transfer_endpoint_404_for_foreign_account(http_client: TestClien
     account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
 
-    register(http_client, user_name="intruder")
-    login_as(http_client, user_name="intruder")
+    register_and_login(http_client, user_name="intruder")
 
     response = http_client.delete(f"/api/account/{account_id}/transactions/{transaction_id}/transfer-link")
     assert response.status_code == 404

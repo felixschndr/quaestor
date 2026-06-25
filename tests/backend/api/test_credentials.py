@@ -18,8 +18,8 @@ from tests.backend.conftest import (
     PIN,
     SECOND_USER_NAME,
     create_credential,
-    login_as,
     register,
+    register_and_login,
 )
 
 
@@ -107,8 +107,7 @@ def test_create_credential_allows_same_login_for_different_user(http_client: Tes
     alice_credential = create_credential(http_client)
     assert alice_credential.status_code == 201
 
-    register(http_client, user_name=SECOND_USER_NAME)
-    login_as(http_client, user_name=SECOND_USER_NAME)
+    register_and_login(http_client, user_name=SECOND_USER_NAME)
     bob_credential = create_credential(http_client)
 
     assert bob_credential.status_code == 201
@@ -142,8 +141,7 @@ def test_list_credentials_excludes_other_users_credentials(http_client: TestClie
     register(http_client)
     alice_credential_id = create_credential(http_client).json()["id"]
 
-    register(http_client, user_name=SECOND_USER_NAME)
-    login_as(http_client, user_name=SECOND_USER_NAME)
+    register_and_login(http_client, user_name=SECOND_USER_NAME)
     bob_credential_id = create_credential(http_client).json()["id"]
 
     response = http_client.get("/api/credentials")
@@ -319,8 +317,7 @@ def test_start_sync_returns_404_for_other_users_credential(http_client: TestClie
     register(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
 
-    register(http_client, user_name="intruder")
-    login_as(http_client, user_name="intruder")
+    register_and_login(http_client, user_name="intruder")
 
     assert http_client.post(f"/api/credentials/{credential_id}/sync").status_code == 404
 
@@ -385,8 +382,7 @@ def test_get_sync_job_returns_404_for_other_users_credential(http_client: TestCl
     )
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
 
-    register(http_client, user_name="intruder")
-    login_as(http_client, user_name="intruder")
+    register_and_login(http_client, user_name="intruder")
 
     assert http_client.get(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
 

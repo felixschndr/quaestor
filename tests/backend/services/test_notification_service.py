@@ -23,7 +23,7 @@ def _add_subscription(db_session: Session, user_id: int, endpoint: str) -> PushS
     return subscription
 
 
-def test_to_payload_omits_optional_fields_when_unset() -> None:
+def test_to_payload_omits_optional_fields_when_unset():
     assert Notification(title="t", body="b").to_payload() == {"title": "t", "body": "b"}
     full = Notification(title="t", body="b", url="/account/3", tag="balance-3")
     assert full.to_payload() == {"title": "t", "body": "b", "url": "/account/3", "tag": "balance-3"}
@@ -31,7 +31,7 @@ def test_to_payload_omits_optional_fields_when_unset() -> None:
 
 def test_notify_user_without_subscriptions_sends_nothing(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
-) -> None:
+):
     calls = []
     monkeypatch.setattr(target=push_service, name="send", value=lambda **kwargs: calls.append(kwargs))
 
@@ -46,9 +46,7 @@ def test_notify_user_without_subscriptions_sends_nothing(
     assert calls == []
 
 
-def test_notify_user_delivers_to_all_subscriptions(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_notify_user_delivers_to_all_subscriptions(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=push_service, name="send", value=lambda **kwargs: PushResult(PushOutcome.DELIVERED))
 
     with session_factory() as db_session:
@@ -66,9 +64,7 @@ def test_notify_user_delivers_to_all_subscriptions(
     assert result.pruned == 0 and result.failed == 0
 
 
-def test_notify_user_prunes_expired_subscriptions(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_notify_user_prunes_expired_subscriptions(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     def fake_send(*, subscription_info: dict, payload: dict) -> PushResult:
         if subscription_info["endpoint"].endswith("/gone"):
             return PushResult(outcome=PushOutcome.EXPIRED, detail="410 Gone")
@@ -94,9 +90,7 @@ def test_notify_user_prunes_expired_subscriptions(
     assert [subscription.endpoint for subscription in remaining] == ["https://push.example/live"]
 
 
-def test_notify_user_reports_first_failure_detail(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_notify_user_reports_first_failure_detail(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         target=push_service,
         name="send",

@@ -53,16 +53,16 @@ def _fints_handler(blz: str = "66050101") -> FinTSHandler:
     return FinTSHandler(bank_info=bank_info, credentials=credentials)
 
 
-def test_credential_fields_omit_blz_when_bank_identifier_is_pinned() -> None:
+def test_credential_fields_omit_blz_when_bank_identifier_is_pinned():
     assert FinTSHandler.credential_fields(_FAKE_BANK_INFO) == ("username", "password")
 
 
-def test_credential_fields_include_blz_when_bank_identifier_is_missing() -> None:
+def test_credential_fields_include_blz_when_bank_identifier_is_missing():
     bank_info = BANKS_BY_NAME[BankProvider.FINTS.value]
     assert FinTSHandler.credential_fields(bank_info) == ("username", "password", "blz")
 
 
-def test_client_uses_pinned_bank_identifier_and_url(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_client_uses_pinned_bank_identifier_and_url(monkeypatch: pytest.MonkeyPatch):
     captured: dict[str, object] = {}
 
     def fake_fints_client(**kwargs: object) -> object:
@@ -84,7 +84,7 @@ def test_client_uses_pinned_bank_identifier_and_url(monkeypatch: pytest.MonkeyPa
     assert captured["server"] == "https://fints.ing.de/fints/"
 
 
-def test_client_resolves_blz_and_url_for_unpinned_bank(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_client_resolves_blz_and_url_for_unpinned_bank(monkeypatch: pytest.MonkeyPatch):
     captured: dict[str, object] = {}
 
     def fake_fints_client(**kwargs: object) -> object:
@@ -102,7 +102,7 @@ def test_client_resolves_blz_and_url_for_unpinned_bank(monkeypatch: pytest.Monke
     assert captured["server"] == "https://lookup/66050101"
 
 
-def test_client_raises_invalid_credentials_for_unknown_blz(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_client_raises_invalid_credentials_for_unknown_blz(monkeypatch: pytest.MonkeyPatch):
     def boom(bank_code: str) -> str:
         raise Exception(f"FinTS URL not found for {bank_code}")
 
@@ -112,7 +112,7 @@ def test_client_raises_invalid_credentials_for_unknown_blz(monkeypatch: pytest.M
         _fints_handler(blz="99999999").client(user_id=BANK_USERNAME, pin=PIN)
 
 
-def test_configure_pushtan_picks_mechanism_by_name() -> None:
+def test_configure_pushtan_picks_mechanism_by_name():
     client = MagicMock()
     client.get_tan_mechanisms.return_value = {
         "900": _FakeMechanism(name="iTAN"),
@@ -127,7 +127,7 @@ def test_configure_pushtan_picks_mechanism_by_name() -> None:
     client.get_tan_media.assert_not_called()
 
 
-def test_configure_pushtan_skips_silently_when_no_pushtan_advertised() -> None:
+def test_configure_pushtan_skips_silently_when_no_pushtan_advertised():
     client = MagicMock()
     client.get_tan_mechanisms.return_value = {"900": _FakeMechanism(name="iTAN")}
 
@@ -137,7 +137,7 @@ def test_configure_pushtan_skips_silently_when_no_pushtan_advertised() -> None:
     client.get_tan_media.assert_not_called()
 
 
-def test_configure_pushtan_skips_silently_when_no_mechanisms_at_all() -> None:
+def test_configure_pushtan_skips_silently_when_no_mechanisms_at_all():
     client = MagicMock()
     client.get_tan_mechanisms.return_value = {}
 
@@ -146,7 +146,7 @@ def test_configure_pushtan_skips_silently_when_no_mechanisms_at_all() -> None:
     client.set_tan_mechanism.assert_not_called()
 
 
-def test_configure_pushtan_selects_tan_medium_when_required() -> None:
+def test_configure_pushtan_selects_tan_medium_when_required():
     medium = object()
     client = MagicMock()
     client.get_tan_mechanisms.return_value = {
@@ -159,7 +159,7 @@ def test_configure_pushtan_selects_tan_medium_when_required() -> None:
     client.set_tan_medium.assert_called_once_with(medium)
 
 
-def test_configure_pushtan_raises_when_medium_required_but_none_returned() -> None:
+def test_configure_pushtan_raises_when_medium_required_but_none_returned():
     client = MagicMock()
     client.get_tan_mechanisms.return_value = {
         "942": _FakeMechanism(name="pushTAN", description_required="MUST"),
@@ -170,7 +170,7 @@ def test_configure_pushtan_raises_when_medium_required_but_none_returned() -> No
         _try_configure_pushtan_mechanism(client)
 
 
-def test_resolve_decoupled_returns_input_when_no_tan_required() -> None:
+def test_resolve_decoupled_returns_input_when_no_tan_required():
     client = MagicMock()
     payload = object()
 
@@ -180,7 +180,7 @@ def test_resolve_decoupled_returns_input_when_no_tan_required() -> None:
     client.send_tan.assert_not_called()
 
 
-def test_resolve_decoupled_polls_until_resolved(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_decoupled_polls_until_resolved(monkeypatch: pytest.MonkeyPatch):
     sleeps: list[float] = []
     monkeypatch.setattr(target=module, name="sleep", value=lambda seconds: sleeps.append(seconds))
 
@@ -199,7 +199,7 @@ def test_resolve_decoupled_polls_until_resolved(monkeypatch: pytest.MonkeyPatch)
     assert sleeps == [module.APPROVAL_POLL_INTERVAL.total_seconds()] * 3
 
 
-def test_resolve_decoupled_invokes_notifier_on_enter_and_exit(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_decoupled_invokes_notifier_on_enter_and_exit(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
     calls: list[bool] = []
 
@@ -214,7 +214,7 @@ def test_resolve_decoupled_invokes_notifier_on_enter_and_exit(monkeypatch: pytes
     assert calls == [True, False]
 
 
-def test_resolve_decoupled_notifies_false_even_when_polling_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_decoupled_notifies_false_even_when_polling_raises(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
     fake_time = iter([0.0, 0.0, module.APPROVAL_TIMEOUT.total_seconds() + 1])
     monkeypatch.setattr(target=module.time, name="monotonic", value=lambda: next(fake_time))
@@ -231,7 +231,7 @@ def test_resolve_decoupled_notifies_false_even_when_polling_raises(monkeypatch: 
     assert calls == [True, False]
 
 
-def test_resolve_decoupled_raises_when_non_decoupled() -> None:
+def test_resolve_decoupled_raises_when_non_decoupled():
     pending = MagicMock(spec=module.NeedTANResponse)
     pending.decoupled = False
     client = MagicMock()
@@ -240,7 +240,7 @@ def test_resolve_decoupled_raises_when_non_decoupled() -> None:
         _resolve_decoupled(client=client, response=pending)
 
 
-def test_session_resolves_tan_responses_from_get_transactions(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_session_resolves_tan_responses_from_get_transactions(monkeypatch: pytest.MonkeyPatch):
     # Sparkasse triggers a second TAN prompt on get_transactions (PSD2 for old reads).
     # Verify the session unwraps NeedTANResponse and polls until the bank returns data.
     monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
@@ -269,13 +269,13 @@ def test_session_resolves_tan_responses_from_get_transactions(monkeypatch: pytes
     assert client.send_tan.call_count == 4
 
 
-def test_parse_camt_if_needed_passes_non_tuple_through_unchanged() -> None:
+def test_parse_camt_if_needed_passes_non_tuple_through_unchanged():
     # The mt940 path already hands us a parsed Transaction list; it must be returned as-is.
     parsed = [MagicMock()]
     assert module._parse_camt_if_needed(parsed, include_pending=True) is parsed
 
 
-def test_parse_camt_if_needed_parses_booked_only_when_pending_excluded(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_parse_camt_if_needed_parses_booked_only_when_pending_excluded(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=module, name="camt053_to_dict", value=lambda stream: [{"stream": stream}])
 
     result = module._parse_camt_if_needed(([b"booked"], [b"pending"]), include_pending=False)
@@ -283,7 +283,7 @@ def test_parse_camt_if_needed_parses_booked_only_when_pending_excluded(monkeypat
     assert [transaction.data for transaction in result] == [{"stream": b"booked"}]
 
 
-def test_parse_camt_if_needed_includes_pending_and_skips_none_streams(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_parse_camt_if_needed_includes_pending_and_skips_none_streams(monkeypatch: pytest.MonkeyPatch):
     # The bank reports a None pending stream when there is nothing pending; camt053_to_dict(None)
     # would crash, so _parse_camt_if_needed must skip it while still including real pending streams.
     monkeypatch.setattr(target=module, name="camt053_to_dict", value=lambda stream: [{"stream": stream}])
@@ -293,7 +293,7 @@ def test_parse_camt_if_needed_includes_pending_and_skips_none_streams(monkeypatc
     assert [transaction.data for transaction in result] == [{"stream": b"booked"}, {"stream": b"pending"}]
 
 
-def test_session_uses_camt_xml_for_banks_without_mt940(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_session_uses_camt_xml_for_banks_without_mt940(monkeypatch: pytest.MonkeyPatch):
     # e.g. Volksbank
     monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
     monkeypatch.setattr(
@@ -317,7 +317,7 @@ def test_session_uses_camt_xml_for_banks_without_mt940(monkeypatch: pytest.Monke
     assert transactions[0].pending is False
 
 
-def test_session_translates_missing_system_id_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_session_translates_missing_system_id_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch):
     # python-fints raises a bare ValueError('Could not find system_id') when the bank rejects
     # the login (wrong username/PIN), because the initial sync can't obtain a system id.
     client = MagicMock()
@@ -329,7 +329,7 @@ def test_session_translates_missing_system_id_into_invalid_credentials(monkeypat
             pass
 
 
-def test_session_translates_fints_pin_error_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_session_translates_fints_pin_error_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch):
     from fints.exceptions import FinTSClientPINError
 
     client = MagicMock()
@@ -341,7 +341,7 @@ def test_session_translates_fints_pin_error_into_invalid_credentials(monkeypatch
             pass
 
 
-def test_session_does_not_swallow_unrelated_value_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_session_does_not_swallow_unrelated_value_errors(monkeypatch: pytest.MonkeyPatch):
     # Only the system_id failure means "bad credentials"; other ValueErrors must surface as-is.
     client = MagicMock()
     client.fetch_tan_mechanisms.side_effect = ValueError("something else entirely")
@@ -352,24 +352,24 @@ def test_session_does_not_swallow_unrelated_value_errors(monkeypatch: pytest.Mon
             pass
 
 
-def test_fints_strips_whitespace_from_blz() -> None:
+def test_fints_strips_whitespace_from_blz():
     rules = BANKS_BY_NAME[BankProvider.FINTS.value].information_for_user["field_rules"]
 
     assert rules["blz"]["strip_whitespace"] is True
     assert rules["blz"]["rules"] == []
 
 
-def test_bank_info_required_fields_reflects_handler_credential_fields() -> None:
+def test_bank_info_required_fields_reflects_handler_credential_fields():
     fints = BANKS_BY_NAME[BankProvider.FINTS.value]
     assert fints.required_fields == ["username", "password", "blz"]
     assert _FAKE_BANK_INFO.required_fields == ["username", "password"]
 
 
-def test_fints_handler_offers_no_out_of_band_two_factor_challenge() -> None:
+def test_fints_handler_offers_no_out_of_band_two_factor_challenge():
     assert _fints_handler().begin_two_factor_challenge(credential_id=1) is None
 
 
-def test_fints_handler_complete_two_factor_challenge_is_not_supported() -> None:
+def test_fints_handler_complete_two_factor_challenge_is_not_supported():
     with pytest.raises(NotImplementedError):
         _fints_handler().complete_two_factor_challenge(challenge_token=CHALLENGE_TOKEN, credential_id=1, code="0000")
 
@@ -395,7 +395,7 @@ def _fake_raw_statement(balances: dict[str, _FakeMt940Balance]) -> list[MagicMoc
     return [transaction]
 
 
-def test_extract_balance_observations_reads_opening_balance_and_ignores_closing() -> None:
+def test_extract_balance_observations_reads_opening_balance_and_ignores_closing():
     raw = _fake_raw_statement(
         {
             "final_opening_balance": _FakeMt940Balance(amount=_FakeMt940Amount(Decimal("625.15")), date=RECENT_DATE),
@@ -412,11 +412,11 @@ def test_extract_balance_observations_reads_opening_balance_and_ignores_closing(
     ]
 
 
-def test_extract_balance_observations_returns_empty_for_empty_statement() -> None:
+def test_extract_balance_observations_returns_empty_for_empty_statement():
     assert module._extract_balance_observations([]) == []
 
 
-def test_extract_balance_observations_skips_incomplete_balances() -> None:
+def test_extract_balance_observations_skips_incomplete_balances():
     raw = _fake_raw_statement(
         {"final_opening_balance": _FakeMt940Balance(amount=_FakeMt940Amount(Decimal("10")), date=None)}
     )
@@ -424,7 +424,7 @@ def test_extract_balance_observations_skips_incomplete_balances() -> None:
     assert module._extract_balance_observations(raw) == []
 
 
-def test_get_balance_observations_returns_captured_anchors_for_account() -> None:
+def test_get_balance_observations_returns_captured_anchors_for_account():
     session = module._FinTSSession(client=MagicMock())
     sepa_account = MagicMock(iban=ACCOUNT_IBAN)
     session._account_mapping = {ACCOUNT_IBAN: sepa_account}
@@ -460,7 +460,7 @@ def _statement_with_opening(amount: float, txn_day: date, opening_balance: float
     return [_fake_mt940_transaction(amount=amount, txn_date=txn_day, opening=opening)]
 
 
-def test_get_transactions_accumulates_opening_anchor_from_both_fetches() -> None:
+def test_get_transactions_accumulates_opening_anchor_from_both_fetches():
     session = _session_with_mapped_account()
     booked_opening_day = LAST_FETCHING_TIMESTAMP.date()
     booked = _statement_with_opening(
@@ -478,7 +478,7 @@ def test_get_transactions_accumulates_opening_anchor_from_both_fetches() -> None
     ]
 
 
-def test_get_transactions_resets_anchors_between_calls() -> None:
+def test_get_transactions_resets_anchors_between_calls():
     # Two get_transactions calls (e.g. two syncs) must not let anchors pile up across calls.
     session = _session_with_mapped_account()
     statement = _statement_with_opening(

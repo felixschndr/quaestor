@@ -21,7 +21,7 @@ def _patch_client(monkeypatch: pytest.MonkeyPatch, initiate_side_effect: Excepti
     monkeypatch.setattr(target=module, name="TradeRepublicApi", value=_FakeApi)
 
 
-def test_start_translates_http_400_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_start_translates_http_400_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch):
     # Trade Republic answers 400 to the weblogin when the phone number / PIN is wrong.
     _patch_client(monkeypatch=monkeypatch, initiate_side_effect=_http_error(400))
 
@@ -29,21 +29,21 @@ def test_start_translates_http_400_into_invalid_credentials(monkeypatch: pytest.
         module.start(credential_id=1, phone_no="+490000000000", pin="0000")
 
 
-def test_start_translates_value_error_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_start_translates_value_error_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch):
     _patch_client(monkeypatch=monkeypatch, initiate_side_effect=ValueError("bad phone number"))
 
     with pytest.raises(InvalidCredentialsError):
         module.start(credential_id=1, phone_no="nonsense", pin="0000")
 
 
-def test_start_reraises_server_errors_as_generic(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_start_reraises_server_errors_as_generic(monkeypatch: pytest.MonkeyPatch):
     _patch_client(monkeypatch=monkeypatch, initiate_side_effect=_http_error(503))
 
     with pytest.raises(requests.exceptions.HTTPError):
         module.start(credential_id=1, phone_no="+490000000000", pin="0000")
 
 
-def test_start_reraises_rate_limit_as_generic(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_start_reraises_rate_limit_as_generic(monkeypatch: pytest.MonkeyPatch):
     _patch_client(monkeypatch=monkeypatch, initiate_side_effect=_http_error(429))
 
     with pytest.raises(requests.exceptions.HTTPError):

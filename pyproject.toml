@@ -53,5 +53,5 @@ profile = "black"
 src_paths = ["src", "tests"]
 
 [tool.bandit]
-exclude_dirs = [".venv", "tests/test_e2e.py"]
+exclude_dirs = [".venv"]
 skips = ["B101"]

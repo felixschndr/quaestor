@@ -73,7 +73,7 @@ def test_run_periodic_recurring_logs_and_keeps_running_on_exception(
         target=recurring_transaction_scheduler, name="_book_due_recurring_transactions", value=book_mock
     )
 
-    async def fake_sleep(_seconds: float) -> None:  # noqa: ASYNC124
+    async def fake_sleep(_seconds: float):  # noqa: ASYNC124
         raise _StopLoop
 
     monkeypatch.setattr(target=recurring_transaction_scheduler.asyncio, name="sleep", value=fake_sleep)
@@ -113,7 +113,7 @@ def test_startup_run_books_rules_whose_day_passed_while_offline(
     class _StopLoop(Exception):
         pass
 
-    async def fake_sleep(_seconds: float) -> None:  # noqa: ASYNC124
+    async def fake_sleep(_seconds: float):  # noqa: ASYNC124
         raise _StopLoop
 
     monkeypatch.setattr(target=recurring_transaction_scheduler.asyncio, name="sleep", value=fake_sleep)
@@ -135,7 +135,7 @@ def test_run_periodic_recurring_calls_the_booking_function(monkeypatch: pytest.M
     book = Mock()
     monkeypatch.setattr(target=recurring_transaction_scheduler, name="_book_due_recurring_transactions", value=book)
 
-    async def fake_sleep(_seconds: float) -> None:  # noqa: ASYNC124
+    async def fake_sleep(_seconds: float):  # noqa: ASYNC124
         raise _StopLoop
 
     monkeypatch.setattr(target=recurring_transaction_scheduler.asyncio, name="sleep", value=fake_sleep)

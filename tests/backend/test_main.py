@@ -8,6 +8,7 @@ from fastapi import Request
 from source.backend import main
 from source.backend.helpers import get_project_name, get_project_version
 from starlette.datastructures import Headers
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Scope
 
 
@@ -176,8 +177,6 @@ async def test_spa_static_files_propagates_non_404_errors(tmp_path: Path):
         "headers": [],
         "path": "/anything",
     }
-
-    from starlette.exceptions import HTTPException as StarletteHTTPException
 
     with pytest.raises(StarletteHTTPException) as exc_info:
         await spa.get_response(path="anything", scope=scope)

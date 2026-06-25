@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pyotp
 import pytest
+import requests
 from fastapi.testclient import TestClient
 from httpx import Response  # noqa ASYNC127
 from source.backend import main
@@ -159,10 +160,30 @@ def register(
     )
 
 
+def register_and_get_id(
+    http_client: TestClient,
+    user_name: str = USER_NAME,
+    display_name: str = DISPLAY_NAME,
+    password: str = VALID_PASSWORD,
+) -> int:
+    return register(http_client, user_name=user_name, display_name=display_name, password=password).json()["id"]
+
+
 def login_as(http_client: TestClient, user_name: str, password: str = VALID_PASSWORD) -> Response:
     # Drop only the session cookie; the csrf_token must stay so the POST is accepted.
     http_client.cookies.delete("session")
     return http_client.post("/api/auth/login", json={"user_name": user_name, "password": password})
+
+
+def register_and_login(
+    http_client: TestClient,
+    user_name: str = USER_NAME,
+    display_name: str = DISPLAY_NAME,
+    password: str = VALID_PASSWORD,
+) -> int:
+    user_id = register(http_client, user_name=user_name, display_name=display_name, password=password).json()["id"]
+    login_as(http_client, user_name=user_name, password=password)
+    return user_id
 
 
 def current_totp(secret: str) -> str:
@@ -194,12 +215,17 @@ def create_credential(
     return http_client.post("/api/credentials", json={"bank": bank, "credentials": credentials})
 
 
+def create_manual_credential(http_client: TestClient) -> int:
+    return create_credential(http_client, bank="manual", credentials={}).json()["id"]
+
+
 def create_fetched_transaction(
     amount: float = -12.34,
     purpose: str | None = None,
     date: _date = RECENT_DATE,
     other_party: str | None = None,
     transaction_type: TransactionType | None = TransactionType.OUTGOING,
+    pending: bool = False,
 ) -> FetchedTransaction:
     return FetchedTransaction(
         amount=amount,
@@ -207,6 +233,7 @@ def create_fetched_transaction(
         date=date,
         other_party=other_party,
         transaction_type=transaction_type,
+        pending=pending,
     )
 
 
@@ -435,7 +462,7 @@ def setup_account(http_client: TestClient, session_factory: sessionmaker) -> int
 
 
 def setup_manual_account(http_client: TestClient, *, balance: float = 100.0) -> int:
-    credential_id = create_credential(http_client, bank="manual", credentials={}).json()["id"]
+    credential_id = create_manual_credential(http_client)
     return http_client.post(
         "/api/account",
         json={"credential_id": credential_id, "name": "Wallet", "balance": balance},
@@ -476,6 +503,21 @@ def seed_snapshot(session_factory: sessionmaker, account_id: int, day: _date, ba
         session.commit()
 
 
+class FakeHttpResponse:
+    def __init__(self, *, url: str = "", text: str = "", json_data: object = None, status_code: int = 200) -> None:
+        self.url = url
+        self.text = text
+        self._json = json_data
+        self.status_code = status_code
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"{self.status_code} error", response=self)
+
+    def json(self) -> object:
+        return self._json
+
+
 class FakeBankSession(BankSession):
     """In-memory bank session for sync tests: returns canned accounts/balances/transactions."""
 
@@ -486,7 +528,7 @@ class FakeBankSession(BankSession):
         transactions: dict[str, list[FetchedTransaction]],
         observations: dict[str, list[BalanceObservation]] | None = None,
         market_values: dict[str, list[BalanceObservation]] | None = None,
-    ):
+    ) -> None:
         super().__init__()
         self._accounts = accounts
         self._balances = balances

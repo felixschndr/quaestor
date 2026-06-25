@@ -18,7 +18,7 @@ from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 )
 def test_handler_for_returns_handler_with_matching_bank_info(
     provider: BankProvider, expected_handler_class: type[BankHandler]
-) -> None:
+):
     bank_info = BANKS_BY_NAME[provider.value]
     credentials = {field: "x" for field in bank_info.handler.credential_fields(bank_info)}  # noqa: C420
 
@@ -29,7 +29,7 @@ def test_handler_for_returns_handler_with_matching_bank_info(
     assert handler.credentials == credentials
 
 
-def test_generic_fints_provider_resolves_to_fints_handler() -> None:
+def test_generic_fints_provider_resolves_to_fints_handler():
     bank_info = BANKS_BY_NAME[BankProvider.FINTS.value]
 
     assert bank_info.handler is FinTSHandler

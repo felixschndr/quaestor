@@ -6,17 +6,13 @@ from tests.backend.conftest import (
     VALID_PASSWORD,
     current_totp,
     enable_two_factor,
-    login_as,
-    register,
+    register_and_get_id,
+    register_and_login,
 )
 
 
-def _register_and_get_id(http_client: TestClient, user_name: str = USER_NAME) -> int:
-    return register(http_client, user_name=user_name).json()["id"]
-
-
 def test_setup_returns_secret_and_qr(http_client: TestClient):
-    user_id = _register_and_get_id(http_client)
+    user_id = register_and_get_id(http_client)
 
     response = http_client.post(f"/api/users/{user_id}/2fa/setup")
 
@@ -30,7 +26,7 @@ def test_setup_returns_secret_and_qr(http_client: TestClient):
 
 
 def test_enable_with_valid_code_returns_backup_codes_and_flags_user(http_client: TestClient):
-    user_id = _register_and_get_id(http_client)
+    user_id = register_and_get_id(http_client)
     secret = http_client.post(f"/api/users/{user_id}/2fa/setup").json()["secret"]
 
     response = http_client.post(f"/api/users/{user_id}/2fa/enable", json={"code": current_totp(secret)})
@@ -41,7 +37,7 @@ def test_enable_with_valid_code_returns_backup_codes_and_flags_user(http_client:
 
 
 def test_enable_revokes_all_other_sessions(http_client: TestClient):
-    user_id = _register_and_get_id(http_client)
+    user_id = register_and_get_id(http_client)
     totp_secret = http_client.post(f"/api/users/{user_id}/2fa/setup").json()["secret"]
     # A second login leaves a stale session behind in the DB; the client now holds the newest one.
     http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
@@ -56,7 +52,7 @@ def test_enable_revokes_all_other_sessions(http_client: TestClient):
 
 
 def test_enable_with_wrong_code_is_rejected(http_client: TestClient):
-    user_id = _register_and_get_id(http_client)
+    user_id = register_and_get_id(http_client)
     http_client.post(f"/api/users/{user_id}/2fa/setup")
 
     response = http_client.post(f"/api/users/{user_id}/2fa/enable", json={"code": "000000"})
@@ -66,7 +62,7 @@ def test_enable_with_wrong_code_is_rejected(http_client: TestClient):
 
 
 def test_login_with_2fa_returns_challenge_instead_of_session(http_client: TestClient):
-    user_id = _register_and_get_id(http_client)
+    user_id = register_and_get_id(http_client)
     enable_two_factor(http_client, user_id=user_id)
     http_client.cookies.delete("session")
 
@@ -80,7 +76,7 @@ def test_login_with_2fa_returns_challenge_instead_of_session(http_client: TestCl
 
 
 def test_full_2fa_login_with_totp(http_client: TestClient):
-    user_id = _register_and_get_id(http_client)
+    user_id = register_and_get_id(http_client)
     secret, _ = enable_two_factor(http_client, user_id=user_id)
     http_client.cookies.delete("session")
 
@@ -97,7 +93,7 @@ def test_full_2fa_login_with_totp(http_client: TestClient):
 
 
 def test_2fa_login_with_backup_code_is_single_use(http_client: TestClient):
-    user_id = _register_and_get_id(http_client)
+    user_id = register_and_get_id(http_client)
     _, backup_codes = enable_two_factor(http_client, user_id=user_id)
     http_client.cookies.delete("session")
 
@@ -113,7 +109,7 @@ def test_2fa_login_with_backup_code_is_single_use(http_client: TestClient):
 
 
 def test_2fa_login_with_wrong_code_keeps_challenge_for_retry(http_client: TestClient):
-    user_id = _register_and_get_id(http_client)
+    user_id = register_and_get_id(http_client)
     secret, _ = enable_two_factor(http_client, user_id=user_id)
     http_client.cookies.delete("session")
 
@@ -135,7 +131,7 @@ def test_2fa_login_with_unknown_challenge_is_unauthorized(http_client: TestClien
 
 
 def test_disable_requires_valid_code(http_client: TestClient):
-    user_id = _register_and_get_id(http_client)
+    user_id = register_and_get_id(http_client)
     secret, backup_codes = enable_two_factor(http_client, user_id=user_id)
 
     assert http_client.post(f"/api/users/{user_id}/2fa/disable", json={"code": "000000"}).status_code == 422
@@ -147,7 +143,7 @@ def test_disable_requires_valid_code(http_client: TestClient):
 
 
 def test_regenerate_backup_codes_invalidates_the_old_set(http_client: TestClient):
-    user_id = _register_and_get_id(http_client)
+    user_id = register_and_get_id(http_client)
     _, old_codes = enable_two_factor(http_client, user_id=user_id)
 
     response = http_client.post(f"/api/users/{user_id}/2fa/backup-codes")
@@ -171,15 +167,14 @@ def test_regenerate_backup_codes_invalidates_the_old_set(http_client: TestClient
 
 
 def test_regenerate_backup_codes_requires_2fa_enabled(http_client: TestClient):
-    user_id = _register_and_get_id(http_client)
+    user_id = register_and_get_id(http_client)
 
     assert http_client.post(f"/api/users/{user_id}/2fa/backup-codes").status_code == 422
 
 
 def test_2fa_endpoints_reject_other_users(http_client: TestClient):
-    other_id = _register_and_get_id(http_client)
-    register(http_client, user_name=SECOND_USER_NAME)
-    login_as(http_client, user_name=SECOND_USER_NAME)
+    other_id = register_and_get_id(http_client)
+    register_and_login(http_client, user_name=SECOND_USER_NAME)
 
     response = http_client.post(f"/api/users/{other_id}/2fa/setup")
 

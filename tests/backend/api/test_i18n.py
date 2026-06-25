@@ -14,52 +14,40 @@ def test_list_languages_is_public(http_client: TestClient):
     assert http_client.get("/api/i18n/languages").status_code == 200
 
 
-def test_get_default_language_falls_back_when_unset(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.delenv(i18n_service.DEFAULT_LANGUAGE_ENV_VARIABLE_NAME, raising=False)
+@pytest.mark.parametrize(
+    argnames="env_value, expected",
+    argvalues=[
+        (None, i18n_service.DEFAULT_LANGUAGE),  # unset falls back to the default
+        ("de", "de"),  # supported value is honoured
+        ("  DE ", "de"),  # case and surrounding whitespace are normalized
+        ("fr", i18n_service.DEFAULT_LANGUAGE),  # unsupported value falls back to the default
+    ],
+)
+def test_get_default_language_resolves_env_value(monkeypatch: pytest.MonkeyPatch, env_value: str | None, expected: str):
+    if env_value is None:
+        monkeypatch.delenv(i18n_service.DEFAULT_LANGUAGE_ENV_VARIABLE_NAME, raising=False)
+    else:
+        monkeypatch.setenv(name=i18n_service.DEFAULT_LANGUAGE_ENV_VARIABLE_NAME, value=env_value)
 
-    assert i18n_service.get_default_language() == i18n_service.DEFAULT_LANGUAGE
-
-
-def test_get_default_language_honours_a_supported_value(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv(name=i18n_service.DEFAULT_LANGUAGE_ENV_VARIABLE_NAME, value="de")
-
-    assert i18n_service.get_default_language() == "de"
-
-
-def test_get_default_language_normalizes_case_and_whitespace(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv(name=i18n_service.DEFAULT_LANGUAGE_ENV_VARIABLE_NAME, value="  DE ")
-
-    assert i18n_service.get_default_language() == "de"
-
-
-def test_get_default_language_falls_back_on_unsupported_value(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv(name=i18n_service.DEFAULT_LANGUAGE_ENV_VARIABLE_NAME, value="fr")
-
-    assert i18n_service.get_default_language() == i18n_service.DEFAULT_LANGUAGE
+    assert i18n_service.get_default_language() == expected
 
 
-def test_get_display_timezone_falls_back_when_unset(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.delenv(i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, raising=False)
+@pytest.mark.parametrize(
+    argnames="env_value, expected",
+    argvalues=[
+        (None, i18n_service.DEFAULT_TIMEZONE),  # unset falls back to the default
+        ("Europe/Berlin", "Europe/Berlin"),  # valid zone is honoured
+        ("  Europe/Berlin  ", "Europe/Berlin"),  # surrounding whitespace is stripped
+        ("   ", i18n_service.DEFAULT_TIMEZONE),  # blank value falls back to the default
+    ],
+)
+def test_get_display_timezone_resolves_env_value(monkeypatch: pytest.MonkeyPatch, env_value: str | None, expected: str):
+    if env_value is None:
+        monkeypatch.delenv(i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, raising=False)
+    else:
+        monkeypatch.setenv(name=i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, value=env_value)
 
-    assert i18n_service.get_display_timezone() == i18n_service.DEFAULT_TIMEZONE
-
-
-def test_get_display_timezone_honours_a_valid_zone(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv(name=i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, value="Europe/Berlin")
-
-    assert i18n_service.get_display_timezone() == "Europe/Berlin"
-
-
-def test_get_display_timezone_strips_whitespace(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv(name=i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, value="  Europe/Berlin  ")
-
-    assert i18n_service.get_display_timezone() == "Europe/Berlin"
-
-
-def test_get_display_timezone_falls_back_on_empty_value(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv(name=i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, value="   ")
-
-    assert i18n_service.get_display_timezone() == i18n_service.DEFAULT_TIMEZONE
+    assert i18n_service.get_display_timezone() == expected
 
 
 def test_get_display_timezone_raises_on_invalid_zone(monkeypatch: pytest.MonkeyPatch):

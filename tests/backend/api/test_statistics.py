@@ -10,11 +10,11 @@ from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
     create_credential,
-    login_as,
     make_transaction,
     persist_account,
     persist_transaction,
     register,
+    register_and_login,
     seed_for_categories,
     seed_snapshot,
     setup_account,
@@ -472,8 +472,7 @@ def test_statistics_reject_account_owned_by_a_different_user(
     credential_id = create_credential(http_client).json()["id"]
     account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
 
-    register(http_client, user_name="intruder")
-    login_as(http_client, user_name="intruder")
+    register_and_login(http_client, user_name="intruder")
 
     response = http_client.get(endpoint, params=[("account_ids", account_id)])
 
@@ -543,12 +542,9 @@ def test_net_worth_range_breaks_down_change_per_account(http_client: TestClient,
 
 
 def test_net_worth_range_rejects_foreign_account(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
-    register(http_client, user_name="intruder")
-    login_as(http_client, user_name="intruder")
+    register_and_login(http_client, user_name="intruder")
 
     response = http_client.get(
         "/api/statistics/net-worth/range",

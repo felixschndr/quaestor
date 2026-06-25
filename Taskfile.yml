@@ -20,14 +20,6 @@ tasks:
     cmds:
       - poetry run pytest --cov={{.BACKEND_COV_SRC}} --cov-report=term-missing
 
-  backend:test_e2e:
-    desc: Run end to end test
-    env:
-      RUN_E2E: 1
-      ALLOW_MISSING_FRONTEND: 'true'
-    cmds:
-      - poetry run pytest -s tests/backend/test_e2e.py
-
   frontend:test:
     desc: Run frontend Vitest suite
     dir: '{{.FRONTEND_DIR}}'

@@ -26,11 +26,11 @@ from source.backend.bank_handlers.bank_logos import logo_exists, logo_slug
         ("TARGOBANK", "targobank"),
     ],
 )
-def test_logo_slug_resolves_name_to_slug(name: str, expected: str) -> None:
+def test_logo_slug_resolves_name_to_slug(name: str, expected: str):
     assert logo_slug(name) == expected
 
 
-def test_logo_exists_only_for_shipped_logos() -> None:
+def test_logo_exists_only_for_shipped_logos():
     # sparkasse.png is shipped; a derived slug for a bank without a logo is not.
     assert logo_exists("sparkasse") is True
     assert logo_exists("deutsche-bank-fil-berlin") is False

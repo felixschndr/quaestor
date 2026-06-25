@@ -156,10 +156,19 @@ def test_create_manual_transaction_updates_balance_and_snapshots(session_factory
         account_service.get_account_for_user(db_session=session, account_id=account_id, user=user)
 
 
-def test_create_manual_transaction_honours_explicit_category(session_factory: sessionmaker):
+@pytest.mark.parametrize(
+    argnames="extra_fields, expected_category",
+    argvalues=[
+        ({"category": TransactionCategory.GIFTS}, TransactionCategory.GIFTS),  # explicit category wins
+        ({}, TransactionCategory.SUPERMARKET),  # no category -> auto-categorised from other_party
+    ],
+)
+def test_create_manual_transaction_resolves_category(
+    session_factory: sessionmaker, extra_fields: dict, expected_category: TransactionCategory
+):
     _, credential_id = _create_user_with_manual_credential(session_factory)
     with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name="Wallet", balance=100.0)
+        account = make_account(session, credential_id=credential_id, name="Wallet", balance=1000.0)
         session.commit()
         account_id = account.id
 
@@ -168,14 +177,9 @@ def test_create_manual_transaction_honours_explicit_category(session_factory: se
         transaction = account_service.create_manual_transaction(
             db_session=session,
             account=account,
-            fields={
-                "amount": -10.0,
-                "date": RECENT_DATE,
-                "other_party": "REWE",
-                "category": TransactionCategory.GIFTS,
-            },
+            fields={"amount": -19.99, "date": RECENT_DATE, "other_party": "REWE Markt", **extra_fields},
         )
-        assert transaction.category == TransactionCategory.GIFTS
+        assert transaction.category == expected_category
 
 
 def test_update_account_treats_explicit_null_balance_as_no_change(session_factory: sessionmaker):
@@ -197,29 +201,6 @@ def test_update_account_treats_explicit_null_balance_as_no_change(session_factor
         loaded = session.get(entity=Account, ident=account_id)
         assert loaded.balance == 42.0
         assert loaded.display_name == "Renamed"
-
-
-def test_create_manual_transaction_auto_categorises_when_no_category_given(
-    session_factory: sessionmaker,
-):
-    _, credential_id = _create_user_with_manual_credential(session_factory)
-    with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name="Wallet", balance=1000.0)
-        session.commit()
-        account_id = account.id
-
-    with session_factory() as session:
-        account = session.get(entity=Account, ident=account_id)
-        transaction = account_service.create_manual_transaction(
-            db_session=session,
-            account=account,
-            fields={
-                "amount": -19.99,
-                "date": RECENT_DATE,
-                "other_party": "REWE Markt",
-            },
-        )
-        assert transaction.category == TransactionCategory.SUPERMARKET
 
 
 def test_create_manual_transaction_rejects_non_manual_account(session_factory: sessionmaker):

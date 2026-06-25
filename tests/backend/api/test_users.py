@@ -18,11 +18,13 @@ from tests.backend.conftest import (
     login_as,
     make_credential,
     register,
+    register_and_get_id,
+    register_and_login,
 )
 
 
 def test_update_user_changes_display_name(http_client: TestClient, caplog: pytest.LogCaptureFixture):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     with caplog.at_level(logging.INFO, logger="services.user_service"):
         response = http_client.patch(f"/api/users/{user_id}", json={"display_name": "Renamed"})
@@ -34,7 +36,7 @@ def test_update_user_changes_display_name(http_client: TestClient, caplog: pytes
 
 
 def test_update_user_changes_user_name(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(f"/api/users/{user_id}", json={"user_name": SECOND_USER_NAME})
 
@@ -45,7 +47,7 @@ def test_update_user_changes_user_name(http_client: TestClient):
 
 
 def test_update_user_normalises_new_user_name(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(f"/api/users/{user_id}", json={"user_name": "  MixedCase  "})
 
@@ -55,8 +57,7 @@ def test_update_user_normalises_new_user_name(http_client: TestClient):
 
 def test_update_user_rejects_user_name_taken_by_other_user(http_client: TestClient):
     register(http_client, user_name=SECOND_USER_NAME)
-    user_id = register(http_client, user_name=USER_NAME).json()["id"]
-    login_as(http_client, user_name=USER_NAME)
+    user_id = register_and_login(http_client, user_name=USER_NAME)
 
     response = http_client.patch(f"/api/users/{user_id}", json={"user_name": SECOND_USER_NAME})
 
@@ -66,8 +67,7 @@ def test_update_user_rejects_user_name_taken_by_other_user(http_client: TestClie
 
 def test_update_user_rejects_user_name_taken_by_other_user_case_insensitively(http_client: TestClient):
     register(http_client, user_name=SECOND_USER_NAME)
-    user_id = register(http_client, user_name=USER_NAME).json()["id"]
-    login_as(http_client, user_name=USER_NAME)
+    user_id = register_and_login(http_client, user_name=USER_NAME)
 
     response = http_client.patch(f"/api/users/{user_id}", json={"user_name": SECOND_USER_NAME})
 
@@ -75,7 +75,7 @@ def test_update_user_rejects_user_name_taken_by_other_user_case_insensitively(ht
 
 
 def test_update_user_keeping_same_user_name_is_a_noop(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(f"/api/users/{user_id}", json={"user_name": USER_NAME})
 
@@ -84,7 +84,7 @@ def test_update_user_keeping_same_user_name_is_a_noop(http_client: TestClient):
 
 
 def test_update_user_rejects_empty_user_name(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(f"/api/users/{user_id}", json={"user_name": "   "})
 
@@ -93,7 +93,7 @@ def test_update_user_rejects_empty_user_name(http_client: TestClient):
 
 
 def test_update_user_changes_language(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(f"/api/users/{user_id}", json={"language": "de"})
 
@@ -103,7 +103,7 @@ def test_update_user_changes_language(http_client: TestClient):
 
 
 def test_update_user_rejects_unsupported_language(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(f"/api/users/{user_id}", json={"language": "klingon"})
 
@@ -112,7 +112,7 @@ def test_update_user_rejects_unsupported_language(http_client: TestClient):
 
 
 def test_update_user_changes_theme(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(f"/api/users/{user_id}", json={"theme": "DARK"})
 
@@ -122,7 +122,7 @@ def test_update_user_changes_theme(http_client: TestClient):
 
 
 def test_update_user_rejects_invalid_theme(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(f"/api/users/{user_id}", json={"theme": "neon"})
 
@@ -131,7 +131,7 @@ def test_update_user_rejects_invalid_theme(http_client: TestClient):
 
 
 def test_update_user_changes_password_with_correct_current_password(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(
         f"/api/users/{user_id}",
@@ -144,7 +144,7 @@ def test_update_user_changes_password_with_correct_current_password(http_client:
 
 
 def test_update_user_rejects_password_change_with_wrong_current_password(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(
         f"/api/users/{user_id}",
@@ -156,7 +156,7 @@ def test_update_user_rejects_password_change_with_wrong_current_password(http_cl
 
 
 def test_update_user_rejects_new_password_without_current_password(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(
         f"/api/users/{user_id}",
@@ -167,7 +167,7 @@ def test_update_user_rejects_new_password_without_current_password(http_client: 
 
 
 def test_update_user_rejects_new_password_that_fails_complexity(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(
         f"/api/users/{user_id}",
@@ -178,7 +178,7 @@ def test_update_user_rejects_new_password_that_fails_complexity(http_client: Tes
 
 
 def test_update_user_rejects_short_new_password(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(
         f"/api/users/{user_id}",
@@ -189,7 +189,7 @@ def test_update_user_rejects_short_new_password(http_client: TestClient):
 
 
 def test_changing_password_revokes_all_other_sessions(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
     # A second login leaves a stale session behind in the DB; the client now holds the newest one.
     http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
     assert len(http_client.get(f"/api/users/{user_id}/sessions").json()) == 2
@@ -206,7 +206,7 @@ def test_changing_password_revokes_all_other_sessions(http_client: TestClient):
 
 
 def test_updating_profile_without_password_keeps_other_sessions(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
     http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
 
     response = http_client.patch(f"/api/users/{user_id}", json={"display_name": "Renamed"})
@@ -216,7 +216,7 @@ def test_updating_profile_without_password_keeps_other_sessions(http_client: Tes
 
 
 def test_update_user_can_change_display_name_and_password_together(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.patch(
         f"/api/users/{user_id}",
@@ -233,7 +233,7 @@ def test_update_user_can_change_display_name_and_password_together(http_client: 
 
 
 def test_delete_user_removes_account_and_invalidates_session(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     delete_response = http_client.delete(f"/api/users/{user_id}")
 
@@ -255,7 +255,7 @@ def test_sync_starts_jobs_for_normal_and_2fa_credentials(
     session_factory: sessionmaker,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
     with session_factory() as session:
         normal = make_credential(session, user_id=user_id)
         two_factor = make_credential(
@@ -283,7 +283,7 @@ def test_sync_starts_jobs_for_normal_and_2fa_credentials(
 
 
 def test_list_user_sessions_returns_current_session_marked(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.get(f"/api/users/{user_id}/sessions")
 
@@ -297,7 +297,7 @@ def test_list_user_sessions_returns_current_session_marked(http_client: TestClie
 
 def test_list_user_sessions_captures_custom_user_agent(http_client: TestClient):
     http_client.headers["user-agent"] = "MyTestAgent/1.0"
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.get(f"/api/users/{user_id}/sessions")
 
@@ -306,7 +306,7 @@ def test_list_user_sessions_captures_custom_user_agent(http_client: TestClient):
 
 
 def test_list_user_sessions_returns_multiple_sessions_with_only_current_flagged(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
     other_client_response = http_client.post(
         "/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD}
     )
@@ -321,9 +321,8 @@ def test_list_user_sessions_returns_multiple_sessions_with_only_current_flagged(
 
 
 def test_list_user_sessions_for_other_user_returns_404(http_client: TestClient):
-    first_user_id = register(http_client, user_name=USER_NAME).json()["id"]
-    register(http_client, user_name="other")
-    login_as(http_client, user_name="other")
+    first_user_id = register_and_get_id(http_client, user_name=USER_NAME)
+    register_and_login(http_client, user_name="other")
 
     response = http_client.get(f"/api/users/{first_user_id}/sessions")
 
@@ -335,7 +334,7 @@ def test_list_user_sessions_requires_authentication(http_client: TestClient):
 
 
 def test_last_used_at_is_bumped_on_authenticated_request(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
     initial = http_client.get(f"/api/users/{user_id}/sessions").json()[0]["last_used_at"]
 
     http_client.get("/api/auth/me")
@@ -345,7 +344,7 @@ def test_last_used_at_is_bumped_on_authenticated_request(http_client: TestClient
 
 
 def test_revoke_other_session_deletes_it(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
     http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
     sessions = http_client.get(f"/api/users/{user_id}/sessions").json()
     other_session_id = next(s["id"] for s in sessions if not s["is_current"])
@@ -354,12 +353,11 @@ def test_revoke_other_session_deletes_it(http_client: TestClient):
 
     assert response.status_code == 204
     remaining = http_client.get(f"/api/users/{user_id}/sessions").json()
-    assert [s["id"] for s in remaining] != [other_session_id]
     assert all(s["id"] != other_session_id for s in remaining)
 
 
 def test_revoke_current_session_returns_422(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
     current_session_id = http_client.get(f"/api/users/{user_id}/sessions").json()[0]["id"]
 
     response = http_client.delete(f"/api/users/{user_id}/sessions/{current_session_id}")
@@ -369,7 +367,7 @@ def test_revoke_current_session_returns_422(http_client: TestClient):
 
 
 def test_revoke_unknown_session_returns_404(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.delete(f"/api/users/{user_id}/sessions/999999")
 
@@ -377,11 +375,10 @@ def test_revoke_unknown_session_returns_404(http_client: TestClient):
 
 
 def test_revoke_other_users_session_returns_404(http_client: TestClient):
-    first_user_id = register(http_client, user_name=USER_NAME).json()["id"]
+    first_user_id = register_and_get_id(http_client, user_name=USER_NAME)
     first_user_session_id = http_client.get(f"/api/users/{first_user_id}/sessions").json()[0]["id"]
 
-    register(http_client, user_name="other")
-    other_user_id = login_as(http_client, user_name="other").json()["id"]
+    other_user_id = register_and_login(http_client, user_name="other")
 
     response = http_client.delete(f"/api/users/{other_user_id}/sessions/{first_user_session_id}")
 
@@ -389,9 +386,8 @@ def test_revoke_other_users_session_returns_404(http_client: TestClient):
 
 
 def test_revoke_session_for_other_user_id_returns_404(http_client: TestClient):
-    first_user_id = register(http_client, user_name=USER_NAME).json()["id"]
-    register(http_client, user_name="other")
-    login_as(http_client, user_name="other")
+    first_user_id = register_and_get_id(http_client, user_name=USER_NAME)
+    register_and_login(http_client, user_name="other")
 
     response = http_client.delete(f"/api/users/{first_user_id}/sessions/1")
 
@@ -403,7 +399,7 @@ def test_revoke_session_requires_authentication(http_client: TestClient):
 
 
 def test_revoke_all_other_sessions_keeps_only_current(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
     http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
     http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
     assert len(http_client.get(f"/api/users/{user_id}/sessions").json()) == 3
@@ -417,7 +413,7 @@ def test_revoke_all_other_sessions_keeps_only_current(http_client: TestClient):
 
 
 def test_revoke_all_other_sessions_with_only_current_session_is_noop(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     response = http_client.delete(f"/api/users/{user_id}/sessions?exclude_current=true")
 
@@ -426,7 +422,7 @@ def test_revoke_all_other_sessions_with_only_current_session_is_noop(http_client
 
 
 def test_revoke_all_other_sessions_requires_exclude_current_true(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
 
     assert http_client.delete(f"/api/users/{user_id}/sessions").status_code == 422
     assert http_client.delete(f"/api/users/{user_id}/sessions?exclude_current=false").status_code == 422
@@ -434,9 +430,8 @@ def test_revoke_all_other_sessions_requires_exclude_current_true(http_client: Te
 
 
 def test_revoke_all_other_sessions_for_other_user_returns_404(http_client: TestClient):
-    first_user_id = register(http_client, user_name=USER_NAME).json()["id"]
-    register(http_client, user_name="other")
-    login_as(http_client, user_name="other")
+    first_user_id = register_and_get_id(http_client, user_name=USER_NAME)
+    register_and_login(http_client, user_name="other")
 
     response = http_client.delete(f"/api/users/{first_user_id}/sessions?exclude_current=true")
 

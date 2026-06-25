@@ -84,7 +84,7 @@ def _account_with_notification_rule(db_session: Session, **rule_kwargs: object) 
 # --- transaction trigger ---------------------------------------------------
 
 
-def test_transaction_rule_triggers_on_matching_new_transaction(session_factory: sessionmaker) -> None:
+def test_transaction_rule_triggers_on_matching_new_transaction(session_factory: sessionmaker):
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
@@ -104,7 +104,7 @@ def test_transaction_rule_triggers_on_matching_new_transaction(session_factory: 
     assert "Netflix" in notifications[0].body
 
 
-def test_transaction_rule_does_not_trigger_when_sender_does_not_match(session_factory: sessionmaker) -> None:
+def test_transaction_rule_does_not_trigger_when_sender_does_not_match(session_factory: sessionmaker):
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
@@ -123,7 +123,7 @@ def test_transaction_rule_does_not_trigger_when_sender_does_not_match(session_fa
     assert notifications == []
 
 
-def test_transaction_rule_respects_amount_bounds(session_factory: sessionmaker) -> None:
+def test_transaction_rule_respects_amount_bounds(session_factory: sessionmaker):
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
@@ -146,7 +146,7 @@ def test_transaction_rule_respects_amount_bounds(session_factory: sessionmaker) 
     assert "75.00" in notifications[0].body
 
 
-def test_transaction_rule_filters_by_category(session_factory: sessionmaker) -> None:
+def test_transaction_rule_filters_by_category(session_factory: sessionmaker):
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
@@ -165,7 +165,7 @@ def test_transaction_rule_filters_by_category(session_factory: sessionmaker) -> 
     assert len(notifications) == 1
 
 
-def test_disabled_rule_never_triggers(session_factory: sessionmaker) -> None:
+def test_disabled_rule_never_triggers(session_factory: sessionmaker):
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
@@ -184,7 +184,7 @@ def test_disabled_rule_never_triggers(session_factory: sessionmaker) -> None:
     assert notifications == []
 
 
-def test_rule_scoped_to_other_account_does_not_trigger(session_factory: sessionmaker) -> None:
+def test_rule_scoped_to_other_account_does_not_trigger(session_factory: sessionmaker):
     with session_factory() as db_session:
         user = make_user(db_session)
         credential = make_credential(db_session, user_id=user.id)
@@ -209,7 +209,7 @@ def test_rule_scoped_to_other_account_does_not_trigger(session_factory: sessionm
     assert notifications == []
 
 
-def test_first_sight_account_is_skipped(session_factory: sessionmaker) -> None:
+def test_first_sight_account_is_skipped(session_factory: sessionmaker):
     with session_factory() as db_session:
         user = make_user(db_session)
         credential = make_credential(db_session, user_id=user.id)
@@ -235,7 +235,7 @@ def test_first_sight_account_is_skipped(session_factory: sessionmaker) -> None:
 # --- expected-transaction trigger ------------------------------------------
 
 
-def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_factory: sessionmaker) -> None:
+def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_factory: sessionmaker):
     with session_factory() as db_session:
         user = make_user(db_session)
         credential = make_credential(db_session, user_id=user.id)
@@ -260,7 +260,7 @@ def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_f
     assert "booked" in notifications[0].body.lower()
 
 
-def test_expected_transaction_rule_quiet_when_nothing_booked(session_factory: sessionmaker) -> None:
+def test_expected_transaction_rule_quiet_when_nothing_booked(session_factory: sessionmaker):
     with session_factory() as db_session:
         user = make_user(db_session)
         credential = make_credential(db_session, user_id=user.id)
@@ -285,7 +285,7 @@ def test_expected_transaction_rule_quiet_when_nothing_booked(session_factory: se
 # --- balance-threshold trigger ---------------------------------------------
 
 
-def test_balance_below_rule_triggers_on_downward_crossing(session_factory: sessionmaker) -> None:
+def test_balance_below_rule_triggers_on_downward_crossing(session_factory: sessionmaker):
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
@@ -306,7 +306,7 @@ def test_balance_below_rule_triggers_on_downward_crossing(session_factory: sessi
     assert notifications[0].tag is not None  # balance alerts collapse via a tag
 
 
-def test_balance_below_rule_quiet_when_already_below(session_factory: sessionmaker) -> None:
+def test_balance_below_rule_quiet_when_already_below(session_factory: sessionmaker):
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
@@ -326,7 +326,7 @@ def test_balance_below_rule_quiet_when_already_below(session_factory: sessionmak
     assert notifications == []
 
 
-def test_balance_above_rule_triggers_on_upward_crossing(session_factory: sessionmaker) -> None:
+def test_balance_above_rule_triggers_on_upward_crossing(session_factory: sessionmaker):
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
@@ -347,7 +347,7 @@ def test_balance_above_rule_triggers_on_upward_crossing(session_factory: session
     assert "above" in notifications[0].title.lower()
 
 
-def test_balance_above_rule_does_not_trigger_on_downward_crossing(session_factory: sessionmaker) -> None:
+def test_balance_above_rule_does_not_trigger_on_downward_crossing(session_factory: sessionmaker):
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
@@ -370,7 +370,7 @@ def test_balance_above_rule_does_not_trigger_on_downward_crossing(session_factor
 # --- include_content (content redaction) -----------------------------------
 
 
-def test_transaction_rule_without_content_omits_amount_and_other_party(session_factory: sessionmaker) -> None:
+def test_transaction_rule_without_content_omits_amount_and_other_party(session_factory: sessionmaker):
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
@@ -393,7 +393,7 @@ def test_transaction_rule_without_content_omits_amount_and_other_party(session_f
     assert "Netflix" not in notifications[0].body
 
 
-def test_balance_below_rule_without_content_omits_balance_and_threshold(session_factory: sessionmaker) -> None:
+def test_balance_below_rule_without_content_omits_balance_and_threshold(session_factory: sessionmaker):
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
@@ -417,7 +417,7 @@ def test_balance_below_rule_without_content_omits_balance_and_threshold(session_
     assert "50" not in notifications[0].body
 
 
-def test_expected_transaction_rule_without_content_omits_amount(session_factory: sessionmaker) -> None:
+def test_expected_transaction_rule_without_content_omits_amount(session_factory: sessionmaker):
     with session_factory() as db_session:
         user = make_user(db_session)
         credential = make_credential(db_session, user_id=user.id)
@@ -447,9 +447,7 @@ def test_expected_transaction_rule_without_content_omits_amount(session_factory:
 # --- dispatch + full sync wiring -------------------------------------------
 
 
-def test_dispatch_sends_each_notification_to_the_user(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_dispatch_sends_each_notification_to_the_user(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     sent: list[Notification] = []
     monkeypatch.setattr(
         target=notification_service,
@@ -471,7 +469,7 @@ def test_dispatch_sends_each_notification_to_the_user(
 
 def test_sync_credential_triggers_notification_end_to_end(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
-) -> None:
+):
     sent: list[Notification] = []
     monkeypatch.setattr(
         target=notification_service,
@@ -508,7 +506,7 @@ def test_sync_credential_triggers_notification_end_to_end(
     assert "Corner Shop" in sent[0].body
 
 
-def test_notifications_are_rendered_in_recipient_language(session_factory: sessionmaker) -> None:
+def test_notifications_are_rendered_in_recipient_language(session_factory: sessionmaker):
     with session_factory() as db_session:
         user = make_user(db_session, language="de")
         credential = make_credential(db_session, user_id=user.id)

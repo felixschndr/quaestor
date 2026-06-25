@@ -4,8 +4,9 @@ from source.backend.security import csrf
 from tests.backend.conftest import (
     auth_header_for_api_key,
     create_api_key,
-    login_as,
     register,
+    register_and_get_id,
+    register_and_login,
 )
 
 
@@ -79,7 +80,7 @@ def test_invalid_api_key_is_rejected(http_client: TestClient):
 
 
 def test_api_key_cannot_reach_self_management_endpoints(http_client: TestClient):
-    user_id = register(http_client).json()["id"]
+    user_id = register_and_get_id(http_client)
     token = create_api_key(http_client).json()["token"]
     api_key_id = http_client.get("/api/api_keys").json()[0]["id"]
     _strip_session_auth(http_client)
@@ -113,8 +114,7 @@ def test_cannot_delete_another_users_key(http_client: TestClient):
     register(http_client, user_name="owner")
     api_key_id = create_api_key(http_client).json()["id"]
 
-    register(http_client, user_name="intruder")
-    login_as(http_client, user_name="intruder")
+    register_and_login(http_client, user_name="intruder")
 
     assert http_client.delete(f"/api/api_keys/{api_key_id}").status_code == 404
 
