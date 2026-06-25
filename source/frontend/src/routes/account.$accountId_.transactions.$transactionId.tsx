@@ -417,6 +417,7 @@ function NoteEditor({
   // URLs) until the user clicks into it.
   const [editing, setEditing] = useState(remoteNote.length === 0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const didMount = useRef(false)
 
   const status = useDebouncedAutoSave({
     value: draft,
@@ -426,7 +427,16 @@ function NoteEditor({
   })
 
   useEffect(() => {
-    if (editing) textareaRef.current?.focus()
+    if (!didMount.current) {
+      didMount.current = true
+      return
+    }
+    if (!editing) return
+    const textarea = textareaRef.current
+    if (!textarea) return
+    textarea.focus()
+    const end = textarea.value.length
+    textarea.setSelectionRange(end, end)
   }, [editing])
 
   if (!editing) {
