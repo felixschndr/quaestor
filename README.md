@@ -173,7 +173,6 @@ As an alternative, you can use a named volume instead. A commented out volume mo
 
 #### Requirements
 
-- [Task](https://github.com/go-task/task)
 - [Python 3.14](https://www.python.org/)
 - [Poetry](https://python-poetry.org/)
 - [pnpm](https://pnpm.io/)
@@ -184,8 +183,9 @@ As an alternative, you can use a named volume instead. A commented out volume mo
 2. Change to the directory: `cd quaestor`
 3. Create a db key and add it to `.env`: `echo -n "DATABASE_ENCRYPTION_KEY=" >> .env && python -c 'import secrets; print(secrets.token_hex(32))' >> .env`
 4. Install the requirements: `poetry install`
-5. Run the application: `task run:prod`
-6. Access the application on [127.0.0.1:8000](http://127.0.0.1:8000)
+5. Build the frontend: `cd source/frontend && pnpm install && pnpm build && cd ../..`
+6. Run the application: `poetry run python -m source.backend.server`
+7. Access the application on [127.0.0.1:8000](http://127.0.0.1:8000)
 
 
 ### Access the DB
