@@ -22,6 +22,7 @@ from sqlalchemy.orm import (
 )
 
 if TYPE_CHECKING:
+    from source.backend.models.contract import Contract
     from source.backend.models.credential import Credential
     from source.backend.models.recurring_transaction import RecurringTransaction
     from source.backend.models.transaction import Transaction
@@ -56,6 +57,7 @@ class Account(Base):
     recurring_transactions: Mapped[List["RecurringTransaction"]] = relationship(
         back_populates="account", cascade="all, delete-orphan"
     )
+    contracts: Mapped[List["Contract"]] = relationship(back_populates="account", cascade="all, delete-orphan")
     balance_at_date: Mapped[dict[date, "AccountBalanceSnapshot"]] = relationship(
         back_populates="account",
         cascade="all, delete-orphan",

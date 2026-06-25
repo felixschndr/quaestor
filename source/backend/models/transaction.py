@@ -5,6 +5,7 @@ from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.helpers import format_transaction_for_categorization
 from source.backend.logging_utils import get_logger
 from source.backend.models.base import Base
+from source.backend.models.contract_assignment import ContractAssignment
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 from sqlalchemy import Boolean, Date
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from source.backend.models.account import Account
+    from source.backend.models.contract import Contract
     from sqlalchemy import Connection
     from sqlalchemy.orm import Mapper
 
@@ -52,6 +54,11 @@ class Transaction(Base):
         ForeignKey("recurring_transactions.id", ondelete="SET NULL"), nullable=True
     )
 
+    contract_id: Mapped[int | None] = mapped_column(
+        ForeignKey("contracts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    contract_assignment: Mapped[ContractAssignment | None] = mapped_column(SQLEnum(ContractAssignment), nullable=True)
+
     transfer_counterpart: Mapped["Transaction | None"] = relationship(
         "Transaction",
         remote_side=[id],
@@ -61,6 +68,7 @@ class Transaction(Base):
     )
 
     account: Mapped["Account"] = relationship(back_populates="transactions")
+    contract: Mapped["Contract | None"] = relationship(back_populates="transactions", foreign_keys=[contract_id])
 
     FIELDS_THAT_ARE_ONLY_EDITABLE_ON_MANUAL_ACCOUNTS = frozenset(
         {"amount", "date", "purpose", "other_party", "transaction_type"}

@@ -466,11 +466,24 @@ def persist_account_with_new_user(session_factory: sessionmaker, *, balance: flo
     return persist_account(session_factory, credential_id=credential_id, balance=balance)
 
 
-def persist_manual_account_with_new_user(session_factory: sessionmaker) -> int:
+def make_account_with_new_user(
+    db_session: Session,
+    *,
+    user_name: str = USER_NAME,
+    bank: BankProvider = BankProvider.FINTS,
+    name: str = ACCOUNT_IBAN,
+    balance: float = 0.0,
+) -> Account:
+    """Create user + credential + account in the given session and return the account."""
+    user = make_user(db_session, user_name=user_name)
+    credentials = {} if bank == BankProvider.MANUAL else None
+    credential = make_credential(db_session, user_id=user.id, bank=bank, credentials=credentials)
+    return make_account(db_session, credential_id=credential.id, name=name, balance=balance)
+
+
+def persist_manual_account_with_new_user(session_factory: sessionmaker, *, balance: float = 100.0) -> int:
     with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(session, user_id=user.id, bank=BankProvider.MANUAL, credentials={})
-        account = make_account(session, credential_id=credential.id, name="Wallet")
+        account = make_account_with_new_user(session, bank=BankProvider.MANUAL, name="Wallet", balance=balance)
         session.commit()
         return account.id
 

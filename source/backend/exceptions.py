@@ -38,6 +38,10 @@ class NotificationRuleNotFoundError(NotFoundError):
     pass
 
 
+class ContractNotFoundError(NotFoundError):
+    pass
+
+
 class ValidationError(Exception):
     pass
 
