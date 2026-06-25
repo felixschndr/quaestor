@@ -5,7 +5,12 @@ from source.backend.db import get_session
 from source.backend.security import csrf
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import DISPLAY_NAME, USER_NAME, VALID_PASSWORD
+from tests.backend.conftest import (
+    DISPLAY_NAME,
+    USER_NAME,
+    VALID_PASSWORD,
+    assert_log_contains,
+)
 
 
 @pytest.fixture
@@ -44,13 +49,15 @@ def test_get_request_does_not_re_issue_csrf_cookie_when_already_present(raw_http
     assert raw_http_client.cookies.get(csrf.COOKIE_NAME) == initial_token
 
 
-def test_mutation_without_any_csrf_data_is_rejected(raw_http_client: TestClient):
+def test_mutation_without_any_csrf_data_is_rejected(raw_http_client: TestClient, caplog: pytest.LogCaptureFixture):
     response = raw_http_client.post(
-        "/api/auth/register", json={"user_name": USER_NAME, "display_name": DISPLAY_NAME, "password": VALID_PASSWORD}
+        "/api/auth/register",
+        json={"user_name": USER_NAME, "display_name": DISPLAY_NAME, "password": VALID_PASSWORD},
     )
 
     assert response.status_code == 403
     assert "csrf" in response.json()["detail"].lower()
+    assert_log_contains(caplog, message="CSRF validation failed")
 
 
 def test_mutation_with_cookie_but_no_header_is_rejected(raw_http_client: TestClient):

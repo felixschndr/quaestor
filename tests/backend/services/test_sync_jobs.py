@@ -10,7 +10,7 @@ from source.backend.services import sync_jobs
 from source.backend.services.credential_service import SyncResult, SyncStatus
 from source.backend.services.sync_jobs import JobErrorCode, JobStatus, SyncJob
 
-from tests.backend.conftest import CHALLENGE_TOKEN
+from tests.backend.conftest import CHALLENGE_TOKEN, assert_log_contains
 
 SyncOutcome = Union[SyncResult, Exception]
 PatchSync = Callable[[SyncOutcome], None]
@@ -60,7 +60,7 @@ def patch_confirm(monkeypatch: pytest.MonkeyPatch) -> PatchConfirm:
     return patch
 
 
-def test_start_sync_creates_a_job_that_runs_to_completion(patch_sync: PatchSync):
+def test_start_sync_creates_a_job_that_runs_to_completion(patch_sync: PatchSync, caplog: pytest.LogCaptureFixture):
     patch_sync(SyncResult(status=SyncStatus.COMPLETED))
 
     async def scenario():
@@ -77,8 +77,10 @@ def test_start_sync_creates_a_job_that_runs_to_completion(patch_sync: PatchSync)
 
     asyncio.run(scenario())
 
+    assert_log_contains(caplog, messages=["started", "completed"])
 
-def test_start_sync_marks_job_failed_on_exception(patch_sync: PatchSync):
+
+def test_start_sync_marks_job_failed_on_exception(patch_sync: PatchSync, caplog: pytest.LogCaptureFixture):
     patch_sync(RuntimeError("Something went wrong"))
 
     async def scenario():
@@ -92,8 +94,10 @@ def test_start_sync_marks_job_failed_on_exception(patch_sync: PatchSync):
 
     asyncio.run(scenario())
 
+    assert_log_contains(caplog, message="failed")
 
-def test_start_sync_tags_invalid_credentials_with_error_code(patch_sync: PatchSync):
+
+def test_start_sync_tags_invalid_credentials_with_error_code(patch_sync: PatchSync, caplog: pytest.LogCaptureFixture):
     patch_sync(InvalidCredentialsError("The bank rejected the login"))
 
     async def scenario():
@@ -107,6 +111,8 @@ def test_start_sync_tags_invalid_credentials_with_error_code(patch_sync: PatchSy
         assert "rejected the login" in (job.error or "")
 
     asyncio.run(scenario())
+
+    assert_log_contains(caplog, message="failed: invalid credentials")
 
 
 def test_start_sync_tags_unexpected_failure_with_unknown_error_code(patch_sync: PatchSync):
@@ -124,7 +130,7 @@ def test_start_sync_tags_unexpected_failure_with_unknown_error_code(patch_sync: 
     asyncio.run(scenario())
 
 
-def test_start_sync_holds_awaiting_two_factor(patch_sync: PatchSync):
+def test_start_sync_holds_awaiting_two_factor(patch_sync: PatchSync, caplog: pytest.LogCaptureFixture):
     expires = utc_now() + timedelta(minutes=5)
     patch_sync(SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN, expires_at=expires))
 
@@ -140,6 +146,8 @@ def test_start_sync_holds_awaiting_two_factor(patch_sync: PatchSync):
         assert job.finished_at is None  # awaiting_2fa is not terminal
 
     asyncio.run(scenario())
+
+    assert_log_contains(caplog, message="awaiting 2FA")
 
 
 def test_submit_two_factor_advances_the_job(patch_sync: PatchSync, patch_confirm: PatchConfirm):

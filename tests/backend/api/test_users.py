@@ -1,4 +1,3 @@
-import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -26,8 +25,7 @@ from tests.backend.conftest import (
 def test_update_user_changes_display_name(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     user_id = register_and_get_id(http_client)
 
-    with caplog.at_level(logging.INFO, logger="services.user_service"):
-        response = http_client.patch(f"/api/users/{user_id}", json={"display_name": "Renamed"})
+    response = http_client.patch(f"/api/users/{user_id}", json={"display_name": "Renamed"})
 
     assert response.status_code == 200
     assert response.json()["display_name"] == "Renamed"

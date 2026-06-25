@@ -17,12 +17,15 @@ from tests.backend.conftest import (
     USER_NAME,
     VALID_PASSWORD,
     WRONG_PASSWORD,
+    assert_log_contains,
     create_credential,
     register,
 )
 
 
-def test_register_returns_created_user_and_sets_session_cookie(http_client: TestClient):
+def test_register_returns_created_user_and_sets_session_cookie(
+    http_client: TestClient, caplog: pytest.LogCaptureFixture
+):
     response = register(http_client)
 
     assert response.status_code == 201
@@ -31,6 +34,7 @@ def test_register_returns_created_user_and_sets_session_cookie(http_client: Test
     assert body["display_name"] == DISPLAY_NAME
     assert body["balance"] == 0.0
     assert COOKIE_NAME in response.cookies
+    assert_log_contains(caplog, message="Registered")
 
 
 def test_register_rejects_duplicate_user_name(http_client: TestClient):

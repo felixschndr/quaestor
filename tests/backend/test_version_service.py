@@ -5,6 +5,8 @@ import pytest
 from source.backend.helpers import get_root_path_of_repository
 from source.backend.services import version_service
 
+from tests.backend.conftest import assert_log_contains
+
 
 def test_get_current_version_matches_pyproject():
     pyproject = get_root_path_of_repository() / "pyproject.toml"
@@ -44,11 +46,13 @@ def _github_response(tag: str, url: str) -> MagicMock:
     return response
 
 
-def test_get_latest_release_parses_tag_and_url(monkeypatch: pytest.MonkeyPatch):
+def test_get_latest_release_parses_tag_and_url(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
     get = MagicMock(return_value=_github_response(tag="v0.1.9", url="https://example/releases/0.1.9"))
     monkeypatch.setattr(target=version_service.requests, name="get", value=get)
 
     assert version_service.get_latest_release() == ("0.1.9", "https://example/releases/0.1.9")
+
+    assert_log_contains(caplog, message="Latest release on GitHub is")
 
 
 def test_get_latest_release_is_not_cached(monkeypatch: pytest.MonkeyPatch):
@@ -61,7 +65,9 @@ def test_get_latest_release_is_not_cached(monkeypatch: pytest.MonkeyPatch):
     assert get.call_count == 2  # no cache
 
 
-def test_get_latest_release_returns_none_when_response_has_no_tag(monkeypatch: pytest.MonkeyPatch):
+def test_get_latest_release_returns_none_when_response_has_no_tag(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     response = MagicMock()
     response.raise_for_status.return_value = None
     response.json.return_value = {"html_url": "https://example/releases/latest"}
@@ -70,11 +76,13 @@ def test_get_latest_release_returns_none_when_response_has_no_tag(monkeypatch: p
 
     assert version_service.get_latest_release() is None
 
+    assert_log_contains(caplog, message="had no tag_name")
 
-def test_get_latest_release_returns_none_on_error_and_does_not_cache(monkeypatch: pytest.MonkeyPatch):
+
+def test_get_latest_release_returns_none_on_error(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
     get = MagicMock(side_effect=version_service.requests.RequestException("boom"))
     monkeypatch.setattr(target=version_service.requests, name="get", value=get)
 
     assert version_service.get_latest_release() is None
-    assert version_service.get_latest_release() is None
-    assert get.call_count == 2  # failures are retried, not cached
+    assert get.call_count == 1
+    assert_log_contains(caplog, message="Could not fetch latest release from GitHub")

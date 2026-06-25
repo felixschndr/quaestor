@@ -11,7 +11,7 @@ from source.backend.services import two_factor_service
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import USER_NAME, create_user
+from tests.backend.conftest import USER_NAME, assert_log_contains, create_user
 
 _BACKUP_CODE_FORMAT = re.compile(r"^[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$")
 
@@ -48,13 +48,16 @@ def test_enable_requires_setup_first(session_factory: sessionmaker):
             two_factor_service.enable(db_session=db_session, user=attached, code="000000")
 
 
-def test_setup_then_enable_turns_on_2fa_and_returns_backup_codes(session_factory: sessionmaker):
+def test_setup_then_enable_turns_on_2fa_and_returns_backup_codes(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
         secret, _, _ = two_factor_service.start_setup(db_session=db_session, user=attached)
         codes = two_factor_service.enable(db_session=db_session, user=attached, code=pyotp.TOTP(secret).now())
 
+        assert_log_contains(caplog, messages=["Started 2FA setup for", "Enabled 2FA for"])
         assert attached.two_factor_enabled is True
         assert len(codes) == two_factor_service.BACKUP_CODE_COUNT
         assert len(attached.backup_codes) == two_factor_service.BACKUP_CODE_COUNT
@@ -71,7 +74,7 @@ def test_setup_is_rejected_while_already_enabled(session_factory: sessionmaker):
             two_factor_service.start_setup(db_session=db_session, user=attached)
 
 
-def test_backup_code_logs_in_once_then_is_consumed(session_factory: sessionmaker):
+def test_backup_code_logs_in_once_then_is_consumed(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
@@ -79,6 +82,7 @@ def test_backup_code_logs_in_once_then_is_consumed(session_factory: sessionmaker
         codes = two_factor_service.enable(db_session=db_session, user=attached, code=pyotp.TOTP(secret).now())
 
         assert two_factor_service.verify_login_code(db_session=db_session, user=attached, code=codes[0]) is True
+        assert_log_contains(caplog, message="Consumed a backup code for")
         # Single use: the same code must not work a second time.
         assert two_factor_service.verify_login_code(db_session=db_session, user=attached, code=codes[0]) is False
         # A lowercase, space-separated variant of another code still matches (normalization).
@@ -86,7 +90,7 @@ def test_backup_code_logs_in_once_then_is_consumed(session_factory: sessionmaker
         assert two_factor_service.verify_login_code(db_session=db_session, user=attached, code=messy) is True
 
 
-def test_disable_clears_secret_and_backup_codes(session_factory: sessionmaker):
+def test_disable_clears_secret_and_backup_codes(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
@@ -95,6 +99,7 @@ def test_disable_clears_secret_and_backup_codes(session_factory: sessionmaker):
 
         two_factor_service.disable(db_session=db_session, user=attached, code=pyotp.TOTP(secret).now())
 
+        assert_log_contains(caplog, message="Disabled 2FA for")
         assert attached.two_factor_enabled is False
         assert attached.two_factor_secret is None
         assert attached.backup_codes == []
@@ -112,7 +117,9 @@ def test_disable_rejects_wrong_code(session_factory: sessionmaker):
         assert attached.two_factor_enabled is True
 
 
-def test_regenerate_backup_codes_replaces_and_invalidates_old(session_factory: sessionmaker):
+def test_regenerate_backup_codes_replaces_and_invalidates_old(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
@@ -121,6 +128,7 @@ def test_regenerate_backup_codes_replaces_and_invalidates_old(session_factory: s
 
         new_codes = two_factor_service.regenerate_backup_codes(db_session=db_session, user=attached)
 
+        assert_log_contains(caplog, message="Regenerated backup codes for")
         assert len(new_codes) == two_factor_service.BACKUP_CODE_COUNT
         assert set(new_codes).isdisjoint(old_codes)
         assert two_factor_service.verify_login_code(db_session=db_session, user=attached, code=old_codes[0]) is False
@@ -135,11 +143,12 @@ def test_regenerate_backup_codes_requires_enabled(session_factory: sessionmaker)
             two_factor_service.regenerate_backup_codes(db_session=db_session, user=attached)
 
 
-def test_challenge_resolves_until_expired(session_factory: sessionmaker):
+def test_challenge_resolves_until_expired(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         attached = db_session.get(entity=User, ident=user.id)
         raw_token = two_factor_service.create_challenge(db_session=db_session, user=attached)
+        assert_log_contains(caplog, message="Created 2FA challenge for")
 
         resolved = two_factor_service.resolve_challenge(db_session=db_session, raw_token=raw_token)
         assert resolved is not None and resolved.id == user.id

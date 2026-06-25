@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+import pytest
 from source.backend.bank_handlers import BankProvider
 from source.backend.models.account import Account
 from source.backend.models.transaction import Transaction
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     SECOND_ACCOUNT_IBAN,
+    assert_log_contains,
     make_account,
     make_credential,
     make_transaction,
@@ -28,7 +30,7 @@ def _create_two_accounts(session: Session, *, user_id: int) -> tuple[Account, Ac
     return account_a, account_b
 
 
-def test_detects_a_simple_transfer_and_links_them(session_factory: sessionmaker):
+def test_detects_a_simple_transfer_and_links_them(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
@@ -48,6 +50,7 @@ def test_detects_a_simple_transfer_and_links_them(session_factory: sessionmaker)
         session.flush()
 
         assert created == 1
+        assert_log_contains(caplog, message="Transfer detection for")
         assert out_transaction.transaction_type == TransactionType.TRANSFER_OUT
         assert in_transaction.transaction_type == TransactionType.TRANSFER_IN
         assert out_transaction.transfer_counterpart_id == in_transaction.id

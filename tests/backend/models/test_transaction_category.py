@@ -5,6 +5,7 @@ from source.backend.models.transaction_type import TransactionType
 
 from tests.backend.conftest import (
     UNKNOWN_TRANSACTION_OTHER_PARTY,
+    assert_log_contains,
     create_fetched_transaction,
 )
 
@@ -111,24 +112,17 @@ def test_from_fetched_assigns_matching_category():
 def test_from_fetched_logs_unknown_with_other_party_and_purpose(caplog: pytest.LogCaptureFixture):
     fetched = create_fetched_transaction(other_party=UNKNOWN_TRANSACTION_OTHER_PARTY, purpose="Miscellaneous")
 
-    with caplog.at_level("INFO", logger="models.transaction_category"):
-        Transaction.from_fetched(fetched_transaction=fetched)
+    Transaction.from_fetched(fetched_transaction=fetched)
 
-    assert any(
-        "No category matched" in record.message
-        and UNKNOWN_TRANSACTION_OTHER_PARTY in record.message
-        and "Miscellaneous" in record.message
-        for record in caplog.records
-    )
+    assert_log_contains(caplog, messages=["No category matched", UNKNOWN_TRANSACTION_OTHER_PARTY, "Miscellaneous"])
 
 
 def test_from_fetched_does_not_log_unknown_for_matched_transaction(caplog: pytest.LogCaptureFixture):
     fetched = create_fetched_transaction(other_party="REWE Markt")
 
-    with caplog.at_level("INFO", logger="models.transaction_category"):
-        Transaction.from_fetched(fetched_transaction=fetched)
+    Transaction.from_fetched(fetched_transaction=fetched)
 
-    assert not any("No category matched" in record.message for record in caplog.records)
+    assert_log_contains(caplog, message="No category matched", negate=True)
 
 
 @pytest.mark.parametrize(

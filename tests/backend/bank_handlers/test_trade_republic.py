@@ -24,6 +24,7 @@ from tests.backend.conftest import (
     PHONE_NUMBER,
     PIN,
     SECOND_ISIN,
+    assert_log_contains,
 )
 
 
@@ -181,7 +182,7 @@ def test_value_series_logs_debug_summary(caplog: pytest.LogCaptureFixture):
     with caplog.at_level(logging.DEBUG):
         _TradeRepublicSession._market_value_series(name="World", isin=ISIN, moves=moves, prices=prices)
 
-    assert any("valued World" in record.message for record in caplog.records)
+    assert_log_contains(caplog, message="valued World")
 
 
 def test_value_series_without_prices_is_empty():

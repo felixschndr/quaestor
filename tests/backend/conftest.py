@@ -190,6 +190,26 @@ def current_totp(secret: str) -> str:
     return pyotp.TOTP(secret).now()
 
 
+def assert_log_contains(
+    caplog: pytest.LogCaptureFixture,
+    message: str | None = None,
+    messages: list[str] | None = None,
+    negate: bool = False,
+) -> None:
+    assert message or messages, "Pass either `message` or `messages`"
+
+    if messages is None:
+        messages = [message]
+
+    captured = [record.message for record in caplog.records]
+    for expected in messages:
+        present = any(expected in record.message for record in caplog.records)
+        if negate:
+            assert not present, f"Expected no log record containing {expected!r}; captured: {captured}"
+        else:
+            assert present, f"No log record contains {expected!r}; captured: {captured}"
+
+
 def enable_two_factor(http_client: TestClient, user_id: int) -> tuple[str, list[str]]:
     secret = http_client.post(f"/api/users/{user_id}/2fa/setup").json()["secret"]
     backup_codes = http_client.post(f"/api/users/{user_id}/2fa/enable", json={"code": current_totp(secret)}).json()[

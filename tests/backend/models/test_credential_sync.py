@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from unittest.mock import MagicMock
 
+import pytest
 from source.backend.bank_handlers.base import (
     BalanceObservation,
     FetchedAccount,
@@ -18,6 +19,7 @@ from tests.backend.conftest import (
     RECENT_DATE,
     SECOND_ACCOUNT_IBAN,
     FakeBankSession,
+    assert_log_contains,
     build_handler,
     make_account,
     make_credential,
@@ -29,7 +31,9 @@ from tests.backend.conftest import (
 )
 
 
-def test_sync_creates_new_account_with_balance_and_transactions(session_factory: sessionmaker):
+def test_sync_creates_new_account_with_balance_and_transactions(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     credential_id = persist_credential_with_new_user(session_factory)
     fake_account = FetchedAccount(name=ACCOUNT_IBAN)
     transactions = [
@@ -60,6 +64,8 @@ def test_sync_creates_new_account_with_balance_and_transactions(session_factory:
         credential = session.get(entity=Credential, ident=credential_id)
         credential.sync(handler)
         session.commit()
+
+    assert_log_contains(caplog, messages=["account(s) created", "transaction(s) created"])
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -269,15 +275,21 @@ def test_sync_keeps_expected_transactions_while_wiping_bank_pending(session_fact
         assert transactions[0].amount == -500.0
 
 
-def test_sync_resolves_expected_within_tolerance_and_moves_note(session_factory: sessionmaker):
+def test_sync_resolves_expected_within_tolerance_and_moves_note(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     credential_id = persist_credential_with_new_user(session_factory)
     seed_account_with_expectation(
         session_factory=session_factory, credential_id=credential_id, amount=-100.0, tolerance=10
     )
 
     sync_with_booked(
-        session_factory=session_factory, credential_id=credential_id, booked=[_booked_transaction(amount=-105.0, day=5)]
+        session_factory=session_factory,
+        credential_id=credential_id,
+        booked=[_booked_transaction(amount=-105.0, day=5)],
     )
+
+    assert_log_contains(caplog, messages=["Resolved", "expected transaction(s) on"])
 
     with session_factory() as session:
         transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions

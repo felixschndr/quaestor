@@ -53,7 +53,7 @@ def create_user(
     except IntegrityError:
         db_session.rollback()
         raise UserNameAlreadyExistsError(f"User name {normalized_user_name!r} is already taken")
-    logger.info(f"Created user {user}")
+    logger.info(f"Created {user}")
     return user
 
 

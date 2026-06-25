@@ -20,6 +20,7 @@ from tests.backend.conftest import (
     USER_NAME,
     VALID_PASSWORD,
     FakeHttpResponse,
+    assert_log_contains,
     date_to_epoch_ms,
     get_backend_test_path,
 )
@@ -170,11 +171,15 @@ def test_remote_data_is_only_fetched_once(monkeypatch: pytest.MonkeyPatch):
     assert len([c for c in fake_session.calls if "/transaktionen" in c[1]]) == 1
 
 
-def test_invalid_credentials_raise_when_login_redirects_back_to_login(monkeypatch: pytest.MonkeyPatch):
+def test_invalid_credentials_raise_when_login_redirects_back_to_login(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     patch_session(monkeypatch=monkeypatch, fake=FakeSession(login_redirect_url=LOGIN_URL))
 
     with pytest.raises(InvalidCredentialsError):
         dfs_session().get_accounts()
+
+    assert_log_contains(caplog, message="DFS login failed: invalid credentials")
 
 
 @pytest.mark.parametrize(
@@ -187,11 +192,15 @@ def test_invalid_credentials_raise_when_login_redirects_back_to_login(monkeypatc
         "kurse_series_status",
     ],
 )
-def test_http_error_raises_unknown_internal_error(monkeypatch: pytest.MonkeyPatch, failing_step: str):
+def test_http_error_raises_unknown_internal_error(
+    monkeypatch: pytest.MonkeyPatch, failing_step: str, caplog: pytest.LogCaptureFixture
+):
     patch_session(monkeypatch=monkeypatch, fake=FakeSession(**{failing_step: 500}))
 
     with pytest.raises(UnknownInternalError):
         dfs_session().get_accounts()
+
+    assert_log_contains(caplog, message="Failed to fetch DFS data")
 
 
 def test_get_market_value_history_values_units_times_index_price(monkeypatch: pytest.MonkeyPatch):
@@ -250,7 +259,7 @@ def test_get_market_value_history_logs_debug_summary(monkeypatch: pytest.MonkeyP
     with caplog.at_level(logging.DEBUG):
         session.get_market_value_history(FetchedAccount(name="Stock A"))
 
-    assert any("valued Stock A" in record.message for record in caplog.records)
+    assert_log_contains(caplog, message="valued Stock A")
 
 
 def test_value_series_fills_transaction_days_with_carried_forward_price():

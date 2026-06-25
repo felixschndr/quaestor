@@ -23,6 +23,7 @@ from tests.backend.conftest import (
     ACCOUNT_IBAN,
     LAST_FETCHING_TIMESTAMP,
     FakeBankSession,
+    assert_log_contains,
     build_handler,
     create_fetched_transaction,
     make_account,
@@ -84,7 +85,9 @@ def _account_with_notification_rule(db_session: Session, **rule_kwargs: object) 
 # --- transaction trigger ---------------------------------------------------
 
 
-def test_transaction_rule_triggers_on_matching_new_transaction(session_factory: sessionmaker):
+def test_transaction_rule_triggers_on_matching_new_transaction(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session,
@@ -102,6 +105,7 @@ def test_transaction_rule_triggers_on_matching_new_transaction(session_factory: 
 
     assert len(notifications) == 1
     assert "Netflix" in notifications[0].body
+    assert_log_contains(caplog, messages=["matched on", "Collected"])
 
 
 def test_transaction_rule_does_not_trigger_when_sender_does_not_match(session_factory: sessionmaker):
@@ -447,7 +451,9 @@ def test_expected_transaction_rule_without_content_omits_amount(session_factory:
 # --- dispatch + full sync wiring -------------------------------------------
 
 
-def test_dispatch_sends_each_notification_to_the_user(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+def test_dispatch_sends_each_notification_to_the_user(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     sent: list[Notification] = []
     monkeypatch.setattr(
         target=notification_service,
@@ -465,6 +471,7 @@ def test_dispatch_sends_each_notification_to_the_user(session_factory: sessionma
         )
 
     assert [notification.title for notification in sent] == ["a", "c"]
+    assert_log_contains(caplog, message="Dispatching")
 
 
 def test_sync_credential_triggers_notification_end_to_end(

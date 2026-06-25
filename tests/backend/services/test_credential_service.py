@@ -23,6 +23,7 @@ from tests.backend.conftest import (
     PHONE_NUMBER,
     PIN,
     VALID_PASSWORD,
+    assert_log_contains,
     create_user,
     make_credential,
     make_user,
@@ -99,10 +100,10 @@ def test_sync_all_due_credentials_counts_synced_skipped_failed(
         target=credential_service, name="sync_credential_object", value=MagicMock(side_effect=fake_sync)
     )
 
-    with caplog.at_level("INFO", logger="services.credential_service"):
-        with session_factory() as session:
-            credential_service.sync_all_due_credentials(db_session=session)
+    with session_factory() as session:
+        credential_service.sync_all_due_credentials(db_session=session)
 
+    assert_log_contains(caplog, message="Starting periodic sync of all due credentials")
     summary = [r.message for r in caplog.records if "Periodic sync finished" in r.message]
     assert summary, [r.message for r in caplog.records]
     assert "1 synced, 1 skipped due to 2FA, 1 failed out of 3 credential(s)" in summary[-1]
@@ -113,7 +114,7 @@ def test_sync_all_due_credentials_counts_synced_skipped_failed(
 
 
 def test_sync_credential_loads_by_id_and_returns_completed_for_handler_without_2fa(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     user_id = create_user(session_factory).id
     credential_id = persist_credential(session_factory, user_id=user_id)
@@ -124,6 +125,7 @@ def test_sync_credential_loads_by_id_and_returns_completed_for_handler_without_2
 
     assert result.status == credential_service.SyncStatus.COMPLETED
     assert result.challenge_token is None
+    assert_log_contains(caplog, messages=["Syncing", "Synced"])
 
 
 def test_sync_credential_object_for_handler_without_2fa_calls_credential_sync(
@@ -331,18 +333,17 @@ def test_create_generic_fints_credential_persists_blz(session_factory: sessionma
 
     with session_factory() as session:
         user = session.get(entity=User, ident=user_id)
-        with caplog.at_level("INFO", logger="services.credential_service"):
-            credential = credential_service.create_credential(
-                session,
-                user=user,
-                bank=BankProvider.FINTS,
-                credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": "70150000"},
-            )
+        credential = credential_service.create_credential(
+            session,
+            user=user,
+            bank=BankProvider.FINTS,
+            credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": "70150000"},
+        )
         session.commit()
 
     assert credential.bank == BankProvider.FINTS
     assert credential.credentials == {"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": "70150000"}
-    assert any("Created" in record.getMessage() and "<Credential(" in record.getMessage() for record in caplog.records)
+    assert_log_contains(caplog, messages=["Created", "<Credential("])
     assert BANK_PASSWORD not in caplog.text
 
 
@@ -373,9 +374,8 @@ def test_sync_all_due_credentials_logs_exception_per_failure(
         target=credential_service, name="sync_credential_object", value=MagicMock(side_effect=fake_sync)
     )
 
-    with caplog.at_level("ERROR", logger="services.credential_service"):
-        with session_factory() as session:
-            credential_service.sync_all_due_credentials(db_session=session)
+    with session_factory() as session:
+        credential_service.sync_all_due_credentials(db_session=session)
 
     error_messages = [r.message for r in caplog.records if r.levelname == "ERROR"]
     assert any("Periodic sync failed" in msg for msg in error_messages), error_messages

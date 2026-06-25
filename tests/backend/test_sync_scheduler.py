@@ -12,6 +12,8 @@ from source.backend.services.sync_scheduler import (
 )
 from sqlalchemy.orm import sessionmaker
 
+from tests.backend.conftest import assert_log_contains
+
 
 def test_default_interval_is_twelve_hours(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv(sync_scheduler.SYNC_INTERVAL_HOURS_ENV_VARIABLE_NAME, raising=False)
@@ -25,10 +27,12 @@ def test_interval_is_read_from_env(monkeypatch: pytest.MonkeyPatch):
     assert sync_scheduler._sync_interval() == timedelta(minutes=30)
 
 
-def test_invalid_interval_falls_back_to_default(monkeypatch: pytest.MonkeyPatch):
+def test_invalid_interval_falls_back_to_default(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
     monkeypatch.setenv(name=sync_scheduler.SYNC_INTERVAL_HOURS_ENV_VARIABLE_NAME, value="not-a-number")
 
     assert sync_scheduler._sync_interval() == sync_scheduler.DEFAULT_SYNC_INTERVAL
+
+    assert_log_contains(caplog, message="falling back to")
 
 
 def test_app_startup_schedules_periodic_sync(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
@@ -78,15 +82,14 @@ def test_run_periodic_sync_logs_and_keeps_running_on_exception(
 
     monkeypatch.setattr(target=sync_scheduler.asyncio, name="sleep", value=fake_sleep)
 
-    with caplog.at_level("ERROR", logger="services.sync_scheduler"):
-        with pytest.raises(_StopLoop):
-            asyncio.run(real_run_periodic_sync())
+    with pytest.raises(_StopLoop):
+        asyncio.run(real_run_periodic_sync())
 
     error_messages = [r.message for r in caplog.records if r.levelname == "ERROR"]
     assert any("Periodic credential sync run crashed" in msg for msg in error_messages), error_messages
 
 
-def test_run_periodic_sync_calls_the_sync_function(monkeypatch: pytest.MonkeyPatch):
+def test_run_periodic_sync_calls_the_sync_function(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
     class _StopLoop(Exception):
         pass
 
@@ -105,3 +108,4 @@ def test_run_periodic_sync_calls_the_sync_function(monkeypatch: pytest.MonkeyPat
         asyncio.run(real_run_periodic_sync())
 
     sync.assert_called_once_with()
+    assert_log_contains(caplog, message="Periodic credential sync scheduled")

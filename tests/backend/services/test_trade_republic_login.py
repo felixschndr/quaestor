@@ -3,6 +3,8 @@ import requests
 from source.backend.exceptions import InvalidCredentialsError
 from source.backend.services import trade_republic_login as module
 
+from tests.backend.conftest import assert_log_contains
+
 
 def _http_error(status_code: int) -> requests.exceptions.HTTPError:
     response = requests.Response()
@@ -21,12 +23,16 @@ def _patch_client(monkeypatch: pytest.MonkeyPatch, initiate_side_effect: Excepti
     monkeypatch.setattr(target=module, name="TradeRepublicApi", value=_FakeApi)
 
 
-def test_start_translates_http_400_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch):
+def test_start_translates_http_400_into_invalid_credentials(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     # Trade Republic answers 400 to the weblogin when the phone number / PIN is wrong.
     _patch_client(monkeypatch=monkeypatch, initiate_side_effect=_http_error(400))
 
     with pytest.raises(InvalidCredentialsError):
         module.start(credential_id=1, phone_no="+490000000000", pin="0000")
+
+    assert_log_contains(caplog, messages=["Initiating Trade Republic web login", "Trade Republic rejected the login"])
 
 
 def test_start_translates_value_error_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch):

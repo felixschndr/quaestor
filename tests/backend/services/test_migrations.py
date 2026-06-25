@@ -4,10 +4,14 @@ from unittest.mock import MagicMock
 import pytest
 from source.backend.services import migrations
 
+from tests.backend.conftest import assert_log_contains
+
 _real_upgrade_to_head = migrations.upgrade_to_head
 
 
-def test_upgrade_to_head_invokes_alembic_with_repo_config(monkeypatch: pytest.MonkeyPatch):
+def test_upgrade_to_head_invokes_alembic_with_repo_config(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     fake_config_class = MagicMock(side_effect=lambda file_: MagicMock(name=f"Config({file_})", file_=file_))
     fake_upgrade = MagicMock()
     monkeypatch.setattr(target=migrations.command, name="upgrade", value=fake_upgrade)
@@ -15,6 +19,9 @@ def test_upgrade_to_head_invokes_alembic_with_repo_config(monkeypatch: pytest.Mo
 
     _real_upgrade_to_head()
 
+    assert_log_contains(
+        caplog, messages=["Applying database migrations to head", "Database migrations now are at head"]
+    )
     fake_config_class.assert_called_once()
     ini_path = Path(fake_config_class.call_args.kwargs["file_"])
     assert ini_path.name == "alembic.ini"

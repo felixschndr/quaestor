@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock
 import pytest
 from source.backend.services import playwright_browser
 
+from tests.backend.conftest import assert_log_contains
+
 pytestmark = pytest.mark.real_playwright_browser
 
 LOGGER_NAME = "services.playwright_browser"
@@ -29,7 +31,7 @@ def test_skips_download_when_browser_already_present(
         asyncio.run(playwright_browser.ensure_chromium_installed())
 
     download.assert_not_called()
-    assert any("already present" in record.message for record in caplog.records)
+    assert_log_contains(caplog, message="already present")
 
 
 def test_downloads_when_browser_missing(
@@ -41,12 +43,11 @@ def test_downloads_when_browser_missing(
     download = AsyncMock()
     monkeypatch.setattr(target=playwright_browser, name="_download_chromium", value=download)
 
-    with caplog.at_level(logging.INFO, logger=LOGGER_NAME):
-        asyncio.run(playwright_browser.ensure_chromium_installed())
+    asyncio.run(playwright_browser.ensure_chromium_installed())
 
     download.assert_awaited_once()
-    assert any("downloading" in record.message for record in caplog.records)
-    assert any("downloaded successfully" in record.message for record in caplog.records)
+    assert_log_contains(caplog, message="downloading")
+    assert_log_contains(caplog, message="downloaded successfully")
 
 
 def test_download_failure_is_logged_and_does_not_raise(
@@ -58,8 +59,7 @@ def test_download_failure_is_logged_and_does_not_raise(
     download = AsyncMock(side_effect=RuntimeError("network down"))
     monkeypatch.setattr(target=playwright_browser, name="_download_chromium", value=download)
 
-    with caplog.at_level(logging.ERROR, logger=LOGGER_NAME):
-        asyncio.run(playwright_browser.ensure_chromium_installed())
+    asyncio.run(playwright_browser.ensure_chromium_installed())
 
     error_records = [record for record in caplog.records if record.levelno == logging.ERROR]
     assert any("Failed to download" in record.message for record in error_records)

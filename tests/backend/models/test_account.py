@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from tests.backend.conftest import (
+    assert_log_contains,
     make_account,
     make_credential,
     make_transaction,
@@ -302,7 +303,7 @@ def test_bank_anchor_day_with_own_transaction_does_not_double_count(
             session.flush()
 
         # No drift: the anchor reconciles exactly once the same-day booking is not double-counted.
-        assert not any("drift" in record.message.lower() for record in caplog.records)
+        assert_log_contains(caplog, message="drift", negate=True)
         snapshots = _get_persisted_snapshots(session=session, account=account)
         assert snapshots[d1] == 260.0  # end of d1, after the d2 salary already happened
         # d2 is within the transaction range, so its snapshot is the transaction-driven END-of-day value
@@ -338,7 +339,7 @@ def test_backdated_transaction_missing_from_anchor_does_not_leak_across_seam(
         assert snapshots[d4] == 1150.0  # no bookings on d4 -> no change
         assert snapshots[d3] == 1113.10  # d4 -> d3 delta is exactly the -36.90 booking, no phantom +150
         # The stale d4 anchor (1000 vs walk 1150) is flagged, not silently absorbed.
-        assert any("drift" in record.message.lower() for record in caplog.records)
+        assert_log_contains(caplog, message="drift")
 
 
 def test_bank_anchor_within_tolerance_does_not_warn(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
@@ -354,7 +355,7 @@ def test_bank_anchor_within_tolerance_does_not_warn(session_factory: sessionmake
             account.recompute_balances_at_date()
             session.flush()
 
-        assert not any("drift" in record.message.lower() for record in caplog.records)
+        assert_log_contains(caplog, message="drift", negate=True)
 
 
 def test_recompute_preserves_bank_reported_anchor_but_rebuilds_computed(session_factory: sessionmaker):

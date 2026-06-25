@@ -7,7 +7,7 @@ from source.backend.services.push_service import PushOutcome, PushResult
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from tests.backend.conftest import make_user
+from tests.backend.conftest import assert_log_contains, make_user
 
 
 def _add_subscription(db_session: Session, user_id: int, endpoint: str) -> PushSubscription:
@@ -46,7 +46,9 @@ def test_notify_user_without_subscriptions_sends_nothing(
     assert calls == []
 
 
-def test_notify_user_delivers_to_all_subscriptions(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+def test_notify_user_delivers_to_all_subscriptions(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     monkeypatch.setattr(target=push_service, name="send", value=lambda **kwargs: PushResult(PushOutcome.DELIVERED))
 
     with session_factory() as db_session:
@@ -62,9 +64,12 @@ def test_notify_user_delivers_to_all_subscriptions(session_factory: sessionmaker
 
     assert result.delivered == 2
     assert result.pruned == 0 and result.failed == 0
+    assert_log_contains(caplog, message="Notified")
 
 
-def test_notify_user_prunes_expired_subscriptions(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+def test_notify_user_prunes_expired_subscriptions(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     def fake_send(*, subscription_info: dict, payload: dict) -> PushResult:
         if subscription_info["endpoint"].endswith("/gone"):
             return PushResult(outcome=PushOutcome.EXPIRED, detail="410 Gone")
@@ -87,6 +92,7 @@ def test_notify_user_prunes_expired_subscriptions(session_factory: sessionmaker,
 
     assert result.delivered == 1
     assert result.pruned == 1
+    assert_log_contains(caplog, messages=["Pruned", "expired push subscription(s)"])
     assert [subscription.endpoint for subscription in remaining] == ["https://push.example/live"]
 
 

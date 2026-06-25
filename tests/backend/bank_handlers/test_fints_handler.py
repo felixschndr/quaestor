@@ -30,6 +30,7 @@ from tests.backend.conftest import (
     PIN,
     RECENT_DATE,
     SECOND_ACCOUNT_IBAN,
+    assert_log_contains,
 )
 
 
@@ -102,7 +103,9 @@ def test_client_resolves_blz_and_url_for_unpinned_bank(monkeypatch: pytest.Monke
     assert captured["server"] == "https://lookup/66050101"
 
 
-def test_client_raises_invalid_credentials_for_unknown_blz(monkeypatch: pytest.MonkeyPatch):
+def test_client_raises_invalid_credentials_for_unknown_blz(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     def boom(bank_code: str) -> str:
         raise Exception(f"FinTS URL not found for {bank_code}")
 
@@ -110,6 +113,8 @@ def test_client_raises_invalid_credentials_for_unknown_blz(monkeypatch: pytest.M
 
     with pytest.raises(InvalidCredentialsError, match="No FinTS server known for BLZ 99999999"):
         _fints_handler(blz="99999999").client(user_id=BANK_USERNAME, pin=PIN)
+
+    assert_log_contains(caplog, message="No FinTS server known for BLZ")
 
 
 def test_configure_pushtan_picks_mechanism_by_name():
@@ -159,7 +164,7 @@ def test_configure_pushtan_selects_tan_medium_when_required():
     client.set_tan_medium.assert_called_once_with(medium)
 
 
-def test_configure_pushtan_raises_when_medium_required_but_none_returned():
+def test_configure_pushtan_raises_when_medium_required_but_none_returned(caplog: pytest.LogCaptureFixture):
     client = MagicMock()
     client.get_tan_mechanisms.return_value = {
         "942": _FakeMechanism(name="pushTAN", description_required="MUST"),
@@ -168,6 +173,8 @@ def test_configure_pushtan_raises_when_medium_required_but_none_returned():
 
     with pytest.raises(ReauthenticationRequiredError, match="requires a TAN medium"):
         _try_configure_pushtan_mechanism(client)
+
+    assert_log_contains(caplog, message="requires a TAN medium for pushTAN")
 
 
 def test_resolve_decoupled_returns_input_when_no_tan_required():
@@ -180,7 +187,7 @@ def test_resolve_decoupled_returns_input_when_no_tan_required():
     client.send_tan.assert_not_called()
 
 
-def test_resolve_decoupled_polls_until_resolved(monkeypatch: pytest.MonkeyPatch):
+def test_resolve_decoupled_polls_until_resolved(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
     sleeps: list[float] = []
     monkeypatch.setattr(target=module, name="sleep", value=lambda seconds: sleeps.append(seconds))
 
@@ -197,6 +204,7 @@ def test_resolve_decoupled_polls_until_resolved(monkeypatch: pytest.MonkeyPatch)
     assert result is final_response
     assert client.send_tan.call_count == 3
     assert sleeps == [module.APPROVAL_POLL_INTERVAL.total_seconds()] * 3
+    assert_log_contains(caplog, messages=["Waiting for pushTAN app approval", "pushTAN approval received"])
 
 
 def test_resolve_decoupled_invokes_notifier_on_enter_and_exit(monkeypatch: pytest.MonkeyPatch):
@@ -214,7 +222,9 @@ def test_resolve_decoupled_invokes_notifier_on_enter_and_exit(monkeypatch: pytes
     assert calls == [True, False]
 
 
-def test_resolve_decoupled_notifies_false_even_when_polling_raises(monkeypatch: pytest.MonkeyPatch):
+def test_resolve_decoupled_notifies_false_even_when_polling_raises(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
     fake_time = iter([0.0, 0.0, module.APPROVAL_TIMEOUT.total_seconds() + 1])
     monkeypatch.setattr(target=module.time, name="monotonic", value=lambda: next(fake_time))
@@ -229,6 +239,7 @@ def test_resolve_decoupled_notifies_false_even_when_polling_raises(monkeypatch: 
         _resolve_decoupled(client=client, response=pending, notify_two_factor_state=calls.append)
 
     assert calls == [True, False]
+    assert_log_contains(caplog, message="pushTAN approval did not arrive within")
 
 
 def test_resolve_decoupled_raises_when_non_decoupled():
@@ -317,7 +328,9 @@ def test_session_uses_camt_xml_for_banks_without_mt940(monkeypatch: pytest.Monke
     assert transactions[0].pending is False
 
 
-def test_session_translates_missing_system_id_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch):
+def test_session_translates_missing_system_id_into_invalid_credentials(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     # python-fints raises a bare ValueError('Could not find system_id') when the bank rejects
     # the login (wrong username/PIN), because the initial sync can't obtain a system id.
     client = MagicMock()
@@ -328,8 +341,12 @@ def test_session_translates_missing_system_id_into_invalid_credentials(monkeypat
         with _fints_handler().session():
             pass
 
+    assert_log_contains(caplog, message="the username or password is likely incorrect")
 
-def test_session_translates_fints_pin_error_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch):
+
+def test_session_translates_fints_pin_error_into_invalid_credentials(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     from fints.exceptions import FinTSClientPINError
 
     client = MagicMock()
@@ -339,6 +356,8 @@ def test_session_translates_fints_pin_error_into_invalid_credentials(monkeypatch
     with pytest.raises(InvalidCredentialsError):
         with _fints_handler().session():
             pass
+
+    assert_log_contains(caplog, message="The bank rejected the login")
 
 
 def test_session_does_not_swallow_unrelated_value_errors(monkeypatch: pytest.MonkeyPatch):

@@ -17,6 +17,7 @@ from tests.backend.conftest import (
     RECENT_DATE,
     SECOND_ACCOUNT_IBAN,
     SECOND_USER_NAME,
+    assert_log_contains,
     make_account,
     make_credential,
     make_transaction,
@@ -50,7 +51,7 @@ def test_list_accounts_returns_only_accounts_belonging_to_the_user(
             accounts = account_service.list_accounts(db_session=session, user=user)
 
     assert {account.id for account in accounts} == set(expected_ids)
-    assert any("<User(" in record.getMessage() for record in caplog.records)
+    assert_log_contains(caplog, message="<User(")
 
 
 def test_list_accounts_empty_when_user_has_no_credentials(session_factory: sessionmaker):
@@ -64,10 +65,11 @@ def test_list_accounts_empty_when_user_has_no_credentials(session_factory: sessi
         assert account_service.list_accounts(db_session=session, user=user) == []
 
 
-def test_get_account_raises_when_id_unknown(session_factory: sessionmaker):
+def test_get_account_raises_when_id_unknown(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     with session_factory() as session:
         with pytest.raises(AccountNotFoundError, match="not found"):
             account_service.get_account(db_session=session, account_id=99999)
+        assert_log_contains(caplog, message="not found")
 
 
 def _create_user_with_manual_credential(session_factory: sessionmaker) -> tuple[int, int]:
@@ -85,15 +87,14 @@ def test_create_manual_account_persists_account_with_caller_owned_credential(
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
-        with caplog.at_level("INFO", logger="services.account_service"):
-            account = account_service.create_manual_account(
-                db_session=session,
-                credential=credential,
-                name="Wallet",
-                display_name="Cash wallet",
-                balance=123.45,
-                balance_factor=100,
-            )
+        account = account_service.create_manual_account(
+            db_session=session,
+            credential=credential,
+            name="Wallet",
+            display_name="Cash wallet",
+            balance=123.45,
+            balance_factor=100,
+        )
         account_id = account.id
 
     with session_factory() as session:
@@ -102,9 +103,7 @@ def test_create_manual_account_persists_account_with_caller_owned_credential(
         assert loaded.credential_id == credential_id
         assert loaded.name == "Wallet"
         assert loaded.balance == 123.45
-    assert any(
-        "Created manual" in record.getMessage() and "<Account(" in record.getMessage() for record in caplog.records
-    )
+    assert_log_contains(caplog, messages=["Created manual <Account("])
 
 
 def test_create_manual_account_rejects_credential_of_non_manual_bank(session_factory: sessionmaker):
@@ -127,7 +126,9 @@ def test_create_manual_account_rejects_credential_of_non_manual_bank(session_fac
             )
 
 
-def test_create_manual_transaction_updates_balance_and_snapshots(session_factory: sessionmaker):
+def test_create_manual_transaction_updates_balance_and_snapshots(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     user_id, credential_id = _create_user_with_manual_credential(session_factory)
     with session_factory() as session:
         account = make_account(session, credential_id=credential_id, name="Wallet", balance=100.0)
@@ -150,6 +151,7 @@ def test_create_manual_transaction_updates_balance_and_snapshots(session_factory
         assert transaction.id is not None
         assert account.balance == 75.0
         assert account.balance_at_date[RECENT_DATE].balance == 75.0
+        assert_log_contains(caplog, messages=["Created manual", "new balance"])
 
     with session_factory() as session:
         user = session.get(entity=User, ident=user_id)
@@ -221,7 +223,7 @@ def test_create_manual_transaction_rejects_non_manual_account(session_factory: s
             )
 
 
-def test_delete_transaction_restores_balance(session_factory: sessionmaker):
+def test_delete_transaction_restores_balance(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     _, credential_id = _create_user_with_manual_credential(session_factory)
     with session_factory() as session:
         account = make_account(session, credential_id=credential_id, name="Wallet", balance=200.0)
@@ -243,12 +245,15 @@ def test_delete_transaction_restores_balance(session_factory: sessionmaker):
         transaction = session.get(entity=Transaction, ident=transaction_id)
         account_service.delete_transaction(db_session=session, account=account, transaction=transaction)
         assert account.balance == 200.0
+        assert_log_contains(caplog, messages=["Deleted manual", "new balance"])
 
     with session_factory() as session:
         assert session.get(entity=Transaction, ident=transaction_id) is None
 
 
-def test_delete_account_only_works_for_manual_credential(session_factory: sessionmaker):
+def test_delete_account_only_works_for_manual_credential(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     with session_factory() as session:
         user = make_user(session)
         real_credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
@@ -267,6 +272,7 @@ def test_delete_account_only_works_for_manual_credential(session_factory: sessio
 
     with session_factory() as session:
         account_service.delete_account(db_session=session, account=session.get(entity=Account, ident=manual_account_id))
+        assert_log_contains(caplog, message="Deleted manual")
 
     with session_factory() as session:
         assert session.get(entity=Account, ident=manual_account_id) is None
@@ -343,7 +349,9 @@ def test_resolve_owned_account_ids_returns_empty_for_empty_input(session_factory
     assert resolved == []
 
 
-def test_resolve_owned_account_ids_raises_for_foreign_account(session_factory: sessionmaker):
+def test_resolve_owned_account_ids_raises_for_foreign_account(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     owner_id, owner_account_ids = _create_user_with_accounts(session_factory)
     with session_factory() as session:
         intruder = make_user(session, user_name=SECOND_USER_NAME)
@@ -354,6 +362,7 @@ def test_resolve_owned_account_ids_raises_for_foreign_account(session_factory: s
         intruder = session.get(entity=User, ident=intruder_id)
         with pytest.raises(AccountNotFoundError, match="not found"):
             account_service.resolve_owned_account_ids(db_session=session, user=intruder, account_ids=owner_account_ids)
+        assert_log_contains(caplog, message="attempted to access accounts they don't own")
 
 
 @pytest.mark.parametrize(
@@ -428,7 +437,9 @@ def test_filter_transactions(
         assert [t.id for t in filtered_transactions] == expected_ids
 
 
-def test_unlink_transfer_clears_both_sides_and_restores_types(session_factory: sessionmaker):
+def test_unlink_transfer_clears_both_sides_and_restores_types(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     with session_factory() as session:
         user = make_user(session)
         credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
@@ -448,6 +459,7 @@ def test_unlink_transfer_clears_both_sides_and_restores_types(session_factory: s
 
         account_service.unlink_transfer(db_session=session, transaction=out_transaction)
 
+        assert_log_contains(caplog, message="Unlinked transfer for")
         assert out_transaction.transfer_counterpart_id is None
         assert in_transaction.transfer_counterpart_id is None
         assert out_transaction.transfer_relink_blocked is True

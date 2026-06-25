@@ -53,8 +53,7 @@ def test_redact_headers_keeps_only_whitelisted_headers():
 def test_extra_is_omitted_for_non_debug_levels(caplog: pytest.LogCaptureFixture):
     logger = get_logger("test.logging.info")
 
-    with caplog.at_level(logging.INFO, logger="test.logging.info"):
-        logger.info("user created", extra={"password": VALID_PASSWORD})
+    logger.info("user created", extra={"password": VALID_PASSWORD})
 
     assert caplog.records[0].getMessage() == "user created"
     assert VALID_PASSWORD not in caplog.text
@@ -76,8 +75,7 @@ def test_extra_is_appended_and_redacted_at_debug_level(caplog: pytest.LogCapture
 def test_debug_extra_is_dropped_when_logger_below_debug(caplog: pytest.LogCaptureFixture):
     logger = get_logger("test.logging.disabled")
 
-    with caplog.at_level(logging.INFO, logger="test.logging.disabled"):
-        logger.debug("invisible", extra={"password": VALID_PASSWORD})
+    logger.debug("invisible", extra={"password": VALID_PASSWORD})
 
     assert caplog.records == []
 
@@ -114,8 +112,7 @@ def test_request_summary_carries_session_label_on_endpoints_without_auth_depende
 ):
     register(http_client)
 
-    with caplog.at_level(logging.INFO, logger="main"):
-        http_client.get("/api/i18n/languages")
+    http_client.get("/api/i18n/languages")
 
     summary = next(record for record in caplog.records if "/api/i18n/languages" in record.getMessage())
     assert summary.session not in (None, NO_SESSION_LOG_LABEL)
@@ -131,10 +128,9 @@ def restore_session_label():
 def test_session_log_context_sets_and_restores_label_on_records(caplog: pytest.LogCaptureFixture):
     logger = get_logger("test.logging.session.scope")
 
-    with caplog.at_level(logging.INFO, logger="test.logging.session.scope"):
-        with session_log_context(SYSTEM_LOG_LABEL):
-            logger.info("inside")
-        logger.info("outside")
+    with session_log_context(SYSTEM_LOG_LABEL):
+        logger.info("inside")
+    logger.info("outside")
 
     inside, outside = caplog.records
     assert inside.session == SYSTEM_LOG_LABEL
@@ -146,9 +142,8 @@ def test_production_log_format_renders_level_session_component_and_strips_source
 ):
     logger = get_logger("source.backend.services.session_service")
 
-    with caplog.at_level(logging.INFO, logger="services.session_service"):
-        with session_log_context("session=1 user=2"):
-            logger.info("hello")
+    with session_log_context("session=1 user=2"):
+        logger.info("hello")
 
     rendered = logging.Formatter(main.LOG_FORMAT).format(caplog.records[0])
     assert "[INFO] [session=1 user=2] [services.session_service] hello" in rendered

@@ -11,6 +11,7 @@ from tests.backend.conftest import (
     SECOND_USER_NAME,
     USER_NAME,
     VALID_PASSWORD,
+    assert_log_contains,
     create_user,
 )
 
@@ -52,13 +53,12 @@ def test_create_user_defaults_language_to_english_when_unset(
     monkeypatch.delenv("DEFAULT_LANGUAGE", raising=False)
 
     with session_factory() as session:
-        with caplog.at_level("INFO", logger="services.user_service"):
-            user = user_service.create_user(
-                db_session=session, user_name=USER_NAME, display_name=DISPLAY_NAME, password=VALID_PASSWORD
-            )
+        user = user_service.create_user(
+            db_session=session, user_name=USER_NAME, display_name=DISPLAY_NAME, password=VALID_PASSWORD
+        )
         assert user.language == "en"
 
-    assert any("Created user" in record.getMessage() and "<User(" in record.getMessage() for record in caplog.records)
+    assert_log_contains(caplog, messages=["Created <User("])
     assert "password_hash" not in caplog.text
 
 

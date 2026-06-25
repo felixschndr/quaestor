@@ -11,10 +11,11 @@ from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Scope
 
+from tests.backend.conftest import assert_log_contains
+
 
 def test_log_startup_version_logs_name_and_version(caplog: pytest.LogCaptureFixture):
-    with caplog.at_level(logging.INFO, logger="main"):
-        main.log_startup_version()
+    main.log_startup_version()
 
     message = caplog.records[-1].getMessage()
     assert message == f"Starting {get_project_name()} {get_project_version()}"
@@ -96,8 +97,7 @@ def _log_request_with_status(status_code: int, caplog: pytest.LogCaptureFixture)
             response.body_iterator = body_iterator()
             return response
 
-        with caplog.at_level(logging.INFO, logger="main"):
-            await main.log_http_requests(request=request, call_next=call_next)
+        await main.log_http_requests(request=request, call_next=call_next)
 
     asyncio.run(runner())
 
@@ -140,7 +140,7 @@ async def test_log_http_requests_logs_when_body_read_fails(caplog: pytest.LogCap
     with caplog.at_level(logging.DEBUG, logger="main"):
         await main.log_http_requests(request=request, call_next=call_next)
 
-    assert any("Could not read request body" in r.message for r in caplog.records)
+    assert_log_contains(caplog, message="Could not read request body")
 
 
 @pytest.fixture

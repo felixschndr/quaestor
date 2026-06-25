@@ -1,5 +1,3 @@
-import logging
-
 import pytest
 from fastapi.testclient import TestClient
 from source.backend.models.user import User
@@ -8,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     SECOND_ACCOUNT_IBAN,
+    assert_log_contains,
     make_account,
     make_credential,
     make_user,
@@ -54,11 +53,10 @@ def test_set_layout_creates_a_new_group_and_assigns_accounts(
         account_id_2 = make_account(db_session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN).id
         db_session.commit()
 
-    with caplog.at_level(logging.INFO, logger="services.account_group_service"):
-        response = http_client.put(
-            "/api/account_groups/layout",
-            json={"groups": [{"name": "Sparen", "account_ids": [account_id_1]}], "ungrouped": [account_id_2]},
-        )
+    response = http_client.put(
+        "/api/account_groups/layout",
+        json={"groups": [{"name": "Sparen", "account_ids": [account_id_1]}], "ungrouped": [account_id_2]},
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -66,7 +64,7 @@ def test_set_layout_creates_a_new_group_and_assigns_accounts(
     assert body["groups"][0]["name"] == "Sparen"
     assert body["groups"][0]["accounts"] == [{"id": account_id_1}]
     assert body["ungrouped"] == [{"id": account_id_2}]
-    assert any("<User(" in record.getMessage() and "layout" in record.getMessage() for record in caplog.records)
+    assert_log_contains(caplog, messages=["<User(", "layout"])
 
 
 def test_set_layout_renames_and_reorders_groups(http_client: TestClient, session_factory: sessionmaker):

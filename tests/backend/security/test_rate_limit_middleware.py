@@ -2,11 +2,11 @@ import pytest
 from fastapi.testclient import TestClient
 from source.backend.security import rate_limit
 
-from tests.backend.conftest import USER_NAME, VALID_PASSWORD
+from tests.backend.conftest import USER_NAME, VALID_PASSWORD, assert_log_contains
 
 
 def test_strict_endpoint_returns_429_after_capacity_exhausted(
-    http_client_logged_out: TestClient, monkeypatch: pytest.MonkeyPatch
+    http_client_logged_out: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     # Make the strict bucket trivially small so the test is fast and deterministic.
     monkeypatch.setattr(target=rate_limit, name="STRICT_CAPACITY", value=2)
@@ -22,6 +22,7 @@ def test_strict_endpoint_returns_429_after_capacity_exhausted(
     assert third.status_code == 429
     assert third.json() == {"detail": "Too many requests"}
     assert int(third.headers["retry-after"]) >= 1
+    assert_log_contains(caplog, message="Rate limit exceeded")
 
 
 def test_non_strict_endpoint_uses_looser_global_limit(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):

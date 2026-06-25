@@ -10,13 +10,16 @@ from source.backend.services import account_service
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
+    assert_log_contains,
     make_transaction,
     persist_account_with_new_user,
     persist_manual_account_with_new_user,
 )
 
 
-def test_create_expected_transaction_is_pending_expected_and_balance_neutral(session_factory: sessionmaker):
+def test_create_expected_transaction_is_pending_expected_and_balance_neutral(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     account_id = persist_account_with_new_user(session_factory, balance=100.0)
 
     with session_factory() as session:
@@ -27,6 +30,7 @@ def test_create_expected_transaction_is_pending_expected_and_balance_neutral(ses
             fields={"amount": 250.0, "other_party": "ACME", "note": "salary", "match_tolerance_percent": 5},
         )
         created_id = created.id
+        assert_log_contains(caplog, message="Created expected")
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
@@ -124,7 +128,7 @@ def test_update_expected_transaction_rejects_a_normal_transaction(session_factor
             )
 
 
-def test_delete_expected_transaction_removes_it(session_factory: sessionmaker):
+def test_delete_expected_transaction_removes_it(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     account_id = persist_account_with_new_user(session_factory)
     with session_factory() as session:
         expectation = make_transaction(session, account_id=account_id, amount=10.0, pending=True, expected=True)
@@ -136,6 +140,7 @@ def test_delete_expected_transaction_removes_it(session_factory: sessionmaker):
         account_service.delete_expected_transaction(
             db_session=session, account=account, expected_transaction_id=expectation_id
         )
+        assert_log_contains(caplog, message="Deleted expected transaction")
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)

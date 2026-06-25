@@ -42,6 +42,7 @@ filterwarnings = [
     'ignore:Using `httpx` with `starlette\.testclient` is deprecated:UserWarning',
 ]
 addopts = ["--import-mode=importlib"]
+log_level = "INFO"
 env = [
     "R:ALLOW_MISSING_FRONTEND=true", # R = don't override pre-existing env
     "R:LOG_LEVEL=WARNING",

@@ -78,9 +78,8 @@ def test_run_periodic_recurring_logs_and_keeps_running_on_exception(
 
     monkeypatch.setattr(target=recurring_transaction_scheduler.asyncio, name="sleep", value=fake_sleep)
 
-    with caplog.at_level("ERROR", logger="services.recurring_transaction_scheduler"):
-        with pytest.raises(_StopLoop):
-            asyncio.run(real_run_periodic_recurring())
+    with pytest.raises(_StopLoop):
+        asyncio.run(real_run_periodic_recurring())
 
     error_messages = [r.message for r in caplog.records if r.levelname == "ERROR"]
     assert any("Recurring transaction booking run crashed" in msg for msg in error_messages), error_messages

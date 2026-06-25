@@ -1,9 +1,10 @@
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import setup_account
+from tests.backend.conftest import assert_log_contains, setup_account
 
 
 def _balance_rule_payload(account_id: int, **overrides: Any) -> dict:
@@ -32,12 +33,15 @@ def _transaction_rule_payload(account_id: int, **overrides: Any) -> dict:
     return payload
 
 
-def test_create_and_list_balance_rule(http_client: TestClient, session_factory: sessionmaker):
+def test_create_and_list_balance_rule(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     response = http_client.post("/api/notification_rules", json=_balance_rule_payload(account_id))
 
     assert response.status_code == 201
+    assert_log_contains(caplog, messages=["Created", "<NotificationRule("])
     created = response.json()
     assert created["trigger"] == "balance_threshold"
     assert created["threshold"] == 100.0
@@ -88,13 +92,14 @@ def test_update_rule(http_client: TestClient, session_factory: sessionmaker):
     assert updated["name"] == "Updated"
 
 
-def test_delete_rule(http_client: TestClient, session_factory: sessionmaker):
+def test_delete_rule(http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     rule_id = http_client.post("/api/notification_rules", json=_balance_rule_payload(account_id)).json()["id"]
 
     assert http_client.delete(f"/api/notification_rules/{rule_id}").status_code == 204
     assert http_client.get("/api/notification_rules").json() == []
+    assert_log_contains(caplog, message="Deleted notification rule")
 
 
 def test_create_rule_requires_at_least_one_account(http_client: TestClient, session_factory: sessionmaker):

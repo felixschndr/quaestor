@@ -22,6 +22,7 @@ from tests.backend.conftest import (
     USER_NAME,
     VALID_PASSWORD,
     FakeHttpResponse,
+    assert_log_contains,
     get_backend_test_path,
 )
 
@@ -247,20 +248,26 @@ def test_remote_data_is_only_fetched_once(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.mark.parametrize(
-    argnames="session_kwargs, expected_exception",
+    argnames="session_kwargs, expected_exception, expected_log",
     argvalues=[
-        ({"token_status": 401}, InvalidCredentialsError),  # nosec B105
-        ({"token_status": 500}, UnknownInternalError),  # nosec B105
-        ({"insurance_status": 500}, UnknownInternalError),
+        ({"token_status": 401}, InvalidCredentialsError, "fin4u login failed: invalid credentials"),  # nosec B105
+        ({"token_status": 500}, UnknownInternalError, "fin4u login failed unexpectedly"),  # nosec B105
+        ({"insurance_status": 500}, UnknownInternalError, "fin4u dashboard fetch failed"),
     ],
 )
 def test_http_error_responses_raise(
-    monkeypatch: pytest.MonkeyPatch, session_kwargs: dict, expected_exception: type[Exception]
+    monkeypatch: pytest.MonkeyPatch,
+    session_kwargs: dict,
+    expected_exception: type[Exception],
+    expected_log: str,
+    caplog: pytest.LogCaptureFixture,
 ):
     patch_session(monkeypatch=monkeypatch, fake=MockedSession(**session_kwargs))
 
     with pytest.raises(expected_exception):
         fin4u_session().get_accounts()
+
+    assert_log_contains(caplog, message=expected_log)
 
 
 def test_token_endpoint_missing_access_token_raises_unknown_internal(monkeypatch: pytest.MonkeyPatch):

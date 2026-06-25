@@ -14,7 +14,12 @@ from source.backend.services import account_service, recurring_transaction_servi
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import make_account, make_credential, make_user
+from tests.backend.conftest import (
+    assert_log_contains,
+    make_account,
+    make_credential,
+    make_user,
+)
 
 
 def _d(iso: str) -> date:
@@ -85,7 +90,7 @@ def test_next_weekly_advances_to_the_next_matching_weekday():
 
 
 def test_create_without_immediate_booking_schedules_only(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
     account_id = _manual_account(session_factory)
@@ -101,6 +106,7 @@ def test_create_without_immediate_booking_schedules_only(
         assert rule.next_run_date == _d("2026-06-28")
         assert account.balance == 100.0  # nothing booked yet
         assert account.transactions == []
+        assert_log_contains(caplog, messages=["Created", "booked today:"])
 
 
 def test_create_with_immediate_booking_books_today_and_schedules_next(
@@ -145,7 +151,7 @@ def test_create_rejects_non_manual_account(session_factory: sessionmaker, monkey
 
 
 def test_book_due_books_a_due_occurrence_and_advances_cursor(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
     account_id = _manual_account(session_factory)
@@ -161,6 +167,7 @@ def test_book_due_books_a_due_occurrence_and_advances_cursor(
 
     with session_factory() as session:
         recurring_transaction_service.book_due_recurring_transactions(session)
+        assert_log_contains(caplog, message="due recurring transaction(s) across")
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
@@ -291,7 +298,7 @@ def test_update_unknown_rule_raises(session_factory: sessionmaker, monkeypatch: 
 
 
 def test_delete_detaches_booked_transactions_and_removes_rule(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
     account_id = _manual_account(session_factory)
@@ -311,6 +318,7 @@ def test_delete_detaches_booked_transactions_and_removes_rule(
         recurring_transaction_service.delete_recurring_transaction(
             db_session=session, account=account, recurring_transaction_id=rule_id
         )
+        assert_log_contains(caplog, message="Deleted recurring transaction")
 
     with session_factory() as session:
         assert session.get(entity=RecurringTransaction, ident=rule_id) is None
