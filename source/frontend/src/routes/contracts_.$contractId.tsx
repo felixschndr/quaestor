@@ -1,16 +1,18 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
+  CONTRACT_FREQUENCIES,
   useContract,
   useDeleteContract,
   useUpdateContract,
   type ContractDetailRead,
   type ContractMemberRead,
 } from '@/lib/contract'
-import { formatDate, formatEuro, formatIban } from '@/lib/format'
+import { formatDate, formatDateWithoutYear, formatEuro, formatIban } from '@/lib/format'
+import { ContractTimeline } from '@/components/contract-timeline'
 import { DeleteContractButton, RenameContractButton } from '@/components/contract-actions'
 import { cn } from '@/lib/utils'
 
@@ -75,8 +77,35 @@ export function ContractDetailView({
   onDelete,
 }: ContractDetailViewProps) {
   const { t } = useTranslation()
-  // Members arrive newest-first from the backend, so the first one is the last payment.
-  const lastPaymentDate = contract.members[0]?.date ?? null
+  const activeMembers = contract.members.filter(
+    (member) => member.contract_assignment !== 'EXCLUDED',
+  )
+  const outlierCount = activeMembers.filter((member) => member.is_outlier).length
+  const lastPaymentDate = activeMembers[0]?.date ?? null
+  const medianColor =
+    contract.median_amount === null
+      ? ''
+      : contract.median_amount < 0
+        ? 'text-destructive'
+        : 'text-success'
+
+  const projection = contract.amount_per_frequency
+  const projectionRows = projection
+    ? [
+        {
+          key: 'perDay',
+          label: t('contracts.perDay'),
+          value: contract.amount_per_day,
+          highlight: false,
+        },
+        ...CONTRACT_FREQUENCIES.map((frequency) => ({
+          key: frequency,
+          label: t(`contracts.period.${frequency}`),
+          value: projection[frequency],
+          highlight: frequency === contract.frequency,
+        })),
+      ]
+    : []
 
   return (
     <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-8 p-4">
@@ -88,26 +117,67 @@ export function ContractDetailView({
         </div>
       </header>
 
-      <section className="flex flex-col items-center">
-        <h1 className="text-foreground text-2xl font-semibold">{contract.name}</h1>
+      <section className="flex flex-col items-center gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+        <h1 className="text-foreground max-w-full truncate text-xl font-semibold">
+          {contract.name}
+        </h1>
+        {contract.median_amount === null ? null : (
+          <span className={cn('text-xl font-semibold tabular-nums', medianColor)}>
+            {formatEuro(contract.median_amount)}
+          </span>
+        )}
       </section>
 
-      <dl className="grid grid-cols-2 gap-3">
-        <SummaryCard label={t('contracts.turnus')}>
-          {contract.frequency
-            ? t(`contracts.frequency.${contract.frequency}`)
-            : t('contracts.frequencyUnknown')}
-        </SummaryCard>
-        <SummaryCard label={t('contracts.median')}>
-          {contract.median_amount === null ? <Empty /> : formatEuro(contract.median_amount)}
-        </SummaryCard>
-        <SummaryCard label={t('contracts.lastPayment')}>
-          {lastPaymentDate ? formatDate(lastPaymentDate) : <Empty />}
-        </SummaryCard>
-        <SummaryCard label={t('contracts.nextExpected')}>
-          {contract.expected_next_date ? formatDate(contract.expected_next_date) : <Empty />}
-        </SummaryCard>
+      {activeMembers.length >= 2 ? (
+        <section className="flex flex-col gap-2">
+          <ContractTimeline
+            members={contract.members}
+            median={contract.median_amount}
+            expectedNextDate={contract.expected_next_date}
+          />
+          {outlierCount > 0 ? (
+            <p className="text-warning flex items-center gap-1.5 text-xs">
+              <TriangleAlert className="size-3.5 shrink-0" />
+              {t('contracts.outlierNote', { count: outlierCount })}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      <dl className="border-border bg-card grid grid-cols-2 gap-3 rounded-lg border p-3">
+        <StripStat label={t('contracts.lastPayment')}>
+          {lastPaymentDate ? formatDateWithoutYear(lastPaymentDate) : <Empty />}
+        </StripStat>
+        <StripStat label={t('contracts.nextExpected')} align="end">
+          {contract.expected_next_date ? (
+            formatDateWithoutYear(contract.expected_next_date)
+          ) : (
+            <Empty />
+          )}
+        </StripStat>
       </dl>
+
+      {projection ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-foreground text-sm font-semibold">{t('contracts.normalized')}</h2>
+          <div className="border-border bg-card relative rounded-lg border px-4 py-1 sm:grid sm:grid-cols-2">
+            <dl className="divide-border divide-y sm:pr-6">
+              {projectionRows.slice(0, 3).map((row) => (
+                <ProjectionRow {...row} key={row.key} />
+              ))}
+            </dl>
+            <dl className="divide-border divide-y border-t sm:border-t-0 sm:pl-6">
+              {projectionRows.slice(3).map((row) => (
+                <ProjectionRow {...row} key={row.key} />
+              ))}
+            </dl>
+            <span
+              aria-hidden
+              className="bg-border absolute inset-y-2 left-1/2 hidden w-px sm:block"
+            />
+          </div>
+        </section>
+      ) : null}
 
       <section className="flex flex-col gap-2">
         <h2 className="text-foreground text-sm font-semibold">
@@ -154,11 +224,55 @@ function MemberRow({ member }: { member: ContractMemberRead }) {
   )
 }
 
-function SummaryCard({ label, children }: { label: string; children: React.ReactNode }) {
+function ProjectionRow({
+  label,
+  value,
+  highlight,
+}: {
+  label: string
+  value: number | null
+  highlight?: boolean
+}) {
+  // The matched (real) frequency row is coloured by sign — green for income,
+  // red for expense — to tie it to the headline amount.
+  const highlightColor = value !== null && value < 0 ? 'text-destructive' : 'text-success'
   return (
-    <div className="border-border bg-card flex flex-col gap-1 rounded-lg border p-3">
+    <div className="flex items-baseline justify-between gap-3 py-2.5">
+      <dt
+        className={cn(
+          'text-sm',
+          highlight ? cn(highlightColor, 'font-medium') : 'text-muted-foreground',
+        )}
+      >
+        {label}
+      </dt>
+      <dd
+        className={cn(
+          'text-sm font-semibold tabular-nums',
+          highlight ? highlightColor : 'text-foreground',
+        )}
+      >
+        {value === null ? <Empty /> : formatEuro(value)}
+      </dd>
+    </div>
+  )
+}
+
+function StripStat({
+  label,
+  align = 'start',
+  children,
+}: {
+  label: string
+  align?: 'start' | 'center' | 'end'
+  children: React.ReactNode
+}) {
+  const alignment =
+    align === 'center' ? 'items-center text-center' : align === 'end' ? 'items-end text-right' : ''
+  return (
+    <div className={cn('flex min-w-0 flex-col gap-1', alignment)}>
       <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="text-foreground text-base font-semibold tabular-nums">{children}</dd>
+      <dd className="text-foreground text-sm font-semibold tabular-nums">{children}</dd>
     </div>
   )
 }

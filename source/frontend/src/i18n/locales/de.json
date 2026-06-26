@@ -725,7 +725,8 @@
     "account": "Konto",
     "selectAccount": "Konto wählen",
     "selectContract": "Vertrag wählen",
-    "median": "Median",
+    "perDay": "Pro Tag",
+    "normalized": "Hochgerechnet",
     "nextExpected": "Nächste Zahlung",
     "members_one": "{{count}} Transaktion",
     "members_other": "{{count}} Transaktionen",
@@ -743,6 +744,13 @@
       "QUARTERLY": "Vierteljährlich",
       "YEARLY": "Jährlich"
     },
+    "period": {
+      "WEEKLY": "Woche",
+      "BIWEEKLY": "2 Wochen",
+      "MONTHLY": "Monat",
+      "QUARTERLY": "Quartal",
+      "YEARLY": "Jahr"
+    },
     "sort": {
       "name": "Name",
       "amount_asc": "Betrag aufsteigend",
@@ -752,6 +760,10 @@
       "next": "Nächste Buchung"
     },
     "turnus": "Turnus",
+    "expectedShort": "Erwartet",
+    "paymentHistory": "Zahlungsverlauf",
+    "outlierNote_one": "{{count}} Ausreißer – fließt nicht in den Median ein",
+    "outlierNote_other": "{{count}} Ausreißer – fließen nicht in den Median ein",
     "lastPayment": "Letzte Zahlung",
     "rename": "Vertrag Umbenennen",
     "renamed": "Vertrag umbenannt",

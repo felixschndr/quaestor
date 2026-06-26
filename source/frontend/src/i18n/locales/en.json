@@ -725,7 +725,8 @@
     "account": "Account",
     "selectAccount": "Select account",
     "selectContract": "Select contract",
-    "median": "Median",
+    "perDay": "Per day",
+    "normalized": "Normalized",
     "nextExpected": "Next payment",
     "members_one": "{{count}} transaction",
     "members_other": "{{count}} transactions",
@@ -743,6 +744,13 @@
       "QUARTERLY": "Quarterly",
       "YEARLY": "Yearly"
     },
+    "period": {
+      "WEEKLY": "Week",
+      "BIWEEKLY": "2 weeks",
+      "MONTHLY": "Month",
+      "QUARTERLY": "Quarter",
+      "YEARLY": "Year"
+    },
     "sort": {
       "name": "Name",
       "amount_asc": "Amount ascending",
@@ -752,6 +760,10 @@
       "next": "Next payment"
     },
     "turnus": "Frequency",
+    "expectedShort": "Expected",
+    "paymentHistory": "Payment history",
+    "outlierNote_one": "{{count}} outlier – excluded from the median",
+    "outlierNote_other": "{{count}} outliers – excluded from the median",
     "lastPayment": "Last payment",
     "rename": "Rename contract",
     "renamed": "Contract renamed",
