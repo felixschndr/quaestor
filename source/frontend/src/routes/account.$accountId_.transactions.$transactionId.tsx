@@ -6,6 +6,7 @@ import {
   ArrowLeftRight,
   ArrowUpRight,
   ChevronLeft,
+  ChevronRight,
   CircleHelp,
   CircleSlash,
   Coins,
@@ -28,8 +29,10 @@ import {
   type TransactionCategory,
 } from '@/lib/transaction'
 import { useAuthMe } from '@/lib/auth'
+import { useAssignTransaction, useContract, useContracts } from '@/lib/contract'
 import { useDebouncedAutoSave, type AutoSaveStatus } from '@/hooks/useDebouncedAutoSave'
 import { Button } from '@/components/ui/button'
+import { NativeSelect } from '@/components/ui/native-select'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/account/$accountId_/transactions/$transactionId')({
@@ -79,6 +82,9 @@ function TransactionDetailPage() {
       onSaveNote={(note) => update.mutateAsync({ note })}
       onChangeCategory={(category) => update.mutateAsync({ category })}
       onUnlink={() => unlink.mutateAsync()}
+      contractSection={
+        query.data.pending ? undefined : <ContractSection transaction={query.data} />
+      }
     />
   )
 }
@@ -98,10 +104,10 @@ export interface TransactionDetailViewProps {
   transaction: TransactionDetailRead
   accountName?: string | null
   counterpartAccountName?: string | null
-  /** Receives `null` when the user clears the note (per §3.4: empty = delete). */
   onSaveNote: (note: string | null) => Promise<unknown>
   onChangeCategory: (category: TransactionCategory) => Promise<unknown>
   onUnlink: () => Promise<unknown>
+  contractSection?: ReactNode
 }
 
 export function TransactionDetailView({
@@ -112,6 +118,7 @@ export function TransactionDetailView({
   onSaveNote,
   onChangeCategory,
   onUnlink,
+  contractSection,
 }: TransactionDetailViewProps) {
   const { t } = useTranslation()
   const negative = transaction.amount < 0
@@ -166,6 +173,7 @@ export function TransactionDetailView({
             onUnlink={onUnlink}
           />
         ) : null}
+        {contractSection}
         <DetailRow label={t('transaction.account')}>
           {accountName?.trim() ? (
             <Link
@@ -491,4 +499,97 @@ function NoteStatus({ status }: { status: AutoSaveStatus }) {
     return <span className="text-success text-xs">{t('transaction.noteSavedAt')}</span>
   }
   return null
+}
+
+function ContractSection({ transaction }: { transaction: TransactionRead }) {
+  if (transaction.contract_id != null) {
+    return <LinkedContractRow contractId={transaction.contract_id} />
+  }
+  return <AssignContractRow transaction={transaction} />
+}
+
+function LinkedContractRow({ contractId }: { contractId: number }) {
+  const { t } = useTranslation()
+  const { data: contract } = useContract(contractId)
+  return (
+    <DetailRow label={t('contracts.contract')}>
+      {contract ? (
+        <Link
+          to="/contracts/$contractId"
+          params={{ contractId: String(contract.id) }}
+          className="hover:bg-muted/60 -mx-2 flex items-center justify-between gap-2 rounded-md px-2 py-1.5 transition-colors"
+        >
+          <span className="flex min-w-0 flex-col">
+            <span className="text-primary truncate text-sm font-medium">{contract.name}</span>
+            <span className="text-muted-foreground truncate text-xs">
+              {contract.frequency
+                ? t(`contracts.frequency.${contract.frequency}`)
+                : t('contracts.frequencyUnknown')}
+              {contract.median_amount !== null ? ` · ${formatEuro(contract.median_amount)}` : ''}
+            </span>
+          </span>
+          <ChevronRight className="text-muted-foreground size-4 shrink-0" />
+        </Link>
+      ) : (
+        <span className="text-muted-foreground text-sm">…</span>
+      )}
+    </DetailRow>
+  )
+}
+
+function AssignContractRow({ transaction }: { transaction: TransactionRead }) {
+  const { t } = useTranslation()
+  const { data: contracts } = useContracts()
+  const [selectedId, setSelectedId] = useState('')
+  const assign = useAssignTransaction(Number(selectedId) || 0)
+
+  const candidates = (contracts ?? []).filter(
+    (contract) => contract.account_id === transaction.account_id,
+  )
+
+  if (candidates.length === 0) {
+    return (
+      <DetailRow label={t('contracts.contract')}>
+        <Link
+          to="/contracts"
+          className="text-primary hover:text-primary/80 text-sm transition-colors"
+        >
+          {t('contracts.createToAssign')}
+        </Link>
+      </DetailRow>
+    )
+  }
+
+  const onAssign = () => {
+    if (!selectedId) return
+    toast.promise(assign.mutateAsync(transaction.id), {
+      loading: t('common.saving'),
+      success: t('contracts.assigned'),
+      error: t('errors.unexpected.title'),
+    })
+  }
+
+  return (
+    <DetailRow label={t('contracts.contract')}>
+      <div className="flex items-center gap-2">
+        <NativeSelect
+          id="assign-contract"
+          value={selectedId}
+          onChange={(event) => setSelectedId(event.target.value)}
+        >
+          <option value="" disabled>
+            {t('contracts.selectContract')}
+          </option>
+          {candidates.map((contract) => (
+            <option key={contract.id} value={String(contract.id)}>
+              {contract.name}
+            </option>
+          ))}
+        </NativeSelect>
+        <Button size="sm" disabled={!selectedId || assign.isPending} onClick={onAssign}>
+          {t('contracts.assign')}
+        </Button>
+      </div>
+    </DetailRow>
+  )
 }

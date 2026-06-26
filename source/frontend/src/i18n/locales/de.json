@@ -38,7 +38,8 @@
     "save": "Speichern",
     "cancel": "Abbrechen",
     "logout": "Abmelden",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "saving": "Speichern …"
   },
   "errors": {
     "serverOffline": {
@@ -59,7 +60,8 @@
       "aria": "Alle Konten synchronisieren"
     },
     "statistics": "Statistiken",
-    "search": "Transaktionen durchsuchen"
+    "search": "Transaktionen durchsuchen",
+    "contracts": "Verträge"
   },
   "account": {
     "back": "Zurück",
@@ -711,5 +713,48 @@
     "testFailed": "Testbenachrichtigung konnte nicht zugestellt werden.",
     "testDenied": "Benachrichtigungen sind in den Browser-Einstellungen blockiert.",
     "testUnsupported": "Push-Benachrichtigungen werden auf diesem Gerät nicht unterstützt."
+  },
+  "contracts": {
+    "title": "Verträge",
+    "empty": "Noch keine Verträge erkannt.",
+    "create": "Vertrag anlegen",
+    "created": "Vertrag angelegt",
+    "deleted": "Vertrag gelöscht",
+    "delete": "Vertrag löschen",
+    "name": "Name",
+    "account": "Konto",
+    "selectAccount": "Konto wählen",
+    "selectContract": "Vertrag wählen",
+    "median": "Median",
+    "nextExpected": "Nächste Zahlung",
+    "members_one": "{{count}} Transaktion",
+    "members_other": "{{count}} Transaktionen",
+    "noMembers": "Noch keine Transaktionen zugeordnet.",
+    "notFound": "Vertrag nicht gefunden.",
+    "frequencyUnknown": "Unregelmäßig",
+    "contract": "Vertrag",
+    "assign": "Zuordnen",
+    "assigned": "Zum Vertrag hinzugefügt",
+    "createToAssign": "Auf diesem Konto gibt es keine Verträge – lege zuerst einen an.",
+    "frequency": {
+      "WEEKLY": "Wöchentlich",
+      "BIWEEKLY": "Zweiwöchentlich",
+      "MONTHLY": "Monatlich",
+      "QUARTERLY": "Vierteljährlich",
+      "YEARLY": "Jährlich"
+    },
+    "sort": {
+      "name": "Name",
+      "amount_asc": "Betrag aufsteigend",
+      "amount_desc": "Betrag absteigend",
+      "magnitude_asc": "Betragshöhe aufsteigend",
+      "magnitude_desc": "Betragshöhe absteigend",
+      "next": "Nächste Buchung"
+    },
+    "turnus": "Turnus",
+    "lastPayment": "Letzte Zahlung",
+    "rename": "Vertrag Umbenennen",
+    "renamed": "Vertrag umbenannt",
+    "deleteConfirm": "Löschen?"
   }
 }

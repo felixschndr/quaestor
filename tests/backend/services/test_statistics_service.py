@@ -172,6 +172,7 @@ def test_net_worth_range_reports_before_after_and_transactions(session_factory: 
             "note": None,
             "transfer_counterpart_id": None,
             "pending": False,
+            "contract_id": None,
         }
 
     assert result.model_dump() == {

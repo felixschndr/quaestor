@@ -14,6 +14,7 @@ export interface TransactionRead {
   category: string
   note: string | null
   pending?: boolean
+  contract_id?: number | null
 }
 
 export interface TransactionDetailRead extends TransactionRead {

@@ -534,6 +534,7 @@ def test_net_worth_range_breaks_down_change_per_account(http_client: TestClient,
                         "note": None,
                         "transfer_counterpart_id": None,
                         "pending": False,
+                        "contract_id": None,
                     }
                 ],
             }

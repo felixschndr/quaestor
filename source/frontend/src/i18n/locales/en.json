@@ -38,7 +38,8 @@
     "save": "Save",
     "cancel": "Cancel",
     "logout": "Log out",
-    "retry": "Try again"
+    "retry": "Try again",
+    "saving": "Saving …"
   },
   "errors": {
     "serverOffline": {
@@ -59,7 +60,8 @@
       "aria": "Sync all accounts"
     },
     "statistics": "Statistics",
-    "search": "Search transactions"
+    "search": "Search transactions",
+    "contracts": "Contracts"
   },
   "account": {
     "back": "Back",
@@ -711,5 +713,48 @@
     "testFailed": "Test notification could not be delivered.",
     "testDenied": "Notifications are blocked in your browser settings.",
     "testUnsupported": "Push notifications are not supported on this device."
+  },
+  "contracts": {
+    "title": "Contracts",
+    "empty": "No contracts detected yet.",
+    "create": "New contract",
+    "created": "Contract created",
+    "deleted": "Contract deleted",
+    "delete": "Delete contract",
+    "name": "Name",
+    "account": "Account",
+    "selectAccount": "Select account",
+    "selectContract": "Select contract",
+    "median": "Median",
+    "nextExpected": "Next payment",
+    "members_one": "{{count}} transaction",
+    "members_other": "{{count}} transactions",
+    "noMembers": "No transactions assigned yet.",
+    "notFound": "Contract not found.",
+    "frequencyUnknown": "Irregular",
+    "contract": "Contract",
+    "assign": "Add",
+    "assigned": "Added to contract",
+    "createToAssign": "No contracts on this account — create one first.",
+    "frequency": {
+      "WEEKLY": "Weekly",
+      "BIWEEKLY": "Biweekly",
+      "MONTHLY": "Monthly",
+      "QUARTERLY": "Quarterly",
+      "YEARLY": "Yearly"
+    },
+    "sort": {
+      "name": "Name",
+      "amount_asc": "Amount ascending",
+      "amount_desc": "Amount descending",
+      "magnitude_asc": "Amount size ascending",
+      "magnitude_desc": "Amount size descending",
+      "next": "Next payment"
+    },
+    "turnus": "Frequency",
+    "lastPayment": "Last payment",
+    "rename": "Rename contract",
+    "renamed": "Contract renamed",
+    "deleteConfirm": "Delete?"
   }
 }
