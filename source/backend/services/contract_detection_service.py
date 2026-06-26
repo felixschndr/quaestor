@@ -22,8 +22,16 @@ from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 
-MIN_OCCURRENCES = 3
-INTERVAL_TOLERANCE = 0.25
+MIN_TRANSACTIONS_PER_CONTRACT = 3
+# How far a single gap (in days) may deviate from a canonical interval and still count as a match, as a fraction of that
+# interval.
+# Example: 0.25 -> a monthly gap may be 30 +/- ~7 days.
+MAX_INTERVAL_DEVIATION_FRACTION = 0.25
+# Fraction of the actual gaps that must land on the chosen interval.
+# Guards against series whose median gap happens to align with a cadence while the individual gaps are erratic.
+MIN_MATCHING_GAP_FRACTION = 0.6
+# Reject groups whose amounts scatter too far around their median, measured as Median Absolute Deviation / |median|.
+MAX_AMOUNT_DEVIATION_FRACTION = 0.5
 
 ELIGIBLE_TRANSACTION_TYPES = frozenset(
     {
@@ -90,6 +98,13 @@ def detect_contracts_for_account(db_session: Session, account: Account) -> int:
             )
             continue
 
+        if not _amounts_are_consistent([transaction.amount for transaction in transactions]):
+            logger.debug(
+                f"Group '{display_name}' ({fingerprint}) with {len(transactions)} transaction(s) "
+                "has inconsistent amounts; skipping"
+            )
+            continue
+
         contract = _find_or_create_contract(
             db_session=db_session, account=account, fingerprint=fingerprint, display_name=display_name
         )
@@ -146,25 +161,41 @@ def _is_transaction_blacklisted_for_automatic_contract_detection(transaction: Tr
 
 
 def _classify_cadence(dates: list[datetime.date]) -> tuple[ContractFrequency | None, int | None]:
-    if len(dates) < MIN_OCCURRENCES:
+    if len(dates) < MIN_TRANSACTIONS_PER_CONTRACT:
         return None, None
 
     ordered = sorted(dates)
     gaps = [(later - earlier).days for earlier, later in zip(ordered, ordered[1:]) if later != earlier]
-    if len(gaps) < MIN_OCCURRENCES - 1:
+    if len(gaps) < MIN_TRANSACTIONS_PER_CONTRACT - 1:
         return None, None
 
-    median_gap = median(gaps)
     best_frequency: ContractFrequency | None = None
-    best_deviation = INTERVAL_TOLERANCE
+    best_match_count = 0
     for frequency in ContractFrequency:
-        deviation = abs(median_gap - frequency.interval_days) / frequency.interval_days
-        if deviation <= best_deviation:
+        match_count = sum(1 for gap in gaps if _gap_matches(gap=gap, frequency=frequency))
+        if match_count > best_match_count:
             best_frequency = frequency
-            best_deviation = deviation
+            best_match_count = match_count
     if best_frequency is None:
         return None, None
-    return best_frequency, round(median_gap)
+    if best_match_count < MIN_TRANSACTIONS_PER_CONTRACT - 1 or best_match_count / len(gaps) < MIN_MATCHING_GAP_FRACTION:
+        return None, None
+
+    matching_gaps = [gap for gap in gaps if _gap_matches(gap=gap, frequency=best_frequency)]
+    return best_frequency, round(median(matching_gaps))
+
+
+def _gap_matches(gap: int, frequency: ContractFrequency) -> bool:
+    return abs(gap - frequency.interval_days) / frequency.interval_days <= MAX_INTERVAL_DEVIATION_FRACTION
+
+
+def _amounts_are_consistent(amounts: list[float]) -> bool:
+    if not amounts:
+        return False
+    center = median(amounts)
+    if center == 0:
+        return all(amount == 0 for amount in amounts)
+    return _median_absolute_deviation(amounts) / abs(center) <= MAX_AMOUNT_DEVIATION_FRACTION
 
 
 def _find_or_create_contract(db_session: Session, account: Account, fingerprint: str, display_name: str) -> Contract:
