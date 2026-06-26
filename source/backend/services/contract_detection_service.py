@@ -1,7 +1,9 @@
+import asyncio
 import datetime
 from collections import defaultdict
 from statistics import median
 
+from source.backend.db import SessionLocal
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
@@ -53,6 +55,22 @@ def detect_contracts_for_user(db_session: Session, user: User) -> None:
     logger.debug(f"Running contract detection for {user} across {len(accounts)} account(s)")
     for account in accounts:
         detect_contracts_for_account(db_session=db_session, account=account)
+
+
+def detect_contracts_for_all_users() -> None:
+    with SessionLocal() as db_session:
+        users = db_session.scalars(select(User)).all()
+        logger.info(f"Running contract detection for {len(users)} user(s)")
+        for user in users:
+            detect_contracts_for_user(db_session=db_session, user=user)
+            db_session.commit()
+
+
+async def run_startup_detection() -> None:
+    try:
+        await asyncio.to_thread(detect_contracts_for_all_users)
+    except Exception as e:
+        logger.exception(message="Startup contract detection backfill crashed", exc_info=e)
 
 
 def detect_contracts_for_account(db_session: Session, account: Account) -> int:

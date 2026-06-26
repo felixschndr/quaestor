@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+import pytest
 from source.backend.models.contract import Contract
 from source.backend.models.contract_assignment import ContractAssignment
 from source.backend.models.contract_frequency import ContractFrequency
@@ -9,6 +10,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from tests.backend.conftest import (
     OLDER_DATE,
+    SECOND_USER_NAME,
+    USER_NAME,
+    assert_log_contains,
     make_account_with_new_user,
     make_transaction,
 )
@@ -61,6 +65,24 @@ def test_detects_biweekly_series(session_factory: sessionmaker):
         contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
 
         assert session.query(Contract).one().frequency == ContractFrequency.BIWEEKLY
+
+
+def test_backfill_detects_contracts_for_every_user(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    monkeypatch.setattr(target=contract_detection_service, name="SessionLocal", value=session_factory)
+    user_names = [USER_NAME, SECOND_USER_NAME]
+    for user_name in user_names:
+        with session_factory() as session:
+            account = make_account_with_new_user(session, user_name=user_name)
+            _seed(session, account_id=account.id, other_party="Netflix", amount=-12.99, day_offsets=[0, 30, 60, 90])
+            session.commit()
+
+    contract_detection_service.detect_contracts_for_all_users()
+
+    assert_log_contains(caplog, message="Running contract detection for 2 user(s)")
+    with session_factory() as session:
+        assert session.query(Contract).count() == len(user_names)
 
 
 def test_blacklisted_other_party_does_not_form_a_contract(session_factory: sessionmaker):
