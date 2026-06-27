@@ -41,37 +41,19 @@ function barColor(point: TimelinePoint): string {
 
 const CHAR_WIDTH = 6.5
 
-interface PeakLabelProps {
+interface AmountLabelProps {
   points: TimelinePoint[]
-  maxMag: number
-  minMag: number
-  showMax: boolean
-  showMin: boolean
   x?: number
   y?: number
   width?: number
   index?: number
 }
 
-function PeakLabel({
-  points,
-  maxMag,
-  minMag,
-  showMax,
-  showMin,
-  x = 0,
-  y = 0,
-  width = 0,
-  index,
-}: PeakLabelProps) {
+function AmountLabel({ points, x = 0, y = 0, width = 0, index }: AmountLabelProps) {
   if (index === undefined) return null
 
   const point = points[index]
-  if (!point) return null
-
-  const isMax = showMax && point.mag === maxMag
-  const isMin = showMin && point.mag === minMag
-  if (!isMax && !isMin) return null
+  if (!point || point.isGhost) return null
 
   const text = formatEuro(point.mag)
   const fill = point.isOutlier ? 'var(--color-warning)' : 'var(--color-foreground)'
@@ -160,13 +142,6 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
       : null
   const data = ghost ? [...points, ghost] : points
 
-  const mags = points.map((point) => point.mag)
-  const maxMag = mags.length > 0 ? Math.max(...mags) : 0
-  const minMag = mags.length > 0 ? Math.min(...mags) : 0
-  const allEqual = points.length > 0 && maxMag === minMag
-  const showMax = !allEqual
-  const showMin = !allEqual
-
   const peak = Math.max(...data.map((point) => point.mag), 0)
   const yMax = peak * 1.06 || 1
   const medianMag = median !== null ? Math.abs(median) : null
@@ -221,18 +196,7 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
                 strokeDasharray={point.isGhost ? '3 2' : undefined}
               />
             ))}
-            <LabelList
-              dataKey="mag"
-              content={
-                <PeakLabel
-                  points={points}
-                  maxMag={maxMag}
-                  minMag={minMag}
-                  showMax={showMax}
-                  showMin={showMin}
-                />
-              }
-            />
+            <LabelList dataKey="mag" content={<AmountLabel points={points} />} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
