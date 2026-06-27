@@ -1,3 +1,4 @@
+import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { de, enUS, type Locale } from 'date-fns/locale'
 import { format, parseISO } from 'date-fns'
@@ -26,6 +27,7 @@ export interface ContractTimelineProps {
 
 interface TimelinePoint {
   key: string
+  accountId: number | null
   date: string
   amount: number
   mag: number
@@ -120,12 +122,22 @@ function MedianLabel({ value, viewBox }: MedianLabelProps) {
 
 export function ContractTimeline({ members, median, expectedNextDate }: ContractTimelineProps) {
   const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
   const locale = LOCALES[i18n.language] ?? enUS
+
+  const goToTransaction = (point: TimelinePoint) => {
+    if (point.isGhost || point.accountId === null) return
+    void navigate({
+      to: '/account/$accountId/transactions/$transactionId',
+      params: { accountId: String(point.accountId), transactionId: point.key },
+    })
+  }
 
   const points: TimelinePoint[] = members
     .filter((member) => member.contract_assignment !== 'EXCLUDED')
     .map((member) => ({
       key: String(member.id),
+      accountId: member.account_id,
       date: member.date,
       amount: member.amount,
       mag: Math.abs(member.amount),
@@ -138,6 +150,7 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
     expectedNextDate && median !== null
       ? {
           key: 'ghost',
+          accountId: null,
           date: expectedNextDate,
           amount: median,
           mag: Math.abs(median),
@@ -190,10 +203,18 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
               label={<MedianLabel value={formatEuro(median!)} />}
             />
           ) : null}
-          <Bar dataKey="mag" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+          <Bar
+            dataKey="mag"
+            radius={[3, 3, 0, 0]}
+            isAnimationActive={false}
+            onClick={(entry: { payload?: TimelinePoint }) =>
+              entry.payload && goToTransaction(entry.payload)
+            }
+          >
             {data.map((point) => (
               <Cell
                 key={point.key}
+                className={point.isGhost ? undefined : 'cursor-pointer'}
                 fill={point.isGhost ? 'transparent' : barColor(point)}
                 stroke={point.isGhost ? 'var(--color-primary)' : undefined}
                 strokeWidth={point.isGhost ? 1.5 : 0}
