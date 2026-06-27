@@ -28,9 +28,14 @@ if TYPE_CHECKING:
     from sqlalchemy import Connection
     from sqlalchemy.orm import Mapper
 
-# Outlier when |amount - median| exceeds this many spreads, but at least the absolute floor.
+# A transaction is an outlier when |amount - median| exceeds a tolerance band. The band is the
+# spread (MAD) scaled by OUTLIER_SPREAD_FACTOR, but bounded on both ends:
+#   - floored at OUTLIER_ABSOLUTE_FLOOR so cent-sized noise on stable contracts is never flagged,
+#   - capped at OUTLIER_RELATIVE_FACTOR * |median| so a tiny sample (which inflates the MAD) can't
+#     widen the band past an obvious percentage swing and swallow real outliers.
 OUTLIER_SPREAD_FACTOR = 3.0
 OUTLIER_ABSOLUTE_FLOOR = 1.0
+OUTLIER_RELATIVE_FACTOR = 0.25
 
 
 class Contract(Base):
@@ -73,7 +78,9 @@ class Contract(Base):
     def is_outlier(self, transaction: "Transaction") -> bool:
         if self.median_amount is None or self.amount_spread is None:
             return False
-        threshold = max(OUTLIER_ABSOLUTE_FLOOR, OUTLIER_SPREAD_FACTOR * self.amount_spread)
+        relative_cap = OUTLIER_RELATIVE_FACTOR * abs(self.median_amount)
+        band = min(OUTLIER_SPREAD_FACTOR * self.amount_spread, relative_cap)
+        threshold = max(OUTLIER_ABSOLUTE_FLOOR, band)
         return abs(transaction.amount - self.median_amount) > threshold
 
 
