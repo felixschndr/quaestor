@@ -5,6 +5,9 @@ import { Popover as PopoverPrimitive } from 'radix-ui'
 
 import { cn } from '@/lib/utils'
 
+export const popoverTriggerClassName =
+  'border-input flex h-8 w-full min-w-0 items-center gap-2 rounded-lg border bg-transparent px-2.5 py-1 text-left text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3 hover:border-ring aria-expanded:border-ring dark:bg-input/30'
+
 function Popover(props: React.ComponentProps<typeof PopoverPrimitive.Root>) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />
 }

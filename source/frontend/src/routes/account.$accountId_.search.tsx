@@ -9,6 +9,7 @@ import { AmountRangeFields } from '@/components/ui/amount-range-fields'
 import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { TransactionFilterFields } from '@/components/ui/transaction-filter-fields'
 import type { TransactionRead } from '@/lib/accountHistory'
 import { accountDisplayName } from '@/lib/accounts'
@@ -289,19 +290,20 @@ function SearchResults({
         <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
           {t('search.resultsCount', { count: results.length })}
         </h2>
-        <select
-          aria-label={t('search.sortLabel')}
+        <SingleSelectPopover
+          ariaLabel={t('search.sortLabel')}
           value={sort}
-          onChange={(event) => setSort(event.target.value as SortKey)}
-          className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-auto rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 dark:bg-input/30"
-        >
-          <option value="date_desc">{t('search.sortDateDesc')}</option>
-          <option value="date_asc">{t('search.sortDateAsc')}</option>
-          <option value="amount_desc">{t('search.sortAmountDesc')}</option>
-          <option value="amount_asc">{t('search.sortAmountAsc')}</option>
-          <option value="amount_abs_desc">{t('search.sortAmountAbsDesc')}</option>
-          <option value="amount_abs_asc">{t('search.sortAmountAbsAsc')}</option>
-        </select>
+          onChange={setSort}
+          className="w-auto"
+          options={[
+            { value: 'date_desc', label: t('search.sortDateDesc') },
+            { value: 'date_asc', label: t('search.sortDateAsc') },
+            { value: 'amount_desc', label: t('search.sortAmountDesc') },
+            { value: 'amount_asc', label: t('search.sortAmountAsc') },
+            { value: 'amount_abs_desc', label: t('search.sortAmountAbsDesc') },
+            { value: 'amount_abs_asc', label: t('search.sortAmountAbsAsc') },
+          ]}
+        />
       </div>
       <ul className="flex flex-col">
         {results.map((transaction) => (

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
+import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { TwoFactorSetup } from '@/components/two-factor-setup'
 import { ApiError } from '@/lib/api'
 import {
@@ -405,24 +406,21 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="register-theme">{t('login.theme')}</Label>
-        <select
+        <SingleSelectPopover
           id="register-theme"
+          ariaLabel={t('login.theme')}
           value={form.watch('theme')}
-          onChange={(event) => {
-            const next = event.target.value as Theme
+          onChange={(next) => {
             form.setValue('theme', next)
             // Live preview: applies to the whole page immediately so the user
             // sees what they're picking before they submit.
             applyTheme(next)
           }}
-          className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 dark:bg-input/30"
-        >
-          {THEME_VALUES.map((value) => (
-            <option key={value} value={value}>
-              {t(`settings.theme${value.charAt(0)}${value.slice(1).toLowerCase()}`)}
-            </option>
-          ))}
-        </select>
+          options={THEME_VALUES.map((value) => ({
+            value,
+            label: t(`settings.theme${value.charAt(0)}${value.slice(1).toLowerCase()}`),
+          }))}
+        />
       </div>
 
       <label className="border-border bg-card flex items-center justify-between gap-3 rounded-md border p-3">

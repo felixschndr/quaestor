@@ -9,7 +9,12 @@ import { useWheelScroll } from '@/lib/use-wheel-scroll'
 import { accountDisplayName } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
 import type { AccountRead } from '@/lib/auth'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  popoverTriggerClassName,
+} from '@/components/ui/popover'
 import type { AccountGroup } from '@/components/ui/account-select-utils'
 
 /** Bank logo + account name — the part of a row that's identical across single/multi select. */
@@ -62,13 +67,7 @@ export function AccountSelectPopover({
         id={id}
         type="button"
         aria-label={t('search.accountsLabel')}
-        className={cn(
-          'border-input flex h-8 w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-transparent px-2.5 py-1 text-left text-sm transition-colors outline-none',
-          'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3',
-          'aria-expanded:border-ring',
-          'dark:bg-input/30',
-          className,
-        )}
+        className={cn(popoverTriggerClassName, 'justify-between', className)}
       >
         <span className={cn('truncate', isEmpty && 'text-muted-foreground')}>{triggerLabel}</span>
         <ChevronDown className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />

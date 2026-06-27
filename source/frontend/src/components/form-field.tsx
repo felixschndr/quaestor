@@ -1,9 +1,5 @@
 import { Label } from '@/components/ui/label'
 
-// Shared styling for the bare <select> elements used in the transaction forms.
-export const SELECT_INPUT_CLASS =
-  'border-input dark:bg-input/30 h-8 rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
-
 interface FormFieldProps {
   id: string
   label: string

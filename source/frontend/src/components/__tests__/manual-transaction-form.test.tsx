@@ -9,6 +9,7 @@ vi.mock('@/lib/api', () => ({ api: vi.fn(() => Promise.resolve({})) }))
 
 import { api } from '@/lib/api'
 import { ManualTransactionForm } from '@/components/manual-transaction-form'
+import { selectFromPopover } from '@/test/popover-select'
 import type { RecurringTransactionRead } from '@/lib/recurringTransaction'
 
 const mockedApi = vi.mocked(api)
@@ -54,7 +55,7 @@ describe('ManualTransactionForm — recurring', () => {
     await user.click(screen.getByRole('switch', { name: 'Recurring' }))
     await user.type(screen.getByLabelText('Amount'), '50')
     await user.click(screen.getByRole('button', { name: 'Make negative' }))
-    await user.selectOptions(screen.getByLabelText('Day of month'), '15')
+    await selectFromPopover(user, 'Day of month', '15')
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(mockedApi).toHaveBeenCalledTimes(1)
@@ -78,9 +79,9 @@ describe('ManualTransactionForm — recurring', () => {
 
     await user.click(screen.getByRole('switch', { name: 'Recurring' }))
     await user.type(screen.getByLabelText('Amount'), '1000')
-    await user.selectOptions(screen.getByLabelText('Frequency'), 'WEEKLY')
+    await selectFromPopover(user, 'Frequency', 'Weekly')
     expect(screen.queryByLabelText('Day of month')).not.toBeInTheDocument()
-    await user.selectOptions(screen.getByLabelText('Weekday'), '2') // Wednesday
+    await selectFromPopover(user, 'Weekday', 'Wednesday')
     await user.click(screen.getByRole('switch', { name: 'Book first transaction today' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
@@ -128,10 +129,9 @@ describe('ManualTransactionForm — recurring', () => {
     renderForm()
 
     await user.click(screen.getByRole('switch', { name: 'Recurring' }))
-    const daySelect = screen.getByLabelText('Day of month')
-    expect(within(daySelect).getByRole('option', { name: '05' })).toBeInTheDocument()
-    // The value stays the bare number so the payload is unaffected.
-    expect(within(daySelect).getByRole('option', { name: '05' })).toHaveValue('5')
+    await user.click(screen.getByLabelText('Day of month'))
+    const list = await screen.findByRole('list', { name: 'Day of month' })
+    expect(within(list).getByRole('button', { name: '05' })).toBeInTheDocument()
   })
 
   it('offers an info hint about month-end clamping next to the day-of-month field', async () => {
@@ -177,7 +177,7 @@ describe('ManualTransactionForm — recurring', () => {
       screen.queryByRole('switch', { name: 'Book first transaction today' }),
     ).not.toBeInTheDocument()
 
-    await user.selectOptions(screen.getByLabelText('Day of month'), '5')
+    await selectFromPopover(user, 'Day of month', '05')
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(mockedApi).toHaveBeenCalledTimes(1)
@@ -189,18 +189,15 @@ describe('ManualTransactionForm — recurring', () => {
     })
   })
 
-  it('opens a select on Enter instead of submitting the form', async () => {
+  it('opens the select on Enter instead of submitting the form', async () => {
     const user = userEvent.setup()
-    const showPicker = vi.fn()
-    // jsdom does not implement showPicker; provide it so the handler can call it.
-    ;(HTMLSelectElement.prototype as unknown as { showPicker: () => void }).showPicker = showPicker
     renderForm()
 
     const category = screen.getByLabelText('Category')
     category.focus()
     await user.keyboard('{Enter}')
 
-    expect(showPicker).toHaveBeenCalled()
+    expect(await screen.findByRole('list', { name: 'Category' })).toBeInTheDocument()
     expect(mockedApi).not.toHaveBeenCalled()
   })
 

@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button'
 import { ContractFilterBar } from '@/components/ui/contract-filter-bar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { NativeSelect } from '@/components/ui/native-select'
+import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { AccountSingleSelect } from '@/components/ui/account-single-select'
 import {
   Dialog,
@@ -148,17 +148,16 @@ function ContractsPage() {
               {t('contracts.count', { count: visible.length })}
             </h2>
             <div className="w-48">
-              <NativeSelect
+              <SingleSelectPopover
                 id="contract-sort"
+                ariaLabel={t('contracts.sortLabel')}
                 value={sort}
-                onChange={(event) => setSort(event.target.value as SortOption)}
-              >
-                {SORT_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {t(`contracts.sort.${option}`)}
-                  </option>
-                ))}
-              </NativeSelect>
+                onChange={setSort}
+                options={SORT_OPTIONS.map((option) => ({
+                  value: option,
+                  label: t(`contracts.sort.${option}`),
+                }))}
+              />
             </div>
           </div>
           <ul className="border-border divide-border bg-card flex flex-col divide-y overflow-hidden rounded-lg border">

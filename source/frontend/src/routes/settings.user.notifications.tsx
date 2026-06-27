@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { NativeSelect } from '@/components/ui/native-select'
+import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { AmountInput } from '@/components/ui/amount-input'
 import { AmountRangeFields } from '@/components/ui/amount-range-fields'
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
@@ -480,17 +480,16 @@ function RuleDialog({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="rule-trigger">{t('notifications.triggerLabel')}</Label>
-            <NativeSelect
+            <SingleSelectPopover
               id="rule-trigger"
+              ariaLabel={t('notifications.triggerLabel')}
               value={model.trigger}
-              onChange={(event) => set('trigger', event.target.value as NotificationTrigger)}
-            >
-              {NOTIFICATION_TRIGGERS.map((trigger) => (
-                <option key={trigger} value={trigger}>
-                  {t(`notifications.trigger.${trigger}`)}
-                </option>
-              ))}
-            </NativeSelect>
+              onChange={(next) => set('trigger', next)}
+              options={NOTIFICATION_TRIGGERS.map((trigger) => ({
+                value: trigger,
+                label: t(`notifications.trigger.${trigger}`),
+              }))}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -556,17 +555,16 @@ function RuleDialog({
             <>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="rule-direction">{t('notifications.directionLabel')}</Label>
-                <NativeSelect
+                <SingleSelectPopover
                   id="rule-direction"
+                  ariaLabel={t('notifications.directionLabel')}
                   value={model.direction}
-                  onChange={(event) => set('direction', event.target.value as BalanceDirection)}
-                >
-                  {BALANCE_DIRECTIONS.map((direction) => (
-                    <option key={direction} value={direction}>
-                      {t(`notifications.direction.${direction}`)}
-                    </option>
-                  ))}
-                </NativeSelect>
+                  onChange={(next) => set('direction', next)}
+                  options={BALANCE_DIRECTIONS.map((direction) => ({
+                    value: direction,
+                    label: t(`notifications.direction.${direction}`),
+                  }))}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="rule-threshold">{t('notifications.thresholdLabel')}</Label>

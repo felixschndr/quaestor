@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { FormField, SELECT_INPUT_CLASS } from '@/components/form-field'
+import { SingleSelectPopover } from '@/components/ui/single-select-popover'
+import { FormField } from '@/components/form-field'
 import {
   TRANSACTION_CATEGORIES,
   TRANSACTION_TYPES,
@@ -32,17 +33,6 @@ import { formatAmountForInput, todayIso } from '@/lib/format'
 
 const MONTH_DAYS = Array.from({ length: 31 }, (_, index) => index + 1)
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] // 0 = Monday, 6 = Sunday
-
-function openSelectOnEnter(event: React.KeyboardEvent<HTMLSelectElement>): void {
-  if (event.key !== 'Enter') return
-  event.preventDefault()
-  try {
-    event.currentTarget.showPicker()
-  } catch {
-    // showPicker() isn't available in every browser; the form's keydown guard
-    // still prevents an accidental submit, so there's nothing else to do.
-  }
-}
 
 interface ManualTransactionFormProps {
   accountId: number
@@ -278,39 +268,37 @@ export function ManualTransactionForm({
           id={`${fieldIdPrefix}-type`}
           label={t('credentials.manualTransactions.fieldType')}
         >
-          <select
+          <SingleSelectPopover
             id={`${fieldIdPrefix}-type`}
+            ariaLabel={t('credentials.manualTransactions.fieldType')}
             value={txnType}
-            onChange={(event) => setTxnType(event.target.value as TransactionType | '')}
-            className={SELECT_INPUT_CLASS}
-            onKeyDown={openSelectOnEnter}
-          >
-            <option value="">{t('credentials.manualTransactions.anyOption')}</option>
-            {TRANSACTION_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {t(`transactionType.${type}`)}
-              </option>
-            ))}
-          </select>
+            onChange={setTxnType}
+            options={[
+              { value: '', label: t('credentials.manualTransactions.anyOption') },
+              ...TRANSACTION_TYPES.map((type) => ({
+                value: type,
+                label: t(`transactionType.${type}`),
+              })),
+            ]}
+          />
         </FormField>
         <FormField
           id={`${fieldIdPrefix}-category`}
           label={t('credentials.manualTransactions.fieldCategory')}
         >
-          <select
+          <SingleSelectPopover
             id={`${fieldIdPrefix}-category`}
+            ariaLabel={t('credentials.manualTransactions.fieldCategory')}
             value={category}
-            onChange={(event) => setCategory(event.target.value as TransactionCategory | '')}
-            className={SELECT_INPUT_CLASS}
-            onKeyDown={openSelectOnEnter}
-          >
-            <option value="">{t('credentials.manualTransactions.anyOption')}</option>
-            {TRANSACTION_CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {t(`category.${cat}`)}
-              </option>
-            ))}
-          </select>
+            onChange={setCategory}
+            options={[
+              { value: '', label: t('credentials.manualTransactions.anyOption') },
+              ...TRANSACTION_CATEGORIES.map((cat) => ({
+                value: cat,
+                label: t(`category.${cat}`),
+              })),
+            ]}
+          />
         </FormField>
       </div>
       <FormField id={`${fieldIdPrefix}-note`} label={t('credentials.manualTransactions.fieldNote')}>
@@ -327,19 +315,16 @@ export function ManualTransactionForm({
               id={`${fieldIdPrefix}-frequency`}
               label={t('credentials.manualTransactions.fieldFrequency')}
             >
-              <select
+              <SingleSelectPopover
                 id={`${fieldIdPrefix}-frequency`}
+                ariaLabel={t('credentials.manualTransactions.fieldFrequency')}
                 value={frequency}
-                onChange={(event) => setFrequency(event.target.value as RecurrenceFrequency)}
-                className={SELECT_INPUT_CLASS}
-                onKeyDown={openSelectOnEnter}
-              >
-                {RECURRENCE_FREQUENCIES.map((freq) => (
-                  <option key={freq} value={freq}>
-                    {t(`credentials.manualTransactions.frequency.${freq}`)}
-                  </option>
-                ))}
-              </select>
+                onChange={setFrequency}
+                options={RECURRENCE_FREQUENCIES.map((freq) => ({
+                  value: freq,
+                  label: t(`credentials.manualTransactions.frequency.${freq}`),
+                }))}
+              />
             </FormField>
             {frequency === 'MONTHLY' ? (
               <FormField
@@ -347,38 +332,32 @@ export function ManualTransactionForm({
                 label={t('credentials.manualTransactions.fieldDayOfMonth')}
                 labelHint={<InfoHint text={t('credentials.manualTransactions.dayOfMonthHint')} />}
               >
-                <select
+                <SingleSelectPopover
                   id={`${fieldIdPrefix}-day-of-month`}
-                  value={dayOfMonth}
-                  onChange={(event) => setDayOfMonth(Number(event.target.value))}
-                  className={SELECT_INPUT_CLASS}
-                  onKeyDown={openSelectOnEnter}
-                >
-                  {MONTH_DAYS.map((day) => (
-                    <option key={day} value={day}>
-                      {String(day).padStart(2, '0')}
-                    </option>
-                  ))}
-                </select>
+                  ariaLabel={t('credentials.manualTransactions.fieldDayOfMonth')}
+                  value={String(dayOfMonth)}
+                  onChange={(next) => setDayOfMonth(Number(next))}
+                  options={MONTH_DAYS.map((day) => ({
+                    value: String(day),
+                    label: String(day).padStart(2, '0'),
+                  }))}
+                />
               </FormField>
             ) : (
               <FormField
                 id={`${fieldIdPrefix}-day-of-week`}
                 label={t('credentials.manualTransactions.fieldDayOfWeek')}
               >
-                <select
+                <SingleSelectPopover
                   id={`${fieldIdPrefix}-day-of-week`}
-                  value={dayOfWeek}
-                  onChange={(event) => setDayOfWeek(Number(event.target.value))}
-                  className={SELECT_INPUT_CLASS}
-                  onKeyDown={openSelectOnEnter}
-                >
-                  {WEEKDAYS.map((day) => (
-                    <option key={day} value={day}>
-                      {t(`credentials.manualTransactions.weekday.${day}`)}
-                    </option>
-                  ))}
-                </select>
+                  ariaLabel={t('credentials.manualTransactions.fieldDayOfWeek')}
+                  value={String(dayOfWeek)}
+                  onChange={(next) => setDayOfWeek(Number(next))}
+                  options={WEEKDAYS.map((day) => ({
+                    value: String(day),
+                    label: t(`credentials.manualTransactions.weekday.${day}`),
+                  }))}
+                />
               </FormField>
             )}
           </div>

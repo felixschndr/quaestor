@@ -31,7 +31,7 @@ import { useAuthMe } from '@/lib/auth'
 import { useContracts, useSetTransactionContract } from '@/lib/contract'
 import { useDebouncedAutoSave, type AutoSaveStatus } from '@/hooks/useDebouncedAutoSave'
 import { Button } from '@/components/ui/button'
-import { NativeSelect } from '@/components/ui/native-select'
+import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/account/$accountId_/transactions/$transactionId')({
@@ -342,33 +342,26 @@ function CategorySelect({
     localised.sort((a, b) => a.label.localeCompare(b.label, i18n.language))
     return [...localised, { value: 'UNKNOWN' as TransactionCategory, label: t('category.UNKNOWN') }]
   }, [t, i18n.language])
+
+  const change = async (next: TransactionCategory) => {
+    setPending(true)
+    try {
+      await onChange(next)
+    } catch {
+      toast.error(t('transaction.categoryUpdateFailed'))
+    } finally {
+      setPending(false)
+    }
+  }
+
   return (
-    <select
-      aria-label={t('transaction.category')}
+    <SingleSelectPopover
+      ariaLabel={t('transaction.category')}
       value={value}
       disabled={pending}
-      onChange={async (event) => {
-        const next = event.target.value as TransactionCategory
-        setPending(true)
-        try {
-          await onChange(next)
-        } catch {
-          toast.error(t('transaction.categoryUpdateFailed'))
-        } finally {
-          setPending(false)
-        }
-      }}
-      className={cn(
-        'border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 disabled:opacity-50',
-        'dark:bg-input/30',
-      )}
-    >
-      {sortedOptions.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+      onChange={(next) => void change(next)}
+      options={sortedOptions}
+    />
   )
 }
 
@@ -545,19 +538,20 @@ function ContractSection({ transaction }: { transaction: TransactionRead }) {
   return (
     <DetailRow label={t('contracts.contract')} align="start">
       <div className="flex w-full flex-col gap-1.5">
-        <NativeSelect
+        <SingleSelectPopover
           id="assign-contract"
+          ariaLabel={t('contracts.contract')}
           value={currentId === null ? '' : String(currentId)}
           disabled={setContract.isPending}
-          onChange={(event) => onChange(event.target.value)}
-        >
-          <option value="">{t('contracts.noContract')}</option>
-          {candidates.map((contract) => (
-            <option key={contract.id} value={String(contract.id)}>
-              {contract.name}
-            </option>
-          ))}
-        </NativeSelect>
+          onChange={onChange}
+          options={[
+            { value: '', label: t('contracts.noContract') },
+            ...candidates.map((contract) => ({
+              value: String(contract.id),
+              label: contract.name,
+            })),
+          ]}
+        />
         {assigned ? (
           <Link
             to="/contracts/$contractId"

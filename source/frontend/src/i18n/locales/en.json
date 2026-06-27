@@ -759,6 +759,7 @@
       "QUARTERLY": "Quarter",
       "YEARLY": "Year"
     },
+    "sortLabel": "Sort by",
     "sort": {
       "name": "Name",
       "amount_asc": "Amount ascending",

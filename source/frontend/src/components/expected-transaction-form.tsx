@@ -5,7 +5,8 @@ import { toast } from 'sonner'
 import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { FormField, SELECT_INPUT_CLASS } from '@/components/form-field'
+import { SingleSelectPopover } from '@/components/ui/single-select-popover'
+import { FormField } from '@/components/form-field'
 import {
   DEFAULT_MATCH_TOLERANCE,
   MATCH_TOLERANCES,
@@ -104,18 +105,16 @@ export function ExpectedTransactionForm({
         label={t('expectedTransactions.fieldTolerance')}
         hint={t('expectedTransactions.toleranceHint')}
       >
-        <select
+        <SingleSelectPopover
           id={`${fieldIdPrefix}-tolerance`}
-          value={tolerance}
-          onChange={(event) => setTolerance(Number(event.target.value))}
-          className={SELECT_INPUT_CLASS}
-        >
-          {MATCH_TOLERANCES.map((value) => (
-            <option key={value} value={value}>
-              {value === 0 ? t('expectedTransactions.toleranceExact') : `± ${value} %`}
-            </option>
-          ))}
-        </select>
+          ariaLabel={t('expectedTransactions.fieldTolerance')}
+          value={String(tolerance)}
+          onChange={(next) => setTolerance(Number(next))}
+          options={MATCH_TOLERANCES.map((value) => ({
+            value: String(value),
+            label: value === 0 ? t('expectedTransactions.toleranceExact') : `± ${value} %`,
+          }))}
+        />
       </FormField>
       <FormField id={`${fieldIdPrefix}-other`} label={t('expectedTransactions.fieldOtherParty')}>
         <Input

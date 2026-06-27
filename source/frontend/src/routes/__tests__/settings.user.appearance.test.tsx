@@ -20,6 +20,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 import { SettingsAppearanceView } from '@/routes/settings.user.appearance'
+import { openPopoverOptions, selectFromPopover } from '@/test/popover-select'
 import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
 
 beforeEach(async () => {
@@ -33,6 +34,7 @@ afterEach(() => {
 
 describe('SettingsAppearanceView', () => {
   it('prefills the language and sorts the dropdown by localised label', async () => {
+    const user = userEvent.setup()
     ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
       if (url === '/api/i18n/languages') {
         // Server returns "en" before "de"; the UI must reorder alphabetically by label.
@@ -43,10 +45,8 @@ describe('SettingsAppearanceView', () => {
 
     renderWithQuery(<SettingsAppearanceView user={buildUser()} />)
 
-    await screen.findByRole('option', { name: 'German' })
-    const select = screen.getByLabelText('Language') as HTMLSelectElement
-    expect(select).toHaveValue('en')
-    const labels = Array.from(select.options).map((option) => option.textContent ?? '')
+    expect(await screen.findByLabelText('Language')).toHaveTextContent('English')
+    const labels = await openPopoverOptions(user, 'Language')
     expect(labels).toEqual(['English', 'German'])
   })
 
@@ -65,9 +65,8 @@ describe('SettingsAppearanceView', () => {
 
     renderWithQuery(<SettingsAppearanceView user={buildUser()} />)
 
-    const select = screen.getByLabelText('Language')
-    await screen.findByRole('option', { name: 'German' })
-    await user.selectOptions(select, 'de')
+    await screen.findByLabelText('Language')
+    await selectFromPopover(user, 'Language', 'German')
 
     await waitFor(() => {
       const patch = fetchMock.mock.calls.find(
@@ -93,7 +92,7 @@ describe('SettingsAppearanceView', () => {
 
     renderWithQuery(<SettingsAppearanceView user={buildUser()} />)
 
-    await user.selectOptions(screen.getByLabelText('Appearance'), 'DARK')
+    await selectFromPopover(user, 'Appearance', 'Dark')
 
     await waitFor(() => {
       const patch = fetchMock.mock.calls.find(

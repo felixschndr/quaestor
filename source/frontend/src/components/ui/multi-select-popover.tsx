@@ -5,7 +5,12 @@ import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWheelScroll } from '@/lib/use-wheel-scroll'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  popoverTriggerClassName,
+} from '@/components/ui/popover'
 
 export interface MultiSelectOption<T extends string> {
   value: T
@@ -53,13 +58,7 @@ export function MultiSelectPopover<T extends string>({
         id={id}
         type="button"
         aria-label={ariaLabel}
-        className={cn(
-          'border-input flex h-8 w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-transparent px-2.5 py-1 text-left text-sm transition-colors outline-none',
-          'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3',
-          'aria-expanded:border-ring',
-          'dark:bg-input/30',
-          className,
-        )}
+        className={cn(popoverTriggerClassName, 'justify-between', className)}
       >
         <span className={cn('truncate', selectedCount === 0 && 'text-muted-foreground')}>
           {triggerLabel}

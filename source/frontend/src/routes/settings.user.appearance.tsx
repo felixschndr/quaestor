@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import i18n from 'i18next'
 
 import { Section, SettingsSubPage } from '@/components/settings/settings-section'
+import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { readApiErrorMessage } from '@/lib/apiError'
 import { useAuthMe, type Theme, type UserRead } from '@/lib/auth'
 import { useSupportedLanguages, useUpdateUser } from '@/lib/user'
@@ -29,9 +30,6 @@ export function SettingsAppearanceView({ user }: { user: UserRead }) {
     </SettingsSubPage>
   )
 }
-
-const SELECT_CLASS =
-  'border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:ring-3 disabled:opacity-50 dark:bg-input/30'
 
 function LanguageSection({ user }: { user: UserRead }) {
   const { t, i18n: i18next } = useTranslation()
@@ -63,20 +61,14 @@ function LanguageSection({ user }: { user: UserRead }) {
   return (
     <Section title={t('settings.language')}>
       <div className="flex flex-col gap-2">
-        <select
+        <SingleSelectPopover
           id="language-select"
-          aria-label={t('settings.language')}
+          ariaLabel={t('settings.language')}
           value={user.language}
           disabled={pending || !languages}
-          onChange={(event) => void change(event.target.value)}
-          className={SELECT_CLASS}
-        >
-          {sortedLanguages.map(({ code, label }) => (
-            <option key={code} value={code}>
-              {label}
-            </option>
-          ))}
-        </select>
+          onChange={(next) => void change(next)}
+          options={sortedLanguages.map(({ code, label }) => ({ value: code, label }))}
+        />
       </div>
     </Section>
   )
@@ -106,20 +98,17 @@ function ThemeSection({ user }: { user: UserRead }) {
   return (
     <Section title={t('settings.theme')}>
       <div className="flex flex-col gap-2">
-        <select
+        <SingleSelectPopover
           id="theme-select"
-          aria-label={t('settings.theme')}
+          ariaLabel={t('settings.theme')}
           value={user.theme}
           disabled={pending}
-          onChange={(event) => void change(event.target.value as Theme)}
-          className={SELECT_CLASS}
-        >
-          {THEME_VALUES.map((value) => (
-            <option key={value} value={value}>
-              {t(`settings.theme${value.charAt(0)}${value.slice(1).toLowerCase()}`)}
-            </option>
-          ))}
-        </select>
+          onChange={(next) => void change(next)}
+          options={THEME_VALUES.map((value) => ({
+            value,
+            label: t(`settings.theme${value.charAt(0)}${value.slice(1).toLowerCase()}`),
+          }))}
+        />
       </div>
     </Section>
   )

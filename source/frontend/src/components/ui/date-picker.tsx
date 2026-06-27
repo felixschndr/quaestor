@@ -8,7 +8,12 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { formatDate, formatDateShortWeekday } from '@/lib/format'
 import { Calendar } from '@/components/ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  popoverTriggerClassName,
+} from '@/components/ui/popover'
 
 const LOCALES: Record<string, Locale> = { en: enUS, de }
 
@@ -53,14 +58,7 @@ function DatePicker({ id, value, onChange, placeholder, className, max }: DatePi
             setOpen(true)
           }
         }}
-        className={cn(
-          'border-input flex h-8 w-full min-w-0 items-center gap-2 rounded-lg border bg-transparent px-2.5 py-1 text-left text-sm transition-colors outline-none',
-          'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3',
-          'aria-expanded:border-ring',
-          'dark:bg-input/30',
-          !value && 'text-muted-foreground',
-          className,
-        )}
+        className={cn(popoverTriggerClassName, !value && 'text-muted-foreground', className)}
       >
         <CalendarIcon className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
         {selected ? (

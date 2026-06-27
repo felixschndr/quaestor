@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
+import { selectFromPopover } from '@/test/popover-select'
 import type { TransactionDetailRead, TransactionRead } from '@/lib/accountHistory'
 
 vi.mock('@tanstack/react-router', () => ({
@@ -138,21 +139,29 @@ describe('TransactionDetailView', () => {
     expect(typeLabel.nextElementSibling?.textContent).toBe('—')
   })
 
-  it('preselects the current category in the dropdown', () => {
+  it('preselects the current category in the dropdown', async () => {
+    const user = userEvent.setup()
     renderView({ category: 'RESTAURANTS' })
-    const select = screen.getByRole('combobox', { name: 'Category' }) as HTMLSelectElement
-    expect(select.value).toBe('RESTAURANTS')
+    const trigger = screen.getByLabelText('Category')
+    expect(trigger).toHaveTextContent('Restaurants')
     // The full enum should be available, plus UNKNOWN at the bottom.
-    const options = within(select).getAllByRole('option') as HTMLOptionElement[]
-    expect(options[options.length - 1].value).toBe('UNKNOWN')
-    expect(options.some((option) => option.value === 'SUPERMARKET')).toBe(true)
+    await user.click(trigger)
+    const list = await screen.findByRole('list', { name: 'Category' })
+    const labels = within(list)
+      .getAllByRole('button')
+      .map((option) => option.textContent ?? '')
+    expect(labels[labels.length - 1]).toBe('Unknown')
+    expect(labels).toContain('Supermarket')
   })
 
-  it('sorts categories alphabetically by their localised label, pinning UNKNOWN last', () => {
+  it('sorts categories alphabetically by their localised label, pinning UNKNOWN last', async () => {
+    const user = userEvent.setup()
     renderView()
-    const select = screen.getByRole('combobox', { name: 'Category' }) as HTMLSelectElement
-    const options = within(select).getAllByRole('option') as HTMLOptionElement[]
-    const labels = options.map((option) => option.textContent ?? '')
+    await user.click(screen.getByLabelText('Category'))
+    const list = await screen.findByRole('list', { name: 'Category' })
+    const labels = within(list)
+      .getAllByRole('button')
+      .map((option) => option.textContent ?? '')
     const labelsExceptLast = labels.slice(0, -1)
     const sorted = [...labelsExceptLast].sort((a, b) => a.localeCompare(b))
     expect(labelsExceptLast).toEqual(sorted)
@@ -162,8 +171,7 @@ describe('TransactionDetailView', () => {
   it('calls onChangeCategory when the user picks a new category', async () => {
     const user = userEvent.setup()
     const { onChangeCategory } = renderView({ category: 'SUPERMARKET' })
-    const select = screen.getByRole('combobox', { name: 'Category' })
-    await user.selectOptions(select, 'RESTAURANTS')
+    await selectFromPopover(user, 'Category', 'Restaurants')
     expect(onChangeCategory).toHaveBeenCalledWith('RESTAURANTS')
   })
 
@@ -256,6 +264,8 @@ describe('TransactionDetailView — note auto-save', () => {
     const user = userEvent.setup()
     const { onSaveNote } = renderView({ note: null })
 
+    // An empty note renders a click-to-edit placeholder; enter edit mode first.
+    await user.click(screen.getByRole('button', { name: 'Edit note' }))
     const textarea = screen.getByRole('textbox')
     await user.type(textarea, 'hi')
 
@@ -298,6 +308,7 @@ describe('TransactionDetailView — note auto-save', () => {
   it('shows the "Saved" indicator once the save resolves', async () => {
     const user = userEvent.setup()
     renderView({ note: null })
+    await user.click(screen.getByRole('button', { name: 'Edit note' }))
     const textarea = screen.getByRole('textbox')
     await user.type(textarea, 'x')
     expect(await screen.findByText('Saved')).toBeInTheDocument()
