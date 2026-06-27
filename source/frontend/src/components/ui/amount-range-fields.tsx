@@ -29,8 +29,11 @@ export function AmountRangeFields({
   onFromChange: (next: number | undefined) => void
   onToChange: (next: number | undefined) => void
 }) {
-  const [fromNegative, setFromNegative] = useState<boolean>((from ?? 0) < 0)
+  // Apply the same sign-linking invariant to the initial state: existing data
+  // may carry the forbidden "from +, to −" combo, so a negative "to" pulls the
+  // initial "from" sign negative too.
   const [toNegative, setToNegative] = useState<boolean>((to ?? 0) < 0)
+  const [fromNegative, setFromNegative] = useState<boolean>((from ?? 0) < 0 || (to ?? 0) < 0)
 
   const handleFromNegativeChange = (next: boolean) => {
     setFromNegative(next)
