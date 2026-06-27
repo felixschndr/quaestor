@@ -16,6 +16,7 @@ import { TwoFactorSetup } from '@/components/two-factor-setup'
 import { ApiError } from '@/lib/api'
 import {
   evaluatePassword,
+  redirectIfAuthenticated,
   safeNext,
   useLogin,
   usePasswordRequirements,
@@ -35,6 +36,9 @@ const loginSearchSchema = z.object({
 export const Route = createFileRoute('/login')({
   component: LoginPage,
   validateSearch: (search) => loginSearchSchema.parse(search),
+  beforeLoad: async ({ context, search }) => {
+    await redirectIfAuthenticated({ queryClient: context.queryClient, next: search.next })
+  },
 })
 
 type Mode = 'login' | 'register'

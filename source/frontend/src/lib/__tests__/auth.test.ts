@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 
 import { ApiError, NetworkError } from '@/lib/api'
-import { ensureAuthenticated, safeNext } from '@/lib/auth'
+import { ensureAuthenticated, redirectIfAuthenticated, safeNext } from '@/lib/auth'
 
 describe('safeNext', () => {
   it('returns "/" for undefined or empty next', () => {
@@ -112,5 +112,109 @@ describe('ensureAuthenticated', () => {
     await expect(
       ensureAuthenticated({ queryClient, pathname: '/account/3', search: '' }),
     ).rejects.toBeInstanceOf(NetworkError)
+  })
+})
+
+describe('redirectIfAuthenticated', () => {
+  function buildQueryClient(): QueryClient {
+    return new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+  }
+
+  it('stays on /login (resolves) when not authenticated (401)', async () => {
+    const queryClient = buildQueryClient()
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'Not authenticated' }), {
+        status: 401,
+        headers: { 'content-type': 'application/json' },
+      }),
+    ) as unknown as typeof fetch
+
+    await expect(redirectIfAuthenticated({ queryClient, next: undefined })).resolves.toBeUndefined()
+  })
+
+  it('stays on /login (resolves) when the backend is unreachable', async () => {
+    const queryClient = buildQueryClient()
+    globalThis.fetch = vi
+      .fn()
+      .mockRejectedValue(new TypeError('Failed to fetch')) as unknown as typeof fetch
+
+    await expect(redirectIfAuthenticated({ queryClient, next: undefined })).resolves.toBeUndefined()
+  })
+
+  it('redirects to / when authenticated and no next is given', async () => {
+    const queryClient = buildQueryClient()
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 1,
+          user_name: 'alice',
+          display_name: 'Alice',
+          language: 'en',
+          balance: 0,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    ) as unknown as typeof fetch
+
+    let thrown: unknown
+    try {
+      await redirectIfAuthenticated({ queryClient, next: undefined })
+    } catch (err) {
+      thrown = err
+    }
+    expect(thrown).toBeTruthy()
+    expect((thrown as { options?: { to?: string } }).options?.to).toBe('/')
+  })
+
+  it('redirects to a safe next path when authenticated', async () => {
+    const queryClient = buildQueryClient()
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 1,
+          user_name: 'alice',
+          display_name: 'Alice',
+          language: 'en',
+          balance: 0,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    ) as unknown as typeof fetch
+
+    let thrown: unknown
+    try {
+      await redirectIfAuthenticated({ queryClient, next: '/account/42/transactions/7' })
+    } catch (err) {
+      thrown = err
+    }
+    expect(thrown).toBeTruthy()
+    expect((thrown as { options?: { to?: string } }).options?.to).toBe('/account/42/transactions/7')
+  })
+
+  it('ignores an unsafe next and redirects to /', async () => {
+    const queryClient = buildQueryClient()
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 1,
+          user_name: 'alice',
+          display_name: 'Alice',
+          language: 'en',
+          balance: 0,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    ) as unknown as typeof fetch
+
+    let thrown: unknown
+    try {
+      await redirectIfAuthenticated({ queryClient, next: '//evil.com' })
+    } catch (err) {
+      thrown = err
+    }
+    expect(thrown).toBeTruthy()
+    expect((thrown as { options?: { to?: string } }).options?.to).toBe('/')
   })
 })

@@ -106,6 +106,23 @@ export async function ensureAuthenticated(args: {
   }
 }
 
+export async function redirectIfAuthenticated(args: {
+  queryClient: QueryClient
+  next: string | undefined
+}): Promise<void> {
+  try {
+    await args.queryClient.ensureQueryData({
+      queryKey: authQueryKeys.me,
+      queryFn: () => api<UserRead>('/auth/me'),
+      retry: false,
+    })
+  } catch {
+    // Not authenticated (401) or backend unreachable --> show the login form.
+    return
+  }
+  throw redirect({ to: safeNext(args.next) })
+}
+
 export function usePasswordRequirements() {
   return useQuery({
     queryKey: authQueryKeys.passwordRequirements,
