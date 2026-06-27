@@ -17,10 +17,11 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Automatically merge minor and patch updates
+      - name: Automatically merge eligible updates
         if: >-
           steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
-          steps.metadata.outputs.update-type == 'version-update:semver-patch'
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.package-ecosystem == 'github_actions'
         run: |
           gh pr review --approve "${PR_URL}"
           gh pr merge --auto --squash "${PR_URL}"
@@ -32,7 +33,8 @@ jobs:
       - name: Assign maintainer for non-auto-merged updates
         if: >-
           steps.metadata.outputs.update-type != 'version-update:semver-minor' &&
-          steps.metadata.outputs.update-type != 'version-update:semver-patch'
+          steps.metadata.outputs.update-type != 'version-update:semver-patch' &&
+          steps.metadata.outputs.package-ecosystem != 'github_actions'
         run: gh pr edit "${PR_URL}" --add-assignee felixschndr
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
