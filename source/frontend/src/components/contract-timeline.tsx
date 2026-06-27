@@ -40,6 +40,11 @@ function barColor(point: TimelinePoint): string {
 }
 
 const CHAR_WIDTH = 6.5
+// Above this tilt the label is snapped straight to vertical (90°).
+const SNAP_TO_VERTICAL_ANGLE = 60
+// Glyphs sit above the baseline; half their height offsets the rotated text
+// sideways, so it's added back when centring (most visible at 90°).
+const GLYPH_HALF_HEIGHT = 3.5
 
 interface AmountLabelProps {
   points: TimelinePoint[]
@@ -49,14 +54,19 @@ interface AmountLabelProps {
   index?: number
 }
 
+function labelFill(point: TimelinePoint): string {
+  if (point.isGhost) return 'var(--color-primary)'
+  return point.isOutlier ? 'var(--color-warning)' : 'var(--color-foreground)'
+}
+
 function AmountLabel({ points, x = 0, y = 0, width = 0, index }: AmountLabelProps) {
   if (index === undefined) return null
 
   const point = points[index]
-  if (!point || point.isGhost) return null
+  if (!point) return null
 
   const text = formatEuro(point.mag)
-  const fill = point.isOutlier ? 'var(--color-warning)' : 'var(--color-foreground)'
+  const fill = labelFill(point)
   const textWidth = text.length * CHAR_WIDTH
 
   if (textWidth <= width) {
@@ -68,16 +78,17 @@ function AmountLabel({ points, x = 0, y = 0, width = 0, index }: AmountLabelProp
     )
   }
 
-  const angle = -Math.min(
-    70,
-    Math.round((Math.acos(Math.min(1, width / textWidth)) * 180) / Math.PI),
-  )
+  const naturalAngle = Math.round((Math.acos(Math.min(1, width / textWidth)) * 180) / Math.PI)
+  const angle = naturalAngle > SNAP_TO_VERTICAL_ANGLE ? 90 : naturalAngle
+  const radians = (angle * Math.PI) / 180
+  const anchorX =
+    x + width / 2 - (Math.cos(radians) * textWidth) / 2 + GLYPH_HALF_HEIGHT * Math.sin(radians)
   const ay = y - 4
   return (
     <text
-      x={x}
+      x={anchorX}
       y={ay}
-      transform={`rotate(${angle} ${x} ${ay})`}
+      transform={`rotate(${-angle} ${anchorX} ${ay})`}
       textAnchor="start"
       fontSize={11}
       fontWeight={500}
@@ -143,8 +154,14 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
   const data = ghost ? [...points, ghost] : points
 
   const peak = Math.max(...data.map((point) => point.mag), 0)
-  const yMax = peak * 1.06 || 1
+  const yMax = peak * 1.02 || 1
   const medianMag = median !== null ? Math.abs(median) : null
+
+  const maxLabelWidth = Math.max(
+    0,
+    ...data.map((point) => formatEuro(point.mag).length * CHAR_WIDTH),
+  )
+  const topMargin = Math.min(88, Math.ceil(maxLabelWidth) + 6)
 
   const labelByKey = new Map(
     data.map((point) => [
@@ -156,9 +173,9 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
   )
 
   return (
-    <div className="h-44 w-full" aria-label={t('contracts.paymentHistory')}>
+    <div className="h-52 w-full" aria-label={t('contracts.paymentHistory')}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
+        <BarChart data={data} margin={{ top: topMargin, right: 12, left: 4, bottom: 0 }}>
           <YAxis hide domain={[0, yMax]} />
           <XAxis
             dataKey="key"
@@ -175,7 +192,7 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
               stroke="var(--color-primary)"
               strokeDasharray="4 3"
               ifOverflow="extendDomain"
-              label={<MedianLabel value={formatEuro(median!)} />}
+              label={ghost ? undefined : <MedianLabel value={formatEuro(median!)} />}
             />
           ) : null}
           <Bar
@@ -196,7 +213,7 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
                 strokeDasharray={point.isGhost ? '3 2' : undefined}
               />
             ))}
-            <LabelList dataKey="mag" content={<AmountLabel points={points} />} />
+            <LabelList dataKey="mag" content={<AmountLabel points={data} />} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
