@@ -155,6 +155,35 @@ export function useDeleteContract() {
   })
 }
 
+export interface SetTransactionContractArgs {
+  transactionId: number
+  fromContractId: number | null
+  toContractId: number | null
+}
+
+export function useSetTransactionContract() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ transactionId, fromContractId, toContractId }: SetTransactionContractArgs) =>
+      toContractId !== null
+        ? api<ContractDetailRead>(`/contracts/${toContractId}/transactions`, {
+            method: 'POST',
+            body: { transaction_id: transactionId },
+          })
+        : api<ContractDetailRead>(`/contracts/${fromContractId}/transactions/${transactionId}`, {
+            method: 'DELETE',
+          }),
+    onSuccess: (_updated, { fromContractId, toContractId }) => {
+      queryClient.invalidateQueries({ queryKey: contractQueryKeys.list })
+      queryClient.invalidateQueries({ queryKey: ['account'] })
+      if (fromContractId !== null)
+        queryClient.invalidateQueries({ queryKey: contractQueryKeys.detail(fromContractId) })
+      if (toContractId !== null)
+        queryClient.invalidateQueries({ queryKey: contractQueryKeys.detail(toContractId) })
+    },
+  })
+}
+
 export function useAssignTransaction(contractId: number) {
   const queryClient = useQueryClient()
   return useMutation({

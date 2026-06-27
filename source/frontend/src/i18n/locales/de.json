@@ -731,7 +731,6 @@
     "name": "Name",
     "account": "Konto",
     "selectAccount": "Konto wählen",
-    "selectContract": "Vertrag wählen",
     "perDay": "Pro Tag",
     "normalized": "Hochgerechnet",
     "nextExpected": "Nächste Zahlung",
@@ -741,8 +740,9 @@
     "notFound": "Vertrag nicht gefunden.",
     "frequencyUnknown": "Unregelmäßig",
     "contract": "Vertrag",
-    "assign": "Zuordnen",
+    "noContract": "Kein Vertrag",
     "assigned": "Zum Vertrag hinzugefügt",
+    "removed": "Vom Vertrag entfernt",
     "createToAssign": "Auf diesem Konto gibt es keine Verträge – lege zuerst einen an.",
     "frequency": {
       "WEEKLY": "Wöchentlich",

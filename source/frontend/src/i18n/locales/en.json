@@ -731,7 +731,6 @@
     "name": "Name",
     "account": "Account",
     "selectAccount": "Select account",
-    "selectContract": "Select contract",
     "perDay": "Per day",
     "normalized": "Normalized",
     "nextExpected": "Next payment",
@@ -741,8 +740,9 @@
     "notFound": "Contract not found.",
     "frequencyUnknown": "Irregular",
     "contract": "Contract",
-    "assign": "Add",
+    "noContract": "No contract",
     "assigned": "Added to contract",
+    "removed": "Removed from contract",
     "createToAssign": "No contracts on this account — create one first.",
     "frequency": {
       "WEEKLY": "Weekly",

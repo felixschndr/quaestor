@@ -80,6 +80,7 @@ def assign_transaction_to_contract(db_session: Session, user: User, contract_id:
     transaction = _get_owned_transaction_on_same_account(
         db_session=db_session, contract=contract, transaction_id=transaction_id
     )
+    previous_contract = transaction.contract if transaction.contract_id not in (None, contract.id) else None
     transaction.contract_id = contract.id
     transaction.contract_assignment = ContractAssignment.MANUAL
     if contract.fingerprint is None:
@@ -88,6 +89,8 @@ def assign_transaction_to_contract(db_session: Session, user: User, contract_id:
             contract.fingerprint = f"{fingerprint.key}:manual-{contract.id}"
     db_session.flush()
     recompute_contract_stats(contract)
+    if previous_contract is not None:
+        recompute_contract_stats(previous_contract)
     db_session.commit()
     logger.info(f"Assigned {transaction} to {contract}")
     return contract
@@ -99,6 +102,7 @@ def remove_transaction(db_session: Session, user: User, contract_id: int, transa
         db_session=db_session, contract=contract, transaction_id=transaction_id
     )
     transaction.contract_assignment = ContractAssignment.EXCLUDED
+    transaction.contract_id = None
     db_session.flush()
     recompute_contract_stats(contract)
     db_session.commit()

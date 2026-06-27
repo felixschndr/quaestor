@@ -6,7 +6,6 @@ import {
   ArrowLeftRight,
   ArrowUpRight,
   ChevronLeft,
-  ChevronRight,
   CircleHelp,
   CircleSlash,
   Coins,
@@ -29,7 +28,7 @@ import {
   type TransactionCategory,
 } from '@/lib/transaction'
 import { useAuthMe } from '@/lib/auth'
-import { useAssignTransaction, useContract, useContracts } from '@/lib/contract'
+import { useContracts, useSetTransactionContract } from '@/lib/contract'
 import { useDebouncedAutoSave, type AutoSaveStatus } from '@/hooks/useDebouncedAutoSave'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
@@ -502,52 +501,26 @@ function NoteStatus({ status }: { status: AutoSaveStatus }) {
 }
 
 function ContractSection({ transaction }: { transaction: TransactionRead }) {
-  if (transaction.contract_id != null) {
-    return <LinkedContractRow contractId={transaction.contract_id} />
-  }
-  return <AssignContractRow transaction={transaction} />
-}
-
-function LinkedContractRow({ contractId }: { contractId: number }) {
-  const { t } = useTranslation()
-  const { data: contract } = useContract(contractId)
-  return (
-    <DetailRow label={t('contracts.contract')}>
-      {contract ? (
-        <Link
-          to="/contracts/$contractId"
-          params={{ contractId: String(contract.id) }}
-          className="hover:bg-muted/60 -mx-2 flex items-center justify-between gap-2 rounded-md px-2 py-1.5 transition-colors"
-        >
-          <span className="flex min-w-0 flex-col">
-            <span className="text-primary truncate text-sm font-medium">{contract.name}</span>
-            <span className="text-muted-foreground truncate text-xs">
-              {contract.frequency
-                ? t(`contracts.frequency.${contract.frequency}`)
-                : t('contracts.frequencyUnknown')}
-              {contract.median_amount !== null ? ` · ${formatEuro(contract.median_amount)}` : ''}
-            </span>
-          </span>
-          <ChevronRight className="text-muted-foreground size-4 shrink-0" />
-        </Link>
-      ) : (
-        <span className="text-muted-foreground text-sm">…</span>
-      )}
-    </DetailRow>
-  )
-}
-
-function AssignContractRow({ transaction }: { transaction: TransactionRead }) {
   const { t } = useTranslation()
   const { data: contracts } = useContracts()
-  const [selectedId, setSelectedId] = useState('')
-  const assign = useAssignTransaction(Number(selectedId) || 0)
+  const setContract = useSetTransactionContract()
 
+  const currentId = transaction.contract_id ?? null
   const candidates = (contracts ?? []).filter(
     (contract) => contract.account_id === transaction.account_id,
   )
+  const assigned = candidates.find((contract) => contract.id === currentId) ?? null
 
-  if (candidates.length === 0) {
+  if (!contracts) {
+    return (
+      <DetailRow label={t('contracts.contract')}>
+        <span className="text-muted-foreground text-sm">…</span>
+      </DetailRow>
+    )
+  }
+
+  // Nothing to pick and not assigned: point the user at contract creation.
+  if (candidates.length === 0 && currentId === null) {
     return (
       <DetailRow label={t('contracts.contract')}>
         <Link
@@ -560,35 +533,51 @@ function AssignContractRow({ transaction }: { transaction: TransactionRead }) {
     )
   }
 
-  const onAssign = () => {
-    if (!selectedId) return
-    toast.promise(assign.mutateAsync(transaction.id), {
-      loading: t('common.saving'),
-      success: t('contracts.assigned'),
-      error: t('errors.unexpected.title'),
-    })
+  const onChange = (value: string) => {
+    const toContractId = value === '' ? null : Number(value)
+    if (toContractId === currentId) return
+    toast.promise(
+      setContract.mutateAsync({
+        transactionId: transaction.id,
+        fromContractId: currentId,
+        toContractId,
+      }),
+      {
+        loading: t('common.saving'),
+        success: toContractId === null ? t('contracts.removed') : t('contracts.assigned'),
+        error: t('errors.unexpected.title'),
+      },
+    )
   }
 
   return (
-    <DetailRow label={t('contracts.contract')}>
-      <div className="flex items-center gap-2">
+    <DetailRow label={t('contracts.contract')} align="start">
+      <div className="flex w-full flex-col gap-1.5">
         <NativeSelect
           id="assign-contract"
-          value={selectedId}
-          onChange={(event) => setSelectedId(event.target.value)}
+          value={currentId === null ? '' : String(currentId)}
+          disabled={setContract.isPending}
+          onChange={(event) => onChange(event.target.value)}
         >
-          <option value="" disabled>
-            {t('contracts.selectContract')}
-          </option>
+          <option value="">{t('contracts.noContract')}</option>
           {candidates.map((contract) => (
             <option key={contract.id} value={String(contract.id)}>
               {contract.name}
             </option>
           ))}
         </NativeSelect>
-        <Button size="sm" disabled={!selectedId || assign.isPending} onClick={onAssign}>
-          {t('contracts.assign')}
-        </Button>
+        {assigned ? (
+          <Link
+            to="/contracts/$contractId"
+            params={{ contractId: String(assigned.id) }}
+            className="text-primary hover:text-primary/80 -mx-1 self-start rounded-md px-1 py-0.5 text-sm transition-colors"
+          >
+            {assigned.frequency
+              ? t(`contracts.frequency.${assigned.frequency}`)
+              : t('contracts.frequencyUnknown')}
+            {assigned.median_amount !== null ? ` · ${formatEuro(assigned.median_amount)}` : ''}
+          </Link>
+        ) : null}
       </div>
     </DetailRow>
   )

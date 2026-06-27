@@ -56,6 +56,32 @@ def test_assign_and_remove_transaction(http_client: TestClient, session_factory:
     assert removed.json()["member_count"] == 0
 
 
+def test_reassigning_transaction_moves_it_between_contracts(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    transaction_id = persist_transaction(session_factory, account_id=account_id)
+    contract_a = _create_contract(http_client, account_id=account_id, name="A")
+    contract_b = _create_contract(http_client, account_id=account_id, name="B")
+
+    http_client.post(f"/api/contracts/{contract_a['id']}/transactions", json={"transaction_id": transaction_id})
+    moved = http_client.post(f"/api/contracts/{contract_b['id']}/transactions", json={"transaction_id": transaction_id})
+
+    assert moved.status_code == 200
+    assert [member["id"] for member in moved.json()["members"]] == [transaction_id]
+    assert http_client.get(f"/api/contracts/{contract_a['id']}").json()["member_count"] == 0
+
+
+def test_removing_transaction_detaches_it_from_the_contract(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    transaction_id = persist_transaction(session_factory, account_id=account_id)
+    contract = _create_contract(http_client, account_id=account_id)
+    http_client.post(f"/api/contracts/{contract['id']}/transactions", json={"transaction_id": transaction_id})
+
+    http_client.delete(f"/api/contracts/{contract['id']}/transactions/{transaction_id}")
+
+    detail = http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}").json()
+    assert detail["contract_id"] is None
+
+
 def test_update_and_delete_contract(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     contract = _create_contract(http_client, account_id=account_id)
