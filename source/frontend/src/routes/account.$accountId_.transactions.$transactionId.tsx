@@ -419,12 +419,8 @@ function NoteEditor({
   // The draft is initialised from the loaded transaction once; route-level
   // remounts (different transactionId) reset it via React's natural unmount.
   const [draft, setDraft] = useState(remoteNote)
-  // A textarea cannot host clickable links, so an empty note opens straight
-  // into edit mode while an existing note is shown read-only (with linkified
-  // URLs) until the user clicks into it.
-  const [editing, setEditing] = useState(remoteNote.length === 0)
+  const [editing, setEditing] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const didMount = useRef(false)
 
   const status = useDebouncedAutoSave({
     value: draft,
@@ -434,10 +430,6 @@ function NoteEditor({
   })
 
   useEffect(() => {
-    if (!didMount.current) {
-      didMount.current = true
-      return
-    }
     if (!editing) return
     const textarea = textareaRef.current
     if (!textarea) return
