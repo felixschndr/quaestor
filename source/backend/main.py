@@ -15,6 +15,7 @@ from source.backend.api import (
     account_groups,
     api_keys,
     auth,
+    contracts,
     credentials,
     i18n,
     notification_rules,
@@ -50,6 +51,7 @@ from source.backend.services import (
     api_key_service,
     bank_info_updater,
     category_rescan,
+    contract_detection_service,
     i18n_service,
     migrations,
     playwright_browser,
@@ -73,6 +75,7 @@ load_dotenv()
 STARTUP_BACKGROUND_TASKS = (
     (bank_info_updater, "run_startup_update"),
     (category_rescan, "run_startup_rescan"),
+    (contract_detection_service, "run_startup_detection"),
     (sync_scheduler, "run_periodic_sync"),
     (recurring_transaction_scheduler, "run_periodic_recurring"),
 )
@@ -285,6 +288,7 @@ for api_object in [
     account_groups,
     api_keys,
     auth,
+    contracts,
     credentials,
     i18n,
     notification_rules,

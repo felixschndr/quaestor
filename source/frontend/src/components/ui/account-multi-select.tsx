@@ -1,15 +1,12 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
-import { ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { useWheelScroll } from '@/lib/use-wheel-scroll'
-import { accountDisplayName } from '@/lib/accounts'
-import { BankLogo } from '@/components/BankLogo'
 import type { CredentialRead } from '@/lib/auth'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { AccountOptionContent, AccountSelectPopover } from '@/components/ui/account-select'
+import { accountOptionRowClass, groupAccountsByBank } from '@/components/ui/account-select-utils'
 
 export interface AccountMultiSelectProps {
   id?: string
@@ -22,8 +19,7 @@ export interface AccountMultiSelectProps {
 /**
  * Popover with the full list of the user's accounts, grouped by bank like on
  * the overview page. Each row is a checkbox; the header offers "All" / "None"
- * shortcuts. Selection state is fully controlled by the parent (passed as
- * `selectedIds` + `onChange`).
+ * shortcuts. Selection state is fully controlled by the parent.
  */
 function AccountMultiSelect({
   id,
@@ -33,23 +29,11 @@ function AccountMultiSelect({
   className,
 }: AccountMultiSelectProps) {
   const { t } = useTranslation()
-  const listRef = useWheelScroll<HTMLUListElement>()
-  // Group by credential (one bank connection) — generic FinTS banks share provider "fints",
-  // so grouping by provider would merge different banks and pick the wrong/missing logo.
-  const groups = [...credentials]
-    .sort((a, b) => (a.bank_name ?? a.bank).localeCompare(b.bank_name ?? b.bank))
-    .map((credential) => ({
-      key: `cred-${credential.id}`,
-      name: credential.bank_name ?? credential.bank,
-      icon: credential.bank_icon,
-      accounts: [...credential.accounts].sort((a, b) => a.name.localeCompare(b.name)),
-    }))
-    .filter((group) => group.accounts.length > 0)
+  const groups = groupAccountsByBank(credentials)
   const allIds = groups.flatMap((group) => group.accounts.map((account) => account.id))
   const selectedSet = new Set(selectedIds)
   const selectedCount = selectedIds.length
-  const totalCount = allIds.length
-  const allSelected = totalCount > 0 && selectedCount === totalCount
+  const allSelected = allIds.length > 0 && selectedCount === allIds.length
 
   const triggerLabel =
     selectedCount === 0
@@ -66,25 +50,13 @@ function AccountMultiSelect({
   }
 
   return (
-    <Popover>
-      <PopoverTrigger
-        id={id}
-        type="button"
-        aria-label={t('search.accountsLabel')}
-        className={cn(
-          'border-input flex h-8 w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-transparent px-2.5 py-1 text-left text-sm transition-colors outline-none',
-          'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3',
-          'aria-expanded:border-ring',
-          'dark:bg-input/30',
-          className,
-        )}
-      >
-        <span className={cn('truncate', selectedCount === 0 && 'text-muted-foreground')}>
-          {triggerLabel}
-        </span>
-        <ChevronDown className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
-      </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1rem)] p-0">
+    <AccountSelectPopover
+      id={id}
+      className={className}
+      triggerLabel={triggerLabel}
+      isEmpty={selectedCount === 0}
+      groups={groups}
+      header={
         <div className="border-border/40 flex items-center justify-between gap-2 border-b px-3 py-2 text-xs">
           <span className="text-muted-foreground">
             {t('search.accountsCount', { count: selectedCount })}
@@ -106,42 +78,25 @@ function AccountMultiSelect({
             </button>
           </div>
         </div>
-        <ul
-          ref={listRef}
-          aria-label={t('search.accountsLabel')}
-          className="max-h-72 overflow-y-auto py-1"
-        >
-          {groups.map((group) => (
-            <li key={group.key} className="flex flex-col">
-              {group.accounts.map((account) => {
-                const checkboxId = `account-multi-${account.id}`
-                const checked = selectedSet.has(account.id)
-                return (
-                  <label
-                    key={account.id}
-                    htmlFor={checkboxId}
-                    className="hover:bg-muted/60 flex cursor-pointer items-center gap-3 px-3 py-2 text-sm"
-                  >
-                    <BankLogo
-                      icon={group.icon}
-                      name={group.name}
-                      seed={group.name}
-                      className="size-5 shrink-0"
-                    />
-                    <span className="flex-1 truncate">{accountDisplayName(account)}</span>
-                    <Checkbox
-                      id={checkboxId}
-                      checked={checked}
-                      onCheckedChange={() => toggle(account.id)}
-                    />
-                  </label>
-                )
-              })}
-            </li>
-          ))}
-        </ul>
-      </PopoverContent>
-    </Popover>
+      }
+      renderAccount={(account, group) => {
+        const checkboxId = `account-multi-${account.id}`
+        return (
+          <label
+            key={account.id}
+            htmlFor={checkboxId}
+            className={cn(accountOptionRowClass, 'cursor-pointer')}
+          >
+            <AccountOptionContent group={group} account={account} />
+            <Checkbox
+              id={checkboxId}
+              checked={selectedSet.has(account.id)}
+              onCheckedChange={() => toggle(account.id)}
+            />
+          </label>
+        )
+      }}
+    />
   )
 }
 

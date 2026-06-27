@@ -16,9 +16,8 @@ from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
     assert_log_contains,
-    make_account,
-    make_credential,
-    make_user,
+    make_account_with_new_user,
+    persist_manual_account_with_new_user,
 )
 
 
@@ -37,15 +36,6 @@ def _freeze_today(monkeypatch: pytest.MonkeyPatch, today_value: date) -> None:
 
     monkeypatch.setattr(target=recurring_transaction_service, name="date", value=_FixedDate)
     monkeypatch.setattr(target=account_service, name="date", value=_FixedDate)
-
-
-def _manual_account(session_factory: sessionmaker, *, balance: float = 100.0) -> int:
-    with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(session, user_id=user.id, bank=BankProvider.MANUAL, credentials={})
-        account = make_account(session, credential_id=credential.id, name="Wallet", balance=balance)
-        session.commit()
-        return account.id
 
 
 # --- date math -------------------------------------------------------------
@@ -93,7 +83,7 @@ def test_create_without_immediate_booking_schedules_only(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
-    account_id = _manual_account(session_factory)
+    account_id = persist_manual_account_with_new_user(session_factory)
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
@@ -113,7 +103,7 @@ def test_create_with_immediate_booking_books_today_and_schedules_next(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
-    account_id = _manual_account(session_factory)
+    account_id = persist_manual_account_with_new_user(session_factory)
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
@@ -134,9 +124,7 @@ def test_create_with_immediate_booking_books_today_and_schedules_next(
 def test_create_rejects_non_manual_account(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
     with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
-        account = make_account(session, credential_id=credential.id)
+        account = make_account_with_new_user(session, bank=BankProvider.FINTS)
         session.commit()
         with pytest.raises(PermissionDeniedError):
             recurring_transaction_service.create_recurring_transaction(
@@ -154,7 +142,7 @@ def test_book_due_books_a_due_occurrence_and_advances_cursor(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
-    account_id = _manual_account(session_factory)
+    account_id = persist_manual_account_with_new_user(session_factory)
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
         recurring_transaction_service.create_recurring_transaction(
@@ -181,7 +169,7 @@ def test_book_due_books_a_due_occurrence_and_advances_cursor(
 def test_book_due_catches_up_multiple_missed_monthly_occurrences(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    account_id = _manual_account(session_factory, balance=1000.0)
+    account_id = persist_manual_account_with_new_user(session_factory, balance=1000.0)
     # Create the rule back in March, then jump "today" forward three months.
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-03-15"))
     with session_factory() as session:
@@ -208,7 +196,7 @@ def test_book_due_catches_up_multiple_missed_monthly_occurrences(
 
 
 def test_book_due_clamps_day_of_month_to_february(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
-    account_id = _manual_account(session_factory, balance=500.0)
+    account_id = persist_manual_account_with_new_user(session_factory, balance=500.0)
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-01-31"))
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
@@ -231,7 +219,7 @@ def test_book_due_clamps_day_of_month_to_february(session_factory: sessionmaker,
 
 def test_update_amount_only_keeps_the_next_run_date(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
-    account_id = _manual_account(session_factory)
+    account_id = persist_manual_account_with_new_user(session_factory)
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
         rule = recurring_transaction_service.create_recurring_transaction(
@@ -258,7 +246,7 @@ def test_update_schedule_recomputes_next_run_and_clears_other_day(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))  # a Saturday
-    account_id = _manual_account(session_factory)
+    account_id = persist_manual_account_with_new_user(session_factory)
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
         rule = recurring_transaction_service.create_recurring_transaction(
@@ -285,7 +273,7 @@ def test_update_schedule_recomputes_next_run_and_clears_other_day(
 
 def test_update_unknown_rule_raises(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
-    account_id = _manual_account(session_factory)
+    account_id = persist_manual_account_with_new_user(session_factory)
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
         with pytest.raises(RecurringTransactionNotFoundError):
@@ -301,7 +289,7 @@ def test_delete_detaches_booked_transactions_and_removes_rule(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
-    account_id = _manual_account(session_factory)
+    account_id = persist_manual_account_with_new_user(session_factory)
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
         rule = recurring_transaction_service.create_recurring_transaction(
@@ -329,7 +317,7 @@ def test_delete_detaches_booked_transactions_and_removes_rule(
 
 def test_delete_unknown_rule_raises(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
-    account_id = _manual_account(session_factory)
+    account_id = persist_manual_account_with_new_user(session_factory)
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
         with pytest.raises(RecurringTransactionNotFoundError):

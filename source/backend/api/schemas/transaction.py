@@ -20,6 +20,7 @@ class TransactionRead(BaseModel):
     note: str | None
     transfer_counterpart_id: int | None
     pending: bool
+    contract_id: int | None = None
 
 
 class TransactionDetailRead(TransactionRead):

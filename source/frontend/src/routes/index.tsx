@@ -3,6 +3,8 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { Collapsible } from 'radix-ui'
 import { ChevronRight, Search, Settings } from 'lucide-react'
+
+import { ContractIcon } from '@/components/contract-icon'
 import { StatsIcon } from '@/components/stats-icon'
 import { toast } from 'sonner'
 
@@ -145,6 +147,13 @@ export function OverviewView({
             className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
           >
             <StatsIcon className="size-5" />
+          </Link>
+          <Link
+            to="/contracts"
+            aria-label={t('overview.contracts')}
+            className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
+          >
+            <ContractIcon className="size-5" />
           </Link>
           {searchAnchorId !== undefined ? (
             <Link

@@ -38,7 +38,8 @@
     "save": "Save",
     "cancel": "Cancel",
     "logout": "Log out",
-    "retry": "Try again"
+    "retry": "Try again",
+    "saving": "Saving …"
   },
   "errors": {
     "serverOffline": {
@@ -59,7 +60,8 @@
       "aria": "Sync all accounts"
     },
     "statistics": "Statistics",
-    "search": "Search transactions"
+    "search": "Search transactions",
+    "contracts": "Contracts"
   },
   "account": {
     "back": "Back",
@@ -571,6 +573,11 @@
     "categoriesAll": "All categories",
     "categoriesCount_one": "{{count}} category",
     "categoriesCount_other": "{{count}} categories",
+    "frequenciesLabel": "Frequency",
+    "frequenciesNone": "No frequencies",
+    "frequenciesAll": "All frequencies",
+    "frequenciesCount_one": "{{count}} frequency",
+    "frequenciesCount_other": "{{count}} frequencies",
     "typeAll": "All types",
     "typeNone": "No types",
     "typeCount_one": "{{count}} type",
@@ -711,5 +718,62 @@
     "testFailed": "Test notification could not be delivered.",
     "testDenied": "Notifications are blocked in your browser settings.",
     "testUnsupported": "Push notifications are not supported on this device."
+  },
+  "contracts": {
+    "title": "Contracts",
+    "empty": "No contracts detected yet.",
+    "noMatches": "No contracts match the filters.",
+    "filtersReset": "Reset filters",
+    "create": "New contract",
+    "created": "Contract created",
+    "deleted": "Contract deleted",
+    "delete": "Delete contract",
+    "name": "Name",
+    "account": "Account",
+    "selectAccount": "Select account",
+    "perDay": "Per day",
+    "normalized": "Normalized",
+    "nextExpected": "Next payment",
+    "members_one": "{{count}} transaction",
+    "members_other": "{{count}} transactions",
+    "noMembers": "No transactions assigned yet.",
+    "notFound": "Contract not found.",
+    "frequencyUnknown": "Irregular",
+    "contract": "Contract",
+    "noContract": "No contract",
+    "assigned": "Added to contract",
+    "removed": "Removed from contract",
+    "createToAssign": "No contracts on this account — create one first.",
+    "frequency": {
+      "WEEKLY": "Weekly",
+      "BIWEEKLY": "Biweekly",
+      "MONTHLY": "Monthly",
+      "QUARTERLY": "Quarterly",
+      "YEARLY": "Yearly"
+    },
+    "period": {
+      "WEEKLY": "Week",
+      "BIWEEKLY": "2 weeks",
+      "MONTHLY": "Month",
+      "QUARTERLY": "Quarter",
+      "YEARLY": "Year"
+    },
+    "sort": {
+      "name": "Name",
+      "amount_asc": "Amount ascending",
+      "amount_desc": "Amount descending",
+      "magnitude_asc": "Amount size ascending",
+      "magnitude_desc": "Amount size descending",
+      "next": "Next payment"
+    },
+    "turnus": "Frequency",
+    "expectedShort": "Expected",
+    "paymentHistory": "Payment history",
+    "outlierNote_one": "{{count}} outlier – excluded from the median",
+    "outlierNote_other": "{{count}} outliers – excluded from the median",
+    "lastPayment": "Last payment",
+    "rename": "Rename contract",
+    "renamed": "Contract renamed",
+    "deleteConfirm": "Delete?"
   }
 }

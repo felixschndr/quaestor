@@ -19,6 +19,7 @@ from source.backend.models.credential import Credential
 from source.backend.models.user import User
 from source.backend.services import (
     bank_catalog,
+    contract_detection_service,
     notification_engine,
     transfer_detection,
 )
@@ -157,6 +158,7 @@ def sync_credential(
     notifications: list[Notification] = []
     if result.status == SyncStatus.COMPLETED:
         transfer_detection.detect_transfers_for_user(db_session=db_session, user=credential.user)
+        contract_detection_service.detect_contracts_for_user(db_session=db_session, user=credential.user)
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
         )
@@ -244,6 +246,7 @@ def sync_all_due_credentials(db_session: Session) -> None:
             logger.exception(f"Periodic sync failed for {credential}")
     for user in synced_users.values():
         transfer_detection.detect_transfers_for_user(db_session=db_session, user=user)
+        contract_detection_service.detect_contracts_for_user(db_session=db_session, user=user)
     pending_notifications = [
         (credential.user, notification)
         for credential, snapshot in synced_credentials
@@ -273,6 +276,7 @@ def confirm_two_factor(db_session: Session, credential_id: int, challenge_token:
     notifications: list[Notification] = []
     if result.status == SyncStatus.COMPLETED:
         transfer_detection.detect_transfers_for_user(db_session=db_session, user=credential.user)
+        contract_detection_service.detect_contracts_for_user(db_session=db_session, user=credential.user)
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
         )

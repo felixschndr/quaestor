@@ -40,6 +40,7 @@ import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
 import { ManualTransactionForm } from '@/components/manual-transaction-form'
 import { ExpectedTransactionForm } from '@/components/expected-transaction-form'
+import { ContractIcon } from '@/components/contract-icon'
 import { StatsIcon } from '@/components/stats-icon'
 import { SyncButton } from '@/components/sync-button'
 import { TwoFactorModal } from '@/components/two-factor-modal'
@@ -371,6 +372,14 @@ export function AccountDetailView({
                 className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
               >
                 <StatsIcon className="size-5" />
+              </Link>
+              <Link
+                to="/contracts"
+                search={{ account_ids: [account.id] }}
+                aria-label={t('overview.contracts')}
+                className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
+              >
+                <ContractIcon className="size-5" />
               </Link>
               <Link
                 to="/account/$accountId/search"
@@ -1060,9 +1069,6 @@ function ExpectedTransactionRow({
   const [editing, setEditing] = useState(false)
   const remove = useDeleteExpectedTransaction(accountId)
   const negative = expectation.amount < 0
-  const tolerance = expectation.match_tolerance_percent ?? 0
-  const toleranceLabel =
-    tolerance === 0 ? t('expectedTransactions.toleranceExact') : `± ${tolerance} %`
 
   const onDelete = async () => {
     try {
@@ -1092,10 +1098,9 @@ function ExpectedTransactionRow({
         <span className="truncate text-sm font-medium">
           {expectation.other_party?.trim() || t('expectedTransactions.anyParty')}
         </span>
-        <span className="text-muted-foreground text-xs">
-          {toleranceLabel}
-          {expectation.note?.trim() ? ` · ${expectation.note.trim()}` : ''}
-        </span>
+        {expectation.note?.trim() ? (
+          <span className="text-muted-foreground truncate text-xs">{expectation.note.trim()}</span>
+        ) : null}
       </div>
       <span
         className={cn(
@@ -1127,14 +1132,14 @@ function ExpectedTransactionRow({
           </Button>
         </div>
       ) : (
-        <div className="flex gap-1">
+        <div className="flex gap-0 sm:gap-1">
           <Button
             type="button"
             size="sm"
             variant="ghost"
             onClick={() => setEditing(true)}
             aria-label={t('expectedTransactions.edit')}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground px-1 sm:px-2.5"
           >
             <Pencil className="size-3.5" aria-hidden="true" />
           </Button>
@@ -1144,7 +1149,7 @@ function ExpectedTransactionRow({
             variant="ghost"
             onClick={() => setConfirmingDelete(true)}
             aria-label={t('expectedTransactions.delete')}
-            className="text-muted-foreground hover:text-destructive"
+            className="text-muted-foreground hover:text-destructive px-1 sm:px-2.5"
           >
             <Trash2 className="size-3.5" aria-hidden="true" />
           </Button>

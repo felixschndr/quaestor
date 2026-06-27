@@ -38,7 +38,8 @@
     "save": "Speichern",
     "cancel": "Abbrechen",
     "logout": "Abmelden",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "saving": "Speichern …"
   },
   "errors": {
     "serverOffline": {
@@ -59,7 +60,8 @@
       "aria": "Alle Konten synchronisieren"
     },
     "statistics": "Statistiken",
-    "search": "Transaktionen durchsuchen"
+    "search": "Transaktionen durchsuchen",
+    "contracts": "Verträge"
   },
   "account": {
     "back": "Zurück",
@@ -571,6 +573,11 @@
     "categoriesAll": "Alle Kategorien",
     "categoriesCount_one": "{{count}} Kategorie",
     "categoriesCount_other": "{{count}} Kategorien",
+    "frequenciesLabel": "Frequenz",
+    "frequenciesNone": "Keine Frequenzen",
+    "frequenciesAll": "Alle Frequenzen",
+    "frequenciesCount_one": "{{count}} Frequenz",
+    "frequenciesCount_other": "{{count}} Frequenzen",
     "typeAll": "Alle Typen",
     "typeNone": "Keine Typen",
     "typeCount_one": "{{count}} Typ",
@@ -711,5 +718,62 @@
     "testFailed": "Testbenachrichtigung konnte nicht zugestellt werden.",
     "testDenied": "Benachrichtigungen sind in den Browser-Einstellungen blockiert.",
     "testUnsupported": "Push-Benachrichtigungen werden auf diesem Gerät nicht unterstützt."
+  },
+  "contracts": {
+    "title": "Verträge",
+    "empty": "Noch keine Verträge erkannt.",
+    "noMatches": "Keine Verträge entsprechen den Filtern.",
+    "filtersReset": "Filter zurücksetzen",
+    "create": "Vertrag anlegen",
+    "created": "Vertrag angelegt",
+    "deleted": "Vertrag gelöscht",
+    "delete": "Vertrag löschen",
+    "name": "Name",
+    "account": "Konto",
+    "selectAccount": "Konto wählen",
+    "perDay": "Pro Tag",
+    "normalized": "Hochgerechnet",
+    "nextExpected": "Nächste Zahlung",
+    "members_one": "{{count}} Transaktion",
+    "members_other": "{{count}} Transaktionen",
+    "noMembers": "Noch keine Transaktionen zugeordnet.",
+    "notFound": "Vertrag nicht gefunden.",
+    "frequencyUnknown": "Unregelmäßig",
+    "contract": "Vertrag",
+    "noContract": "Kein Vertrag",
+    "assigned": "Zum Vertrag hinzugefügt",
+    "removed": "Vom Vertrag entfernt",
+    "createToAssign": "Auf diesem Konto gibt es keine Verträge – lege zuerst einen an.",
+    "frequency": {
+      "WEEKLY": "Wöchentlich",
+      "BIWEEKLY": "Zweiwöchentlich",
+      "MONTHLY": "Monatlich",
+      "QUARTERLY": "Vierteljährlich",
+      "YEARLY": "Jährlich"
+    },
+    "period": {
+      "WEEKLY": "Woche",
+      "BIWEEKLY": "2 Wochen",
+      "MONTHLY": "Monat",
+      "QUARTERLY": "Quartal",
+      "YEARLY": "Jahr"
+    },
+    "sort": {
+      "name": "Name",
+      "amount_asc": "Betrag aufsteigend",
+      "amount_desc": "Betrag absteigend",
+      "magnitude_asc": "Betragshöhe aufsteigend",
+      "magnitude_desc": "Betragshöhe absteigend",
+      "next": "Nächste Buchung"
+    },
+    "turnus": "Turnus",
+    "expectedShort": "Erwartet",
+    "paymentHistory": "Zahlungsverlauf",
+    "outlierNote_one": "{{count}} Ausreißer – fließt nicht in den Median ein",
+    "outlierNote_other": "{{count}} Ausreißer – fließen nicht in den Median ein",
+    "lastPayment": "Letzte Zahlung",
+    "rename": "Vertrag Umbenennen",
+    "renamed": "Vertrag umbenannt",
+    "deleteConfirm": "Löschen?"
   }
 }
