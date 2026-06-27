@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 import type { TransactionRead } from '@/lib/accountHistory'
@@ -88,22 +88,38 @@ const credentials: CredentialRead[] = [
   },
 ]
 
+beforeEach(() => {
+  globalThis.fetch = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify([]), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }),
+  ) as unknown as typeof fetch
+})
+
 function renderWithClient(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
+type ChangePayload = { accountIds: number[]; filters: TransactionFiltersLike }
+type TransactionFiltersLike = Record<string, unknown>
+
 function renderView(opts: { search?: Partial<TransactionSearchParams> } = {}) {
-  const onSubmit = vi.fn()
+  const onChange = vi.fn()
   renderWithClient(
     <TransactionSearchView
       anchorAccountId={42}
       credentials={credentials}
       search={(opts.search ?? {}) as TransactionSearchParams}
-      onSubmit={onSubmit}
+      onChange={onChange}
     />,
   )
-  return { onSubmit }
+  return { onChange }
+}
+
+function lastPayload(onChange: ReturnType<typeof vi.fn>): ChangePayload | undefined {
+  return onChange.mock.calls.at(-1)?.[0]
 }
 
 describe('TransactionSearchView — form', () => {
@@ -120,25 +136,27 @@ describe('TransactionSearchView — form', () => {
     expect(screen.getByLabelText('Transfer')).toBeInTheDocument()
   })
 
-  it('submits the selected transfer (linked) filter', async () => {
+  it('searches automatically — there is no submit button', () => {
+    const { onChange } = renderView()
+    expect(screen.queryByRole('button', { name: 'Search' })).toBeNull()
+    expect(onChange).toHaveBeenCalled()
+  })
+
+  it('emits the selected transfer (linked) filter', async () => {
     const user = userEvent.setup()
-    const { onSubmit } = renderView()
+    const { onChange } = renderView()
 
     // Default is "Any" (both checked); dropping "No transfer" isolates transfers.
     await user.click(screen.getByLabelText('Transfer'))
     await user.click(document.getElementById('transfer-multi-unlinked')!)
-    await user.click(screen.getByRole('button', { name: 'Search' }))
 
-    expect(onSubmit.mock.calls[0][0].filters.linked).toBe('linked')
+    await waitFor(() => expect(lastPayload(onChange)?.filters.linked).toBe('linked'))
   })
 
   it('omits the transfer filter when left on "Any"', async () => {
-    const user = userEvent.setup()
-    const { onSubmit } = renderView()
-
-    await user.click(screen.getByRole('button', { name: 'Search' }))
-
-    expect(onSubmit.mock.calls[0][0].filters.linked).toBeUndefined()
+    const { onChange } = renderView()
+    await waitFor(() => expect(onChange).toHaveBeenCalled())
+    expect(lastPayload(onChange)?.filters.linked).toBeUndefined()
   })
 
   it('does not render a separate Note field — the freetext covers it', () => {
@@ -155,28 +173,25 @@ describe('TransactionSearchView — form', () => {
 
   it('amount can be made negative via the sign toggle (iOS decimal pad has no minus key)', async () => {
     const user = userEvent.setup()
-    const { onSubmit } = renderView()
+    const { onChange } = renderView()
 
     const amountFromGroup = screen.getByLabelText('Amount from').parentElement!
     await user.type(screen.getByLabelText('Amount from'), '12.5')
     await user.click(within(amountFromGroup).getByRole('button', { name: 'Make negative' }))
-    await user.click(screen.getByRole('button', { name: 'Search' }))
 
-    expect(onSubmit).toHaveBeenCalledTimes(1)
-    expect(onSubmit.mock.calls[0][0].filters.amount_from).toBe(-12.5)
+    await waitFor(() => expect(lastPayload(onChange)?.filters.amount_from).toBe(-12.5))
   })
 
   it('sign toggle round-trips back to positive', async () => {
     const user = userEvent.setup()
-    const { onSubmit } = renderView()
+    const { onChange } = renderView()
 
     const amountFromGroup = screen.getByLabelText('Amount from').parentElement!
     await user.type(screen.getByLabelText('Amount from'), '7')
     await user.click(within(amountFromGroup).getByRole('button', { name: 'Make negative' }))
     await user.click(within(amountFromGroup).getByRole('button', { name: 'Make positive' }))
-    await user.click(screen.getByRole('button', { name: 'Search' }))
 
-    expect(onSubmit.mock.calls[0][0].filters.amount_from).toBe(7)
+    await waitFor(() => expect(lastPayload(onChange)?.filters.amount_from).toBe(7))
   })
 
   it('prefills the type and transfer pickers from the URL (a stats drill-in)', () => {
@@ -204,32 +219,28 @@ describe('TransactionSearchView — form', () => {
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/account/42')
   })
 
-  it('submits only the filters the user filled in, plus the selected account ids', async () => {
+  it('emits only the filters the user filled in, plus the selected account ids', async () => {
     const user = userEvent.setup()
-    const { onSubmit } = renderView()
+    const { onChange } = renderView()
 
     await user.type(screen.getByLabelText('Search text'), 'rewe')
     await user.type(screen.getByLabelText('Amount from'), '50')
-    await user.click(screen.getByRole('button', { name: 'Search' }))
 
-    expect(onSubmit).toHaveBeenCalledTimes(1)
-    const payload = onSubmit.mock.calls[0][0]
-    expect(payload.filters.text).toBe('rewe')
-    expect(payload.filters.amount_from).toBe(50)
-    expect(payload.filters.amount_to).toBeUndefined()
+    await waitFor(() => {
+      const payload = lastPayload(onChange)
+      expect(payload?.filters.text).toBe('rewe')
+      expect(payload?.filters.amount_from).toBe(50)
+    })
+    const payload = lastPayload(onChange)
+    expect(payload?.filters.amount_to).toBeUndefined()
     // The anchor account is pre-selected by default.
-    expect(payload.accountIds).toEqual([42])
+    expect(payload?.accountIds).toEqual([42])
   })
 
   it('preserves the existing URL filters in the form', () => {
-    renderView({ search: { text: 'gehalt', amount_from: 100, submitted: '1' } })
+    renderView({ search: { text: 'gehalt', amount_from: 100 } })
     expect((screen.getByLabelText('Search text') as HTMLInputElement).value).toBe('gehalt')
     expect((screen.getByLabelText('Amount from') as HTMLInputElement).value).toBe('100')
-  })
-
-  it('does not show the results section until the user submitted at least once', () => {
-    renderView()
-    expect(screen.queryByRole('region', { name: 'Search results' })).toBeNull()
   })
 })
 
@@ -241,42 +252,45 @@ describe('TransactionSearchView — accounts multi-select', () => {
 
   it('lets the user pick more accounts', async () => {
     const user = userEvent.setup()
-    const { onSubmit } = renderView()
+    const { onChange } = renderView()
 
     await user.click(screen.getByLabelText('Accounts'))
     // Each account row's checkbox is reachable by the account name.
     const tagesgeldRow = screen.getByText('Tagesgeld').closest('label')!
     await user.click(within(tagesgeldRow).getByRole('checkbox'))
-    await user.click(screen.getByRole('button', { name: 'Search' }))
 
-    const payload = onSubmit.mock.calls[0][0]
-    expect(payload.accountIds.sort()).toEqual([42, 43])
+    await waitFor(() =>
+      expect([...(lastPayload(onChange)?.accountIds ?? [])].sort()).toEqual([42, 43]),
+    )
   })
 
   it('"All" selects every account', async () => {
     const user = userEvent.setup()
-    const { onSubmit } = renderView()
+    const { onChange } = renderView()
 
     await user.click(screen.getByLabelText('Accounts'))
     await user.click(screen.getByRole('button', { name: 'All' }))
-    await user.click(screen.getByRole('button', { name: 'Search' }))
 
-    const payload = onSubmit.mock.calls[0][0]
-    expect(payload.accountIds.sort((a: number, b: number) => a - b)).toEqual([42, 43, 99])
+    await waitFor(() =>
+      expect([...(lastPayload(onChange)?.accountIds ?? [])].sort((a, b) => a - b)).toEqual([
+        42, 43, 99,
+      ]),
+    )
   })
 
-  it('"None" clears the selection and disables the submit button', async () => {
+  it('"None" clears the selection and hides the results', async () => {
     const user = userEvent.setup()
-    renderView()
+    const { onChange } = renderView()
 
     await user.click(screen.getByLabelText('Accounts'))
     await user.click(screen.getByRole('button', { name: 'None' }))
 
-    expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled()
+    await waitFor(() => expect(lastPayload(onChange)?.accountIds).toEqual([]))
+    expect(screen.queryByRole('region', { name: 'Search results' })).toBeNull()
   })
 
   it('shows the URL-provided account ids when present', () => {
-    renderView({ search: { account_ids: [42, 99], submitted: '1' } })
+    renderView({ search: { account_ids: [42, 99] } })
     // 2 accounts selected → trigger should show "2 accounts".
     expect(screen.getByLabelText('Accounts').textContent).toContain('2 accounts')
   })
@@ -294,7 +308,7 @@ describe('TransactionSearchView — results', () => {
 
   it('renders an empty-state message when the backend returns no matches', async () => {
     mockFetchOnce([])
-    renderView({ search: { text: 'no match', account_ids: [42], submitted: '1' } })
+    renderView({ search: { text: 'no match', account_ids: [42] } })
     expect(await screen.findByText('No transactions match your filters.')).toBeInTheDocument()
   })
 
@@ -323,7 +337,7 @@ describe('TransactionSearchView — results', () => {
         note: null,
       },
     ])
-    renderView({ search: { text: 'a', account_ids: [42], submitted: '1' } })
+    renderView({ search: { text: 'a', account_ids: [42] } })
 
     expect(await screen.findByText('Rewe')).toBeInTheDocument()
     expect(screen.getByText('ACME')).toBeInTheDocument()
@@ -360,7 +374,7 @@ describe('TransactionSearchView — results', () => {
         note: null,
       },
     ])
-    renderView({ search: { account_ids: [42, 43], submitted: '1' } })
+    renderView({ search: { account_ids: [42, 43] } })
 
     // Each row's subtitle (date + account name) should mention the account.
     expect(await screen.findByText(/Girokonto/)).toBeInTheDocument()
@@ -381,7 +395,7 @@ describe('TransactionSearchView — results', () => {
         note: null,
       },
     ])
-    renderView({ search: { account_ids: [42, 99], submitted: '1' } })
+    renderView({ search: { account_ids: [42, 99] } })
 
     const link = await screen.findByText('Other')
     expect(link.closest('a')).toHaveAttribute('href', '/account/99/transactions/7')
@@ -406,7 +420,6 @@ describe('TransactionSearchView — request building', () => {
         transaction_types: ['OUTGOING'],
         linked: 'linked',
         account_ids: [42, 99],
-        submitted: '1',
       },
     })
 

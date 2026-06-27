@@ -132,8 +132,21 @@ function ContractsPage() {
           <ChevronLeft className="size-5" />
         </Link>
         <h1 className="text-foreground text-lg font-semibold">{t('contracts.title')}</h1>
-        <div className="ml-auto flex items-center gap-2">
-          {all.length > 0 ? (
+        <div className="ml-auto">
+          <CreateContractDialog credentials={credentials} />
+        </div>
+      </header>
+
+      {all.length > 0 ? (
+        <ContractFilterBar credentials={credentials} filters={filters} onChange={setFilters} />
+      ) : null}
+
+      {visible.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              {t('contracts.count', { count: visible.length })}
+            </h2>
             <div className="w-48">
               <NativeSelect
                 id="contract-sort"
@@ -147,21 +160,13 @@ function ContractsPage() {
                 ))}
               </NativeSelect>
             </div>
-          ) : null}
-          <CreateContractDialog credentials={credentials} />
-        </div>
-      </header>
-
-      {all.length > 0 ? (
-        <ContractFilterBar credentials={credentials} filters={filters} onChange={setFilters} />
-      ) : null}
-
-      {visible.length > 0 ? (
-        <ul className="border-border divide-border bg-card flex flex-col divide-y overflow-hidden rounded-lg border">
-          {visible.map((contract) => (
-            <ContractRow key={contract.id} contract={contract} />
-          ))}
-        </ul>
+          </div>
+          <ul className="border-border divide-border bg-card flex flex-col divide-y overflow-hidden rounded-lg border">
+            {visible.map((contract) => (
+              <ContractRow key={contract.id} contract={contract} />
+            ))}
+          </ul>
+        </section>
       ) : (
         <p className="text-muted-foreground text-sm">
           {all.length > 0 ? t('contracts.noMatches') : t('contracts.empty')}
@@ -265,7 +270,7 @@ function CreateContractDialog({ credentials }: { credentials: CredentialRead[] }
           disabled={!hasAccounts}
         >
           <Plus className="size-4" aria-hidden="true" />
-          <span className="hidden sm:inline">{t('contracts.create')}</span>
+          <span>{t('contracts.create')}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-[46rem]">

@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, createFileRoute, useCanGoBack, useNavigate, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft } from 'lucide-react'
@@ -6,7 +6,6 @@ import { z } from 'zod'
 
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
 import { AmountRangeFields } from '@/components/ui/amount-range-fields'
-import { Button } from '@/components/ui/button'
 import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,10 +16,9 @@ import { useAuthMe, type CredentialRead } from '@/lib/auth'
 import { formatDate, formatEuro, formatIban } from '@/lib/format'
 import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from '@/lib/transaction'
 import { useSearchTransactions, type TransactionFilters } from '@/lib/transactionSearch'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { cn } from '@/lib/utils'
 
-// URL-state schema. Everything optional; an empty URL renders an empty form
-// and skips the query (no "run search on mount" — user must press Submit).
 const searchParamsSchema = z.object({
   text: z.string().optional(),
   amount_from: z.coerce.number().optional(),
@@ -40,7 +38,6 @@ const searchParamsSchema = z.object({
     .union([z.array(z.coerce.number()), z.coerce.number()])
     .transform((value) => (Array.isArray(value) ? value : [value]))
     .optional(),
-  submitted: z.literal('1').optional(),
 })
 
 export type TransactionSearchParams = z.infer<typeof searchParamsSchema>
@@ -57,6 +54,15 @@ function TransactionSearchPage() {
   const navigate = useNavigate({ from: Route.fullPath })
   const { data: user } = useAuthMe()
 
+  const onChange = useCallback(
+    ({ accountIds, filters }: { accountIds: number[]; filters: TransactionFilters }) =>
+      navigate({
+        search: { ...filters, account_ids: accountIds } as TransactionSearchParams,
+        replace: true,
+      }),
+    [navigate],
+  )
+
   if (!user) return null // root guard already redirected
 
   return (
@@ -64,16 +70,7 @@ function TransactionSearchPage() {
       anchorAccountId={accountId}
       credentials={user.credentials}
       search={search}
-      onSubmit={({ accountIds, filters }) =>
-        navigate({
-          search: {
-            ...filters,
-            account_ids: accountIds,
-            submitted: '1',
-          } as TransactionSearchParams,
-          replace: false,
-        })
-      }
+      onChange={onChange}
     />
   )
 }
@@ -82,18 +79,27 @@ export interface TransactionSearchViewProps {
   anchorAccountId: number
   credentials: CredentialRead[]
   search: TransactionSearchParams
-  onSubmit: (payload: { accountIds: number[]; filters: TransactionFilters }) => void
+  onChange: (payload: { accountIds: number[]; filters: TransactionFilters }) => void
 }
 
 export function TransactionSearchView({
   anchorAccountId,
   credentials,
   search,
-  onSubmit,
+  onChange,
 }: TransactionSearchViewProps) {
   const { t } = useTranslation()
-  const initialAccountIds = search.account_ids ?? [anchorAccountId]
-  const submittedAccountIds = search.account_ids ?? []
+  const [accountIds, setAccountIds] = useState<number[]>(search.account_ids ?? [anchorAccountId])
+  const [draft, setDraft] = useState<TransactionFilters>(toFilters(search))
+
+  const update = <K extends keyof TransactionFilters>(key: K, value: TransactionFilters[K]) =>
+    setDraft((prev) => ({ ...prev, [key]: value }))
+
+  const debouncedDraft = useDebouncedValue(draft, 300)
+
+  useEffect(() => {
+    onChange({ accountIds, filters: debouncedDraft })
+  }, [accountIds, debouncedDraft, onChange])
 
   return (
     <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 p-4">
@@ -103,21 +109,15 @@ export function TransactionSearchView({
       </header>
 
       <SearchForm
-        // `key` resets the form's local draft when the URL search changes
-        // (e.g. the user opens a deep-link with prefilled filters).
-        key={JSON.stringify(search)}
         credentials={credentials}
-        initialAccountIds={initialAccountIds}
-        initialFilters={toFilters(search)}
-        onSubmit={onSubmit}
+        accountIds={accountIds}
+        onAccountIdsChange={setAccountIds}
+        draft={draft}
+        onUpdate={update}
       />
 
-      {search.submitted ? (
-        <SearchResults
-          accountIds={submittedAccountIds}
-          credentials={credentials}
-          filters={toFilters(search)}
-        />
+      {accountIds.length > 0 ? (
+        <SearchResults accountIds={accountIds} credentials={credentials} filters={debouncedDraft} />
       ) : null}
     </main>
   )
@@ -147,38 +147,29 @@ function BackLink({ accountId }: { accountId: number }) {
 
 function SearchForm({
   credentials,
-  initialAccountIds,
-  initialFilters,
-  onSubmit,
+  accountIds,
+  onAccountIdsChange,
+  draft,
+  onUpdate,
 }: {
   credentials: CredentialRead[]
-  initialAccountIds: number[]
-  initialFilters: TransactionFilters
-  onSubmit: (payload: { accountIds: number[]; filters: TransactionFilters }) => void
+  accountIds: number[]
+  onAccountIdsChange: (ids: number[]) => void
+  draft: TransactionFilters
+  onUpdate: <K extends keyof TransactionFilters>(key: K, value: TransactionFilters[K]) => void
 }) {
   const { t } = useTranslation()
-  const [accountIds, setAccountIds] = useState<number[]>(initialAccountIds)
-  const [draft, setDraft] = useState<TransactionFilters>(initialFilters)
-
-  const update = <K extends keyof TransactionFilters>(key: K, value: TransactionFilters[K]) =>
-    setDraft((prev) => ({ ...prev, [key]: value }))
-
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault()
-    onSubmit({ accountIds, filters: draft })
-  }
-
   const selectedCategories = draft.categories ?? [...TRANSACTION_CATEGORIES]
   const selectedTypes = draft.transaction_types ?? [...TRANSACTION_TYPES]
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+    <form onSubmit={(event) => event.preventDefault()} noValidate className="flex flex-col gap-4">
       <Field id="search-accounts" label={t('search.accountsLabel')}>
         <AccountMultiSelect
           id="search-accounts"
           credentials={credentials}
           selectedIds={accountIds}
-          onChange={setAccountIds}
+          onChange={onAccountIdsChange}
         />
       </Field>
 
@@ -188,7 +179,7 @@ function SearchForm({
           type="search"
           inputMode="search"
           value={draft.text ?? ''}
-          onChange={(event) => update('text', event.target.value)}
+          onChange={(event) => onUpdate('text', event.target.value)}
           placeholder={t('search.textPlaceholder')}
         />
       </Field>
@@ -199,8 +190,8 @@ function SearchForm({
         toLabel={t('search.amountTo')}
         from={draft.amount_from}
         to={draft.amount_to}
-        onFromChange={(value) => update('amount_from', value)}
-        onToChange={(value) => update('amount_to', value)}
+        onFromChange={(value) => onUpdate('amount_from', value)}
+        onToChange={(value) => onUpdate('amount_to', value)}
       />
 
       <DateRangeFields
@@ -208,27 +199,23 @@ function SearchForm({
         placeholder={t('search.datePlaceholder')}
         dateFrom={draft.date_from}
         dateTo={draft.date_to}
-        onDateFromChange={(next) => update('date_from', next)}
-        onDateToChange={(next) => update('date_to', next)}
+        onDateFromChange={(next) => onUpdate('date_from', next)}
+        onDateToChange={(next) => onUpdate('date_to', next)}
       />
 
       <TransactionFilterFields
         idPrefix="search"
         selectedCategories={selectedCategories}
         onCategoriesChange={(next) =>
-          update('categories', next.length === TRANSACTION_CATEGORIES.length ? undefined : next)
+          onUpdate('categories', next.length === TRANSACTION_CATEGORIES.length ? undefined : next)
         }
         selectedTypes={selectedTypes}
         onTypesChange={(next) =>
-          update('transaction_types', next.length === TRANSACTION_TYPES.length ? undefined : next)
+          onUpdate('transaction_types', next.length === TRANSACTION_TYPES.length ? undefined : next)
         }
         transfer={draft.linked}
-        onTransferChange={(next) => update('linked', next)}
+        onTransferChange={(next) => onUpdate('linked', next)}
       />
-
-      <Button type="submit" disabled={accountIds.length === 0}>
-        {t('search.submit')}
-      </Button>
     </form>
   )
 }
@@ -369,14 +356,8 @@ function ResultRow({
   )
 }
 
-/**
- * Strip the meta-only `submitted` flag and the `account_ids` list (those go
- * to the API as a separate scoping arg) and re-emit only the actual filter
- * fields. Keeps the URL-state schema and the API-filter schema separate.
- */
 function toFilters(search: TransactionSearchParams): TransactionFilters {
-  const { submitted: _submitted, account_ids: _accountIds, ...filters } = search
-  void _submitted
+  const { account_ids: _accountIds, ...filters } = search
   void _accountIds
   return filters
 }

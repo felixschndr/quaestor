@@ -120,7 +120,6 @@ function StatsPage() {
             linked: drill.linked,
             amount_from: drill.direction === 'INCOMING' ? 0 : undefined,
             amount_to: drill.direction === 'OUTGOING' ? 0 : undefined,
-            submitted: '1',
           },
         })
       }}
