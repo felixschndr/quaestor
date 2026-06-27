@@ -375,6 +375,7 @@ export function AccountDetailView({
               </Link>
               <Link
                 to="/contracts"
+                search={{ account_ids: [account.id] }}
                 aria-label={t('overview.contracts')}
                 className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
               >

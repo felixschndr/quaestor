@@ -44,6 +44,43 @@ export interface ContractDetailRead extends ContractRead {
   members: ContractMemberRead[]
 }
 
+export interface ContractFilters {
+  account_ids?: number[]
+  amount_from?: number
+  amount_to?: number
+  categories?: TransactionCategory[]
+  frequencies?: ContractFrequency[]
+}
+
+export function filterContracts(
+  contracts: ContractRead[],
+  filters: ContractFilters,
+): ContractRead[] {
+  const { account_ids, amount_from, amount_to, categories, frequencies } = filters
+  // A facet is inactive only when its key is absent. A present-but-empty array
+  // means "none selected" and matches nothing (the "Keine" button).
+  return contracts.filter((contract) => {
+    if (account_ids && !account_ids.includes(contract.account_id)) return false
+    if (categories && !(contract.category && categories.includes(contract.category))) return false
+    if (frequencies && !(contract.frequency && frequencies.includes(contract.frequency)))
+      return false
+    if (amount_from !== undefined && (contract.median_amount ?? -Infinity) < amount_from)
+      return false
+    if (amount_to !== undefined && (contract.median_amount ?? Infinity) > amount_to) return false
+    return true
+  })
+}
+
+export function hasActiveContractFilters(filters: ContractFilters): boolean {
+  return Boolean(
+    filters.account_ids !== undefined ||
+    filters.categories !== undefined ||
+    filters.frequencies !== undefined ||
+    filters.amount_from !== undefined ||
+    filters.amount_to !== undefined,
+  )
+}
+
 export interface ContractCreatePayload {
   name: string
   account_id: number

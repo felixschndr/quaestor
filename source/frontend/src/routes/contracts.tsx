@@ -3,18 +3,24 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Plus } from 'lucide-react'
 import { toast } from 'sonner'
+import { z } from 'zod'
 
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
 import {
+  CONTRACT_FREQUENCIES,
+  filterContracts,
   useContracts,
   useCreateContract,
   useDeleteContract,
   useUpdateContract,
+  type ContractFilters,
   type ContractRead,
 } from '@/lib/contract'
+import { TRANSACTION_CATEGORIES } from '@/lib/transaction'
 import { formatDate, formatDateWithoutYear, formatEuro } from '@/lib/format'
 import { DeleteContractButton, RenameContractButton } from '@/components/contract-actions'
 import { Button } from '@/components/ui/button'
+import { ContractFilterBar } from '@/components/ui/contract-filter-bar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
@@ -29,8 +35,27 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
+const numberList = z
+  .union([z.array(z.coerce.number()), z.coerce.number()])
+  .transform((value) => (Array.isArray(value) ? value : [value]))
+
+const contractFiltersSchema = z.object({
+  account_ids: numberList.optional(),
+  amount_from: z.coerce.number().optional(),
+  amount_to: z.coerce.number().optional(),
+  categories: z
+    .union([z.enum(TRANSACTION_CATEGORIES), z.array(z.enum(TRANSACTION_CATEGORIES))])
+    .transform((value) => (Array.isArray(value) ? value : [value]))
+    .optional(),
+  frequencies: z
+    .union([z.enum(CONTRACT_FREQUENCIES), z.array(z.enum(CONTRACT_FREQUENCIES))])
+    .transform((value) => (Array.isArray(value) ? value : [value]))
+    .optional(),
+})
+
 export const Route = createFileRoute('/contracts')({
   component: ContractsPage,
+  validateSearch: (search) => contractFiltersSchema.parse(search),
 })
 
 const SORT_OPTIONS = [
@@ -82,11 +107,19 @@ function ContractsPage() {
   const { t } = useTranslation()
   const { data: contracts } = useContracts()
   const { data: user } = useAuthMe()
+  const filters = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
   const [sort, setSort] = useState<SortOption>('amount_asc')
 
   const credentials: CredentialRead[] = user?.credentials ?? []
+  const all = contracts ?? []
 
-  const sorted = useMemo(() => sortContracts(contracts ?? [], sort), [contracts, sort])
+  const visible = useMemo(
+    () => sortContracts(filterContracts(contracts ?? [], filters), sort),
+    [contracts, filters, sort],
+  )
+
+  const setFilters = (next: ContractFilters) => navigate({ search: next, replace: true })
 
   return (
     <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 p-4">
@@ -100,7 +133,7 @@ function ContractsPage() {
         </Link>
         <h1 className="text-foreground text-lg font-semibold">{t('contracts.title')}</h1>
         <div className="ml-auto flex items-center gap-2">
-          {sorted.length > 0 ? (
+          {all.length > 0 ? (
             <div className="w-48">
               <NativeSelect
                 id="contract-sort"
@@ -119,14 +152,20 @@ function ContractsPage() {
         </div>
       </header>
 
-      {sorted.length > 0 ? (
+      {all.length > 0 ? (
+        <ContractFilterBar credentials={credentials} filters={filters} onChange={setFilters} />
+      ) : null}
+
+      {visible.length > 0 ? (
         <ul className="border-border divide-border bg-card flex flex-col divide-y overflow-hidden rounded-lg border">
-          {sorted.map((contract) => (
+          {visible.map((contract) => (
             <ContractRow key={contract.id} contract={contract} />
           ))}
         </ul>
       ) : (
-        <p className="text-muted-foreground text-sm">{t('contracts.empty')}</p>
+        <p className="text-muted-foreground text-sm">
+          {all.length > 0 ? t('contracts.noMatches') : t('contracts.empty')}
+        </p>
       )}
     </main>
   )
@@ -220,12 +259,13 @@ function CreateContractDialog({ credentials }: { credentials: CredentialRead[] }
       <DialogTrigger asChild>
         <Button
           type="button"
-          size="icon-sm"
+          size="sm"
           variant="outline"
           aria-label={t('contracts.create')}
           disabled={!hasAccounts}
         >
           <Plus className="size-4" aria-hidden="true" />
+          <span className="hidden sm:inline">{t('contracts.create')}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-[46rem]">
