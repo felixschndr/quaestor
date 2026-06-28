@@ -1,9 +1,12 @@
+from datetime import timedelta
 from statistics import median
 
 import pytest
-from source.backend.models.contract import Contract
+from source.backend.models.contract import OVERDUE_GRACE_DAYS, Contract
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_type import TransactionType
+
+from tests.backend.conftest import LATEST_DATE
 
 
 def _create_contract_with_amounts(amounts: list[float]) -> Contract:
@@ -26,6 +29,25 @@ def test_no_stats_means_no_outlier():
     contract = Contract(median_amount=None, amount_spread=None)
 
     assert contract.is_outlier(_create_transaction_from_amount(999.0)) is False
+
+
+def test_contract_without_expected_date_is_never_overdue():
+    contract = Contract(expected_next_date=None)
+
+    assert contract.is_overdue_on(today=LATEST_DATE) is False
+
+
+def test_contract_within_grace_period_is_not_overdue():
+    contract = Contract(expected_next_date=LATEST_DATE)
+
+    assert contract.is_overdue_on(today=LATEST_DATE) is False
+    assert contract.is_overdue_on(today=LATEST_DATE + timedelta(days=OVERDUE_GRACE_DAYS)) is False
+
+
+def test_contract_past_grace_period_is_overdue():
+    contract = Contract(expected_next_date=LATEST_DATE)
+
+    assert contract.is_overdue_on(today=LATEST_DATE + timedelta(days=OVERDUE_GRACE_DAYS + 1)) is True
 
 
 def test_absolute_floor_governs_stable_small_amounts():

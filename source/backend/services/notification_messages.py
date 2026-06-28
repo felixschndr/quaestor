@@ -13,6 +13,9 @@ _TRANSLATION_CATALOG: dict[str, dict[str, str]] = {
         "balance_above.title": "Balance above threshold",
         "balance_above.body": "{account}: {amount} (threshold {threshold})",
         "balance_threshold.body_minimal": "{account}",
+        "contract_overdue.title": "Payment overdue",
+        "contract_overdue.body": "{account}: {name} overdue since {date}",
+        "contract_overdue.body_minimal": "{account}",
         "test.body": "🔔 Test notification → push works!",
     },
     "de": {
@@ -27,6 +30,9 @@ _TRANSLATION_CATALOG: dict[str, dict[str, str]] = {
         "balance_above.title": "Kontostand überschritten",
         "balance_above.body": "{account}: {amount} (Schwelle {threshold})",
         "balance_threshold.body_minimal": "{account}",
+        "contract_overdue.title": "Zahlung überfällig",
+        "contract_overdue.body": "{account}: {name} überfällig seit {date}",
+        "contract_overdue.body_minimal": "{account}",
         "test.body": "🔔 Testbenachrichtigung → Push funktioniert!",
     },
 }

@@ -1,8 +1,10 @@
+import datetime
 from dataclasses import dataclass
 
-from source.backend.helpers import format_amount
+from source.backend.helpers import format_amount, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
+from source.backend.models.contract import Contract
 from source.backend.models.credential import Credential
 from source.backend.models.notification_rule import (
     BalanceDirection,
@@ -19,6 +21,7 @@ from source.backend.services import (
     notification_service,
 )
 from source.backend.services.notification_service import Notification
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
@@ -114,6 +117,71 @@ def collect_notifications(db_session: Session, credential: Credential, snapshot:
     else:
         logger.debug(f"No notifications triggered from {credential}")
     return notifications
+
+
+def evaluate_overdue_contracts(db_session: Session, today: datetime.date) -> None:
+    users = db_session.scalars(select(User)).all()
+    logger.info(f"Evaluating overdue contracts for {len(users)} user(s)")
+    for user in users:
+        notifications = _collect_overdue_notifications(db_session=db_session, user=user, today=today)
+        db_session.commit()
+        dispatch(db_session=db_session, user=user, notifications=notifications)
+
+
+def _collect_overdue_notifications(db_session: Session, user: User, today: datetime.date) -> list[Notification]:
+    overdue_rules = [
+        rule
+        for rule in notification_rule_service.list_rules(db_session=db_session, user=user)
+        if rule.enabled and rule.trigger is NotificationTrigger.CONTRACT_OVERDUE
+    ]
+    covered_account_ids = {account_id for rule in overdue_rules for account_id in rule.account_ids}
+
+    contracts = db_session.scalars(
+        select(Contract)
+        .join(Account, onclause=Contract.account_id == Account.id)
+        .join(Credential, onclause=Account.credential_id == Credential.id)
+        .where(Credential.user_id == user.id)
+    ).all()
+
+    notifications: list[Notification] = []
+    for contract in contracts:
+        if not contract.is_overdue_on(today):
+            # Payment arrived: reset so a future overdue episode notifies again.
+            contract.overdue_notified_at = None
+            continue
+        if contract.overdue_notified_at is not None:
+            continue  # Already notified for this overdue episode.
+        if contract.account_id not in covered_account_ids:
+            continue  # No enabled rule covers this account
+
+        rule = next(rule for rule in overdue_rules if contract.account_id in rule.account_ids)
+        notifications.append(_build_overdue_notification(rule=rule, contract=contract, language=user.language))
+        contract.overdue_notified_at = utc_now()
+        logger.info(f"{contract} is overdue (expected {contract.expected_next_date}); queued notification")
+
+    return notifications
+
+
+def _build_overdue_notification(rule: NotificationRule, contract: Contract, language: str) -> Notification:
+    account = contract.account
+    if rule.include_content:
+        body = notification_messages.translate(
+            language,
+            key="contract_overdue.body",
+            account=account.display_label,
+            name=contract.name,
+            date=contract.expected_next_date.isoformat() if contract.expected_next_date else "",
+        )
+    else:
+        body = notification_messages.translate(
+            language, key="contract_overdue.body_minimal", account=account.display_label
+        )
+    return Notification(
+        title=rule.name or notification_messages.translate(language, key="contract_overdue.title"),
+        body=body,
+        url=f"/contracts/{contract.id}",
+        tag=f"contract-overdue-{contract.id}",
+    )
 
 
 def dispatch(db_session: Session, user: User, notifications: list[Notification]) -> None:

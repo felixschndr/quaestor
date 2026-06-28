@@ -30,6 +30,7 @@ export interface ContractRead {
   frequency: ContractFrequency | null
   interval_days: number | null
   expected_next_date: string | null
+  is_overdue: boolean
   member_count: number
   amount_per_day: number | null
   amount_per_frequency: Record<ContractFrequency, number> | null
@@ -50,13 +51,14 @@ export interface ContractFilters {
   amount_to?: number
   categories?: TransactionCategory[]
   frequencies?: ContractFrequency[]
+  overdue?: boolean
 }
 
 export function filterContracts(
   contracts: ContractRead[],
   filters: ContractFilters,
 ): ContractRead[] {
-  const { account_ids, amount_from, amount_to, categories, frequencies } = filters
+  const { account_ids, amount_from, amount_to, categories, frequencies, overdue } = filters
   // A facet is inactive only when its key is absent. A present-but-empty array
   // means "none selected" and matches nothing (the "Keine" button).
   return contracts.filter((contract) => {
@@ -67,8 +69,19 @@ export function filterContracts(
     if (amount_from !== undefined && (contract.median_amount ?? -Infinity) < amount_from)
       return false
     if (amount_to !== undefined && (contract.median_amount ?? Infinity) > amount_to) return false
+    if (overdue && !contract.is_overdue) return false
     return true
   })
+}
+
+export const OVERDUE_BANNER_MONTHS = 2
+
+export function monthsOverdue(expectedNextDate: string, now: Date = new Date()): number {
+  const due = new Date(`${expectedNextDate}T00:00:00`)
+  if (Number.isNaN(due.getTime())) return 0
+  let months = (now.getFullYear() - due.getFullYear()) * 12 + (now.getMonth() - due.getMonth())
+  if (now.getDate() < due.getDate()) months -= 1
+  return Math.max(0, months)
 }
 
 export function hasActiveContractFilters(filters: ContractFilters): boolean {
@@ -77,7 +90,8 @@ export function hasActiveContractFilters(filters: ContractFilters): boolean {
     filters.categories !== undefined ||
     filters.frequencies !== undefined ||
     filters.amount_from !== undefined ||
-    filters.amount_to !== undefined,
+    filters.amount_to !== undefined ||
+    filters.overdue,
   )
 }
 

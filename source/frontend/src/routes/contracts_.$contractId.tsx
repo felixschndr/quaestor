@@ -5,6 +5,8 @@ import { toast } from 'sonner'
 
 import {
   CONTRACT_FREQUENCIES,
+  OVERDUE_BANNER_MONTHS,
+  monthsOverdue,
   useContract,
   useDeleteContract,
   useUpdateContract,
@@ -118,15 +120,24 @@ export function ContractDetailView({
       </header>
 
       <section className="flex flex-col items-center gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-        <h1 className="text-foreground max-w-full truncate text-xl font-semibold">
-          {contract.name}
-        </h1>
+        <div className="flex max-w-full items-center gap-2">
+          <h1 className="text-foreground max-w-full truncate text-xl font-semibold">
+            {contract.name}
+          </h1>
+          {contract.is_overdue ? (
+            <span className="bg-destructive/10 text-destructive shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold">
+              {t('contracts.overdue')}
+            </span>
+          ) : null}
+        </div>
         {contract.median_amount === null ? null : (
           <span className={cn('text-xl font-semibold tabular-nums', medianColor)}>
             {formatEuro(contract.median_amount)}
           </span>
         )}
       </section>
+
+      <OverdueBanner contract={contract} />
 
       {activeMembers.length >= 2 ? (
         <section className="flex flex-col gap-2">
@@ -150,7 +161,9 @@ export function ContractDetailView({
         </StripStat>
         <StripStat label={t('contracts.nextExpected')} align="end">
           {contract.expected_next_date ? (
-            formatDateWithoutYear(contract.expected_next_date)
+            <span className={cn(contract.is_overdue && 'text-destructive')}>
+              {formatDateWithoutYear(contract.expected_next_date)}
+            </span>
           ) : (
             <Empty />
           )}
@@ -280,6 +293,23 @@ function StripStat({
 function Empty() {
   const { t } = useTranslation()
   return <span className="text-muted-foreground">{t('transaction.fieldEmpty')}</span>
+}
+
+function OverdueBanner({ contract }: { contract: ContractDetailRead }) {
+  const { t } = useTranslation()
+  if (!contract.expected_next_date) return null
+  const months = monthsOverdue(contract.expected_next_date)
+  if (months < OVERDUE_BANNER_MONTHS) return null
+
+  return (
+    <div
+      role="status"
+      className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2.5 rounded-lg border p-3 text-sm"
+    >
+      <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <p>{t('contracts.overdueBanner', { count: months })}</p>
+    </div>
+  )
 }
 
 function BackLink() {

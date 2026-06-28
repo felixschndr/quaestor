@@ -5,6 +5,7 @@ import {
   ArrowLeftRight,
   BellRing,
   CalendarClock,
+  CalendarX2,
   ChevronLeft,
   Pencil,
   Plus,
@@ -66,6 +67,7 @@ export const Route = createFileRoute('/settings/user/notifications')({
 
 const TRIGGER_ICONS: Record<NotificationTrigger, LucideIcon> = {
   expected_transaction: CalendarClock,
+  contract_overdue: CalendarX2,
   transaction: ArrowLeftRight,
   balance_threshold: TrendingDown,
 }
@@ -358,6 +360,8 @@ function modelToDraft(model: RuleFormModel): NotificationRuleDraft {
   switch (model.trigger) {
     case 'expected_transaction':
       return { ...shared, trigger: 'expected_transaction' }
+    case 'contract_overdue':
+      return { ...shared, trigger: 'contract_overdue' }
     case 'balance_threshold':
       return {
         ...shared,

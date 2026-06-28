@@ -2,7 +2,7 @@ import functools
 import hashlib
 import pathlib
 import tomllib
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,6 +13,14 @@ if TYPE_CHECKING:
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def seconds_until_next_midnight() -> float:
+    # The +5s margin ensures we run just AFTER midnight, so "today" has rolled over before anything date-dependent is
+    # evaluated
+    now = datetime.now()
+    next_midnight = datetime.combine(date=now.date() + timedelta(days=1), time=time.min)
+    return (next_midnight - now).total_seconds() + 5
 
 
 def hash_token(raw_token: str) -> str:

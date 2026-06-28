@@ -669,11 +669,13 @@
     "triggerLabel": "Auslöser",
     "trigger": {
       "expected_transaction": "Erwartete Transaktion gebucht",
+      "contract_overdue": "Vertrag überfällig",
       "transaction": "Transaktion gebucht",
       "balance_threshold": "Kontostand-Schwelle"
     },
     "triggerHint": {
       "expected_transaction": "Benachrichtige mich, wenn eine von mir manuell eingetragene erwartete Transaktion gebucht wird.",
+      "contract_overdue": "Benachrichtige mich, wenn die nächste Zahlung eines Vertrags mehr als 5 Tage überfällig ist.",
       "transaction": "Benachrichtige mich, wenn eine gebuchte Transaktion die folgenden Kriterien erfüllt.",
       "balance_threshold": "Benachrichtige mich, wenn der Kontostand eines Kontos den Schwellwert in der gewählten Richtung überschreitet."
     },
@@ -735,6 +737,10 @@
     "perDay": "Pro Tag",
     "normalized": "Hochgerechnet",
     "nextExpected": "Nächste Zahlung",
+    "overdue": "Überfällig",
+    "overdueFilter": "Nur überfällige",
+    "overdueBanner_one": "Die nächste Zahlung ist seit {{count}} Monat überfällig. Ist der Vertrag noch aktiv?",
+    "overdueBanner_other": "Die nächste Zahlung ist seit {{count}} Monaten überfällig. Ist der Vertrag noch aktiv?",
     "members_one": "{{count}} Transaktion",
     "members_other": "{{count}} Transaktionen",
     "noMembers": "Noch keine Transaktionen zugeordnet.",

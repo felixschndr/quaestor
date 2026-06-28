@@ -5,6 +5,7 @@ import type { TransactionCategory, TransactionType } from './transaction'
 
 export const NOTIFICATION_TRIGGERS = [
   'expected_transaction',
+  'contract_overdue',
   'transaction',
   'balance_threshold',
 ] as const
@@ -25,6 +26,10 @@ export interface ExpectedTransactionRule extends RuleBase {
   trigger: 'expected_transaction'
 }
 
+export interface ContractOverdueRule extends RuleBase {
+  trigger: 'contract_overdue'
+}
+
 export interface TransactionRule extends RuleBase {
   trigger: 'transaction'
   other_party_contains: string | null
@@ -40,9 +45,14 @@ export interface BalanceThresholdRule extends RuleBase {
   direction: BalanceDirection
 }
 
-export type NotificationRule = ExpectedTransactionRule | TransactionRule | BalanceThresholdRule
+export type NotificationRule =
+  | ExpectedTransactionRule
+  | ContractOverdueRule
+  | TransactionRule
+  | BalanceThresholdRule
 export type NotificationRuleDraft =
   | Omit<ExpectedTransactionRule, 'id'>
+  | Omit<ContractOverdueRule, 'id'>
   | Omit<TransactionRule, 'id'>
   | Omit<BalanceThresholdRule, 'id'>
 

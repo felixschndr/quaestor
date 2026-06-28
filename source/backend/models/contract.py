@@ -37,6 +37,9 @@ OUTLIER_SPREAD_FACTOR = 3.0
 OUTLIER_ABSOLUTE_FLOOR = 1.0
 OUTLIER_RELATIVE_FACTOR = 0.25
 
+# A contract counts as overdue once the expected next payment is more than this many days late.
+OVERDUE_GRACE_DAYS = 5
+
 
 class Contract(Base):
     # A recurring stream of transactions (subscription, salary, rent, ...)
@@ -60,6 +63,7 @@ class Contract(Base):
     expected_next_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
 
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True))
+    overdue_notified_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     account: Mapped["Account"] = relationship(back_populates="contracts")
     transactions: Mapped[list["Transaction"]] = relationship(
@@ -74,6 +78,11 @@ class Contract(Base):
             for transaction in self.transactions
             if transaction.contract_assignment != ContractAssignment.EXCLUDED
         ]
+
+    def is_overdue_on(self, today: datetime.date) -> bool:
+        if self.expected_next_date is None:
+            return False
+        return today > self.expected_next_date + datetime.timedelta(days=OVERDUE_GRACE_DAYS)
 
     def is_outlier(self, transaction: "Transaction") -> bool:
         if self.median_amount is None or self.amount_spread is None:

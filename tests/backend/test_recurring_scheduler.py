@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi.testclient import TestClient
-from source.backend import main
+from source.backend import helpers, main
 from source.backend.bank_handlers import BankProvider
 from source.backend.models.account import Account
 from source.backend.models.recurrence_frequency import RecurrenceFrequency
@@ -25,9 +25,9 @@ def test_sleeps_until_the_next_midnight(monkeypatch: pytest.MonkeyPatch):
         def now(cls: type[datetime], tz: object = None) -> datetime:
             return datetime(year=2026, month=6, day=7, hour=23, minute=0, second=0)
 
-    monkeypatch.setattr(target=recurring_transaction_scheduler, name="datetime", value=_FixedDateTime)
+    monkeypatch.setattr(target=helpers, name="datetime", value=_FixedDateTime)
 
-    assert recurring_transaction_scheduler._get_seconds_until_next_midnight() == 3600 + 5
+    assert helpers.seconds_until_next_midnight() == 3600 + 5
 
 
 def test_app_startup_schedules_periodic_recurring(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):

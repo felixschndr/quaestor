@@ -14,6 +14,7 @@ import { AmountRangeFields } from '@/components/ui/amount-range-fields'
 import { CategoryMultiSelect } from '@/components/ui/category-multi-select'
 import { FrequencyMultiSelect } from '@/components/ui/frequency-multi-select'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 
 export interface ContractFilterBarProps {
   credentials: CredentialRead[]
@@ -81,6 +82,15 @@ function ContractFilterBar({ credentials, filters, onChange }: ContractFilterBar
         onFromChange={(value) => update('amount_from', value)}
         onToChange={(value) => update('amount_to', value)}
       />
+
+      <div className="flex items-center justify-between gap-3">
+        <Label htmlFor="contract-filter-overdue">{t('contracts.overdueFilter')}</Label>
+        <Switch
+          id="contract-filter-overdue"
+          checked={filters.overdue ?? false}
+          onCheckedChange={(next) => update('overdue', next ? true : undefined)}
+        />
+      </div>
 
       {hasActiveContractFilters(filters) ? (
         <button

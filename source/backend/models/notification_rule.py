@@ -15,6 +15,7 @@ class NotificationTrigger(str, enum.Enum):
     EXPECTED_TRANSACTION = "expected_transaction"
     TRANSACTION = "transaction"
     BALANCE_THRESHOLD = "balance_threshold"
+    CONTRACT_OVERDUE = "contract_overdue"
 
 
 class BalanceDirection(str, enum.Enum):

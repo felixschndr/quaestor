@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { filterContracts, hasActiveContractFilters, type ContractRead } from '@/lib/contract'
+import {
+  filterContracts,
+  hasActiveContractFilters,
+  monthsOverdue,
+  type ContractRead,
+} from '@/lib/contract'
 
 function makeContract(overrides: Partial<ContractRead> = {}): ContractRead {
   return {
@@ -17,6 +22,7 @@ function makeContract(overrides: Partial<ContractRead> = {}): ContractRead {
     frequency: 'MONTHLY',
     interval_days: 30,
     expected_next_date: null,
+    is_overdue: false,
     member_count: 3,
     amount_per_day: null,
     amount_per_frequency: null,
@@ -94,6 +100,15 @@ describe('filterContracts', () => {
   it('combines facets with AND', () => {
     expect(ids(filterContracts(all, { account_ids: [10], categories: ['RENT'] }))).toEqual([3])
   })
+
+  it('filters to overdue contracts only when the overdue facet is on', () => {
+    const overdueRent = makeContract({ id: 6, is_overdue: true })
+    const pool = [...all, overdueRent]
+    expect(ids(filterContracts(pool, { overdue: true }))).toEqual([6])
+    // An absent/false overdue facet leaves everything untouched.
+    expect(ids(filterContracts(pool, { overdue: false }))).toEqual([1, 2, 3, 4, 6])
+    expect(ids(filterContracts(pool, {}))).toEqual([1, 2, 3, 4, 6])
+  })
 })
 
 describe('hasActiveContractFilters', () => {
@@ -111,5 +126,27 @@ describe('hasActiveContractFilters', () => {
 
   it('is true when only an amount bound is set', () => {
     expect(hasActiveContractFilters({ amount_from: 0 })).toBe(true)
+  })
+
+  it('is true when the overdue facet is on, false when off', () => {
+    expect(hasActiveContractFilters({ overdue: true })).toBe(true)
+    expect(hasActiveContractFilters({ overdue: false })).toBe(false)
+  })
+})
+
+describe('monthsOverdue', () => {
+  const now = new Date('2026-06-28T12:00:00')
+
+  it('counts only whole calendar months', () => {
+    expect(monthsOverdue('2026-02-24', now)).toBe(4)
+  })
+
+  it('does not count a partial final month', () => {
+    expect(monthsOverdue('2026-04-30', now)).toBe(1)
+  })
+
+  it('is zero for a future or same-day date', () => {
+    expect(monthsOverdue('2026-08-01', now)).toBe(0)
+    expect(monthsOverdue('2026-06-28', now)).toBe(0)
   })
 })

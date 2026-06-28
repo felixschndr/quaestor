@@ -51,6 +51,10 @@ const contractFiltersSchema = z.object({
     .union([z.enum(CONTRACT_FREQUENCIES), z.array(z.enum(CONTRACT_FREQUENCIES))])
     .transform((value) => (Array.isArray(value) ? value : [value]))
     .optional(),
+  overdue: z
+    .union([z.boolean(), z.literal('true'), z.literal('false')])
+    .transform((value) => value === true || value === 'true')
+    .optional(),
 })
 
 export const Route = createFileRoute('/contracts')({
@@ -197,7 +201,14 @@ function ContractRow({ contract }: { contract: ContractRead }) {
         className="grid flex-1 grid-cols-[1fr_auto] items-center gap-3"
       >
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-medium">{contract.name}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-sm font-medium">{contract.name}</span>
+            {contract.is_overdue ? (
+              <span className="bg-destructive/10 text-destructive shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                {t('contracts.overdue')}
+              </span>
+            ) : null}
+          </span>
           <span className="text-muted-foreground flex flex-col text-xs">
             <span className="truncate">
               {t('contracts.turnus')}:{' '}
@@ -206,7 +217,7 @@ function ContractRow({ contract }: { contract: ContractRead }) {
                 : t('contracts.frequencyUnknown')}
             </span>
             {contract.expected_next_date ? (
-              <span className="truncate">
+              <span className={cn('truncate', contract.is_overdue && 'text-destructive')}>
                 {t('contracts.nextExpected')}:{' '}
                 <span className="hidden sm:inline">{formatDate(contract.expected_next_date)}</span>
                 <span className="sm:hidden">

@@ -669,11 +669,13 @@
     "triggerLabel": "Trigger",
     "trigger": {
       "expected_transaction": "Expected transaction booked",
+      "contract_overdue": "Contract overdue",
       "transaction": "Transaction booked",
       "balance_threshold": "Balance crosses threshold"
     },
     "triggerHint": {
       "expected_transaction": "Notify me when a transaction I entered manually as expected is booked.",
+      "contract_overdue": "Notify me when a contract's next payment is more than 5 days overdue.",
       "transaction": "Notify me when a booked transaction matches the criteria below.",
       "balance_threshold": "Notify me when an account's balance crosses the threshold in the chosen direction."
     },
@@ -735,6 +737,10 @@
     "perDay": "Per day",
     "normalized": "Normalized",
     "nextExpected": "Next payment",
+    "overdue": "Overdue",
+    "overdueFilter": "Only overdue",
+    "overdueBanner_one": "The next payment is {{count}} month overdue. Is this contract still active?",
+    "overdueBanner_other": "The next payment is {{count}} months overdue. Is this contract still active?",
     "members_one": "{{count}} transaction",
     "members_other": "{{count}} transactions",
     "noMembers": "No transactions assigned yet.",

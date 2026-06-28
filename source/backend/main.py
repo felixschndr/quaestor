@@ -52,6 +52,7 @@ from source.backend.services import (
     bank_info_updater,
     category_rescan,
     contract_detection_service,
+    contract_overdue_scheduler,
     i18n_service,
     migrations,
     playwright_browser,
@@ -78,6 +79,7 @@ STARTUP_BACKGROUND_TASKS = (
     (contract_detection_service, "run_startup_detection"),
     (sync_scheduler, "run_periodic_sync"),
     (recurring_transaction_scheduler, "run_periodic_recurring"),
+    (contract_overdue_scheduler, "run_periodic_overdue_check"),
 )
 
 

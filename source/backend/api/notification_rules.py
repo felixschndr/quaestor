@@ -29,6 +29,10 @@ class ExpectedRuleIn(_RuleInBase):
     trigger: Literal["expected_transaction"]
 
 
+class ContractOverdueRuleIn(_RuleInBase):
+    trigger: Literal["contract_overdue"]
+
+
 class TransactionRuleIn(_RuleInBase):
     trigger: Literal["transaction"]
     other_party_contains: str | None = None
@@ -45,7 +49,7 @@ class BalanceRuleIn(_RuleInBase):
 
 
 RuleIn = Annotated[
-    Union[ExpectedRuleIn, TransactionRuleIn, BalanceRuleIn],
+    Union[ExpectedRuleIn, ContractOverdueRuleIn, TransactionRuleIn, BalanceRuleIn],
     Field(discriminator="trigger"),
 ]
 
@@ -69,7 +73,7 @@ class RuleRead(BaseModel):
     direction: BalanceDirection | None = None
 
 
-def _columns(payload: ExpectedRuleIn | TransactionRuleIn | BalanceRuleIn) -> dict:
+def _columns(payload: ExpectedRuleIn | ContractOverdueRuleIn | TransactionRuleIn | BalanceRuleIn) -> dict:
     # Map a validated, trigger-specific payload onto the model's flat column set
     columns = {
         "enabled": payload.enabled,

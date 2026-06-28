@@ -1,5 +1,9 @@
+from datetime import timedelta
+
 import pytest
 from source.backend.bank_handlers.base import FetchedAccount
+from source.backend.helpers import utc_now
+from source.backend.models.contract import OVERDUE_GRACE_DAYS
 from source.backend.models.credential import Credential
 from source.backend.models.notification_rule import (
     BalanceDirection,
@@ -22,11 +26,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     LAST_FETCHING_TIMESTAMP,
+    RECENT_DATE,
     FakeBankSession,
     assert_log_contains,
     build_handler,
     create_fetched_transaction,
     make_account,
+    make_contract,
     make_credential,
     make_transaction,
     make_user,
@@ -511,6 +517,111 @@ def test_sync_credential_triggers_notification_end_to_end(
 
     assert len(sent) == 1
     assert "Corner Shop" in sent[0].body
+
+
+# --- contract overdue trigger ----------------------------------------------
+
+_TODAY = RECENT_DATE
+
+
+def _capture_sent(monkeypatch: pytest.MonkeyPatch) -> list[Notification]:
+    sent: list[Notification] = []
+    monkeypatch.setattr(
+        target=notification_service,
+        name="notify_user",
+        value=lambda db_session, user, notification: sent.append(notification) or NotificationResult(),
+    )
+    return sent
+
+
+def test_overdue_contract_notifies_once_and_dedups(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    sent = _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        user = make_user(db_session)
+        credential = make_credential(db_session, user_id=user.id)
+        account = make_account(db_session, credential_id=credential.id)
+        _make_notification_rule(
+            db_session,
+            user_id=user.id,
+            trigger=NotificationTrigger.CONTRACT_OVERDUE,
+            account_ids=[account.id],
+        )
+        contract = make_contract(
+            db_session,
+            account_id=account.id,
+            expected_next_date=_TODAY - timedelta(days=OVERDUE_GRACE_DAYS + 1),
+        )
+        db_session.commit()
+
+        notification_engine.evaluate_overdue_contracts(db_session=db_session, today=_TODAY)
+        assert len(sent) == 1
+        assert contract.overdue_notified_at is not None
+
+        # A second run on the same overdue episode must not notify again.
+        notification_engine.evaluate_overdue_contracts(db_session=db_session, today=_TODAY)
+        assert len(sent) == 1
+
+
+def test_contract_within_grace_period_does_not_notify(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    sent = _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        user = make_user(db_session)
+        credential = make_credential(db_session, user_id=user.id)
+        account = make_account(db_session, credential_id=credential.id)
+        _make_notification_rule(
+            db_session,
+            user_id=user.id,
+            trigger=NotificationTrigger.CONTRACT_OVERDUE,
+            account_ids=[account.id],
+        )
+        make_contract(db_session, account_id=account.id, expected_next_date=_TODAY)
+        db_session.commit()
+
+        notification_engine.evaluate_overdue_contracts(db_session=db_session, today=_TODAY)
+
+    assert sent == []
+
+
+def test_overdue_contract_without_covering_rule_is_not_notified(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    sent = _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        user = make_user(db_session)
+        credential = make_credential(db_session, user_id=user.id)
+        account = make_account(db_session, credential_id=credential.id)
+        contract = make_contract(
+            db_session,
+            account_id=account.id,
+            expected_next_date=_TODAY - timedelta(days=OVERDUE_GRACE_DAYS + 1),
+        )
+        db_session.commit()
+
+        notification_engine.evaluate_overdue_contracts(db_session=db_session, today=_TODAY)
+
+        assert sent == []
+        assert contract.overdue_notified_at is None
+
+
+def test_overdue_flag_resets_once_payment_arrives(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        user = make_user(db_session)
+        credential = make_credential(db_session, user_id=user.id)
+        account = make_account(db_session, credential_id=credential.id)
+        _make_notification_rule(
+            db_session,
+            user_id=user.id,
+            trigger=NotificationTrigger.CONTRACT_OVERDUE,
+            account_ids=[account.id],
+        )
+        contract = make_contract(db_session, account_id=account.id, expected_next_date=_TODAY + timedelta(days=20))
+        contract.overdue_notified_at = utc_now()
+        db_session.commit()
+
+        notification_engine.evaluate_overdue_contracts(db_session=db_session, today=_TODAY)
+
+        assert contract.overdue_notified_at is None
 
 
 def test_notifications_are_rendered_in_recipient_language(session_factory: sessionmaker):

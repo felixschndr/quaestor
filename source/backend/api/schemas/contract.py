@@ -2,6 +2,7 @@ import datetime
 
 from pydantic import BaseModel, ConfigDict
 from source.backend.api.schemas.transaction import TransactionRead
+from source.backend.helpers import utc_now
 from source.backend.models.contract import Contract
 from source.backend.models.contract_assignment import ContractAssignment
 from source.backend.models.contract_frequency import ContractFrequency
@@ -41,6 +42,7 @@ class ContractRead(BaseModel):
     frequency: ContractFrequency | None
     interval_days: int | None
     expected_next_date: datetime.date | None
+    is_overdue: bool = False
     member_count: int = 0
     amount_per_day: float | None = None
     amount_per_frequency: dict[ContractFrequency, float] | None = None
@@ -48,6 +50,7 @@ class ContractRead(BaseModel):
     @classmethod
     def from_contract(cls: type["ContractRead"], contract: Contract) -> "ContractRead":
         instance = cls.model_validate(contract)
+        instance.is_overdue = contract.is_overdue_on(today=utc_now().date())
         members = contract.members()
         instance.member_count = len(members)
 

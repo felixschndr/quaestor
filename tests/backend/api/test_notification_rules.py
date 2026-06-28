@@ -54,6 +54,21 @@ def test_create_and_list_balance_rule(
     assert [rule["id"] for rule in listed] == [created["id"]]
 
 
+def test_create_and_list_contract_overdue_rule(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+
+    response = http_client.post(
+        "/api/notification_rules",
+        json={"trigger": "contract_overdue", "name": "Overdue", "account_ids": [account_id]},
+    )
+
+    assert response.status_code == 201
+    created = response.json()
+    assert created["trigger"] == "contract_overdue"
+    assert created["account_ids"] == [account_id]
+    assert created["name"] == "Overdue"
+
+
 def test_create_rule_can_opt_out_of_content(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
 

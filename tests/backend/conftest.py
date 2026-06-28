@@ -20,10 +20,13 @@ from source.backend.bank_handlers.base import (
     FetchedTransaction,
 )
 from source.backend.db import get_session
-from source.backend.helpers import get_root_path_of_repository
+from source.backend.helpers import get_root_path_of_repository, utc_now
 from source.backend.models.account import Account
 from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
 from source.backend.models.base import Base
+from source.backend.models.contract import Contract
+from source.backend.models.contract_frequency import ContractFrequency
+from source.backend.models.contract_source import ContractSource
 from source.backend.models.credential import Credential
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
@@ -370,6 +373,39 @@ def make_transaction(
     db_session.add(transaction)
     db_session.flush()
     return transaction
+
+
+def make_contract(
+    db_session: Session,
+    *,
+    account_id: int,
+    name: str = "Gym",
+    source: ContractSource = ContractSource.DETECTED,
+    expected_next_date: _date | None = None,
+    category: TransactionCategory | None = None,
+    median_amount: float | None = None,
+    amount_spread: float | None = None,
+    frequency: ContractFrequency | None = None,
+    interval_days: int | None = None,
+    overdue_notified_at: datetime | None = None,
+) -> Contract:
+    account = db_session.get(entity=Account, ident=account_id)
+    contract = Contract(
+        account=account,
+        name=name,
+        source=source,
+        created_at=utc_now(),
+        expected_next_date=expected_next_date,
+        category=category,
+        median_amount=median_amount,
+        amount_spread=amount_spread,
+        frequency=frequency,
+        interval_days=interval_days,
+        overdue_notified_at=overdue_notified_at,
+    )
+    db_session.add(contract)
+    db_session.flush()
+    return contract
 
 
 def persist_credential(
