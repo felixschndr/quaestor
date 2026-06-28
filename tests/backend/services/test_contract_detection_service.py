@@ -133,6 +133,53 @@ def test_amount_outlier_stays_in_series_and_is_flagged(session_factory: sessionm
         assert outliers[0].amount == 3000.0
 
 
+def test_amount_far_from_median_is_not_assigned_to_the_contract(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        # A monthly salary with a couple of small extra payments (reimbursements/bonuses) from the same employer.
+        for offset, amount in [(0, 2000.0), (30, 2050.0), (45, 100.0), (60, 1950.0), (75, 120.0), (90, 2100.0)]:
+            make_transaction(
+                session,
+                account_id=account.id,
+                amount=amount,
+                other_party="Employer GmbH",
+                date=OLDER_DATE + timedelta(days=offset),
+                transaction_type=TransactionType.INCOMING,
+            )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        contract = session.query(Contract).one()
+        member_amounts = sorted(transaction.amount for transaction in contract.members())
+        assert member_amounts == [1950.0, 2000.0, 2050.0, 2100.0]
+
+
+def test_sustained_amount_change_becomes_the_new_normal(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        # Six months at the old price, then a permanent increase for the last five months.
+        amounts = [-39.90] * 6 + [-46.90] * 5
+        for index, amount in enumerate(amounts):
+            make_transaction(
+                session,
+                account_id=account.id,
+                amount=amount,
+                other_party="Gym",
+                date=OLDER_DATE + timedelta(days=30 * index),
+                transaction_type=TransactionType.OUTGOING,
+            )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        contract = session.query(Contract).one()
+        assert len(contract.members()) == 11
+        assert contract.median_amount == -46.90
+        recent = [transaction for transaction in contract.members() if transaction.amount == -46.90]
+        assert all(not contract.is_outlier(transaction) for transaction in recent)
+
+
 def test_paypal_transactions_are_split_into_one_contract_per_merchant(session_factory: sessionmaker):
     with session_factory() as session:
         account = make_account_with_new_user(session)

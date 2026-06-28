@@ -7,7 +7,7 @@ from source.backend.db import SessionLocal
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
-from source.backend.models.contract import Contract
+from source.backend.models.contract import OUTLIER_ABSOLUTE_FLOOR, Contract
 from source.backend.models.contract_assignment import ContractAssignment
 from source.backend.models.contract_frequency import ContractFrequency
 from source.backend.models.contract_source import ContractSource
@@ -32,6 +32,14 @@ MAX_INTERVAL_DEVIATION_FRACTION = 0.25
 MIN_MATCHING_GAP_FRACTION = 0.6
 # Reject groups whose amounts scatter too far around their median, measured as Median Absolute Deviation / |median|.
 MAX_AMOUNT_DEVIATION_FRACTION = 0.5
+# A transaction only joins a contract when its amount stays within this fraction of the group median. Guards against
+# unrelated payments that merely share a counterparty (e.g. a one-off reimbursement or bonus landing in a salary series)
+# being swept into the contract. Must stay above the largest legitimate single-payment swing we still want to keep, so a
+# genuine outlier survives as a flagged member while gross mismatches are dropped entirely.
+MEMBER_AMOUNT_MAX_RELATIVE_DEVIATION = 0.6
+# Amount statistics (median/spread, and therefore outlier detection) are computed over only the most recent members, so
+# a sustained price change becomes the new normal instead of being flagged as an outlier forever.
+RECENT_AMOUNT_WINDOW = 6
 
 ELIGIBLE_TRANSACTION_TYPES = frozenset(
     {
@@ -91,16 +99,24 @@ def detect_contracts_for_account(db_session: Session, account: Account) -> int:
 
     detected = 0
     for (fingerprint, display_name), transactions in groups.items():
-        frequency, interval_days = _classify_cadence([transaction.date for transaction in transactions])
-        if frequency is None:
+        members = _members_within_amount_band(transactions)
+        dropped = len(transactions) - len(members)
+        if dropped:
             logger.debug(
-                f"Group '{display_name}' ({fingerprint}) with {len(transactions)} transaction(s) is not recurring"
+                f"Group '{display_name}' ({fingerprint}): dropped {dropped} transaction(s) whose amount is too far "
+                "from the group median to belong to the contract"
             )
+        if len(members) < MIN_TRANSACTIONS_PER_CONTRACT:
             continue
 
-        if not _amounts_are_consistent([transaction.amount for transaction in transactions]):
+        frequency, interval_days = _classify_cadence([transaction.date for transaction in members])
+        if frequency is None:
+            logger.debug(f"Group '{display_name}' ({fingerprint}) with {len(members)} transaction(s) is not recurring")
+            continue
+
+        if not _amounts_are_consistent([transaction.amount for transaction in members]):
             logger.debug(
-                f"Group '{display_name}' ({fingerprint}) with {len(transactions)} transaction(s) "
+                f"Group '{display_name}' ({fingerprint}) with {len(members)} transaction(s) "
                 "has inconsistent amounts; skipping"
             )
             continue
@@ -108,14 +124,12 @@ def detect_contracts_for_account(db_session: Session, account: Account) -> int:
         contract = _find_or_create_contract(
             db_session=db_session, account=account, fingerprint=fingerprint, display_name=display_name
         )
-        for transaction in transactions:
+        for transaction in members:
             transaction.contract_id = contract.id
             transaction.contract_assignment = ContractAssignment.AUTO
 
         detected += 1
-        logger.debug(
-            f"Linked {len(transactions)} transaction(s) to {contract} " f"({frequency.value}, ~{interval_days}d)"
-        )
+        logger.debug(f"Linked {len(members)} transaction(s) to {contract} " f"({frequency.value}, ~{interval_days}d)")
 
     db_session.flush()
     for contract in account.contracts:
@@ -198,6 +212,23 @@ def _amounts_are_consistent(amounts: list[float]) -> bool:
     return _median_absolute_deviation(amounts) / abs(center) <= MAX_AMOUNT_DEVIATION_FRACTION
 
 
+def _members_within_amount_band(transactions: list[Transaction]) -> list[Transaction]:
+    center = median([transaction.amount for transaction in transactions])
+    return [
+        transaction
+        for transaction in transactions
+        if _amount_belongs_to_contract(amount=transaction.amount, center=center)
+    ]
+
+
+def _amount_belongs_to_contract(amount: float, center: float) -> bool:
+    # The median is robust to the very outliers we want to drop, so it stays a reliable reference even when the group
+    # still contains them.
+    if center == 0:
+        return abs(amount) <= OUTLIER_ABSOLUTE_FLOOR
+    return abs(amount - center) <= MEMBER_AMOUNT_MAX_RELATIVE_DEVIATION * abs(center)
+
+
 def _find_or_create_contract(db_session: Session, account: Account, fingerprint: str, display_name: str) -> Contract:
     existing_contract = db_session.scalar(
         select(Contract).where(Contract.account_id == account.id).where(Contract.fingerprint == fingerprint)
@@ -220,11 +251,20 @@ def _find_or_create_contract(db_session: Session, account: Account, fingerprint:
 
 def recompute_contract_stats(contract: Contract) -> None:
     member_transactions = contract.members()
-    amounts = [transaction.amount for transaction in member_transactions]
     dates = [transaction.date for transaction in member_transactions]
 
-    contract.median_amount = median(amounts) if amounts else None
+    amounts = [transaction.amount for transaction in member_transactions]
+    # The current level is the median of the most recent members, so a sustained price change re-bases the contract
+    # instead of leaving the new level permanently flagged against a stale full-history median. The tolerance band,
+    # however, stays anchored to the full history: it reflects how much this contract genuinely fluctuates (a variable
+    # salary tolerates more swing than a fixed subscription), which a short window would underestimate.
+    recent_amounts = [
+        transaction.amount
+        for transaction in sorted(member_transactions, key=lambda transaction: transaction.date)[-RECENT_AMOUNT_WINDOW:]
+    ]
+    contract.median_amount = median(recent_amounts) if recent_amounts else None
     contract.amount_spread = _median_absolute_deviation(amounts) if amounts else None
+
     frequency, interval_days = _classify_cadence(dates)
     contract.frequency = frequency
     contract.interval_days = interval_days
