@@ -11,6 +11,8 @@ import {
   ResponsiveContainer,
   XAxis,
   YAxis,
+  usePlotArea,
+  useXAxisScale,
 } from 'recharts'
 
 import { formatEuro } from '@/lib/format'
@@ -99,6 +101,46 @@ function AmountLabel({ points, x = 0, y = 0, width = 0, index }: AmountLabelProp
   )
 }
 
+interface YearGroup {
+  year: number
+  startKey: string
+  endKey: string
+}
+
+function YearBand({ groups }: { groups: YearGroup[] }) {
+  const scale = useXAxisScale()
+  const plotArea = usePlotArea()
+  if (!scale || !plotArea) return null
+
+  const yLine = plotArea.y + plotArea.height + 24
+  const yText = yLine + 15
+  return (
+    <g>
+      {groups.map((group) => {
+        const left = scale(group.startKey, { position: 'start' })
+        const right = scale(group.endKey, { position: 'end' })
+        if (left === undefined || right === undefined) return null
+        return (
+          <g key={group.year}>
+            <foreignObject x={left + 3} y={yLine} width={Math.max(0, right - left - 6)} height={1}>
+              <span className="bg-foreground/20 block h-px w-full" />
+            </foreignObject>
+            <text
+              x={(left + right) / 2}
+              y={yText}
+              textAnchor="middle"
+              fontSize={11}
+              fill="var(--color-muted-foreground)"
+            >
+              {group.year}
+            </text>
+          </g>
+        )
+      })}
+    </g>
+  )
+}
+
 interface MedianLabelProps {
   value: string
   viewBox?: { x?: number; y?: number; width?: number }
@@ -153,6 +195,15 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
       : null
   const data = ghost ? [...points, ghost] : points
 
+  const yearGroups: YearGroup[] = []
+  for (const point of data) {
+    const year = parseISO(point.date).getFullYear()
+    const last = yearGroups.at(-1)
+    if (last && last.year === year) last.endKey = point.key
+    else yearGroups.push({ year, startKey: point.key, endKey: point.key })
+  }
+  const hasMultipleYears = yearGroups.length > 1
+
   const peak = Math.max(...data.map((point) => point.mag), 0)
   const yMax = peak * 1.02 || 1
   const medianMag = median !== null ? Math.abs(median) : null
@@ -183,8 +234,8 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
             tick={{ ...AXIS_TICK, fontSize: 10 }}
             tickLine={false}
             axisLine={{ stroke: 'var(--color-border)' }}
-            interval="preserveStartEnd"
-            minTickGap={16}
+            interval={0}
+            height={hasMultipleYears ? 44 : undefined}
           />
           {medianMag !== null ? (
             <ReferenceLine
@@ -215,6 +266,7 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
             ))}
             <LabelList dataKey="mag" content={<AmountLabel points={data} />} />
           </Bar>
+          {hasMultipleYears ? <YearBand groups={yearGroups} /> : null}
         </BarChart>
       </ResponsiveContainer>
     </div>

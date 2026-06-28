@@ -110,7 +110,7 @@ export function ContractDetailView({
     : []
 
   return (
-    <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-8 p-4">
+    <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-4 p-4">
       <header className="flex items-center justify-between gap-2">
         <BackLink />
         <div className="flex items-center gap-1">
@@ -125,7 +125,7 @@ export function ContractDetailView({
             {contract.name}
           </h1>
           {contract.is_overdue ? (
-            <span className="bg-destructive/10 text-destructive shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold">
+            <span className="bg-warning/10 text-warning shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold">
               {t('contracts.overdue')}
             </span>
           ) : null}
@@ -161,7 +161,7 @@ export function ContractDetailView({
         </StripStat>
         <StripStat label={t('contracts.nextExpected')} align="end">
           {contract.expected_next_date ? (
-            <span className={cn(contract.is_overdue && 'text-destructive')}>
+            <span className={cn(contract.is_overdue && 'text-warning')}>
               {formatDateWithoutYear(contract.expected_next_date)}
             </span>
           ) : (
@@ -304,7 +304,7 @@ function OverdueBanner({ contract }: { contract: ContractDetailRead }) {
   return (
     <div
       role="status"
-      className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2.5 rounded-lg border p-3 text-sm"
+      className="border-warning/30 bg-warning/10 text-warning flex items-start gap-2.5 rounded-lg border p-3 text-sm"
     >
       <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       <p>{t('contracts.overdueBanner', { count: months })}</p>

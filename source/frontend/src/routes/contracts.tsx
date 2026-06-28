@@ -204,7 +204,7 @@ function ContractRow({ contract }: { contract: ContractRead }) {
           <span className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm font-medium">{contract.name}</span>
             {contract.is_overdue ? (
-              <span className="bg-destructive/10 text-destructive shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+              <span className="bg-warning/10 text-warning shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold">
                 {t('contracts.overdue')}
               </span>
             ) : null}
@@ -217,7 +217,7 @@ function ContractRow({ contract }: { contract: ContractRead }) {
                 : t('contracts.frequencyUnknown')}
             </span>
             {contract.expected_next_date ? (
-              <span className={cn('truncate', contract.is_overdue && 'text-destructive')}>
+              <span className={cn('truncate', contract.is_overdue && 'text-warning')}>
                 {t('contracts.nextExpected')}:{' '}
                 <span className="hidden sm:inline">{formatDate(contract.expected_next_date)}</span>
                 <span className="sm:hidden">
