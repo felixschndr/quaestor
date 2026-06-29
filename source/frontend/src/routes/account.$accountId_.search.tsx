@@ -15,6 +15,7 @@ import type { TransactionRead } from '@/lib/accountHistory'
 import { accountDisplayName } from '@/lib/accounts'
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
 import { formatDate, formatEuro, formatIban } from '@/lib/format'
+import { CategoryAvatar } from '@/lib/categoryIcons'
 import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from '@/lib/transaction'
 import { useSearchTransactions, type TransactionFilters } from '@/lib/transactionSearch'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
@@ -336,8 +337,9 @@ function ResultRow({
           accountId: String(transaction.account_id),
           transactionId: String(transaction.id),
         }}
-        className="hover:bg-muted/60 grid grid-cols-[1fr_auto] items-baseline gap-3 rounded-md px-2 py-3 transition-colors"
+        className="hover:bg-muted/60 grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md px-2 py-3 transition-colors"
       >
+        <CategoryAvatar category={transaction.category} className="size-8" iconClassName="size-4" />
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-sm font-medium">{otherParty}</span>
           <span className="text-muted-foreground truncate text-xs">

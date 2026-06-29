@@ -20,6 +20,7 @@ import { toast } from 'sonner'
 import type { TransactionDetailRead, TransactionRead } from '@/lib/accountHistory'
 import { findAccountInUser } from '@/lib/accountHistory'
 import { formatDate, formatEuro, formatIban, isIban } from '@/lib/format'
+import { CategoryAvatar } from '@/lib/categoryIcons'
 import {
   TRANSACTION_CATEGORIES,
   useTransaction,
@@ -128,7 +129,8 @@ export function TransactionDetailView({
         <BackLink accountId={accountId} />
       </header>
 
-      <section className="flex min-h-[18vh] flex-col items-center justify-center">
+      <section className="flex min-h-[18vh] flex-col items-center justify-center gap-4">
+        <CategoryAvatar category={transaction.category} />
         <p
           className={cn(
             'text-5xl font-bold tracking-tight tabular-nums',
@@ -137,8 +139,17 @@ export function TransactionDetailView({
         >
           {formatEuro(transaction.amount)}
         </p>
+        <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
+          <span>{formatDate(transaction.date)}</span>
+          {transaction.transaction_type ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <TypeBadge transactionType={transaction.transaction_type} />
+            </>
+          ) : null}
+        </p>
         {transaction.pending ? (
-          <p className="bg-muted text-muted-foreground mt-3 rounded-full px-3 py-1 text-xs font-medium">
+          <p className="bg-muted text-muted-foreground rounded-full px-3 py-1 text-xs font-medium">
             {t('transaction.pendingHint')}
           </p>
         ) : null}
@@ -148,12 +159,8 @@ export function TransactionDetailView({
         <DetailRow label={t(otherPartyLabelKey(transaction.amount))}>
           {transaction.other_party?.trim() || <EmptyValue />}
         </DetailRow>
-        <DetailRow label={t('transaction.date')}>{formatDate(transaction.date)}</DetailRow>
         <DetailRow label={t('transaction.purpose')}>
           {transaction.purpose?.trim() || <EmptyValue />}
-        </DetailRow>
-        <DetailRow label={t('transaction.type')}>
-          <TypeBadge transactionType={transaction.transaction_type} />
         </DetailRow>
         <DetailRow label={t('transaction.category')}>
           {transaction.pending ? (

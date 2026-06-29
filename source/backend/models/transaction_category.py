@@ -90,11 +90,12 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "itunes",
         "google workspace",
         "netflix",
+        "serverprofis",
     ],
     TransactionCategory.RENT: ["miete"],
     TransactionCategory.UTILITIES: ["vattenfall", "vodafone", "rundfunk", "strom"],
     TransactionCategory.TRAVEL: ["vw leasing", "auto", "tuv", "tuev", "db", "bahn", "hotel", "vbk", "urlaub", "beach"],
-    TransactionCategory.FUEL: ["tankstelle", "aral station", "bft", "tanken"],
+    TransactionCategory.FUEL: ["tankstelle", "aral station", "bft", "tanken", "esso"],
     TransactionCategory.FITNESS: ["fit-in", "fitness", "gym"],
     TransactionCategory.SUPERMARKET: [
         "rewe",

@@ -14,6 +14,7 @@ import {
 } from '@/lib/accountHistory'
 import { useUpdateAccount } from '@/lib/accounts'
 import { useDeleteTransaction } from '@/lib/transaction'
+import { CategoryAvatar } from '@/lib/categoryIcons'
 import {
   useDeleteRecurringTransaction,
   useRecurringTransactions,
@@ -759,10 +760,15 @@ function TransactionRow({
           to="/account/$accountId/transactions/$transactionId"
           params={{ accountId: String(accountId), transactionId: String(transaction.id) }}
           className={cn(
-            'hover:bg-muted/60 flex items-center gap-3 rounded-md py-3 pl-3 transition-colors',
+            'hover:bg-muted/60 flex items-center gap-3 rounded-md px-2 py-3 transition-colors',
             (isFuture || pending) && 'opacity-60',
           )}
         >
+          <CategoryAvatar
+            category={transaction.category}
+            className="size-8"
+            iconClassName="size-4"
+          />
           <span className="flex-1 truncate text-sm font-medium">
             {otherParty}
             {pending ? (
@@ -804,11 +810,12 @@ function TransactionRow({
     <li
       id={`transaction-${transaction.id}`}
       className={cn(
-        'flex items-center gap-3 rounded-md py-3 pl-2 transition-colors',
+        'flex items-center gap-3 rounded-md px-2 py-3 transition-colors',
         isFuture && 'opacity-60',
         highlighted && 'bg-primary/20',
       )}
     >
+      <CategoryAvatar category={transaction.category} className="size-8" iconClassName="size-4" />
       <span className="flex-1 truncate text-sm font-medium">{otherParty}</span>
       <span
         className={cn(

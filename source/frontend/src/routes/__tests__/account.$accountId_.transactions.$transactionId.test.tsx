@@ -100,7 +100,7 @@ describe('TransactionDetailView', () => {
     // amount: -42.5 (outgoing) → "Recipient" label
     renderView()
     const dts = screen.getAllByRole('term').map((node) => node.textContent)
-    expect(dts).toEqual(['Recipient', 'Date', 'Purpose', 'Type', 'Category', 'Account', 'Note'])
+    expect(dts).toEqual(['Recipient', 'Purpose', 'Category', 'Account', 'Note'])
   })
 
   it('labels the other-party row "Sender" for incoming amounts', () => {
@@ -115,11 +115,9 @@ describe('TransactionDetailView', () => {
     expect(dts[0]).toBe('Other party')
   })
 
-  it('renders the date in long form following the active language', () => {
+  it('renders the date in long form in the header following the active language', () => {
     renderView({ date: '2026-05-20' })
-    const dateLabel = screen.getByText('Date')
-    const dateValue = dateLabel.nextElementSibling
-    expect(dateValue?.textContent).toMatch(/May 20, 2026/)
+    expect(screen.getByText(/May 20, 2026/)).toBeInTheDocument()
   })
 
   it('falls back to the em-dash placeholder when other_party / purpose are missing', () => {
@@ -133,10 +131,12 @@ describe('TransactionDetailView', () => {
     expect(screen.getByText('Outgoing')).toBeInTheDocument()
   })
 
-  it('renders the em-dash when transaction_type is null', () => {
+  it('omits the type segment in the header when transaction_type is null', () => {
     renderView({ transaction_type: null })
-    const typeLabel = screen.getByText('Type')
-    expect(typeLabel.nextElementSibling?.textContent).toBe('—')
+    // The type is shown next to the date in the header; with no type we drop the
+    // segment entirely rather than rendering a placeholder, but the date remains.
+    expect(screen.queryByText('Outgoing')).not.toBeInTheDocument()
+    expect(screen.getByText(/May 20, 2026/)).toBeInTheDocument()
   })
 
   it('preselects the current category in the dropdown', async () => {
@@ -234,9 +234,7 @@ describe('TransactionDetailView', () => {
     const terms = screen.getAllByRole('term').map((node) => node.textContent)
     expect(terms).toEqual([
       'Recipient',
-      'Date',
       'Purpose',
-      'Type',
       'Category',
       'Linked transaction',
       'Account',
