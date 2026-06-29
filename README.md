@@ -136,6 +136,7 @@ This is the reason why PayPal is not supported by this App. To fetch PayPal pers
 I understand that any project with access to your bank accounts is, by nature, handling sensitive information.
 Security measures in place:
 
+ - Your data stays with you: First of all, when you compare it to a software like Finanzguru, Quaestor has the big advantage that **your** data stays on **your** server. You don't share any passwords or other banking information with a third party.
  - Encryption at rest: The SQLite database is fully encrypted, meaning its contents cannot be read without the encryption key (no matter whether the software is currently running or not). This applies not only to your account credentials but to **all** data stored in the database.
  - Secure communication with banks: All communication with banking servers is exclusively done via HTTP**S**.
  - Secure access to the server: I strongly recommend accessing the server only via HTTP**S** as well. Set `SSL_CERTFILE` and `SSL_KEYFILE` to enable it (see `Environment`); without them the server runs plain HTTP. Alternatively use a reverse proxy.

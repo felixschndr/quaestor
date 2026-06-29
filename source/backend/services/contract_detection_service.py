@@ -47,6 +47,8 @@ ELIGIBLE_TRANSACTION_TYPES = frozenset(
         TransactionType.OUTGOING,
         TransactionType.DEPOSIT,
         TransactionType.REMOVAL,
+        TransactionType.TRANSFER_IN,
+        TransactionType.TRANSFER_OUT,
     }
 )
 
