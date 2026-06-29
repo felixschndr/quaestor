@@ -57,23 +57,25 @@ def test_detects_a_simple_transfer_and_links_them(session_factory: sessionmaker,
         assert in_transaction.transfer_counterpart_id == out_transaction.id
 
 
-def test_amount_tolerance(session_factory: sessionmaker):
+def test_requires_an_exact_amount_match(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
         make_transaction(
             session, account_id=account_a.id, amount=-50.0, date=_BASE_DATE, transaction_type=TransactionType.OUTGOING
         )
-        within = make_transaction(
+        # Off by one: a similarly-sized but unrelated booking must not be swept into a bogus transfer pair.
+        near_miss = make_transaction(
             session, account_id=account_b.id, amount=49.0, date=_BASE_DATE, transaction_type=TransactionType.INCOMING
         )
-        make_transaction(
-            session, account_id=account_b.id, amount=48.0, date=_BASE_DATE, transaction_type=TransactionType.INCOMING
+        exact = make_transaction(
+            session, account_id=account_b.id, amount=50.0, date=_BASE_DATE, transaction_type=TransactionType.INCOMING
         )
         session.flush()
 
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
-        assert within.transaction_type == TransactionType.TRANSFER_IN
+        assert exact.transaction_type == TransactionType.TRANSFER_IN
+        assert near_miss.transaction_type == TransactionType.INCOMING
 
 
 def test_no_match_when_time_difference_is_too_big(session_factory: sessionmaker):

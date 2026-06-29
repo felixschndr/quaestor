@@ -20,23 +20,21 @@ ELIGIBLE_TYPES = frozenset(
     }
 )
 
-AMOUNT_TOLERANCE = 1.0  # the two legs may differ by up to this (fees, rounding) in <unit of money>
 MAX_DISTANCE = timedelta(days=5)
 
 
 def _is_match(outflow: Transaction, inflow: Transaction) -> bool:
     if inflow.account_id == outflow.account_id:
         return False
-    if abs(outflow.amount + inflow.amount) > AMOUNT_TOLERANCE:
+    if outflow.amount != -inflow.amount:
         return False
     return abs(outflow.date - inflow.date) <= MAX_DISTANCE
 
 
 def _candidate_rank(outflow: Transaction, inflow: Transaction) -> tuple:
-    # Matching: closest amount, then a matching purpose, then closest date, then id.
+    # Amounts already match exactly, so rank by a matching purpose first, then closest date, then id.
     purpose_matches = outflow.purpose is not None and outflow.purpose == inflow.purpose
     return (
-        abs(outflow.amount + inflow.amount),
         0 if purpose_matches else 1,
         abs(outflow.date - inflow.date),
         inflow.id,
