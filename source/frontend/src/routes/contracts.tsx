@@ -66,14 +66,15 @@ const SORT_OPTIONS = [
   'name',
   'amount_asc',
   'amount_desc',
-  'magnitude_asc',
-  'magnitude_desc',
+  'per_day_in',
+  'per_day_out',
   'next',
 ] as const
 type SortOption = (typeof SORT_OPTIONS)[number]
 
 function sortContracts(contracts: ContractRead[], sort: SortOption): ContractRead[] {
   const amount = (contract: ContractRead) => contract.median_amount
+  const perDay = (contract: ContractRead) => contract.amount_per_day
   const sorted = [...contracts]
   switch (sort) {
     case 'name':
@@ -82,17 +83,14 @@ function sortContracts(contracts: ContractRead[], sort: SortOption): ContractRea
       return sorted.sort((a, b) => byNumber(amount(a), amount(b), 'asc'))
     case 'amount_desc':
       return sorted.sort((a, b) => byNumber(amount(a), amount(b), 'desc'))
-    case 'magnitude_asc':
-      return sorted.sort((a, b) => byNumber(absOrNull(amount(a)), absOrNull(amount(b)), 'asc'))
-    case 'magnitude_desc':
-      return sorted.sort((a, b) => byNumber(absOrNull(amount(a)), absOrNull(amount(b)), 'desc'))
+    // amount_per_day is signed, so income sorts to the top descending and expenses ascending.
+    case 'per_day_in':
+      return sorted.sort((a, b) => byNumber(perDay(a), perDay(b), 'desc'))
+    case 'per_day_out':
+      return sorted.sort((a, b) => byNumber(perDay(a), perDay(b), 'asc'))
     case 'next':
       return sorted.sort((a, b) => byString(a.expected_next_date, b.expected_next_date))
   }
-}
-
-function absOrNull(value: number | null): number | null {
-  return value === null ? null : Math.abs(value)
 }
 
 function byNumber(a: number | null, b: number | null, direction: 'asc' | 'desc'): number {
@@ -225,6 +223,11 @@ function ContractRow({ contract }: { contract: ContractRead }) {
                 </span>
               </span>
             ) : null}
+            {contract.amount_per_day === null ? null : (
+              <span className="truncate">
+                {t('contracts.perDay')}: {formatEuro(contract.amount_per_day)}
+              </span>
+            )}
           </span>
         </span>
         {contract.median_amount === null ? null : (

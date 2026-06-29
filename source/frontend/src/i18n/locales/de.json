@@ -768,8 +768,8 @@
       "name": "Name",
       "amount_asc": "Betrag aufsteigend",
       "amount_desc": "Betrag absteigend",
-      "magnitude_asc": "Betragshöhe aufsteigend",
-      "magnitude_desc": "Betragshöhe absteigend",
+      "per_day_in": "Einnahmen pro Tag",
+      "per_day_out": "Ausgaben pro Tag",
       "next": "Nächste Buchung"
     },
     "turnus": "Turnus",

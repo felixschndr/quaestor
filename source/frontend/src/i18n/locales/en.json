@@ -768,8 +768,8 @@
       "name": "Name",
       "amount_asc": "Amount ascending",
       "amount_desc": "Amount descending",
-      "magnitude_asc": "Amount size ascending",
-      "magnitude_desc": "Amount size descending",
+      "per_day_in": "Income per day",
+      "per_day_out": "Expenses per day",
       "next": "Next payment"
     },
     "turnus": "Frequency",
