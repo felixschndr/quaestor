@@ -1,35 +1,60 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Check, Pencil, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 
 export function RenameContractButton({
+  disabled,
+  onClick,
+}: {
+  disabled?: boolean
+  onClick: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      aria-label={t('contracts.rename')}
+      disabled={disabled}
+      onClick={onClick}
+      className="text-muted-foreground hover:text-foreground px-1 sm:px-2.5"
+    >
+      <Pencil className="size-3.5" aria-hidden="true" />
+    </Button>
+  )
+}
+
+export function ContractNameInput({
   name,
   onRename,
+  onDone,
 }: {
   name: string
   onRename: (name: string) => Promise<unknown>
+  onDone: () => void
 }) {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
   const [value, setValue] = useState(name)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+    inputRef.current?.select()
+  }, [])
 
   const canSubmit = value.trim().length > 0 && value.trim() !== name
 
   const submit = () => {
-    if (!canSubmit) return
-    setOpen(false)
+    if (!canSubmit) {
+      onDone()
+      return
+    }
+    onDone()
     toast.promise(onRename(value.trim()), {
       loading: t('common.saving'),
       success: t('contracts.renamed'),
@@ -38,47 +63,40 @@ export function RenameContractButton({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (next) setValue(name)
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-label={t('contracts.rename')}
-          className="text-muted-foreground hover:text-foreground px-1 sm:px-2.5"
-        >
-          <Pencil className="size-3.5" aria-hidden="true" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-[46rem]">
-        <DialogHeader>
-          <DialogTitle>{t('contracts.rename')}</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-4">
-          <Input
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') submit()
-            }}
-          />
-          <div className="flex justify-end gap-2">
-            <DialogClose asChild>
-              <Button variant="ghost">{t('common.cancel')}</Button>
-            </DialogClose>
-            <Button disabled={!canSubmit} onClick={submit}>
-              {t('common.save')}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <div className="flex w-full items-center gap-2">
+      <Input
+        ref={inputRef}
+        value={value}
+        aria-label={t('contracts.rename')}
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') submit()
+          else if (event.key === 'Escape') onDone()
+        }}
+        className="h-9 text-xl font-semibold"
+      />
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        aria-label={t('common.save')}
+        disabled={!canSubmit}
+        onClick={submit}
+        className="text-muted-foreground hover:text-success px-1 sm:px-2.5"
+      >
+        <Check className="size-3.5" aria-hidden="true" />
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        aria-label={t('common.cancel')}
+        onClick={onDone}
+        className="text-muted-foreground hover:text-foreground px-1 sm:px-2.5"
+      >
+        <X className="size-3.5" aria-hidden="true" />
+      </Button>
+    </div>
   )
 }
 

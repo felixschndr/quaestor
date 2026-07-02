@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, TriangleAlert } from 'lucide-react'
@@ -16,7 +17,11 @@ import {
 import { formatDate, formatDateWithoutYear, formatEuro, formatIban } from '@/lib/format'
 import { ContractTimeline } from '@/components/contract-timeline'
 import { NoteEditor } from '@/components/note-editor'
-import { DeleteContractButton, RenameContractButton } from '@/components/contract-actions'
+import {
+  ContractNameInput,
+  DeleteContractButton,
+  RenameContractButton,
+} from '@/components/contract-actions'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/contracts_/$contractId')({
@@ -85,6 +90,7 @@ export function ContractDetailView({
   onDelete,
 }: ContractDetailViewProps) {
   const { t } = useTranslation()
+  const [editingName, setEditingName] = useState(false)
   const activeMembers = contract.members.filter(
     (member) => member.contract_assignment !== 'EXCLUDED',
   )
@@ -120,23 +126,31 @@ export function ContractDetailView({
       <header className="flex items-center justify-between gap-2">
         <BackLink />
         <div className="flex items-center gap-1">
-          <RenameContractButton name={contract.name} onRename={onRename} />
+          <RenameContractButton disabled={editingName} onClick={() => setEditingName(true)} />
           <DeleteContractButton onConfirm={onDelete} isDeleting={isDeleting} />
         </div>
       </header>
 
-      <section className="flex flex-col items-center gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-        <div className="flex max-w-full items-center gap-2">
-          <h1 className="text-foreground max-w-full truncate text-xl font-semibold">
-            {contract.name}
-          </h1>
-          {contract.is_overdue ? (
-            <span className="bg-warning/10 text-warning shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold">
-              {t('contracts.overdue')}
-            </span>
-          ) : null}
-        </div>
-        {contract.median_amount === null ? null : (
+      <section className="flex min-h-9 flex-col items-center gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        {editingName ? (
+          <ContractNameInput
+            name={contract.name}
+            onRename={onRename}
+            onDone={() => setEditingName(false)}
+          />
+        ) : (
+          <div className="flex max-w-full items-center gap-2">
+            <h1 className="text-foreground max-w-full truncate text-xl font-semibold">
+              {contract.name}
+            </h1>
+            {contract.is_overdue ? (
+              <span className="bg-warning/10 text-warning shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold">
+                {t('contracts.overdue')}
+              </span>
+            ) : null}
+          </div>
+        )}
+        {editingName || contract.median_amount === null ? null : (
           <span className={cn('text-xl font-semibold tabular-nums', medianColor)}>
             {formatEuro(contract.median_amount)}
           </span>
