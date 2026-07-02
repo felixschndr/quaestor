@@ -19,6 +19,7 @@ class ContractCreate(BaseModel):
 class ContractUpdate(BaseModel):
     name: str
     category: TransactionCategory | None = None
+    note: str | None = None
 
 
 class ContractMemberRead(TransactionRead):
@@ -32,6 +33,7 @@ class ContractRead(BaseModel):
     id: int
     account_id: int
     name: str
+    note: str | None = None
     category: TransactionCategory | None
     source: ContractSource
     median_amount: float | None

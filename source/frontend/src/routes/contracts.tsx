@@ -11,14 +11,11 @@ import {
   filterContracts,
   useContracts,
   useCreateContract,
-  useDeleteContract,
-  useUpdateContract,
   type ContractFilters,
   type ContractRead,
 } from '@/lib/contract'
 import { TRANSACTION_CATEGORIES } from '@/lib/transaction'
-import { formatDate, formatDateWithoutYear, formatEuro } from '@/lib/format'
-import { DeleteContractButton, RenameContractButton } from '@/components/contract-actions'
+import { ContractCostOverview } from '@/components/contract-cost-overview'
 import { Button } from '@/components/ui/button'
 import { ContractFilterBar } from '@/components/ui/contract-filter-bar'
 import { Input } from '@/components/ui/input'
@@ -33,7 +30,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { cn } from '@/lib/utils'
 
 const numberList = z
   .union([z.array(z.coerce.number()), z.coerce.number()])
@@ -66,8 +62,8 @@ const SORT_OPTIONS = [
   'name',
   'amount_asc',
   'amount_desc',
-  'per_day_in',
   'per_day_out',
+  'per_day_in',
   'next',
 ] as const
 type SortOption = (typeof SORT_OPTIONS)[number]
@@ -162,11 +158,7 @@ function ContractsPage() {
               />
             </div>
           </div>
-          <ul className="border-border divide-border bg-card flex flex-col divide-y overflow-hidden rounded-lg border">
-            {visible.map((contract) => (
-              <ContractRow key={contract.id} contract={contract} />
-            ))}
-          </ul>
+          <ContractCostOverview contracts={visible} />
         </section>
       ) : (
         <p className="text-muted-foreground text-sm">
@@ -174,81 +166,6 @@ function ContractsPage() {
         </p>
       )}
     </main>
-  )
-}
-
-function ContractRow({ contract }: { contract: ContractRead }) {
-  const { t } = useTranslation()
-  const update = useUpdateContract(contract.id)
-  const remove = useDeleteContract()
-  const negative = (contract.median_amount ?? 0) < 0
-
-  const onDelete = () => {
-    toast.promise(remove.mutateAsync(contract.id), {
-      loading: t('common.saving'),
-      success: t('contracts.deleted'),
-      error: t('errors.unexpected.title'),
-    })
-  }
-
-  return (
-    <li className="hover:bg-muted/60 flex items-center gap-3 px-3 py-3 transition-colors">
-      <Link
-        to="/contracts/$contractId"
-        params={{ contractId: String(contract.id) }}
-        className="grid flex-1 grid-cols-[1fr_auto] items-center gap-3"
-      >
-        <span className="flex min-w-0 flex-col">
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-medium">{contract.name}</span>
-            {contract.is_overdue ? (
-              <span className="bg-warning/10 text-warning shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold">
-                {t('contracts.overdue')}
-              </span>
-            ) : null}
-          </span>
-          <span className="text-muted-foreground flex flex-col text-xs">
-            <span className="truncate">
-              {t('contracts.turnus')}:{' '}
-              {contract.frequency
-                ? t(`contracts.frequency.${contract.frequency}`)
-                : t('contracts.frequencyUnknown')}
-            </span>
-            {contract.expected_next_date ? (
-              <span className={cn('truncate', contract.is_overdue && 'text-warning')}>
-                {t('contracts.nextExpected')}:{' '}
-                <span className="hidden sm:inline">{formatDate(contract.expected_next_date)}</span>
-                <span className="sm:hidden">
-                  {formatDateWithoutYear(contract.expected_next_date)}
-                </span>
-              </span>
-            ) : null}
-            {contract.amount_per_day === null ? null : (
-              <span className="truncate">
-                {t('contracts.perDay')}: {formatEuro(contract.amount_per_day)}
-              </span>
-            )}
-          </span>
-        </span>
-        {contract.median_amount === null ? null : (
-          <span
-            className={cn(
-              'text-sm font-semibold tabular-nums',
-              negative ? 'text-destructive' : 'text-success',
-            )}
-          >
-            {formatEuro(contract.median_amount)}
-          </span>
-        )}
-      </Link>
-      <div className="flex items-center gap-0 sm:gap-1">
-        <RenameContractButton
-          name={contract.name}
-          onRename={(name) => update.mutateAsync({ name, category: contract.category })}
-        />
-        <DeleteContractButton onConfirm={onDelete} isDeleting={remove.isPending} />
-      </div>
-    </li>
   )
 }
 

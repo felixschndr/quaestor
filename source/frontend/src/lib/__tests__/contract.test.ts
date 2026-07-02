@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  contractAmountForPeriod,
   filterContracts,
   hasActiveContractFilters,
   monthsOverdue,
+  sumContractsForPeriod,
   type ContractRead,
 } from '@/lib/contract'
 
@@ -12,6 +14,7 @@ function makeContract(overrides: Partial<ContractRead> = {}): ContractRead {
     id: 1,
     account_id: 10,
     name: 'Test',
+    note: null,
     category: null,
     source: 'DETECTED',
     median_amount: -30,
@@ -148,5 +151,47 @@ describe('monthsOverdue', () => {
   it('is zero for a future or same-day date', () => {
     expect(monthsOverdue('2026-08-01', now)).toBe(0)
     expect(monthsOverdue('2026-06-28', now)).toBe(0)
+  })
+})
+
+const projected = makeContract({
+  amount_per_day: -1,
+  amount_per_frequency: { WEEKLY: -7, BIWEEKLY: -14, MONTHLY: -30, QUARTERLY: -91, YEARLY: -365 },
+})
+
+describe('contractAmountForPeriod', () => {
+  it('reads amount_per_day for the DAY period', () => {
+    expect(contractAmountForPeriod(projected, 'DAY')).toBe(-1)
+  })
+
+  it('reads the projection for a frequency period', () => {
+    expect(contractAmountForPeriod(projected, 'WEEKLY')).toBe(-7)
+    expect(contractAmountForPeriod(projected, 'MONTHLY')).toBe(-30)
+    expect(contractAmountForPeriod(projected, 'YEARLY')).toBe(-365)
+  })
+
+  it('returns null when the projection is missing', () => {
+    const bare = makeContract({ amount_per_day: null, amount_per_frequency: null })
+    expect(contractAmountForPeriod(bare, 'DAY')).toBeNull()
+    expect(contractAmountForPeriod(bare, 'MONTHLY')).toBeNull()
+  })
+})
+
+describe('sumContractsForPeriod', () => {
+  it('sums the period amount across contracts, ignoring those without a value', () => {
+    const a = makeContract({
+      id: 1,
+      amount_per_frequency: { WEEKLY: 0, BIWEEKLY: 0, MONTHLY: -30, QUARTERLY: 0, YEARLY: 0 },
+    })
+    const b = makeContract({
+      id: 2,
+      amount_per_frequency: { WEEKLY: 0, BIWEEKLY: 0, MONTHLY: -50, QUARTERLY: 0, YEARLY: 0 },
+    })
+    const missing = makeContract({ id: 3, amount_per_frequency: null })
+    expect(sumContractsForPeriod([a, b, missing], 'MONTHLY')).toBe(-80)
+  })
+
+  it('is zero for an empty list', () => {
+    expect(sumContractsForPeriod([], 'MONTHLY')).toBe(0)
   })
 })

@@ -57,7 +57,10 @@ def update_contract(
     db_session: Session = Depends(get_session),
 ) -> ContractDetailRead:
     contract = contract_service.update_contract(
-        db_session=db_session, user=current_user, contract_id=contract_id, fields=payload.model_dump()
+        db_session=db_session,
+        user=current_user,
+        contract_id=contract_id,
+        fields=payload.model_dump(exclude_unset=True),
     )
     return ContractDetailRead.from_contract(contract)
 

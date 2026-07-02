@@ -96,6 +96,33 @@ def test_update_and_delete_contract(http_client: TestClient, session_factory: se
     assert http_client.get(f"/api/contracts/{contract['id']}").status_code == 404
 
 
+def test_contract_note(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    contract = _create_contract(http_client, account_id=account_id)
+    assert contract["note"] is None
+
+    updated = http_client.patch(
+        f"/api/contracts/{contract['id']}",
+        json={"name": contract["name"], "category": "FITNESS", "note": "Cancel before June"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["note"] == "Cancel before June"
+
+    assert http_client.get(f"/api/contracts/{contract['id']}").json()["note"] == "Cancel before June"
+
+
+def test_rename_preserves_existing_note(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    contract = _create_contract(http_client, account_id=account_id)
+    http_client.patch(f"/api/contracts/{contract['id']}", json={"name": "Gym", "note": "keep me"})
+
+    renamed = http_client.patch(f"/api/contracts/{contract['id']}", json={"name": "New Gym", "category": "FITNESS"})
+
+    assert renamed.status_code == 200
+    assert renamed.json()["name"] == "New Gym"
+    assert renamed.json()["note"] == "keep me"
+
+
 def test_contract_of_other_user_is_not_accessible(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     contract = _create_contract(http_client, account_id=account_id)

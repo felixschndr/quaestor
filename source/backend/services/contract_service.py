@@ -62,7 +62,10 @@ def get_contract_for_user(db_session: Session, user: User, contract_id: int) -> 
 def update_contract(db_session: Session, user: User, contract_id: int, fields: dict) -> Contract:
     contract = get_contract_for_user(db_session=db_session, user=user, contract_id=contract_id)
     contract.name = fields["name"]
-    contract.category = fields.get("category")
+    if "category" in fields:
+        contract.category = fields["category"]
+    if "note" in fields:
+        contract.note = fields["note"]
     db_session.commit()
     logger.info(f"Updated {contract}")
     return contract

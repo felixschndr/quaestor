@@ -20,6 +20,7 @@ export interface ContractRead {
   id: number
   account_id: number
   name: string
+  note: string | null
   category: TransactionCategory | null
   source: ContractSource
   median_amount: number | null
@@ -74,6 +75,27 @@ export function filterContracts(
   })
 }
 
+export type ContractCostPeriod = 'DAY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
+export const CONTRACT_COST_PERIODS: ContractCostPeriod[] = ['DAY', 'WEEKLY', 'MONTHLY', 'YEARLY']
+
+export function contractAmountForPeriod(
+  contract: ContractRead,
+  period: ContractCostPeriod,
+): number | null {
+  if (period === 'DAY') return contract.amount_per_day
+  return contract.amount_per_frequency?.[period] ?? null
+}
+
+export function sumContractsForPeriod(
+  contracts: ContractRead[],
+  period: ContractCostPeriod,
+): number {
+  return contracts.reduce((sum, contract) => {
+    const value = contractAmountForPeriod(contract, period)
+    return value === null ? sum : sum + value
+  }, 0)
+}
+
 export const OVERDUE_BANNER_MONTHS = 2
 
 export function monthsOverdue(expectedNextDate: string, now: Date = new Date()): number {
@@ -104,6 +126,7 @@ export interface ContractCreatePayload {
 export interface ContractUpdatePayload {
   name: string
   category?: TransactionCategory | null
+  note?: string | null
 }
 
 export const contractQueryKeys = {

@@ -540,10 +540,6 @@
     "purpose": "Verwendungszweck",
     "category": "Kategorie",
     "note": "Notiz",
-    "noteSavedAt": "Gespeichert",
-    "noteSaving": "Speichern …",
-    "notePlaceholder": "Notiz hinzufügen …",
-    "noteEdit": "Notiz bearbeiten",
     "fieldEmpty": "—",
     "pendingBadge": "Vorgemerkt",
     "pendingHint": "Vorgemerkt — noch nicht endgültig gebucht und kann sich noch ändern",
@@ -610,6 +606,13 @@
     },
     "categories": {
       "title": "Nach Kategorie"
+    },
+    "contracts": {
+      "title": "Verträge",
+      "perDay": "Pro Tag",
+      "perMonth": "Pro Monat",
+      "perYear": "Pro Jahr",
+      "viewAll": "Alle ansehen"
     },
     "cashflow": {
       "title": "Einnahmen & Ausgaben pro Monat",
@@ -718,6 +721,12 @@
     "testDenied": "Benachrichtigungen sind in den Browser-Einstellungen blockiert.",
     "testUnsupported": "Push-Benachrichtigungen werden auf diesem Gerät nicht unterstützt."
   },
+  "note": {
+    "placeholder": "Notiz hinzufügen …",
+    "edit": "Notiz bearbeiten",
+    "saving": "Speichern …",
+    "saved": "Gespeichert"
+  },
   "contracts": {
     "title": "Verträge",
     "empty": "Noch keine Verträge erkannt.",
@@ -732,7 +741,7 @@
     "name": "Name",
     "account": "Konto",
     "selectAccount": "Konto wählen",
-    "perDay": "Pro Tag",
+    "note": "Notiz",
     "normalized": "Hochgerechnet",
     "nextExpected": "Nächste Zahlung",
     "overdue": "Überfällig",
@@ -757,11 +766,21 @@
       "YEARLY": "Jährlich"
     },
     "period": {
+      "DAY": "Tag",
       "WEEKLY": "Woche",
       "BIWEEKLY": "2 Wochen",
       "MONTHLY": "Monat",
       "QUARTERLY": "Quartal",
       "YEARLY": "Jahr"
+    },
+    "cost": {
+      "total": "Summe",
+      "surplus": "Überschuss",
+      "deficit": "Defizit",
+      "viewList": "Liste",
+      "viewTable": "Tabelle",
+      "viewLabel": "Ansicht",
+      "periodLabel": "Periode"
     },
     "sortLabel": "Sortieren",
     "sort": {

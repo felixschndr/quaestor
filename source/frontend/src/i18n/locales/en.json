@@ -540,10 +540,6 @@
     "purpose": "Purpose",
     "category": "Category",
     "note": "Note",
-    "noteSavedAt": "Saved",
-    "noteSaving": "Saving…",
-    "notePlaceholder": "Add a note…",
-    "noteEdit": "Edit note",
     "fieldEmpty": "—",
     "pendingBadge": "Pending",
     "pendingHint": "Pending — not finally booked yet and may still change",
@@ -610,6 +606,13 @@
     },
     "categories": {
       "title": "By category"
+    },
+    "contracts": {
+      "title": "Contracts",
+      "perDay": "Per day",
+      "perMonth": "Per month",
+      "perYear": "Per year",
+      "viewAll": "View all"
     },
     "cashflow": {
       "title": "Income & expenses per month",
@@ -718,6 +721,12 @@
     "testDenied": "Notifications are blocked in your browser settings.",
     "testUnsupported": "Push notifications are not supported on this device."
   },
+  "note": {
+    "placeholder": "Add a note…",
+    "edit": "Edit note",
+    "saving": "Saving…",
+    "saved": "Saved"
+  },
   "contracts": {
     "title": "Contracts",
     "empty": "No contracts detected yet.",
@@ -732,7 +741,7 @@
     "name": "Name",
     "account": "Account",
     "selectAccount": "Select account",
-    "perDay": "Per day",
+    "note": "Note",
     "normalized": "Normalized",
     "nextExpected": "Next payment",
     "overdue": "Overdue",
@@ -757,11 +766,21 @@
       "YEARLY": "Yearly"
     },
     "period": {
+      "DAY": "Day",
       "WEEKLY": "Week",
       "BIWEEKLY": "2 weeks",
       "MONTHLY": "Month",
       "QUARTERLY": "Quarter",
       "YEARLY": "Year"
+    },
+    "cost": {
+      "total": "Total",
+      "surplus": "Surplus",
+      "deficit": "Deficit",
+      "viewList": "List",
+      "viewTable": "Table",
+      "viewLabel": "View",
+      "periodLabel": "Period"
     },
     "sortLabel": "Sort by",
     "sort": {

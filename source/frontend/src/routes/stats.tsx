@@ -1,6 +1,6 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft } from 'lucide-react'
+import { ArrowLeftRight, ChevronLeft, LineChart, PieChart, PiggyBank, Users } from 'lucide-react'
 import { z } from 'zod'
 
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
@@ -10,6 +10,7 @@ import { TransactionFilterFields } from '@/components/ui/transaction-filter-fiel
 import { CategoryChart } from '@/components/stats/category-chart'
 import { CashflowChart } from '@/components/stats/cashflow-chart'
 import { ChartCard } from '@/components/stats/chart-card'
+import { ContractsSummaryCard } from '@/components/stats/contracts-summary-card'
 import { DrillArrowIcon } from '@/components/stats/chart-parts'
 import { OtherPartyChart } from '@/components/stats/other-party-chart'
 import { NetSavingsChart } from '@/components/stats/net-savings-chart'
@@ -316,8 +317,11 @@ export function StatsView({
         </p>
       ) : (
         <>
+          <ContractsSummaryCard accountIds={accountIds} />
+
           <ChartCard
             title={t('stats.netWorth.title')}
+            icon={<LineChart className="size-4" aria-hidden="true" />}
             isLoading={netWorth.isLoading}
             isError={netWorth.isError}
             isEmpty={(netWorth.data?.series.length ?? 0) === 0}
@@ -342,6 +346,7 @@ export function StatsView({
 
           <ChartCard
             title={t('stats.categories.title')}
+            icon={<PieChart className="size-4" aria-hidden="true" />}
             isLoading={categories.isLoading}
             isError={categories.isError}
             isEmpty={(categories.data?.length ?? 0) === 0}
@@ -366,6 +371,7 @@ export function StatsView({
 
           <ChartCard
             title={t('stats.cashflow.title')}
+            icon={<ArrowLeftRight className="size-4" aria-hidden="true" />}
             isLoading={cashflow.isLoading}
             isError={cashflow.isError}
             isEmpty={(cashflow.data?.length ?? 0) === 0}
@@ -375,6 +381,7 @@ export function StatsView({
 
           <ChartCard
             title={t('stats.netSavings.title')}
+            icon={<PiggyBank className="size-4" aria-hidden="true" />}
             isLoading={netSavings.isLoading}
             isError={netSavings.isError}
             isEmpty={(netSavings.data?.length ?? 0) === 0}
@@ -388,6 +395,7 @@ export function StatsView({
                 ? t('stats.otherParties.titleOutgoing')
                 : t('stats.otherParties.titleIncoming')
             }
+            icon={<Users className="size-4" aria-hidden="true" />}
             isLoading={otherParties.isLoading}
             isError={otherParties.isError}
             isEmpty={(otherParties.data?.length ?? 0) === 0}

@@ -78,7 +78,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
     TransactionCategory.SALARY: ["lohn", "gehalt"],
     TransactionCategory.ALLOWANCE: ["taschengeld", "kindergeld"],
     TransactionCategory.PENSION: ["rente"],
-    TransactionCategory.REIMBURSEMENT: ["reisespesen", "korrektur", "erstatt"],
+    TransactionCategory.REIMBURSEMENT: ["reisespesen", "korrektur", "erstatt", "ruckzahlung"],
     TransactionCategory.INTEREST: ["zinsen"],
     TransactionCategory.INVESTMENT: ["msci", "nasdaq", "(dist)", "(acc)"],
     TransactionCategory.SUBSCRIPTIONS: [
@@ -147,7 +147,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "la cage",
         "cinnamood",
     ],
-    TransactionCategory.PERSONAL_CARE: ["friseur", "barber", "waxing", "apotheke", "krankenkasse"],
+    TransactionCategory.PERSONAL_CARE: ["friseur", "barber", "waxing", "apotheke", "krankenkasse", "zahnarzt"],
     TransactionCategory.CLOTHING: ["new yorker", "bijou brigette", "deichmann"],
     TransactionCategory.GIFTS: ["blume 2000", "geburtstag", "schenkung"],
     TransactionCategory.ENTERTAINMENT: [
@@ -178,6 +178,8 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "inkasso",
         "aktenzeichen",
         "kartensperre",
+        "abschluss per",
+        "umsatzsteuer",
     ],
     TransactionCategory.SAVINGS: ["sparen", "einzahlung"],
     TransactionCategory.ONLINE_SHOPPING: [

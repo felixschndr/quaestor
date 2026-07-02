@@ -15,6 +15,7 @@ import {
 } from '@/lib/contract'
 import { formatDate, formatDateWithoutYear, formatEuro, formatIban } from '@/lib/format'
 import { ContractTimeline } from '@/components/contract-timeline'
+import { NoteEditor } from '@/components/note-editor'
 import { DeleteContractButton, RenameContractButton } from '@/components/contract-actions'
 import { cn } from '@/lib/utils'
 
@@ -44,6 +45,9 @@ function ContractDetailPage() {
       contract={query.data}
       isDeleting={remove.isPending}
       onRename={(name) => update.mutateAsync({ name, category: query.data!.category })}
+      onSaveNote={(note) =>
+        update.mutateAsync({ name: query.data!.name, category: query.data!.category, note })
+      }
       onDelete={() => {
         toast.promise(onDelete(), {
           loading: t('common.saving'),
@@ -69,6 +73,7 @@ export interface ContractDetailViewProps {
   contract: ContractDetailRead
   isDeleting?: boolean
   onRename: (name: string) => Promise<unknown>
+  onSaveNote: (note: string | null) => Promise<unknown>
   onDelete: () => void
 }
 
@@ -76,6 +81,7 @@ export function ContractDetailView({
   contract,
   isDeleting,
   onRename,
+  onSaveNote,
   onDelete,
 }: ContractDetailViewProps) {
   const { t } = useTranslation()
@@ -96,7 +102,7 @@ export function ContractDetailView({
     ? [
         {
           key: 'perDay',
-          label: t('contracts.perDay'),
+          label: t('contracts.period.DAY'),
           value: contract.amount_per_day,
           highlight: false,
         },
@@ -191,6 +197,11 @@ export function ContractDetailView({
           </div>
         </section>
       ) : null}
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-foreground text-sm font-semibold">{t('contracts.note')}</h2>
+        <NoteEditor remoteNote={contract.note ?? ''} onSave={onSaveNote} />
+      </section>
 
       <section className="flex flex-col gap-2">
         <h2 className="text-foreground text-sm font-semibold">

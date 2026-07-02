@@ -52,6 +52,7 @@ class Contract(Base):
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), index=True)
 
     name: Mapped[str] = mapped_column(String)
+    note: Mapped[str | None] = mapped_column(String, nullable=True)
     fingerprint: Mapped[str | None] = mapped_column(String, nullable=True)  # matching key
     category: Mapped[TransactionCategory | None] = mapped_column(SQLEnum(TransactionCategory), nullable=True)
     source: Mapped[ContractSource] = mapped_column(SQLEnum(ContractSource))

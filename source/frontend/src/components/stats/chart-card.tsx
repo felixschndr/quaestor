@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 export interface ChartCardProps {
   title: string
+  icon?: ReactNode
   isLoading: boolean
   isError: boolean
   isEmpty: boolean
@@ -18,6 +19,7 @@ export interface ChartCardProps {
  */
 export function ChartCard({
   title,
+  icon,
   isLoading,
   isError,
   isEmpty,
@@ -29,7 +31,10 @@ export function ChartCard({
   return (
     <section className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4">
       <header className="flex items-center justify-between gap-2">
-        <h2 className="text-primary text-sm font-semibold">{title}</h2>
+        <h2 className="text-primary inline-flex items-center gap-2 text-sm font-semibold">
+          {icon}
+          {title}
+        </h2>
         {action}
       </header>
       {isLoading ? (
