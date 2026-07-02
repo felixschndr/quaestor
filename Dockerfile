@@ -4,7 +4,7 @@ RUN corepack enable
 
 WORKDIR /build/source/frontend
 
-COPY source/frontend/package.json source/frontend/pnpm-lock.yaml ./
+COPY source/frontend/package.json source/frontend/pnpm-lock.yaml source/frontend/pnpm-workspace.yaml ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store && \
     pnpm install --frozen-lockfile
