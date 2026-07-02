@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, TriangleAlert } from 'lucide-react'
@@ -15,6 +15,7 @@ import {
   type ContractMemberRead,
 } from '@/lib/contract'
 import { formatDate, formatDateWithoutYear, formatEuro, formatIban } from '@/lib/format'
+import { TRANSACTION_CATEGORIES, type TransactionCategory } from '@/lib/transaction'
 import { ContractTimeline } from '@/components/contract-timeline'
 import { NoteEditor } from '@/components/note-editor'
 import {
@@ -22,6 +23,8 @@ import {
   DeleteContractButton,
   RenameContractButton,
 } from '@/components/contract-actions'
+import { SingleSelectPopover } from '@/components/ui/single-select-popover'
+import { CategoryAvatar } from '@/lib/categoryIcons'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/contracts_/$contractId')({
@@ -50,6 +53,7 @@ function ContractDetailPage() {
       contract={query.data}
       isDeleting={remove.isPending}
       onRename={(name) => update.mutateAsync({ name, category: query.data!.category })}
+      onChangeCategory={(category) => update.mutateAsync({ name: query.data!.name, category })}
       onSaveNote={(note) =>
         update.mutateAsync({ name: query.data!.name, category: query.data!.category, note })
       }
@@ -78,6 +82,7 @@ export interface ContractDetailViewProps {
   contract: ContractDetailRead
   isDeleting?: boolean
   onRename: (name: string) => Promise<unknown>
+  onChangeCategory: (category: TransactionCategory) => Promise<unknown>
   onSaveNote: (note: string | null) => Promise<unknown>
   onDelete: () => void
 }
@@ -86,6 +91,7 @@ export function ContractDetailView({
   contract,
   isDeleting,
   onRename,
+  onChangeCategory,
   onSaveNote,
   onDelete,
 }: ContractDetailViewProps) {
@@ -213,6 +219,11 @@ export function ContractDetailView({
       ) : null}
 
       <section className="flex flex-col gap-2">
+        <h2 className="text-foreground text-sm font-semibold">{t('contracts.category')}</h2>
+        <ContractCategorySelect category={contract.category} onChange={onChangeCategory} />
+      </section>
+
+      <section className="flex flex-col gap-2">
         <h2 className="text-foreground text-sm font-semibold">{t('contracts.note')}</h2>
         <NoteEditor remoteNote={contract.note ?? ''} onSave={onSaveNote} />
       </section>
@@ -232,6 +243,56 @@ export function ContractDetailView({
         )}
       </section>
     </main>
+  )
+}
+
+function ContractCategorySelect({
+  category,
+  onChange,
+}: {
+  category: TransactionCategory | null
+  onChange: (category: TransactionCategory) => Promise<unknown>
+}) {
+  const { t, i18n } = useTranslation()
+  const [pending, setPending] = useState(false)
+  const options = useMemo(() => {
+    const localised = TRANSACTION_CATEGORIES.filter((option) => option !== 'UNKNOWN').map(
+      (option) => ({
+        value: option,
+        label: t(`category.${option}`),
+        leading: <CategoryAvatar category={option} className="size-5" iconClassName="size-3" />,
+      }),
+    )
+    localised.sort((a, b) => a.label.localeCompare(b.label, i18n.language))
+    return [
+      ...localised,
+      {
+        value: 'UNKNOWN' as TransactionCategory,
+        label: t('category.UNKNOWN'),
+        leading: <CategoryAvatar category="UNKNOWN" className="size-5" iconClassName="size-3" />,
+      },
+    ]
+  }, [t, i18n.language])
+
+  const change = async (next: TransactionCategory) => {
+    setPending(true)
+    try {
+      await onChange(next)
+    } catch {
+      toast.error(t('transaction.categoryUpdateFailed'))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <SingleSelectPopover
+      ariaLabel={t('contracts.category')}
+      value={(category ?? 'UNKNOWN') as TransactionCategory}
+      disabled={pending}
+      onChange={(next) => void change(next)}
+      options={options}
+    />
   )
 }
 

@@ -177,6 +177,7 @@ export function useUpdateContract(contractId: number) {
             )
           : old,
       )
+      queryClient.invalidateQueries({ queryKey: ['account'] })
     },
   })
 }

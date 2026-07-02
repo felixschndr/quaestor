@@ -10,7 +10,10 @@ from source.backend.models.transaction import Transaction
 from source.backend.models.user import User
 from source.backend.services import account_service
 from source.backend.services.contract_aggregators import compute_fingerprint
-from source.backend.services.contract_detection_service import recompute_contract_stats
+from source.backend.services.contract_detection_service import (
+    apply_contract_category_to_members,
+    recompute_contract_stats,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -63,7 +66,10 @@ def update_contract(db_session: Session, user: User, contract_id: int, fields: d
     contract = get_contract_for_user(db_session=db_session, user=user, contract_id=contract_id)
     contract.name = fields["name"]
     if "category" in fields:
+        category_changed = contract.category != fields["category"]
         contract.category = fields["category"]
+        if category_changed:
+            apply_contract_category_to_members(contract)
     if "note" in fields:
         contract.note = fields["note"]
     db_session.commit()

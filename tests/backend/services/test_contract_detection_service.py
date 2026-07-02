@@ -4,6 +4,7 @@ import pytest
 from source.backend.models.contract import Contract
 from source.backend.models.contract_assignment import ContractAssignment
 from source.backend.models.contract_frequency import ContractFrequency
+from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 from source.backend.services import contract_detection_service
 from sqlalchemy.orm import Session, sessionmaker
@@ -14,6 +15,7 @@ from tests.backend.conftest import (
     USER_NAME,
     assert_log_contains,
     make_account_with_new_user,
+    make_contract,
     make_transaction,
 )
 
@@ -211,6 +213,33 @@ def test_detection_is_idempotent(session_factory: sessionmaker):
 
         assert session.query(Contract).count() == 1
         assert len(session.query(Contract).one().members()) == 4
+
+
+def test_contract_category_is_applied_to_newly_detected_members(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        contract = make_contract(
+            session, account_id=account.id, name="Netflix", category=TransactionCategory.ENTERTAINMENT
+        )
+        contract.fingerprint = "party:netflix:out"
+        for offset in (0, 30, 60, 90):
+            make_transaction(
+                session,
+                account_id=account.id,
+                amount=-12.99,
+                other_party="Netflix",
+                date=OLDER_DATE + timedelta(days=offset),
+                transaction_type=TransactionType.OUTGOING,
+                category=TransactionCategory.SUBSCRIPTIONS,
+            )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        session.refresh(contract)
+        members = contract.members()
+        assert len(members) == 4
+        assert {member.category for member in members} == {TransactionCategory.ENTERTAINMENT}
 
 
 def test_excluded_transaction_is_not_re_added(session_factory: sessionmaker):

@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from source.backend.models.transaction_category import TransactionCategory
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
@@ -121,6 +122,38 @@ def test_rename_preserves_existing_note(http_client: TestClient, session_factory
     assert renamed.status_code == 200
     assert renamed.json()["name"] == "New Gym"
     assert renamed.json()["note"] == "keep me"
+
+
+def test_changing_contract_category_reassigns_member_transactions(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    transaction_id = persist_transaction(
+        session_factory, account_id=account_id, category=TransactionCategory.ONLINE_SHOPPING
+    )
+    contract = _create_contract(http_client, account_id=account_id)
+    http_client.post(f"/api/contracts/{contract['id']}/transactions", json={"transaction_id": transaction_id})
+
+    updated = http_client.patch(f"/api/contracts/{contract['id']}", json={"name": "Gym", "category": "FITNESS"})
+
+    assert updated.status_code == 200
+    detail = http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}").json()
+    assert detail["category"] == "FITNESS"
+
+
+def test_assigning_transaction_to_categorised_contract_applies_its_category(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    transaction_id = persist_transaction(
+        session_factory, account_id=account_id, category=TransactionCategory.ONLINE_SHOPPING
+    )
+    contract = _create_contract(http_client, account_id=account_id)
+
+    http_client.post(f"/api/contracts/{contract['id']}/transactions", json={"transaction_id": transaction_id})
+
+    detail = http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}").json()
+    assert detail["category"] == "FITNESS"
 
 
 def test_contract_of_other_user_is_not_accessible(http_client: TestClient, session_factory: sessionmaker):

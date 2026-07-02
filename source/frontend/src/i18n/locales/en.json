@@ -742,6 +742,7 @@
     "account": "Account",
     "selectAccount": "Select account",
     "note": "Note",
+    "category": "Category",
     "normalized": "Normalized",
     "nextExpected": "Next payment",
     "overdue": "Overdue",

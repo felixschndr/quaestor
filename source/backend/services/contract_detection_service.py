@@ -277,8 +277,17 @@ def recompute_contract_stats(contract: Contract) -> None:
 
     if contract.category in (None, TransactionCategory.UNKNOWN):
         contract.category = _dominant_category(member_transactions)
+    apply_contract_category_to_members(contract)
 
     logger.debug(f"Recomputed stats for {contract}")
+
+
+def apply_contract_category_to_members(contract: Contract) -> None:
+    if contract.category in (None, TransactionCategory.UNKNOWN):
+        return
+    for transaction in contract.members():
+        if transaction.category != contract.category:
+            transaction.category = contract.category
 
 
 def _median_absolute_deviation(values: list[float]) -> float:

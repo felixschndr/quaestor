@@ -129,31 +129,38 @@ function ContractCostTable({ contracts }: { contracts: ContractRead[] }) {
                 to="/contracts/$contractId"
                 params={{ contractId: String(contract.id) }}
                 onClick={(event) => event.stopPropagation()}
-                className="hover:text-primary flex min-w-0 flex-col transition-colors"
+                className="hover:text-primary flex min-w-0 items-center gap-2.5 transition-colors"
               >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="truncate font-medium">{contract.name}</span>
-                  {contract.is_overdue ? <OverdueBadge label={t('contracts.overdue')} /> : null}
-                </span>
-                <span className="text-muted-foreground flex flex-col text-xs lg:flex-row lg:gap-1">
-                  <span className="truncate">
-                    {contract.frequency
-                      ? t(`contracts.frequency.${contract.frequency}`)
-                      : t('contracts.frequencyUnknown')}
+                <CategoryAvatar
+                  category={contract.category ?? 'UNKNOWN'}
+                  className="size-8"
+                  iconClassName="size-4"
+                />
+                <span className="flex min-w-0 flex-col">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-medium">{contract.name}</span>
+                    {contract.is_overdue ? <OverdueBadge label={t('contracts.overdue')} /> : null}
                   </span>
-                  {contract.expected_next_date ? (
-                    <span className={cn('truncate', contract.is_overdue && 'text-warning')}>
-                      <span aria-hidden="true" className="hidden lg:inline">
-                        ·{' '}
-                      </span>
-                      <span className="lg:hidden">
-                        {formatDateWithoutYear(contract.expected_next_date)}
-                      </span>
-                      <span className="hidden lg:inline">
-                        {formatDate(contract.expected_next_date)}
-                      </span>
+                  <span className="text-muted-foreground flex flex-col text-xs lg:flex-row lg:gap-1">
+                    <span className="truncate">
+                      {contract.frequency
+                        ? t(`contracts.frequency.${contract.frequency}`)
+                        : t('contracts.frequencyUnknown')}
                     </span>
-                  ) : null}
+                    {contract.expected_next_date ? (
+                      <span className={cn('truncate', contract.is_overdue && 'text-warning')}>
+                        <span aria-hidden="true" className="hidden lg:inline">
+                          ·{' '}
+                        </span>
+                        <span className="lg:hidden">
+                          {formatDateWithoutYear(contract.expected_next_date)}
+                        </span>
+                        <span className="hidden lg:inline">
+                          {formatDate(contract.expected_next_date)}
+                        </span>
+                      </span>
+                    ) : null}
+                  </span>
                 </span>
               </Link>
             </td>
