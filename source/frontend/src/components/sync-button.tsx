@@ -77,7 +77,7 @@ export function SyncButton({
       disabled={disabled || checkMounted}
       aria-label={ariaLabel}
       className={cn(
-        'group rounded-md p-1.5 transition-colors disabled:opacity-50',
+        'group cursor-pointer rounded-md p-1.5 transition-colors disabled:cursor-default disabled:opacity-50',
         checkMounted ? 'text-success disabled:opacity-100' : 'text-primary hover:text-primary/80',
         className,
       )}

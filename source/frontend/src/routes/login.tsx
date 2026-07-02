@@ -120,7 +120,7 @@ function ModeButton({
       data-mode={mode}
       onClick={onClick}
       className={cn(
-        'flex-1 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+        'flex-1 cursor-pointer rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
         active
           ? 'bg-background text-foreground shadow-sm'
           : 'text-muted-foreground hover:text-foreground',
@@ -204,7 +204,7 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
         {...form.register('password')}
       />
 
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex cursor-pointer items-center gap-2 text-sm">
         <Checkbox
           checked={form.watch('remember_me')}
           onCheckedChange={(checked) => form.setValue('remember_me', checked === true)}
@@ -427,7 +427,7 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
         />
       </div>
 
-      <label className="border-border bg-card flex items-center justify-between gap-3 rounded-md border p-3">
+      <label className="border-border bg-card flex cursor-pointer items-center justify-between gap-3 rounded-md border p-3">
         <span className="flex flex-col">
           <span className="text-sm font-medium">{t('twoFactor.enableLabel')}</span>
           <span className="text-muted-foreground text-xs">{t('twoFactor.enableHint')}</span>

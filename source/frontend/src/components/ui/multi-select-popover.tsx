@@ -72,14 +72,14 @@ export function MultiSelectPopover<T extends string>({
             <div className="flex gap-1">
               <button
                 type="button"
-                className="text-primary hover:text-primary/80 rounded-md px-2 py-0.5 transition-colors"
+                className="text-primary hover:text-primary/80 cursor-pointer rounded-md px-2 py-0.5 transition-colors"
                 onClick={() => onChange(options.map((option) => option.value))}
               >
                 {selectAll.all}
               </button>
               <button
                 type="button"
-                className="text-primary hover:text-primary/80 rounded-md px-2 py-0.5 transition-colors"
+                className="text-primary hover:text-primary/80 cursor-pointer rounded-md px-2 py-0.5 transition-colors"
                 onClick={() => onChange([])}
               >
                 {selectAll.none}

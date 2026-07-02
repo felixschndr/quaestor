@@ -464,7 +464,9 @@ function RuleDialog({
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <Label htmlFor="rule-enabled">{t('notifications.enabledLabel')}</Label>
+            <Label htmlFor="rule-enabled" className="cursor-pointer">
+              {t('notifications.enabledLabel')}
+            </Label>
             <Switch
               id="rule-enabled"
               checked={model.enabled}
@@ -592,7 +594,9 @@ function RuleDialog({
 
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-0.5">
-              <Label htmlFor="rule-include-content">{t('notifications.includeContentLabel')}</Label>
+              <Label htmlFor="rule-include-content" className="cursor-pointer">
+                {t('notifications.includeContentLabel')}
+              </Label>
               <p className="text-muted-foreground text-xs">
                 {t('notifications.includeContentHint')}
               </p>

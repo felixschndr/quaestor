@@ -2,7 +2,6 @@
 
 import { useTranslation } from 'react-i18next'
 
-import { cn } from '@/lib/utils'
 import type { CredentialRead } from '@/lib/auth'
 import { Checkbox } from '@/components/ui/checkbox'
 import { AccountOptionContent, AccountSelectPopover } from '@/components/ui/account-select'
@@ -64,14 +63,14 @@ function AccountMultiSelect({
           <div className="flex gap-1">
             <button
               type="button"
-              className="text-primary hover:text-primary/80 rounded-md px-2 py-0.5 transition-colors"
+              className="text-primary hover:text-primary/80 cursor-pointer rounded-md px-2 py-0.5 transition-colors"
               onClick={() => onChange(allIds)}
             >
               {t('search.selectAll')}
             </button>
             <button
               type="button"
-              className="text-primary hover:text-primary/80 rounded-md px-2 py-0.5 transition-colors"
+              className="text-primary hover:text-primary/80 cursor-pointer rounded-md px-2 py-0.5 transition-colors"
               onClick={() => onChange([])}
             >
               {t('search.selectNone')}
@@ -82,11 +81,7 @@ function AccountMultiSelect({
       renderAccount={(account, group) => {
         const checkboxId = `account-multi-${account.id}`
         return (
-          <label
-            key={account.id}
-            htmlFor={checkboxId}
-            className={cn(accountOptionRowClass, 'cursor-pointer')}
-          >
+          <label key={account.id} htmlFor={checkboxId} className={accountOptionRowClass}>
             <AccountOptionContent group={group} account={account} />
             <Checkbox
               id={checkboxId}

@@ -165,7 +165,7 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
           <button
             type="button"
             onClick={() => onOpenDay(active.date)}
-            className="text-primary hover:text-primary/80 inline-flex shrink-0 items-center gap-1 rounded-md text-xs font-medium transition-colors"
+            className="text-primary hover:text-primary/80 inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md text-xs font-medium transition-colors"
           >
             <span className="sm:hidden">{t('stats.netWorth.viewDayShort')}</span>
             <span className="hidden sm:inline">{t('stats.netWorth.viewDay')}</span>

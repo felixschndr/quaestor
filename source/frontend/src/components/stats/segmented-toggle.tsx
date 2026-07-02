@@ -47,7 +47,7 @@ export function SegmentedToggle<T extends string>({
             aria-pressed={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              'rounded-md font-medium transition-colors',
+              'cursor-pointer rounded-md font-medium transition-colors',
               fullWidth ? 'flex-1 text-sm' : 'px-2.5 py-1 text-xs',
               selected
                 ? fullWidth

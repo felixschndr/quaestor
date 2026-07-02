@@ -223,7 +223,7 @@ function AccountChangeRow({
   return (
     <li>
       <Collapsible.Root open={open} onOpenChange={onOpenChange}>
-        <Collapsible.Trigger className="group/row hover:bg-muted/60 focus-visible:ring-ring flex w-full items-center gap-3 rounded-md px-2 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none">
+        <Collapsible.Trigger className="group/row hover:bg-muted/60 focus-visible:ring-ring flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none">
           <ChevronRight
             aria-hidden="true"
             className="text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 ease-in-out group-data-[state=open]/row:rotate-90"

@@ -42,7 +42,10 @@ export function CopyButton({
       type="button"
       onClick={handleCopy}
       aria-label={label}
-      className={cn('hover:text-foreground rounded p-0.5 transition-colors', className)}
+      className={cn(
+        'hover:text-foreground cursor-pointer rounded p-0.5 transition-colors',
+        className,
+      )}
     >
       {copied ? (
         <Check className="text-success size-3.5" aria-hidden="true" />

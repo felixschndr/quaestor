@@ -114,7 +114,7 @@ function IbanLabel({ value, id }: { value: string; id?: string }) {
         type="button"
         onClick={handleCopy}
         aria-label={t('account.iban.copy')}
-        className="hover:text-foreground -m-0.5 rounded p-0.5 transition-colors"
+        className="hover:text-foreground -m-0.5 cursor-pointer rounded p-0.5 transition-colors"
       >
         {copied ? (
           <Check className="text-success size-3.5" aria-hidden="true" />

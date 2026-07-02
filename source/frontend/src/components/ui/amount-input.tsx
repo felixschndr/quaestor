@@ -94,7 +94,7 @@ export function AmountInput({
         disabled={disabled}
         onClick={toggleSign}
         className={cn(
-          'border-input flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-transparent text-sm font-medium transition-colors',
+          'border-input flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border bg-transparent text-sm font-medium transition-colors',
           'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3',
           'disabled:pointer-events-none disabled:opacity-50',
           'dark:bg-input/30',

@@ -84,7 +84,9 @@ function ContractFilterBar({ credentials, filters, onChange }: ContractFilterBar
       />
 
       <div className="flex items-center justify-between gap-3">
-        <Label htmlFor="contract-filter-overdue">{t('contracts.overdueFilter')}</Label>
+        <Label htmlFor="contract-filter-overdue" className="cursor-pointer">
+          {t('contracts.overdueFilter')}
+        </Label>
         <Switch
           id="contract-filter-overdue"
           checked={filters.overdue ?? false}
@@ -95,7 +97,7 @@ function ContractFilterBar({ credentials, filters, onChange }: ContractFilterBar
       {hasActiveContractFilters(filters) ? (
         <button
           type="button"
-          className="text-primary hover:text-primary/80 self-end text-xs transition-colors"
+          className="text-primary hover:text-primary/80 cursor-pointer self-end text-xs transition-colors"
           onClick={() => onChange({})}
         >
           {t('contracts.filtersReset')}

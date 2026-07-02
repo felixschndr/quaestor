@@ -334,7 +334,7 @@ function FamilyRow({
       <button
         type="button"
         onClick={onOpen}
-        className="hover:bg-muted/60 flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition-colors"
+        className="hover:bg-muted/60 flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-3 text-left transition-colors"
       >
         <BankLogo icon={family.icon} name={family.label} seed={family.slug} />
         <span className="flex flex-1 flex-col">
@@ -397,7 +397,8 @@ function BankRow({ bank, accountsCount }: { bank: SupportedBank; accountsCount: 
  *  pops the family sub-view back to the top-level list. */
 function BackLink({ to, onClick }: { to?: string; onClick?: () => void }) {
   const { t } = useTranslation()
-  const className = 'text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors'
+  const className =
+    'text-primary hover:text-primary/80 -ml-1.5 cursor-pointer rounded-md p-1.5 transition-colors'
   if (onClick) {
     return (
       <button

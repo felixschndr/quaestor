@@ -209,7 +209,7 @@ export function ManualTransactionForm({
         <div className="flex items-center justify-between gap-2">
           <Label
             htmlFor={`${fieldIdPrefix}-recurring`}
-            className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
+            className="text-muted-foreground cursor-pointer text-[0.65rem] font-medium uppercase tracking-wide"
           >
             {t('credentials.manualTransactions.fieldRecurring')}
           </Label>
@@ -366,7 +366,7 @@ export function ManualTransactionForm({
             <div className="flex items-center justify-between gap-2">
               <Label
                 htmlFor={`${fieldIdPrefix}-book-today`}
-                className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
+                className="text-muted-foreground cursor-pointer text-[0.65rem] font-medium uppercase tracking-wide"
               >
                 {t('credentials.manualTransactions.bookToday')}
               </Label>
@@ -411,7 +411,7 @@ function InfoHint({ text }: { text: string }) {
           aria-label={text}
           onMouseEnter={() => setOpen(true)}
           onMouseLeave={() => setOpen(false)}
-          className="text-muted-foreground hover:text-foreground transition-colors"
+          className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
         >
           <Info className="size-3.5" aria-hidden="true" />
         </button>

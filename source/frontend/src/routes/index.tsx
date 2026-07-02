@@ -214,7 +214,7 @@ function AccountGroupList({ groups }: { groups: DisplayGroup[] }) {
         return (
           <li key={group.key}>
             <Collapsible.Root open={!isCollapsed(group.key)} onOpenChange={() => toggle(group.key)}>
-              <Collapsible.Trigger className="group/collapsible focus-visible:ring-ring flex w-full items-center gap-2 rounded-md px-2 text-left focus-visible:ring-2 focus-visible:outline-none">
+              <Collapsible.Trigger className="group/collapsible focus-visible:ring-ring flex w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left focus-visible:ring-2 focus-visible:outline-none">
                 <ChevronRight
                   aria-hidden="true"
                   className="text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 ease-in-out group-data-[state=open]/collapsible:rotate-90"

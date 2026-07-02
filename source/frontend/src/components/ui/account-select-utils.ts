@@ -22,4 +22,5 @@ export function groupAccountsByBank(credentials: CredentialRead[]): AccountGroup
     .filter((group) => group.accounts.length > 0)
 }
 
-export const accountOptionRowClass = 'hover:bg-muted/60 flex items-center gap-3 px-3 py-2 text-sm'
+export const accountOptionRowClass =
+  'hover:bg-muted/60 flex cursor-pointer items-center gap-3 px-3 py-2 text-sm'
