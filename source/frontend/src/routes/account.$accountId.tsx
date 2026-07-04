@@ -1,10 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute, useLocation } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronLeft, Copy, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
+import { authQueryKeys, useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
 import {
   findAccountInUser,
   groupTransactionsByDate,
@@ -43,6 +44,7 @@ import { ManualTransactionForm } from '@/components/manual-transaction-form'
 import { ExpectedTransactionForm } from '@/components/expected-transaction-form'
 import { ContractIcon } from '@/components/contract-icon'
 import { StatsIcon } from '@/components/stats-icon'
+import { PullToRefresh } from '@/components/pull-to-refresh'
 import { SyncButton } from '@/components/sync-button'
 import { TwoFactorModal } from '@/components/two-factor-modal'
 
@@ -137,18 +139,21 @@ function AccountDetailPage() {
   // we pass a sentinel id and skip rendering the button below.
   const sync = useCredentialSync(accountInfo?.credentialId ?? -1)
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+
+  const handleRefresh = useCallback(
+    () =>
+      Promise.all([
+        queryClient.refetchQueries({ queryKey: authQueryKeys.me }),
+        queryClient.refetchQueries({ queryKey: ['account', accountId] }),
+      ]),
+    [queryClient, accountId],
+  )
   const { focus } = Route.useSearch()
-  // Unique per history entry; a fresh navigation to the same `focus` id (e.g.
-  // clicking the same linked transaction again after going back) yields a new
-  // key, which re-arms the scroll/highlight that the one-shot guard would
-  // otherwise suppress. `__TSR_key` is the entry key TanStack itself keys scroll
-  // restoration on; `state.key` is undefined on some navigation paths.
   const focusNavKey = useLocation({ select: (location) => location.state.__TSR_key })
 
-  // A sync that fails *after* a successful 2FA submit (e.g. the bank rejects the
-  // portfolio subscription) resolves the POST with 200, so the submit handler
-  // below never sees it. `failedAt` is the only signal that the async job died —
-  // surface it as a toast, mirroring the overview's failed-job notification.
+  // A sync that fails *after* a successful 2FA submit resolves the POST with 200, so the submit handler
+  // below never sees it. `failedAt` is the only signal that the async job died
   const syncFailedAt = sync.failedAt
   const syncBank = accountInfo?.bank
   useEffect(() => {
@@ -169,27 +174,29 @@ function AccountDetailPage() {
 
   return (
     <>
-      <AccountDetailView
-        account={accountInfo.account}
-        bank={accountInfo.bank}
-        lastUpdated={accountInfo.lastFetchingTimestamp}
-        pages={history.data?.pages ?? []}
-        isFetchingNextPage={history.isFetchingNextPage}
-        hasNextPage={!!history.hasNextPage}
-        onLoadMore={() => {
-          if (history.hasNextPage && !history.isFetchingNextPage) {
-            void history.fetchNextPage()
-          }
-        }}
-        focusTransactionId={focus}
-        focusNavKey={focusNavKey}
-        // Manual accounts have no remote sync, so the button is suppressed
-        // by leaving onSyncClick undefined.
-        onSyncClick={isManual ? undefined : sync.start}
-        syncDisabled={isSyncBusy}
-        syncSpinning={isSyncBusy}
-        syncSucceededAt={sync.succeededAt}
-      />
+      <PullToRefresh onRefresh={handleRefresh}>
+        <AccountDetailView
+          account={accountInfo.account}
+          bank={accountInfo.bank}
+          lastUpdated={accountInfo.lastFetchingTimestamp}
+          pages={history.data?.pages ?? []}
+          isFetchingNextPage={history.isFetchingNextPage}
+          hasNextPage={!!history.hasNextPage}
+          onLoadMore={() => {
+            if (history.hasNextPage && !history.isFetchingNextPage) {
+              void history.fetchNextPage()
+            }
+          }}
+          focusTransactionId={focus}
+          focusNavKey={focusNavKey}
+          // Manual accounts have no remote sync, so the button is suppressed
+          // by leaving onSyncClick undefined.
+          onSyncClick={isManual ? undefined : sync.start}
+          syncDisabled={isSyncBusy}
+          syncSpinning={isSyncBusy}
+          syncSucceededAt={sync.succeededAt}
+        />
+      </PullToRefresh>
       <TwoFactorModal
         current2fa={sync.current2fa}
         onSubmit={async (code) => {

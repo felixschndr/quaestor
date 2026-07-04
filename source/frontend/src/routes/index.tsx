@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Collapsible } from 'radix-ui'
 import { ChevronRight, Search, Settings } from 'lucide-react'
@@ -8,14 +9,15 @@ import { ContractIcon } from '@/components/contract-icon'
 import { StatsIcon } from '@/components/stats-icon'
 import { toast } from 'sonner'
 
-import { useAuthMe, useGlobalSync, type UserRead } from '@/lib/auth'
+import { authQueryKeys, useAuthMe, useGlobalSync, type UserRead } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
+import { PullToRefresh } from '@/components/pull-to-refresh'
 import { SyncButton } from '@/components/sync-button'
 import { TwoFactorModal } from '@/components/two-factor-modal'
 import { formatEuro, formatFactorMultiplier } from '@/lib/format'
 import { accountDisplayName, displayNameOrUserName } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
-import { useAccountGroupLayout } from '@/lib/accountGroups'
+import { accountGroupQueryKeys, useAccountGroupLayout } from '@/lib/accountGroups'
 import {
   buildDisplayGroups,
   sumFactoredBalance,
@@ -33,6 +35,16 @@ function OverviewPage() {
   const { data: user } = useAuthMe()
   const sync = useGlobalSync()
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+
+  const handleRefresh = useCallback(
+    () =>
+      Promise.all([
+        queryClient.refetchQueries({ queryKey: authQueryKeys.me }),
+        queryClient.refetchQueries({ queryKey: accountGroupQueryKeys.layout }),
+      ]),
+    [queryClient],
+  )
 
   // Surface failed jobs as toasts once each, by tracking the set of credential
   // ids we've already toasted on. Cleared at the start of each new sync run so
@@ -60,13 +72,15 @@ function OverviewPage() {
 
   return (
     <>
-      <OverviewView
-        user={user}
-        onSyncClick={sync.start}
-        syncDisabled={isBusy}
-        syncSpinning={isBusy}
-        syncSucceededAt={sync.succeededAt}
-      />
+      <PullToRefresh onRefresh={handleRefresh}>
+        <OverviewView
+          user={user}
+          onSyncClick={sync.start}
+          syncDisabled={isBusy}
+          syncSpinning={isBusy}
+          syncSucceededAt={sync.succeededAt}
+        />
+      </PullToRefresh>
       <TwoFactorModal
         current2fa={sync.current2fa}
         onSubmit={async (code) => {

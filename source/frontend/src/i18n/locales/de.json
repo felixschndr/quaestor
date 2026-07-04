@@ -39,7 +39,11 @@
     "cancel": "Abbrechen",
     "logout": "Abmelden",
     "retry": "Erneut versuchen",
-    "saving": "Speichern …"
+    "saving": "Speichern …",
+    "pullToRefresh": "Zum Aktualisieren ziehen",
+    "releaseToRefresh": "Loslassen zum Aktualisieren",
+    "refreshing": "Aktualisiere …",
+    "refreshServerOnly": "Keine Bankabfrage – lädt nur bereits auf dem Server vorhandene Daten neu"
   },
   "errors": {
     "serverOffline": {

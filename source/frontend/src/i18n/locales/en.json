@@ -39,7 +39,11 @@
     "cancel": "Cancel",
     "logout": "Log out",
     "retry": "Try again",
-    "saving": "Saving …"
+    "saving": "Saving …",
+    "pullToRefresh": "Pull to refresh",
+    "releaseToRefresh": "Release to refresh",
+    "refreshing": "Refreshing …",
+    "refreshServerOnly": "No bank query — only refreshes data already on the server"
   },
   "errors": {
     "serverOffline": {
