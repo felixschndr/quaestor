@@ -56,7 +56,7 @@ def test_mutation_without_any_csrf_data_is_rejected(raw_http_client: TestClient,
     )
 
     assert response.status_code == 403
-    assert "csrf" in response.json()["detail"].lower()
+    assert response.json()["detail"] == "Invalid CSRF token"
     assert_log_contains(caplog, message="CSRF validation failed")
 
 

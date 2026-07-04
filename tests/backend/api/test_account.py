@@ -700,7 +700,7 @@ def test_create_transaction_rejects_future_date(http_client: TestClient):
     )
 
     assert response.status_code == 422
-    assert "future" in response.json()["detail"].lower()
+    assert response.json()["detail"] == f"Manual transactions cannot have a future date (got {future})"
 
 
 def test_update_transaction_rejects_future_date(http_client: TestClient):

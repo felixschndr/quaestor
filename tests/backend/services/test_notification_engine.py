@@ -110,7 +110,7 @@ def test_transaction_rule_triggers_on_matching_new_transaction(
         )
 
     assert len(notifications) == 1
-    assert "Netflix" in notifications[0].body
+    assert notifications[0].body == f"{ACCOUNT_IBAN}: -9,99 € · Netflix Intl."
     assert_log_contains(caplog, messages=["matched on", "Collected"])
 
 
@@ -153,7 +153,7 @@ def test_transaction_rule_respects_amount_bounds(session_factory: sessionmaker):
         )
 
     assert len(notifications) == 1
-    assert "75,00" in notifications[0].body
+    assert notifications[0].body == f"{ACCOUNT_IBAN}: -75,00 €"
 
 
 def test_transaction_rule_filters_by_category(session_factory: sessionmaker):
@@ -173,6 +173,7 @@ def test_transaction_rule_filters_by_category(session_factory: sessionmaker):
         )
 
     assert len(notifications) == 1
+    assert notifications[0].body == f"{ACCOUNT_IBAN}: -5,00 €"
 
 
 def test_disabled_rule_never_triggers(session_factory: sessionmaker):
@@ -269,8 +270,7 @@ def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_f
         )
 
     assert len(notifications) == 1
-    assert "booked" in notifications[0].body.lower()
-    assert "Landlord" in notifications[0].body
+    assert notifications[0].body == f"{ACCOUNT_IBAN}: 100,00 € booked · Landlord"
 
 
 def test_expected_transaction_rule_quiet_when_nothing_booked(session_factory: sessionmaker):
@@ -316,6 +316,7 @@ def test_balance_below_rule_triggers_on_downward_crossing(session_factory: sessi
         )
 
     assert len(notifications) == 1
+    assert notifications[0].body == f"{ACCOUNT_IBAN}: 40,00 € (threshold 50,00 €)"
     assert notifications[0].tag is not None  # balance alerts collapse via a tag
 
 
@@ -357,7 +358,8 @@ def test_balance_above_rule_triggers_on_upward_crossing(session_factory: session
         )
 
     assert len(notifications) == 1
-    assert "above" in notifications[0].title.lower()
+    assert notifications[0].title == "Balance above threshold"
+    assert notifications[0].body == f"{ACCOUNT_IBAN}: 60,00 € (threshold 50,00 €)"
 
 
 def test_balance_above_rule_does_not_trigger_on_downward_crossing(session_factory: sessionmaker):
@@ -402,8 +404,6 @@ def test_transaction_rule_without_content_omits_amount_and_other_party(session_f
 
     assert len(notifications) == 1
     assert notifications[0].body == account_label
-    assert "42" not in notifications[0].body
-    assert "Netflix" not in notifications[0].body
 
 
 def test_balance_below_rule_without_content_omits_balance_and_threshold(session_factory: sessionmaker):
@@ -426,8 +426,6 @@ def test_balance_below_rule_without_content_omits_balance_and_threshold(session_
 
     assert len(notifications) == 1
     assert notifications[0].body == account_label
-    assert "40" not in notifications[0].body
-    assert "50" not in notifications[0].body
 
 
 def test_expected_transaction_rule_without_content_omits_amount(session_factory: sessionmaker):
@@ -454,7 +452,6 @@ def test_expected_transaction_rule_without_content_omits_amount(session_factory:
 
     assert len(notifications) == 1
     assert notifications[0].body == account_label
-    assert "123" not in notifications[0].body
 
 
 # --- dispatch + full sync wiring -------------------------------------------
@@ -519,7 +516,7 @@ def test_sync_credential_triggers_notification_end_to_end(
         credential_service.sync_credential(db_session=db_session, credential_id=credential.id)
 
     assert len(sent) == 1
-    assert "Corner Shop" in sent[0].body
+    assert sent[0].body == f"{ACCOUNT_IBAN}: -20,00 € · Corner Shop"
 
 
 # --- contract overdue trigger ----------------------------------------------
@@ -558,6 +555,7 @@ def test_overdue_contract_notifies_once_and_dedups(session_factory: sessionmaker
 
         notification_engine.evaluate_overdue_contracts(db_session=db_session, today=_TODAY)
         assert len(sent) == 1
+        assert sent[0].body == f"{ACCOUNT_IBAN}: Gym overdue since {contract.expected_next_date.isoformat()}"
         assert contract.overdue_notified_at is not None
 
         # A second run on the same overdue episode must not notify again.
@@ -649,4 +647,4 @@ def test_notifications_are_rendered_in_recipient_language(session_factory: sessi
 
     assert len(notifications) == 1
     assert notifications[0].title == "Erwartete Transaktion gebucht"
-    assert "gebucht" in notifications[0].body
+    assert notifications[0].body == f"{ACCOUNT_IBAN}: 100,00 € gebucht"

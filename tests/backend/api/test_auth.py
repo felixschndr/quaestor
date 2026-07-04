@@ -44,7 +44,7 @@ def test_register_rejects_duplicate_user_name(http_client: TestClient):
     second = register(http_client, display_name="Someone Else")
 
     assert second.status_code == 409
-    assert "already taken" in second.json()["detail"].lower()
+    assert second.json()["detail"] == f"User name '{USER_NAME}' is already taken"
 
 
 def test_register_treats_user_name_case_insensitively(http_client: TestClient):
