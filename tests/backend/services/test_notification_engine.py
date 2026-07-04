@@ -250,7 +250,9 @@ def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_f
         user = make_user(db_session)
         credential = make_credential(db_session, user_id=user.id)
         account = make_account(db_session, credential_id=credential.id)
-        expected = make_transaction(db_session, account_id=account.id, amount=100.0, expected=True, pending=True)
+        expected = make_transaction(
+            db_session, account_id=account.id, amount=100.0, other_party="Landlord", expected=True, pending=True
+        )
         _make_notification_rule(
             db_session,
             user_id=user.id,
@@ -268,6 +270,7 @@ def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_f
 
     assert len(notifications) == 1
     assert "booked" in notifications[0].body.lower()
+    assert "Landlord" in notifications[0].body
 
 
 def test_expected_transaction_rule_quiet_when_nothing_booked(session_factory: sessionmaker):

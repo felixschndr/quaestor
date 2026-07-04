@@ -3,7 +3,7 @@ from source.backend.services import i18n_service
 _TRANSLATION_CATALOG: dict[str, dict[str, str]] = {
     "en": {
         "expected_transaction.title": "Expected transaction booked",
-        "expected_transaction.body": "{account}: {amount} booked.",
+        "expected_transaction.body": "{account}: {amount} booked",
         "expected_transaction.body_minimal": "{account}",
         "transaction.title": "Transaction booked",
         "transaction.body": "{account}: {amount}",
@@ -20,7 +20,7 @@ _TRANSLATION_CATALOG: dict[str, dict[str, str]] = {
     },
     "de": {
         "expected_transaction.title": "Erwartete Transaktion gebucht",
-        "expected_transaction.body": "{account}: {amount} gebucht.",
+        "expected_transaction.body": "{account}: {amount} gebucht",
         "expected_transaction.body_minimal": "{account}",
         "transaction.title": "Transaktion gebucht",
         "transaction.body": "{account}: {amount}",

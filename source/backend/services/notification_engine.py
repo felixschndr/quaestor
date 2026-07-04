@@ -203,26 +203,29 @@ def _notifications_for_rule(
     language: str,
 ) -> list[Notification]:
     if rule.trigger is NotificationTrigger.EXPECTED_TRANSACTION:
-        notifications = [
-            _build_notification(
-                rule=rule,
-                account=account,
-                default_title=notification_messages.translate(language, key="expected_transaction.title"),
-                body=(
-                    notification_messages.translate(
-                        language,
-                        key="expected_transaction.body",
-                        account=account.display_label,
-                        amount=format_amount(transaction.amount),
-                    )
-                    if rule.include_content
-                    else notification_messages.translate(
-                        language, key="expected_transaction.body_minimal", account=account.display_label
-                    )
-                ),
+        notifications = []
+        for transaction in booked_expected_transactions:
+            if rule.include_content:
+                body = notification_messages.translate(
+                    language,
+                    key="expected_transaction.body",
+                    account=account.display_label,
+                    amount=format_amount(transaction.amount),
+                )
+                if transaction.other_party:
+                    body += f" · {transaction.other_party}"
+            else:
+                body = notification_messages.translate(
+                    language, key="expected_transaction.body_minimal", account=account.display_label
+                )
+            notifications.append(
+                _build_notification(
+                    rule=rule,
+                    account=account,
+                    default_title=notification_messages.translate(language, key="expected_transaction.title"),
+                    body=body,
+                )
             )
-            for transaction in booked_expected_transactions
-        ]
         if notifications:
             logger.debug(f"{rule}: {len(notifications)} expected transaction(s) booked on {account}")
         return notifications
