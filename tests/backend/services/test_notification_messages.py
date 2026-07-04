@@ -10,9 +10,9 @@ def test_translate_returns_language_specific_text():
 def test_translate_fills_placeholders():
     assert (
         notification_messages.translate(
-            "de", key="balance_below.body", account="Giro", amount="40.00 €", threshold="50.00 €"
+            "de", key="balance_below.body", account="Giro", amount="40,00 €", threshold="50,00 €"
         )
-        == "Giro: 40.00 € (Schwelle 50.00 €)"
+        == "Giro: 40,00 € (Schwelle 50,00 €)"
     )
 
 

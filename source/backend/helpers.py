@@ -47,7 +47,9 @@ def epoch_ms_to_date(value: str | int) -> date:
 
 
 def format_amount(amount: float) -> str:
-    return f"{amount:.2f} €"
+    formatted = f"{amount:,.2f}"
+    formatted = formatted.replace(",", "\x00").replace(".", ",").replace("\x00", ".")
+    return f"{formatted} €"
 
 
 def parse_german_decimal(value: str) -> float:

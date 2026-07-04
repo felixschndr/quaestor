@@ -29,10 +29,12 @@ from tests.backend.conftest import RECENT_DATE, create_fetched_transaction
 @pytest.mark.parametrize(
     argnames="amount, expected",
     argvalues=[
-        (0.0, "0.00 €"),
-        (12.5, "12.50 €"),
-        (-9.99, "-9.99 €"),
-        (1234.567, "1234.57 €"),
+        (0.0, "0,00 €"),
+        (12.5, "12,50 €"),
+        (-9.99, "-9,99 €"),
+        (1234.567, "1.234,57 €"),
+        (1000000.0, "1.000.000,00 €"),
+        (-1234.5, "-1.234,50 €"),
     ],
 )
 def test_format_amount(amount: float, expected: str):

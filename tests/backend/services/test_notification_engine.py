@@ -153,7 +153,7 @@ def test_transaction_rule_respects_amount_bounds(session_factory: sessionmaker):
         )
 
     assert len(notifications) == 1
-    assert "75.00" in notifications[0].body
+    assert "75,00" in notifications[0].body
 
 
 def test_transaction_rule_filters_by_category(session_factory: sessionmaker):
