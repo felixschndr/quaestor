@@ -344,7 +344,7 @@ def resolve_frontend_dist(dist_path: Path) -> Path | None:
 
     raise RuntimeError(
         f"Frontend dist not found at {dist_path}. "
-        f"Run `pnpm -C source/frontend build` (or `task run:prod`) first, "
+        f"Run `pnpm -C source/frontend build` first, "
         f"or set {ALLOW_MISSING_FRONTEND_ENV}=true to run the backend without a built frontend."
     )
 
