@@ -217,6 +217,9 @@ export function StatsView({
   const typesParam = selectedTypes.length === TRANSACTION_TYPES.length ? [] : selectedTypes
   const typeFilters: StatsTypeFilters = { transaction_types: typesParam, linked }
 
+  const hasSelection =
+    accountIds.length > 0 && selectedCategories.length > 0 && selectedTypes.length > 0
+
   const openSearch = (extra: { categories?: TransactionCategory[]; text?: string }) =>
     onOpenSearch({
       accountIds,
@@ -234,16 +237,30 @@ export function StatsView({
   const openNetWorthSearch = () =>
     onOpenSearch({ accountIds, dateFrom: filters.date_from, dateTo: filters.date_to })
 
-  const categories = useCategoryStats(accountIds, filters, direction, categoriesParam, typeFilters)
-  const cashflow = useCashflowStats(accountIds, filters, categoriesParam, typeFilters)
-  const netSavings = useNetSavingsStats(accountIds, filters, categoriesParam, typeFilters)
-  const netWorth = useNetWorthStats(accountIds, filters)
+  const categories = useCategoryStats(
+    accountIds,
+    filters,
+    direction,
+    categoriesParam,
+    typeFilters,
+    hasSelection,
+  )
+  const cashflow = useCashflowStats(accountIds, filters, categoriesParam, typeFilters, hasSelection)
+  const netSavings = useNetSavingsStats(
+    accountIds,
+    filters,
+    categoriesParam,
+    typeFilters,
+    hasSelection,
+  )
+  const netWorth = useNetWorthStats(accountIds, filters, hasSelection)
   const otherParties = useOtherPartyStats(
     accountIds,
     filters,
     direction,
     categoriesParam,
     typeFilters,
+    hasSelection,
   )
 
   return (
@@ -307,15 +324,7 @@ export function StatsView({
         />
       </section>
 
-      {accountIds.length === 0 ? (
-        <p className="text-muted-foreground border-border bg-card rounded-lg border border-dashed p-8 text-center text-sm">
-          {t('stats.noAccounts')}
-        </p>
-      ) : selectedCategories.length === 0 ? (
-        <p className="text-muted-foreground border-border bg-card rounded-lg border border-dashed p-8 text-center text-sm">
-          {t('stats.noCategories')}
-        </p>
-      ) : (
+      {!hasSelection ? null : (
         <>
           <ContractsSummaryCard accountIds={accountIds} />
 

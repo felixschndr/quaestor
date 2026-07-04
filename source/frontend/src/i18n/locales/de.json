@@ -596,7 +596,6 @@
     "loading": "Wird geladen …",
     "error": "Konnte nicht geladen werden.",
     "empty": "Keine Daten für diesen Zeitraum.",
-    "noAccounts": "Bitte wähle mindestens ein Konto, um Statistiken zu sehen.",
     "other": "Sonstige",
     "directionLabel": "Richtung",
     "direction": {
@@ -652,8 +651,7 @@
     "otherParties": {
       "titleOutgoing": "Top-Empfänger",
       "titleIncoming": "Top-Sender"
-    },
-    "noCategories": "Bitte wähle mindestens eine Kategorie, um Statistiken zu sehen."
+    }
   },
   "notifications": {
     "title": "Benachrichtigungen",

@@ -60,7 +60,7 @@ export function MultiSelectPopover<T extends string>({
         aria-label={ariaLabel}
         className={cn(popoverTriggerClassName, 'justify-between', className)}
       >
-        <span className={cn('truncate', selectedCount === 0 && 'text-muted-foreground')}>
+        <span className={cn('truncate', selectedCount === 0 && 'text-destructive')}>
           {triggerLabel}
         </span>
         <ChevronDown className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />

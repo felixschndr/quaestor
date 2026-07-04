@@ -259,6 +259,7 @@ export function useCategoryStats(
   direction: StatsDirection,
   categories: TransactionCategory[],
   typeFilters: StatsTypeFilters = {},
+  enabled: boolean = true,
 ) {
   const queryString = buildStatsQueryString(
     accountIds,
@@ -275,7 +276,7 @@ export function useCategoryStats(
       typeFilters,
     ),
     queryFn: () => api<CategorySlice[]>(`/statistics/categories?${queryString}`),
-    enabled: accountIds.length > 0,
+    enabled: enabled && accountIds.length > 0,
     staleTime: 30_000,
   })
 }
@@ -285,12 +286,13 @@ export function useCashflowStats(
   filters: StatsFilters,
   categories: TransactionCategory[],
   typeFilters: StatsTypeFilters = {},
+  enabled: boolean = true,
 ) {
   const queryString = buildStatsQueryString(accountIds, filters, { ...typeFilters }, categories)
   return useQuery({
     queryKey: statisticsQueryKeys.cashflow(accountIds, filters, categories, typeFilters),
     queryFn: () => api<MonthlyCashflow[]>(`/statistics/cashflow?${queryString}`),
-    enabled: accountIds.length > 0,
+    enabled: enabled && accountIds.length > 0,
     staleTime: 30_000,
   })
 }
@@ -300,12 +302,13 @@ export function useNetSavingsStats(
   filters: StatsFilters,
   categories: TransactionCategory[],
   typeFilters: StatsTypeFilters = {},
+  enabled: boolean = true,
 ) {
   const queryString = buildStatsQueryString(accountIds, filters, { ...typeFilters }, categories)
   return useQuery({
     queryKey: statisticsQueryKeys.netSavings(accountIds, filters, categories, typeFilters),
     queryFn: () => api<MonthlyNetSavings[]>(`/statistics/net-savings?${queryString}`),
-    enabled: accountIds.length > 0,
+    enabled: enabled && accountIds.length > 0,
     staleTime: 30_000,
   })
 }
@@ -316,6 +319,7 @@ export function useOtherPartyStats(
   direction: StatsDirection,
   categories: TransactionCategory[],
   typeFilters: StatsTypeFilters = {},
+  enabled: boolean = true,
 ) {
   const queryString = buildStatsQueryString(
     accountIds,
@@ -332,19 +336,21 @@ export function useOtherPartyStats(
       typeFilters,
     ),
     queryFn: () => api<OtherPartySlice[]>(`/statistics/other-parties?${queryString}`),
-    enabled: accountIds.length > 0,
+    enabled: enabled && accountIds.length > 0,
     staleTime: 30_000,
   })
 }
 
-export function useNetWorthStats(accountIds: number[], filters: StatsFilters) {
-  // Net worth is independent of categories and direction — both are intentionally
-  // omitted from the request.
+export function useNetWorthStats(
+  accountIds: number[],
+  filters: StatsFilters,
+  enabled: boolean = true,
+) {
   const queryString = buildStatsQueryString(accountIds, filters, {}, [])
   return useQuery({
     queryKey: statisticsQueryKeys.netWorth(accountIds, filters),
     queryFn: () => api<NetWorthResponse>(`/statistics/net-worth?${queryString}`),
-    enabled: accountIds.length > 0,
+    enabled: enabled && accountIds.length > 0,
     staleTime: 30_000,
   })
 }
@@ -372,11 +378,6 @@ export interface CategoryChartDatum {
   value: number
 }
 
-/**
- * Collapse all but the `n` biggest categories into a single "Other" slice so a
- * pie with ~24 categories stays readable. Returns the input untouched when it
- * already fits. Pure — unit-tested directly.
- */
 export function aggregateTopN(
   data: CategoryChartDatum[],
   n: number,
@@ -393,11 +394,6 @@ export function aggregateTopN(
   ]
 }
 
-// Chart palette: mid-lightness oklch hues that read on both the dark and light
-// themes (which only swap the background). Ordered so consecutive entries jump
-// across the hue wheel (warm/cool alternating) — adjacent slices/bars then
-// contrast strongly. The first ~9 (all a pie ever shows: top-8 + "Other") are
-// well-separated hues, so no two visible slices look alike.
 const CHART_PALETTE = [
   'oklch(0.66 0.16 250)', // blue
   'oklch(0.73 0.17 60)', // orange
@@ -415,17 +411,10 @@ const CHART_PALETTE = [
 
 const OTHER_COLOR = 'oklch(0.6 0 0)'
 
-/**
- * The single source of chart colors: the bar/slice color for a given rank
- * (position in the share-sorted data). Positional — not keyed on the entity —
- * so the first N items always use N distinct palette entries, and every chart
- * (category bar, pie, otherParties) colors rank N identically.
- */
 export function paletteColor(index: number): string {
   return CHART_PALETTE[index % CHART_PALETTE.length]
 }
 
-/** Like {@link paletteColor} but with the 'OTHER' pie bucket rendered neutral gray. */
 export function sliceColor(category: TransactionCategory | 'OTHER', index: number): string {
   return category === 'OTHER' ? OTHER_COLOR : paletteColor(index)
 }

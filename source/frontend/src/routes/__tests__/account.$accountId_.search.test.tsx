@@ -312,6 +312,38 @@ describe('TransactionSearchView — results', () => {
     expect(await screen.findByText('No transactions match your filters.')).toBeInTheDocument()
   })
 
+  it('shows no results and does not search when no category is selected', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    globalThis.fetch = fetchSpy as unknown as typeof fetch
+
+    renderView({ search: { account_ids: [42], categories: [] } })
+
+    await waitFor(() => expect(fetchSpy).not.toHaveBeenCalled())
+    expect(screen.queryByRole('region', { name: 'Search results' })).toBeNull()
+    expect(screen.queryByText('No transactions match your filters.')).toBeNull()
+  })
+
+  it('shows no results and does not search when no type is selected', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    globalThis.fetch = fetchSpy as unknown as typeof fetch
+
+    renderView({ search: { account_ids: [42], transaction_types: [] } })
+
+    await waitFor(() => expect(fetchSpy).not.toHaveBeenCalled())
+    expect(screen.queryByRole('region', { name: 'Search results' })).toBeNull()
+    expect(screen.queryByText('No transactions match your filters.')).toBeNull()
+  })
+
   it('renders one row per returned transaction with the right link and colour', async () => {
     mockFetchOnce([
       {

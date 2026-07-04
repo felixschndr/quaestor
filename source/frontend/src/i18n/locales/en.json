@@ -596,7 +596,6 @@
     "loading": "Loading …",
     "error": "Could not load.",
     "empty": "No data for this period.",
-    "noAccounts": "Select at least one account to see statistics.",
     "other": "Other",
     "directionLabel": "Direction",
     "direction": {
@@ -652,8 +651,7 @@
     "otherParties": {
       "titleOutgoing": "Top recipients",
       "titleIncoming": "Top senders"
-    },
-    "noCategories": "Select at least one category to see statistics."
+    }
   },
   "notifications": {
     "title": "Notifications",

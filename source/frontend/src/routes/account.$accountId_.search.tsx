@@ -99,6 +99,11 @@ export function TransactionSearchView({
 
   const debouncedDraft = useDebouncedValue(draft, 300)
 
+  const hasSelection =
+    accountIds.length > 0 &&
+    debouncedDraft.categories?.length !== 0 &&
+    debouncedDraft.transaction_types?.length !== 0
+
   useEffect(() => {
     onChange({ accountIds, filters: debouncedDraft })
   }, [accountIds, debouncedDraft, onChange])
@@ -118,7 +123,7 @@ export function TransactionSearchView({
         onUpdate={update}
       />
 
-      {accountIds.length > 0 ? (
+      {hasSelection ? (
         <SearchResults accountIds={accountIds} credentials={credentials} filters={debouncedDraft} />
       ) : null}
     </main>
