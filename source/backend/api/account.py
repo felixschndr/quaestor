@@ -134,7 +134,7 @@ def get_transaction(
     )
 
 
-@router.patch("/{account_id}/transactions/{transaction_id}", response_model=TransactionRead)
+@router.patch("/{account_id}/transactions/{transaction_id}", response_model=TransactionDetailRead)
 def update_transaction(
     account_id: int,
     transaction_id: int,

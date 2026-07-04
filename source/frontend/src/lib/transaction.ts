@@ -103,7 +103,7 @@ export function useUpdateTransaction(accountId: number, transactionId: number) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (payload: TransactionPatch) =>
-      api<TransactionRead>(`/account/${accountId}/transactions/${transactionId}`, {
+      api<TransactionDetailRead>(`/account/${accountId}/transactions/${transactionId}`, {
         method: 'PATCH',
         body: payload,
       }),
