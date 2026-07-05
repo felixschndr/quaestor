@@ -13,7 +13,7 @@ import {
 import { formatEuro, formatIban } from '@/lib/format'
 import { paletteColor, type OtherPartySlice } from '@/lib/statistics'
 import { AXIS_TICK, euroFormat, TOOLTIP_STYLE } from './chartTheme'
-import { ArrowTick, BarValueLabel, ToggleTick } from './chart-parts'
+import { ArrowTick, BarValueLabel, DRILL_ARROW_WIDTH, ToggleTick } from './chart-parts'
 
 export interface OtherPartyChartProps {
   data: OtherPartySlice[]
@@ -77,7 +77,7 @@ export function OtherPartyChart({ data, onDrill }: OtherPartyChartProps) {
   return (
     <div className="w-full" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartRows} layout="vertical" margin={{ left: 0, right: onDrill ? 4 : 16 }}>
+        <BarChart data={chartRows} layout="vertical" margin={{ left: 0, right: onDrill ? 0 : 16 }}>
           {/* domain ending at dataMax keeps the biggest visible bar at the right edge. */}
           <XAxis
             type="number"
@@ -106,9 +106,11 @@ export function OtherPartyChart({ data, onDrill }: OtherPartyChartProps) {
               type="category"
               dataKey="other_party"
               interval={0}
-              width={26}
+              width={DRILL_ARROW_WIDTH}
               axisLine={false}
               tickLine={false}
+              tickSize={0}
+              tickMargin={0}
               tick={<ArrowTick onSelect={onDrill} />}
             />
           ) : null}

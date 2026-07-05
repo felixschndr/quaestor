@@ -20,6 +20,7 @@ import {
   TOOLTIP_STYLE,
   useMonthLabel,
 } from './chartTheme'
+import { AxisValueTick } from './chart-parts'
 
 export interface CashflowChartProps {
   data: MonthlyCashflow[]
@@ -33,10 +34,10 @@ export function CashflowChart({ data }: CashflowChartProps) {
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ left: 8, right: 8 }}>
+        <BarChart data={data} margin={{ left: 0, right: 0 }}>
           <CartesianGrid stroke="var(--color-border)" vertical={false} />
           <XAxis dataKey="month" tick={AXIS_TICK} tickFormatter={monthLabel} />
-          <YAxis tick={AXIS_TICK} tickFormatter={euroAxisFormat} width={64} />
+          <YAxis tick={<AxisValueTick format={euroAxisFormat} />} width={60} />
           <Tooltip
             cursor={{ fill: 'var(--color-muted)' }}
             contentStyle={TOOLTIP_STYLE}

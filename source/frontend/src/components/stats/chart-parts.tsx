@@ -4,6 +4,16 @@ import { formatEuro } from '@/lib/format'
 // value fits inside its bar.
 const APPROX_CHAR_WIDTH = 6.5
 
+// Left edge shared by every axis label so all charts line up with the card
+// title/icon (which sits at the content-left edge). 0 = flush with the icon.
+export const AXIS_LABEL_LEFT = 0
+
+// Width reserved for the drill-arrow axis. The chevron right-anchors to this
+// band's right edge, so with the chart's right margin at 0 it lands flush
+// against the card's content edge — as far right as the padding allows, with no
+// per-chart pixel tuning.
+export const DRILL_ARROW_WIDTH = 16
+
 export interface BarValueLabelProps {
   // Injected by recharts' <LabelList content={...}> via cloneElement.
   x?: number
@@ -81,7 +91,7 @@ export function ToggleTick({
   const isHidden = hidden.has(key)
   return (
     <text
-      x={6}
+      x={AXIS_LABEL_LEFT}
       y={y}
       dy="0.32em"
       textAnchor="start"
@@ -95,12 +105,33 @@ export function ToggleTick({
   )
 }
 
-export interface ArrowTickProps {
-  // x/y/payload injected by recharts via the right <YAxis tick={...}> element.
+export interface AxisValueTickProps {
   x?: number
   y?: number
   payload?: { value?: string | number }
-  /** Called with the row's axis key (category / other party) on click. */
+  format: (value: unknown) => string
+}
+
+export function AxisValueTick({ x = 0, y = 0, payload, format }: AxisValueTickProps) {
+  return (
+    <text
+      x={x}
+      y={y}
+      dx={-4}
+      dy="0.32em"
+      textAnchor="end"
+      fill="var(--color-foreground)"
+      fontSize={11}
+    >
+      {format(payload?.value)}
+    </text>
+  )
+}
+
+export interface ArrowTickProps {
+  x?: number
+  y?: number
+  payload?: { value?: string | number }
   onSelect: (key: string) => void
 }
 
@@ -126,13 +157,12 @@ export function DrillArrowIcon({ className }: { className?: string }) {
   )
 }
 
-/**
- * Right-axis tick: a clickable chevron per row that drills into the filtered
- * transaction search. Rendered as a category-axis tick so it lines up exactly
- * with each bar.
- */
+const CHEVRON_WIDTH = 5
+const CHEVRON_TIP_INSET = 2
+
 export function ArrowTick({ x = 0, y = 0, payload, onSelect }: ArrowTickProps) {
   const key = String(payload?.value ?? '')
+  const chevronX = DRILL_ARROW_WIDTH - CHEVRON_WIDTH - CHEVRON_TIP_INSET
   return (
     <g
       className="stats-drill-arrow"
@@ -141,8 +171,8 @@ export function ArrowTick({ x = 0, y = 0, payload, onSelect }: ArrowTickProps) {
       style={{ cursor: 'pointer' }}
       onClick={() => onSelect(key)}
     >
-      <rect x={0} y={-11} width={22} height={22} fill="transparent" />
-      <DrillChevronPath transform="translate(6, 0)" />
+      <rect x={-10} y={-11} width={DRILL_ARROW_WIDTH + 10} height={22} fill="transparent" />
+      <DrillChevronPath transform={`translate(${chevronX}, 0)`} />
     </g>
   )
 }

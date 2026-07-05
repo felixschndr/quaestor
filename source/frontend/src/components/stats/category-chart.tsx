@@ -25,7 +25,7 @@ import {
 } from '@/lib/statistics'
 import type { TransactionCategory } from '@/lib/transaction'
 import { AXIS_TICK, euroFormat, TOOLTIP_STYLE } from './chartTheme'
-import { ArrowTick, BarValueLabel, ToggleTick } from './chart-parts'
+import { ArrowTick, BarValueLabel, DRILL_ARROW_WIDTH, ToggleTick } from './chart-parts'
 
 // Beyond this many slices the pie collapses the tail into a single "Other"
 // wedge so it stays legible on a phone.
@@ -227,7 +227,7 @@ export function CategoryChart({ slices, chartType, onDrill }: CategoryChartProps
   return (
     <div className="w-full" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: onDrill ? 4 : 16 }}>
+        <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: onDrill ? 0 : 16 }}>
           {/* domain ending at dataMax (not a rounded "nice" bound) makes the
               biggest visible bar always reach the right edge. */}
           <XAxis
@@ -257,9 +257,11 @@ export function CategoryChart({ slices, chartType, onDrill }: CategoryChartProps
               type="category"
               dataKey="category"
               interval={0}
-              width={26}
+              width={DRILL_ARROW_WIDTH}
               axisLine={false}
               tickLine={false}
+              tickSize={0}
+              tickMargin={0}
               tick={<ArrowTick onSelect={(category) => onDrill(category as TransactionCategory)} />}
             />
           ) : null}

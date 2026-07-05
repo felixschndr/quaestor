@@ -20,6 +20,7 @@ import { formatDate, formatEuro } from '@/lib/format'
 import { readPinnedDate, writePinnedDate } from '@/lib/netWorthPin'
 import type { DailyNetWorth, NetWorthSummary } from '@/lib/statistics'
 import { AXIS_TICK, euroAxisFormat } from './chartTheme'
+import { AxisValueTick } from './chart-parts'
 
 export interface NetWorthChartProps {
   data: DailyNetWorth[]
@@ -135,7 +136,7 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
         userSelect: 'none',
       }}
     >
-      <div className="text-foreground flex items-center justify-between gap-2 px-1 pb-2 text-sm tabular-nums">
+      <div className="text-foreground flex items-center justify-between gap-2 pb-2 text-sm tabular-nums">
         <span className="min-w-0 truncate">
           {active ? (
             <>
@@ -160,7 +161,7 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}
-            margin={{ left: 8, right: 8, top: 4, bottom: 0 }}
+            margin={{ left: 0, right: 8, top: 4, bottom: 0 }}
             onClick={handlePick}
             onMouseDown={handleDown}
             onMouseMove={handleMove}
@@ -180,9 +181,8 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
               minTickGap={32}
             />
             <YAxis
-              tick={AXIS_TICK}
-              tickFormatter={euroAxisFormat}
-              width={64}
+              tick={<AxisValueTick format={euroAxisFormat} />}
+              width={60}
               domain={[
                 (dataMin: number) => dataMin - Math.abs(dataMin) * 0.02,
                 (dataMax: number) => dataMax + Math.abs(dataMax) * 0.02,
@@ -237,7 +237,7 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
         </ResponsiveContainer>
       </div>
       {summary ? (
-        <dl className="text-foreground mt-2 grid grid-cols-3 gap-2 px-1 text-xs tabular-nums">
+        <dl className="text-foreground mt-2 grid grid-cols-3 gap-2 text-xs tabular-nums">
           {(
             [
               ['min', summary.minimum],
