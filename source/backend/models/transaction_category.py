@@ -94,7 +94,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
     ],
     TransactionCategory.RENT: ["miete"],
     TransactionCategory.UTILITIES: ["vattenfall", "vodafone", "rundfunk", "strom"],
-    TransactionCategory.TRAVEL: ["vw leasing", "auto", "tuv", "tuev", "db", "bahn", "hotel", "vbk", "urlaub", "beach"],
+    TransactionCategory.TRAVEL: ["vw leasing", "audi", "auto", "tuv", "tuev", "db", "bahn", "hotel", "vbk", "urlaub"],
     TransactionCategory.FUEL: ["tankstelle", "aral station", "bft", "tanken", "esso"],
     TransactionCategory.FITNESS: ["fit-in", "fitness", "gym"],
     TransactionCategory.SUPERMARKET: [

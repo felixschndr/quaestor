@@ -101,6 +101,7 @@ function StatsPage() {
               next.categories.length === FILTERABLE_CATEGORIES.length ? undefined : next.categories,
           },
           replace: false,
+          resetScroll: false,
         })
       }
       onOpenSearch={(drill) => {
