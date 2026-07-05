@@ -19,7 +19,7 @@ import {
 import { formatDate, formatEuro } from '@/lib/format'
 import { readPinnedDate, writePinnedDate } from '@/lib/netWorthPin'
 import type { DailyNetWorth, NetWorthSummary } from '@/lib/statistics'
-import { AXIS_TICK, euroFormat } from './chartTheme'
+import { AXIS_TICK, euroAxisFormat } from './chartTheme'
 
 export interface NetWorthChartProps {
   data: DailyNetWorth[]
@@ -30,32 +30,15 @@ export interface NetWorthChartProps {
 
 const LOCALES: Record<string, Locale> = { en: enUS, de }
 
-// Recharts' onMouseMove/onTouchMove handlers receive a state object whose
-// `activeTooltipIndex` is `number | string | null | undefined` — for cartesian
-// charts it's usually a numeric string (e.g. "3"). We accept both shapes.
 interface ChartMouseState {
   activeTooltipIndex?: number | string | null
   activeLabel?: string | number | null
 }
 
-/**
- * Net worth as a line over time. On touch the user can tap and drag horizontally
- * to scrub through history (à la Trade Republic): the highlighted value above
- * the chart updates live and the cursor follows the finger.
- *
- * The container suppresses long-press selection so dragging never triggers the
- * browser context menu or text selection. `touch-action: pan-y` keeps the page
- * vertically scrollable while reserving horizontal touches for the chart.
- */
 export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWorthChartProps) {
   const { t, i18n } = useTranslation()
   const locale = LOCALES[i18n.language] ?? enUS
 
-  // Two layers drive the headline value + cursor dot: a transient `hoverIndex`
-  // that follows the mouse, and a pinned day committed on click/touch that
-  // survives mouse-leave — so a clicked day stays highlighted (and reachable by
-  // the "view day" button) on desktop, the same way scrubbing sticks on touch.
-  // Falls back to the last point so the chart opens showing "today".
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const [pinnedDate, setPinnedDate] = useState<string | null>(() => readPinnedDate())
   const pinnedIndex = pinnedDate != null ? data.findIndex((point) => point.date === pinnedDate) : -1
@@ -198,11 +181,8 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
             />
             <YAxis
               tick={AXIS_TICK}
-              tickFormatter={euroFormat}
+              tickFormatter={euroAxisFormat}
               width={64}
-              // Tight to the data so subtle movements remain visible; recharts'
-              // default 'nice' bound otherwise flattens lines that move only a
-              // few percent across the range.
               domain={[
                 (dataMin: number) => dataMin - Math.abs(dataMin) * 0.02,
                 (dataMax: number) => dataMax + Math.abs(dataMax) * 0.02,

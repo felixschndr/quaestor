@@ -6,16 +6,19 @@ import { formatEuro } from '@/lib/format'
 
 const LOCALES: Record<string, Locale> = { en: enUS, de }
 
-/**
- * Euro formatter tolerant of recharts' loosely-typed tick/tooltip callback
- * values (which may be string | number | undefined). Coerces to a number first.
- */
 export const euroFormat = (value: unknown): string => formatEuro(Number(value))
 
-/**
- * Returns a formatter that turns a "YYYY-MM" month key into a short, localized
- * axis label like "Apr. 26". Bound to the active i18n language.
- */
+const axisNumber = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 })
+
+export const euroAxisFormat = (value: unknown): string => {
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return ''
+  const abs = Math.abs(amount)
+  if (abs >= 1_000_000) return `${axisNumber.format(amount / 1_000_000)}M €`
+  if (abs >= 1_000) return `${axisNumber.format(amount / 1_000)}k €`
+  return `${axisNumber.format(amount)} €`
+}
+
 export function useMonthLabel(): (month: string) => string {
   const { i18n } = useTranslation()
   const locale = LOCALES[i18n.language] ?? enUS
@@ -39,8 +42,6 @@ export const TOOLTIP_STYLE = {
 
 export const TOOLTIP_LABEL_STYLE = { color: 'var(--color-muted-foreground)' } as const
 
-// Axis ticks and legend use the full-contrast foreground (white in dark mode,
-// near-black in light mode) rather than the muted gray, so labels stay legible.
 export const AXIS_TICK = { fill: 'var(--color-foreground)', fontSize: 11 } as const
 
 export const LEGEND_STYLE = { fontSize: 12, color: 'var(--color-foreground)' } as const

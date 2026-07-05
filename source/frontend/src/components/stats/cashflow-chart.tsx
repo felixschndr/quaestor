@@ -13,6 +13,7 @@ import {
 import type { MonthlyCashflow } from '@/lib/statistics'
 import {
   AXIS_TICK,
+  euroAxisFormat,
   euroFormat,
   LEGEND_STYLE,
   TOOLTIP_LABEL_STYLE,
@@ -35,7 +36,7 @@ export function CashflowChart({ data }: CashflowChartProps) {
         <BarChart data={data} margin={{ left: 8, right: 8 }}>
           <CartesianGrid stroke="var(--color-border)" vertical={false} />
           <XAxis dataKey="month" tick={AXIS_TICK} tickFormatter={monthLabel} />
-          <YAxis tick={AXIS_TICK} tickFormatter={euroFormat} width={64} />
+          <YAxis tick={AXIS_TICK} tickFormatter={euroAxisFormat} width={64} />
           <Tooltip
             cursor={{ fill: 'var(--color-muted)' }}
             contentStyle={TOOLTIP_STYLE}

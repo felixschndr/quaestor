@@ -16,6 +16,7 @@ import {
 import type { MonthlyNetSavings } from '@/lib/statistics'
 import {
   AXIS_TICK,
+  euroAxisFormat,
   euroFormat,
   LEGEND_STYLE,
   TOOLTIP_LABEL_STYLE,
@@ -51,7 +52,7 @@ export function NetSavingsChart({ data }: NetSavingsChartProps) {
           <YAxis
             yAxisId="net"
             tick={AXIS_TICK}
-            tickFormatter={euroFormat}
+            tickFormatter={euroAxisFormat}
             width={64}
             // Only extend below zero as far as the data needs (with a little
             // headroom) — recharts' default rounds to a "nice" bound that leaves
