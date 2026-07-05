@@ -19,7 +19,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
 }))
 
-import { SettingsAuthenticationView } from '@/routes/settings.user.authentication'
+import { SettingsAuthenticationView } from '@/pages/settings.user.authentication'
 import {
   PASSWORD_REQUIREMENTS,
   buildUser,

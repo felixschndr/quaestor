@@ -19,7 +19,7 @@ vi.mock('@/lib/recurringTransaction', () => ({
 }))
 
 import { useDeleteRecurringTransaction, useRecurringTransactions } from '@/lib/recurringTransaction'
-import { AccountDetailView } from '@/routes/account.$accountId'
+import { AccountDetailView } from '@/pages/account.$accountId'
 
 const mockedList = vi.mocked(useRecurringTransactions)
 const mockedDelete = vi.mocked(useDeleteRecurringTransaction)

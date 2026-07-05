@@ -20,7 +20,7 @@ vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ history: { push: vi.fn() } }),
 }))
 
-import { NewCredentialFormView } from '@/routes/settings.credentials.new.$bank'
+import { NewCredentialFormView } from '@/pages/settings.credentials.new.$bank'
 import type { SupportedBank, SyncJob } from '@/lib/credentials'
 
 const ING_BANK: SupportedBank = {

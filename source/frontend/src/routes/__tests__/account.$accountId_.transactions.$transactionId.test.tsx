@@ -43,7 +43,7 @@ vi.mock('@tanstack/react-router', () => ({
 import {
   TransactionDetailView,
   otherPartyLabelKey,
-} from '@/routes/account.$accountId_.transactions.$transactionId'
+} from '@/pages/account.$accountId_.transactions.$transactionId'
 
 function buildTransaction(overrides: Partial<TransactionDetailRead> = {}): TransactionDetailRead {
   return {

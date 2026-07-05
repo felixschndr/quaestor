@@ -47,7 +47,8 @@ vi.mock('@tanstack/react-router', () => ({
 
 import '@/i18n'
 import type { CredentialRead } from '@/lib/auth'
-import { StatsView, type StatsSearchParams } from '@/routes/stats'
+import { StatsView } from '@/pages/stats'
+import { type StatsSearchParams } from '@/routes/stats'
 
 const credentials: CredentialRead[] = [
   {

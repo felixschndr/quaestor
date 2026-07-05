@@ -17,7 +17,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
 }))
 
-import { SettingsUserIndexView } from '@/routes/settings.user.index'
+import { SettingsUserIndexView } from '@/pages/settings.user.index'
 
 beforeEach(async () => {
   await i18n.changeLanguage('en')

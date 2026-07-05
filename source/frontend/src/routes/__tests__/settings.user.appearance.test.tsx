@@ -19,7 +19,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
 }))
 
-import { SettingsAppearanceView } from '@/routes/settings.user.appearance'
+import { SettingsAppearanceView } from '@/pages/settings.user.appearance'
 import { openPopoverOptions, selectFromPopover } from '@/test/popover-select'
 import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
 

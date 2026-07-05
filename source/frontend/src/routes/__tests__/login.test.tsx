@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
 
 import '@/i18n'
-import { LoginForm, LoginPageContent, RegisterForm } from '@/routes/login'
+import { LoginForm, LoginPageContent, RegisterForm } from '@/pages/login'
 import type { PasswordRequirements } from '@/lib/auth'
 
 function renderWithQuery(ui: React.ReactNode) {

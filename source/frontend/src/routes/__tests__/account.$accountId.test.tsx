@@ -41,7 +41,7 @@ vi.mock('@/lib/expectedTransaction', async (importActual) => ({
   useExpectedTransactions: mockUseExpectedTransactions,
 }))
 
-import { AccountDetailView } from '@/routes/account.$accountId'
+import { AccountDetailView } from '@/pages/account.$accountId'
 import type { ExpectedTransactionRead } from '@/lib/expectedTransaction'
 
 beforeAll(() => {

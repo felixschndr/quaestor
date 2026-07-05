@@ -16,7 +16,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
 }))
 
-import { SettingsAttributionsPage } from '@/routes/settings.attributions'
+import { SettingsAttributionsPage } from '@/pages/settings.attributions'
 
 describe('SettingsAttributionsPage', () => {
   it('renders the heading and a back link to /settings', () => {

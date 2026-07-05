@@ -13,7 +13,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
 }))
 
-import { __testing } from '@/routes/settings.credentials.groups'
+import { __testing } from '@/pages/settings.credentials.groups'
 import type { AccountGroupLayout } from '@/lib/accountGroups'
 import type { UserRead } from '@/lib/auth'
 

@@ -32,6 +32,9 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({
     useSearch: () => routerState.search,
   }),
+  getRouteApi: () => ({
+    useSearch: () => routerState.search,
+  }),
   useNavigate: () => routerState.navigate,
   useRouter: () => ({ history: { back: routerState.back } }),
   useCanGoBack: () => routerState.canGoBack,
@@ -119,7 +122,7 @@ vi.mock('@/lib/statistics', () => ({
   }),
 }))
 
-import { NetWorthDetailPage } from '@/routes/stats_.detail'
+import { NetWorthDetailPage } from '@/pages/stats_.detail'
 
 describe('NetWorthDetailPage', () => {
   beforeEach(() => {

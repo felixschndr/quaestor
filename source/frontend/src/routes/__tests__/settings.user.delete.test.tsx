@@ -20,7 +20,7 @@ vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ history: { push: vi.fn() } }),
 }))
 
-import { SettingsDeleteAccountView } from '@/routes/settings.user.delete'
+import { SettingsDeleteAccountView } from '@/pages/settings.user.delete'
 import { buildUser, renderWithQuery } from './-settingsUserTestHelpers'
 
 beforeEach(async () => {

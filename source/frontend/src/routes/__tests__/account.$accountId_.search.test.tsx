@@ -36,10 +36,8 @@ vi.mock('@tanstack/react-router', () => ({
   useCanGoBack: () => false,
 }))
 
-import {
-  TransactionSearchView,
-  type TransactionSearchParams,
-} from '@/routes/account.$accountId_.search'
+import { type TransactionSearchParams } from '@/routes/account.$accountId_.search'
+import { TransactionSearchView } from '@/pages/account.$accountId_.search'
 
 const credentials: CredentialRead[] = [
   {

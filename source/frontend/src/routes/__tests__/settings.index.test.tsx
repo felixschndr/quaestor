@@ -20,7 +20,7 @@ vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ history: { push: vi.fn() } }),
 }))
 
-import { SettingsIndexView } from '@/routes/settings.index'
+import { SettingsIndexView } from '@/pages/settings.index'
 
 describe('SettingsIndexView', () => {
   it('renders the heading and links to each settings sub-page', () => {

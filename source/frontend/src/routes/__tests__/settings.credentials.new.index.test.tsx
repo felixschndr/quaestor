@@ -27,7 +27,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
 }))
 
-import { BankPickerView } from '@/routes/settings.credentials.new.index'
+import { BankPickerView } from '@/pages/settings.credentials.new.index'
 import type { SupportedBank } from '@/lib/credentials'
 
 /** The view is URL-controlled in production; this harness gives it the same state locally

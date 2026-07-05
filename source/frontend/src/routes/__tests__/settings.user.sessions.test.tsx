@@ -22,7 +22,7 @@ vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ history: { push: vi.fn() } }),
 }))
 
-import { SettingsSessionsView } from '@/routes/settings.user.sessions'
+import { SettingsSessionsView } from '@/pages/settings.user.sessions'
 import type { SessionRead } from '@/lib/sessions'
 
 function buildSession(overrides: Partial<SessionRead> = {}): SessionRead {

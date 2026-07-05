@@ -41,7 +41,8 @@ import { useState } from 'react'
 
 import { FILTERABLE_CATEGORIES } from '@/lib/statistics'
 import { TRANSACTION_TYPES } from '@/lib/transaction'
-import { StatsView, type StatsSearchParams, type StatsViewState } from '@/routes/stats'
+import { StatsView } from '@/pages/stats'
+import { type StatsSearchParams, type StatsViewState } from '@/routes/stats'
 
 const credentials: CredentialRead[] = [
   {

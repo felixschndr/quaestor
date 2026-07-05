@@ -28,10 +28,7 @@ export default defineConfig([
     },
   },
   {
-    // TanStack Router file-based route files export both `Route` (the route
-    // definition) and define a local component used by it. The react-refresh
-    // rule doesn't handle this pattern cleanly even with allowExportNames.
-    files: ['src/routes/**/*.tsx'],
+    files: ['src/routes/**/*.tsx', 'src/pages/**/*.tsx'],
     rules: {
       'react-refresh/only-export-components': 'off',
     },

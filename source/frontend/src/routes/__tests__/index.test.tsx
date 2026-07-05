@@ -48,7 +48,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
 }))
 
-import { OverviewView } from '@/routes/index'
+import { OverviewView } from '@/pages'
 import { sumFactoredBalance } from '@/lib/accountDisplayGroups'
 
 function buildUser(overrides: Partial<UserRead> = {}): UserRead {

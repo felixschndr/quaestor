@@ -16,7 +16,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
 }))
 
-import { SettingsVersionView } from '@/routes/settings.version'
+import { SettingsVersionView } from '@/pages/settings.version'
 
 describe('SettingsVersionView', () => {
   it('shows current and latest version with a link to the release when an update is available', () => {

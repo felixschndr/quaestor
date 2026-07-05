@@ -23,7 +23,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('@/lib/clipboard', () => ({ copyText: vi.fn().mockResolvedValue(undefined) }))
 
-import { SettingsApiKeysView } from '@/routes/settings.user.api-keys'
+import { SettingsApiKeysView } from '@/pages/settings.user.api-keys'
 import type { ApiKeyRead } from '@/lib/apiKeys'
 
 function buildKey(overrides: Partial<ApiKeyRead> = {}): ApiKeyRead {

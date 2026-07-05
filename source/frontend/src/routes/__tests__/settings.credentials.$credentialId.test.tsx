@@ -20,7 +20,7 @@ vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ history: { push: vi.fn() } }),
 }))
 
-import { CredentialDetailView } from '@/routes/settings.credentials.$credentialId'
+import { CredentialDetailView } from '@/pages/settings.credentials.$credentialId'
 import type { AccountRead, CredentialRead } from '@/lib/auth'
 
 function buildAccount(overrides: Partial<AccountRead> = {}): AccountRead {

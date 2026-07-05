@@ -19,7 +19,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
 }))
 
-import { SettingsProfileView } from '@/routes/settings.user.profile'
+import { SettingsProfileView } from '@/pages/settings.user.profile'
 import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
 
 beforeEach(async () => {

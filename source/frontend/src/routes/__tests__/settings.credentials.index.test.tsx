@@ -26,7 +26,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
 }))
 
-import { SettingsCredentialsIndexView } from '@/routes/settings.credentials.index'
+import { SettingsCredentialsIndexView } from '@/pages/settings.credentials.index'
 import type { CredentialRead, UserRead } from '@/lib/auth'
 
 function buildUser(credentials: CredentialRead[] = []): UserRead {
