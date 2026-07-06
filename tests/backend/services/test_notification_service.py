@@ -70,7 +70,7 @@ def test_notify_user_delivers_to_all_subscriptions(
 def test_notify_user_prunes_expired_subscriptions(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    def fake_send(*, subscription_info: dict, payload: dict) -> PushResult:
+    def fake_send(subscription_info: dict, payload: dict) -> PushResult:
         if subscription_info["endpoint"].endswith("/gone"):
             return PushResult(outcome=PushOutcome.EXPIRED, detail="410 Gone")
         return PushResult(outcome=PushOutcome.DELIVERED)

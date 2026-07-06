@@ -258,7 +258,7 @@ def test_begin_two_factor_challenge_starts_login_with_credentials(monkeypatch: p
     expires_at = datetime.now() + timedelta(minutes=5)
     calls: list[dict] = []
 
-    def fake_start(*, credential_id: int, phone_no: str, pin: str) -> tuple[str, datetime]:
+    def fake_start(credential_id: int, phone_no: str, pin: str) -> tuple[str, datetime]:
         calls.append({"credential_id": credential_id, "phone_no": phone_no, "pin": pin})
         return CHALLENGE_TOKEN, expires_at
 
@@ -273,7 +273,7 @@ def test_begin_two_factor_challenge_starts_login_with_credentials(monkeypatch: p
 def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest.MonkeyPatch):
     calls: list[dict] = []
 
-    def fake_complete(*, challenge_token: str, credential_id: int, code: str) -> str:
+    def fake_complete(challenge_token: str, credential_id: int, code: str) -> str:
         calls.append({"challenge_token": challenge_token, "credential_id": credential_id, "code": code})
         return "fresh-cookie"
 
@@ -294,7 +294,7 @@ def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.M
 
     session = _TradeRepublicSession(trade_republic_client=_FakeClient())
 
-    async def fake_subscribe_once(*, payload: dict, expected_type: str):  # noqa: ASYNC124
+    async def fake_subscribe_once(payload: dict, expected_type: str):  # noqa: ASYNC124
         if expected_type == "cash":
             return [{"accountNumber": ACCOUNT_IBAN, "currencyId": "EUR", "amount": 100.5}]
         if expected_type == "compactPortfolioByType":

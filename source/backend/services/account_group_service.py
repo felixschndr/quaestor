@@ -130,7 +130,7 @@ def _validate_no_duplicate_account_ids(payload: AccountGroupLayoutWrite) -> None
         seen.add(account_id)
 
 
-def serialize_layout(*, groups: list[AccountGroup], ungrouped_accounts: list[Account]) -> dict[str, object]:
+def serialize_layout(groups: list[AccountGroup], ungrouped_accounts: list[Account]) -> dict[str, object]:
     return {
         "groups": [
             {

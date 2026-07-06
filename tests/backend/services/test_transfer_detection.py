@@ -22,7 +22,7 @@ from tests.backend.conftest import (
 _BASE_DATE = date(year=2026, month=5, day=10)
 
 
-def _create_two_accounts(session: Session, *, user_id: int) -> tuple[Account, Account]:
+def _create_two_accounts(session: Session, user_id: int) -> tuple[Account, Account]:
     credential_a = make_credential(session, user_id=user_id, bank=BankProvider.FINTS)
     credential_b = make_credential(session, user_id=user_id, bank=BankProvider.FINTS)
     account_a = make_account(session, credential_id=credential_a.id, name=ACCOUNT_IBAN)

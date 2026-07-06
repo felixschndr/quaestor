@@ -33,7 +33,6 @@ def _reset_sync_jobs() -> Iterator[None]:
 
 
 def _wait_for_status(
-    *,
     http_client: TestClient,
     credential_id: int,
     job_id: str,

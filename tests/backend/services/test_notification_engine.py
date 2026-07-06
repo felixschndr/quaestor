@@ -44,7 +44,6 @@ ALL_TYPES = [transaction_type.value for transaction_type in TransactionType]
 
 def _make_notification_rule(
     db_session: Session,
-    *,
     user_id: int,
     trigger: NotificationTrigger,
     account_ids: list[int],
@@ -483,11 +482,11 @@ def test_dispatch_sends_each_notification_to_the_user(
 def test_sync_credential_triggers_notification_end_to_end(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    sent: list[Notification] = []
+    sent_notifications = []
     monkeypatch.setattr(
         target=notification_service,
         name="notify_user",
-        value=lambda *, db_session, user, notification: sent.append(notification) or NotificationResult(),
+        value=lambda *, db_session, user, notification: sent_notifications.append(notification) or NotificationResult(),
     )
 
     handler = build_handler(
@@ -515,8 +514,8 @@ def test_sync_credential_triggers_notification_end_to_end(
 
         credential_service.sync_credential(db_session=db_session, credential_id=credential.id)
 
-    assert len(sent) == 1
-    assert sent[0].body == f"{ACCOUNT_IBAN}: -20,00 € · Corner Shop"
+    assert len(sent_notifications) == 1
+    assert sent_notifications[0].body == f"{ACCOUNT_IBAN}: -20,00 € · Corner Shop"
 
 
 # --- contract overdue trigger ----------------------------------------------
@@ -525,13 +524,13 @@ _TODAY = RECENT_DATE
 
 
 def _capture_sent(monkeypatch: pytest.MonkeyPatch) -> list[Notification]:
-    sent: list[Notification] = []
+    sent_notifications = []
     monkeypatch.setattr(
         target=notification_service,
         name="notify_user",
-        value=lambda db_session, user, notification: sent.append(notification) or NotificationResult(),
+        value=lambda db_session, user, notification: sent_notifications.append(notification) or NotificationResult(),
     )
-    return sent
+    return sent_notifications
 
 
 def test_overdue_contract_notifies_once_and_dedups(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):

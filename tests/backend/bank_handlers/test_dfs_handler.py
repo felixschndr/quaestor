@@ -50,7 +50,6 @@ KURSE_SERIES_BY_ID = {
 class FakeSession:
     def __init__(
         self,
-        *,
         login_redirect_url: str = DASHBOARD_REDIRECT_URL,
         dashboard_status: int = 200,
         snapshot_status: int = 200,

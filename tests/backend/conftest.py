@@ -275,7 +275,6 @@ def _default_credentials_for(bank: BankProvider) -> dict[str, str]:
 
 def make_user(
     db_session: Session,
-    *,
     user_name: str = USER_NAME,
     display_name: str = DISPLAY_NAME,
     password_hash: str = VALID_PASSWORD_HASH,
@@ -287,7 +286,7 @@ def make_user(
     return user
 
 
-def create_user(session_factory: sessionmaker, *, user_name: str = USER_NAME) -> User:
+def create_user(session_factory: sessionmaker, user_name: str = USER_NAME) -> User:
     with session_factory() as db_session:
         user = make_user(db_session, user_name=user_name)
         db_session.commit()
@@ -297,7 +296,6 @@ def create_user(session_factory: sessionmaker, *, user_name: str = USER_NAME) ->
 
 def make_credential(
     db_session: Session,
-    *,
     user_id: int,
     bank: BankProvider = BankProvider.FINTS,
     credentials: dict[str, str] | None = None,
@@ -321,7 +319,6 @@ def make_credential(
 
 def make_account(
     db_session: Session,
-    *,
     credential_id: int,
     name: str = ACCOUNT_IBAN,
     display_name: str | None = None,
@@ -345,7 +342,6 @@ def make_account(
 
 def make_transaction(
     db_session: Session,
-    *,
     account_id: int,
     amount: float = -1.0,
     purpose: str | None = None,
@@ -379,7 +375,6 @@ def make_transaction(
 
 def make_contract(
     db_session: Session,
-    *,
     account_id: int,
     name: str = "Gym",
     source: ContractSource = ContractSource.DETECTED,
@@ -412,7 +407,6 @@ def make_contract(
 
 def persist_credential(
     session_factory: sessionmaker,
-    *,
     user_id: int,
     bank: BankProvider = BankProvider.FINTS,
     credentials: dict[str, str] | None = None,
@@ -436,7 +430,6 @@ def persist_credential(
 
 def persist_account(
     session_factory: sessionmaker,
-    *,
     credential_id: int,
     name: str = ACCOUNT_IBAN,
     display_name: str | None = None,
@@ -460,7 +453,6 @@ def persist_account(
 
 def persist_transaction(
     session_factory: sessionmaker,
-    *,
     account_id: int,
     amount: float = -1.0,
     purpose: str | None = None,
@@ -494,34 +486,32 @@ def persist_transaction(
 
 
 def persist_credential_with_new_user(
-    session_factory: sessionmaker, *, last_fetching_timestamp: datetime | None = LAST_FETCHING_TIMESTAMP
+    session_factory: sessionmaker, last_fetching_timestamp: datetime | None = LAST_FETCHING_TIMESTAMP
 ) -> int:
     """Create a fresh user and a credential owned by them, returning the credential id."""
     user = create_user(session_factory)
     return persist_credential(session_factory, user_id=user.id, last_fetching_timestamp=last_fetching_timestamp)
 
 
-def persist_account_with_new_user(session_factory: sessionmaker, *, balance: float = 0.0) -> int:
+def persist_account_with_new_user(session_factory: sessionmaker, balance: float = 0.0) -> int:
     credential_id = persist_credential_with_new_user(session_factory, last_fetching_timestamp=None)
     return persist_account(session_factory, credential_id=credential_id, balance=balance)
 
 
 def make_account_with_new_user(
     db_session: Session,
-    *,
     user_name: str = USER_NAME,
     bank: BankProvider = BankProvider.FINTS,
     name: str = ACCOUNT_IBAN,
     balance: float = 0.0,
 ) -> Account:
-    """Create user + credential + account in the given session and return the account."""
     user = make_user(db_session, user_name=user_name)
     credentials = {} if bank == BankProvider.MANUAL else None
     credential = make_credential(db_session, user_id=user.id, bank=bank, credentials=credentials)
     return make_account(db_session, credential_id=credential.id, name=name, balance=balance)
 
 
-def persist_manual_account_with_new_user(session_factory: sessionmaker, *, balance: float = 100.0) -> int:
+def persist_manual_account_with_new_user(session_factory: sessionmaker, balance: float = 100.0) -> int:
     with session_factory() as session:
         account = make_account_with_new_user(session, bank=BankProvider.MANUAL, name="Wallet", balance=balance)
         session.commit()
@@ -534,7 +524,7 @@ def setup_account(http_client: TestClient, session_factory: sessionmaker) -> int
     return persist_account(session_factory=session_factory, credential_id=credential_id)
 
 
-def setup_manual_account(http_client: TestClient, *, balance: float = 100.0) -> int:
+def setup_manual_account(http_client: TestClient, balance: float = 100.0) -> int:
     credential_id = create_manual_credential(http_client)
     return http_client.post(
         "/api/account",
@@ -577,7 +567,7 @@ def seed_snapshot(session_factory: sessionmaker, account_id: int, day: _date, ba
 
 
 class FakeHttpResponse:
-    def __init__(self, *, url: str = "", text: str = "", json_data: object = None, status_code: int = 200) -> None:
+    def __init__(self, url: str = "", text: str = "", json_data: object = None, status_code: int = 200) -> None:
         self.url = url
         self.text = text
         self._json = json_data

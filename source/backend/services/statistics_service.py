@@ -31,7 +31,6 @@ DEFAULT_TOP_OTHER_PARTIES_LIMIT = 15
 
 
 def _base_conditions(
-    *,
     account_ids: list[int],
     date_from: datetime.date | None,
     date_to: datetime.date | None,
@@ -67,7 +66,6 @@ def _direction_condition(direction: StatisticsDirection) -> ColumnElement[bool]:
 
 
 def category_breakdown(
-    *,
     db_session: Session,
     user: User,
     account_ids: list[int],
@@ -108,7 +106,6 @@ def category_breakdown(
 
 
 def _monthly_cashflow(
-    *,
     db_session: Session,
     account_ids: list[int],
     date_from: datetime.date | None,
@@ -146,7 +143,6 @@ def _monthly_cashflow(
 
 
 def monthly_cashflow(
-    *,
     db_session: Session,
     user: User,
     account_ids: list[int],
@@ -175,7 +171,6 @@ def monthly_cashflow(
 
 
 def monthly_net_savings(
-    *,
     db_session: Session,
     user: User,
     account_ids: list[int],
@@ -209,7 +204,6 @@ def monthly_net_savings(
 
 
 def top_other_parties(
-    *,
     db_session: Session,
     user: User,
     account_ids: list[int],

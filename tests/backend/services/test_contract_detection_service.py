@@ -22,7 +22,6 @@ from tests.backend.conftest import (
 
 def _seed(
     session: Session,
-    *,
     account_id: int,
     other_party: str,
     amount: float,

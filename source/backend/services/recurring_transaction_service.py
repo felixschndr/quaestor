@@ -37,7 +37,7 @@ def next_weekly(from_date: date, weekday: int, after: bool = False) -> date:
     return from_date + timedelta(days=delta)
 
 
-def _next_occurrence(rule: RecurringTransaction, from_date: date, *, after: bool) -> date:
+def _next_occurrence(rule: RecurringTransaction, from_date: date, after: bool) -> date:
     if rule.frequency == RecurrenceFrequency.MONTHLY:
         return next_monthly(from_date=from_date, day=rule.day_of_month, after=after)
     return next_weekly(from_date=from_date, weekday=rule.day_of_week, after=after)
