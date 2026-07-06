@@ -109,12 +109,7 @@ def test_run_startup_rescan_logs_exception_instead_of_crashing(
 
     asyncio.run(real_run_startup_rescan())
 
-    crashed = [
-        record
-        for record in caplog.records
-        if "Startup category re-scan crashed" in record.getMessage() and record.exc_info is not None
-    ]
-    assert crashed, [record.getMessage() for record in caplog.records]
+    assert_log_contains(caplog, message="Startup category re-scan crashed")
 
 
 def test_app_startup_schedules_category_rescan(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):

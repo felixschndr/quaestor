@@ -61,5 +61,4 @@ def test_download_failure_is_logged_and_does_not_raise(
 
     asyncio.run(playwright_browser.ensure_chromium_installed())
 
-    error_records = [record for record in caplog.records if record.levelno == logging.ERROR]
-    assert any("Failed to download" in record.message for record in error_records)
+    assert_log_contains(caplog, message="Failed to download")

@@ -85,8 +85,7 @@ def test_run_periodic_sync_logs_and_keeps_running_on_exception(
     with pytest.raises(_StopLoop):
         asyncio.run(real_run_periodic_sync())
 
-    error_messages = [r.message for r in caplog.records if r.levelname == "ERROR"]
-    assert any("Periodic credential sync run crashed" in msg for msg in error_messages), error_messages
+    assert_log_contains(caplog, message="Periodic credential sync run crashed")
 
 
 def test_run_periodic_sync_calls_the_sync_function(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):

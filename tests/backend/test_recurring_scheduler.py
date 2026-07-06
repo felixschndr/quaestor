@@ -16,7 +16,12 @@ from source.backend.services.recurring_transaction_scheduler import (
 )
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import make_account, make_credential, make_user
+from tests.backend.conftest import (
+    assert_log_contains,
+    make_account,
+    make_credential,
+    make_user,
+)
 
 
 def test_sleeps_until_the_next_midnight(monkeypatch: pytest.MonkeyPatch):
@@ -81,8 +86,7 @@ def test_run_periodic_recurring_logs_and_keeps_running_on_exception(
     with pytest.raises(_StopLoop):
         asyncio.run(real_run_periodic_recurring())
 
-    error_messages = [r.message for r in caplog.records if r.levelname == "ERROR"]
-    assert any("Recurring transaction booking run crashed" in msg for msg in error_messages), error_messages
+    assert_log_contains(caplog, message="Recurring transaction booking run crashed")
 
 
 def test_startup_run_books_rules_whose_day_passed_while_offline(

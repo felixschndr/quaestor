@@ -377,6 +377,4 @@ def test_sync_all_due_credentials_logs_exception_per_failure(
     with session_factory() as session:
         credential_service.sync_all_due_credentials(db_session=session)
 
-    error_messages = [r.message for r in caplog.records if r.levelname == "ERROR"]
-    assert any("Periodic sync failed" in msg for msg in error_messages), error_messages
-    assert f"id={failing}" in " ".join(error_messages)
+    assert_log_contains(caplog, messages=["Periodic sync failed", f"id={failing}"])

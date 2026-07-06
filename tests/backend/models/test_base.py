@@ -3,7 +3,7 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.base import snapshot_columns
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import DISPLAY_NAME, make_user
+from tests.backend.conftest import DISPLAY_NAME, assert_log_contains, make_user
 
 
 def test_logger_update_reports_old_repr_new_repr_and_diff(
@@ -36,4 +36,4 @@ def test_logger_update_reports_no_changes_when_nothing_changed(
 
         logger.update(state_before_update=state_before_update, entity_after_update=user)
 
-    assert "No changes to User" in caplog.records[-1].getMessage()
+    assert_log_contains(caplog, message="No changes to User")
