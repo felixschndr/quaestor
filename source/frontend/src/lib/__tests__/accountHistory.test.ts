@@ -43,6 +43,7 @@ function makeUser(): UserRead {
         ],
         last_fetching_timestamp: '2026-06-15T08:30:00Z',
         requires_two_factor_authentication: false,
+        sync_enabled: true,
       },
       {
         id: 101,
@@ -61,6 +62,7 @@ function makeUser(): UserRead {
         ],
         last_fetching_timestamp: null,
         requires_two_factor_authentication: false,
+        sync_enabled: true,
       },
     ],
   }

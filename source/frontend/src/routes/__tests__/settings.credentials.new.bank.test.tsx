@@ -261,6 +261,7 @@ describe('NewCredentialFormView', () => {
               accounts: [],
               last_fetching_timestamp: null,
               requires_two_factor_authentication: false,
+              sync_enabled: true,
             },
           }),
         )
@@ -325,6 +326,7 @@ describe('NewCredentialFormView', () => {
               accounts: [],
               last_fetching_timestamp: null,
               requires_two_factor_authentication: false,
+              sync_enabled: true,
             },
           }),
         )
@@ -397,6 +399,7 @@ describe('NewCredentialFormView', () => {
               accounts: [],
               last_fetching_timestamp: null,
               requires_two_factor_authentication: false,
+              sync_enabled: true,
             },
           }),
         )
@@ -474,6 +477,7 @@ describe('NewCredentialFormView', () => {
               accounts: [],
               last_fetching_timestamp: null,
               requires_two_factor_authentication: false,
+              sync_enabled: true,
             },
           }),
         )
@@ -611,6 +615,7 @@ describe('NewCredentialFormView', () => {
               accounts: [],
               last_fetching_timestamp: null,
               requires_two_factor_authentication: false,
+              sync_enabled: true,
             },
           }),
         )
@@ -680,6 +685,7 @@ describe('NewCredentialFormView', () => {
                 accounts: [],
                 last_fetching_timestamp: null,
                 requires_two_factor_authentication: false,
+                sync_enabled: true,
               },
             }),
           )
@@ -831,6 +837,7 @@ describe('NewCredentialFormView', () => {
                 accounts: [],
                 last_fetching_timestamp: null,
                 requires_two_factor_authentication: false,
+                sync_enabled: true,
               },
             }),
           )
@@ -903,6 +910,7 @@ describe('NewCredentialFormView', () => {
                 accounts: [],
                 last_fetching_timestamp: null,
                 requires_two_factor_authentication: false,
+                sync_enabled: true,
               },
             }),
           )
@@ -1026,6 +1034,7 @@ describe('NewCredentialFormView', () => {
                 accounts: [],
                 last_fetching_timestamp: null,
                 requires_two_factor_authentication: false,
+                sync_enabled: true,
               },
             }),
           )

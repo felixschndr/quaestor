@@ -302,6 +302,7 @@ def make_credential(
     bank: BankProvider = BankProvider.FINTS,
     credentials: dict[str, str] | None = None,
     requires_two_factor_authentication: bool = False,
+    sync_enabled: bool = True,
     last_fetching_timestamp: datetime | None = None,
 ) -> Credential:
     user = db_session.get(entity=User, ident=user_id)
@@ -310,6 +311,7 @@ def make_credential(
         bank=bank,
         credentials=credentials if credentials is not None else _default_credentials_for(bank),
         requires_two_factor_authentication=requires_two_factor_authentication,
+        sync_enabled=sync_enabled,
         last_fetching_timestamp=last_fetching_timestamp,
     )
     db_session.add(credential)
@@ -415,6 +417,7 @@ def persist_credential(
     bank: BankProvider = BankProvider.FINTS,
     credentials: dict[str, str] | None = None,
     requires_two_factor_authentication: bool = False,
+    sync_enabled: bool = True,
     last_fetching_timestamp: datetime | None = None,
 ) -> int:
     with session_factory() as db_session:
@@ -424,6 +427,7 @@ def persist_credential(
             bank=bank,
             credentials=credentials,
             requires_two_factor_authentication=requires_two_factor_authentication,
+            sync_enabled=sync_enabled,
             last_fetching_timestamp=last_fetching_timestamp,
         )
         db_session.commit()

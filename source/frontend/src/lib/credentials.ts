@@ -63,6 +63,21 @@ export function useCreateCredential() {
   })
 }
 
+export interface CredentialUpdatePayload {
+  sync_enabled?: boolean
+}
+
+export function useUpdateCredential() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ credentialId, ...fields }: CredentialUpdatePayload & { credentialId: number }) =>
+      api<CredentialRead>(`/credentials/${credentialId}`, { method: 'PATCH', body: fields }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+    },
+  })
+}
+
 export function useDeleteCredential() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -280,6 +280,28 @@ def test_sync_starts_jobs_for_normal_and_2fa_credentials(
         assert job["status"] in {"running", "completed"}
 
 
+def test_sync_skips_credentials_with_sync_disabled(
+    http_client: TestClient,
+    session_factory: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    user_id = register_and_get_id(http_client)
+    with session_factory() as session:
+        enabled = make_credential(session, user_id=user_id)
+        make_credential(session, user_id=user_id, bank=BankProvider.FINTS, sync_enabled=False)
+        session.commit()
+        enabled_id = enabled.id
+
+    sync_mock = MagicMock(return_value=SyncResult(status=SyncStatus.COMPLETED))
+    monkeypatch.setattr(target=credential_service, name="sync_credential", value=sync_mock)
+
+    response = http_client.post("/api/users/sync")
+
+    assert response.status_code == 202
+    body = response.json()
+    assert [job["credential_id"] for job in body] == [enabled_id]
+
+
 def test_list_user_sessions_returns_current_session_marked(http_client: TestClient):
     user_id = register_and_get_id(http_client)
 

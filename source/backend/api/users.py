@@ -174,6 +174,8 @@ async def sync_credentials(
     credentials = credential_service.list_credentials(db_session, user=current_user)
     jobs = []
     for credential in credentials:
+        if not credential.sync_enabled:
+            continue
         job = await sync_jobs.start_sync(credential_id=credential.id)
         jobs.append(SyncJobRead.model_validate(job))
     return jobs

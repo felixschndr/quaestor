@@ -16,15 +16,16 @@ def test_credential_repr_contains_identifying_fields_but_not_secrets():
         credentials={"username": USER_NAME, "password": VALID_PASSWORD},
         last_fetching_timestamp=fetched_at,
         requires_two_factor_authentication=False,
+        sync_enabled=True,
     )
 
     representation = repr(credential)
 
     assert representation == (
         f"<Credential(id=8, user_id=1, bank=fints, last_fetching_timestamp={fetched_at}, "
-        "requires_two_factor_authentication=False)>"
+        "requires_two_factor_authentication=False, sync_enabled=True)>"
     )
-    assert VALID_PASSWORD not in representation  # nosec B105
+    assert VALID_PASSWORD not in representation
 
 
 def test_handler_property_returns_handler_instance_for_configured_bank():

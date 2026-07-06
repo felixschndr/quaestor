@@ -392,6 +392,8 @@
       "balance": "Saldo",
       "hide": "In der Übersicht ausblenden",
       "hideHint": "Konto wird nicht angezeigt und nicht in Gesamt- oder Gruppensummen einberechnet.",
+      "syncEnabled": "Beim Synchronisieren aller Konten einbeziehen",
+      "syncEnabledHint": "Wenn deaktiviert, wird diese Verbindung beim „Alle synchronisieren“ in der Übersicht und beim automatischen Hintergrund-Abgleich übersprungen. Ein einzelnes Synchronisieren ist hier weiterhin möglich. Praktisch für Konten mit Zwei-Faktor-Authentifizierung und wenigen Buchungen, bei denen die wiederholte Bestätigung unnötig ist.",
       "displayName": "Persönlicher Name",
       "displayNamePlaceholder": "z. B. Gehaltskonto",
       "displayNameHint": "Wird in der Übersicht angezeigt. Leer lassen, um den ursprüngen Namen zu verwenden.",

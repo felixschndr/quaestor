@@ -24,6 +24,7 @@ export interface CredentialRead {
   accounts: AccountRead[]
   last_fetching_timestamp: string | null
   requires_two_factor_authentication: boolean
+  sync_enabled: boolean
 }
 
 export type Theme = 'LIGHT' | 'DARK' | 'SYSTEM'

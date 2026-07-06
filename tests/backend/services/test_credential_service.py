@@ -89,6 +89,7 @@ def test_sync_all_due_credentials_counts_synced_skipped_failed(
     user_id = create_user(session_factory).id
     syncable = persist_credential(session_factory, user_id=user_id)
     two_factor = persist_credential(session_factory, user_id=user_id, requires_two_factor_authentication=True)
+    sync_disabled = persist_credential(session_factory, user_id=user_id, sync_enabled=False)
     failing = persist_credential(session_factory, user_id=user_id)
 
     def fake_sync(credential: Credential):
@@ -104,12 +105,11 @@ def test_sync_all_due_credentials_counts_synced_skipped_failed(
         credential_service.sync_all_due_credentials(db_session=session)
 
     assert_log_contains(caplog, message="Starting periodic sync of all due credentials")
-    summary = [r.message for r in caplog.records if "Periodic sync finished" in r.message]
-    assert summary, [r.message for r in caplog.records]
-    assert "1 synced, 1 skipped due to 2FA, 1 failed out of 3 credential(s)" in summary[-1]
+    assert_log_contains(caplog, message="1 synced, 2 skipped (2FA or sync disabled), 1 failed out of 4 credential(s)")
     assert credential_service.sync_credential_object.call_count == 2
     synced_ids = [call.kwargs["credential"].id for call in credential_service.sync_credential_object.call_args_list]
     assert two_factor not in synced_ids
+    assert sync_disabled not in synced_ids
     assert {syncable, failing} == set(synced_ids)
 
 

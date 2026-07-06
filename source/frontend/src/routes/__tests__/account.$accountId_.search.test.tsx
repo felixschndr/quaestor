@@ -65,6 +65,7 @@ const credentials: CredentialRead[] = [
     ],
     last_fetching_timestamp: null,
     requires_two_factor_authentication: false,
+    sync_enabled: true,
   },
   {
     id: 2,
@@ -83,6 +84,7 @@ const credentials: CredentialRead[] = [
     ],
     last_fetching_timestamp: null,
     requires_two_factor_authentication: false,
+    sync_enabled: true,
   },
 ]
 

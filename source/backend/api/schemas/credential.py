@@ -20,11 +20,13 @@ class CredentialRead(BaseModel):
     accounts: list[AccountRead] = []
     last_fetching_timestamp: UtcDatetime | None = None
     requires_two_factor_authentication: bool
+    sync_enabled: bool
 
 
 class CredentialUpdate(BaseModel):
     bank: BankProvider | None = None
     credentials: dict[str, str] | None = None
+    sync_enabled: bool | None = None
 
 
 class SyncJobRead(BaseModel):

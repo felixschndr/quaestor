@@ -44,6 +44,7 @@ function buildCredential(overrides: Partial<CredentialRead> = {}): CredentialRea
     accounts: [],
     last_fetching_timestamp: null,
     requires_two_factor_authentication: false,
+    sync_enabled: true,
     ...overrides,
   }
 }
@@ -420,6 +421,7 @@ describe('CredentialDetailView', () => {
       <CredentialDetailView
         credential={buildCredential({
           requires_two_factor_authentication: false,
+          sync_enabled: true,
           accounts: [buildAccount({ id: 1 }), buildAccount({ id: 2 })],
         })}
         onDeleted={vi.fn()}
@@ -437,6 +439,7 @@ describe('CredentialDetailView', () => {
       <CredentialDetailView
         credential={buildCredential({
           requires_two_factor_authentication: false,
+          sync_enabled: true,
           accounts: [buildAccount({ id: 1 })],
         })}
         onDeleted={vi.fn()}
@@ -453,6 +456,7 @@ describe('CredentialDetailView', () => {
       <CredentialDetailView
         credential={buildCredential({
           requires_two_factor_authentication: true,
+          sync_enabled: true,
           accounts: [buildAccount({ id: 1 }), buildAccount({ id: 2 })],
         })}
         onDeleted={vi.fn()}
@@ -473,6 +477,7 @@ describe('CredentialDetailView', () => {
       <CredentialDetailView
         credential={buildCredential({
           requires_two_factor_authentication: true,
+          sync_enabled: true,
           accounts: [buildAccount({ id: 1 })],
         })}
         onDeleted={vi.fn()}

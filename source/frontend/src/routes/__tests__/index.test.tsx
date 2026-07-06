@@ -150,6 +150,7 @@ describe('OverviewView', () => {
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
+          sync_enabled: true,
         },
       ],
     })
@@ -185,6 +186,7 @@ describe('OverviewView', () => {
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
+          sync_enabled: true,
         },
         {
           id: 11,
@@ -211,6 +213,7 @@ describe('OverviewView', () => {
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
+          sync_enabled: true,
         },
       ],
     })
@@ -253,6 +256,7 @@ describe('OverviewView', () => {
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
+          sync_enabled: true,
         },
       ],
     })
@@ -293,6 +297,7 @@ describe('OverviewView', () => {
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
+          sync_enabled: true,
         },
       ],
     })
@@ -351,6 +356,7 @@ describe('OverviewView', () => {
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
+          sync_enabled: true,
         },
       ],
     })
@@ -397,6 +403,7 @@ describe('OverviewView', () => {
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
+          sync_enabled: true,
         },
       ],
     })
@@ -445,6 +452,7 @@ describe('OverviewView', () => {
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
+          sync_enabled: true,
         },
       ],
     })
@@ -499,6 +507,7 @@ describe('OverviewView', () => {
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
+          sync_enabled: true,
         },
       ],
     })
@@ -553,6 +562,7 @@ describe('OverviewView', () => {
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
+          sync_enabled: true,
         },
       ],
     })
@@ -581,6 +591,7 @@ describe('OverviewView', () => {
           ],
           last_fetching_timestamp: null,
           requires_two_factor_authentication: false,
+          sync_enabled: true,
         },
       ],
     })

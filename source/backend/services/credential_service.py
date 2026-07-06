@@ -231,7 +231,7 @@ def sync_all_due_credentials(db_session: Session) -> None:
     synced_users: dict[int, User] = {}
     synced_credentials: list[tuple[Credential, notification_engine.SyncSnapshot]] = []
     for credential in credentials:
-        if credential.requires_two_factor_authentication:
+        if not credential.sync_enabled or credential.requires_two_factor_authentication:
             skipped += 1
             continue
 
@@ -260,7 +260,7 @@ def sync_all_due_credentials(db_session: Session) -> None:
         notification_engine.dispatch(db_session=db_session, user=user, notifications=[notification])
 
     logger.info(
-        f"Periodic sync finished: {synced} synced, {skipped} skipped due to 2FA, "
+        f"Periodic sync finished: {synced} synced, {skipped} skipped (2FA or sync disabled), "
         f"{failed} failed out of {len(credentials)} credential(s)"
     )
 

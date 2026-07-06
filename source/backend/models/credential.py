@@ -28,13 +28,12 @@ class Credential(Base):
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     bank: Mapped[BankProvider] = mapped_column(SQLEnum(BankProvider))
-    # "credentials" saves all information required to access the information
-    # e.g., username, password, phone number, pin, ...
-    credentials: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
+    credentials: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)  # e.g., username, password, pin, ...
 
     session_state: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     last_fetching_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     requires_two_factor_authentication: Mapped[bool] = mapped_column(default=False)
+    sync_enabled: Mapped[bool] = mapped_column(default=True)
 
     user: Mapped["User"] = relationship(back_populates="credentials")
     accounts: Mapped[List["Account"]] = relationship(back_populates="credential", cascade="all, delete-orphan")

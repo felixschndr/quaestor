@@ -19,7 +19,7 @@ import {
   type AccountUpdatePayload,
 } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
-import { useDeleteCredential } from '@/lib/credentials'
+import { useDeleteCredential, useUpdateCredential } from '@/lib/credentials'
 import { useAppSettings } from '@/lib/settings'
 import { formatDecimal, formatEuro, formatRelativeDateTime } from '@/lib/format'
 import type { CredentialDetailViewProps } from '@/routes/settings.credentials.$credentialId'
@@ -49,6 +49,7 @@ export function CredentialDetailView({ credential, onDeleted }: CredentialDetail
       ) : (
         <>
           <BankHeader credential={credential} bankTitle={bankTitle} />
+          <SyncSettingsSection credential={credential} />
           <AccountsSection credential={credential} />
           <DangerZone credential={credential} bankTitle={bankTitle} onDeleted={onDeleted} />
         </>
@@ -130,6 +131,48 @@ function AutoSyncEnabledLabel({ accountCount }: { accountCount: number }) {
         hours: data.sync_interval_hours,
       })}
     </p>
+  )
+}
+
+function SyncSettingsSection({ credential }: { credential: CredentialRead }) {
+  const { t } = useTranslation()
+  const { mutateAsync } = useUpdateCredential()
+  const [enabled, setEnabled] = useState(credential.sync_enabled)
+  const [lastProp, setLastProp] = useState(credential.sync_enabled)
+  if (credential.sync_enabled !== lastProp) {
+    setLastProp(credential.sync_enabled)
+    setEnabled(credential.sync_enabled)
+  }
+
+  if (credential.bank === MANUAL_BANK) return null
+
+  const inputId = `credential-${credential.id}-sync-enabled`
+  const onChange = async (next: boolean) => {
+    setEnabled(next)
+    try {
+      await mutateAsync({ credentialId: credential.id, sync_enabled: next })
+      toast.success(t('credentials.detail.saved'))
+    } catch {
+      setEnabled(credential.sync_enabled)
+      toast.error(t('credentials.detail.saveFailed'))
+    }
+  }
+
+  return (
+    <section className="border-border bg-card flex flex-col gap-1.5 rounded-lg border p-4">
+      <label
+        htmlFor={inputId}
+        className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+      >
+        <Checkbox
+          id={inputId}
+          checked={enabled}
+          onCheckedChange={(checked) => void onChange(checked === true)}
+        />
+        <span>{t('credentials.detail.syncEnabled')}</span>
+      </label>
+      <p className="text-muted-foreground text-xs">{t('credentials.detail.syncEnabledHint')}</p>
+    </section>
   )
 }
 
