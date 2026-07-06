@@ -121,7 +121,8 @@
     "sortAmountDesc": "Betrag absteigend",
     "sortAmountAsc": "Betrag aufsteigend",
     "sortAmountAbsDesc": "Betragshöhe absteigend",
-    "sortAmountAbsAsc": "Betragshöhe aufsteigend"
+    "sortAmountAbsAsc": "Betragshöhe aufsteigend",
+    "linkModeHint": "Wähle die Transaktion aus, mit der verlinkt werden soll."
   },
   "transactionType": {
     "INCOMING": "Eingang",
@@ -551,11 +552,16 @@
     "pendingHint": "Vorgemerkt — noch nicht endgültig gebucht und kann sich noch ändern",
     "notFound": "Transaktion nicht gefunden.",
     "linkedTransaction": "Verknüpfte Transaktion",
-    "linkedTransactionValue": "{{account}} · {{amount}} · {{date}}",
+    "linkedTransactionValue": "{{partner}} · {{amount}} · {{date}}",
     "unlink": "Verbindung lösen",
     "unlinkFailed": "Verbindung konnte nicht gelöst werden",
     "categoryUpdateFailed": "Kategorie konnte nicht gespeichert werden",
-    "linkedAccountUnknown": "Anderes Konto"
+    "linkedAccountUnknown": "Anderes Konto",
+    "linkStart": "Verlinken",
+    "linkConfirmPrompt": "Diese Transaktion mit {{partner}} · {{amount}} · {{date}} verknüpfen?",
+    "linkConfirmAction": "Verlinken",
+    "linkSuccess": "Transaktionen verlinkt",
+    "linkFailed": "Verlinken fehlgeschlagen"
   },
   "filters": {
     "typeLabel": "Typ",

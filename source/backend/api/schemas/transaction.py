@@ -47,6 +47,11 @@ class TransactionCreate(BaseModel):
     note: str | None = None
 
 
+class TransferLinkCreate(BaseModel):
+    counterpart_account_id: int
+    counterpart_transaction_id: int
+
+
 class TransactionFilter(BaseModel):
     text: str | None = None
     amount_from: float | None = None

@@ -3,6 +3,7 @@ from datetime import date
 from source.backend.bank_handlers import BankProvider
 from source.backend.exceptions import (
     AccountNotFoundError,
+    ConflictError,
     ExpectedTransactionNotFoundError,
     PermissionDeniedError,
     TransactionNotFoundError,
@@ -16,6 +17,7 @@ from source.backend.models.base import snapshot_columns
 from source.backend.models.credential import Credential
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
+from source.backend.models.transaction_type import TransactionType
 from source.backend.models.user import User
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -296,7 +298,25 @@ def delete_expected_transaction(db_session: Session, account: Account, expected_
     logger.info(f"Deleted expected transaction {expected_transaction_id} from {account}")
 
 
-def unlink_transfer(db_session: Session, transaction: Transaction) -> None:
+def link_transactions(db_session: Session, transaction: Transaction, counterpart: Transaction) -> None:
+    if transaction.id == counterpart.id:
+        raise ValidationError("A transaction cannot be linked to itself")
+    if transaction.pending or counterpart.pending:
+        raise ValidationError("Pending transactions cannot be linked as transfers")
+    if transaction.transfer_counterpart_id is not None or counterpart.transfer_counterpart_id is not None:
+        raise ConflictError("Both transactions must be unlinked before they can be linked")
+
+    for leg in (transaction, counterpart):
+        leg.transfer_original_type = leg.transaction_type
+        leg.transaction_type = TransactionType.TRANSFER_OUT if leg.amount < 0 else TransactionType.TRANSFER_IN
+    transaction.transfer_counterpart_id = counterpart.id
+    counterpart.transfer_counterpart_id = transaction.id
+
+    db_session.commit()
+    logger.info(f"Linked {transaction} to {counterpart}")
+
+
+def unlink_transactions(db_session: Session, transaction: Transaction) -> None:
     counterpart = None
     if transaction.transfer_counterpart_id is not None:
         counterpart = db_session.get(entity=Transaction, ident=transaction.transfer_counterpart_id)
@@ -311,7 +331,7 @@ def unlink_transfer(db_session: Session, transaction: Transaction) -> None:
         leg.transfer_relink_blocked = True
 
     db_session.commit()
-    logger.info(f"Unlinked transfer for {transaction} (counterpart={counterpart})")
+    logger.info(f"Unlinked Transaction {transaction} from {counterpart}")
 
 
 def get_history_page(

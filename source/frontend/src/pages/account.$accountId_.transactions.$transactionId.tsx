@@ -38,6 +38,16 @@ export function otherPartyLabelKey(amount: number): string {
   return 'transaction.otherParty'
 }
 
+export function transferPartnerLabel(
+  otherParty: string | null | undefined,
+  accountName: string | null | undefined,
+): string | null {
+  const party = otherParty?.trim()
+  if (party) return formatIban(party)
+  const account = accountName?.trim()
+  return account ? formatIban(account) : null
+}
+
 export function TransactionDetailView({
   accountId,
   transaction,
@@ -47,6 +57,8 @@ export function TransactionDetailView({
   onChangeCategory,
   onUnlink,
   contractSection,
+  linkSection,
+  linkConfirmSection,
 }: TransactionDetailViewProps) {
   const { t } = useTranslation()
   const negative = transaction.amount < 0
@@ -83,6 +95,8 @@ export function TransactionDetailView({
         ) : null}
       </section>
 
+      {linkConfirmSection}
+
       <dl className="flex flex-col">
         <DetailRow label={t(otherPartyLabelKey(transaction.amount))}>
           {transaction.other_party?.trim() || <EmptyValue />}
@@ -106,7 +120,9 @@ export function TransactionDetailView({
             counterpartAccountName={counterpartAccountName}
             onUnlink={onUnlink}
           />
-        ) : null}
+        ) : (
+          (linkSection ?? null)
+        )}
         {contractSection}
         <DetailRow label={t('transaction.account')}>
           {accountName?.trim() ? (
@@ -142,7 +158,9 @@ function LinkedTransactionSection({
 }) {
   const { t } = useTranslation()
   const [pending, setPending] = useState(false)
-  const accountLabel = counterpartAccountName?.trim() || t('transaction.linkedAccountUnknown')
+  const partnerLabel =
+    transferPartnerLabel(counterpart.other_party, counterpartAccountName) ??
+    t('transaction.linkedAccountUnknown')
 
   const handleUnlink = async () => {
     setPending(true)
@@ -167,7 +185,7 @@ function LinkedTransactionSection({
           <ArrowLeftRight className="size-4" aria-hidden="true" />
           <span>
             {t('transaction.linkedTransactionValue', {
-              account: accountLabel,
+              partner: partnerLabel,
               amount: formatEuro(counterpart.amount),
               date: formatDate(counterpart.date),
             })}

@@ -26,6 +26,8 @@ const searchParamsSchema = z.object({
     .union([z.array(z.coerce.number()), z.coerce.number()])
     .transform((value) => (Array.isArray(value) ? value : [value]))
     .optional(),
+  link_account_id: z.coerce.number().optional(),
+  link_transaction_id: z.coerce.number().optional(),
 })
 
 export type TransactionSearchParams = z.infer<typeof searchParamsSchema>
@@ -45,10 +47,15 @@ function TransactionSearchPage() {
   const onChange = useCallback(
     ({ accountIds, filters }: { accountIds: number[]; filters: TransactionFilters }) =>
       navigate({
-        search: { ...filters, account_ids: accountIds } as TransactionSearchParams,
+        search: {
+          ...filters,
+          account_ids: accountIds,
+          link_account_id: search.link_account_id,
+          link_transaction_id: search.link_transaction_id,
+        } as TransactionSearchParams,
         replace: true,
       }),
-    [navigate],
+    [navigate, search.link_account_id, search.link_transaction_id],
   )
 
   if (!user) return null // root guard already redirected

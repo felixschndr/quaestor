@@ -437,7 +437,7 @@ def test_filter_transactions(
         assert [t.id for t in filtered_transactions] == expected_ids
 
 
-def test_unlink_transfer_clears_both_sides_and_restores_types(
+def test_unlink_transactions_clears_both_sides_and_restores_types(
     session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
     with session_factory() as session:
@@ -457,9 +457,9 @@ def test_unlink_transfer_clears_both_sides_and_restores_types(
         in_transaction.transfer_original_type = TransactionType.DEPOSIT
         session.flush()
 
-        account_service.unlink_transfer(db_session=session, transaction=out_transaction)
+        account_service.unlink_transactions(db_session=session, transaction=out_transaction)
 
-        assert_log_contains(caplog, message="Unlinked transfer for")
+        assert_log_contains(caplog, message="Unlinked")
         assert out_transaction.transfer_counterpart_id is None
         assert in_transaction.transfer_counterpart_id is None
         assert out_transaction.transfer_relink_blocked is True

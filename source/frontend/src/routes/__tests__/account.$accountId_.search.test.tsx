@@ -11,11 +11,13 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
     params,
+    search,
     children,
     ...rest
   }: {
     to: string
     params?: Record<string, string>
+    search?: Record<string, unknown>
     children: React.ReactNode
   } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'children'>) => {
     let href = to
@@ -23,6 +25,12 @@ vi.mock('@tanstack/react-router', () => ({
       for (const [key, value] of Object.entries(params)) {
         href = href.replace(`$${key}`, value)
       }
+    }
+    if (search) {
+      const qs = new URLSearchParams(
+        Object.entries(search).map(([k, v]) => [k, String(v)]),
+      ).toString()
+      if (qs) href = `${href}?${qs}`
     }
     return (
       <a href={href} {...rest}>
@@ -431,6 +439,95 @@ describe('TransactionSearchView — results', () => {
 
     const link = await screen.findByText('Other')
     expect(link.closest('a')).toHaveAttribute('href', '/account/99/transactions/7')
+  })
+})
+
+describe('TransactionSearchView — link mode', () => {
+  function mockFetchOnce(body: TransactionRead[]) {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    ) as unknown as typeof fetch
+  }
+
+  it('shows the link-mode hint when link params are present', () => {
+    renderView({ search: { link_account_id: 42, link_transaction_id: 7 } })
+    expect(screen.getByText('Pick the transaction to link with.')).toBeInTheDocument()
+  })
+
+  it('does not show the hint without link params', () => {
+    renderView()
+    expect(screen.queryByText('Pick the transaction to link with.')).toBeNull()
+  })
+
+  it('excludes the link-source transaction itself from the results', async () => {
+    mockFetchOnce([
+      {
+        id: 7,
+        account_id: 42,
+        amount: -10,
+        purpose: 'source',
+        date: '2026-05-20',
+        other_party: 'Source Party',
+        transaction_type: null,
+        category: 'UNKNOWN',
+        note: null,
+      },
+      {
+        id: 8,
+        account_id: 42,
+        amount: 10,
+        purpose: 'candidate',
+        date: '2026-05-20',
+        other_party: 'Candidate Party',
+        transaction_type: null,
+        category: 'UNKNOWN',
+        note: null,
+      },
+    ])
+    renderView({
+      search: { account_ids: [42], link_account_id: 42, link_transaction_id: 7 },
+    })
+
+    expect(await screen.findByText('Candidate Party')).toBeInTheDocument()
+    expect(screen.queryByText('Source Party')).toBeNull()
+  })
+
+  it('propagates the link params on each result row link', async () => {
+    mockFetchOnce([
+      {
+        id: 8,
+        account_id: 43,
+        amount: 10,
+        purpose: null,
+        date: '2026-05-20',
+        other_party: 'Candidate Party',
+        transaction_type: null,
+        category: 'UNKNOWN',
+        note: null,
+      },
+    ])
+    renderView({
+      search: { account_ids: [42, 43], link_account_id: 42, link_transaction_id: 7 },
+    })
+
+    const row = await screen.findByText('Candidate Party')
+    expect(row.closest('a')).toHaveAttribute(
+      'href',
+      '/account/43/transactions/8?link_account_id=42&link_transaction_id=7',
+    )
+  })
+
+  it('does not leak the link params into the emitted filters', async () => {
+    const { onChange } = renderView({
+      search: { link_account_id: 42, link_transaction_id: 7 },
+    })
+    await waitFor(() => expect(onChange).toHaveBeenCalled())
+    const filters = lastPayload(onChange)?.filters ?? {}
+    expect(filters.link_account_id).toBeUndefined()
+    expect(filters.link_transaction_id).toBeUndefined()
   })
 })
 

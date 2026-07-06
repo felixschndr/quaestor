@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useCanGoBack, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft } from 'lucide-react'
+import { ArrowLeftRight, ChevronLeft } from 'lucide-react'
 
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
 import { AmountRangeFields } from '@/components/ui/amount-range-fields'
@@ -48,12 +48,24 @@ export function TransactionSearchView({
     onChange({ accountIds, filters: debouncedDraft })
   }, [accountIds, debouncedDraft, onChange])
 
+  const linkSource =
+    search.link_account_id !== undefined && search.link_transaction_id !== undefined
+      ? { accountId: search.link_account_id, transactionId: search.link_transaction_id }
+      : null
+
   return (
     <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
         <BackLink accountId={anchorAccountId} />
         <h1 className="text-foreground text-lg font-semibold">{t('search.title')}</h1>
       </header>
+
+      {linkSource ? (
+        <p className="border-border bg-muted/40 text-muted-foreground flex items-center gap-2 rounded-lg border p-3 text-sm">
+          <ArrowLeftRight className="size-4 shrink-0" aria-hidden="true" />
+          {t('search.linkModeHint')}
+        </p>
+      ) : null}
 
       <SearchForm
         credentials={credentials}
@@ -64,7 +76,12 @@ export function TransactionSearchView({
       />
 
       {hasSelection ? (
-        <SearchResults accountIds={accountIds} credentials={credentials} filters={debouncedDraft} />
+        <SearchResults
+          accountIds={accountIds}
+          credentials={credentials}
+          filters={debouncedDraft}
+          linkSource={linkSource}
+        />
       ) : null}
     </main>
   )
@@ -197,10 +214,12 @@ function SearchResults({
   accountIds,
   credentials,
   filters,
+  linkSource,
 }: {
   accountIds: number[]
   credentials: CredentialRead[]
   filters: TransactionFilters
+  linkSource: { accountId: number; transactionId: number } | null
 }) {
   const { t } = useTranslation()
   const query = useSearchTransactions(accountIds, filters)
@@ -215,10 +234,15 @@ function SearchResults({
     }
     return map
   }, [credentials])
-  const results = useMemo(
-    () => [...(query.data ?? [])].sort(SORT_COMPARATORS[sort]),
-    [query.data, sort],
-  )
+  const results = useMemo(() => {
+    const sorted = [...(query.data ?? [])].sort(SORT_COMPARATORS[sort])
+    if (!linkSource) return sorted
+    return sorted.filter(
+      (transaction) =>
+        transaction.account_id !== linkSource.accountId ||
+        transaction.id !== linkSource.transactionId,
+    )
+  }, [query.data, sort, linkSource])
 
   if (query.isLoading) {
     return <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
@@ -257,6 +281,7 @@ function SearchResults({
             key={`${transaction.account_id}-${transaction.id}`}
             transaction={transaction}
             accountName={showAccountLabel ? accountNameById.get(transaction.account_id) : undefined}
+            linkSource={linkSource}
           />
         ))}
       </ul>
@@ -267,9 +292,11 @@ function SearchResults({
 function ResultRow({
   transaction,
   accountName,
+  linkSource,
 }: {
   transaction: TransactionRead
   accountName: string | undefined
+  linkSource: { accountId: number; transactionId: number } | null
 }) {
   const { t } = useTranslation()
   const negative = transaction.amount < 0
@@ -282,6 +309,14 @@ function ResultRow({
           accountId: String(transaction.account_id),
           transactionId: String(transaction.id),
         }}
+        search={
+          linkSource
+            ? {
+                link_account_id: linkSource.accountId,
+                link_transaction_id: linkSource.transactionId,
+              }
+            : undefined
+        }
         className="hover:bg-muted/60 grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md px-2 py-3 transition-colors"
       >
         <CategoryAvatar category={transaction.category} className="size-8" iconClassName="size-4" />
@@ -306,7 +341,14 @@ function ResultRow({
 }
 
 function toFilters(search: TransactionSearchParams): TransactionFilters {
-  const { account_ids: _accountIds, ...filters } = search
+  const {
+    account_ids: _accountIds,
+    link_account_id: _linkAccountId,
+    link_transaction_id: _linkTransactionId,
+    ...filters
+  } = search
   void _accountIds
+  void _linkAccountId
+  void _linkTransactionId
   return filters
 }

@@ -781,7 +781,7 @@ def test_get_transaction_includes_transfer_counterpart(http_client: TestClient, 
     assert "transfer_counterpart" not in body["transfer_counterpart"]
 
 
-def test_unlink_transfer_endpoint_clears_link(http_client: TestClient, session_factory: sessionmaker):
+def test_unlink_transactions_endpoint_clears_link(http_client: TestClient, session_factory: sessionmaker):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
     account_a = persist_account(session_factory=session_factory, credential_id=credential_id)
@@ -817,7 +817,7 @@ def test_unlink_transfer_endpoint_clears_link(http_client: TestClient, session_f
     assert detail["transaction_type"] == "OUTGOING"
 
 
-def test_unlink_transfer_endpoint_404_for_foreign_account(http_client: TestClient, session_factory: sessionmaker):
+def test_unlink_transactions_endpoint_404_for_foreign_account(http_client: TestClient, session_factory: sessionmaker):
     register(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
     account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
@@ -826,6 +826,145 @@ def test_unlink_transfer_endpoint_404_for_foreign_account(http_client: TestClien
     register_and_login(http_client, user_name="intruder")
 
     response = http_client.delete(f"/api/account/{account_id}/transactions/{transaction_id}/transfer-link")
+    assert response.status_code == 404
+
+
+def test_link_transactions_endpoint_links_both_legs(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_a = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_b = persist_account(session_factory=session_factory, credential_id=credential_id)
+    out_id = persist_transaction(
+        session_factory=session_factory,
+        account_id=account_a,
+        amount=-50.0,
+        transaction_type=TransactionType.OUTGOING,
+    )
+    in_id = persist_transaction(
+        session_factory=session_factory,
+        account_id=account_b,
+        amount=50.0,
+        transaction_type=TransactionType.INCOMING,
+    )
+
+    response = http_client.put(
+        f"/api/account/{account_a}/transactions/{out_id}/transfer-link",
+        json={"counterpart_account_id": account_b, "counterpart_transaction_id": in_id},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["transfer_counterpart_id"] == in_id
+    assert body["transaction_type"] == "TRANSFER_OUT"
+    assert body["transfer_counterpart"]["id"] == in_id
+    counterpart = http_client.get(f"/api/account/{account_b}/transactions/{in_id}").json()
+    assert counterpart["transfer_counterpart_id"] == out_id
+    assert counterpart["transaction_type"] == "TRANSFER_IN"
+
+
+def test_link_then_unlink_restores_original_types(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_a = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_b = persist_account(session_factory=session_factory, credential_id=credential_id)
+    out_id = persist_transaction(
+        session_factory=session_factory,
+        account_id=account_a,
+        amount=-50.0,
+        transaction_type=TransactionType.OUTGOING,
+    )
+    in_id = persist_transaction(
+        session_factory=session_factory,
+        account_id=account_b,
+        amount=50.0,
+        transaction_type=TransactionType.INCOMING,
+    )
+    http_client.put(
+        f"/api/account/{account_a}/transactions/{out_id}/transfer-link",
+        json={"counterpart_account_id": account_b, "counterpart_transaction_id": in_id},
+    )
+
+    response = http_client.delete(f"/api/account/{account_a}/transactions/{out_id}/transfer-link")
+
+    assert response.status_code == 204
+    detail = http_client.get(f"/api/account/{account_a}/transactions/{out_id}").json()
+    assert detail["transfer_counterpart_id"] is None
+    assert detail["transaction_type"] == "OUTGOING"
+    counterpart = http_client.get(f"/api/account/{account_b}/transactions/{in_id}").json()
+    assert counterpart["transfer_counterpart_id"] is None
+    assert counterpart["transaction_type"] == "INCOMING"
+
+
+def test_link_transactions_endpoint_conflict_when_already_linked(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    first_id = persist_transaction(session_factory=session_factory, account_id=account_id, amount=-50.0)
+    second_id = persist_transaction(session_factory=session_factory, account_id=account_id, amount=50.0)
+    third_id = persist_transaction(session_factory=session_factory, account_id=account_id, amount=50.0)
+    http_client.put(
+        f"/api/account/{account_id}/transactions/{first_id}/transfer-link",
+        json={"counterpart_account_id": account_id, "counterpart_transaction_id": second_id},
+    )
+
+    response = http_client.put(
+        f"/api/account/{account_id}/transactions/{first_id}/transfer-link",
+        json={"counterpart_account_id": account_id, "counterpart_transaction_id": third_id},
+    )
+
+    assert response.status_code == 409
+
+
+def test_link_transactions_endpoint_rejects_self_link(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.put(
+        f"/api/account/{account_id}/transactions/{transaction_id}/transfer-link",
+        json={"counterpart_account_id": account_id, "counterpart_transaction_id": transaction_id},
+    )
+
+    assert response.status_code == 422
+
+
+def test_link_transactions_endpoint_rejects_pending_leg(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    booked_id = persist_transaction(session_factory=session_factory, account_id=account_id, amount=-50.0)
+    pending_id = persist_transaction(session_factory=session_factory, account_id=account_id, amount=50.0, pending=True)
+
+    response = http_client.put(
+        f"/api/account/{account_id}/transactions/{booked_id}/transfer-link",
+        json={"counterpart_account_id": account_id, "counterpart_transaction_id": pending_id},
+    )
+
+    assert response.status_code == 422
+
+
+def test_link_transactions_endpoint_404_for_foreign_counterpart(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client, user_name="owner")
+    foreign_credential_id = create_credential(http_client).json()["id"]
+    foreign_account_id = persist_account(session_factory=session_factory, credential_id=foreign_credential_id)
+    foreign_transaction_id = persist_transaction(session_factory=session_factory, account_id=foreign_account_id)
+
+    register_and_login(http_client, user_name="intruder")
+    own_credential_id = create_credential(http_client).json()["id"]
+    own_account_id = persist_account(session_factory=session_factory, credential_id=own_credential_id)
+    own_transaction_id = persist_transaction(session_factory=session_factory, account_id=own_account_id)
+
+    response = http_client.put(
+        f"/api/account/{own_account_id}/transactions/{own_transaction_id}/transfer-link",
+        json={
+            "counterpart_account_id": foreign_account_id,
+            "counterpart_transaction_id": foreign_transaction_id,
+        },
+    )
+
     assert response.status_code == 404
 
 

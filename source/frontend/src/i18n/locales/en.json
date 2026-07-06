@@ -121,7 +121,8 @@
     "sortAmountDesc": "Amount: high to low",
     "sortAmountAsc": "Amount: low to high",
     "sortAmountAbsDesc": "Magnitude: high to low",
-    "sortAmountAbsAsc": "Magnitude: low to high"
+    "sortAmountAbsAsc": "Magnitude: low to high",
+    "linkModeHint": "Pick the transaction to link with."
   },
   "transactionType": {
     "INCOMING": "Incoming",
@@ -551,11 +552,16 @@
     "pendingHint": "Pending — not finally booked yet and may still change",
     "notFound": "Transaction not found.",
     "linkedTransaction": "Linked transaction",
-    "linkedTransactionValue": "{{account}} · {{amount}} · {{date}}",
+    "linkedTransactionValue": "{{partner}} · {{amount}} · {{date}}",
     "unlink": "Remove link",
     "unlinkFailed": "Could not remove the link",
     "categoryUpdateFailed": "Could not update the category",
-    "linkedAccountUnknown": "Other account"
+    "linkedAccountUnknown": "Other account",
+    "linkStart": "Link",
+    "linkConfirmPrompt": "Link this transaction with {{partner}} · {{amount}} · {{date}}?",
+    "linkConfirmAction": "Link",
+    "linkSuccess": "Transactions linked",
+    "linkFailed": "Could not link the transactions"
   },
   "filters": {
     "typeLabel": "Type",

@@ -157,6 +157,36 @@ export function useDeleteTransaction(accountId: number) {
   })
 }
 
+export interface TransferLinkPayload {
+  counterpartAccountId: number
+  counterpartTransactionId: number
+}
+
+export function useLinkTransfer(accountId: number, transactionId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ counterpartAccountId, counterpartTransactionId }: TransferLinkPayload) =>
+      api<TransactionDetailRead>(
+        `/account/${accountId}/transactions/${transactionId}/transfer-link`,
+        {
+          method: 'PUT',
+          body: {
+            counterpart_account_id: counterpartAccountId,
+            counterpart_transaction_id: counterpartTransactionId,
+          },
+        },
+      ),
+    onSuccess: () => {
+      // Both legs change type + counterpart; their details and histories all
+      // live under the 'account' prefix. Search results embed the linked
+      // state too, so refresh those as well.
+      queryClient.invalidateQueries({ queryKey: ['account'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions', 'search'] })
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+    },
+  })
+}
+
 export function useUnlinkTransfer(accountId: number, transactionId: number) {
   const queryClient = useQueryClient()
   return useMutation({

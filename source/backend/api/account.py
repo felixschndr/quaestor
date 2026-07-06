@@ -21,6 +21,7 @@ from source.backend.api.schemas.transaction import (
     TransactionDetailRead,
     TransactionRead,
     TransactionUpdate,
+    TransferLinkCreate,
 )
 from source.backend.db import get_session
 from source.backend.models.account import Account
@@ -107,8 +108,30 @@ def delete_transaction(
     account_service.delete_transaction(db_session=db_session, account=account, transaction=transaction)
 
 
+@router.put("/{account_id}/transactions/{transaction_id}/transfer-link", response_model=TransactionDetailRead)
+def link_transactions(
+    account_id: int,
+    transaction_id: int,
+    payload: TransferLinkCreate,
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> Transaction:
+    account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
+    transaction = account_service.get_transaction_for_account(
+        db_session=db_session, account=account, transaction_id=transaction_id
+    )
+    counterpart_account = account_service.get_account_for_user(
+        db_session=db_session, account_id=payload.counterpart_account_id, user=current_user
+    )
+    counterpart = account_service.get_transaction_for_account(
+        db_session=db_session, account=counterpart_account, transaction_id=payload.counterpart_transaction_id
+    )
+    account_service.link_transactions(db_session=db_session, transaction=transaction, counterpart=counterpart)
+    return transaction
+
+
 @router.delete("/{account_id}/transactions/{transaction_id}/transfer-link", status_code=204)
-def unlink_transfer(
+def unlink_transactions(
     account_id: int,
     transaction_id: int,
     current_user: User = Depends(session_service.get_current_user_from_request),
@@ -118,7 +141,7 @@ def unlink_transfer(
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
-    account_service.unlink_transfer(db_session=db_session, transaction=transaction)
+    account_service.unlink_transactions(db_session=db_session, transaction=transaction)
 
 
 @router.get("/{account_id}/transactions/{transaction_id}", response_model=TransactionDetailRead)

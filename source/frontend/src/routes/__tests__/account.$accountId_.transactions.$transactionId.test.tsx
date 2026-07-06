@@ -43,6 +43,7 @@ vi.mock('@tanstack/react-router', () => ({
 import {
   TransactionDetailView,
   otherPartyLabelKey,
+  transferPartnerLabel,
 } from '@/pages/account.$accountId_.transactions.$transactionId'
 
 function buildTransaction(overrides: Partial<TransactionDetailRead> = {}): TransactionDetailRead {
@@ -61,7 +62,10 @@ function buildTransaction(overrides: Partial<TransactionDetailRead> = {}): Trans
   }
 }
 
-function renderView(overrides: Partial<TransactionDetailRead> = {}) {
+function renderView(
+  overrides: Partial<TransactionDetailRead> = {},
+  extraProps: Partial<React.ComponentProps<typeof TransactionDetailView>> = {},
+) {
   const onSaveNote = vi.fn().mockResolvedValue(undefined)
   const onChangeCategory = vi.fn().mockResolvedValue(undefined)
   const onUnlink = vi.fn().mockResolvedValue(undefined)
@@ -73,6 +77,7 @@ function renderView(overrides: Partial<TransactionDetailRead> = {}) {
       onSaveNote={onSaveNote}
       onChangeCategory={onChangeCategory}
       onUnlink={onUnlink}
+      {...extraProps}
     />,
   )
   return { onSaveNote, onChangeCategory, onUnlink }
@@ -218,6 +223,50 @@ describe('TransactionDetailView', () => {
     expect(onUnlink).toHaveBeenCalledTimes(1)
   })
 
+  it('labels the linked transaction with the counterpart other party when present', () => {
+    const counterpart: TransactionRead = {
+      id: 99,
+      account_id: 55,
+      amount: 42.5,
+      purpose: null,
+      date: '2026-05-20',
+      other_party: 'ACME Corp',
+      transaction_type: 'TRANSFER_IN',
+      category: 'TRANSFER',
+      note: null,
+    }
+    renderView({ transfer_counterpart: counterpart })
+    expect(screen.getByRole('link', { name: /ACME Corp/ })).toBeInTheDocument()
+    expect(screen.queryByText(/Sparkonto/)).toBeNull()
+  })
+
+  it('renders the linkSection slot when there is no counterpart', () => {
+    renderView({ transfer_counterpart: null }, { linkSection: <div>start-link-slot</div> })
+    expect(screen.getByText('start-link-slot')).toBeInTheDocument()
+  })
+
+  it('does not render the linkSection when a counterpart exists', () => {
+    const counterpart: TransactionRead = {
+      id: 99,
+      account_id: 55,
+      amount: 42.5,
+      purpose: null,
+      date: '2026-05-20',
+      other_party: null,
+      transaction_type: 'TRANSFER_IN',
+      category: 'TRANSFER',
+      note: null,
+    }
+    renderView({ transfer_counterpart: counterpart }, { linkSection: <div>start-link-slot</div> })
+    expect(screen.queryByText('start-link-slot')).not.toBeInTheDocument()
+    expect(screen.getByText('Linked transaction')).toBeInTheDocument()
+  })
+
+  it('renders the linkConfirmSection slot', () => {
+    renderView({}, { linkConfirmSection: <div>confirm-link-slot</div> })
+    expect(screen.getByText('confirm-link-slot')).toBeInTheDocument()
+  })
+
   it('renders the linked-transaction field above the note', () => {
     const counterpart: TransactionRead = {
       id: 99,
@@ -240,6 +289,26 @@ describe('TransactionDetailView', () => {
       'Account',
       'Note',
     ])
+  })
+})
+
+describe('transferPartnerLabel', () => {
+  it('prefers the other party over the account name', () => {
+    expect(transferPartnerLabel('ACME Corp', 'Sparkonto')).toBe('ACME Corp')
+  })
+
+  it('falls back to the account name when the other party is missing or blank', () => {
+    expect(transferPartnerLabel(null, 'Sparkonto')).toBe('Sparkonto')
+    expect(transferPartnerLabel('   ', 'Sparkonto')).toBe('Sparkonto')
+  })
+
+  it('formats IBAN values', () => {
+    expect(transferPartnerLabel('DE89370400440532013000', null)).toBe('DE89 3704 0044 0532 0130 00')
+    expect(transferPartnerLabel(null, 'DE89370400440532013000')).toBe('DE89 3704 0044 0532 0130 00')
+  })
+
+  it('returns null when neither is available', () => {
+    expect(transferPartnerLabel(null, undefined)).toBeNull()
   })
 })
 

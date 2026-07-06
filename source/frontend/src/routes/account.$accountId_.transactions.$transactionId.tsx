@@ -1,13 +1,15 @@
 import { type ReactNode } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft } from 'lucide-react'
+import { ArrowLeftRight, ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
+import { z } from 'zod'
 
 import type { TransactionDetailRead, TransactionRead } from '@/lib/accountHistory'
 import { findAccountInUser } from '@/lib/accountHistory'
-import { formatEuro } from '@/lib/format'
+import { formatDate, formatEuro } from '@/lib/format'
 import {
+  useLinkTransfer,
   useTransaction,
   useUpdateTransaction,
   useUnlinkTransfer,
@@ -15,18 +17,29 @@ import {
 } from '@/lib/transaction'
 import { useAuthMe } from '@/lib/auth'
 import { useContracts, useSetTransactionContract } from '@/lib/contract'
+import { Button } from '@/components/ui/button'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { cn } from '@/lib/utils'
-import { TransactionDetailView } from '@/pages/account.$accountId_.transactions.$transactionId'
+import {
+  TransactionDetailView,
+  transferPartnerLabel,
+} from '@/pages/account.$accountId_.transactions.$transactionId'
+
+const searchParamsSchema = z.object({
+  link_account_id: z.coerce.number().optional(),
+  link_transaction_id: z.coerce.number().optional(),
+})
 
 export const Route = createFileRoute('/account/$accountId_/transactions/$transactionId')({
   component: TransactionDetailPage,
+  validateSearch: (search) => searchParamsSchema.parse(search),
 })
 
 function TransactionDetailPage() {
   const { accountId: rawAccountId, transactionId: rawTransactionId } = Route.useParams()
   const accountId = Number(rawAccountId)
   const transactionId = Number(rawTransactionId)
+  const search = Route.useSearch()
   const query = useTransaction(accountId, transactionId)
   const update = useUpdateTransaction(accountId, transactionId)
   const unlink = useUnlinkTransfer(accountId, transactionId)
@@ -46,8 +59,19 @@ function TransactionDetailPage() {
   const account = findAccountInUser(user, accountId)?.account
   const accountName = account ? account.display_name?.trim() || account.name : null
 
+  const linkSource =
+    search.link_account_id !== undefined && search.link_transaction_id !== undefined
+      ? { accountId: search.link_account_id, transactionId: search.link_transaction_id }
+      : null
+  const viewingLinkSourceItself =
+    linkSource?.accountId === accountId && linkSource?.transactionId === transactionId
+  const canStartLink = linkSource === null && !query.data.pending
+  const allAccountIds =
+    user?.credentials.flatMap((credential) => credential.accounts.map((a) => a.id)) ?? []
+
   return (
     <TransactionDetailView
+      key={`${accountId}-${transactionId}`}
       accountId={accountId}
       transaction={query.data}
       accountName={accountName}
@@ -58,7 +82,119 @@ function TransactionDetailPage() {
       contractSection={
         query.data.pending ? undefined : <ContractSection transaction={query.data} />
       }
+      linkSection={
+        canStartLink ? (
+          <LinkStartSection
+            accountId={accountId}
+            transactionId={transactionId}
+            allAccountIds={allAccountIds}
+          />
+        ) : undefined
+      }
+      linkConfirmSection={
+        linkSource && !viewingLinkSourceItself && !counterpart && !query.data.pending ? (
+          <LinkConfirmSection source={linkSource} targetAccountId={accountId} target={query.data} />
+        ) : undefined
+      }
     />
+  )
+}
+
+function LinkStartSection({
+  accountId,
+  transactionId,
+  allAccountIds,
+}: {
+  accountId: number
+  transactionId: number
+  allAccountIds: number[]
+}) {
+  const { t } = useTranslation()
+  return (
+    <DetailRow label={t('transaction.linkedTransaction')}>
+      <Button asChild variant="outline" size="sm">
+        <Link
+          to="/account/$accountId/search"
+          params={{ accountId: String(accountId) }}
+          search={{
+            account_ids: allAccountIds,
+            link_account_id: accountId,
+            link_transaction_id: transactionId,
+          }}
+        >
+          <ArrowLeftRight className="size-4" aria-hidden="true" />
+          {t('transaction.linkStart')}
+        </Link>
+      </Button>
+    </DetailRow>
+  )
+}
+
+function LinkConfirmSection({
+  source,
+  targetAccountId,
+  target,
+}: {
+  source: { accountId: number; transactionId: number }
+  targetAccountId: number
+  target: TransactionDetailRead
+}) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { data: user } = useAuthMe()
+  const sourceQuery = useTransaction(source.accountId, source.transactionId)
+  const link = useLinkTransfer(source.accountId, source.transactionId)
+
+  const sourceTransaction = sourceQuery.data
+  if (!sourceTransaction) return null
+  if (sourceTransaction.transfer_counterpart || sourceTransaction.pending) return null
+
+  const sourceAccount = findAccountInUser(user, source.accountId)?.account
+  const sourceAccountName = sourceAccount
+    ? sourceAccount.display_name?.trim() || sourceAccount.name
+    : null
+  const sourcePartnerLabel =
+    transferPartnerLabel(sourceTransaction.other_party, sourceAccountName) ??
+    t('transaction.linkedAccountUnknown')
+
+  const confirm = () => {
+    toast.promise(
+      link
+        .mutateAsync({
+          counterpartAccountId: targetAccountId,
+          counterpartTransactionId: target.id,
+        })
+        .then(() =>
+          navigate({
+            to: '/account/$accountId/transactions/$transactionId',
+            params: {
+              accountId: String(source.accountId),
+              transactionId: String(source.transactionId),
+            },
+          }),
+        ),
+      {
+        loading: t('common.saving'),
+        success: t('transaction.linkSuccess'),
+        error: t('transaction.linkFailed'),
+      },
+    )
+  }
+
+  return (
+    <section className="border-border bg-muted/40 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+      <p className="text-sm">
+        {t('transaction.linkConfirmPrompt', {
+          partner: sourcePartnerLabel,
+          amount: formatEuro(sourceTransaction.amount),
+          date: formatDate(sourceTransaction.date),
+        })}
+      </p>
+      <Button type="button" size="sm" disabled={link.isPending} onClick={confirm}>
+        <ArrowLeftRight className="size-4" aria-hidden="true" />
+        {t('transaction.linkConfirmAction')}
+      </Button>
+    </section>
   )
 }
 
@@ -81,6 +217,8 @@ export interface TransactionDetailViewProps {
   onChangeCategory: (category: TransactionCategory) => Promise<unknown>
   onUnlink: () => Promise<unknown>
   contractSection?: ReactNode
+  linkSection?: ReactNode
+  linkConfirmSection?: ReactNode
 }
 
 function BackLink({ accountId }: { accountId: number }) {
