@@ -106,7 +106,6 @@ export function TransactionDetailView({
         ) : (
           (linkSection ?? null)
         )}
-        {contractSection}
         <DetailRow label={t('transaction.account')}>
           {accountName?.trim() ? (
             <Link
@@ -120,6 +119,7 @@ export function TransactionDetailView({
             <EmptyValue />
           )}
         </DetailRow>
+        {contractSection}
         {transaction.pending ? null : (
           <DetailRow label={t('transaction.note')} align="start">
             <NoteEditor remoteNote={transaction.note ?? ''} onSave={onSaveNote} />
@@ -196,7 +196,7 @@ function BackLink({ accountId }: { accountId: number }) {
   )
 }
 
-function DetailRow({
+export function DetailRow({
   label,
   children,
   align = 'center',
@@ -211,12 +211,14 @@ function DetailRow({
         // `minmax(0,1fr)` (not `1fr`) lets the value column shrink below its
         // content's min-content width; `break-words` on the value then breaks
         // long unbreakable tokens (e.g. EREF mandate refs in a purpose) instead
-        // of forcing the row wider than the viewport.
-        'border-border/40 grid grid-cols-[8rem_minmax(0,1fr)] gap-4 border-t py-3 first:border-t-0',
+        // of forcing the row wider than the viewport. The label column widens
+        // on sm+ so the longest label ("Verknüpfte Transaktion") stays on one
+        // line; on phones it keeps the value column usable and may wrap.
+        'border-border/40 grid grid-cols-[8rem_minmax(0,1fr)] gap-4 border-t py-3 first:border-t-0 sm:grid-cols-[11rem_minmax(0,1fr)]',
         align === 'start' ? 'items-start' : 'items-center',
       )}
     >
-      <dt className="text-muted-foreground text-sm">{label}</dt>
+      <dt className="text-muted-foreground cursor-default text-sm">{label}</dt>
       <dd className="text-sm break-words">{children}</dd>
     </div>
   )

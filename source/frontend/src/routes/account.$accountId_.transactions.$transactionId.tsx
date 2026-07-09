@@ -19,8 +19,8 @@ import { useAuthMe } from '@/lib/auth'
 import { useContracts, useSetTransactionContract } from '@/lib/contract'
 import { Button } from '@/components/ui/button'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
-import { cn } from '@/lib/utils'
 import {
+  DetailRow,
   TransactionDetailView,
   transferPartnerLabel,
 } from '@/pages/account.$accountId_.transactions.$transactionId'
@@ -232,32 +232,6 @@ function BackLink({ accountId }: { accountId: number }) {
     >
       <ChevronLeft className="size-5" />
     </Link>
-  )
-}
-
-function DetailRow({
-  label,
-  children,
-  align = 'center',
-}: {
-  label: string
-  children: React.ReactNode
-  align?: 'center' | 'start'
-}) {
-  return (
-    <div
-      className={cn(
-        // `minmax(0,1fr)` (not `1fr`) lets the value column shrink below its
-        // content's min-content width; `break-words` on the value then breaks
-        // long unbreakable tokens (e.g. EREF mandate refs in a purpose) instead
-        // of forcing the row wider than the viewport.
-        'border-border/40 grid grid-cols-[8rem_minmax(0,1fr)] gap-4 border-t py-3 first:border-t-0',
-        align === 'start' ? 'items-start' : 'items-center',
-      )}
-    >
-      <dt className="text-muted-foreground text-sm">{label}</dt>
-      <dd className="text-sm break-words">{children}</dd>
-    </div>
   )
 }
 

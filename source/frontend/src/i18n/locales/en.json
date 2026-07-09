@@ -504,7 +504,7 @@
   },
   "apiKeys": {
     "title": "API keys",
-    "description": "Programmatic access to your data.",
+    "description": "Programmatic access to your data",
     "loadError": "API keys could not be loaded.",
     "empty": "No API keys yet.",
     "createTitle": "Create a new API key",
@@ -668,7 +668,7 @@
   },
   "notifications": {
     "title": "Notifications",
-    "description": "Custom rules for push notifications.",
+    "description": "Custom rules for push notifications",
     "empty": "No notifications yet.",
     "new": "New rule",
     "edit": "Edit notification",

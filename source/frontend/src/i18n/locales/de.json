@@ -504,7 +504,7 @@
   },
   "apiKeys": {
     "title": "API-Keys",
-    "description": "Programmatischer Zugriff auf deine Daten.",
+    "description": "Programmatischer Zugriff auf deine Daten",
     "loadError": "API-Keys konnten nicht geladen werden.",
     "empty": "Noch keine API-Keys.",
     "createTitle": "Neuen API-Key erstellen",
@@ -668,7 +668,7 @@
   },
   "notifications": {
     "title": "Benachrichtigungen",
-    "description": "Eigene Regeln für Push-Benachrichtigungen.",
+    "description": "Eigene Regeln für Push-Benachrichtigungen",
     "empty": "Noch keine Benachrichtigungen.",
     "new": "Neue Regel",
     "edit": "Benachrichtigung bearbeiten",
