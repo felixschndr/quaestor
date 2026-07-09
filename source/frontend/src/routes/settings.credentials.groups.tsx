@@ -18,7 +18,7 @@ function GroupsEditorPage() {
 
   if (!user) return null
   return (
-    <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 p-4">
+    <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <Header />
       {layoutQuery.isLoading || !layoutQuery.data ? (
         <LoadingPlaceholder />

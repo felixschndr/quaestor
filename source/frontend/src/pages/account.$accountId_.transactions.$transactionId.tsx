@@ -47,7 +47,7 @@ export function TransactionDetailView({
   const negative = transaction.amount < 0
 
   return (
-    <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-8 p-4">
+    <main className="mx-auto flex min-h-full max-w-page flex-col gap-8 p-4">
       <header className="flex items-center">
         <BackLink accountId={accountId} />
       </header>

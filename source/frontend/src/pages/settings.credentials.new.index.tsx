@@ -81,7 +81,7 @@ export function BankPickerView({
   const matches = filterItems(items, query)
 
   return (
-    <main className="mx-auto flex h-dvh max-w-3xl flex-col gap-6 p-4">
+    <main className="mx-auto flex h-dvh max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
         <BackLink to="/settings/credentials" />
         <h1 className="text-foreground text-2xl font-semibold">{t('credentials.pickerTitle')}</h1>
@@ -154,7 +154,7 @@ function FamilyView({
   }, [family.members, query])
 
   return (
-    <main className="mx-auto flex h-dvh max-w-3xl flex-col gap-6 p-4">
+    <main className="mx-auto flex h-dvh max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
         <BackLink onClick={onBack} />
         <BankLogo icon={family.icon} name={family.label} seed={family.slug} />

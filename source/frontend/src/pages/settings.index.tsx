@@ -17,7 +17,7 @@ export function SettingsIndexView({
       ? t('settings.serverVersionUpdate', { latest: serverVersion.latest })
       : t('settings.serverVersionDescription')
   return (
-    <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 p-4">
+    <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
         <BackLink />
         <h1 className="text-foreground flex-1 text-2xl font-semibold">{t('settings.title')}</h1>

@@ -62,7 +62,7 @@ export function SettingsSessionsView({ user }: SettingsSessionsViewProps) {
   const otherSessionCount = list.filter((session) => !session.is_current).length
 
   return (
-    <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 p-4">
+    <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
         <BackLink />
         <h1 className="text-foreground text-2xl font-semibold flex-1">{t('settings.sessions')}</h1>

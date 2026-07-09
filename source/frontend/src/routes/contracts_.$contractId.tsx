@@ -60,7 +60,7 @@ function ContractDetailPage() {
 function ContractNotFoundView() {
   const { t } = useTranslation()
   return (
-    <main className="mx-auto max-w-3xl p-4">
+    <main className="mx-auto max-w-page p-4">
       <BackLink />
       <p className="text-muted-foreground mt-6 text-sm">{t('contracts.notFound')}</p>
     </main>
