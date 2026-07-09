@@ -75,7 +75,7 @@ function StatsPage() {
             categories:
               next.categories.length === FILTERABLE_CATEGORIES.length ? undefined : next.categories,
           },
-          replace: false,
+          replace: true,
           resetScroll: false,
         })
       }

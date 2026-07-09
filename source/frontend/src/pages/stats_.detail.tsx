@@ -57,6 +57,7 @@ export function NetWorthDetailPage() {
     navigate({
       to: '/stats/detail',
       search: { ...search, start: clamped, end: endDate },
+      replace: true,
     })
   }
 
@@ -68,6 +69,7 @@ export function NetWorthDetailPage() {
     navigate({
       to: '/stats/detail',
       search: { ...search, start: keepStart, end: next },
+      replace: true,
     })
   }
 
