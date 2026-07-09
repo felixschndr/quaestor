@@ -2,7 +2,7 @@ import {
   Bar,
   BarChart,
   Cell,
-  LabelList,
+  matchByDataKey,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -12,7 +12,7 @@ import {
 import { formatEuro, formatIban } from '@/lib/format'
 import { paletteColor, type OtherPartySlice } from '@/lib/statistics'
 import { AXIS_TICK, euroFormat, TOOLTIP_STYLE } from './chartTheme'
-import { ArrowTick, BarValueLabel, DRILL_ARROW_WIDTH, ToggleTick } from './chart-parts'
+import { ArrowTick, DRILL_ARROW_WIDTH, ToggleTick, ValueBarShape } from './chart-parts'
 
 export interface OtherPartyChartProps {
   data: OtherPartySlice[]
@@ -41,7 +41,7 @@ function OtherPartyTooltip({
 }) {
   if (!active || !payload?.length) return null
   const row = payload[0].payload
-  if (row.total == null) return null
+  if (!row.total) return null
   return (
     <div style={TOOLTIP_STYLE} className="px-2.5 py-1.5 text-center">
       <div className="text-muted-foreground text-xs">{row.label}</div>
@@ -103,11 +103,19 @@ export function OtherPartyChart({ data, hidden, onToggleHidden, onDrill }: Other
             />
           ) : null}
           <Tooltip cursor={{ fill: 'var(--color-muted)' }} content={<OtherPartyTooltip />} />
-          <Bar dataKey="total" radius={[0, 4, 4, 0]}>
+          <Bar
+            dataKey="total"
+            radius={[0, 4, 4, 0]}
+            animationMatchBy={matchByDataKey('other_party')}
+            shape={
+              <ValueBarShape
+                labelHidden={(row) => hidden.has((row as OtherPartyRow).other_party)}
+              />
+            }
+          >
             {chartRows.map((row, index) => (
               <Cell key={row.other_party} fill={paletteColor(index)} />
             ))}
-            <LabelList dataKey="total" content={<BarValueLabel />} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>

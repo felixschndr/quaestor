@@ -4,8 +4,8 @@ import {
   Bar,
   BarChart,
   Cell,
-  LabelList,
   Legend,
+  matchByDataKey,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -25,7 +25,7 @@ import {
 } from '@/lib/statistics'
 import type { TransactionCategory } from '@/lib/transaction'
 import { AXIS_TICK, euroFormat, TOOLTIP_STYLE } from './chartTheme'
-import { ArrowTick, BarValueLabel, DRILL_ARROW_WIDTH, ToggleTick } from './chart-parts'
+import { ArrowTick, DRILL_ARROW_WIDTH, ToggleTick, ValueBarShape } from './chart-parts'
 
 // Beyond this many slices the pie collapses the tail into a single "Other"
 // wedge so it stays legible on a phone.
@@ -68,6 +68,7 @@ function CategoryTooltip({
 }) {
   if (!active || !payload?.length) return null
   const datum = payload[0].payload
+  if (!datum.value) return null
   const share = total > 0 ? datum.value / total : 0
   return (
     <div style={TOOLTIP_STYLE} className="px-2.5 py-1.5 text-center">
@@ -266,11 +267,19 @@ export function CategoryChart({
             cursor={{ fill: 'var(--color-muted)' }}
             content={<CategoryTooltip total={total} />}
           />
-          <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+          <Bar
+            dataKey="value"
+            radius={[0, 4, 4, 0]}
+            animationMatchBy={matchByDataKey('category')}
+            shape={
+              <ValueBarShape
+                labelHidden={(row) => hidden.has((row as CategoryChartDatum).category)}
+              />
+            }
+          >
             {chartData.map((datum, index) => (
               <Cell key={datum.category} fill={sliceColor(datum.category, index)} />
             ))}
-            <LabelList dataKey="value" content={<BarValueLabel />} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>

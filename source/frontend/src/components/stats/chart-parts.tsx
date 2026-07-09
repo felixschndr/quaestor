@@ -1,3 +1,5 @@
+import { Rectangle, type RectangleProps } from 'recharts'
+
 import { formatEuro } from '@/lib/format'
 
 // Roughly the width one character of the label needs, used to decide whether the
@@ -57,26 +59,40 @@ export function BarValueLabel({
   )
 }
 
+export type ValueBarShapeProps = RectangleProps & {
+  value?: number | [number, number]
+  payload?: unknown
+  labelHidden?: (payload: unknown) => boolean
+}
+
+export function ValueBarShape(props: ValueBarShapeProps) {
+  const { value, payload, labelHidden, ...rect } = props
+  if (labelHidden && payload !== undefined && labelHidden(payload)) {
+    return <Rectangle {...rect} />
+  }
+  return (
+    <>
+      <Rectangle {...rect} />
+      <BarValueLabel
+        x={rect.x}
+        y={rect.y}
+        width={rect.width}
+        height={rect.height}
+        value={Array.isArray(value) ? value[1] : value}
+      />
+    </>
+  )
+}
+
 export interface ToggleTickProps {
-  // x/y/payload are injected by recharts via the <YAxis tick={...}> element.
   y?: number
   payload?: { value?: string | number }
-  /** Resolves the axis key (payload.value) to a display label. */
   labelOf: (key: string) => string
-  /** Keys currently toggled off (rendered greyed + struck through). */
   hidden: ReadonlySet<string>
-  /** Toggle a key's visibility. */
   onToggle: (key: string) => void
-  /** Truncate labels longer than this (with an ellipsis). */
   maxChars?: number
 }
 
-/**
- * Left-aligned, clickable category Y-axis tick. Recharts right-aligns category
- * labels against the axis line (leaving a gap on the left); anchoring at the
- * left edge uses that space. Clicking the label toggles the row's visibility —
- * the label stays put (greyed) so it can be switched back on.
- */
 export function ToggleTick({
   y = 0,
   payload,
