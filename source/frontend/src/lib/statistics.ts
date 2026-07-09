@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { format, subMonths, subWeeks, subYears } from 'date-fns'
+import { format, subDays, subMonths, subWeeks, subYears } from 'date-fns'
 
 import { api } from './api'
 import type { TransactionRead } from './accountHistory'
@@ -126,18 +126,53 @@ export function presetDateRange(
   }
 }
 
-/**
- * Default filter range for the stats page: the "1 month" shortcut.
- */
+export type DetailRangePreset = '1d' | '3d' | '1w' | '2w' | '1m'
+
+export const DETAIL_RANGE_PRESETS: readonly DetailRangePreset[] = ['1d', '3d', '1w', '2w', '1m']
+
+function detailPresetStart(preset: DetailRangePreset, end: Date): Date {
+  switch (preset) {
+    case '1d':
+      return subDays(end, 1)
+    case '3d':
+      return subDays(end, 3)
+    case '1w':
+      return subWeeks(end, 1)
+    case '2w':
+      return subWeeks(end, 2)
+    case '1m':
+      return subMonths(end, 1)
+  }
+}
+
+export function detailPresetRange(
+  preset: DetailRangePreset,
+  today: Date = new Date(),
+): { start: string; end: string } {
+  return {
+    start: formatDay(detailPresetStart(preset, today)),
+    end: formatDay(today),
+  }
+}
+
+export function matchingDetailPreset(
+  start: string,
+  end: string,
+  today: Date = new Date(),
+): DetailRangePreset | null {
+  for (const preset of DETAIL_RANGE_PRESETS) {
+    const range = detailPresetRange(preset, today)
+    if (range.start === start && range.end === end) {
+      return preset
+    }
+  }
+  return null
+}
+
 export function defaultStatsDateRange(today: Date = new Date()): Required<StatsFilters> {
   return presetDateRange('1m', today)
 }
 
-/**
- * Returns the preset that exactly matches `filters`, or null if the user has
- * picked a custom range. Lets the shortcut picker show the active preset
- * without losing the highlight when shortcuts are re-applied verbatim.
- */
 export function matchingPreset(
   filters: StatsFilters,
   today: Date = new Date(),
@@ -152,11 +187,6 @@ export function matchingPreset(
   return null
 }
 
-/**
- * Build the querystring shared by every stats request: repeated `account_ids`
- * plus the filter fields and any extras (direction, limit). Mirrors
- * buildFilterQueryString in transactionSearch.ts — drop undefined/empty, keep 0.
- */
 export function buildStatsQueryString(
   accountIds: number[],
   filters: StatsFilters,

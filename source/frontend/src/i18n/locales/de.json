@@ -572,7 +572,7 @@
       "unlinked": "Keine Umbuchung"
     },
     "dateFrom": "Datum von",
-    "dateTo": "Bis",
+    "dateTo": "Datum bis",
     "categoriesLabel": "Kategorien",
     "categoriesNone": "Keine Kategorien",
     "categoriesAll": "Alle Kategorien",
@@ -648,8 +648,13 @@
     "day": {
       "title": "Vermögensänderung",
       "back": "Zurück zur Statistik",
-      "from": "Von",
-      "to": "Bis",
+      "range": {
+        "1d": "1 T",
+        "3d": "3 T",
+        "1w": "1 W",
+        "2w": "2 W",
+        "1m": "1 M"
+      },
       "total": "Gesamt",
       "noTransactions": "Keine Transaktionen in diesem Zeitraum",
       "loading": "Wird geladen …",

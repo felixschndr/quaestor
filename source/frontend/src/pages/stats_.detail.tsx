@@ -4,12 +4,19 @@ import { Collapsible } from 'radix-ui'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { BankLogo } from '@/components/BankLogo'
-import { DatePicker } from '@/components/ui/date-picker'
-import { Label } from '@/components/ui/label'
+import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { useAuthMe } from '@/lib/auth'
 import { useAccountGroupLayout } from '@/lib/accountGroups'
 import { buildDisplayGroups, type AccountWithBank } from '@/lib/accountDisplayGroups'
-import { useNetWorthRange, type AccountRangeChange } from '@/lib/statistics'
+import { SegmentedToggle } from '@/components/stats/segmented-toggle'
+import {
+  DETAIL_RANGE_PRESETS,
+  detailPresetRange,
+  matchingDetailPreset,
+  useNetWorthRange,
+  type AccountRangeChange,
+  type DetailRangePreset,
+} from '@/lib/statistics'
 import type { TransactionRead } from '@/lib/accountHistory'
 import { accountDisplayName } from '@/lib/accounts'
 import { formatEuro, formatFactorMultiplier, formatIban } from '@/lib/format'
@@ -50,7 +57,7 @@ export function NetWorthDetailPage() {
   const startDate = search.start ?? shiftIsoDay(endDate, -1)
   const range = useNetWorthRange(startDate, endDate, accountIds)
 
-  const changeStart = (next: string) => {
+  const changeStart = (next: string | undefined) => {
     if (!next) return
     // The start can never sit after the end; clamp it to the end date.
     const clamped = next > endDate ? endDate : next
@@ -61,7 +68,16 @@ export function NetWorthDetailPage() {
     })
   }
 
-  const changeEnd = (next: string) => {
+  const applyPreset = (preset: DetailRangePreset) => {
+    const range = detailPresetRange(preset)
+    navigate({
+      to: '/stats/detail',
+      search: { ...search, start: range.start, end: range.end },
+      replace: true,
+    })
+  }
+
+  const changeEnd = (next: string | undefined) => {
     if (!next || next === endDate) return
     // Keep an explicit start only while it still precedes the new end;
     // otherwise drop it so it falls back to "the day before".
@@ -128,15 +144,24 @@ export function NetWorthDetailPage() {
         <h1 className="text-foreground flex-1 text-lg font-semibold">{t('stats.day.title')}</h1>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 px-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="day-start">{t('stats.day.from')}</Label>
-          <DatePicker id="day-start" value={startDate} onChange={changeStart} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="day-end">{t('stats.day.to')}</Label>
-          <DatePicker id="day-end" value={endDate} onChange={changeEnd} />
-        </div>
+      <div className="flex flex-col gap-3 px-2">
+        <DateRangeFields
+          idPrefix="day"
+          dateFrom={startDate}
+          dateTo={endDate}
+          onDateFromChange={changeStart}
+          onDateToChange={changeEnd}
+        />
+        <SegmentedToggle
+          fullWidth
+          ariaLabel={t('stats.rangeLabel')}
+          value={matchingDetailPreset(startDate, endDate)}
+          onChange={applyPreset}
+          options={DETAIL_RANGE_PRESETS.map((preset) => ({
+            value: preset,
+            label: t(`stats.day.range.${preset}`),
+          }))}
+        />
       </div>
 
       {range.isLoading ? (

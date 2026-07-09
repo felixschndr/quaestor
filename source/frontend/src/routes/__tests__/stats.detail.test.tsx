@@ -80,8 +80,10 @@ vi.mock('@/lib/accountGroups', () => ({
   useAccountGroupLayout: () => ({ data: undefined }),
 }))
 
-vi.mock('@/lib/statistics', () => ({
-  useNetWorthRange: () => ({
+vi.mock(import('@/lib/statistics'), async (importOriginal) => ({
+  // Keep the real module (preset helpers) and only stub the query hook.
+  ...(await importOriginal()),
+  useNetWorthRange: (() => ({
     isLoading: false,
     isError: false,
     data: {
@@ -120,7 +122,7 @@ vi.mock('@/lib/statistics', () => ({
         },
       ],
     },
-  }),
+  })) as unknown as (typeof import('@/lib/statistics'))['useNetWorthRange'],
 }))
 
 import { NetWorthDetailPage } from '@/pages/stats_.detail'

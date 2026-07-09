@@ -572,7 +572,7 @@
       "unlinked": "No transfer"
     },
     "dateFrom": "From date",
-    "dateTo": "To",
+    "dateTo": "To date",
     "categoriesLabel": "Categories",
     "categoriesNone": "No categories",
     "categoriesAll": "All categories",
@@ -648,8 +648,13 @@
     "day": {
       "title": "Net worth change",
       "back": "Back to statistics",
-      "from": "From",
-      "to": "To",
+      "range": {
+        "1d": "1D",
+        "3d": "3D",
+        "1w": "1W",
+        "2w": "2W",
+        "1m": "1M"
+      },
       "total": "Total",
       "noTransactions": "No transactions in this period",
       "loading": "Loading …",
