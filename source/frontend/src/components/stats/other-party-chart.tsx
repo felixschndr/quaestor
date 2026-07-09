@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -17,8 +16,8 @@ import { ArrowTick, BarValueLabel, DRILL_ARROW_WIDTH, ToggleTick } from './chart
 
 export interface OtherPartyChartProps {
   data: OtherPartySlice[]
-  /** When set, each row shows an arrow that drills into the filtered search
-   *  for that other party. */
+  hidden: ReadonlySet<string>
+  onToggleHidden: (otherParty: string) => void
   onDrill?: (otherParty: string) => void
 }
 
@@ -52,18 +51,7 @@ function OtherPartyTooltip({
 }
 
 /** Horizontal ranked bars of the biggest other parties in the period. */
-export function OtherPartyChart({ data, onDrill }: OtherPartyChartProps) {
-  // Other parties toggled off by clicking their axis label — kept in the axis
-  // (greyed) so they can be re-enabled; only the bar is dropped.
-  const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set())
-  const toggle = (key: string) =>
-    setHidden((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-
+export function OtherPartyChart({ data, hidden, onToggleHidden, onDrill }: OtherPartyChartProps) {
   const rows: OtherPartyRow[] = data.map((slice) => ({
     ...slice,
     label: formatIban(slice.other_party),
@@ -94,7 +82,7 @@ export function OtherPartyChart({ data, onDrill }: OtherPartyChartProps) {
               <ToggleTick
                 labelOf={(party) => labelByParty.get(party) ?? party}
                 hidden={hidden}
-                onToggle={toggle}
+                onToggle={onToggleHidden}
                 maxChars={MAX_LABEL_CHARS}
               />
             }

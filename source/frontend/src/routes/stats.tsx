@@ -17,6 +17,8 @@ import {
 } from '@/lib/statistics'
 import { StatsView } from '@/pages/stats'
 
+const hiddenCategorySchema = z.enum([...TRANSACTION_CATEGORIES, 'OTHER'] as const)
+
 // URL-state schema. `account_ids` may be omitted (→ all accounts) or carry a
 // single account when opened from an account detail view; `categories` is
 // omitted when all are selected (→ all categories).
@@ -36,6 +38,14 @@ const searchParamsSchema = z.object({
     .optional(),
   categories: z
     .union([z.enum(TRANSACTION_CATEGORIES), z.array(z.enum(TRANSACTION_CATEGORIES))])
+    .transform((value) => (Array.isArray(value) ? value : [value]))
+    .optional(),
+  hidden_categories: z
+    .union([hiddenCategorySchema, z.array(hiddenCategorySchema)])
+    .transform((value) => (Array.isArray(value) ? value : [value]))
+    .optional(),
+  hidden_parties: z
+    .union([z.array(z.coerce.string()), z.coerce.string()])
     .transform((value) => (Array.isArray(value) ? value : [value]))
     .optional(),
 })
@@ -74,6 +84,8 @@ function StatsPage() {
               next.linked === undefined ? 'any' : next.linked === 'unlinked' ? undefined : 'linked',
             categories:
               next.categories.length === FILTERABLE_CATEGORIES.length ? undefined : next.categories,
+            hidden_categories: next.hiddenCategories.length ? next.hiddenCategories : undefined,
+            hidden_parties: next.hiddenParties.length ? next.hiddenParties : undefined,
           },
           replace: true,
           resetScroll: false,
@@ -118,6 +130,8 @@ export interface StatsViewState {
   categories: TransactionCategory[]
   transactionTypes: TransactionType[]
   linked?: StatsLinked
+  hiddenCategories: Array<TransactionCategory | 'OTHER'>
+  hiddenParties: string[]
 }
 
 export interface StatsDrilldown {

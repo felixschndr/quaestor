@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Bar,
@@ -46,8 +46,8 @@ const RADIAN = Math.PI / 180
 export interface CategoryChartProps {
   slices: CategorySlice[]
   chartType: ChartType
-  /** When set, the bar view shows a per-row arrow that drills into the
-   *  filtered transaction search for that category. */
+  hidden: ReadonlySet<string>
+  onToggleHidden: (category: TransactionCategory | 'OTHER') => void
   onDrill?: (category: TransactionCategory) => void
 }
 
@@ -155,18 +155,15 @@ function renderPieLabel(props: {
   )
 }
 
-export function CategoryChart({ slices, chartType, onDrill }: CategoryChartProps) {
+export function CategoryChart({
+  slices,
+  chartType,
+  hidden,
+  onToggleHidden,
+  onDrill,
+}: CategoryChartProps) {
   const { t } = useTranslation()
-  // Categories the user toggled off in the pie legend. They stay in the legend
-  // (greyed) so they can be switched back on; only the slice is removed.
-  const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set())
-  const toggle = (category: string) =>
-    setHidden((prev) => {
-      const next = new Set(prev)
-      if (next.has(category)) next.delete(category)
-      else next.add(category)
-      return next
-    })
+  const toggle = (category: string) => onToggleHidden(category as TransactionCategory | 'OTHER')
 
   const data: CategoryChartDatum[] = useMemo(
     () =>

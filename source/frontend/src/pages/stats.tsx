@@ -64,6 +64,8 @@ export function StatsView({
   const selectedTypes: TransactionType[] = search.transaction_types ?? [...TRANSACTION_TYPES]
   const linked: StatsLinked | undefined =
     search.linked === 'any' ? undefined : (search.linked ?? 'unlinked')
+  const hiddenCategories = search.hidden_categories ?? []
+  const hiddenParties = search.hidden_parties ?? []
 
   const sync = (next: Partial<StatsViewState>) =>
     onChange({
@@ -74,6 +76,8 @@ export function StatsView({
       categories: selectedCategories,
       transactionTypes: selectedTypes,
       linked,
+      hiddenCategories,
+      hiddenParties,
       ...next,
     })
 
@@ -88,6 +92,18 @@ export function StatsView({
   const updateCategories = (next: TransactionCategory[]) => sync({ categories: next })
   const updateTypes = (next: TransactionType[]) => sync({ transactionTypes: next })
   const updateLinked = (next: StatsLinked | undefined) => sync({ linked: next })
+  const toggleHiddenCategory = (category: TransactionCategory | 'OTHER') =>
+    sync({
+      hiddenCategories: hiddenCategories.includes(category)
+        ? hiddenCategories.filter((entry) => entry !== category)
+        : [...hiddenCategories, category],
+    })
+  const toggleHiddenParty = (party: string) =>
+    sync({
+      hiddenParties: hiddenParties.includes(party)
+        ? hiddenParties.filter((entry) => entry !== party)
+        : [...hiddenParties, party],
+    })
 
   const categoriesParam =
     selectedCategories.length === FILTERABLE_CATEGORIES.length ? [] : selectedCategories
@@ -251,6 +267,8 @@ export function StatsView({
             <CategoryChart
               slices={categories.data ?? []}
               chartType={chartType}
+              hidden={new Set(hiddenCategories)}
+              onToggleHidden={toggleHiddenCategory}
               onDrill={(category) => openSearch({ categories: [category] })}
             />
           </ChartCard>
@@ -288,6 +306,8 @@ export function StatsView({
           >
             <OtherPartyChart
               data={otherParties.data ?? []}
+              hidden={new Set(hiddenParties)}
+              onToggleHidden={toggleHiddenParty}
               onDrill={(party) => openSearch({ text: party })}
             />
           </ChartCard>
