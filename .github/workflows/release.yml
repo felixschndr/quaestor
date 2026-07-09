@@ -27,46 +27,7 @@ jobs:
     uses: ./.github/workflows/tests.yml
 
   check_version:
-    runs-on: ubuntu-latest
-    outputs:
-      version_changed: ${{ steps.check_version.outputs.version_changed }}
-      current_version: ${{ steps.check_version.outputs.version }}
-      bump_sha: ${{ steps.check_version.outputs.bump_sha }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7.0.0
-        with:
-          fetch-depth: 20
-
-      - name: Compare current version against the latest release
-        id: check_version
-        run: |
-          version=$(grep -E '^version\s*=\s*".*"' pyproject.toml | head -n1 | sed -E 's/version\s*=\s*"(.*)"/\1/' | sed 's/[\r\n]*$//')
-          echo "Current version: ${version}"
-          echo "version=${version}" >> $GITHUB_OUTPUT
-
-          bump_sha=$(git log -n1 --no-show-signature --format=%H -S "version = \"${version}\"" -- pyproject.toml)
-          echo "Bump commit: ${bump_sha}"
-          echo "bump_sha=${bump_sha}" >> $GITHUB_OUTPUT
-
-          last_tag=$(git tag --sort=-version:refname | head -n1)
-          echo "Latest release tag: ${last_tag:-<none>}"
-
-          if [[ -z "${last_tag}" ]]; then
-            version_changed=true
-          elif [[ "${version}" == "${last_tag}" ]]; then
-            version_changed=false
-          else
-            newest=$(printf '%s\n%s\n' "${last_tag}" "${version}" | sort -V | tail -n1)
-            if [[ "${newest}" == "${version}" ]]; then
-              version_changed=true
-            else
-              version_changed=false
-            fi
-          fi
-          echo "Version newer than latest release: ${version_changed}"
-          echo "version_changed=${version_changed}" >> $GITHUB_OUTPUT
+    uses: ./.github/workflows/check-version.yml
 
   build-and-push-image:
     runs-on: ubuntu-latest
