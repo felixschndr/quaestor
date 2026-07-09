@@ -1,9 +1,11 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
+import { CircleHelp } from 'lucide-react'
 
 import { MultiSelectPopover, multiSelectTriggerLabel } from '@/components/ui/multi-select-popover'
 import { TRANSACTION_TYPES, type TransactionType } from '@/lib/transaction'
+import { TRANSACTION_TYPE_ICONS } from '@/lib/transactionTypeIcons'
 
 export interface TypeMultiSelectProps {
   id?: string
@@ -21,7 +23,14 @@ export function TypeMultiSelect({ id, selected, onChange, className }: TypeMulti
       if (b === 'ZERO') return -1
       return t(`transactionType.${a}`).localeCompare(t(`transactionType.${b}`), i18n.language)
     })
-    .map((type) => ({ value: type, label: t(`transactionType.${type}`) }))
+    .map((type) => {
+      const Icon = TRANSACTION_TYPE_ICONS[type] ?? CircleHelp
+      return {
+        value: type,
+        label: t(`transactionType.${type}`),
+        leading: <Icon className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />,
+      }
+    })
 
   return (
     <MultiSelectPopover

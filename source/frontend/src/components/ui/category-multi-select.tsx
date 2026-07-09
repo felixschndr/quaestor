@@ -3,7 +3,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { MultiSelectPopover, multiSelectTriggerLabel } from '@/components/ui/multi-select-popover'
-import { FILTERABLE_CATEGORIES } from '@/lib/statistics'
+import { useCategoryOptions } from '@/lib/categoryIcons'
 import type { TransactionCategory } from '@/lib/transaction'
 
 export interface CategoryMultiSelectProps {
@@ -14,15 +14,8 @@ export interface CategoryMultiSelectProps {
 }
 
 function CategoryMultiSelect({ id, selectedIds, onChange, className }: CategoryMultiSelectProps) {
-  const { t, i18n } = useTranslation()
-
-  const options = [...FILTERABLE_CATEGORIES]
-    .sort((a, b) => {
-      if (a === 'UNKNOWN') return 1
-      if (b === 'UNKNOWN') return -1
-      return t(`category.${a}`).localeCompare(t(`category.${b}`), i18n.language)
-    })
-    .map((category) => ({ value: category, label: t(`category.${category}`) }))
+  const { t } = useTranslation()
+  const options = useCategoryOptions()
 
   return (
     <MultiSelectPopover

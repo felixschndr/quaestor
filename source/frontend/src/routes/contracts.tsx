@@ -7,7 +7,6 @@ import { z } from 'zod'
 
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
 import {
-  CONTRACT_FREQUENCIES,
   CONTRACT_FREQUENCY_FILTERS,
   filterContracts,
   useContracts,
@@ -18,6 +17,7 @@ import {
 } from '@/lib/contract'
 import { TRANSACTION_CATEGORIES, type TransactionCategory } from '@/lib/transaction'
 import { useCategoryOptions } from '@/lib/categoryIcons'
+import { useFrequencyOptions } from '@/lib/contractFrequencyIcons'
 import { ContractCostOverview } from '@/components/contract-cost-overview'
 import { Button } from '@/components/ui/button'
 import { ContractFilterBar } from '@/components/ui/contract-filter-bar'
@@ -183,6 +183,7 @@ function CreateContractDialog({ credentials }: { credentials: CredentialRead[] }
   const [frequency, setFrequency] = useState<ContractFrequency | 'NONE'>('NONE')
   const [category, setCategory] = useState<TransactionCategory>('UNKNOWN')
   const categoryOptions = useCategoryOptions()
+  const frequencyOptions = useFrequencyOptions()
 
   const hasAccounts = credentials.some((credential) => credential.accounts.length > 0)
   const canSubmit = name.trim().length > 0 && accountId !== null && !create.isPending
@@ -248,13 +249,7 @@ function CreateContractDialog({ credentials }: { credentials: CredentialRead[] }
               ariaLabel={t('contracts.turnus')}
               value={frequency}
               onChange={setFrequency}
-              options={[
-                { value: 'NONE' as const, label: t('contracts.frequencyUnknown') },
-                ...CONTRACT_FREQUENCIES.map((option) => ({
-                  value: option,
-                  label: t(`contracts.frequency.${option}`),
-                })),
-              ]}
+              options={frequencyOptions}
             />
           </div>
           <div className="flex flex-col gap-1.5">

@@ -23,6 +23,7 @@ import {
 } from '@/components/contract-actions'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { useCategoryOptions } from '@/lib/categoryIcons'
+import { useFrequencyOptions } from '@/lib/contractFrequencyIcons'
 import { cn } from '@/lib/utils'
 import type { ContractDetailViewProps } from '@/routes/contracts_.$contractId'
 
@@ -202,6 +203,7 @@ function ContractFrequencySelect({
 }) {
   const { t } = useTranslation()
   const [pending, setPending] = useState(false)
+  const options = useFrequencyOptions()
 
   const change = async (next: ContractFrequency | 'NONE') => {
     setPending(true)
@@ -220,13 +222,7 @@ function ContractFrequencySelect({
       value={frequency ?? 'NONE'}
       disabled={pending}
       onChange={(next) => void change(next)}
-      options={[
-        { value: 'NONE' as const, label: t('contracts.frequencyUnknown') },
-        ...CONTRACT_FREQUENCIES.map((option) => ({
-          value: option,
-          label: t(`contracts.frequency.${option}`),
-        })),
-      ]}
+      options={options}
     />
   )
 }

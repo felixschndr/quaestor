@@ -89,6 +89,8 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "apple services",
         "itunes",
         "google workspace",
+        "google cloud",
+        "google ireland",
         "netflix",
         "serverprofis",
     ],

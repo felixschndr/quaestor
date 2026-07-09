@@ -1,37 +1,20 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import {
-  ArrowDownLeft,
-  ArrowLeftRight,
-  ArrowUpRight,
-  ChevronLeft,
-  CircleHelp,
-  CircleSlash,
-  Coins,
-  Percent,
-  Receipt,
-  TrendingDown,
-  TrendingUp,
-  type LucideIcon,
-} from 'lucide-react'
+import { ArrowLeftRight, ChevronLeft, CircleHelp } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { TransactionRead } from '@/lib/accountHistory'
+import { TRANSACTION_TYPE_ICONS } from '@/lib/transactionTypeIcons'
 import { formatDate, formatEuro, formatIban, isIban } from '@/lib/format'
-import { CategoryAvatar } from '@/lib/categoryIcons'
-import { TRANSACTION_CATEGORIES, type TransactionCategory } from '@/lib/transaction'
+import { CategoryAvatar, useCategoryOptions } from '@/lib/categoryIcons'
+import { type TransactionCategory } from '@/lib/transaction'
 import { NoteEditor } from '@/components/note-editor'
 import { Button } from '@/components/ui/button'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { cn } from '@/lib/utils'
 import type { TransactionDetailViewProps } from '@/routes/account.$accountId_.transactions.$transactionId'
 
-/**
- * The other-party label leans on the amount sign: outgoing → "Recipient",
- * incoming → "Sender". Falls back to the neutral combined label for the rare
- * zero-amount case (e.g. informational entries).
- */
 export function otherPartyLabelKey(amount: number): string {
   if (amount < 0) return 'transaction.recipient'
   if (amount > 0) return 'transaction.sender'
@@ -256,27 +239,6 @@ function TypeBadge({ transactionType }: { transactionType: string | null }) {
   )
 }
 
-// Mirrors `source/backend/models/transaction_type.py`. Unmapped values fall
-// back to a question-mark icon so a future enum value still renders.
-const TRANSACTION_TYPE_ICONS: Record<string, LucideIcon> = {
-  INCOMING: ArrowDownLeft,
-  OUTGOING: ArrowUpRight,
-  BUY: TrendingUp,
-  SELL: TrendingDown,
-  DEPOSIT: ArrowDownLeft,
-  REMOVAL: ArrowUpRight,
-  DIVIDEND: Percent,
-  INTEREST: Percent,
-  INTEREST_CHARGE: Percent,
-  TAXES: Receipt,
-  TAX_REFUND: Receipt,
-  FEES: Coins,
-  FEES_REFUND: Coins,
-  TRANSFER_IN: ArrowDownLeft,
-  TRANSFER_OUT: ArrowUpRight,
-  ZERO: CircleSlash,
-}
-
 function CategorySelect({
   value,
   onChange,
@@ -284,17 +246,9 @@ function CategorySelect({
   value: TransactionCategory
   onChange: (category: TransactionCategory) => Promise<unknown>
 }) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const [pending, setPending] = useState(false)
-  // Sort categories alphabetically by their localised label; UNKNOWN is pinned
-  // last so it doesn't get accidentally picked when scrolling the dropdown.
-  const sortedOptions = useMemo(() => {
-    const localised = TRANSACTION_CATEGORIES.filter((category) => category !== 'UNKNOWN').map(
-      (category) => ({ value: category, label: t(`category.${category}`) }),
-    )
-    localised.sort((a, b) => a.label.localeCompare(b.label, i18n.language))
-    return [...localised, { value: 'UNKNOWN' as TransactionCategory, label: t('category.UNKNOWN') }]
-  }, [t, i18n.language])
+  const options = useCategoryOptions()
 
   const change = async (next: TransactionCategory) => {
     setPending(true)
@@ -313,7 +267,7 @@ function CategorySelect({
       value={value}
       disabled={pending}
       onChange={(next) => void change(next)}
-      options={sortedOptions}
+      options={options}
     />
   )
 }

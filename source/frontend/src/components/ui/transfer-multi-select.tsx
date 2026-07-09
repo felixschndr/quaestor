@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
+import { ArrowLeftRight, Unlink } from 'lucide-react'
 
 import { MultiSelectPopover } from '@/components/ui/multi-select-popover'
 
@@ -16,9 +17,18 @@ export interface TransferMultiSelectProps {
 export function TransferMultiSelect({ id, value, onChange, className }: TransferMultiSelectProps) {
   const { t } = useTranslation()
 
+  const iconClass = 'text-muted-foreground size-4 shrink-0'
   const options = [
-    { value: 'linked' as const, label: t('filters.transfer.linked') },
-    { value: 'unlinked' as const, label: t('filters.transfer.unlinked') },
+    {
+      value: 'linked' as const,
+      label: t('filters.transfer.linked'),
+      leading: <ArrowLeftRight className={iconClass} aria-hidden="true" />,
+    },
+    {
+      value: 'unlinked' as const,
+      label: t('filters.transfer.unlinked'),
+      leading: <Unlink className={iconClass} aria-hidden="true" />,
+    },
   ]
   const selected: TransferFilter[] = value ? [value] : ['linked', 'unlinked']
   const handleChange = (next: TransferFilter[]) => onChange(next.length === 1 ? next[0] : undefined)
