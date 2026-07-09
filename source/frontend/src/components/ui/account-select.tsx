@@ -77,7 +77,7 @@ export function AccountSelectPopover({
         <ul
           ref={listRef}
           aria-label={t('search.accountsLabel')}
-          className="max-h-72 overflow-y-auto py-1"
+          className="max-h-72 overflow-y-auto overscroll-contain py-1"
         >
           {groups.map((group) => (
             <li key={group.key} className="flex flex-col">

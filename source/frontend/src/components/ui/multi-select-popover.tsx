@@ -87,7 +87,11 @@ export function MultiSelectPopover<T extends string>({
             </div>
           </div>
         ) : null}
-        <ul ref={listRef} aria-label={ariaLabel} className="max-h-72 overflow-y-auto py-1">
+        <ul
+          ref={listRef}
+          aria-label={ariaLabel}
+          className="max-h-72 overflow-y-auto overscroll-contain py-1"
+        >
           {options.map((option) => {
             const checkboxId = `${checkboxIdPrefix}-${option.value}`
             return (

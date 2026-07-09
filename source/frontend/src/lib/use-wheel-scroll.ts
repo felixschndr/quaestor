@@ -16,11 +16,13 @@ export function useWheelScroll<T extends HTMLElement>(): RefCallback<T> {
       // deltaMode: 0 = pixels, 1 = lines, 2 = pages.
       const factor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? node.clientHeight : 1
       const delta = event.deltaY * factor
+      // Swallow the event even at the ends so the page behind the popover
+      // never scroll-chains while the pointer is over the list.
+      event.preventDefault()
       const atTop = node.scrollTop <= 0
       const atBottom = node.scrollTop + node.clientHeight >= node.scrollHeight - 1
       if ((delta < 0 && atTop) || (delta > 0 && atBottom)) return
       node.scrollTop += delta
-      event.preventDefault()
     }
     node.addEventListener('wheel', onWheel, { passive: false })
     cleanup.current = () => node.removeEventListener('wheel', onWheel)

@@ -68,7 +68,11 @@ export function SingleSelectPopover<T extends string>({
         <ChevronDown className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1rem)] p-0">
-        <ul ref={listRef} aria-label={ariaLabel} className="max-h-72 overflow-y-auto py-1">
+        <ul
+          ref={listRef}
+          aria-label={ariaLabel}
+          className="max-h-72 overflow-y-auto overscroll-contain py-1"
+        >
           {options.map((option) => (
             <li key={option.value}>
               <button
