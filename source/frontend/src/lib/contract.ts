@@ -13,6 +13,9 @@ export const CONTRACT_FREQUENCIES = [
 ] as const
 export type ContractFrequency = (typeof CONTRACT_FREQUENCIES)[number]
 
+export const CONTRACT_FREQUENCY_FILTERS = [...CONTRACT_FREQUENCIES, 'NONE'] as const
+export type ContractFrequencyFilter = (typeof CONTRACT_FREQUENCY_FILTERS)[number]
+
 export type ContractSource = 'DETECTED' | 'MANUAL'
 export type ContractAssignment = 'AUTO' | 'MANUAL' | 'EXCLUDED'
 
@@ -51,7 +54,7 @@ export interface ContractFilters {
   amount_from?: number
   amount_to?: number
   categories?: TransactionCategory[]
-  frequencies?: ContractFrequency[]
+  frequencies?: ContractFrequencyFilter[]
   overdue?: boolean
 }
 
@@ -65,8 +68,7 @@ export function filterContracts(
   return contracts.filter((contract) => {
     if (account_ids && !account_ids.includes(contract.account_id)) return false
     if (categories && !(contract.category && categories.includes(contract.category))) return false
-    if (frequencies && !(contract.frequency && frequencies.includes(contract.frequency)))
-      return false
+    if (frequencies && !frequencies.includes(contract.frequency ?? 'NONE')) return false
     if (amount_from !== undefined && (contract.median_amount ?? -Infinity) < amount_from)
       return false
     if (amount_to !== undefined && (contract.median_amount ?? Infinity) > amount_to) return false

@@ -3,21 +3,24 @@
 import { useTranslation } from 'react-i18next'
 
 import { MultiSelectPopover, multiSelectTriggerLabel } from '@/components/ui/multi-select-popover'
-import { CONTRACT_FREQUENCIES, type ContractFrequency } from '@/lib/contract'
+import { CONTRACT_FREQUENCY_FILTERS, type ContractFrequencyFilter } from '@/lib/contract'
 
 export interface FrequencyMultiSelectProps {
   id?: string
-  selectedIds: ContractFrequency[]
-  onChange: (next: ContractFrequency[]) => void
+  selectedIds: ContractFrequencyFilter[]
+  onChange: (next: ContractFrequencyFilter[]) => void
   className?: string
 }
 
 function FrequencyMultiSelect({ id, selectedIds, onChange, className }: FrequencyMultiSelectProps) {
   const { t } = useTranslation()
 
-  const options = CONTRACT_FREQUENCIES.map((frequency) => ({
+  const options = CONTRACT_FREQUENCY_FILTERS.map((frequency) => ({
     value: frequency,
-    label: t(`contracts.frequency.${frequency}`),
+    label:
+      frequency === 'NONE'
+        ? t('contracts.frequencyUnknown')
+        : t(`contracts.frequency.${frequency}`),
   }))
 
   return (

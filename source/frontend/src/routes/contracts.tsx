@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
 import {
   CONTRACT_FREQUENCIES,
+  CONTRACT_FREQUENCY_FILTERS,
   filterContracts,
   useContracts,
   useCreateContract,
@@ -46,7 +47,7 @@ const contractFiltersSchema = z.object({
     .transform((value) => (Array.isArray(value) ? value : [value]))
     .optional(),
   frequencies: z
-    .union([z.enum(CONTRACT_FREQUENCIES), z.array(z.enum(CONTRACT_FREQUENCIES))])
+    .union([z.enum(CONTRACT_FREQUENCY_FILTERS), z.array(z.enum(CONTRACT_FREQUENCY_FILTERS))])
     .transform((value) => (Array.isArray(value) ? value : [value]))
     .optional(),
   overdue: z

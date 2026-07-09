@@ -61,17 +61,24 @@ const insurance = makeContract({
   median_amount: -50,
   frequency: 'YEARLY',
 })
-const all = [netflix, salary, rent, insurance]
+const irregular = makeContract({
+  id: 5,
+  account_id: 10,
+  category: null,
+  median_amount: -25,
+  frequency: null,
+})
+const all = [netflix, salary, rent, insurance, irregular]
 
 const ids = (contracts: ContractRead[]) => contracts.map((contract) => contract.id)
 
 describe('filterContracts', () => {
   it('returns everything when no facet is active', () => {
-    expect(ids(filterContracts(all, {}))).toEqual([1, 2, 3, 4])
+    expect(ids(filterContracts(all, {}))).toEqual([1, 2, 3, 4, 5])
   })
 
   it('filters by account', () => {
-    expect(ids(filterContracts(all, { account_ids: [10] }))).toEqual([1, 3])
+    expect(ids(filterContracts(all, { account_ids: [10] }))).toEqual([1, 3, 5])
   })
 
   it('treats a present-but-empty facet as "none selected" (matches nothing)', () => {
@@ -79,7 +86,7 @@ describe('filterContracts', () => {
   })
 
   it('treats an absent facet as inactive (matches everything)', () => {
-    expect(ids(filterContracts(all, { account_ids: undefined }))).toEqual([1, 2, 3, 4])
+    expect(ids(filterContracts(all, { account_ids: undefined }))).toEqual([1, 2, 3, 4, 5])
   })
 
   it('filters by category and excludes contracts without one', () => {
@@ -90,14 +97,19 @@ describe('filterContracts', () => {
     expect(ids(filterContracts(all, { frequencies: ['YEARLY'] }))).toEqual([4])
   })
 
+  it("matches contracts without a turnus via the 'NONE' facet value", () => {
+    expect(ids(filterContracts(all, { frequencies: ['NONE'] }))).toEqual([5])
+    expect(ids(filterContracts(all, { frequencies: ['YEARLY', 'NONE'] }))).toEqual([4, 5])
+  })
+
   it('filters by signed amount range', () => {
     // Expenses between -1000 and -40 -> rent (-900) and insurance (-50).
     expect(ids(filterContracts(all, { amount_from: -1000, amount_to: -40 }))).toEqual([3, 4])
   })
 
   it('excludes contracts without a median when an amount bound is set', () => {
-    const noMedian = makeContract({ id: 5, median_amount: null })
-    expect(ids(filterContracts([...all, noMedian], { amount_to: 10000 }))).toEqual([1, 2, 3, 4])
+    const noMedian = makeContract({ id: 7, median_amount: null })
+    expect(ids(filterContracts([...all, noMedian], { amount_to: 10000 }))).toEqual([1, 2, 3, 4, 5])
   })
 
   it('combines facets with AND', () => {
@@ -109,8 +121,8 @@ describe('filterContracts', () => {
     const pool = [...all, overdueRent]
     expect(ids(filterContracts(pool, { overdue: true }))).toEqual([6])
     // An absent/false overdue facet leaves everything untouched.
-    expect(ids(filterContracts(pool, { overdue: false }))).toEqual([1, 2, 3, 4, 6])
-    expect(ids(filterContracts(pool, {}))).toEqual([1, 2, 3, 4, 6])
+    expect(ids(filterContracts(pool, { overdue: false }))).toEqual([1, 2, 3, 4, 5, 6])
+    expect(ids(filterContracts(pool, {}))).toEqual([1, 2, 3, 4, 5, 6])
   })
 })
 

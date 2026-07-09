@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import type { CredentialRead } from '@/lib/auth'
 import {
-  CONTRACT_FREQUENCIES,
+  CONTRACT_FREQUENCY_FILTERS,
   hasActiveContractFilters,
   type ContractFilters,
 } from '@/lib/contract'
@@ -67,8 +67,10 @@ function ContractFilterBar({ credentials, filters, onChange }: ContractFilterBar
           <Label htmlFor="contract-filter-frequencies">{t('filters.frequenciesLabel')}</Label>
           <FrequencyMultiSelect
             id="contract-filter-frequencies"
-            selectedIds={shownOrAll(filters.frequencies, CONTRACT_FREQUENCIES)}
-            onChange={(next) => update('frequencies', normalize(next, CONTRACT_FREQUENCIES.length))}
+            selectedIds={shownOrAll(filters.frequencies, CONTRACT_FREQUENCY_FILTERS)}
+            onChange={(next) =>
+              update('frequencies', normalize(next, CONTRACT_FREQUENCY_FILTERS.length))
+            }
           />
         </div>
       </div>
