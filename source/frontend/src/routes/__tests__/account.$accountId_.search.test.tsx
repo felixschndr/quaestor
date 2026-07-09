@@ -44,6 +44,10 @@ vi.mock('@tanstack/react-router', () => ({
   useCanGoBack: () => false,
 }))
 
+vi.mock('@/lib/accountGroups', () => ({
+  useAccountGroupLayout: () => ({ data: undefined }),
+}))
+
 import { type TransactionSearchParams } from '@/routes/account.$accountId_.search'
 import { TransactionSearchView } from '@/pages/account.$accountId_.search'
 

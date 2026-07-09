@@ -1,3 +1,4 @@
+import type { AccountGroupLayout } from '@/lib/accountGroups'
 import type { AccountRead, CredentialRead } from '@/lib/auth'
 
 export interface AccountGroup {
@@ -7,19 +8,34 @@ export interface AccountGroup {
   accounts: AccountRead[]
 }
 
-/** Group accounts by bank connection, sorted like the overview, dropping empty banks. */
-export function groupAccountsByBank(credentials: CredentialRead[]): AccountGroup[] {
-  // Group by credential (one bank connection) — generic FinTS banks share provider "fints",
-  // so grouping by provider would merge different banks and pick the wrong/missing logo.
+export function groupAccountsByBank(
+  credentials: CredentialRead[],
+  layout?: AccountGroupLayout,
+): AccountGroup[] {
+  const rank = layoutRank(layout)
+  const byOverviewPosition = (a: AccountRead, b: AccountRead) =>
+    (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity) || a.name.localeCompare(b.name)
   return [...credentials]
-    .sort((a, b) => (a.bank_name ?? a.bank).localeCompare(b.bank_name ?? b.bank))
     .map((credential) => ({
       key: `cred-${credential.id}`,
       name: credential.bank_name ?? credential.bank,
       icon: credential.bank_icon,
-      accounts: [...credential.accounts].sort((a, b) => a.name.localeCompare(b.name)),
+      accounts: [...credential.accounts].sort(byOverviewPosition),
     }))
     .filter((group) => group.accounts.length > 0)
+    .sort(
+      (a, b) =>
+        (rank.get(a.accounts[0].id) ?? Infinity) - (rank.get(b.accounts[0].id) ?? Infinity) ||
+        a.name.localeCompare(b.name),
+    )
+}
+
+function layoutRank(layout: AccountGroupLayout | undefined): Map<number, number> {
+  const rank = new Map<number, number>()
+  if (!layout?.groups?.length) return rank
+  const refs = [...layout.groups.flatMap((group) => group.accounts), ...(layout.ungrouped ?? [])]
+  refs.forEach((ref, index) => rank.set(ref.id, index))
+  return rank
 }
 
 export const accountOptionRowClass =

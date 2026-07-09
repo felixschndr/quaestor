@@ -26,6 +26,7 @@ def create_contract(db_session: Session, user: User, account_id: int, fields: di
         account=account,
         name=fields["name"],
         category=fields.get("category"),
+        frequency=fields.get("frequency"),
         source=ContractSource.MANUAL,
         created_at=utc_now(),
     )
@@ -72,6 +73,9 @@ def update_contract(db_session: Session, user: User, contract_id: int, fields: d
             apply_contract_category_to_members(contract)
     if "note" in fields:
         contract.note = fields["note"]
+    if "frequency" in fields:
+        contract.frequency = fields["frequency"]
+        recompute_contract_stats(contract)
     db_session.commit()
     logger.info(f"Updated {contract}")
     return contract

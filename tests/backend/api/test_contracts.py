@@ -1,9 +1,12 @@
+from datetime import timedelta
+
 import pytest
 from fastapi.testclient import TestClient
 from source.backend.models.transaction_category import TransactionCategory
 from sqlalchemy.orm import sessionmaker
 
 from tests.backend.conftest import (
+    OLDER_DATE,
     SECOND_USER_NAME,
     assert_log_contains,
     login_as,
@@ -34,6 +37,44 @@ def test_create_and_list_contract(
 
     listed = http_client.get("/api/contracts").json()
     assert [contract["id"] for contract in listed] == [created["id"]]
+
+
+def test_create_contract_with_frequency(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+
+    response = http_client.post(
+        "/api/contracts", json={"name": "Miete", "account_id": account_id, "frequency": "MONTHLY"}
+    )
+
+    assert response.status_code == 201
+    assert response.json()["frequency"] == "MONTHLY"
+
+
+def test_changing_the_turnus_of_a_manual_contract(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    contract = http_client.post(
+        "/api/contracts", json={"name": "Miete", "account_id": account_id, "frequency": "MONTHLY"}
+    ).json()
+    for offset in [0, 30, 60, 90]:
+        transaction_id = persist_transaction(
+            session_factory, account_id=account_id, date=OLDER_DATE + timedelta(days=offset)
+        )
+        http_client.post(f"/api/contracts/{contract['id']}/transactions", json={"transaction_id": transaction_id})
+
+    updated = http_client.patch(f"/api/contracts/{contract['id']}", json={"name": "Miete", "frequency": "QUARTERLY"})
+
+    assert updated.status_code == 200
+    assert updated.json()["frequency"] == "QUARTERLY"
+    assert updated.json()["interval_days"] == 91
+
+    transaction_id = persist_transaction(session_factory, account_id=account_id, date=OLDER_DATE + timedelta(days=120))
+    assigned = http_client.post(
+        f"/api/contracts/{contract['id']}/transactions", json={"transaction_id": transaction_id}
+    )
+    assert assigned.json()["frequency"] == "QUARTERLY"
+
+    cleared = http_client.patch(f"/api/contracts/{contract['id']}", json={"name": "Miete", "frequency": None})
+    assert cleared.json()["frequency"] == "MONTHLY"
 
 
 def test_assign_and_remove_transaction(http_client: TestClient, session_factory: sessionmaker):

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, TriangleAlert } from 'lucide-react'
@@ -9,10 +9,11 @@ import {
   OVERDUE_BANNER_MONTHS,
   monthsOverdue,
   type ContractDetailRead,
+  type ContractFrequency,
   type ContractMemberRead,
 } from '@/lib/contract'
 import { formatDate, formatDateWithoutYear, formatEuro, formatIban } from '@/lib/format'
-import { TRANSACTION_CATEGORIES, type TransactionCategory } from '@/lib/transaction'
+import { type TransactionCategory } from '@/lib/transaction'
 import { ContractTimeline } from '@/components/contract-timeline'
 import { NoteEditor } from '@/components/note-editor'
 import {
@@ -21,7 +22,7 @@ import {
   RenameContractButton,
 } from '@/components/contract-actions'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
-import { CategoryAvatar } from '@/lib/categoryIcons'
+import { useCategoryOptions } from '@/lib/categoryIcons'
 import { cn } from '@/lib/utils'
 import type { ContractDetailViewProps } from '@/routes/contracts_.$contractId'
 
@@ -30,6 +31,7 @@ export function ContractDetailView({
   isDeleting,
   onRename,
   onChangeCategory,
+  onChangeFrequency,
   onSaveNote,
   onDelete,
 }: ContractDetailViewProps) {
@@ -156,6 +158,13 @@ export function ContractDetailView({
         </section>
       ) : null}
 
+      {contract.source === 'MANUAL' ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-foreground text-sm font-semibold">{t('contracts.turnus')}</h2>
+          <ContractFrequencySelect frequency={contract.frequency} onChange={onChangeFrequency} />
+        </section>
+      ) : null}
+
       <section className="flex flex-col gap-2">
         <h2 className="text-foreground text-sm font-semibold">{t('contracts.category')}</h2>
         <ContractCategorySelect category={contract.category} onChange={onChangeCategory} />
@@ -184,6 +193,44 @@ export function ContractDetailView({
   )
 }
 
+function ContractFrequencySelect({
+  frequency,
+  onChange,
+}: {
+  frequency: ContractFrequency | null
+  onChange: (frequency: ContractFrequency | null) => Promise<unknown>
+}) {
+  const { t } = useTranslation()
+  const [pending, setPending] = useState(false)
+
+  const change = async (next: ContractFrequency | 'NONE') => {
+    setPending(true)
+    try {
+      await onChange(next === 'NONE' ? null : next)
+    } catch {
+      toast.error(t('errors.unexpected.title'))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <SingleSelectPopover
+      ariaLabel={t('contracts.turnus')}
+      value={frequency ?? 'NONE'}
+      disabled={pending}
+      onChange={(next) => void change(next)}
+      options={[
+        { value: 'NONE' as const, label: t('contracts.frequencyUnknown') },
+        ...CONTRACT_FREQUENCIES.map((option) => ({
+          value: option,
+          label: t(`contracts.frequency.${option}`),
+        })),
+      ]}
+    />
+  )
+}
+
 function ContractCategorySelect({
   category,
   onChange,
@@ -191,26 +238,9 @@ function ContractCategorySelect({
   category: TransactionCategory | null
   onChange: (category: TransactionCategory) => Promise<unknown>
 }) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const [pending, setPending] = useState(false)
-  const options = useMemo(() => {
-    const localised = TRANSACTION_CATEGORIES.filter((option) => option !== 'UNKNOWN').map(
-      (option) => ({
-        value: option,
-        label: t(`category.${option}`),
-        leading: <CategoryAvatar category={option} className="size-5" iconClassName="size-3" />,
-      }),
-    )
-    localised.sort((a, b) => a.label.localeCompare(b.label, i18n.language))
-    return [
-      ...localised,
-      {
-        value: 'UNKNOWN' as TransactionCategory,
-        label: t('category.UNKNOWN'),
-        leading: <CategoryAvatar category="UNKNOWN" className="size-5" iconClassName="size-3" />,
-      },
-    ]
-  }, [t, i18n.language])
+  const options = useCategoryOptions()
 
   const change = async (next: TransactionCategory) => {
     setPending(true)

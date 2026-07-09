@@ -5,6 +5,7 @@ import { Check } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { accountDisplayName } from '@/lib/accounts'
+import { useAccountGroupLayout } from '@/lib/accountGroups'
 import type { CredentialRead } from '@/lib/auth'
 import { AccountOptionContent, AccountSelectPopover } from '@/components/ui/account-select'
 import { accountOptionRowClass, groupAccountsByBank } from '@/components/ui/account-select-utils'
@@ -28,7 +29,8 @@ function AccountSingleSelect({
   className,
 }: AccountSingleSelectProps) {
   const [open, setOpen] = useState(false)
-  const groups = groupAccountsByBank(credentials)
+  const layout = useAccountGroupLayout()
+  const groups = groupAccountsByBank(credentials, layout.data)
   const selectedAccount =
     groups.flatMap((group) => group.accounts).find((account) => account.id === value) ?? null
 

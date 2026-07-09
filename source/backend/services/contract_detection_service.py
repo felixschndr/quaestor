@@ -268,6 +268,9 @@ def recompute_contract_stats(contract: Contract) -> None:
     contract.amount_spread = _median_absolute_deviation(amounts) if amounts else None
 
     frequency, interval_days = _classify_cadence(dates)
+    if contract.source == ContractSource.MANUAL and contract.frequency is not None:
+        frequency = contract.frequency
+        interval_days = frequency.interval_days
     contract.frequency = frequency
     contract.interval_days = interval_days
     if interval_days is not None and dates:

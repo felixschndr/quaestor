@@ -28,8 +28,12 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
+import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
+import { TRANSACTION_CATEGORIES, type TransactionCategory } from '@/lib/transaction'
+import type { SingleSelectOption } from '@/components/ui/single-select-popover'
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   SALARY: Wallet,
@@ -59,6 +63,28 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   DEPOSIT: Landmark,
   TRANSFER: ArrowLeftRight,
   UNKNOWN: CircleHelp,
+}
+
+export function useCategoryOptions(): SingleSelectOption<TransactionCategory>[] {
+  const { t, i18n } = useTranslation()
+  return useMemo(() => {
+    const localised = TRANSACTION_CATEGORIES.filter((option) => option !== 'UNKNOWN').map(
+      (option) => ({
+        value: option,
+        label: t(`category.${option}`),
+        leading: <CategoryAvatar category={option} className="size-5" iconClassName="size-3" />,
+      }),
+    )
+    localised.sort((a, b) => a.label.localeCompare(b.label, i18n.language))
+    return [
+      ...localised,
+      {
+        value: 'UNKNOWN' as TransactionCategory,
+        label: t('category.UNKNOWN'),
+        leading: <CategoryAvatar category="UNKNOWN" className="size-5" iconClassName="size-3" />,
+      },
+    ]
+  }, [t, i18n.language])
 }
 
 export function CategoryAvatar({

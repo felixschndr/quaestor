@@ -8,6 +8,7 @@ import {
   useDeleteContract,
   useUpdateContract,
   type ContractDetailRead,
+  type ContractFrequency,
 } from '@/lib/contract'
 import { type TransactionCategory } from '@/lib/transaction'
 import { ContractDetailView } from '@/pages/contracts_.$contractId'
@@ -39,6 +40,9 @@ function ContractDetailPage() {
       isDeleting={remove.isPending}
       onRename={(name) => update.mutateAsync({ name, category: query.data!.category })}
       onChangeCategory={(category) => update.mutateAsync({ name: query.data!.name, category })}
+      onChangeFrequency={(frequency) =>
+        update.mutateAsync({ name: query.data!.name, category: query.data!.category, frequency })
+      }
       onSaveNote={(note) =>
         update.mutateAsync({ name: query.data!.name, category: query.data!.category, note })
       }
@@ -68,6 +72,7 @@ export interface ContractDetailViewProps {
   isDeleting?: boolean
   onRename: (name: string) => Promise<unknown>
   onChangeCategory: (category: TransactionCategory) => Promise<unknown>
+  onChangeFrequency: (frequency: ContractFrequency | null) => Promise<unknown>
   onSaveNote: (note: string | null) => Promise<unknown>
   onDelete: () => void
 }

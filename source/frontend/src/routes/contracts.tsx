@@ -12,9 +12,11 @@ import {
   useContracts,
   useCreateContract,
   type ContractFilters,
+  type ContractFrequency,
   type ContractRead,
 } from '@/lib/contract'
-import { TRANSACTION_CATEGORIES } from '@/lib/transaction'
+import { TRANSACTION_CATEGORIES, type TransactionCategory } from '@/lib/transaction'
+import { useCategoryOptions } from '@/lib/categoryIcons'
 import { ContractCostOverview } from '@/components/contract-cost-overview'
 import { Button } from '@/components/ui/button'
 import { ContractFilterBar } from '@/components/ui/contract-filter-bar'
@@ -176,16 +178,27 @@ function CreateContractDialog({ credentials }: { credentials: CredentialRead[] }
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [accountId, setAccountId] = useState<number | null>(null)
+  // 'NONE' is the "irregular" choice
+  const [frequency, setFrequency] = useState<ContractFrequency | 'NONE'>('NONE')
+  const [category, setCategory] = useState<TransactionCategory>('UNKNOWN')
+  const categoryOptions = useCategoryOptions()
 
   const hasAccounts = credentials.some((credential) => credential.accounts.length > 0)
   const canSubmit = name.trim().length > 0 && accountId !== null && !create.isPending
 
   const onSubmit = async () => {
     if (accountId === null) return
-    const created = await create.mutateAsync({ name: name.trim(), account_id: accountId })
+    const created = await create.mutateAsync({
+      name: name.trim(),
+      account_id: accountId,
+      frequency: frequency === 'NONE' ? undefined : frequency,
+      category: category === 'UNKNOWN' ? undefined : category,
+    })
     setOpen(false)
     setName('')
     setAccountId(null)
+    setFrequency('NONE')
+    setCategory('UNKNOWN')
     await navigate({ to: '/contracts/$contractId', params: { contractId: String(created.id) } })
   }
 
@@ -225,6 +238,32 @@ function CreateContractDialog({ credentials }: { credentials: CredentialRead[] }
               value={accountId}
               onChange={setAccountId}
               placeholder={t('contracts.selectAccount')}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="contract-frequency">{t('contracts.turnus')}</Label>
+            <SingleSelectPopover
+              id="contract-frequency"
+              ariaLabel={t('contracts.turnus')}
+              value={frequency}
+              onChange={setFrequency}
+              options={[
+                { value: 'NONE' as const, label: t('contracts.frequencyUnknown') },
+                ...CONTRACT_FREQUENCIES.map((option) => ({
+                  value: option,
+                  label: t(`contracts.frequency.${option}`),
+                })),
+              ]}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="contract-category">{t('contracts.category')}</Label>
+            <SingleSelectPopover
+              id="contract-category"
+              ariaLabel={t('contracts.category')}
+              value={category}
+              onChange={setCategory}
+              options={categoryOptions}
             />
           </div>
           <div className="flex justify-end gap-2">

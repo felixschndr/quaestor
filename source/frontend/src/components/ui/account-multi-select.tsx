@@ -2,6 +2,7 @@
 
 import { useTranslation } from 'react-i18next'
 
+import { useAccountGroupLayout } from '@/lib/accountGroups'
 import type { CredentialRead } from '@/lib/auth'
 import { Checkbox } from '@/components/ui/checkbox'
 import { AccountOptionContent, AccountSelectPopover } from '@/components/ui/account-select'
@@ -28,7 +29,8 @@ function AccountMultiSelect({
   className,
 }: AccountMultiSelectProps) {
   const { t } = useTranslation()
-  const groups = groupAccountsByBank(credentials)
+  const layout = useAccountGroupLayout()
+  const groups = groupAccountsByBank(credentials, layout.data)
   const allIds = groups.flatMap((group) => group.accounts.map((account) => account.id))
   const selectedSet = new Set(selectedIds)
   const selectedCount = selectedIds.length

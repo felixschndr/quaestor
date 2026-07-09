@@ -121,12 +121,14 @@ export interface ContractCreatePayload {
   name: string
   account_id: number
   category?: TransactionCategory | null
+  frequency?: ContractFrequency | null
 }
 
 export interface ContractUpdatePayload {
   name: string
   category?: TransactionCategory | null
   note?: string | null
+  frequency?: ContractFrequency | null
 }
 
 export const contractQueryKeys = {
@@ -166,13 +168,21 @@ export function useUpdateContract(contractId: number) {
       api<ContractDetailRead>(`/contracts/${contractId}`, { method: 'PATCH', body: payload }),
     onSuccess: (updated) => {
       queryClient.setQueryData(contractQueryKeys.detail(contractId), updated)
-      // Patch the list cache in place rather than refetching it — a rename only
-      // touches name/category, so there's no need for an extra GET.
       queryClient.setQueryData<ContractRead[]>(contractQueryKeys.list, (old) =>
         old
           ? old.map((contract) =>
               contract.id === updated.id
-                ? { ...contract, name: updated.name, category: updated.category }
+                ? {
+                    ...contract,
+                    name: updated.name,
+                    category: updated.category,
+                    frequency: updated.frequency,
+                    interval_days: updated.interval_days,
+                    expected_next_date: updated.expected_next_date,
+                    is_overdue: updated.is_overdue,
+                    amount_per_day: updated.amount_per_day,
+                    amount_per_frequency: updated.amount_per_frequency,
+                  }
                 : contract,
             )
           : old,

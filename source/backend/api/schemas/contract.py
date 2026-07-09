@@ -14,12 +14,14 @@ class ContractCreate(BaseModel):
     name: str
     account_id: int
     category: TransactionCategory | None = None
+    frequency: ContractFrequency | None = None
 
 
 class ContractUpdate(BaseModel):
     name: str
     category: TransactionCategory | None = None
     note: str | None = None
+    frequency: ContractFrequency | None = None
 
 
 class ContractMemberRead(TransactionRead):
