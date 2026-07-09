@@ -1,8 +1,13 @@
 from datetime import date, datetime
 
+import pytest
 from pydantic import BaseModel
 from source.backend.api.schemas.common import UtcDatetime
+from source.backend.api.schemas.contract import ContractRead
 from source.backend.api.schemas.transaction import TransactionFilter
+from source.backend.models.contract_frequency import ContractFrequency
+
+from tests.backend.conftest import AMOUNT, build_contract
 
 
 class _UtcModel(BaseModel):
@@ -32,3 +37,23 @@ def test_transaction_filter_to_filter_parameters_excludes_unset_fields():
 
 def test_transaction_filter_to_filter_parameters_is_empty_when_nothing_is_set():
     assert TransactionFilter().to_filter_parameters() == {}
+
+
+def test_contract_read_shows_exact_median_for_the_detected_frequency():
+    # A monthly contract observed at 31-day gaps must not round-trip through
+    # median / 31 * 30 — the MONTHLY row is anchored to the median itself.
+    contract = build_contract(frequency=ContractFrequency.MONTHLY, interval_days=31)
+
+    read = ContractRead.from_contract(contract)
+
+    assert read.amount_per_frequency[ContractFrequency.MONTHLY] == AMOUNT
+    assert read.amount_per_day == pytest.approx(AMOUNT / 30)
+    assert read.amount_per_frequency[ContractFrequency.YEARLY] == pytest.approx(AMOUNT / 30 * 365)
+
+
+def test_contract_read_falls_back_to_observed_interval_without_frequency():
+    contract = build_contract(frequency=None, interval_days=10)
+
+    read = ContractRead.from_contract(contract)
+
+    assert read.amount_per_day == pytest.approx(AMOUNT / 10)

@@ -62,12 +62,15 @@ class ContractRead(BaseModel):
             instance.max_amount = max(amounts)
             instance.average_amount = sum(amounts) / len(amounts)
 
-        if contract.median_amount is not None and contract.interval_days:
-            amount_per_day = contract.median_amount / contract.interval_days
+        anchor_days = contract.frequency.interval_days if contract.frequency else contract.interval_days
+        if contract.median_amount is not None and anchor_days:
+            amount_per_day = contract.median_amount / anchor_days
             instance.amount_per_day = amount_per_day
             instance.amount_per_frequency = {
                 frequency: amount_per_day * frequency.interval_days for frequency in ContractFrequency
             }
+            if contract.frequency:
+                instance.amount_per_frequency[contract.frequency] = contract.median_amount
 
         return instance
 

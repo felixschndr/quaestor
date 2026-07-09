@@ -62,6 +62,7 @@ LAST_FETCHING_TIMESTAMP = datetime(year=2026, month=1, day=1)
 OLDER_DATE = _date(year=2026, month=3, day=30)
 RECENT_DATE = _date(year=2026, month=4, day=29)
 LATEST_DATE = _date(year=2026, month=6, day=1)
+AMOUNT = 4000
 TWO_FACTOR_SECRET = "T2UXK5D6ZPTJ3WF2YXHYGGXKIT2G5LUH"  # nosec B105  # gitleaks:allow
 UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"
 
@@ -403,6 +404,19 @@ def make_contract(
     db_session.add(contract)
     db_session.flush()
     return contract
+
+
+def build_contract(frequency: ContractFrequency | None, interval_days: int) -> Contract:
+    return Contract(
+        id=13,
+        account_id=1,
+        name="Salary",
+        source=ContractSource.DETECTED,
+        median_amount=AMOUNT,
+        frequency=frequency,
+        interval_days=interval_days,
+        created_at=RECENT_DATE,
+    )
 
 
 def persist_credential(
