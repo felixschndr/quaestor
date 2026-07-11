@@ -14,6 +14,7 @@ import {
 } from 'recharts'
 
 import type { MonthlyNetSavings } from '@/lib/statistics'
+import { useHorizontalScrubLock } from '@/lib/use-horizontal-scrub'
 import {
   AXIS_TICK,
   euroAxisFormat,
@@ -29,9 +30,9 @@ export interface NetSavingsChartProps {
   data: MonthlyNetSavings[]
 }
 
-/** Surplus (income − expenses) per month as bars, with the savings rate as a line on a second axis. */
 export function NetSavingsChart({ data }: NetSavingsChartProps) {
   const { t } = useTranslation()
+  const scrubLockRef = useHorizontalScrubLock<HTMLDivElement>()
   const monthLabel = useMonthLabel()
   const netLabel = t('stats.netSavings.net')
   const rateLabel = t('stats.netSavings.savingsRate')
@@ -45,7 +46,7 @@ export function NetSavingsChart({ data }: NetSavingsChartProps) {
   )
 
   return (
-    <div className="h-72 w-full">
+    <div ref={scrubLockRef} className="h-72 w-full touch-pan-y">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={chartData} margin={{ left: 0, right: 0 }}>
           <CartesianGrid stroke="var(--color-border)" vertical={false} />
@@ -54,9 +55,6 @@ export function NetSavingsChart({ data }: NetSavingsChartProps) {
             yAxisId="net"
             tick={<AxisValueTick format={euroAxisFormat} />}
             width={60}
-            // Only extend below zero as far as the data needs (with a little
-            // headroom) — recharts' default rounds to a "nice" bound that leaves
-            // a big empty gap under a small negative bar.
             domain={[(dataMin: number) => (dataMin < 0 ? dataMin * 1.1 : 0), 'auto']}
           />
           <YAxis

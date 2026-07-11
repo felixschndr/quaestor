@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 
 import type { MonthlyCashflow } from '@/lib/statistics'
+import { useHorizontalScrubLock } from '@/lib/use-horizontal-scrub'
 import {
   AXIS_TICK,
   euroAxisFormat,
@@ -26,13 +27,13 @@ export interface CashflowChartProps {
   data: MonthlyCashflow[]
 }
 
-/** Grouped bars: income vs. expenses per month — shows whether a month was net positive. */
 export function CashflowChart({ data }: CashflowChartProps) {
   const { t } = useTranslation()
+  const scrubLockRef = useHorizontalScrubLock<HTMLDivElement>()
   const monthLabel = useMonthLabel()
 
   return (
-    <div className="h-72 w-full">
+    <div ref={scrubLockRef} className="h-72 w-full touch-pan-y">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ left: 0, right: 0 }}>
           <CartesianGrid stroke="var(--color-border)" vertical={false} />

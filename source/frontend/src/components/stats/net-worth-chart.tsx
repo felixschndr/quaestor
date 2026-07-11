@@ -17,6 +17,7 @@ import {
 } from 'recharts'
 
 import { formatDate, formatEuro } from '@/lib/format'
+import { useHorizontalScrubLock } from '@/lib/use-horizontal-scrub'
 import { readPinnedDate, writePinnedDate } from '@/lib/netWorthPin'
 import type { DailyNetWorth, NetWorthSummary } from '@/lib/statistics'
 import { AXIS_TICK, euroAxisFormat } from './chartTheme'
@@ -49,6 +50,7 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
   const hasSelection = hoverIndex != null || pinnedIndex >= 0
 
   const containerRef = useRef<HTMLDivElement>(null)
+  const scrubLockRef = useHorizontalScrubLock<HTMLDivElement>()
 
   const [selectStart, setSelectStart] = useState<string | null>(null)
   const [selectEnd, setSelectEnd] = useState<string | null>(null)
@@ -157,7 +159,7 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
           </button>
         ) : null}
       </div>
-      <div className="h-72 w-full">
+      <div ref={scrubLockRef} className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}
