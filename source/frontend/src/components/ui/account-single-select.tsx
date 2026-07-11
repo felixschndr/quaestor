@@ -42,6 +42,7 @@ function AccountSingleSelect({
       onOpenChange={setOpen}
       triggerLabel={selectedAccount ? accountDisplayName(selectedAccount) : (placeholder ?? '')}
       isEmpty={!selectedAccount}
+      emptyVariant="default"
       groups={groups}
       renderAccount={(account, group) => (
         <button
