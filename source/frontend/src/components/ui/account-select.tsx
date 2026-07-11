@@ -16,8 +16,8 @@ import {
   popoverTriggerClassName,
 } from '@/components/ui/popover'
 import type { AccountGroup } from '@/components/ui/account-select-utils'
+import { handleSelectListArrowKeys } from '@/components/ui/select-list-keyboard'
 
-/** Bank logo + account name — the part of a row that's identical across single/multi select. */
 export function AccountOptionContent({
   group,
   account,
@@ -83,12 +83,15 @@ export function AccountSelectPopover({
         </span>
         <ChevronDown className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1rem)] p-0">
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1rem)] p-0"
+        onKeyDown={handleSelectListArrowKeys}
+      >
         {header}
         <ul
           ref={listRef}
           aria-label={t('search.accountsLabel')}
-          className="max-h-72 overflow-y-auto overscroll-contain py-1"
+          className="max-h-72 overflow-y-auto overscroll-contain p-1"
         >
           {groups.map((group) => (
             <li key={group.key} className="flex flex-col">

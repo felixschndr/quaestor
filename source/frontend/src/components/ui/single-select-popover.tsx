@@ -5,6 +5,7 @@ import { Check, ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useWheelScroll } from '@/lib/use-wheel-scroll'
+import { handleSelectListArrowKeys } from '@/components/ui/select-list-keyboard'
 import {
   Popover,
   PopoverContent,
@@ -67,21 +68,25 @@ export function SingleSelectPopover<T extends string>({
         </span>
         <ChevronDown className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1rem)] p-0">
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1rem)] p-0"
+        onKeyDown={handleSelectListArrowKeys}
+      >
         <ul
           ref={listRef}
           aria-label={ariaLabel}
-          className="max-h-72 overflow-y-auto overscroll-contain py-1"
+          className="max-h-72 overflow-y-auto overscroll-contain p-1"
         >
           {options.map((option) => (
             <li key={option.value}>
               <button
                 type="button"
+                data-select-row=""
                 onClick={() => {
                   onChange(option.value)
                   setOpen(false)
                 }}
-                className="hover:bg-muted/60 flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left text-sm"
+                className="hover:bg-muted/60 focus-visible:bg-muted/60 flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-left text-sm outline-none"
               >
                 {option.leading}
                 <span className="flex-1 truncate">{option.label}</span>

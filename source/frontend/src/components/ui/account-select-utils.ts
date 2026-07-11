@@ -39,4 +39,4 @@ function layoutRank(layout: AccountGroupLayout | undefined): Map<number, number>
 }
 
 export const accountOptionRowClass =
-  'hover:bg-muted/60 flex cursor-pointer items-center gap-3 px-3 py-2 text-sm'
+  'hover:bg-muted/60 focus-visible:bg-muted/60 has-focus-visible:bg-muted/60 flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm outline-none'

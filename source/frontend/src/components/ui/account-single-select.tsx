@@ -48,6 +48,7 @@ function AccountSingleSelect({
         <button
           key={account.id}
           type="button"
+          data-select-row=""
           onClick={() => {
             onChange(account.id)
             setOpen(false)

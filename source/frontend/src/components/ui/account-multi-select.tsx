@@ -87,6 +87,7 @@ function AccountMultiSelect({
             <AccountOptionContent group={group} account={account} />
             <Checkbox
               id={checkboxId}
+              data-select-row=""
               checked={selectedSet.has(account.id)}
               onCheckedChange={() => toggle(account.id)}
             />

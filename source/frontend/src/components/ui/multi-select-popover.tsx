@@ -5,6 +5,7 @@ import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWheelScroll } from '@/lib/use-wheel-scroll'
 import { Checkbox } from '@/components/ui/checkbox'
+import { handleSelectListArrowKeys } from '@/components/ui/select-list-keyboard'
 import {
   Popover,
   PopoverContent,
@@ -65,7 +66,10 @@ export function MultiSelectPopover<T extends string>({
         </span>
         <ChevronDown className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1rem)] p-0">
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1rem)] p-0"
+        onKeyDown={handleSelectListArrowKeys}
+      >
         {selectAll ? (
           <div className="border-border/40 flex items-center justify-between gap-2 border-b px-3 py-2 text-xs">
             <span className="text-muted-foreground">{selectAll.count(selectedCount)}</span>
@@ -90,7 +94,7 @@ export function MultiSelectPopover<T extends string>({
         <ul
           ref={listRef}
           aria-label={ariaLabel}
-          className="max-h-72 overflow-y-auto overscroll-contain py-1"
+          className="max-h-72 overflow-y-auto overscroll-contain p-1"
         >
           {options.map((option) => {
             const checkboxId = `${checkboxIdPrefix}-${option.value}`
@@ -98,12 +102,13 @@ export function MultiSelectPopover<T extends string>({
               <li key={option.value}>
                 <label
                   htmlFor={checkboxId}
-                  className="hover:bg-muted/60 flex cursor-pointer items-center gap-3 px-3 py-2 text-sm"
+                  className="hover:bg-muted/60 has-focus-visible:bg-muted/60 flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm"
                 >
                   {option.leading}
                   <span className="flex-1 truncate">{option.label}</span>
                   <Checkbox
                     id={checkboxId}
+                    data-select-row=""
                     checked={selectedSet.has(option.value)}
                     onCheckedChange={() => toggle(option.value)}
                   />
