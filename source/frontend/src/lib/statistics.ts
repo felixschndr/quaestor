@@ -1,5 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
-import { format, subDays, subMonths, subWeeks, subYears } from 'date-fns'
+import {
+  eachDayOfInterval,
+  eachMonthOfInterval,
+  eachWeekOfInterval,
+  format,
+  parseISO,
+  subDays,
+  subMonths,
+  subWeeks,
+  subYears,
+} from 'date-fns'
 
 import { api } from './api'
 import type { TransactionRead } from './accountHistory'
@@ -52,6 +62,20 @@ export interface MonthlyNetSavings {
 export interface OtherPartySlice {
   other_party: string
   total: number
+}
+
+export type TransactionCountsGroupBy = 'day' | 'week' | 'month' | 'weekday'
+
+export const TRANSACTION_COUNT_GROUPINGS: readonly TransactionCountsGroupBy[] = [
+  'day',
+  'week',
+  'month',
+  'weekday',
+]
+
+export interface TransactionCountBucket {
+  bucket: string
+  count: number
 }
 
 export interface DailyNetWorth {
@@ -277,6 +301,22 @@ export const statisticsQueryKeys = {
       sortedCategories(categories),
       typeFilters,
     ] as const,
+  transactionCounts: (
+    accountIds: number[],
+    filters: StatsFilters,
+    categories: TransactionCategory[],
+    typeFilters: StatsTypeFilters,
+    groupBy: TransactionCountsGroupBy,
+  ) =>
+    [
+      'statistics',
+      'transaction-counts',
+      sortedIds(accountIds),
+      filters,
+      sortedCategories(categories),
+      typeFilters,
+      groupBy,
+    ] as const,
   netWorth: (accountIds: number[], filters: StatsFilters) =>
     ['statistics', 'net-worth', sortedIds(accountIds), filters] as const,
   netWorthRange: (start: string, end: string, accountIds: number[]) =>
@@ -371,6 +411,34 @@ export function useOtherPartyStats(
   })
 }
 
+export function useTransactionCountStats(
+  accountIds: number[],
+  filters: StatsFilters,
+  categories: TransactionCategory[],
+  typeFilters: StatsTypeFilters,
+  groupBy: TransactionCountsGroupBy,
+  enabled: boolean = true,
+) {
+  const queryString = buildStatsQueryString(
+    accountIds,
+    filters,
+    { group_by: groupBy, ...typeFilters },
+    categories,
+  )
+  return useQuery({
+    queryKey: statisticsQueryKeys.transactionCounts(
+      accountIds,
+      filters,
+      categories,
+      typeFilters,
+      groupBy,
+    ),
+    queryFn: () => api<TransactionCountBucket[]>(`/statistics/transaction-counts?${queryString}`),
+    enabled: enabled && accountIds.length > 0,
+    staleTime: 30_000,
+  })
+}
+
 export function useNetWorthStats(
   accountIds: number[],
   filters: StatsFilters,
@@ -398,6 +466,34 @@ export function useNetWorthRange(start: string, end: string, accountIds: number[
     enabled: accountIds.length > 0 && start.length > 0 && end.length > 0,
     staleTime: 30_000,
   })
+}
+
+// Weekday buckets in display order (Monday-first); values are SQLite %w numbers.
+export const WEEKDAY_BUCKETS: readonly string[] = ['1', '2', '3', '4', '5', '6', '0']
+
+export function fillTransactionCountBuckets(
+  data: TransactionCountBucket[],
+  groupBy: TransactionCountsGroupBy,
+  dateFrom?: string,
+  dateTo?: string,
+): TransactionCountBucket[] {
+  const counts = new Map(data.map((entry) => [entry.bucket, entry.count]))
+  if (groupBy === 'weekday') {
+    return WEEKDAY_BUCKETS.map((bucket) => ({ bucket, count: counts.get(bucket) ?? 0 }))
+  }
+  // The backend returns buckets sorted ascending, so the extent is first/last.
+  const start = dateFrom ?? data[0]?.bucket
+  const end = dateTo ?? data[data.length - 1]?.bucket
+  if (!start || !end) return []
+  const interval = { start: parseISO(start), end: parseISO(end) }
+  if (interval.start > interval.end) return []
+  const buckets =
+    groupBy === 'day'
+      ? eachDayOfInterval(interval).map((day) => format(day, 'yyyy-MM-dd'))
+      : groupBy === 'week'
+        ? eachWeekOfInterval(interval, { weekStartsOn: 1 }).map((day) => format(day, 'yyyy-MM-dd'))
+        : eachMonthOfInterval(interval).map((day) => format(day, 'yyyy-MM'))
+  return buckets.map((bucket) => ({ bucket, count: counts.get(bucket) ?? 0 }))
 }
 
 // One datum of the category chart. `category` is the enum value, or the

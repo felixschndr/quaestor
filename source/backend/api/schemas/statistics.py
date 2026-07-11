@@ -9,6 +9,8 @@ from source.backend.models.transaction_type import TransactionType
 StatisticsDirection = Literal["INCOMING", "OUTGOING"]
 StatisticsLinked = Literal["linked", "unlinked"]
 
+TransactionCountsGroupBy = Literal["day", "week", "month", "weekday"]
+
 
 class StatisticsQuery(BaseModel):
     account_ids: list[int] = Field(min_length=1)
@@ -21,6 +23,10 @@ class StatisticsQuery(BaseModel):
 
 class DirectionalStatisticsQuery(StatisticsQuery):
     direction: StatisticsDirection = "OUTGOING"
+
+
+class TransactionCountsQuery(StatisticsQuery):
+    group_by: TransactionCountsGroupBy = "day"
 
 
 class OtherPartyStatisticsQuery(DirectionalStatisticsQuery):
@@ -53,6 +59,14 @@ class MonthlyNetSavings(BaseModel):
 class OtherPartySlice(BaseModel):
     other_party: str
     total: float
+
+
+class TransactionCountBucket(BaseModel):
+    # "day"/"week" → ISO date (weeks keyed by their Monday)
+    # "month" → "YYYY-MM"
+    # "weekday" → SQLite %w day number ("0" = Sunday, "6" = Saturday)
+    bucket: str
+    count: int
 
 
 class DailyNetWorth(BaseModel):

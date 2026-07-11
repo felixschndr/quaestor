@@ -1,6 +1,14 @@
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeftRight, ChevronLeft, LineChart, PieChart, PiggyBank, Users } from 'lucide-react'
+import {
+  ArrowLeftRight,
+  BarChart3,
+  ChevronLeft,
+  LineChart,
+  PieChart,
+  PiggyBank,
+  Users,
+} from 'lucide-react'
 
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
 import { DateRangeFields } from '@/components/ui/date-range-fields'
@@ -15,6 +23,7 @@ import { OtherPartyChart } from '@/components/stats/other-party-chart'
 import { NetSavingsChart } from '@/components/stats/net-savings-chart'
 import { NetWorthChart } from '@/components/stats/net-worth-chart'
 import { SegmentedToggle } from '@/components/stats/segmented-toggle'
+import { TransactionCountChart } from '@/components/stats/transaction-count-chart'
 import {
   TRANSACTION_TYPES,
   type TransactionCategory,
@@ -26,17 +35,20 @@ import {
   FILTERABLE_CATEGORIES,
   matchingPreset,
   presetDateRange,
+  TRANSACTION_COUNT_GROUPINGS,
   useCashflowStats,
   useCategoryStats,
   useNetWorthStats,
   useOtherPartyStats,
   useNetSavingsStats,
+  useTransactionCountStats,
   type ChartType,
   type DateRangePreset,
   type StatsDirection,
   type StatsFilters,
   type StatsLinked,
   type StatsTypeFilters,
+  type TransactionCountsGroupBy,
 } from '@/lib/statistics'
 import type { StatsViewProps, StatsViewState } from '@/routes/stats'
 
@@ -59,6 +71,7 @@ export function StatsView({
     date_to: search.date_to ?? defaults.date_to,
   }
   const chartType: ChartType = search.chart_type ?? 'bar'
+  const countGroup: TransactionCountsGroupBy = search.count_group ?? 'day'
   const direction: StatsDirection = search.direction ?? 'OUTGOING'
   const selectedCategories: TransactionCategory[] = search.categories ?? [...FILTERABLE_CATEGORIES]
   const selectedTypes: TransactionType[] = search.transaction_types ?? [...TRANSACTION_TYPES]
@@ -72,6 +85,7 @@ export function StatsView({
       accountIds,
       filters,
       chartType,
+      countGroup,
       direction,
       categories: selectedCategories,
       transactionTypes: selectedTypes,
@@ -88,6 +102,7 @@ export function StatsView({
     sync({ filters: { date_from: from, date_to: to } })
   const applyPreset = (preset: DateRangePreset) => sync({ filters: presetDateRange(preset) })
   const updateChartType = (next: ChartType) => sync({ chartType: next })
+  const updateCountGroup = (next: TransactionCountsGroupBy) => sync({ countGroup: next })
   const updateDirection = (next: StatsDirection) => sync({ direction: next })
   const updateCategories = (next: TransactionCategory[]) => sync({ categories: next })
   const updateTypes = (next: TransactionType[]) => sync({ transactionTypes: next })
@@ -139,6 +154,14 @@ export function StatsView({
     hasSelection,
   )
   const cashflow = useCashflowStats(accountIds, filters, categoriesParam, typeFilters, hasSelection)
+  const transactionCounts = useTransactionCountStats(
+    accountIds,
+    filters,
+    categoriesParam,
+    typeFilters,
+    countGroup,
+    hasSelection,
+  )
   const netSavings = useNetSavingsStats(
     accountIds,
     filters,
@@ -281,6 +304,32 @@ export function StatsView({
             isEmpty={(cashflow.data?.length ?? 0) === 0}
           >
             <CashflowChart data={cashflow.data ?? []} />
+          </ChartCard>
+
+          <ChartCard
+            title={t('stats.transactionCounts.title')}
+            icon={<BarChart3 className="size-4" aria-hidden="true" />}
+            isLoading={transactionCounts.isLoading}
+            isError={transactionCounts.isError}
+            isEmpty={(transactionCounts.data?.length ?? 0) === 0}
+            action={
+              <SegmentedToggle
+                ariaLabel={t('stats.transactionCounts.groupLabel')}
+                value={countGroup}
+                onChange={updateCountGroup}
+                options={TRANSACTION_COUNT_GROUPINGS.map((grouping) => ({
+                  value: grouping,
+                  label: t(`stats.transactionCounts.group.${grouping}`),
+                }))}
+              />
+            }
+          >
+            <TransactionCountChart
+              data={transactionCounts.data ?? []}
+              groupBy={countGroup}
+              dateFrom={filters.date_from}
+              dateTo={filters.date_to}
+            />
           </ChartCard>
 
           <ChartCard

@@ -630,6 +630,18 @@
       "income": "Einnahmen",
       "expenses": "Ausgaben"
     },
+    "transactionCounts": {
+      "title": "Transaktionen pro Zeitraum",
+      "count": "Transaktionen",
+      "groupLabel": "Gruppierung",
+      "weekLabel": "KW {{week}}",
+      "group": {
+        "day": "Tag",
+        "week": "Woche",
+        "month": "Monat",
+        "weekday": "Wochentag"
+      }
+    },
     "netSavings": {
       "title": "Überschuss & Sparquote pro Monat",
       "net": "Überschuss",

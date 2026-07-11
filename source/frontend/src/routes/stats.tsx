@@ -14,6 +14,7 @@ import {
   type StatsDirection,
   type StatsFilters,
   type StatsLinked,
+  type TransactionCountsGroupBy,
 } from '@/lib/statistics'
 import { StatsView } from '@/pages/stats'
 
@@ -26,6 +27,7 @@ const searchParamsSchema = z.object({
   date_from: z.string().optional(),
   date_to: z.string().optional(),
   chart_type: z.enum(['bar', 'pie']).optional(),
+  count_group: z.enum(['day', 'week', 'month', 'weekday']).optional(),
   direction: z.enum(['INCOMING', 'OUTGOING']).optional(),
   transaction_types: z
     .union([z.enum(TRANSACTION_TYPES), z.array(z.enum(TRANSACTION_TYPES))])
@@ -75,6 +77,7 @@ function StatsPage() {
             date_from: next.filters.date_from,
             date_to: next.filters.date_to,
             chart_type: next.chartType,
+            count_group: next.countGroup,
             direction: next.direction,
             transaction_types:
               next.transactionTypes.length === TRANSACTION_TYPES.length
@@ -126,6 +129,7 @@ export interface StatsViewState {
   accountIds: number[]
   filters: StatsFilters
   chartType: ChartType
+  countGroup: TransactionCountsGroupBy
   direction: StatsDirection
   categories: TransactionCategory[]
   transactionTypes: TransactionType[]

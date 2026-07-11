@@ -14,6 +14,8 @@ from source.backend.api.schemas.statistics import (
     OtherPartySlice,
     OtherPartyStatisticsQuery,
     StatisticsQuery,
+    TransactionCountBucket,
+    TransactionCountsQuery,
 )
 from source.backend.db import get_session
 from source.backend.models.user import User
@@ -73,6 +75,25 @@ def net_savings_statistics(
         date_from=query.date_from,
         date_to=query.date_to,
         categories=query.categories,
+        transaction_types=query.transaction_types,
+        linked=query.linked,
+    )
+
+
+@router.get("/transaction-counts", response_model=list[TransactionCountBucket])
+def transaction_count_statistics(
+    query: Annotated[TransactionCountsQuery, Query()],
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> list[TransactionCountBucket]:
+    return statistics_service.transaction_counts(
+        db_session=db_session,
+        user=current_user,
+        account_ids=query.account_ids,
+        date_from=query.date_from,
+        date_to=query.date_to,
+        categories=query.categories,
+        group_by=query.group_by,
         transaction_types=query.transaction_types,
         linked=query.linked,
     )

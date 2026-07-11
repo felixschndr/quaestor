@@ -32,6 +32,7 @@ def _user_with_account(db_session: Session) -> tuple[User, Account]:
         "monthly_net_savings",
         "top_other_parties",
         "daily_net_worth",
+        "transaction_counts",
     ],
 )
 def test_breakdown_returns_empty_without_selected_accounts(session_factory: sessionmaker, function_name: str):
@@ -42,6 +43,7 @@ def test_breakdown_returns_empty_without_selected_accounts(session_factory: sess
         "date_to": None,
         "direction": "OUTGOING",
         "categories": [],
+        "group_by": "day",
     }
     accepted_arguments = inspect.signature(function).parameters
     kwargs = {name: value for name, value in optional_kwargs.items() if name in accepted_arguments}
@@ -244,3 +246,58 @@ def test_net_worth_range_uses_live_balance_for_today(session_factory: sessionmak
     change = result.accounts[0]
     assert change.balance_at_end == 80.0
     assert result.total_at_end == 80.0
+
+
+def _seed_count_transactions(session: Session, account_id: int) -> None:
+    for day in [
+        datetime.date(year=2026, month=6, day=1),
+        datetime.date(year=2026, month=6, day=1),
+        datetime.date(year=2026, month=6, day=7),
+        datetime.date(year=2026, month=6, day=8),
+        datetime.date(year=2026, month=7, day=1),
+    ]:
+        make_transaction(session, account_id=account_id, date=day)
+    make_transaction(session, account_id=account_id, date=datetime.date(year=2026, month=6, day=1), pending=True)
+
+
+@pytest.mark.parametrize(
+    argnames=("group_by", "expected"),
+    argvalues=[
+        ("day", [("2026-06-01", 2), ("2026-06-07", 1), ("2026-06-08", 1), ("2026-07-01", 1)]),
+        ("week", [("2026-06-01", 3), ("2026-06-08", 1), ("2026-06-29", 1)]),
+        ("month", [("2026-06", 4), ("2026-07", 1)]),
+        ("weekday", [("0", 1), ("1", 3), ("3", 1)]),  # %w weekday numbers (Sunday = "0")
+    ],
+)
+def test_transaction_counts_grouping(session_factory: sessionmaker, group_by: str, expected: list[tuple[str, int]]):
+    with session_factory() as session:
+        user, account = _user_with_account(session)
+        _seed_count_transactions(session, account_id=account.id)
+        result = statistics_service.transaction_counts(
+            db_session=session,
+            user=user,
+            account_ids=[account.id],
+            date_from=None,
+            date_to=None,
+            categories=[],
+            group_by=group_by,
+        )
+
+    assert [(bucket.bucket, bucket.count) for bucket in result] == expected
+
+
+def test_transaction_counts_respects_date_range(session_factory: sessionmaker):
+    with session_factory() as session:
+        user, account = _user_with_account(session)
+        _seed_count_transactions(session, account_id=account.id)
+        result = statistics_service.transaction_counts(
+            db_session=session,
+            user=user,
+            account_ids=[account.id],
+            date_from=datetime.date(year=2026, month=6, day=8),
+            date_to=datetime.date(year=2026, month=6, day=30),
+            categories=[],
+            group_by="day",
+        )
+
+    assert [(bucket.bucket, bucket.count) for bucket in result] == [("2026-06-08", 1)]

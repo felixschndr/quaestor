@@ -12,6 +12,8 @@ from source.backend.api.schemas.statistics import (
     OtherPartySlice,
     StatisticsDirection,
     StatisticsLinked,
+    TransactionCountBucket,
+    TransactionCountsGroupBy,
 )
 from source.backend.api.schemas.transaction import TransactionRead
 from source.backend.logging_utils import get_logger
@@ -201,6 +203,52 @@ def monthly_net_savings(
         result.append(MonthlyNetSavings(month=entry.month, net=net, savings_rate=savings_rate))
     logger.debug(f"Computed monthly net/savings over {len(result)} month(s) for {user}")
     return result
+
+
+def _count_bucket_expression(group_by: TransactionCountsGroupBy) -> ColumnElement[str]:
+    if group_by == "week":
+        # Monday of the transaction's week: advance to the next Sunday (or stay on one), then step back six days
+        return func.date(Transaction.date, "weekday 0", "-6 days")  # noqa: FKA100
+    patterns = {"day": "%Y-%m-%d", "month": "%Y-%m", "weekday": "%w"}
+    return func.strftime(patterns[group_by], Transaction.date)  # noqa: FKA100
+
+
+def transaction_counts(
+    db_session: Session,
+    user: User,
+    account_ids: list[int],
+    date_from: datetime.date | None,
+    date_to: datetime.date | None,
+    categories: list[TransactionCategory],
+    group_by: TransactionCountsGroupBy,
+    transaction_types: list[TransactionType] | None = None,
+    linked: StatisticsLinked | None = None,
+) -> list[TransactionCountBucket]:
+    owned_account_ids = account_service.resolve_owned_account_ids(
+        db_session=db_session, user=user, account_ids=account_ids
+    )
+    if not owned_account_ids:
+        return []
+
+    bucket = _count_bucket_expression(group_by)
+    rows = db_session.execute(
+        select(bucket, func.count())  # noqa: FKA100
+        .where(
+            *_base_conditions(
+                account_ids=owned_account_ids,
+                date_from=date_from,
+                date_to=date_to,
+                categories=categories,
+                transaction_types=transaction_types,
+                linked=linked,
+            )
+        )
+        .group_by(bucket)
+        .order_by(bucket)
+    ).all()
+    buckets = [TransactionCountBucket(bucket=bucket_value, count=count) for bucket_value, count in rows]
+    logger.debug(f"Computed {len(buckets)} transaction count buckets per {group_by} for {user}")
+    return buckets
 
 
 def top_other_parties(

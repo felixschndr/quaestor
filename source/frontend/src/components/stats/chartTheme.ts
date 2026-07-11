@@ -19,19 +19,20 @@ export const euroAxisFormat = (value: unknown): string => {
   return `${axisNumber.format(amount)} €`
 }
 
-export function useMonthLabel(): (month: string) => string {
+export function useDateFnsLocale(): Locale {
   const { i18n } = useTranslation()
-  const locale = LOCALES[i18n.language] ?? enUS
+  return LOCALES[i18n.language] ?? enUS
+}
+
+export function useMonthLabel(): (month: string) => string {
+  const locale = useDateFnsLocale()
   return (month: string) => {
     const [year, monthNumber] = month.split('-').map(Number)
     if (!year || !monthNumber) return month
-    return format(new Date(year, monthNumber - 1, 1), 'MMM yy', { locale })
+    return format(new Date(year, monthNumber - 1, 1), 'MMM yyyy', { locale })
   }
 }
 
-// Recharts renders into raw SVG/HTML, so it can't pick up Tailwind classes on
-// its internals. Feed it the theme CSS variables directly so tooltips and axes
-// track light/dark mode.
 export const TOOLTIP_STYLE = {
   background: 'var(--color-popover)',
   border: '1px solid var(--color-border)',

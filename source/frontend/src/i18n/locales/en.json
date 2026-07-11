@@ -630,6 +630,18 @@
       "income": "Income",
       "expenses": "Expenses"
     },
+    "transactionCounts": {
+      "title": "Transactions per period",
+      "count": "Transactions",
+      "groupLabel": "Grouping",
+      "weekLabel": "Week {{week}}",
+      "group": {
+        "day": "Day",
+        "week": "Week",
+        "month": "Month",
+        "weekday": "Weekday"
+      }
+    },
     "netSavings": {
       "title": "Surplus & savings rate per month",
       "net": "Surplus",
