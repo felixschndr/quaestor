@@ -218,7 +218,7 @@ function CreateContractDialog({ credentials }: { credentials: CredentialRead[] }
           <span>{t('contracts.create')}</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-[46rem]">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-[calc(var(--container-page)-2rem)]">
         <DialogHeader>
           <DialogTitle>{t('contracts.create')}</DialogTitle>
         </DialogHeader>
