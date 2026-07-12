@@ -93,6 +93,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "google ireland",
         "netflix",
         "serverprofis",
+        "haufe service center gmbh",
     ],
     TransactionCategory.RENT: ["miete"],
     TransactionCategory.UTILITIES: ["vattenfall", "vodafone", "rundfunk", "strom"],
@@ -112,6 +113,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "lebensmittel",
         "kiosk",
         "euroshop",
+        "go asia",
     ],
     TransactionCategory.DRUGSTORE: ["drogerie", "rossmann", "mueller"],
     TransactionCategory.RESTAURANTS: [

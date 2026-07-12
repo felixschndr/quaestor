@@ -58,6 +58,7 @@ RUN playwright install-deps chromium \
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} alembic.ini ./
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} pyproject.toml ./
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} source/backend ./source/backend
+COPY --chown=${USER_TO_USE}:${USER_TO_USE} scripts/db_common.sh scripts/db.sh scripts/resetpw.sh ./scripts/
 COPY --from=frontend-builder --chown=${USER_TO_USE}:${USER_TO_USE} /build/source/frontend/dist ./source/frontend/dist
 
 USER ${USER_TO_USE}

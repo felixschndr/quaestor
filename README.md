@@ -193,9 +193,11 @@ As an alternative, you can use a named volume instead. A commented out volume mo
 
 If you need/want to access the database, you can do so with
 
-| Native                                                                                                           | Container                                                                                                         |
-|------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
-| `source .env && sqlcipher -cmd "PRAGMA key='${DATABASE_ENCRYPTION_KEY}'" <path to db> # e.g. ./data/Quaestor.db` | `docker exec -it quaestor sh -c 'sqlcipher -cmd "PRAGMA key='\''$DATABASE_ENCRYPTION_KEY'\''" /data/Quaestor.db'` |
+| Native             | Container                                |
+|--------------------|------------------------------------------|
+| `./scripts/db.sh`  | `docker exec -it quaestor scripts/db.sh` |
+
+The script resolves the database path and encryption key automatically (see `scripts/db_common.sh` for overrides such as `DB_PATH` and `ENV_FILE`).
 
 Then you can use standard sqlite syntax such as
 ````
@@ -205,6 +207,12 @@ sqlite> SELECT * FROM users;
 ````
 
 `sqlcipher` is installed in the container image.
+
+To reset the password of a user and disable his/her two-factor authentication use
+
+| Native                                                | Container                                                                       |
+|-------------------------------------------------------|---------------------------------------------------------------------------------|
+| `USERNAME=<user> PW=<new pw> ./scripts/resetpw.sh`    | `docker exec -e USERNAME=<user> -e PW=<new pw> quaestor scripts/resetpw.sh`     |
 
 ## Environment Variables
 
