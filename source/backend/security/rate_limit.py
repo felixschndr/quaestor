@@ -1,6 +1,6 @@
 import threading
 import time
-from typing import Awaitable, Callable, Protocol
+from typing import Awaitable, Callable
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
@@ -24,11 +24,6 @@ GLOBAL_CAPACITY = 120
 GLOBAL_REFILL_PER_SECOND = 120 / 60.0
 
 
-class RateLimiter(Protocol):
-    def try_consume(self, key: str, capacity: int, refill_per_second: float) -> tuple[bool, float]:
-        """Return (allowed, retry_after_seconds). retry_after is 0 when allowed."""
-
-
 class InMemoryTokenBucketLimiter:
     def __init__(self) -> None:
         # key -> (tokens, last_check_monotonic)
@@ -49,7 +44,7 @@ class InMemoryTokenBucketLimiter:
 
 
 # Module-level instance so tests can monkeypatch / reset it.
-limiter: RateLimiter = InMemoryTokenBucketLimiter()
+limiter = InMemoryTokenBucketLimiter()
 
 
 def _client_key(request: Request) -> str:

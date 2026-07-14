@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from source.backend.helpers import format_transaction_for_categorization
 from source.backend.logging_utils import get_logger
 from source.backend.models.transaction_type import TransactionType
 
@@ -56,7 +57,7 @@ class TransactionCategory(str, Enum):
                 if any(matcher in haystack for haystack in haystacks):
                     return category
 
-        logger.info(f"No category matched for {transaction.to_string_for_transaction_categorization()}")
+        logger.info(f"No category matched for {format_transaction_for_categorization(transaction)}")
         return cls.UNKNOWN
 
 

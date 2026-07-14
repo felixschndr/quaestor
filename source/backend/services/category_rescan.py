@@ -1,6 +1,7 @@
 import asyncio
 
 from source.backend.db import SessionLocal
+from source.backend.helpers import format_transaction_for_categorization
 from source.backend.logging_utils import get_logger
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
@@ -30,7 +31,7 @@ def _rescan(db_session: Session) -> None:
         checked += 1
         new_category = TransactionCategory.from_transaction(transaction=transaction)
         if new_category != TransactionCategory.UNKNOWN:
-            logger.info(f"Re-scanned {transaction.to_string_for_transaction_categorization()} to {new_category}")
+            logger.info(f"Re-scanned {format_transaction_for_categorization(transaction)} to {new_category}")
             transaction.category = new_category
             updated += 1
     db_session.commit()

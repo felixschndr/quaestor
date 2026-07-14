@@ -52,7 +52,8 @@ class TransferLinkCreate(BaseModel):
     counterpart_transaction_id: int
 
 
-class TransactionFilter(BaseModel):
+class TransactionSearchQuery(BaseModel):
+    account_ids: list[int] = Field(min_length=1)
     text: str | None = None
     amount_from: float | None = None
     amount_to: float | None = None
@@ -64,13 +65,6 @@ class TransactionFilter(BaseModel):
     # "linked" = transaction is part of a transfer (has a counterpart),
     # "unlinked" = no counterpart. Missing means "no filter".
     linked: Literal["linked", "unlinked"] | None = None
-
-    def to_filter_parameters(self) -> dict:
-        return {key: value for key, value in self.model_dump().items() if value is not None and value != []}
-
-
-class TransactionSearchQuery(TransactionFilter):
-    account_ids: list[int] = Field(min_length=1)
 
     def to_filter_parameters(self) -> dict:
         data = self.model_dump(exclude={"account_ids"})

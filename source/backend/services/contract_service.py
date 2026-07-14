@@ -6,7 +6,6 @@ from source.backend.models.contract import Contract
 from source.backend.models.contract_assignment import ContractAssignment
 from source.backend.models.contract_source import ContractSource
 from source.backend.models.credential import Credential
-from source.backend.models.transaction import Transaction
 from source.backend.models.user import User
 from source.backend.services import account_service
 from source.backend.services.contract_aggregators import compute_fingerprint
@@ -90,8 +89,8 @@ def delete_contract(db_session: Session, user: User, contract_id: int) -> None:
 
 def assign_transaction_to_contract(db_session: Session, user: User, contract_id: int, transaction_id: int) -> Contract:
     contract = get_contract_for_user(db_session=db_session, user=user, contract_id=contract_id)
-    transaction = _get_owned_transaction_on_same_account(
-        db_session=db_session, contract=contract, transaction_id=transaction_id
+    transaction = account_service.get_transaction_for_account(
+        db_session=db_session, account=contract.account, transaction_id=transaction_id
     )
     previous_contract = transaction.contract if transaction.contract_id not in (None, contract.id) else None
     transaction.contract_id = contract.id
@@ -111,8 +110,8 @@ def assign_transaction_to_contract(db_session: Session, user: User, contract_id:
 
 def remove_transaction(db_session: Session, user: User, contract_id: int, transaction_id: int) -> Contract:
     contract = get_contract_for_user(db_session=db_session, user=user, contract_id=contract_id)
-    transaction = _get_owned_transaction_on_same_account(
-        db_session=db_session, contract=contract, transaction_id=transaction_id
+    transaction = account_service.get_transaction_for_account(
+        db_session=db_session, account=contract.account, transaction_id=transaction_id
     )
     transaction.contract_assignment = ContractAssignment.EXCLUDED
     transaction.contract_id = None
@@ -121,9 +120,3 @@ def remove_transaction(db_session: Session, user: User, contract_id: int, transa
     db_session.commit()
     logger.info(f"Removed {transaction} from {contract}")
     return contract
-
-
-def _get_owned_transaction_on_same_account(db_session: Session, contract: Contract, transaction_id: int) -> Transaction:
-    return account_service.get_transaction_for_account(
-        db_session=db_session, account=contract.account, transaction_id=transaction_id
-    )

@@ -155,6 +155,15 @@ def sync_credential(
         notify_two_factor_state=notify_two_factor_state,
         reevaluate_two_factor_requirement=True,
     )
+    return _finalize_sync(db_session=db_session, credential=credential, snapshot=snapshot, result=result)
+
+
+def _finalize_sync(
+    db_session: Session,
+    credential: Credential,
+    snapshot: "notification_engine.SyncSnapshot",
+    result: SyncResult,
+) -> SyncResult:
     notifications: list[Notification] = []
     if result.status == SyncStatus.COMPLETED:
         transfer_detection.detect_transfers_for_user(db_session=db_session, user=credential.user)
@@ -163,9 +172,7 @@ def sync_credential(
             db_session=db_session, credential=credential, snapshot=snapshot
         )
     db_session.commit()
-
     notification_engine.dispatch(db_session=db_session, user=credential.user, notifications=notifications)
-
     return result
 
 
@@ -273,13 +280,4 @@ def confirm_two_factor(db_session: Session, credential_id: int, challenge_token:
     )
     snapshot = notification_engine.capture_sync_snapshot(credential)
     result = sync_credential_object(credential=credential)
-    notifications: list[Notification] = []
-    if result.status == SyncStatus.COMPLETED:
-        transfer_detection.detect_transfers_for_user(db_session=db_session, user=credential.user)
-        contract_detection_service.detect_contracts_for_user(db_session=db_session, user=credential.user)
-        notifications = notification_engine.collect_notifications(
-            db_session=db_session, credential=credential, snapshot=snapshot
-        )
-    db_session.commit()
-    notification_engine.dispatch(db_session=db_session, user=credential.user, notifications=notifications)
-    return result
+    return _finalize_sync(db_session=db_session, credential=credential, snapshot=snapshot, result=result)

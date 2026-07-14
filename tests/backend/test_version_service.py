@@ -2,18 +2,18 @@ import tomllib
 from unittest.mock import MagicMock
 
 import pytest
-from source.backend.helpers import get_root_path_of_repository
+from source.backend.helpers import get_project_version, get_root_path_of_repository
 from source.backend.services import version_service
 
 from tests.backend.conftest import assert_log_contains
 
 
-def test_get_current_version_matches_pyproject():
+def test_get_project_version_matches_pyproject():
     pyproject = get_root_path_of_repository() / "pyproject.toml"
     with pyproject.open("rb") as handle:
         expected = tomllib.load(handle)["tool"]["poetry"]["version"]
 
-    assert version_service.get_current_version() == expected
+    assert get_project_version() == expected
 
 
 @pytest.mark.parametrize(
@@ -31,11 +31,8 @@ def test_is_newer(current: str, latest: str, expected: bool):
 
 
 def test_github_latest_release_url_built_from_pyproject_repository():
-    repository = version_service.get_repository_url()
-
     url = version_service.get_github_latest_release_url()
 
-    assert repository == "https://github.com/felixschndr/quaestor"
     assert url == "https://api.github.com/repos/felixschndr/quaestor/releases/latest"
 
 

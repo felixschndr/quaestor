@@ -4,7 +4,6 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from source.backend.helpers import format_transaction_for_categorization
 from source.backend.models.transaction_type import TransactionType
 
 TwoFactorStateCallback = Callable[[bool], None]
@@ -36,9 +35,6 @@ class FetchedTransaction:
         if self.other_party:
             object.__setattr__(self, "other_party", self.other_party.strip())
 
-    def to_string_for_transaction_categorization(self) -> str:
-        return format_transaction_for_categorization(self)
-
 
 @dataclass(frozen=True)
 class BalanceObservation:
@@ -49,9 +45,6 @@ class BalanceObservation:
 
 
 class BankSession(ABC):
-    def __init__(self):
-        self._account_mapping = {}
-
     @abstractmethod
     def get_accounts(self) -> list[FetchedAccount]: ...
 

@@ -30,8 +30,6 @@ class _DFSSession(BankSession):
     CUSTOMER = "dfsbav"
 
     def __init__(self, username: str, password: str):
-        super().__init__()
-
         self.username = username
         self.password = password
 

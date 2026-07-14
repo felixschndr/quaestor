@@ -1,23 +1,12 @@
 import requests
-from source.backend.helpers import (
-    get_content_of_pyproject_toml,
-    get_project_version,
-)
+from source.backend.helpers import get_project_repository
 from source.backend.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
 
-def get_current_version() -> str:
-    return get_project_version()
-
-
-def get_repository_url() -> str:
-    return get_content_of_pyproject_toml()["tool"]["poetry"]["repository"]
-
-
 def get_github_latest_release_url() -> str:
-    repository_path = get_repository_url().rstrip("/").removeprefix("https://github.com/")
+    repository_path = get_project_repository().rstrip("/").removeprefix("https://github.com/")
     return f"https://api.github.com/repos/{repository_path}/releases/latest"
 
 

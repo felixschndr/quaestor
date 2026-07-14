@@ -4,7 +4,7 @@ import pytest
 from pydantic import BaseModel
 from source.backend.api.schemas.common import UtcDatetime
 from source.backend.api.schemas.contract import ContractRead
-from source.backend.api.schemas.transaction import TransactionFilter
+from source.backend.api.schemas.transaction import TransactionSearchQuery
 from source.backend.models.contract_frequency import ContractFrequency
 
 from tests.backend.conftest import AMOUNT, build_contract
@@ -28,7 +28,7 @@ def test_utc_datetime_only_rewrites_for_json_not_python_mode():
 
 
 def test_transaction_filter_to_filter_parameters_excludes_unset_fields():
-    filter_ = TransactionFilter(text="rewe", date_from=date(year=2026, month=1, day=1))
+    filter_ = TransactionSearchQuery(account_ids=[1], text="rewe", date_from=date(year=2026, month=1, day=1))
 
     parameters = filter_.to_filter_parameters()
 
@@ -36,7 +36,7 @@ def test_transaction_filter_to_filter_parameters_excludes_unset_fields():
 
 
 def test_transaction_filter_to_filter_parameters_is_empty_when_nothing_is_set():
-    assert TransactionFilter().to_filter_parameters() == {}
+    assert TransactionSearchQuery(account_ids=[1]).to_filter_parameters() == {}
 
 
 def test_contract_read_shows_exact_median_for_the_detected_frequency():

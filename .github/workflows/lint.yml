@@ -40,4 +40,4 @@ jobs:
         run: pipx install pre-commit
 
       - name: Run pre-commit
-        run: git ls-files --cached --others --exclude-standard -z | xargs -0 pre-commit run --files
+        run: pre-commit run --all-files

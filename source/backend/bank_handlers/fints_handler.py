@@ -39,12 +39,10 @@ T = TypeVar("T")
 
 class _FinTSSession(BankSession):
     def __init__(self, client: FinTS3PinTanClient, notify_two_factor_state: TwoFactorStateCallback | None = None):
-        super().__init__()
-
         self._client = client
         self._notify_two_factor_state = notify_two_factor_state
 
-        self._account_mapping: dict[str, SEPAAccount]
+        self._account_mapping: dict[str, SEPAAccount] = {}
         self._balance_observations: dict[str, list[BalanceObservation]] = {}
 
     def get_accounts(self) -> list[FetchedAccount]:

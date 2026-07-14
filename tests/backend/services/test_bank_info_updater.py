@@ -14,7 +14,7 @@ from tests.backend.conftest import assert_log_contains
 @pytest.fixture
 def isolated_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     pickle_path = tmp_path / "bank_info.pickle"
-    monkeypatch.setattr(target=updater, name="_pickle_path", value=lambda: pickle_path)
+    monkeypatch.setattr(target=updater, name="BANK_DB_PATH", value=pickle_path)
     return pickle_path
 
 

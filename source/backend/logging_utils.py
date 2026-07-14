@@ -27,10 +27,6 @@ def set_session_log_label(label: str) -> None:
     _session_log_label.set(label)
 
 
-def current_session_log_label() -> str:
-    return _session_log_label.get()
-
-
 @contextmanager
 def session_log_context(label: str) -> Iterator[None]:
     # Bind a label for the duration of a block and restore the previous one afterwards.

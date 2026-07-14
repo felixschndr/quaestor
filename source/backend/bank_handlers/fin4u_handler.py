@@ -41,7 +41,6 @@ class _Fin4uSession(BankSession):
     ACCOUNT_NAME = "Altersvorsorge"
 
     def __init__(self, username: str, password: str):
-        super().__init__()
         self.username = username
         self.password = password
         self._balance: float | None = None

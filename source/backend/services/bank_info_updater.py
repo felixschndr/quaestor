@@ -30,16 +30,12 @@ _BANK_INFO_OVERRIDES: dict[str, dict[str, str]] = {
 _MIN_PLAUSIBLE_ENTRIES = 1000
 
 
-def _pickle_path() -> Path:
-    return BANK_DB_PATH
-
-
 def _redirect_update_target(pickle_path: Path) -> None:
     update_bank_info.__file__ = str(pickle_path)
 
 
 def _freshness_marker_path() -> Path:
-    return _pickle_path().parent / ".bank_info_updated_at"
+    return BANK_DB_PATH.parent / ".bank_info_updated_at"
 
 
 def _is_fresh_enough(max_age: timedelta) -> bool:
@@ -68,7 +64,7 @@ def add_bank_info_overrides_to_db() -> None:
 
 
 def _update_raw_db_file() -> None:
-    pickle_path = _pickle_path()
+    pickle_path = BANK_DB_PATH
 
     if _is_fresh_enough(DEFAULT_MAX_AGE):
         logger.info(f"FinTS bank DB at {pickle_path} is fresh enough; skipping update")

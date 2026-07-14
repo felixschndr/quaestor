@@ -68,8 +68,6 @@ class _AccountState(TypedDict):
 
 class _TradeRepublicSession(BankSession):
     def __init__(self, trade_republic_client: TradeRepublicApi):
-        super().__init__()
-
         self._trade_republic_client = trade_republic_client
 
         self._accounts: dict[str, _AccountState] = {}

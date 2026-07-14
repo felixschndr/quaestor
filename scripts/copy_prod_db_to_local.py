@@ -1,6 +1,5 @@
 """
-Copy the production database to the local data dir, wipe all stored bank
-credentials, then rotate the encryption key.
+Copy the production database to the local data dir, then rotate the encryption key.
 
 Usage:
     python scripts/copy_prod_db_to_local.py
@@ -12,8 +11,6 @@ import os
 import subprocess  # nosec B404
 import sys
 from pathlib import Path
-
-import sqlcipher3
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -45,24 +42,10 @@ def _get_remote_encryption_key() -> str:
     sys.exit(f"{KEY_ENV_VARIABLE_NAME} not found in {REMOTE_ENV} on {REMOTE_HOST}.")
 
 
-def _wipe_credentials(db_path: Path, key: str) -> None:
-    conn = sqlcipher3.connect(str(db_path))
-    try:
-        conn.execute(f"PRAGMA key = '{key.replace(chr(39), chr(39) * 2)}'")
-        cleared = conn.execute("UPDATE credentials SET credentials = '{}'").rowcount
-        conn.commit()
-        print(f"  cleared credentials column on {cleared} row(s)")
-    finally:
-        conn.close()
-
-
 def main() -> None:
     _copy_database()
 
     prod_key = _get_remote_encryption_key()
-
-    print("Wiping credentials")
-    # _wipe_credentials(DATABASE_PATH, prod_key)
 
     rotate_db_encryption_key._write_env_key(ENV_FILE_PATH, prod_key)
     os.environ[KEY_ENV_VARIABLE_NAME] = prod_key
