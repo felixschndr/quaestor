@@ -3,10 +3,10 @@
 # Reset a user's password and disable their two-factor authentication.
 #
 # Usage:
-#   Native:    USERNAME=felix PW=secret ./scripts/resetpw.sh
-#   Container: docker exec -e USERNAME=felix -e PW=secret quaestor scripts/resetpw.sh
+#   Native:    USERNAME=felix PW=secret ./scripts/db/resetpw.sh
+#   Container: docker exec -e USERNAME=felix -e PW=secret quaestor scripts/db/resetpw.sh
 #
-# Optional environment variables: see scripts/db_common.sh
+# Optional environment variables: see scripts/db/db_common.sh
 
 set -euo pipefail
 

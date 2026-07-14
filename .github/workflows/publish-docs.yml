@@ -43,7 +43,7 @@ jobs:
         run: poetry install --no-interaction --no-root
 
       - name: Generate OpenAPI spec
-        run: poetry run python scripts/dump_openapi.py site/openapi.json
+        run: poetry run python scripts/docs/dump_openapi.py site/openapi.json
 
       - name: Build static ReDoc page
         run: npx --yes @redocly/cli build-docs site/openapi.json -o site/index.html --title "Quaestor API Docs"
@@ -56,7 +56,7 @@ jobs:
           sed -i "s#</body>#${link}</body>#" site/index.html
 
       - name: Build supported-banks page
-        run: poetry run python scripts/dump_bank_catalog.py site/banks.html
+        run: poetry run python scripts/docs/dump_bank_catalog.py site/banks.html
 
       - name: Copy bank logos
         run: |

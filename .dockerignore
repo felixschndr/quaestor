@@ -33,7 +33,10 @@ source/frontend/src/**/__tests__
 README.md
 LICENSE
 Taskfile.yml
-scripts
+scripts/*
+!scripts/db/db_common.sh
+!scripts/db/db.sh
+!scripts/db/resetpw.sh
 tests
 idea_for_frontend.md
 Dockerfile

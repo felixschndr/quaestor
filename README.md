@@ -195,9 +195,9 @@ If you need/want to access the database, you can do so with
 
 | Native             | Container                                |
 |--------------------|------------------------------------------|
-| `./scripts/db.sh`  | `docker exec -it quaestor scripts/db.sh` |
+| `./scripts/db/db.sh`  | `docker exec -it quaestor scripts/db/db.sh` |
 
-The script resolves the database path and encryption key automatically (see `scripts/db_common.sh` for overrides such as `DB_PATH` and `ENV_FILE`).
+The script resolves the database path and encryption key automatically (see `scripts/db/db_common.sh` for overrides such as `DB_PATH` and `ENV_FILE`).
 
 Then you can use standard sqlite syntax such as
 ````
@@ -212,7 +212,7 @@ To reset the password of a user and disable his/her two-factor authentication us
 
 | Native                                                | Container                                                                       |
 |-------------------------------------------------------|---------------------------------------------------------------------------------|
-| `USERNAME=<user> PW=<new pw> ./scripts/resetpw.sh`    | `docker exec -e USERNAME=<user> -e PW=<new pw> quaestor scripts/resetpw.sh`     |
+| `USERNAME=<user> PW=<new pw> ./scripts/db/resetpw.sh`    | `docker exec -e USERNAME=<user> -e PW=<new pw> quaestor scripts/db/resetpw.sh`     |
 
 ## Environment Variables
 

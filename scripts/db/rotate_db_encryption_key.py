@@ -2,8 +2,8 @@
 Script to rotate the encryption key (in case it gets leaked).
 
 Usage:
-    Dry run:         python scripts/rotate_db_encryption_key.py
-    Actually rotate: python scripts/rotate_db_encryption_key.py --apply
+    Dry run:         python scripts/db/rotate_db_encryption_key.py
+    Actually rotate: python scripts/db/rotate_db_encryption_key.py --apply
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from pathlib import Path
 import sqlcipher3
 from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
 from source.backend.db import KEY_ENV_VARIABLE_NAME  # noqa: E402

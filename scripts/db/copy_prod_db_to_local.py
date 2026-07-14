@@ -2,7 +2,7 @@
 Copy the production database to the local data dir, then rotate the encryption key.
 
 Usage:
-    python scripts/copy_prod_db_to_local.py
+    python scripts/db/copy_prod_db_to_local.py
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import subprocess  # nosec B404
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 

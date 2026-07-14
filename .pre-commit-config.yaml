@@ -76,13 +76,13 @@ repos:
       - id: check-i18n
         name: check i18n keys
         language: system
-        entry: python3 scripts/check_i18n.py
+        entry: python3 scripts/checks/check_i18n.py
         files: '^(source/frontend/src/(.*\.(ts|tsx)|i18n/locales/.*\.json)|source/backend/.*\.py)$'
         pass_filenames: false
 
       - id: check-transaction-category-mapping
         name: check transaction category mapping
         language: system
-        entry: python3 scripts/check_transaction_category_mapping.py
+        entry: python3 scripts/checks/check_transaction_category_mapping.py
         files: '^source/backend/models/transaction_category.py$'
         pass_filenames: false
