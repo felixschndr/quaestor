@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import { defineConfig } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
 import react from '@vitejs/plugin-react'
@@ -7,6 +8,15 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 const FRONTEND_PORT = Number(process.env.FRONTEND_PORT ?? 8000)
 const BACKEND_DEV_PORT = Number(process.env.BACKEND_DEV_PORT ?? 8001)
+
+// Serve the dev server over HTTPS when the local certificate exists (see README /
+// docs/enable-banking.md) — PSD2 redirect URLs must be https. Falls back to http.
+const SSL_CERTFILE = fileURLToPath(new URL('../../data/localhost-cert.pem', import.meta.url))
+const SSL_KEYFILE = fileURLToPath(new URL('../../data/localhost-key.pem', import.meta.url))
+const https =
+  fs.existsSync(SSL_CERTFILE) && fs.existsSync(SSL_KEYFILE)
+    ? { cert: fs.readFileSync(SSL_CERTFILE), key: fs.readFileSync(SSL_KEYFILE) }
+    : undefined
 
 export default defineConfig({
   resolve: {
@@ -65,6 +75,7 @@ export default defineConfig({
     host: true,
     port: FRONTEND_PORT,
     strictPort: true,
+    https,
     open: process.env.OPEN_BROWSER ? true : undefined,
     proxy: {
       '/api': {
