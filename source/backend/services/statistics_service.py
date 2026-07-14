@@ -1,5 +1,8 @@
 import datetime
 
+from sqlalchemy import ColumnElement, case, func, select
+from sqlalchemy.orm import Session
+
 from source.backend.api.schemas.statistics import (
     AccountRangeChange,
     CategorySlice,
@@ -24,8 +27,6 @@ from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 from source.backend.models.user import User
 from source.backend.services import account_service
-from sqlalchemy import ColumnElement, case, func, select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

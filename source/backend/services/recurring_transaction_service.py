@@ -1,6 +1,9 @@
 import calendar
 from datetime import date, timedelta
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from source.backend.exceptions import RecurringTransactionNotFoundError
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
@@ -10,8 +13,6 @@ from source.backend.models.recurrence_frequency import RecurrenceFrequency
 from source.backend.models.recurring_transaction import RecurringTransaction
 from source.backend.models.transaction import Transaction
 from source.backend.services import account_service
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

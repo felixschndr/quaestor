@@ -19,7 +19,6 @@ from source.backend.models.transaction_type import TransactionType  # noqa: E402
 from source.backend.models.user import User  # noqa: E402
 from source.backend.services import migrations  # noqa: E402
 from source.backend.services.password_service import hash_password  # noqa: E402
-
 from tests.backend.conftest import (  # noqa: E402
     DISPLAY_NAME,
     USER_NAME,

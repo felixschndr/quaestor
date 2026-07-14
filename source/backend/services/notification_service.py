@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from source.backend.logging_utils import get_logger
 from source.backend.models.push_subscription import PushSubscription
 from source.backend.models.user import User
 from source.backend.services import push_service
 from source.backend.services.push_service import PushOutcome
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

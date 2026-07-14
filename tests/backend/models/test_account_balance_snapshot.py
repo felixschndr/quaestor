@@ -2,7 +2,6 @@ from source.backend.models.account_balance_snapshot import (
     AccountBalanceSnapshot,
     BalanceSnapshotSource,
 )
-
 from tests.backend.conftest import RECENT_DATE
 
 

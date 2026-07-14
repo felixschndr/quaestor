@@ -11,6 +11,10 @@ import pytest
 import requests
 from fastapi.testclient import TestClient
 from httpx import Response  # noqa ASYNC127
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
+
 from source.backend import main
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
 from source.backend.bank_handlers.base import (
@@ -34,9 +38,6 @@ from source.backend.models.transaction_type import TransactionType
 from source.backend.models.user import User
 from source.backend.security import csrf, rate_limit
 from source.backend.services import i18n_service
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 USER_NAME = "alice"
 SECOND_USER_NAME = "bob"

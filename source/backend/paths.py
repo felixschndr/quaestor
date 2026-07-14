@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+
 from source.backend.helpers import get_root_path_of_repository
 
 DATA_DIR_ENV_VARIABLE_NAME = "DATA_DIR"

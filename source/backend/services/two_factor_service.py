@@ -4,6 +4,9 @@ from datetime import timedelta
 
 import pyotp
 import segno
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from source.backend.exceptions import InvalidTwoFactorError
 from source.backend.helpers import get_project_name, hash_token, utc_now
 from source.backend.logging_utils import get_logger
@@ -11,8 +14,6 @@ from source.backend.models.backup_code import BackupCode
 from source.backend.models.two_factor_challenge import TwoFactorChallenge
 from source.backend.models.user import User
 from source.backend.services.password_service import hash_password, verify_password
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

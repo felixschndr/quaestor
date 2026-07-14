@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from playwright.async_api import async_playwright
+
 from source.backend.logging_utils import get_logger
 from source.backend.paths import PLAYWRIGHT_BROWSERS_PATH
 

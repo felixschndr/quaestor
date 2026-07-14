@@ -6,6 +6,7 @@ from enum import Enum
 from cryptography.hazmat.primitives import serialization
 from py_vapid import Vapid02
 from pywebpush import WebPushException, webpush
+
 from source.backend.logging_utils import get_logger
 from source.backend.paths import DATA_DIR
 

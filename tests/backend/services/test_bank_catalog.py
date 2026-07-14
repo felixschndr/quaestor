@@ -1,4 +1,5 @@
 import pytest
+
 from source.backend.services import bank_catalog
 from source.backend.services.bank_catalog import CatalogEntry, CatalogFamily
 

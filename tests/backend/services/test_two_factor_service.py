@@ -3,14 +3,14 @@ from datetime import timedelta
 
 import pyotp
 import pytest
+from sqlalchemy import select
+from sqlalchemy.orm import sessionmaker
+
 from source.backend.exceptions import InvalidTwoFactorError
 from source.backend.helpers import utc_now
 from source.backend.models.two_factor_challenge import TwoFactorChallenge
 from source.backend.models.user import User
 from source.backend.services import two_factor_service
-from sqlalchemy import select
-from sqlalchemy.orm import sessionmaker
-
 from tests.backend.conftest import USER_NAME, assert_log_contains, create_user
 
 _BACKUP_CODE_FORMAT = re.compile(r"^[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$")

@@ -1,6 +1,8 @@
 from datetime import date
 
 import pytest
+from sqlalchemy.orm import sessionmaker
+
 from source.backend.bank_handlers import BankProvider
 from source.backend.exceptions import AccountNotFoundError, PermissionDeniedError
 from source.backend.models.account import Account
@@ -10,8 +12,6 @@ from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 from source.backend.models.user import User
 from source.backend.services import account_service
-from sqlalchemy.orm import sessionmaker
-
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     RECENT_DATE,

@@ -1,8 +1,8 @@
 import pytest
-from source.backend.logging_utils import get_logger
-from source.backend.models.base import snapshot_columns
 from sqlalchemy.orm import sessionmaker
 
+from source.backend.logging_utils import get_logger
+from source.backend.models.base import snapshot_columns
 from tests.backend.conftest import DISPLAY_NAME, assert_log_contains, make_user
 
 

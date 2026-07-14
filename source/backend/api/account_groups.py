@@ -1,4 +1,6 @@
 from fastapi import Depends
+from sqlalchemy.orm import Session
+
 from source.backend.api.create_router import create_router
 from source.backend.api.schemas.account_group import (
     AccountGroupLayoutRead,
@@ -7,7 +9,6 @@ from source.backend.api.schemas.account_group import (
 from source.backend.db import get_session
 from source.backend.models.user import User
 from source.backend.services import account_group_service, session_service
-from sqlalchemy.orm import Session
 
 router = create_router()
 

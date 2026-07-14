@@ -1,6 +1,9 @@
 from datetime import date
 
 import pytest
+from sqlalchemy import select
+from sqlalchemy.orm import sessionmaker
+
 from source.backend.bank_handlers import BankProvider
 from source.backend.exceptions import (
     PermissionDeniedError,
@@ -11,9 +14,6 @@ from source.backend.models.recurrence_frequency import RecurrenceFrequency
 from source.backend.models.recurring_transaction import RecurringTransaction
 from source.backend.models.transaction import Transaction
 from source.backend.services import account_service, recurring_transaction_service
-from sqlalchemy import select
-from sqlalchemy.orm import sessionmaker
-
 from tests.backend.conftest import (
     assert_log_contains,
     make_account_with_new_user,

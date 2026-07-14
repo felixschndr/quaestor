@@ -9,6 +9,7 @@ from pathlib import Path
 
 import fints_url
 from fints_url import update_bank_info
+
 from source.backend.logging_utils import get_logger
 from source.backend.paths import BANK_DB_PATH
 from source.backend.services import bank_catalog

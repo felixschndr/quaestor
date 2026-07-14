@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+
 from source.backend.services import i18n_service
 from source.backend.services.sync_scheduler import SYNC_INTERVAL_HOURS_ENV_VARIABLE_NAME
 from source.backend.services.user_service import (

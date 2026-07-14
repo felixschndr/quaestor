@@ -3,6 +3,7 @@ from functools import lru_cache
 
 import fints_url
 from schwifty import registry
+
 from source.backend.bank_handlers import BANKS_BY_NAME, SUPPORTED_BANKS
 from source.backend.bank_handlers.bank_logos import (
     family_for_name,

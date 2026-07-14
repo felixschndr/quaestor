@@ -1,5 +1,6 @@
 from alembic import command
 from alembic.config import Config
+
 from source.backend.helpers import get_root_path_of_repository
 from source.backend.logging_utils import get_logger
 

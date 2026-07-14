@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+
 from source.backend.api.create_router import create_router
 from source.backend.helpers import get_project_version
 from source.backend.services import version_service

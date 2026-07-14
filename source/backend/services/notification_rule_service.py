@@ -1,3 +1,6 @@
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from source.backend.exceptions import NotificationRuleNotFoundError
 from source.backend.helpers import apply_fields
 from source.backend.logging_utils import get_logger
@@ -5,8 +8,6 @@ from source.backend.models.base import snapshot_columns
 from source.backend.models.notification_rule import NotificationRule
 from source.backend.models.user import User
 from source.backend.services import account_service
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

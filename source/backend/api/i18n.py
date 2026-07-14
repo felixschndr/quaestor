@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+
 from source.backend.api.create_router import create_router
 from source.backend.services import i18n_service
 

@@ -1,6 +1,7 @@
 import datetime
 
 from pydantic import BaseModel, ConfigDict
+
 from source.backend.api.schemas.transaction import TransactionRead
 from source.backend.helpers import utc_now
 from source.backend.models.contract import Contract

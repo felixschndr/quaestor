@@ -1,7 +1,6 @@
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
-
 from tests.backend.conftest import RECENT_DATE
 
 

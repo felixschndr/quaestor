@@ -1,5 +1,8 @@
 from datetime import date
 
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
 from source.backend.bank_handlers import BankProvider
 from source.backend.exceptions import (
     AccountNotFoundError,
@@ -19,8 +22,6 @@ from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 from source.backend.models.user import User
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

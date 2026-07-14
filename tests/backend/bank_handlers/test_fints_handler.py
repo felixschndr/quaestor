@@ -4,6 +4,7 @@ from decimal import Decimal
 from unittest.mock import MagicMock
 
 import pytest
+
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
 from source.backend.bank_handlers import fints_handler as module
 from source.backend.bank_handlers.base import (
@@ -20,7 +21,6 @@ from source.backend.exceptions import (
     InvalidCredentialsError,
     ReauthenticationRequiredError,
 )
-
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     BANK_PASSWORD,

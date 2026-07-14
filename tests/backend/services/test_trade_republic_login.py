@@ -1,8 +1,8 @@
 import pytest
 import requests
+
 from source.backend.exceptions import InvalidCredentialsError
 from source.backend.services import trade_republic_login as module
-
 from tests.backend.conftest import assert_log_contains
 
 

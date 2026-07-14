@@ -2,6 +2,15 @@ from collections import defaultdict
 from datetime import date
 from typing import TYPE_CHECKING, List
 
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
+from sqlalchemy.orm import (
+    Mapped,
+    attribute_keyed_dict,
+    mapped_column,
+    object_session,
+    relationship,
+)
+
 from source.backend.bank_handlers.base import BalanceObservation, FetchedAccount
 from source.backend.logging_utils import get_logger
 from source.backend.models.account_balance_snapshot import (
@@ -12,14 +21,6 @@ from source.backend.models.account_group import (  # noqa: F401 — registers FK
     AccountGroup,
 )
 from source.backend.models.base import Base
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
-from sqlalchemy.orm import (
-    Mapped,
-    attribute_keyed_dict,
-    mapped_column,
-    object_session,
-    relationship,
-)
 
 if TYPE_CHECKING:
     from source.backend.models.contract import Contract

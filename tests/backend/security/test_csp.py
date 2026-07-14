@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
-from source.backend.security.csp import DEFAULT_POLICY, DOCS_POLICY, HEADER_NAME
 
+from source.backend.security.csp import DEFAULT_POLICY, DOCS_POLICY, HEADER_NAME
 from tests.backend.conftest import VALID_PASSWORD
 
 

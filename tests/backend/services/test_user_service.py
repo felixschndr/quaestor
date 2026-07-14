@@ -1,11 +1,11 @@
 from unittest.mock import MagicMock
 
 import pytest
-from source.backend.exceptions import UserNameAlreadyExistsError, UserNotFoundError
-from source.backend.services import user_service
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
+from source.backend.exceptions import UserNameAlreadyExistsError, UserNotFoundError
+from source.backend.services import user_service
 from tests.backend.conftest import (
     DISPLAY_NAME,
     SECOND_USER_NAME,

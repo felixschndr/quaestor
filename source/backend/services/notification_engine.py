@@ -1,6 +1,9 @@
 import datetime
 from dataclasses import dataclass
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from source.backend.helpers import format_amount, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.account import Account
@@ -21,8 +24,6 @@ from source.backend.services import (
     notification_service,
 )
 from source.backend.services.notification_service import Notification
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

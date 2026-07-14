@@ -5,11 +5,11 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
+
 from source.backend.services import credential_service, sync_jobs
 from source.backend.services.credential_service import SyncResult, SyncStatus
 from source.backend.services.sync_jobs import JobStatus
-from starlette.websockets import WebSocketDisconnect
-
 from tests.backend.conftest import (
     BANK_PASSWORD,
     BANK_USERNAME,

@@ -1,5 +1,10 @@
 import os
 
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError, NoResultFound
+from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
+
 from source.backend.exceptions import UserNameAlreadyExistsError, UserNotFoundError
 from source.backend.helpers import apply_fields
 from source.backend.logging_utils import get_logger
@@ -8,10 +13,6 @@ from source.backend.models.theme import Theme
 from source.backend.models.user import User
 from source.backend.services import i18n_service
 from source.backend.services.password_service import hash_password
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError, NoResultFound
-from sqlalchemy.orm import Session
-from sqlalchemy.sql.elements import ColumnElement
 
 logger = get_logger(__name__)
 

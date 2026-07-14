@@ -1,6 +1,8 @@
 from dataclasses import asdict
 
 from fastapi import Depends, WebSocket, WebSocketDisconnect
+from sqlalchemy.orm import Session
+
 from source.backend.api.create_router import create_router
 from source.backend.api.schemas.credential import (
     CredentialCreate,
@@ -20,7 +22,6 @@ from source.backend.models.credential import Credential
 from source.backend.models.user import User
 from source.backend.services import credential_service, session_service, sync_jobs
 from source.backend.services.sync_jobs import SyncJob
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

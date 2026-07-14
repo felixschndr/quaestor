@@ -1,4 +1,5 @@
 import pytest
+
 from source.backend.services import notification_messages
 
 

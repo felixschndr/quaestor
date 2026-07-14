@@ -1,4 +1,5 @@
 from fastapi import Depends, FastAPI
+
 from source.backend import main
 from source.backend.api import openapi
 from source.backend.helpers import get_project_description

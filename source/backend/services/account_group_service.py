@@ -1,3 +1,6 @@
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from source.backend.api.schemas.account_group import AccountGroupLayoutWrite
 from source.backend.exceptions import (
     AccountNotFoundError,
@@ -9,8 +12,6 @@ from source.backend.models.account import Account
 from source.backend.models.account_group import AccountGroup
 from source.backend.models.credential import Credential
 from source.backend.models.user import User
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

@@ -10,6 +10,9 @@ from typing import Any, AsyncGenerator, Awaitable, Callable
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import Scope
+
 from source.backend.api import (
     account,
     account_groups,
@@ -60,8 +63,6 @@ from source.backend.services import (
     session_service,
     sync_scheduler,
 )
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.types import Scope
 
 logger = get_logger(__name__)
 

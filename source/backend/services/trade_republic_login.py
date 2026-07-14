@@ -6,6 +6,7 @@ from pathlib import Path
 
 import requests
 from pytr.api import TradeRepublicApi
+
 from source.backend.exceptions import InvalidCredentialsError, InvalidTwoFactorError
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger

@@ -2,6 +2,7 @@ import re
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
 from source.backend.api.schemas.credential import CredentialRead
 from source.backend.models.theme import Theme
 from source.backend.services import i18n_service

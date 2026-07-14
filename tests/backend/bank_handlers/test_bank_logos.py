@@ -1,4 +1,5 @@
 import pytest
+
 from source.backend.bank_handlers.bank_logos import logo_exists, logo_slug
 
 

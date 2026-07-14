@@ -8,6 +8,7 @@ from cryptography.hazmat.primitives.asymmetric.padding import MGF1, OAEP
 from cryptography.hazmat.primitives.hashes import SHA1, SHA256
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from requests import HTTPError, Session
+
 from source.backend.bank_handlers.base import (
     BankHandler,
     BankSession,

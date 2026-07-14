@@ -1,9 +1,9 @@
+from sqlalchemy.orm import Session, sessionmaker
+
 from source.backend.services.contract_aggregators import (
     Fingerprint,
     compute_fingerprint,
 )
-from sqlalchemy.orm import Session, sessionmaker
-
 from tests.backend.conftest import make_transaction, persist_account_with_new_user
 
 

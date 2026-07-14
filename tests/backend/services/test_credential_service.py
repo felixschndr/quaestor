@@ -2,6 +2,8 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy.orm import sessionmaker
+
 from source.backend.bank_handlers import BankProvider
 from source.backend.bank_handlers.base import BankHandler
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
@@ -13,8 +15,6 @@ from source.backend.exceptions import (
 from source.backend.models.credential import Credential
 from source.backend.models.user import User
 from source.backend.services import credential_service, trade_republic_login
-from sqlalchemy.orm import sessionmaker
-
 from tests.backend.conftest import (
     BANK_PASSWORD,
     BANK_USERNAME,

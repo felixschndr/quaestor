@@ -6,8 +6,8 @@ from pathlib import Path
 
 import fints_url
 import pytest
-from source.backend.services import bank_info_updater as updater
 
+from source.backend.services import bank_info_updater as updater
 from tests.backend.conftest import assert_log_contains
 
 

@@ -2,11 +2,11 @@ from datetime import date, datetime
 
 import pytest
 from pydantic import BaseModel
+
 from source.backend.api.schemas.common import UtcDatetime
 from source.backend.api.schemas.contract import ContractRead
 from source.backend.api.schemas.transaction import TransactionSearchQuery
 from source.backend.models.contract_frequency import ContractFrequency
-
 from tests.backend.conftest import AMOUNT, build_contract
 
 

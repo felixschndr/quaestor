@@ -1,9 +1,10 @@
 from unittest.mock import MagicMock
 
 import pytest
-from source.backend import db
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
+
+from source.backend import db
 
 
 @pytest.mark.parametrize(argnames="env_value", argvalues=[None, ""])

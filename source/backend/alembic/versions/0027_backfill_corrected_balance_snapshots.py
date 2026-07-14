@@ -14,9 +14,10 @@ Create Date: 2026-06-14 17:30:00.000000
 from typing import Sequence, Union
 
 from alembic import op
-from source.backend.models.account import Account
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from source.backend.models.account import Account
 
 revision: str = "0027"
 down_revision: Union[str, None] = "0026"

@@ -1,8 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
-from source.backend.models.user import User
 from sqlalchemy.orm import sessionmaker
 
+from source.backend.models.user import User
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     SECOND_ACCOUNT_IBAN,

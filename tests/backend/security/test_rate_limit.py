@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+
 from source.backend.security import rate_limit
 from source.backend.security.rate_limit import InMemoryTokenBucketLimiter
 

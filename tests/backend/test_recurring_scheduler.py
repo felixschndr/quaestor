@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import sessionmaker
+
 from source.backend import helpers, main
 from source.backend.bank_handlers import BankProvider
 from source.backend.models.account import Account
@@ -14,8 +16,6 @@ from source.backend.services import recurring_transaction_scheduler
 from source.backend.services.recurring_transaction_scheduler import (
     run_periodic_recurring as real_run_periodic_recurring,
 )
-from sqlalchemy.orm import sessionmaker
-
 from tests.backend.conftest import (
     assert_log_contains,
     make_account,

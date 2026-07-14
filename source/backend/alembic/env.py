@@ -5,10 +5,11 @@ from alembic import context
 from alembic.operations.ops import MigrateOperation, MigrationScript
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
+from sqlalchemy import MetaData
+
 from source.backend.db import engine
 from source.backend.helpers import get_backend_source_path
 from source.backend.models.base import Base
-from sqlalchemy import MetaData
 
 config = context.config
 

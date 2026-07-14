@@ -1,10 +1,10 @@
 from datetime import date
 
 import pytest
+
 from source.backend.bank_handlers import BANKS_BY_NAME
 from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.bank_handlers.manual_handler import ManualHandler
-
 from tests.backend.conftest import assert_log_contains
 
 

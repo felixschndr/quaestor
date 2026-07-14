@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, field_validator
+
 from source.backend.api.schemas.common import UtcDatetime
 
 if TYPE_CHECKING:

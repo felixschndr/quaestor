@@ -2,13 +2,13 @@ from datetime import timedelta
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy import select
+from sqlalchemy.orm import sessionmaker
+
 from source.backend.exceptions import InvalidCredentialsError
 from source.backend.helpers import utc_now
 from source.backend.models.session import UserSession
 from source.backend.services import session_service
-from sqlalchemy import select
-from sqlalchemy.orm import sessionmaker
-
 from tests.backend.conftest import HTTP_SESSION_TOKEN, assert_log_contains, create_user
 
 

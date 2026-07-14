@@ -5,12 +5,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import Request
-from source.backend import main
-from source.backend.helpers import get_project_name, get_project_version
 from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Scope
 
+from source.backend import main
+from source.backend.helpers import get_project_name, get_project_version
 from tests.backend.conftest import assert_log_contains
 
 

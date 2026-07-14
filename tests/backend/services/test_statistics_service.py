@@ -2,12 +2,12 @@ import datetime
 import inspect
 
 import pytest
+from sqlalchemy.orm import Session, sessionmaker
+
 from source.backend.models.account import Account
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.user import User
 from source.backend.services import statistics_service
-from sqlalchemy.orm import Session, sessionmaker
-
 from tests.backend.conftest import (
     make_account,
     make_credential,

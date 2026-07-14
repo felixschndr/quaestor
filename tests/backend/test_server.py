@@ -14,10 +14,10 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
-from source.backend import main, server
-from source.backend.db import get_session
 from sqlalchemy.orm import sessionmaker
 
+from source.backend import main, server
+from source.backend.db import get_session
 from tests.backend.conftest import VALID_PASSWORD
 
 

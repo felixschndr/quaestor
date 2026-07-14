@@ -1,6 +1,8 @@
 from datetime import timedelta
 
 import pytest
+from sqlalchemy.orm import Session, sessionmaker
+
 from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.helpers import utc_now
 from source.backend.models.contract import OVERDUE_GRACE_DAYS
@@ -21,8 +23,6 @@ from source.backend.services.notification_service import (
     Notification,
     NotificationResult,
 )
-from sqlalchemy.orm import Session, sessionmaker
-
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     LAST_FETCHING_TIMESTAMP,

@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import rotate_db_encryption_key  # noqa: E402
+
 from source.backend.db import KEY_ENV_VARIABLE_NAME  # noqa: E402
 from source.backend.paths import DATABASE_PATH, ENV_FILE_PATH  # noqa: E402
 

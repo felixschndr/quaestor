@@ -1,6 +1,7 @@
 import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
 from source.backend.models.recurrence_frequency import RecurrenceFrequency
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType

@@ -5,11 +5,11 @@ import pytest
 from fastapi import Request
 from fastapi.testclient import TestClient
 from httpx import Response  # noqa ASYNC127
-from source.backend import main
-from source.backend.security import csrf
 from starlette.responses import Response as StarletteResponse
 from starlette.types import Scope
 
+from source.backend import main
+from source.backend.security import csrf
 from tests.backend.conftest import register
 
 

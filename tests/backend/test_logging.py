@@ -2,6 +2,7 @@ import logging
 
 import pytest
 from fastapi.testclient import TestClient
+
 from source.backend import logging_utils, main
 from source.backend.logging_utils import (
     NO_SESSION_LOG_LABEL,
@@ -12,7 +13,6 @@ from source.backend.logging_utils import (
     redact_headers,
     session_log_context,
 )
-
 from tests.backend.conftest import PIN, VALID_PASSWORD, register
 
 

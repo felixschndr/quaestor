@@ -2,6 +2,9 @@ import asyncio
 
 from fastapi import Depends
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from source.backend.api.create_router import create_router
 from source.backend.db import SessionLocal, get_session
 from source.backend.helpers import utc_now
@@ -14,8 +17,6 @@ from source.backend.services.notification_service import (
     NotificationResult,
     notify_user,
 )
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 router = create_router()
 logger = get_logger(__name__)

@@ -11,6 +11,7 @@ from fints.client import FinTS3PinTanClient, NeedTANResponse
 from fints.exceptions import FinTSClientPINError
 from fints.models import SEPAAccount
 from fints.models import Transaction as FinTSTransaction
+
 from source.backend.bank_handlers.base import (
     BalanceObservation,
     BankHandler,

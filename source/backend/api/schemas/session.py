@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+
 from source.backend.api.schemas.common import UtcDatetime
 
 

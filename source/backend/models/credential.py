@@ -1,6 +1,11 @@
 from datetime import date, datetime
 from typing import TYPE_CHECKING, List
 
+from sqlalchemy import JSON, DateTime
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from source.backend.bank_handlers import BankHandler, BankProvider, handler_for
 from source.backend.bank_handlers.base import BankSession, FetchedAccount
 from source.backend.helpers import get_key_of_transaction, utc_now
@@ -9,10 +14,6 @@ from source.backend.models.account import Account
 from source.backend.models.base import Base
 from source.backend.models.transaction import Transaction
 from source.backend.services import bank_catalog
-from sqlalchemy import JSON, DateTime
-from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 logger = get_logger(__name__)
 

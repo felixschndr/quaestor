@@ -3,6 +3,7 @@ from typing import Awaitable, Callable
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
+
 from source.backend.constants import API_PREFIX
 from source.backend.logging_utils import get_logger
 from source.backend.services import api_key_service

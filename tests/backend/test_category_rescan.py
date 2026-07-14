@@ -4,6 +4,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import sessionmaker
+
 from source.backend import main
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
@@ -11,8 +13,6 @@ from source.backend.services import category_rescan
 from source.backend.services.category_rescan import (
     run_startup_rescan as real_run_startup_rescan,
 )
-from sqlalchemy.orm import sessionmaker
-
 from tests.backend.conftest import (
     UNKNOWN_TRANSACTION_OTHER_PARTY,
     assert_log_contains,

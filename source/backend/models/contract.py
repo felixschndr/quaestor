@@ -1,12 +1,6 @@
 import datetime
 from typing import TYPE_CHECKING
 
-from source.backend.models.base import Base
-from source.backend.models.contract_assignment import ContractAssignment
-from source.backend.models.contract_frequency import ContractFrequency
-from source.backend.models.contract_source import ContractSource
-from source.backend.models.transaction import Transaction
-from source.backend.models.transaction_category import TransactionCategory
 from sqlalchemy import (
     Date,
     DateTime,
@@ -23,10 +17,18 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from source.backend.models.base import Base
+from source.backend.models.contract_assignment import ContractAssignment
+from source.backend.models.contract_frequency import ContractFrequency
+from source.backend.models.contract_source import ContractSource
+from source.backend.models.transaction import Transaction
+from source.backend.models.transaction_category import TransactionCategory
+
 if TYPE_CHECKING:
-    from source.backend.models.account import Account
     from sqlalchemy import Connection
     from sqlalchemy.orm import Mapper
+
+    from source.backend.models.account import Account
 
 # A transaction is an outlier when |amount - median| exceeds a tolerance band. The band is the
 # spread (MAD) scaled by OUTLIER_SPREAD_FACTOR, but bounded on both ends:

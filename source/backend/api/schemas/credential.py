@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict
+
 from source.backend.api.schemas.account import AccountRead
 from source.backend.api.schemas.common import UtcDatetime
 from source.backend.bank_handlers import BankProvider

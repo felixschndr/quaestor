@@ -2,12 +2,12 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import sessionmaker
+
 from source.backend.bank_handlers import BankProvider
 from source.backend.logging_utils import NO_SESSION_LOG_LABEL
 from source.backend.services import credential_service
 from source.backend.services.credential_service import SyncResult, SyncStatus
-from sqlalchemy.orm import sessionmaker
-
 from tests.backend.conftest import (
     NEW_VALID_PASSWORD,
     SECOND_USER_NAME,

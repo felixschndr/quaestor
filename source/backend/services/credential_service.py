@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
 from source.backend.bank_handlers.base import TwoFactorStateCallback
 from source.backend.exceptions import (
@@ -24,8 +27,6 @@ from source.backend.services import (
     transfer_detection,
 )
 from source.backend.services.notification_service import Notification
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

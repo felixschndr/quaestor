@@ -1,22 +1,24 @@
 import datetime
 from typing import TYPE_CHECKING
 
+from sqlalchemy import Boolean, Date
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import Float, ForeignKey, Integer, String, event, update
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.logging_utils import get_logger
 from source.backend.models.base import Base
 from source.backend.models.contract_assignment import ContractAssignment
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
-from sqlalchemy import Boolean, Date
-from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import Float, ForeignKey, Integer, String, event, update
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
-    from source.backend.models.account import Account
-    from source.backend.models.contract import Contract
     from sqlalchemy import Connection
     from sqlalchemy.orm import Mapper
+
+    from source.backend.models.account import Account
+    from source.backend.models.contract import Contract
 
 logger = get_logger(__name__)
 

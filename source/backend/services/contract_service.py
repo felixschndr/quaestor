@@ -1,3 +1,6 @@
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from source.backend.exceptions import ContractNotFoundError
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
@@ -13,8 +16,6 @@ from source.backend.services.contract_detection_service import (
     apply_contract_category_to_members,
     recompute_contract_stats,
 )
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

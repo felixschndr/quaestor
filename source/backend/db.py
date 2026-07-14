@@ -3,10 +3,11 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import sqlcipher3
-from source.backend.logging_utils import get_logger
-from source.backend.paths import DATABASE_PATH
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
+
+from source.backend.logging_utils import get_logger
+from source.backend.paths import DATABASE_PATH
 
 KEY_ENV_VARIABLE_NAME = "DATABASE_ENCRYPTION_KEY"
 

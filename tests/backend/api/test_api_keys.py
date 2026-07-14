@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
-from source.backend.security import csrf
 
+from source.backend.security import csrf
 from tests.backend.conftest import (
     auth_header_for_api_key,
     create_api_key,

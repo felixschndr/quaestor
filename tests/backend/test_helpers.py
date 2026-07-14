@@ -2,6 +2,7 @@ from datetime import date
 from typing import Any
 
 import pytest
+
 from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.helpers import (
     apply_fields,
@@ -22,7 +23,6 @@ from source.backend.helpers import (
 )
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_type import TransactionType
-
 from tests.backend.conftest import RECENT_DATE, create_fetched_transaction
 
 

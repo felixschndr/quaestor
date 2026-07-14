@@ -1,6 +1,6 @@
 import pytest
-from source.backend.bank_handlers import BANKS_BY_NAME
 
+from source.backend.bank_handlers import BANKS_BY_NAME
 from tests.backend.conftest import create_fetched_transaction
 
 

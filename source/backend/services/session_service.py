@@ -4,6 +4,9 @@ from datetime import timedelta
 
 from fastapi import Depends, Request, Response, Security
 from fastapi.security import APIKeyCookie, HTTPBearer
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from source.backend.db import get_session
 from source.backend.exceptions import (
     CannotRevokeCurrentSessionError,
@@ -15,8 +18,6 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.session import UserSession
 from source.backend.models.user import User
 from source.backend.services import api_key_service
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

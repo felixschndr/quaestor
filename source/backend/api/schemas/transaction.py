@@ -2,6 +2,7 @@ import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
 from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 

@@ -4,8 +4,9 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-from source.backend import main
 from sqlalchemy.orm import sessionmaker
+
+from source.backend import main
 
 
 def test_lifespan_runs_alembic_upgrade_before_serving_requests(

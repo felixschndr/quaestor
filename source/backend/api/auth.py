@@ -1,4 +1,6 @@
 from fastapi import Depends, Request, Response
+from sqlalchemy.orm import Session
+
 from source.backend.api.create_router import create_router
 from source.backend.api.schemas.two_factor import (
     TwoFactorChallengeRequest,
@@ -23,7 +25,6 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.user import User
 from source.backend.services import session_service, two_factor_service, user_service
 from source.backend.services.password_service import verify_password
-from sqlalchemy.orm import Session
 
 router = create_router()
 

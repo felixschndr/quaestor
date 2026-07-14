@@ -1,4 +1,6 @@
 from fastapi import Depends, Query
+from sqlalchemy.orm import Session
+
 from source.backend.api.create_router import create_router
 from source.backend.api.schemas.account import (
     AccountCreate,
@@ -34,7 +36,6 @@ from source.backend.services import (
     recurring_transaction_service,
     session_service,
 )
-from sqlalchemy.orm import Session
 
 router = create_router()
 

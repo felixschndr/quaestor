@@ -3,6 +3,7 @@ import logging
 from datetime import date, datetime, timedelta
 
 import pytest
+
 from source.backend.bank_handlers import BANKS_BY_NAME, trade_republic
 from source.backend.bank_handlers.base import (
     BalanceObservation,
@@ -15,7 +16,6 @@ from source.backend.bank_handlers.trade_republic import (
 )
 from source.backend.models.transaction_type import TransactionType
 from source.backend.services import trade_republic_login
-
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     CHALLENGE_TOKEN,

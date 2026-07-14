@@ -1,8 +1,9 @@
 from typing import TYPE_CHECKING, List
 
-from source.backend.models.base import Base
 from sqlalchemy import ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from source.backend.models.base import Base
 
 if TYPE_CHECKING:
     from source.backend.models.account import Account

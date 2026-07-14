@@ -2,10 +2,10 @@ from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
-from source.backend.models.transaction_category import TransactionCategory
-from source.backend.models.transaction_type import TransactionType
 from sqlalchemy.orm import sessionmaker
 
+from source.backend.models.transaction_category import TransactionCategory
+from source.backend.models.transaction_type import TransactionType
 from tests.backend.conftest import (
     create_credential,
     make_transaction,

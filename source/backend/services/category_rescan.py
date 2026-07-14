@@ -1,12 +1,13 @@
 import asyncio
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from source.backend.db import SessionLocal
 from source.backend.helpers import format_transaction_for_categorization
 from source.backend.logging_utils import get_logger
 from source.backend.models.transaction import Transaction
 from source.backend.models.transaction_category import TransactionCategory
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

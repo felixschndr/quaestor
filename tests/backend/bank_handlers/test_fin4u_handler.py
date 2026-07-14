@@ -6,6 +6,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.padding import MGF1, OAEP
 from cryptography.hazmat.primitives.hashes import SHA1, SHA256
+
 from source.backend.bank_handlers import fin4u_handler
 from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.bank_handlers.fin4u_handler import (
@@ -16,7 +17,6 @@ from source.backend.bank_handlers.fin4u_handler import (
     _Fin4uSession,
 )
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
-
 from tests.backend.conftest import (
     RECENT_DATE,
     USER_NAME,

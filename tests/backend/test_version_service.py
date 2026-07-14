@@ -2,9 +2,9 @@ import tomllib
 from unittest.mock import MagicMock
 
 import pytest
+
 from source.backend.helpers import get_project_version, get_root_path_of_repository
 from source.backend.services import version_service
-
 from tests.backend.conftest import assert_log_contains
 
 

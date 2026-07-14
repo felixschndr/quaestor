@@ -4,6 +4,7 @@ from typing import Any, Iterator
 
 from requests import HTTPError, Session
 from requests.exceptions import JSONDecodeError
+
 from source.backend.bank_handlers.base import (
     BalanceObservation,
     BankHandler,
@@ -210,7 +211,4 @@ class DFSHandler(BankHandler):
 
     @contextmanager
     def session(self) -> Iterator[_DFSSession]:
-        yield _DFSSession(
-            username=self.credentials["username"],
-            password=self.credentials["password"],
-        )
+        yield _DFSSession(username=self.credentials["username"], password=self.credentials["password"])

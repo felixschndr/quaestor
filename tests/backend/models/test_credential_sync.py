@@ -2,6 +2,8 @@ from datetime import date, datetime
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy.orm import sessionmaker
+
 from source.backend.bank_handlers.base import (
     BalanceObservation,
     FetchedAccount,
@@ -10,8 +12,6 @@ from source.backend.bank_handlers.base import (
 from source.backend.models.account_balance_snapshot import BalanceSnapshotSource
 from source.backend.models.credential import Credential
 from source.backend.models.transaction_type import TransactionType
-from sqlalchemy.orm import sessionmaker
-
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     LAST_FETCHING_TIMESTAMP,

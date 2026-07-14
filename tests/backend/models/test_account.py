@@ -2,15 +2,15 @@ import logging
 from datetime import date, timedelta
 
 import pytest
+from sqlalchemy import select
+from sqlalchemy.orm import Session, sessionmaker
+
 from source.backend.bank_handlers.base import BalanceObservation
 from source.backend.models.account import Account
 from source.backend.models.account_balance_snapshot import (
     AccountBalanceSnapshot,
     BalanceSnapshotSource,
 )
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
-
 from tests.backend.conftest import (
     assert_log_contains,
     make_account,

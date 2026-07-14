@@ -2,11 +2,12 @@ import datetime
 import enum
 from typing import TYPE_CHECKING
 
-from source.backend.models.base import Base
 from sqlalchemy import Date
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Float, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from source.backend.models.base import Base
 
 if TYPE_CHECKING:
     from source.backend.models.account import Account

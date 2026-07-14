@@ -1,11 +1,12 @@
 from typing import TYPE_CHECKING, List
 
-from source.backend.models.base import Base
-from source.backend.models.theme import Theme
 from sqlalchemy import Boolean
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from source.backend.models.base import Base
+from source.backend.models.theme import Theme
 
 if TYPE_CHECKING:
     from source.backend.models.account_group import AccountGroup

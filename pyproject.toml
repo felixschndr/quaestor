@@ -52,7 +52,7 @@ markers = ["real_playwright_browser: exercise the real Playwright browser provis
 
 [tool.isort]
 profile = "black"
-src_paths = ["src", "tests"]
+src_paths = ["source", "tests"]
 
 [tool.bandit]
 exclude_dirs = [".venv"]

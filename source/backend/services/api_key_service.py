@@ -1,13 +1,14 @@
 import secrets
 
 from fastapi import Request
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from source.backend.exceptions import ApiKeyNotFoundError
 from source.backend.helpers import hash_token, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.api_key import ApiKey
 from source.backend.models.user import User
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

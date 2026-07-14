@@ -1,10 +1,11 @@
 from fastapi import Depends
+from sqlalchemy.orm import Session
+
 from source.backend.api.create_router import create_router
 from source.backend.api.schemas.api_key import ApiKeyCreate, ApiKeyCreated, ApiKeyRead
 from source.backend.db import get_session
 from source.backend.models.user import User
 from source.backend.services import api_key_service, session_service
-from sqlalchemy.orm import Session
 
 router = create_router()
 

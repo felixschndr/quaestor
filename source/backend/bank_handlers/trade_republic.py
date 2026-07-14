@@ -10,6 +10,7 @@ from pytr.api import TradeRepublicApi
 from pytr.event import Event
 from pytr.timeline import Timeline
 from pytr.transactions import TransactionExporter
+
 from source.backend.bank_handlers.base import (
     BalanceObservation,
     BankHandler,

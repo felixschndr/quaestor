@@ -2,6 +2,8 @@ from typing import Annotated, Literal, Union
 
 from fastapi import Depends
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.orm import Session
+
 from source.backend.api.create_router import create_router
 from source.backend.db import get_session
 from source.backend.models.notification_rule import (
@@ -13,7 +15,6 @@ from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 from source.backend.models.user import User
 from source.backend.services import notification_rule_service, session_service
-from sqlalchemy.orm import Session
 
 router = create_router()
 

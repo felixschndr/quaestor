@@ -3,12 +3,12 @@ import logging
 from datetime import date
 
 import pytest
+
 from source.backend.bank_handlers import dfs_handler
 from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.bank_handlers.dfs_handler import DFSHandler, _DFSSession
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
 from source.backend.models.transaction_type import TransactionType
-
 from tests.backend.conftest import (
     LAST_FETCHING_TIMESTAMP,
     LATEST_DATE,

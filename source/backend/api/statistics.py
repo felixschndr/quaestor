@@ -1,6 +1,8 @@
 from typing import Annotated
 
 from fastapi import Depends, Query
+from sqlalchemy.orm import Session
+
 from source.backend.api.create_router import create_router
 from source.backend.api.schemas.statistics import (
     CategorySlice,
@@ -20,7 +22,6 @@ from source.backend.api.schemas.statistics import (
 from source.backend.db import get_session
 from source.backend.models.user import User
 from source.backend.services import session_service, statistics_service
-from sqlalchemy.orm import Session
 
 router = create_router()
 

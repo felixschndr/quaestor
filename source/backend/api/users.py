@@ -1,4 +1,6 @@
 from fastapi import Depends, Request
+from sqlalchemy.orm import Session
+
 from source.backend.api.create_router import create_router
 from source.backend.api.schemas.credential import SyncJobRead
 from source.backend.api.schemas.session import SessionRead
@@ -24,7 +26,6 @@ from source.backend.services import (
     user_service,
 )
 from source.backend.services.password_service import hash_password, verify_password
-from sqlalchemy.orm import Session
 
 router = create_router()
 

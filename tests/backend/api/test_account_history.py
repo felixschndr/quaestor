@@ -1,9 +1,9 @@
 from datetime import date, timedelta
 
 from fastapi.testclient import TestClient
-from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
 from sqlalchemy.orm import sessionmaker
 
+from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
 from tests.backend.conftest import (
     SECOND_USER_NAME,
     create_credential,

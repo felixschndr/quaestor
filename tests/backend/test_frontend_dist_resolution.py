@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+
 from source.backend.main import ALLOW_MISSING_FRONTEND_ENV, resolve_frontend_dist
 
 

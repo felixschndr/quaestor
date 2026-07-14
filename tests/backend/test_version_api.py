@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+
 from source.backend.api import version as version_api
 from source.backend.services import version_service
 

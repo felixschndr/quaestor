@@ -1,10 +1,10 @@
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import sessionmaker
+
 from source.backend import main
 from source.backend.db import get_session
 from source.backend.security import csrf
-from sqlalchemy.orm import sessionmaker
-
 from tests.backend.conftest import (
     DISPLAY_NAME,
     USER_NAME,

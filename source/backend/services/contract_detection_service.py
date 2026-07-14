@@ -3,6 +3,9 @@ import datetime
 from collections import defaultdict
 from statistics import median
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from source.backend.db import SessionLocal
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
@@ -17,8 +20,6 @@ from source.backend.models.transaction_category import TransactionCategory
 from source.backend.models.transaction_type import TransactionType
 from source.backend.models.user import User
 from source.backend.services.contract_aggregators import compute_fingerprint
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

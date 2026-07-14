@@ -1,11 +1,12 @@
 import enum
 from typing import TYPE_CHECKING
 
-from source.backend.models.base import Base
 from sqlalchemy import JSON, Boolean
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Float, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from source.backend.models.base import Base
 
 if TYPE_CHECKING:
     from source.backend.models.user import User
