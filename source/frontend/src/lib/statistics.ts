@@ -240,87 +240,40 @@ export function buildStatsQueryString(
 const sortedIds = (accountIds: number[]) => [...accountIds].sort((a, b) => a - b)
 const sortedCategories = (categories: TransactionCategory[]) => [...categories].sort()
 
-export const statisticsQueryKeys = {
-  categories: (
-    accountIds: number[],
-    filters: StatsFilters,
-    direction: StatsDirection,
-    categories: TransactionCategory[],
-    typeFilters: StatsTypeFilters,
-  ) =>
-    [
+/**
+ * Shared query plumbing for the /statistics/* endpoints. Every key starts with
+ * 'statistics' so prefix invalidation (see accounts.ts) hits all of them.
+ */
+function useStats<T>(args: {
+  path: string
+  accountIds: number[]
+  filters: StatsFilters
+  categories?: TransactionCategory[]
+  typeFilters?: StatsTypeFilters
+  extra?: Record<string, string | number | string[] | undefined>
+  enabled?: boolean
+}) {
+  const { path, accountIds, filters, categories = [], typeFilters = {}, extra = {} } = args
+  const queryString = buildStatsQueryString(
+    accountIds,
+    filters,
+    { ...extra, ...typeFilters },
+    categories,
+  )
+  return useQuery({
+    queryKey: [
       'statistics',
-      'categories',
-      sortedIds(accountIds),
-      filters,
-      direction,
-      sortedCategories(categories),
-      typeFilters,
-    ] as const,
-  cashflow: (
-    accountIds: number[],
-    filters: StatsFilters,
-    categories: TransactionCategory[],
-    typeFilters: StatsTypeFilters,
-  ) =>
-    [
-      'statistics',
-      'cashflow',
-      sortedIds(accountIds),
-      filters,
-      sortedCategories(categories),
-      typeFilters,
-    ] as const,
-  netSavings: (
-    accountIds: number[],
-    filters: StatsFilters,
-    categories: TransactionCategory[],
-    typeFilters: StatsTypeFilters,
-  ) =>
-    [
-      'statistics',
-      'net-savings',
+      path,
       sortedIds(accountIds),
       filters,
       sortedCategories(categories),
       typeFilters,
-    ] as const,
-  otherParties: (
-    accountIds: number[],
-    filters: StatsFilters,
-    direction: StatsDirection,
-    categories: TransactionCategory[],
-    typeFilters: StatsTypeFilters,
-  ) =>
-    [
-      'statistics',
-      'otherParties',
-      sortedIds(accountIds),
-      filters,
-      direction,
-      sortedCategories(categories),
-      typeFilters,
-    ] as const,
-  transactionCounts: (
-    accountIds: number[],
-    filters: StatsFilters,
-    categories: TransactionCategory[],
-    typeFilters: StatsTypeFilters,
-    groupBy: TransactionCountsGroupBy,
-  ) =>
-    [
-      'statistics',
-      'transaction-counts',
-      sortedIds(accountIds),
-      filters,
-      sortedCategories(categories),
-      typeFilters,
-      groupBy,
-    ] as const,
-  netWorth: (accountIds: number[], filters: StatsFilters) =>
-    ['statistics', 'net-worth', sortedIds(accountIds), filters] as const,
-  netWorthRange: (start: string, end: string, accountIds: number[]) =>
-    ['statistics', 'net-worth', 'range', start, end, sortedIds(accountIds)] as const,
+      extra,
+    ],
+    queryFn: () => api<T>(`/statistics/${path}?${queryString}`),
+    enabled: (args.enabled ?? true) && accountIds.length > 0,
+    staleTime: 30_000,
+  })
 }
 
 export function useCategoryStats(
@@ -331,23 +284,14 @@ export function useCategoryStats(
   typeFilters: StatsTypeFilters = {},
   enabled: boolean = true,
 ) {
-  const queryString = buildStatsQueryString(
+  return useStats<CategorySlice[]>({
+    path: 'categories',
     accountIds,
     filters,
-    { direction, ...typeFilters },
     categories,
-  )
-  return useQuery({
-    queryKey: statisticsQueryKeys.categories(
-      accountIds,
-      filters,
-      direction,
-      categories,
-      typeFilters,
-    ),
-    queryFn: () => api<CategorySlice[]>(`/statistics/categories?${queryString}`),
-    enabled: enabled && accountIds.length > 0,
-    staleTime: 30_000,
+    typeFilters,
+    extra: { direction },
+    enabled,
   })
 }
 
@@ -358,12 +302,13 @@ export function useCashflowStats(
   typeFilters: StatsTypeFilters = {},
   enabled: boolean = true,
 ) {
-  const queryString = buildStatsQueryString(accountIds, filters, { ...typeFilters }, categories)
-  return useQuery({
-    queryKey: statisticsQueryKeys.cashflow(accountIds, filters, categories, typeFilters),
-    queryFn: () => api<MonthlyCashflow[]>(`/statistics/cashflow?${queryString}`),
-    enabled: enabled && accountIds.length > 0,
-    staleTime: 30_000,
+  return useStats<MonthlyCashflow[]>({
+    path: 'cashflow',
+    accountIds,
+    filters,
+    categories,
+    typeFilters,
+    enabled,
   })
 }
 
@@ -374,12 +319,13 @@ export function useNetSavingsStats(
   typeFilters: StatsTypeFilters = {},
   enabled: boolean = true,
 ) {
-  const queryString = buildStatsQueryString(accountIds, filters, { ...typeFilters }, categories)
-  return useQuery({
-    queryKey: statisticsQueryKeys.netSavings(accountIds, filters, categories, typeFilters),
-    queryFn: () => api<MonthlyNetSavings[]>(`/statistics/net-savings?${queryString}`),
-    enabled: enabled && accountIds.length > 0,
-    staleTime: 30_000,
+  return useStats<MonthlyNetSavings[]>({
+    path: 'net-savings',
+    accountIds,
+    filters,
+    categories,
+    typeFilters,
+    enabled,
   })
 }
 
@@ -391,23 +337,14 @@ export function useOtherPartyStats(
   typeFilters: StatsTypeFilters = {},
   enabled: boolean = true,
 ) {
-  const queryString = buildStatsQueryString(
+  return useStats<OtherPartySlice[]>({
+    path: 'other-parties',
     accountIds,
     filters,
-    { direction, ...typeFilters },
     categories,
-  )
-  return useQuery({
-    queryKey: statisticsQueryKeys.otherParties(
-      accountIds,
-      filters,
-      direction,
-      categories,
-      typeFilters,
-    ),
-    queryFn: () => api<OtherPartySlice[]>(`/statistics/other-parties?${queryString}`),
-    enabled: enabled && accountIds.length > 0,
-    staleTime: 30_000,
+    typeFilters,
+    extra: { direction },
+    enabled,
   })
 }
 
@@ -419,23 +356,14 @@ export function useTransactionCountStats(
   groupBy: TransactionCountsGroupBy,
   enabled: boolean = true,
 ) {
-  const queryString = buildStatsQueryString(
+  return useStats<TransactionCountBucket[]>({
+    path: 'transaction-counts',
     accountIds,
     filters,
-    { group_by: groupBy, ...typeFilters },
     categories,
-  )
-  return useQuery({
-    queryKey: statisticsQueryKeys.transactionCounts(
-      accountIds,
-      filters,
-      categories,
-      typeFilters,
-      groupBy,
-    ),
-    queryFn: () => api<TransactionCountBucket[]>(`/statistics/transaction-counts?${queryString}`),
-    enabled: enabled && accountIds.length > 0,
-    staleTime: 30_000,
+    typeFilters,
+    extra: { group_by: groupBy },
+    enabled,
   })
 }
 
@@ -444,13 +372,7 @@ export function useNetWorthStats(
   filters: StatsFilters,
   enabled: boolean = true,
 ) {
-  const queryString = buildStatsQueryString(accountIds, filters, {}, [])
-  return useQuery({
-    queryKey: statisticsQueryKeys.netWorth(accountIds, filters),
-    queryFn: () => api<NetWorthResponse>(`/statistics/net-worth?${queryString}`),
-    enabled: enabled && accountIds.length > 0,
-    staleTime: 30_000,
-  })
+  return useStats<NetWorthResponse>({ path: 'net-worth', accountIds, filters, enabled })
 }
 
 export function useNetWorthRange(start: string, end: string, accountIds: number[]) {
@@ -461,7 +383,7 @@ export function useNetWorthRange(start: string, end: string, accountIds: number[
     params.append('account_ids', String(accountId))
   }
   return useQuery({
-    queryKey: statisticsQueryKeys.netWorthRange(start, end, accountIds),
+    queryKey: ['statistics', 'net-worth', 'range', start, end, sortedIds(accountIds)],
     queryFn: () => api<NetWorthRangeResponse>(`/statistics/net-worth/range?${params.toString()}`),
     enabled: accountIds.length > 0 && start.length > 0 && end.length > 0,
     staleTime: 30_000,

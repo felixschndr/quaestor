@@ -233,34 +233,3 @@ export function useSetTransactionContract() {
     },
   })
 }
-
-export function useAssignTransaction(contractId: number) {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (transactionId: number) =>
-      api<ContractDetailRead>(`/contracts/${contractId}/transactions`, {
-        method: 'POST',
-        body: { transaction_id: transactionId },
-      }),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(contractQueryKeys.detail(contractId), updated)
-      queryClient.invalidateQueries({ queryKey: contractQueryKeys.list })
-      queryClient.invalidateQueries({ queryKey: ['account'] })
-    },
-  })
-}
-
-export function useRemoveTransaction(contractId: number) {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (transactionId: number) =>
-      api<ContractDetailRead>(`/contracts/${contractId}/transactions/${transactionId}`, {
-        method: 'DELETE',
-      }),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(contractQueryKeys.detail(contractId), updated)
-      queryClient.invalidateQueries({ queryKey: contractQueryKeys.list })
-      queryClient.invalidateQueries({ queryKey: ['account'] })
-    },
-  })
-}

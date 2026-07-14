@@ -34,27 +34,8 @@ function parseTimestamp(d: Date | string): Date {
   return new Date(d)
 }
 
-// Date formatters depend on the user's active UI language (i18next), so weekday
-// and month names follow whatever language is selected — not a fixed German
-// locale. Formatters are cached per locale (and, for datetimes, per display
-// zone) because constructing an `Intl.DateTimeFormat` is comparatively
-// expensive.
-const dateFormatters = new Map<string, Intl.DateTimeFormat>()
-const dateTimeFormatters = new Map<string, Intl.DateTimeFormat>()
-
-function getDateFormatter(
-  cache: Map<string, Intl.DateTimeFormat>,
-  options: Intl.DateTimeFormatOptions,
-  timeZone?: string,
-): Intl.DateTimeFormat {
-  const locale = i18n.language || i18n.options.fallbackLng?.toString() || 'en'
-  const key = timeZone ? `${locale}|${timeZone}` : locale
-  let formatter = cache.get(key)
-  if (!formatter) {
-    formatter = new Intl.DateTimeFormat(locale, timeZone ? { ...options, timeZone } : options)
-    cache.set(key, formatter)
-  }
-  return formatter
+function activeLocale(): string {
+  return i18n.language || i18n.options.fallbackLng?.toString() || 'en'
 }
 
 export function formatEuro(amount: number): string {
@@ -91,13 +72,10 @@ export function formatAmountForInput(value: number): string {
   return inputAmountFormatter.format(value)
 }
 
-// Today's date as a local-time YYYY-MM-DD string, suitable for a date input's value.
+// Today's date as a local-time YYYY-MM-DD string, suitable for a date input's
+// value. en-CA's date format happens to be exactly ISO 8601.
 export function todayIso(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return new Date().toLocaleDateString('en-CA')
 }
 
 const percentFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
@@ -111,25 +89,19 @@ export function formatPercent(ratio: number): string {
 }
 
 export function formatDate(d: Date | string): string {
-  return getDateFormatter(dateFormatters, DATE_OPTIONS).format(
+  return new Intl.DateTimeFormat(activeLocale(), DATE_OPTIONS).format(
     typeof d === 'string' ? new Date(d) : d,
   )
 }
-
-const DATE_SHORT_WEEKDAY_OPTIONS: Intl.DateTimeFormatOptions = { ...DATE_OPTIONS, weekday: 'short' }
-const shortWeekdayDateFormatters = new Map<string, Intl.DateTimeFormat>()
 
 export function formatDateShortWeekday(d: Date | string): string {
-  return getDateFormatter(shortWeekdayDateFormatters, DATE_SHORT_WEEKDAY_OPTIONS).format(
+  return new Intl.DateTimeFormat(activeLocale(), { ...DATE_OPTIONS, weekday: 'short' }).format(
     typeof d === 'string' ? new Date(d) : d,
   )
 }
 
-const DATE_NO_YEAR_OPTIONS: Intl.DateTimeFormatOptions = { ...DATE_OPTIONS, year: undefined }
-const noYearDateFormatters = new Map<string, Intl.DateTimeFormat>()
-
 export function formatDateWithoutYear(d: Date | string): string {
-  return getDateFormatter(noYearDateFormatters, DATE_NO_YEAR_OPTIONS).format(
+  return new Intl.DateTimeFormat(activeLocale(), { ...DATE_OPTIONS, year: undefined }).format(
     typeof d === 'string' ? new Date(d) : d,
   )
 }
@@ -155,17 +127,18 @@ export function isIban(value: string): boolean {
 }
 
 export function formatDateTime(d: Date | string): string {
-  return getDateFormatter(dateTimeFormatters, DATE_TIME_OPTIONS, displayTimeZone).format(
-    parseTimestamp(d),
-  )
+  return new Intl.DateTimeFormat(activeLocale(), {
+    ...DATE_TIME_OPTIONS,
+    timeZone: displayTimeZone,
+  }).format(parseTimestamp(d))
 }
 
-const TIME_OPTIONS: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
-const timeFormatters = new Map<string, Intl.DateTimeFormat>()
-const zonedDateFormatters = new Map<string, Intl.DateTimeFormat>()
-
 function formatTime(d: Date): string {
-  return getDateFormatter(timeFormatters, TIME_OPTIONS, displayTimeZone).format(d)
+  return new Intl.DateTimeFormat(activeLocale(), {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: displayTimeZone,
+  }).format(d)
 }
 
 const RUNTIME_TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
@@ -215,7 +188,10 @@ export function formatRelativeDateTime(
   const dayLabel =
     relativeKey === 'today' || relativeKey === 'yesterday' || relativeKey === 'dayBeforeYesterday'
       ? t(`account.${relativeKey}`)
-      : getDateFormatter(zonedDateFormatters, DATE_OPTIONS, displayTimeZone).format(date)
+      : new Intl.DateTimeFormat(activeLocale(), {
+          ...DATE_OPTIONS,
+          timeZone: displayTimeZone,
+        }).format(date)
   // The day/time connector is locale-specific ("um … Uhr" in German, "at …" in
   // English), so it lives in a translation template rather than a literal join.
   return t('account.dateTimeAt', { day: dayLabel, time: formatTime(date) })

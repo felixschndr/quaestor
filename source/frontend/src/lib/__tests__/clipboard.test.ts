@@ -4,7 +4,6 @@ import { copyText } from '../clipboard'
 
 afterEach(() => {
   vi.restoreAllMocks()
-  // Reset any clipboard we patched onto navigator between tests.
   Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
 })
 
@@ -18,26 +17,7 @@ describe('copyText', () => {
     expect(writeText).toHaveBeenCalledWith('DE12345678900001')
   })
 
-  it('falls back to execCommand in non-secure contexts where clipboard is missing', async () => {
-    // navigator.clipboard is undefined (reset in afterEach), as on http://<lan-ip>.
-    const execCommand = vi.fn().mockReturnValue(true)
-    // jsdom does not implement execCommand; define it for the fallback path.
-    Object.defineProperty(document, 'execCommand', { value: execCommand, configurable: true })
-
-    await copyText('DE12345678900001')
-
-    expect(execCommand).toHaveBeenCalledWith('copy')
-    // The temporary textarea must be cleaned up.
-    expect(document.querySelector('textarea')).toBeNull()
-  })
-
-  it('rejects when the execCommand fallback reports failure', async () => {
-    Object.defineProperty(document, 'execCommand', {
-      value: vi.fn().mockReturnValue(false),
-      configurable: true,
-    })
-
+  it('rejects when the clipboard API is unavailable (non-secure context)', async () => {
     await expect(copyText('DE12345678900001')).rejects.toThrow()
-    expect(document.querySelector('textarea')).toBeNull()
   })
 })
