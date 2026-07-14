@@ -42,9 +42,8 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
-    ignore:
-      # Action bumps can't be auto-merged (GITHUB_TOKEN may not merge workflow-file changes)
-      - dependency-name: "*"
+    groups:
+      minor-and-patch:
         update-types:
-          - "version-update:semver-minor"
-          - "version-update:semver-patch"
+          - "minor"
+          - "patch"
