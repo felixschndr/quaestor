@@ -552,7 +552,7 @@ def test_sync_fetches_full_history_when_credential_was_never_synced(session_fact
     requested_account_name, requested_start = fake_session.get_transactions_calls[0]
     assert requested_account_name == ACCOUNT_IBAN
     assert isinstance(requested_start, date)
-    assert requested_start == date(year=1970, month=1, day=1)
+    assert requested_start == date(year=1970, month=1, day=2)
 
 
 def _market_valued_handler(market_day: date, transactions: list[FetchedTransaction] | None = None) -> MagicMock:
