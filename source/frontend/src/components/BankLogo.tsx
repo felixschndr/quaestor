@@ -21,6 +21,8 @@ export function BankLogo({ icon, name, seed, className = 'size-8' }: BankLogoPro
       <img
         src={icon}
         alt=""
+        loading="lazy"
+        decoding="async"
         aria-hidden="true"
         className={`${className} rounded-md object-cover`}
         onError={() => setFailedIcon(icon)}

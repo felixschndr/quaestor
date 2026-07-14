@@ -62,6 +62,7 @@ export function BankPickerView({
       ),
     [banks, t],
   )
+  const matches = useMemo(() => filterItems(items, query), [items, query])
   const openFamily =
     family !== null
       ? (items.find((it) => it.kind === 'family' && it.slug === family) ?? null)
@@ -77,8 +78,6 @@ export function BankPickerView({
       />
     )
   }
-
-  const matches = filterItems(items, query)
 
   return (
     <main className="mx-auto flex h-dvh max-w-page flex-col gap-6 p-4">

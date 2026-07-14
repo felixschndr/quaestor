@@ -45,11 +45,18 @@ class Credential(Base):
 
     @property
     def bank_name(self) -> str | None:
-        return bank_catalog.get_name_and_icon_of_provider(provider=self.bank.value, blz=self.credentials.get("blz"))[0]
+        return self._bank_name_and_icon()[0]
 
     @property
     def bank_icon(self) -> str | None:
-        return bank_catalog.get_name_and_icon_of_provider(provider=self.bank.value, blz=self.credentials.get("blz"))[1]
+        return self._bank_name_and_icon()[1]
+
+    def _bank_name_and_icon(self) -> tuple[str | None, str | None]:
+        return bank_catalog.get_name_and_icon_of_provider(
+            provider=self.bank.value,
+            blz=self.credentials.get("blz"),
+            aspsp_name=self.credentials.get("aspsp_name"),
+        )
 
     def sync(self, handler: BankHandler) -> None:
         by_name = {account.name: account for account in self.accounts}
@@ -88,6 +95,7 @@ class Credential(Base):
             elif account.name != fetched_account.name:
                 account.name = fetched_account.name
                 updated_accounts += 1
+            account.transaction_history_incomplete = fetched_account.transaction_history_incomplete
             account.balance = bank_session.get_balance(fetched_account)
 
             created_transactions += self._sync_transactions_of_account(

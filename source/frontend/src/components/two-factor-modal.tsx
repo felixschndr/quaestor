@@ -85,13 +85,24 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
                 className="mx-auto size-12"
               />
               <DialogTitle>{t('sync.twoFactor.codeTitle', { bank: bankTitle })}</DialogTitle>
-              <DialogDescription>{t('sync.twoFactor.codeDescription')}</DialogDescription>
+              <DialogDescription>
+                {current2fa.authorizationUrl
+                  ? t('sync.twoFactor.authorizeDescription', { bank: bankTitle })
+                  : t('sync.twoFactor.codeDescription')}
+              </DialogDescription>
             </DialogHeader>
+            {current2fa.authorizationUrl ? (
+              <Button asChild variant="outline">
+                <a href={current2fa.authorizationUrl} target="_blank" rel="noopener noreferrer">
+                  {t('sync.twoFactor.authorizeLink', { bank: bankTitle })}
+                </a>
+              </Button>
+            ) : null}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="global-sync-2fa-code">{t('sync.twoFactor.codeLabel')}</Label>
               <Input
                 id="global-sync-2fa-code"
-                inputMode="numeric"
+                inputMode={current2fa.authorizationUrl ? 'text' : 'numeric'}
                 autoComplete="one-time-code"
                 autoFocus
                 value={code}

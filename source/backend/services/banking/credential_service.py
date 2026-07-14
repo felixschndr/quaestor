@@ -41,6 +41,7 @@ class SyncResult:
     status: SyncStatus
     challenge_token: str | None = None
     expires_at: datetime | None = None
+    authorization_url: str | None = None
 
 
 def list_all_possible() -> list[dict]:
@@ -101,6 +102,23 @@ def _validate_credentials(bank: BankProvider, credentials: dict[str, str]) -> di
     return cleaned
 
 
+def _inherit_enable_banking_application(db_session: Session, user: User, credentials: dict[str, str]) -> dict[str, str]:
+    # One Enable Banking application serves all of the user's banks, but every bank is its own credential
+    filled = dict(credentials)
+    missing = [field for field in ("application_id", "private_key") if not filled.get(field)]
+    if not missing:
+        return filled
+    existing = db_session.scalars(
+        select(Credential).where(Credential.user_id == user.id).where(Credential.bank == BankProvider.ENABLE_BANKING)
+    ).first()
+    if existing is None:
+        return filled
+    for field in missing:
+        filled[field] = existing.credentials[field]
+    logger.debug(f"Inherited the Enable Banking application from {existing} for {user}")
+    return filled
+
+
 def create_credential(
     db_session: Session,
     user: User,
@@ -108,6 +126,8 @@ def create_credential(
     credentials: dict[str, str],
 ) -> Credential:
     logger.debug(f"Creating {bank.value} credential for {user}")
+    if bank == BankProvider.ENABLE_BANKING:
+        credentials = _inherit_enable_banking_application(db_session=db_session, user=user, credentials=credentials)
     validated_credentials = _validate_credentials(bank=bank, credentials=credentials)
 
     if bank != BankProvider.MANUAL:
@@ -210,6 +230,7 @@ def sync_credential_object(
             status=SyncStatus.TWO_FACTOR_REQUIRED,
             challenge_token=challenge.challenge_token,
             expires_at=challenge.expires_at,
+            authorization_url=challenge.authorization_url,
         )
 
     credential.session_state = handler.session_state

@@ -183,6 +183,7 @@ export interface Current2FA {
   bankName: string | null
   bankIcon: string | null
   kind: 'awaiting_2fa' | 'awaiting_decoupled_approval'
+  authorizationUrl?: string | null
 }
 
 export interface UseGlobalSyncResult {
@@ -334,6 +335,7 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
         job.status === 'awaiting_decoupled_approval'
           ? 'awaiting_decoupled_approval'
           : 'awaiting_2fa',
+      authorizationUrl: job.authorization_url ?? null,
     }
   }, [current2faId, jobs, credentialDisplay])
 

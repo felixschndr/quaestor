@@ -609,3 +609,33 @@ def test_market_valued_snapshots_survive_a_recompute(session_factory: sessionmak
     with session_factory() as session:
         account = session.get(entity=Credential, ident=credential_id).accounts[0]
         assert account.balance_at_date[market_day].source == BalanceSnapshotSource.MARKET_VALUED
+
+
+def test_incomplete_history_accounts_keep_anchors_but_skip_the_transaction_walk(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    anchor_day = RECENT_DATE
+    handler = build_handler(
+        FakeBankSession(
+            accounts=[FetchedAccount(name=ACCOUNT_IBAN, transaction_history_incomplete=True)],
+            balances={ACCOUNT_IBAN: 0.0},
+            transactions={
+                ACCOUNT_IBAN: [
+                    FetchedTransaction(amount=-100.0, purpose="PayPal payment", date=OLDER_DATE, other_party="Shop")
+                ]
+            },
+            observations={ACCOUNT_IBAN: [BalanceObservation(date=anchor_day, amount=0.0)]},
+        )
+    )
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.sync(handler)
+        session.commit()
+
+    with session_factory() as session:
+        account = session.get(entity=Credential, ident=credential_id).accounts[0]
+        assert account.transaction_history_incomplete is True
+        assert len(account.transactions) == 1
+        snapshots = account.balance_at_date
+        assert set(snapshots) == {anchor_day}
+        assert snapshots[anchor_day].source == BalanceSnapshotSource.BANK_REPORTED

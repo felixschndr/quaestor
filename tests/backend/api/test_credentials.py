@@ -217,6 +217,7 @@ def test_list_supported_banks_returns_catalog(http_client: TestClient):
         "required_fields",
         "field_rules",
         "blzs",
+        "country",
     }
     assert expected_keys == sample.keys()
     fints_entry = next(entry for entry in catalog if entry["provider"] == "fints")
@@ -299,7 +300,10 @@ def test_sync_job_transitions_to_awaiting_two_factor(http_client: TestClient, mo
         target=credential_service,
         name="sync_credential",
         value=lambda **_: SyncResult(
-            status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN, expires_at=expires_at
+            status=SyncStatus.TWO_FACTOR_REQUIRED,
+            challenge_token=CHALLENGE_TOKEN,
+            expires_at=expires_at,
+            authorization_url="https://tilisy.enablebanking.com/ais/start?sessionid=abc",
         ),
     )
 
@@ -310,6 +314,7 @@ def test_sync_job_transitions_to_awaiting_two_factor(http_client: TestClient, mo
     )
     assert body["expires_at"] is not None
     assert "challenge_token" not in body  # internal — must not leak to the client
+    assert body["authorization_url"] == "https://tilisy.enablebanking.com/ais/start?sessionid=abc"
 
 
 def test_start_sync_returns_404_for_other_users_credential(http_client: TestClient):

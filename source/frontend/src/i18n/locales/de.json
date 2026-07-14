@@ -271,7 +271,12 @@
       "username": "Benutzername",
       "password": "Passwort",
       "phone": "Telefonnummer",
-      "pin": "PIN"
+      "pin": "PIN",
+      "application_id": "Application-ID",
+      "private_key": "Privater Schlüssel (.pem)"
+    },
+    "enable_banking": {
+      "title": "Enable Banking (PSD2)"
     }
   },
   "expectedTransactions": {
@@ -334,7 +339,9 @@
       "codeLabel": "Code",
       "submit": "Bestätigen",
       "submitting": "Wird bestätigt …",
-      "failed": "Der Code war ungültig oder ist abgelaufen. Bitte starte die Synchronisierung neu."
+      "failed": "Der Code war ungültig oder ist abgelaufen. Bitte starte die Synchronisierung neu.",
+      "authorizeDescription": "Melde dich über den Link bei {{bank}} an und bestätige den Zugriff. Danach landest du auf einer Seite mit einem Code — füge ihn hier ein.",
+      "authorizeLink": "Bei {{bank}} anmelden"
     },
     "decoupledApproval": {
       "title": "Bitte in der App bestätigen",
@@ -462,6 +469,23 @@
         "5": "Samstag",
         "6": "Sonntag"
       }
+    },
+    "enableBanking": {
+      "guideTitle": "Einmalige Einrichtung bei Enable Banking",
+      "step1": "Erstelle einen kostenlosen Account und registriere eine neue Production-Applikation im Control Panel auf",
+      "step2": "Trage diese Redirect-URL in der Applikation ein:",
+      "step3": "Lade beim Erstellen die .pem-Schlüsseldatei herunter.",
+      "step4": "Lade die Schlüsseldatei unten hoch — die Application-ID wird automatisch übernommen. Beim Verbinden wirst du zur Anmeldung bei deiner Bank weitergeleitet.",
+      "keyLoaded": "Schlüssel geladen ✓",
+      "callbackTitle": "Autorisierung abgeschlossen",
+      "callbackDescription": "Kopiere den Code und füge ihn im wartenden Verbindungs-Dialog ein.",
+      "callbackCopy": "Code kopieren",
+      "callbackCopied": "Kopiert ✓",
+      "callbackErrorTitle": "Autorisierung fehlgeschlagen",
+      "callbackErrorDescription": "Die Bank hat einen Fehler gemeldet: {{error}}. Bitte starte die Synchronisierung erneut.",
+      "applicationIdHint": "Wird beim Hochladen der Schlüsseldatei automatisch ausgefüllt",
+      "redirectNotAllowed": "Enable Banking kennt die Redirect-URL {{url}} nicht. Trage sie im Control Panel bei deiner Applikation ein und verbinde erneut.",
+      "reuseApp": "Deine bestehende Enable-Banking-Applikation wird wiederverwendet. Die Bank muss im <cp>Control Panel</cp> als verknüpftes Konto hinterlegt sein."
     }
   },
   "attributions": {
@@ -533,7 +557,9 @@
       "decoupledDescription": "Bitte öffne deine {{bank}}-App und bestätige die Anfrage. Wir warten auf die Freigabe.",
       "submit": "Bestätigen",
       "submitting": "Wird bestätigt …",
-      "codeLabel": "Code"
+      "codeLabel": "Code",
+      "authorizeDescription": "Melde dich über den Link bei {{bank}} an und bestätige den Zugriff. Danach landest du auf einer Seite mit einem Code — füge ihn hier ein.",
+      "authorizeLink": "Bei {{bank}} anmelden"
     },
     "skipped": "{{bank}} übersprungen.",
     "failed": "{{bank}} konnte nicht synchronisiert werden."

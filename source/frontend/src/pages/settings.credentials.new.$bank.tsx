@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -11,6 +12,7 @@ import type { TFunction } from 'i18next'
 import { Button } from '@/components/ui/button'
 import { FieldRow } from '@/components/settings/settings-section'
 import { ApiError } from '@/lib/api'
+import { authQueryKeys, type UserRead } from '@/lib/auth'
 import { ibanToBlz } from '@/lib/bankIdentity'
 import {
   useConfirmTwoFactor,
@@ -109,16 +111,27 @@ function CredentialForm({
   const create = useCreateCredential()
   const startSync = useStartSync()
   const confirm2fa = useConfirmTwoFactor()
-  // mutate is referentially stable (React Query), so it's safe in effect deps.
   const { mutate: deleteCredential } = useDeleteCredential()
+  const queryClient = useQueryClient()
+  const user = queryClient.getQueryData<UserRead>(authQueryKeys.me)
   const note = t(`banks.${bank.provider}.note`, { defaultValue: '' })
   const needsIban = bank.provider === 'fints' && bank.blzs.length > 1
+  const hasEnableBankingApp =
+    bank.provider === 'enable_banking' &&
+    (user?.credentials.some((credential) => credential.bank === 'enable_banking') ?? false)
+  const requiredFields = useMemo(
+    () =>
+      hasEnableBankingApp
+        ? bank.required_fields.filter(
+            (field) => field !== 'application_id' && field !== 'private_key',
+          )
+        : bank.required_fields,
+    [bank.required_fields, hasEnableBankingApp],
+  )
 
   const [activeJob, setActiveJob] = useState<{ credentialId: number; jobId: string } | null>(null)
   const [code, setCode] = useState('')
   const { job } = useSyncJob(activeJob?.credentialId ?? null, activeJob?.jobId ?? null)
-  // Track which job's terminal state we've already acted on, keyed by job_id, so a retry
-  // (a fresh job) is handled again while we never act on the same job twice.
   const handledJobId = useRef<string | null>(null)
 
   useEffect(() => {
@@ -129,14 +142,15 @@ function CredentialForm({
     } else if (job.status === 'failed') {
       handledJobId.current = job.job_id
       if (job.error_code === 'invalid_credentials') {
-        // Wrong login → the credential we just created can never sync, so delete it. We
-        // stay on the form (a failed job already re-enables it) so the user can fix the
-        // credentials and try again — the next attempt is a new job, handled afresh.
         if (activeJob) deleteCredential(activeJob.credentialId)
         toast.error(t('credentials.invalidCredentials', { bank: bankTitle }))
+      } else if (job.error_code === 'redirect_url_not_allowed') {
+        if (activeJob) deleteCredential(activeJob.credentialId)
+        toast.error(
+          t('credentials.enableBanking.redirectNotAllowed', { url: enableBankingRedirectUrl() }),
+          { duration: 12000 },
+        )
       } else {
-        // A transient failure (e.g. bank unreachable) — keep the credential and bounce
-        // back to the list so the user can retry the sync later.
         toast.error(t('credentials.syncFailed', { bank: bankTitle }))
         onSyncFailed()
       }
@@ -145,7 +159,7 @@ function CredentialForm({
 
   const schema = useMemo(() => {
     const shape: Record<string, z.ZodType<string>> = {}
-    for (const field of bank.required_fields) {
+    for (const field of requiredFields) {
       const base = z.string().min(1, { message: t('login.required') })
       const spec = bank.field_rules?.[field]
       shape[field] = spec
@@ -165,7 +179,6 @@ function CredentialForm({
         : base
     }
     if (needsIban) {
-      // The IBAN is never sent to the backend; we only use it to derive the branch BLZ
       shape.iban = z.string().superRefine((value, ctx) => {
         const blz = ibanToBlz(value)
         if (blz === null || !bank.blzs.includes(blz)) {
@@ -174,24 +187,29 @@ function CredentialForm({
       })
     }
     return z.object(shape)
-  }, [bank.required_fields, bank.field_rules, bank.blzs, needsIban, t])
+  }, [requiredFields, bank.field_rules, bank.blzs, needsIban, t])
 
   type FormValues = Record<string, string>
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: Object.fromEntries(
-      [...bank.required_fields, ...(needsIban ? ['iban'] : [])].map((field) => [field, '']),
+      [...requiredFields, ...(needsIban ? ['iban'] : [])].map((field) => [field, '']),
     ),
   })
 
   const onSubmit = form.handleSubmit(async (values) => {
     let createdId: number
-    const declared = Object.fromEntries(bank.required_fields.map((field) => [field, values[field]]))
+    const declared = Object.fromEntries(requiredFields.map((field) => [field, values[field]]))
     const credentials = stripCredentialWhitespace(declared, bank.field_rules)
     let submitProvider = bank.provider
     if (bank.provider === 'fints') {
       credentials.blz = bank.blzs.length > 1 ? ibanToBlz(values.iban)! : bank.blzs[0]
       submitProvider = 'fints'
+    }
+    if (bank.provider === 'enable_banking') {
+      credentials.aspsp_name = bank.name
+      credentials.aspsp_country = bank.country ?? ''
+      credentials.redirect_url = enableBankingRedirectUrl()
     }
     try {
       const created = await create.mutateAsync({ bank: submitProvider, credentials })
@@ -246,13 +264,25 @@ function CredentialForm({
   }
 
   if (showCodeForm) {
+    const authorizationUrl = job?.authorization_url ?? null
     return (
       <form onSubmit={onConfirm2fa} noValidate className="flex flex-col gap-4">
-        <p className="text-muted-foreground text-sm">{t('credentials.twoFactor.description')}</p>
+        <p className="text-muted-foreground text-sm">
+          {authorizationUrl
+            ? t('credentials.twoFactor.authorizeDescription', { bank: bankTitle })
+            : t('credentials.twoFactor.description')}
+        </p>
+        {authorizationUrl ? (
+          <Button asChild variant="outline">
+            <a href={authorizationUrl} target="_blank" rel="noopener noreferrer">
+              {t('credentials.twoFactor.authorizeLink', { bank: bankTitle })}
+            </a>
+          </Button>
+        ) : null}
         <FieldRow
           id="credential-2fa-code"
           label={t('credentials.twoFactor.codeLabel')}
-          inputMode="numeric"
+          inputMode={authorizationUrl ? 'text' : 'numeric'}
           autoComplete="one-time-code"
           autoFocus
           value={code}
@@ -276,17 +306,62 @@ function CredentialForm({
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       {note ? <p className="text-muted-foreground text-sm">{note}</p> : null}
-      {bank.required_fields.map((field) => (
-        <FieldRow
-          key={field}
-          id={`credential-${bank.key}-${field}`}
-          label={t(`banks.field.${field}`, { defaultValue: field })}
-          type={maskedField(field) ? 'password' : 'text'}
-          autoComplete={autoCompleteFor(field)}
-          error={form.formState.errors[field]?.message as string | undefined}
-          {...form.register(field)}
-        />
-      ))}
+      {bank.provider === 'enable_banking' ? (
+        hasEnableBankingApp ? (
+          <p className="text-muted-foreground text-sm">
+            <Trans
+              i18nKey="credentials.enableBanking.reuseApp"
+              components={{
+                cp: (
+                  <a
+                    href="https://enablebanking.com/cp/applications"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  />
+                ),
+              }}
+            />
+          </p>
+        ) : (
+          <EnableBankingGuide />
+        )
+      ) : null}
+      {requiredFields.map((field) =>
+        field === 'private_key' ? (
+          <PrivateKeyUploadRow
+            key={field}
+            id={`credential-${bank.key}-${field}`}
+            value={form.watch(field)}
+            error={form.formState.errors[field]?.message as string | undefined}
+            onLoaded={(pem, fileName) => {
+              form.setValue(field, pem, { shouldValidate: true })
+              // Enable Banking names the key file after the application ID — autofill it.
+              const applicationId = fileName.match(/^([0-9a-f-]{36})\.pem$/i)?.[1]
+              if (applicationId) {
+                form.setValue('application_id', applicationId.toLowerCase(), {
+                  shouldValidate: true,
+                })
+              }
+            }}
+          />
+        ) : (
+          <FieldRow
+            key={field}
+            id={`credential-${bank.key}-${field}`}
+            label={t(`banks.field.${field}`, { defaultValue: field })}
+            type={maskedField(field) ? 'password' : 'text'}
+            autoComplete={autoCompleteFor(field)}
+            placeholder={
+              field === 'application_id'
+                ? t('credentials.enableBanking.applicationIdHint')
+                : undefined
+            }
+            error={form.formState.errors[field]?.message as string | undefined}
+            {...form.register(field)}
+          />
+        ),
+      )}
       {needsIban ? (
         <FieldRow
           id={`credential-${bank.key}-iban`}
@@ -310,9 +385,77 @@ function CredentialForm({
   )
 }
 
+export function enableBankingRedirectUrl(): string {
+  return `${window.location.origin}/banking/callback`
+}
+
+function EnableBankingGuide() {
+  const { t } = useTranslation()
+  const redirectUrl = enableBankingRedirectUrl()
+  return (
+    <section className="border-border bg-card flex flex-col gap-2 rounded-lg border p-4">
+      <h2 className="text-sm font-semibold">{t('credentials.enableBanking.guideTitle')}</h2>
+      <ol className="text-muted-foreground flex list-decimal flex-col gap-1.5 pl-4 text-sm">
+        <li>
+          {t('credentials.enableBanking.step1')}{' '}
+          <a
+            href="https://enablebanking.com/cp/applications"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline"
+          >
+            enablebanking.com
+          </a>
+        </li>
+        <li>
+          {t('credentials.enableBanking.step2')}
+          <code className="bg-muted text-foreground mt-1 block w-fit rounded px-1.5 py-0.5 text-xs break-all select-all">
+            {redirectUrl}
+          </code>
+        </li>
+        <li>{t('credentials.enableBanking.step3')}</li>
+        <li>{t('credentials.enableBanking.step4')}</li>
+      </ol>
+    </section>
+  )
+}
+
+function PrivateKeyUploadRow({
+  id,
+  value,
+  error,
+  onLoaded,
+}: {
+  id: string
+  value: string | undefined
+  error: string | undefined
+  onLoaded: (pem: string, fileName: string) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-medium">
+        {t('banks.field.private_key')}
+      </label>
+      <input
+        id={id}
+        type="file"
+        accept=".pem,application/x-pem-file"
+        className="border-border bg-background file:bg-muted file:text-foreground w-full cursor-pointer rounded-md border px-3 py-2 text-sm file:mr-3 file:cursor-pointer file:rounded file:border-0 file:px-2 file:py-1"
+        onChange={async (event) => {
+          const file = event.target.files?.[0]
+          if (file) onLoaded(await file.text(), file.name)
+        }}
+      />
+      {value ? (
+        <p className="text-primary text-xs">{t('credentials.enableBanking.keyLoaded')}</p>
+      ) : null}
+      {error ? <p className="text-destructive text-xs">{error}</p> : null}
+    </div>
+  )
+}
+
 function maskedField(field: string): boolean {
-  // Any field whose name conventionally holds a secret gets a password input
-  // so the value is masked and never offered for browser autofill suggestions.
   const lowered = field.toLowerCase()
   return (
     lowered.includes('password') ||

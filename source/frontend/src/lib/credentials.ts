@@ -30,9 +30,8 @@ export interface SupportedBank {
   required_fields: string[]
   field_rules?: Record<string, CredentialFieldSpec>
   family: { slug: string; label: string } | null
-  /** Branch BLZs covered by this entry. Empty for non-FinTS providers; length>1 means
-   *  the user must supply an IBAN to disambiguate. */
   blzs: string[]
+  country?: string | null
 }
 
 export const credentialQueryKeys = {
@@ -96,7 +95,7 @@ export type SyncJobStatus =
   | 'completed'
   | 'failed'
 
-export type SyncJobErrorCode = 'invalid_credentials' | 'unknown'
+export type SyncJobErrorCode = 'invalid_credentials' | 'redirect_url_not_allowed' | 'unknown'
 
 export interface SyncJob {
   job_id: string
@@ -105,6 +104,8 @@ export interface SyncJob {
   expires_at: string | null
   error: string | null
   error_code: SyncJobErrorCode | null
+  /** External page (e.g. a PSD2 bank authorization) the user must visit to get the 2FA code. */
+  authorization_url?: string | null
 }
 
 export function useStartSync() {

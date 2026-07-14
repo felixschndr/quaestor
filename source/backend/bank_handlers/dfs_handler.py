@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from datetime import date
 from typing import Any, Iterator
 
-from requests import HTTPError, Session
+from requests import HTTPError
 from requests.exceptions import JSONDecodeError
 
 from source.backend.bank_handlers.base import (
@@ -13,7 +13,7 @@ from source.backend.bank_handlers.base import (
     FetchedTransaction,
 )
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
-from source.backend.helpers import epoch_ms_to_date, parse_german_decimal
+from source.backend.helpers import RestAPIClient, epoch_ms_to_date, parse_german_decimal
 from source.backend.logging_utils import get_logger
 from source.backend.models.transactions.transaction_type import TransactionType
 
@@ -34,6 +34,7 @@ class _DFSSession(BankSession):
         self.username = username
         self.password = password
 
+        self._rest_api_client = RestAPIClient(name="DFS", base_url=self.BASE_URL)
         self._login_url = f"{self.BASE_URL}/acapif/portal-{self.CUSTOMER}/public_login.prt"
 
         self._accounts: dict[str, dict[str, Any]] = {}
@@ -73,29 +74,28 @@ class _DFSSession(BankSession):
         if self._fetched:
             return
         try:
-            with Session() as http:
-                self._login(http)
-                self._initialize_dashboard(http)
-                dashboard_snapshot = self._fetch_dashboard_snapshot(http)
-                modell_keys_by_account: dict[str, str] = {}
+            self._login()
+            self._initialize_dashboard()
+            dashboard_snapshot = self._fetch_dashboard_snapshot()
+            modell_keys_by_account: dict[str, str] = {}
 
-                for modell in dashboard_snapshot["snapshotWidget"]["kontoModellList"]:
-                    modell_key = modell["modellTech"]
-                    for fund in modell["aktuellesDecorator"]["kapitalItem"]["delegate"]["kontoDaten"]:
-                        fund_name = fund["nameKapitalanlage"]
-                        self._accounts[fund_name] = {
-                            "balance": float(fund["guthaben"]),
-                            "transactions": [],
-                            "units_moves": [],
-                            "kurs_series": [],
-                        }
-                        modell_keys_by_account[fund_name] = modell_key
+            for modell in dashboard_snapshot["snapshotWidget"]["kontoModellList"]:
+                modell_key = modell["modellTech"]
+                for fund in modell["aktuellesDecorator"]["kapitalItem"]["delegate"]["kontoDaten"]:
+                    fund_name = fund["nameKapitalanlage"]
+                    self._accounts[fund_name] = {
+                        "balance": float(fund["guthaben"]),
+                        "transactions": [],
+                        "units_moves": [],
+                        "kurs_series": [],
+                    }
+                    modell_keys_by_account[fund_name] = modell_key
 
-                for modell_key in set(modell_keys_by_account.values()):
-                    self._load_kurse_series(http, modell_key=modell_key)
-                    for raw_transaction in self._fetch_transactions(http, modell_key=modell_key):
-                        self._record_transaction(raw_transaction)
-        except (HTTPError, JSONDecodeError) as e:
+            for modell_key in set(modell_keys_by_account.values()):
+                self._load_kurse_series(modell_key=modell_key)
+                for raw_transaction in self._fetch_transactions(modell_key=modell_key):
+                    self._record_transaction(raw_transaction)
+        except (HTTPError, JSONDecodeError, UnknownInternalError) as e:
             error_message = f"Failed to fetch DFS data: {e}"
             logger.error(error_message)
             raise UnknownInternalError(error_message) from e
@@ -124,12 +124,12 @@ class _DFSSession(BankSession):
         anteile = sign * parse_german_decimal(raw_transaction["anteile"])
         self._accounts[fund_name]["units_moves"].append((kaufdatum, anteile))
 
-    def _load_kurse_series(self, http: Session, modell_key: str) -> None:
-        for row in self._fetch_kurse_list(http, modell_key=modell_key):
+    def _load_kurse_series(self, modell_key: str) -> None:
+        for row in self._fetch_kurse_list(modell_key=modell_key):
             fund_name = row["name"]
             if fund_name in self._accounts:
                 self._accounts[fund_name]["kurs_series"] = self._fetch_kurse_series(
-                    http, modell_key=modell_key, kurs_id=row["id"]
+                    modell_key=modell_key, kurs_id=row["id"]
                 )
 
     @staticmethod
@@ -166,13 +166,13 @@ class _DFSSession(BankSession):
         logger.debug(f"DFS valued {name}: {len(observations)} daily snapshot(s) from {len(moves)} contribution(s)")
         return observations
 
-    def _login(self, http: Session) -> None:
+    def _login(self) -> None:
         login_data = {
             "benutzername": self.username,
             "passwort": self.password,
             "return_url": self._login_url,  # Required to catch invalid credentials
         }
-        response = http.post(f"{self.BASE_URL}/ssoportal/login.action", data=login_data)
+        response = self._rest_api_client.request(method="POST", path="/ssoportal/login.action", data=login_data)
         # Always returns a 200, even if login failed
         if response.url.startswith(self._login_url):
             error_message = f"DFS login failed: invalid credentials for {self.username}"
@@ -180,29 +180,23 @@ class _DFSSession(BankSession):
             raise InvalidCredentialsError(error_message)
         logger.debug(f"DFS login succeeded for user {self.username}")
 
-    def _initialize_dashboard(self, http: Session) -> None:
-        http.get(f"{self.BASE_URL}/acaphc/Dashboard.action").raise_for_status()
+    def _initialize_dashboard(self) -> None:
+        self._rest_api_client.request(method="GET", path="/acaphc/Dashboard.action").raise_for_status()
 
-    def _fetch_dashboard_snapshot(self, http: Session) -> dict:
-        response = http.post(f"{self.BASE_URL}/acaphc/rest/dashboard/getDashboardSnapshot")
-        response.raise_for_status()
-        return response.json()
+    def _fetch_dashboard_snapshot(self) -> dict:
+        return self._rest_api_client.post(path="/acaphc/rest/dashboard/getDashboardSnapshot")
 
-    def _fetch_transactions(self, http: Session, modell_key: str) -> list[dict]:
-        response = http.post(f"{self.BASE_URL}/acaphc/rest/konto/{modell_key}/transaktionen")
-        response.raise_for_status()
-        return response.json()["daten"]["grid"]["dataSource"]
+    def _fetch_transactions(self, modell_key: str) -> list[dict]:
+        return self._rest_api_client.post(path=f"/acaphc/rest/konto/{modell_key}/transaktionen")["daten"]["grid"][
+            "dataSource"
+        ]
 
-    def _fetch_kurse_list(self, http: Session, modell_key: str) -> list[dict]:
+    def _fetch_kurse_list(self, modell_key: str) -> list[dict]:
         # Maps each fund (name + ISIN) to its price-series id, e.g. {"name": ..., "id": "1416:STANDARD_BAV"}.
-        response = http.post(f"{self.BASE_URL}/acaphc/rest/konto/{modell_key}/kurse")
-        response.raise_for_status()
-        return response.json()["daten"]["rows"]
+        return self._rest_api_client.post(path=f"/acaphc/rest/konto/{modell_key}/kurse")["daten"]["rows"]
 
-    def _fetch_kurse_series(self, http: Session, modell_key: str, kurs_id: str) -> list[list]:
-        response = http.post(f"{self.BASE_URL}/acaphc/rest/konto/{modell_key}/kurse/{kurs_id}")
-        response.raise_for_status()
-        series = response.json()["series"]
+    def _fetch_kurse_series(self, modell_key: str, kurs_id: str) -> list[list]:
+        series = self._rest_api_client.post(path=f"/acaphc/rest/konto/{modell_key}/kurse/{kurs_id}")["series"]
         return series[0]["data"] if series else []
 
 

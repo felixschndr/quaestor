@@ -13,11 +13,13 @@ TwoFactorStateCallback = Callable[[bool], None]
 class TwoFactorChallenge:
     challenge_token: str
     expires_at: datetime
+    authorization_url: str | None = None
 
 
 @dataclass(frozen=True)
 class FetchedAccount:
     name: str
+    transaction_history_incomplete: bool = False
 
 
 @dataclass(frozen=True)

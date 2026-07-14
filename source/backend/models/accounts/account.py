@@ -47,6 +47,9 @@ class Account(Base):
     balance: Mapped[float] = mapped_column(Float, default=0.0)
     balance_factor: Mapped[float] = mapped_column(Float, default=100.0)
     is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    # The bank doesn't report every balance movement as a transaction (e.g. PayPal's
+    # automatic bank funding); balance history comes from bank-reported anchors only.
+    transaction_history_incomplete: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     # User-defined grouping for the overview. NULL = "ungrouped" (rendered in a
     # default bucket). `position` orders accounts within their group OR within
@@ -187,4 +190,6 @@ class Account(Base):
         session = object_session(self)
         if session is not None:
             session.flush()
+        if self.transaction_history_incomplete:
+            return
         self.update_balance_at_date()

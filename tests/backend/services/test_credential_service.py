@@ -378,3 +378,62 @@ def test_sync_all_due_credentials_logs_exception_per_failure(
         credential_service.sync_all_due_credentials(db_session=session)
 
     assert_log_contains(caplog, messages=["Periodic sync failed", f"id={failing}"])
+
+
+_ENABLE_BANKING_APP = {
+    "application_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
+    "redirect_url": "https://localhost:8000/banking/callback",
+}
+
+
+def test_create_enable_banking_credential_inherits_the_application_from_an_existing_one(
+    session_factory: sessionmaker,
+):
+    user_id = create_user(session_factory).id
+
+    with session_factory() as session:
+        user = session.get(entity=User, ident=user_id)
+        credential_service.create_credential(
+            session,
+            user=user,
+            bank=BankProvider.ENABLE_BANKING,
+            credentials={**_ENABLE_BANKING_APP, "aspsp_name": "PayPal", "aspsp_country": "DE"},
+        )
+        session.commit()
+
+        second = credential_service.create_credential(
+            session,
+            user=user,
+            bank=BankProvider.ENABLE_BANKING,
+            credentials={
+                "redirect_url": _ENABLE_BANKING_APP["redirect_url"],
+                "aspsp_name": "ING",
+                "aspsp_country": "DE",
+            },
+        )
+        session.commit()
+
+    assert second.credentials["application_id"] == _ENABLE_BANKING_APP["application_id"]
+    assert second.credentials["private_key"] == _ENABLE_BANKING_APP["private_key"]
+    assert second.credentials["aspsp_name"] == "ING"
+
+
+def test_create_enable_banking_credential_without_existing_application_requires_the_fields(
+    session_factory: sessionmaker,
+):
+    user_id = create_user(session_factory).id
+
+    with session_factory() as session:
+        user = session.get(entity=User, ident=user_id)
+        with pytest.raises(MissingCredentialFieldError):
+            credential_service.create_credential(
+                session,
+                user=user,
+                bank=BankProvider.ENABLE_BANKING,
+                credentials={
+                    "redirect_url": _ENABLE_BANKING_APP["redirect_url"],
+                    "aspsp_name": "ING",
+                    "aspsp_country": "DE",
+                },
+            )
