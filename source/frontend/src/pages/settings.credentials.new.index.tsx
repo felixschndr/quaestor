@@ -226,41 +226,52 @@ function buildItems(banks: SupportedBank[], t: TFunction): PickerItem[] {
   return items.sort((a, b) => a.label.localeCompare(b.label))
 }
 
+/** Slug for name matching on both sides (query AND bank name): lowercased, diacritics
+ *  folded (ü → u), everything non-alphanumeric dropped — so "ING DiBa", "ing-diba" and
+ *  "ingdiba" all find "ING-DiBa". */
+function searchSlug(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+}
+
 function bankMatches(
   bank: SupportedBank,
-  query: string,
+  slug: string,
   digits: string,
   ibanBlz: string | null,
 ): boolean {
   return (
-    bank.name.toLowerCase().includes(query) ||
+    (slug !== '' && searchSlug(bank.name).includes(slug)) ||
     (/^\d+$/.test(digits) && bank.blzs.some((blz) => blz.startsWith(digits))) ||
     (ibanBlz !== null && bank.blzs.includes(ibanBlz))
   )
 }
 
 function filterItems(items: PickerItem[], query: string): PickerItem[] {
-  const q = query.trim().toLowerCase()
+  const slug = searchSlug(query)
   // An empty query shows everything — the list is always visible and scrollable.
-  if (q === '') return items
-  const digits = q.replace(/\s/g, '')
+  if (slug === '' && query.trim() === '') return items
+  const digits = query.replace(/\s/g, '')
   const ibanBlz = isLikelyIban(query) ? ibanToBlz(query) : null
   return items.filter((item) => {
-    if (item.label.toLowerCase().includes(q)) return true
+    if (searchSlug(item.label).includes(slug) && slug !== '') return true
     // A BLZ/IBAN/name search surfaces the family if any of its members match, so the
     // user can still reach a specific local bank by drilling in.
     return item.kind === 'bank'
-      ? bankMatches(item.bank, q, digits, ibanBlz)
-      : item.members.some((member) => bankMatches(member, q, digits, ibanBlz))
+      ? bankMatches(item.bank, slug, digits, ibanBlz)
+      : item.members.some((member) => bankMatches(member, slug, digits, ibanBlz))
   })
 }
 
 function filterBanks(banks: SupportedBank[], query: string): SupportedBank[] {
-  const q = query.trim().toLowerCase()
-  if (q === '') return banks
-  const digits = q.replace(/\s/g, '')
+  const slug = searchSlug(query)
+  if (slug === '' && query.trim() === '') return banks
+  const digits = query.replace(/\s/g, '')
   const ibanBlz = isLikelyIban(query) ? ibanToBlz(query) : null
-  return banks.filter((bank) => bankMatches(bank, q, digits, ibanBlz))
+  return banks.filter((bank) => bankMatches(bank, slug, digits, ibanBlz))
 }
 
 function FamilyRow({

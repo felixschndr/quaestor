@@ -166,6 +166,23 @@ describe('BankPickerView', () => {
     expect(items[0]).toHaveTextContent('Deutsche Bank')
   })
 
+  it('ignores spacing, hyphens and diacritics when matching names', () => {
+    render(
+      <StatefulPicker
+        isLoading={false}
+        isError={false}
+        banks={CATALOG}
+        existingAccountCounts={{}}
+      />,
+    )
+    fireEvent.change(screen.getByRole('searchbox'), {
+      target: { value: 'stadt-sparkasse munchen' },
+    })
+    const items = screen.getAllByRole('listitem')
+    expect(items).toHaveLength(1)
+    expect(items[0]).toHaveTextContent('Stadtsparkasse München')
+  })
+
   it('filters banks by BLZ prefix', () => {
     render(
       <StatefulPicker
