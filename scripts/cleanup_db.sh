@@ -1,6 +1,4 @@
-#!/opt/homebrew/bin/bash
-
-source .env
+#!/usr/bin/env bash
 
 rm Quaestor.db
 rm -rf source/backend/alembic/versions/*

@@ -8,7 +8,6 @@ services:
       - ./data:/data # Ensure that the user with the ID 1000 owns this directory recursively on the host! See README.md
       # - quaestor-data:/data # See the README for this
     environment:
-      HOST: 0.0.0.0
       DATABASE_ENCRYPTION_KEY: ${DATABASE_ENCRYPTION_KEY}
       # See the README for more env variables
     restart: on-failure

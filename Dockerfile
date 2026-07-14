@@ -15,11 +15,10 @@ RUN pnpm build
 
 FROM python:3.14-slim-trixie AS backend-builder
 
-ENV POETRY_VERSION=1.8.4 \
-    POETRY_VIRTUALENVS_IN_PROJECT=true \
+ENV POETRY_VIRTUALENVS_IN_PROJECT=true \
     POETRY_NO_INTERACTION=1
 
-RUN pip install "poetry==${POETRY_VERSION}"
+RUN pip install poetry
 
 WORKDIR /app
 
@@ -28,9 +27,6 @@ RUN poetry install --no-root --without dev
 
 
 FROM python:3.14-slim-trixie AS runtime
-
-LABEL org.opencontainers.image.source="https://github.com/felixschndr/quaestor"
-LABEL org.opencontainers.image.description="Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts (https://github.com/felixschndr/quaestor)"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -46,9 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends sqlcipher \
     && useradd  --system --uid 1000 --gid ${USER_TO_USE} --home /app --shell /usr/bin/bash ${USER_TO_USE}
 
 WORKDIR /app
-RUN chown ${USER_TO_USE}:${USER_TO_USE} /app
-
-RUN mkdir -p /data && chown ${USER_TO_USE}:${USER_TO_USE} /data
+RUN mkdir -p /data && chown ${USER_TO_USE}:${USER_TO_USE} /app /data
 
 COPY --from=backend-builder /app/.venv /app/.venv
 

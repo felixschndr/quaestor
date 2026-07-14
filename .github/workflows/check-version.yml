@@ -30,7 +30,7 @@ jobs:
       - name: Compare current version against the latest release
         id: check_version
         run: |
-          version=$(grep -E '^version\s*=\s*".*"' pyproject.toml | head -n1 | sed -E 's/version\s*=\s*"(.*)"/\1/' | sed 's/[\r\n]*$//')
+          version=$(sed -nE 's/^version *= *"(.*)"/\1/p' pyproject.toml | head -n1)
           echo "Current version: ${version}"
           echo "version=${version}" >> $GITHUB_OUTPUT
 
