@@ -62,7 +62,7 @@ jobs:
 
       - name: Login to GitHub Container Registry
         if: env.TRUSTED_RUN == 'true'
-        uses: docker/login-action@v4.2.0
+        uses: docker/login-action@v4.4.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -79,7 +79,7 @@ jobs:
 
       - name: Build and push Docker image by digest
         id: build
-        uses: docker/build-push-action@v7.2.0
+        uses: docker/build-push-action@v7.3.0
         with:
           context: .
           file: Dockerfile
@@ -121,7 +121,7 @@ jobs:
           merge-multiple: true
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4.2.0
+        uses: docker/login-action@v4.4.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -182,7 +182,7 @@ jobs:
 
       - name: Create GitHub Release
         id: create_release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v3.0.1
         with:
           tag_name: ${{ needs.check_version.outputs.current_version }}
           name: Release ${{ needs.check_version.outputs.current_version }}
