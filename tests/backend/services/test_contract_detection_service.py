@@ -3,12 +3,12 @@ from datetime import timedelta
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
-from source.backend.models.contract import Contract
-from source.backend.models.contract_assignment import ContractAssignment
-from source.backend.models.contract_frequency import ContractFrequency
-from source.backend.models.transaction_category import TransactionCategory
-from source.backend.models.transaction_type import TransactionType
-from source.backend.services import contract_detection_service
+from source.backend.models.contracts.contract import Contract
+from source.backend.models.contracts.contract_assignment import ContractAssignment
+from source.backend.models.contracts.contract_frequency import ContractFrequency
+from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.transaction_type import TransactionType
+from source.backend.services.contracts import contract_detection_service
 from tests.backend.conftest import (
     OLDER_DATE,
     SECOND_USER_NAME,

@@ -13,24 +13,15 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Scope
 
-from source.backend.api import (
-    account,
-    account_groups,
-    api_keys,
-    auth,
-    contracts,
-    credentials,
-    i18n,
-    notification_rules,
-    push,
-    settings,
-    statistics,
-    transactions,
-    users,
-    version,
-)
-from source.backend.api.exception_handlers import register_exception_handlers
-from source.backend.api.openapi import API_DESCRIPTION
+from source.backend.api.accounts import account, account_groups
+from source.backend.api.auth import api_keys, auth, users
+from source.backend.api.banking import credentials
+from source.backend.api.contracts import contracts
+from source.backend.api.core import i18n, settings, version
+from source.backend.api.core.exception_handlers import register_exception_handlers
+from source.backend.api.core.openapi import API_DESCRIPTION
+from source.backend.api.notifications import notification_rules, push
+from source.backend.api.transactions import statistics, transactions
 from source.backend.constants import API_PREFIX
 from source.backend.db import SessionLocal, close_engine, log_database_location
 from source.backend.helpers import (
@@ -50,18 +41,20 @@ from source.backend.logging_utils import (
 from source.backend.security.csp import csp_middleware
 from source.backend.security.csrf import csrf_middleware
 from source.backend.security.rate_limit import rate_limit_middleware
-from source.backend.services import (
-    api_key_service,
+from source.backend.services.auth import api_key_service, session_service
+from source.backend.services.banking import (
     bank_info_updater,
-    category_rescan,
+    playwright_browser,
+    sync_scheduler,
+)
+from source.backend.services.contracts import (
     contract_detection_service,
     contract_overdue_scheduler,
-    i18n_service,
-    migrations,
-    playwright_browser,
+)
+from source.backend.services.core import i18n_service, migrations
+from source.backend.services.transactions import (
+    category_rescan,
     recurring_transaction_scheduler,
-    session_service,
-    sync_scheduler,
 )
 
 logger = get_logger(__name__)

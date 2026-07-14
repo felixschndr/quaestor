@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session, sessionmaker
 
-from source.backend.services.contract_aggregators import (
+from source.backend.services.contracts.contract_aggregators import (
     Fingerprint,
     compute_fingerprint,
 )

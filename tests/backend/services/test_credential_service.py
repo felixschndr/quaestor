@@ -12,9 +12,9 @@ from source.backend.exceptions import (
     MissingCredentialFieldError,
     ReauthenticationRequiredError,
 )
-from source.backend.models.credential import Credential
-from source.backend.models.user import User
-from source.backend.services import credential_service, trade_republic_login
+from source.backend.models.auth.user import User
+from source.backend.models.banking.credential import Credential
+from source.backend.services.banking import credential_service, trade_republic_login
 from tests.backend.conftest import (
     BANK_PASSWORD,
     BANK_USERNAME,

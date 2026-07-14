@@ -1,4 +1,4 @@
-from source.backend.services.password_service import hash_password, verify_password
+from source.backend.services.auth.password_service import hash_password, verify_password
 from tests.backend.conftest import VALID_PASSWORD, WRONG_PASSWORD
 
 

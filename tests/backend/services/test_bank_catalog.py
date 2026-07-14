@@ -1,7 +1,7 @@
 import pytest
 
-from source.backend.services import bank_catalog
-from source.backend.services.bank_catalog import CatalogEntry, CatalogFamily
+from source.backend.services.banking import bank_catalog
+from source.backend.services.banking.bank_catalog import CatalogEntry, CatalogFamily
 
 
 def _fake_fints_db() -> dict[str, dict]:

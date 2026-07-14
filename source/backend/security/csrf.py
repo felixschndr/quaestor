@@ -6,8 +6,8 @@ from fastapi.responses import JSONResponse
 
 from source.backend.constants import API_PREFIX
 from source.backend.logging_utils import get_logger
-from source.backend.services import api_key_service
-from source.backend.services.session_service import cookie_is_secure
+from source.backend.services.auth import api_key_service
+from source.backend.services.auth.session_service import cookie_is_secure
 
 logger = get_logger(__name__)
 

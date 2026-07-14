@@ -17,7 +17,7 @@ from source.backend.helpers import (  # noqa: E402
     get_project_name,
     get_project_repository,
 )
-from source.backend.services.bank_catalog import get_catalog  # noqa: E402
+from source.backend.services.banking.bank_catalog import get_catalog  # noqa: E402
 
 
 def _provider_notes() -> dict[str, dict[str, str]]:

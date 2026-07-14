@@ -140,10 +140,10 @@ def test_session_log_context_sets_and_restores_label_on_records(caplog: pytest.L
 def test_production_log_format_renders_level_session_component_and_strips_source_backend_prefix(
     caplog: pytest.LogCaptureFixture,
 ):
-    logger = get_logger("source.backend.services.session_service")
+    logger = get_logger("source.backend.services.auth.session_service")
 
     with session_log_context("session=1 user=2"):
         logger.info("hello")
 
     rendered = logging.Formatter(main.LOG_FORMAT).format(caplog.records[0])
-    assert "[INFO] [session=1 user=2] [services.session_service] hello" in rendered
+    assert "[INFO] [session=1 user=2] [services.auth.session_service] hello" in rendered

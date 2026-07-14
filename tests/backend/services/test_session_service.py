@@ -7,8 +7,8 @@ from sqlalchemy.orm import sessionmaker
 
 from source.backend.exceptions import InvalidCredentialsError
 from source.backend.helpers import utc_now
-from source.backend.models.session import UserSession
-from source.backend.services import session_service
+from source.backend.models.auth.session import UserSession
+from source.backend.services.auth import session_service
 from tests.backend.conftest import HTTP_SESSION_TOKEN, assert_log_contains, create_user
 
 
@@ -63,7 +63,7 @@ def test_renew_session_extends_expiry_and_last_used_for_valid_session(
         original_last_used = original.last_used_at
 
     with session_factory() as db_session:
-        with caplog.at_level("DEBUG", logger="services.session_service"):
+        with caplog.at_level("DEBUG", logger="services.auth.session_service"):
             renewed = session_service.renew_session(db_session=db_session, raw_token=raw_token)
 
         assert renewed is not None

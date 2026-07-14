@@ -7,10 +7,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from source.backend import main
-from source.backend.models.transaction import Transaction
-from source.backend.models.transaction_category import TransactionCategory
-from source.backend.services import category_rescan
-from source.backend.services.category_rescan import (
+from source.backend.models.transactions.transaction import Transaction
+from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.services.transactions import category_rescan
+from source.backend.services.transactions.category_rescan import (
     run_startup_rescan as real_run_startup_rescan,
 )
 from tests.backend.conftest import (

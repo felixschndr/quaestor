@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
-from source.backend.models.transaction_category import TransactionCategory
+from source.backend.models.transactions.transaction_category import TransactionCategory
 from tests.backend.conftest import (
     OLDER_DATE,
     SECOND_USER_NAME,

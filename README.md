@@ -117,7 +117,7 @@ The following connections are currently supported:
       - The bank uses a (yet) unsupported way to implement 2FA.
       - The FinTS url of the bank is not correct in the upstream database.
       - The Bank is not listed in the upstream database.
-        - For this case there is [this file](source/backend/services/bank_info_updater.py) which holds any additional banks that are not listed in the upstream database and tested.
+        - For this case there is [this file](source/backend/services/banking/bank_info_updater.py) which holds any additional banks that are not listed in the upstream database and tested.
     - If you encounter such a bank, please open an issue and we can work together to implement it.
 - Manual accounts: These allow the user to set the balance and add transactions manually.
 - Deutsche Flugsicherung GmbH retirement plan (http://www.dfs-vorsorgeplan.de / https://www.value-account.eu)

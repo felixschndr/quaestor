@@ -12,8 +12,8 @@ from source.backend.helpers import (  # noqa: E402
     get_backend_source_path,
     get_frontend_source_path,
 )
-from source.backend.services.i18n_service import SUPPORTED_LANGUAGES  # noqa: E402
-from source.backend.services.notification_messages import (  # noqa: E402
+from source.backend.services.core.i18n_service import SUPPORTED_LANGUAGES  # noqa: E402
+from source.backend.services.notifications.notification_messages import (  # noqa: E402
     _TRANSLATION_CATALOG,
 )
 

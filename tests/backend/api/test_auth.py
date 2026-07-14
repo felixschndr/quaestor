@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 from source.backend import main
 from source.backend.logging_utils import NO_SESSION_LOG_LABEL
 from source.backend.security import csrf
-from source.backend.services.session_service import COOKIE_NAME
-from source.backend.services.user_service import (
+from source.backend.services.auth.session_service import COOKIE_NAME
+from source.backend.services.auth.user_service import (
     ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME,
 )
 from tests.backend.conftest import (

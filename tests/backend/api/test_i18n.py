@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from source.backend.services import i18n_service
+from source.backend.services.core import i18n_service
 
 
 def test_list_languages_returns_supported_languages(http_client: TestClient):

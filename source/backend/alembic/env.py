@@ -1,5 +1,4 @@
 import importlib
-import pkgutil
 
 from alembic import context
 from alembic.operations.ops import MigrateOperation, MigrationScript
@@ -14,8 +13,10 @@ from source.backend.models.base import Base
 config = context.config
 
 # Automatically import every model module so each table registers on Base.metadata for autogenerate.
-for _module in pkgutil.iter_modules(path=[get_backend_source_path() / "models"], prefix="source.backend.models."):
-    importlib.import_module(_module.name)
+_MODELS_DIR = get_backend_source_path() / "models"
+for _path in _MODELS_DIR.rglob("*.py"):
+    _parts = _path.relative_to(_MODELS_DIR).with_suffix("").parts
+    importlib.import_module(".".join(("source", "backend", "models", *_parts)))
 
 target_metadata: MetaData = Base.metadata
 

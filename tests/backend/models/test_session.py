@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from source.backend.models.session import UserSession
+from source.backend.models.auth.session import UserSession
 
 
 def test_user_session_repr_contains_identifying_fields_but_not_token_hash():

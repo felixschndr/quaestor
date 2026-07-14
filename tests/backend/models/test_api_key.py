@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from source.backend.models.api_key import ApiKey
+from source.backend.models.auth.api_key import ApiKey
 
 
 def test_api_key_repr_contains_identifying_fields_but_not_token_hash():

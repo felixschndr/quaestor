@@ -9,9 +9,11 @@ from source.backend.bank_handlers.base import (
     FetchedAccount,
     FetchedTransaction,
 )
-from source.backend.models.account_balance_snapshot import BalanceSnapshotSource
-from source.backend.models.credential import Credential
-from source.backend.models.transaction_type import TransactionType
+from source.backend.models.accounts.account_balance_snapshot import (
+    BalanceSnapshotSource,
+)
+from source.backend.models.banking.credential import Credential
+from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     LAST_FETCHING_TIMESTAMP,

@@ -6,8 +6,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from source.backend.constants import API_PREFIX
-from source.backend.models.transaction_category import TransactionCategory
-from source.backend.models.transaction_type import TransactionType
+from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
     create_credential,
     make_transaction,
@@ -60,7 +60,7 @@ def test_categories_logs_with_user_object(
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     seed_for_categories(session_factory=session_factory, account_id=account_id)
 
-    with caplog.at_level(logging.DEBUG, logger="services.statistics_service"):
+    with caplog.at_level(logging.DEBUG, logger="services.transactions.statistics_service"):
         http_client.get("/api/statistics/categories", params=[("account_ids", account_id)])
 
     assert "category breakdown" in caplog.text

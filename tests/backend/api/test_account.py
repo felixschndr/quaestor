@@ -4,13 +4,13 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
-from source.backend.api.schemas.transaction import TransactionDetailRead
+from source.backend.api.schemas.transactions.transaction import TransactionDetailRead
 from source.backend.bank_handlers import BankProvider
-from source.backend.models.account import Account
-from source.backend.models.credential import Credential
-from source.backend.models.transaction import Transaction
-from source.backend.models.transaction_category import TransactionCategory
-from source.backend.models.transaction_type import TransactionType
+from source.backend.models.accounts.account import Account
+from source.backend.models.banking.credential import Credential
+from source.backend.models.transactions.transaction import Transaction
+from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
     SECOND_USER_NAME,
     USER_NAME,

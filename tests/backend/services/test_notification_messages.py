@@ -1,6 +1,6 @@
 import pytest
 
-from source.backend.services import notification_messages
+from source.backend.services.notifications import notification_messages
 
 
 def test_translate_returns_language_specific_text():

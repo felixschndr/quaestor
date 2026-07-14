@@ -1,7 +1,7 @@
 from sqlalchemy.orm import sessionmaker
 
-from source.backend.models.theme import Theme
-from source.backend.models.user import User
+from source.backend.models.auth.theme import Theme
+from source.backend.models.auth.user import User
 from tests.backend.conftest import (
     DISPLAY_NAME,
     TWO_FACTOR_SECRET,

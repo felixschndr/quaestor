@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from source.backend.services import migrations
+from source.backend.services.core import migrations
 from tests.backend.conftest import assert_log_contains
 
 _real_upgrade_to_head = migrations.upgrade_to_head

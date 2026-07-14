@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from source.backend.models.transaction_category import (  # noqa: E402
+from source.backend.models.transactions.transaction_category import (  # noqa: E402
     TRANSACTION_CATEGORY_MAPPING,
     normalize_string,
 )

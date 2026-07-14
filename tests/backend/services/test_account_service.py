@@ -5,13 +5,13 @@ from sqlalchemy.orm import sessionmaker
 
 from source.backend.bank_handlers import BankProvider
 from source.backend.exceptions import AccountNotFoundError, PermissionDeniedError
-from source.backend.models.account import Account
-from source.backend.models.credential import Credential
-from source.backend.models.transaction import Transaction
-from source.backend.models.transaction_category import TransactionCategory
-from source.backend.models.transaction_type import TransactionType
-from source.backend.models.user import User
-from source.backend.services import account_service
+from source.backend.models.accounts.account import Account
+from source.backend.models.auth.user import User
+from source.backend.models.banking.credential import Credential
+from source.backend.models.transactions.transaction import Transaction
+from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.transaction_type import TransactionType
+from source.backend.services.accounts import account_service
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     RECENT_DATE,
@@ -47,7 +47,7 @@ def test_list_accounts_returns_only_accounts_belonging_to_the_user(
 
     with session_factory() as session:
         user = session.get(entity=User, ident=user_id)
-        with caplog.at_level("DEBUG", logger="services.account_service"):
+        with caplog.at_level("DEBUG", logger="services.accounts.account_service"):
             accounts = account_service.list_accounts(db_session=session, user=user)
 
     assert {account.id for account in accounts} == set(expected_ids)

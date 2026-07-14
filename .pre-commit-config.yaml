@@ -84,5 +84,5 @@ repos:
         name: check transaction category mapping
         language: system
         entry: python3 scripts/checks/check_transaction_category_mapping.py
-        files: '^source/backend/models/transaction_category.py$'
+        files: '^source/backend/models/transactions/transaction_category.py$'
         pass_filenames: false

@@ -27,7 +27,7 @@ from source.backend.exceptions import (
 )
 from source.backend.helpers import get_key_of_transaction
 from source.backend.logging_utils import get_logger
-from source.backend.models.transaction_type import TransactionType
+from source.backend.models.transactions.transaction_type import TransactionType
 
 logger = get_logger(__name__)
 

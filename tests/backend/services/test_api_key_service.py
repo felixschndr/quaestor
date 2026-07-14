@@ -3,8 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 from source.backend.exceptions import ApiKeyNotFoundError
-from source.backend.models.api_key import ApiKey
-from source.backend.services import api_key_service
+from source.backend.models.auth.api_key import ApiKey
+from source.backend.services.auth import api_key_service
 from tests.backend.conftest import assert_log_contains, create_user
 
 

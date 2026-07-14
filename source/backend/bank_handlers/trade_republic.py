@@ -22,8 +22,8 @@ from source.backend.bank_handlers.base import (
 )
 from source.backend.exceptions import ReauthenticationRequiredError
 from source.backend.logging_utils import get_logger
-from source.backend.models.transaction_type import TransactionType
-from source.backend.services import trade_republic_login
+from source.backend.models.transactions.transaction_type import TransactionType
+from source.backend.services.banking import trade_republic_login
 
 logger = get_logger(__name__)
 

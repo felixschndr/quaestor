@@ -12,13 +12,17 @@ sys.path.insert(0, str(ROOT))
 
 from source.backend.bank_handlers import BankProvider  # noqa: E402
 from source.backend.db import SessionLocal  # noqa: E402
-from source.backend.models.account_group import AccountGroup  # noqa: E402
-from source.backend.models.transaction import Transaction  # noqa: E402
-from source.backend.models.transaction_category import TransactionCategory  # noqa: E402
-from source.backend.models.transaction_type import TransactionType  # noqa: E402
-from source.backend.models.user import User  # noqa: E402
-from source.backend.services import migrations  # noqa: E402
-from source.backend.services.password_service import hash_password  # noqa: E402
+from source.backend.models.accounts.account_group import AccountGroup  # noqa: E402
+from source.backend.models.auth.user import User  # noqa: E402
+from source.backend.models.transactions.transaction import Transaction  # noqa: E402
+from source.backend.models.transactions.transaction_category import (  # noqa: E402
+    TransactionCategory,
+)
+from source.backend.models.transactions.transaction_type import (  # noqa: E402
+    TransactionType,
+)
+from source.backend.services.auth.password_service import hash_password  # noqa: E402
+from source.backend.services.core import migrations  # noqa: E402
 from tests.backend.conftest import (  # noqa: E402
     DISPLAY_NAME,
     USER_NAME,

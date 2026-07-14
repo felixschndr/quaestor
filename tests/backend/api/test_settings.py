@@ -1,11 +1,13 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from source.backend.services import i18n_service
-from source.backend.services.sync_scheduler import SYNC_INTERVAL_HOURS_ENV_VARIABLE_NAME
-from source.backend.services.user_service import (
+from source.backend.services.auth.user_service import (
     ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME,
 )
+from source.backend.services.banking.sync_scheduler import (
+    SYNC_INTERVAL_HOURS_ENV_VARIABLE_NAME,
+)
+from source.backend.services.core import i18n_service
 
 
 def test_settings_returns_defaults(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):

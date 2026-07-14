@@ -9,11 +9,14 @@ from source.backend.exceptions import (
     PermissionDeniedError,
     RecurringTransactionNotFoundError,
 )
-from source.backend.models.account import Account
-from source.backend.models.recurrence_frequency import RecurrenceFrequency
-from source.backend.models.recurring_transaction import RecurringTransaction
-from source.backend.models.transaction import Transaction
-from source.backend.services import account_service, recurring_transaction_service
+from source.backend.models.accounts.account import Account
+from source.backend.models.transactions.recurrence_frequency import RecurrenceFrequency
+from source.backend.models.transactions.recurring_transaction import (
+    RecurringTransaction,
+)
+from source.backend.models.transactions.transaction import Transaction
+from source.backend.services.accounts import account_service
+from source.backend.services.transactions import recurring_transaction_service
 from tests.backend.conftest import (
     assert_log_contains,
     make_account_with_new_user,

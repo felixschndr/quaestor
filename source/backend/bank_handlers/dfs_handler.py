@@ -15,7 +15,7 @@ from source.backend.bank_handlers.base import (
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
 from source.backend.helpers import epoch_ms_to_date, parse_german_decimal
 from source.backend.logging_utils import get_logger
-from source.backend.models.transaction_type import TransactionType
+from source.backend.models.transactions.transaction_type import TransactionType
 
 logger = get_logger(__name__)
 

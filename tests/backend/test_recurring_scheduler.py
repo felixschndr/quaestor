@@ -9,11 +9,13 @@ from sqlalchemy.orm import sessionmaker
 
 from source.backend import helpers, main
 from source.backend.bank_handlers import BankProvider
-from source.backend.models.account import Account
-from source.backend.models.recurrence_frequency import RecurrenceFrequency
-from source.backend.models.recurring_transaction import RecurringTransaction
-from source.backend.services import recurring_transaction_scheduler
-from source.backend.services.recurring_transaction_scheduler import (
+from source.backend.models.accounts.account import Account
+from source.backend.models.transactions.recurrence_frequency import RecurrenceFrequency
+from source.backend.models.transactions.recurring_transaction import (
+    RecurringTransaction,
+)
+from source.backend.services.transactions import recurring_transaction_scheduler
+from source.backend.services.transactions.recurring_transaction_scheduler import (
     run_periodic_recurring as real_run_periodic_recurring,
 )
 from tests.backend.conftest import (

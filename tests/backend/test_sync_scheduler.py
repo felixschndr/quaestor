@@ -8,8 +8,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from source.backend import main
-from source.backend.services import sync_scheduler
-from source.backend.services.sync_scheduler import (
+from source.backend.services.banking import sync_scheduler
+from source.backend.services.banking.sync_scheduler import (
     run_periodic_sync as real_run_periodic_sync,
 )
 from tests.backend.conftest import assert_log_contains

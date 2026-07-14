@@ -7,9 +7,9 @@ import pytest
 
 from source.backend.exceptions import InvalidCredentialsError
 from source.backend.helpers import utc_now
-from source.backend.services import sync_jobs
-from source.backend.services.credential_service import SyncResult, SyncStatus
-from source.backend.services.sync_jobs import JobErrorCode, JobStatus, SyncJob
+from source.backend.services.banking import sync_jobs
+from source.backend.services.banking.credential_service import SyncResult, SyncStatus
+from source.backend.services.banking.sync_jobs import JobErrorCode, JobStatus, SyncJob
 from tests.backend.conftest import CHALLENGE_TOKEN, assert_log_contains
 
 SyncOutcome = Union[SyncResult, Exception]

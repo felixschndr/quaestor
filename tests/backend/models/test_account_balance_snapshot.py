@@ -1,4 +1,4 @@
-from source.backend.models.account_balance_snapshot import (
+from source.backend.models.accounts.account_balance_snapshot import (
     AccountBalanceSnapshot,
     BalanceSnapshotSource,
 )

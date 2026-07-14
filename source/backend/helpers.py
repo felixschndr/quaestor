@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from source.backend.bank_handlers.base import FetchedTransaction
-    from source.backend.models.transaction import Transaction
+    from source.backend.models.transactions.transaction import Transaction
 
 
 def utc_now() -> datetime:

@@ -4,11 +4,11 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from source.backend.bank_handlers import BankProvider
-from source.backend.models.account import Account
-from source.backend.models.transaction import Transaction
-from source.backend.models.transaction_type import TransactionType
-from source.backend.models.user import User
-from source.backend.services import transfer_detection
+from source.backend.models.accounts.account import Account
+from source.backend.models.auth.user import User
+from source.backend.models.transactions.transaction import Transaction
+from source.backend.models.transactions.transaction_type import TransactionType
+from source.backend.services.transactions import transfer_detection
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     SECOND_ACCOUNT_IBAN,

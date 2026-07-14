@@ -17,7 +17,7 @@ from alembic import op
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from source.backend.models.account import Account
+from source.backend.models.accounts.account import Account
 
 revision: str = "0027"
 down_revision: Union[str, None] = "0026"

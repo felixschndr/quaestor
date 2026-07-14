@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from source.backend.api.exception_handlers import register_exception_handlers
+from source.backend.api.core.exception_handlers import register_exception_handlers
 from source.backend.exceptions import (
     InvalidCredentialsError,
     PermissionDeniedError,

@@ -1,9 +1,9 @@
 from fastapi import Depends, FastAPI
 
 from source.backend import main
-from source.backend.api import openapi
+from source.backend.api.core import openapi
 from source.backend.helpers import get_project_description
-from source.backend.services import session_service
+from source.backend.services.auth import session_service
 
 PUBLIC_OPERATIONS = {
     "GET /api/auth/password_requirements",

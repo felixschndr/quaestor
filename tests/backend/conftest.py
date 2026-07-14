@@ -25,19 +25,21 @@ from source.backend.bank_handlers.base import (
 )
 from source.backend.db import get_session
 from source.backend.helpers import get_root_path_of_repository, utc_now
-from source.backend.models.account import Account
-from source.backend.models.account_balance_snapshot import AccountBalanceSnapshot
+from source.backend.models.accounts.account import Account
+from source.backend.models.accounts.account_balance_snapshot import (
+    AccountBalanceSnapshot,
+)
+from source.backend.models.auth.user import User
+from source.backend.models.banking.credential import Credential
 from source.backend.models.base import Base
-from source.backend.models.contract import Contract
-from source.backend.models.contract_frequency import ContractFrequency
-from source.backend.models.contract_source import ContractSource
-from source.backend.models.credential import Credential
-from source.backend.models.transaction import Transaction
-from source.backend.models.transaction_category import TransactionCategory
-from source.backend.models.transaction_type import TransactionType
-from source.backend.models.user import User
+from source.backend.models.contracts.contract import Contract
+from source.backend.models.contracts.contract_frequency import ContractFrequency
+from source.backend.models.contracts.contract_source import ContractSource
+from source.backend.models.transactions.transaction import Transaction
+from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.security import csrf, rate_limit
-from source.backend.services import i18n_service
+from source.backend.services.core import i18n_service
 
 USER_NAME = "alice"
 SECOND_USER_NAME = "bob"

@@ -14,8 +14,8 @@ from source.backend.bank_handlers.trade_republic import (
     TradeRepublicHandler,
     _TradeRepublicSession,
 )
-from source.backend.models.transaction_type import TransactionType
-from source.backend.services import trade_republic_login
+from source.backend.models.transactions.transaction_type import TransactionType
+from source.backend.services.banking import trade_republic_login
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     CHALLENGE_TOKEN,

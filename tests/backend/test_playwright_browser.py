@@ -5,12 +5,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from source.backend.services import playwright_browser
+from source.backend.services.banking import playwright_browser
 from tests.backend.conftest import assert_log_contains
 
 pytestmark = pytest.mark.real_playwright_browser
 
-LOGGER_NAME = "services.playwright_browser"
+LOGGER_NAME = "services.banking.playwright_browser"
 
 
 def _patch_executable_path(monkeypatch: pytest.MonkeyPatch, path: Path) -> None:

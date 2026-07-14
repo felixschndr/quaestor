@@ -1,8 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from source.backend.api import version as version_api
-from source.backend.services import version_service
+from source.backend.api.core import version as version_api
+from source.backend.services.core import version_service
 
 
 def test_version_endpoint_reports_available_update(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):

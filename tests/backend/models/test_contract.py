@@ -3,9 +3,9 @@ from statistics import median
 
 import pytest
 
-from source.backend.models.contract import OVERDUE_GRACE_DAYS, Contract
-from source.backend.models.transaction import Transaction
-from source.backend.models.transaction_type import TransactionType
+from source.backend.models.contracts.contract import OVERDUE_GRACE_DAYS, Contract
+from source.backend.models.transactions.transaction import Transaction
+from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import LATEST_DATE
 
 

@@ -6,8 +6,8 @@ from sqlalchemy.orm import sessionmaker
 
 from source.backend.bank_handlers import BankProvider
 from source.backend.logging_utils import NO_SESSION_LOG_LABEL
-from source.backend.services import credential_service
-from source.backend.services.credential_service import SyncResult, SyncStatus
+from source.backend.services.banking import credential_service
+from source.backend.services.banking.credential_service import SyncResult, SyncStatus
 from tests.backend.conftest import (
     NEW_VALID_PASSWORD,
     SECOND_USER_NAME,

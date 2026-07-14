@@ -2,7 +2,7 @@ from datetime import datetime
 
 from source.backend.bank_handlers import BankProvider
 from source.backend.bank_handlers.base import BankHandler
-from source.backend.models.credential import Credential
+from source.backend.models.banking.credential import Credential
 from tests.backend.conftest import USER_NAME, VALID_PASSWORD
 
 

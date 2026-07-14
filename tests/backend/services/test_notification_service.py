@@ -3,10 +3,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from source.backend.helpers import utc_now
-from source.backend.models.push_subscription import PushSubscription
-from source.backend.services import notification_service, push_service
-from source.backend.services.notification_service import Notification
-from source.backend.services.push_service import PushOutcome, PushResult
+from source.backend.models.notifications.push_subscription import PushSubscription
+from source.backend.services.notifications import notification_service, push_service
+from source.backend.services.notifications.notification_service import Notification
+from source.backend.services.notifications.push_service import PushOutcome, PushResult
 from tests.backend.conftest import assert_log_contains, make_user
 
 

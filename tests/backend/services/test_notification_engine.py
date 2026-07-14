@@ -5,21 +5,21 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.helpers import utc_now
-from source.backend.models.contract import OVERDUE_GRACE_DAYS
-from source.backend.models.credential import Credential
-from source.backend.models.notification_rule import (
+from source.backend.models.banking.credential import Credential
+from source.backend.models.contracts.contract import OVERDUE_GRACE_DAYS
+from source.backend.models.notifications.notification_rule import (
     BalanceDirection,
     NotificationRule,
     NotificationTrigger,
 )
-from source.backend.models.transaction_category import TransactionCategory
-from source.backend.models.transaction_type import TransactionType
-from source.backend.services import (
-    credential_service,
+from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.transaction_type import TransactionType
+from source.backend.services.banking import credential_service
+from source.backend.services.notifications import (
     notification_engine,
     notification_service,
 )
-from source.backend.services.notification_service import (
+from source.backend.services.notifications.notification_service import (
     Notification,
     NotificationResult,
 )

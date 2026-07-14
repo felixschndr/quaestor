@@ -7,8 +7,8 @@ from source.backend.exceptions import (
     ExpectedTransactionNotFoundError,
     PermissionDeniedError,
 )
-from source.backend.models.account import Account
-from source.backend.services import account_service
+from source.backend.models.accounts.account import Account
+from source.backend.services.accounts import account_service
 from tests.backend.conftest import (
     assert_log_contains,
     make_transaction,

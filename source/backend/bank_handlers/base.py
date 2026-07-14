@@ -4,7 +4,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from source.backend.models.transaction_type import TransactionType
+from source.backend.models.transactions.transaction_type import TransactionType
 
 TwoFactorStateCallback = Callable[[bool], None]
 
