@@ -7,7 +7,7 @@ from source.backend.services.banking.bank_catalog import CatalogEntry, CatalogFa
 def _fake_fints_db() -> dict[str, dict]:
     return {
         "50010517": {"blz": "50010517", "name": "ING-DiBa", "fints": "https://stale.example/"},
-        "12030000": {"blz": "12030000", "name": "Deutsche Kreditbank", "fints": "https://stale.dkb/"},
+        "12030000": {"blz": "12030000", "name": "Deutsche Kreditbank Berlin", "fints": "https://stale.dkb/"},
         "70150000": {"blz": "70150000", "name": "Stadtsparkasse München", "fints": "https://s/"},
         "10070000": {"blz": "10070000", "name": "Deutsche Bank Fill A", "fints": "https://db/"},
         "12070000": {"blz": "12070000", "name": "Deutsche Bank Fill B", "fints": "https://db/"},
@@ -132,3 +132,55 @@ def test_credential_display_for_curated_provider_has_icon_but_no_name():
 
 def test_credential_display_falls_back_to_the_blz_for_an_unknown_bank():
     assert bank_catalog.get_name_and_icon_of_provider(provider="fints", blz="99999999") == ("99999999", None)
+
+
+def _fake_aspsps() -> list[dict]:
+    return [
+        {"name": "PayPal", "country": "DE", "logo": "https://enablebanking.com/brands/DE/PayPal/"},
+        {"name": "DKB", "country": "DE", "logo": "x"},  # initials of "Deutsche Kreditbank Berlin"
+        {"name": "ING", "country": "DE", "logo": "x"},  # prefix of "ING-DiBa"
+        {"name": "Deutsche Bank", "country": "DE", "logo": "x"},  # exact duplicate
+        {"name": "Deutsche Bank", "country": "IT", "logo": "x"},  # German variant exists --> dropped
+        {"name": "PayPal", "country": "FR", "logo": "x"},  # German variant exists --> dropped
+        {"name": "Nordea", "country": "FI", "logo": "x"},  # no German variant --> kept per country
+        {"name": "Sparkasse München Aktiengesellschaft", "country": "DE", "logo": "x"},  # suffixed variant
+        {"name": "Revolut", "country": "LT", "logo": "x"},
+    ]
+
+
+def _build_with_aspsps() -> list[CatalogEntry]:
+    return bank_catalog.build_catalog(fints_db=_fake_fints_db(), schwifty_index=_fake_schwifty(), aspsps=_fake_aspsps())
+
+
+def test_enable_banking_entries_carry_country_and_visible_fields_only():
+    entry = _by_key(_build_with_aspsps(), key="eb-DE-PayPal")
+
+    assert entry.provider == "enable_banking"
+    assert entry.name == "PayPal"
+    assert entry.country == "DE"
+    assert entry.icon is None
+    assert entry.tested is True
+    assert entry.required_fields == ["private_key", "application_id"]
+    assert set(entry.field_rules) <= set(entry.required_fields)
+
+
+def test_enable_banking_german_fints_duplicates_are_dropped():
+    catalog = _build_with_aspsps()
+    enable_banking_names = {(e.name, e.country) for e in catalog if e.provider == "enable_banking"}
+
+    assert ("PayPal", "DE") in enable_banking_names
+    assert ("Revolut", "LT") in enable_banking_names
+    assert ("Nordea", "FI") in enable_banking_names  # no German variant --> per-country entries stay
+    assert ("PayPal", "FR") not in enable_banking_names  # collapsed into the German entry
+    assert ("Deutsche Bank", "IT") not in enable_banking_names  # collapsed, then deduplicated via FinTS
+    assert ("DKB", "DE") not in enable_banking_names
+    assert ("ING", "DE") not in enable_banking_names
+    assert ("Deutsche Bank", "DE") not in enable_banking_names
+    assert ("Sparkasse München Aktiengesellschaft", "DE") not in enable_banking_names
+
+
+def test_credential_display_for_enable_banking_uses_aspsp():
+    name, icon = bank_catalog.get_name_and_icon_of_provider(provider="enable_banking", blz=None, aspsp_name="PayPal")
+
+    assert name == "PayPal"
+    assert icon is None

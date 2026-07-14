@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from source.backend.bank_handlers import dfs_handler
+from source.backend import helpers
 from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.bank_handlers.dfs_handler import DFSHandler, _DFSSession
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
@@ -73,11 +73,10 @@ class FakeSession:
         self.kurse_series_by_id = kurse_series_by_id if kurse_series_by_id is not None else KURSE_SERIES_BY_ID
         self.calls: list[tuple[str, str, dict]] = []
 
-    def __enter__(self) -> "FakeSession":
-        return self
-
-    def __exit__(self, *args: object) -> bool:
-        return False
+    def request(self, method: str, url: str, **kwargs: object) -> FakeHttpResponse:
+        if method == "POST":
+            return self.post(url, **kwargs)
+        return self.get(url, **kwargs)
 
     def post(self, url: str, **kwargs: object) -> FakeHttpResponse:
         self.calls.append(("POST", url, kwargs))
@@ -104,7 +103,7 @@ class FakeSession:
 
 
 def patch_session(monkeypatch: pytest.MonkeyPatch, fake: FakeSession) -> None:
-    monkeypatch.setattr(target=dfs_handler, name="Session", value=lambda: fake)
+    monkeypatch.setattr(target=helpers, name="Session", value=lambda: fake)
 
 
 def dfs_session() -> _DFSSession:

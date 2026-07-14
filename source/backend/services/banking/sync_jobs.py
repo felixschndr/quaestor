@@ -7,7 +7,10 @@ from enum import Enum
 from typing import ClassVar
 
 from source.backend.db import SessionLocal
-from source.backend.exceptions import InvalidCredentialsError
+from source.backend.exceptions import (
+    InvalidCredentialsError,
+    PSD2RedirectUrlNotAllowedError,
+)
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.base import format_repr
@@ -29,6 +32,7 @@ class JobStatus(str, Enum):
 
 class JobErrorCode(str, Enum):
     INVALID_CREDENTIALS = "invalid_credentials"
+    REDIRECT_URL_NOT_ALLOWED = "redirect_url_not_allowed"
     UNKNOWN = "unknown"
 
 
@@ -44,6 +48,7 @@ class SyncJob:
     status: JobStatus = JobStatus.RUNNING
     challenge_token: str | None = None
     expires_at: datetime | None = None
+    authorization_url: str | None = None
     error: str | None = None
     error_code: JobErrorCode | None = None
     started_at: datetime = field(default_factory=utc_now)
@@ -104,6 +109,9 @@ async def _run_sync(job: SyncJob) -> None:
     except InvalidCredentialsError as e:
         logger.warning(f"{job} failed: invalid credentials")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.INVALID_CREDENTIALS)
+    except PSD2RedirectUrlNotAllowedError as e:
+        logger.warning(f"{job} failed: redirect URL not whitelisted")
+        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.REDIRECT_URL_NOT_ALLOWED)
     except Exception as e:
         logger.exception(f"{job} failed")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.UNKNOWN)
@@ -142,6 +150,7 @@ def _apply_result(job: SyncJob, result: SyncResult) -> None:
         job.status = JobStatus.AWAITING_TWO_FACTOR
         job.challenge_token = result.challenge_token
         job.expires_at = result.expires_at
+        job.authorization_url = result.authorization_url
         logger.info(f"{job} awaiting 2FA")
     else:
         _mark_terminal(job=job, status=JobStatus.COMPLETED)

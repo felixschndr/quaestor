@@ -271,7 +271,12 @@
       "username": "Username",
       "password": "Password",
       "phone": "Phone number",
-      "pin": "PIN"
+      "pin": "PIN",
+      "application_id": "Application ID",
+      "private_key": "Private key (.pem)"
+    },
+    "enable_banking": {
+      "title": "Enable Banking (PSD2)"
     }
   },
   "expectedTransactions": {
@@ -334,7 +339,9 @@
       "codeLabel": "Code",
       "submit": "Confirm",
       "submitting": "Confirming…",
-      "failed": "The code was invalid or has expired. Please start the sync again."
+      "failed": "The code was invalid or has expired. Please start the sync again.",
+      "authorizeDescription": "Sign in at {{bank}} via the link and approve access. You will land on a page showing a code — paste it here.",
+      "authorizeLink": "Sign in at {{bank}}"
     },
     "decoupledApproval": {
       "title": "Please approve in your banking app",
@@ -462,6 +469,23 @@
         "5": "Saturday",
         "6": "Sunday"
       }
+    },
+    "enableBanking": {
+      "guideTitle": "One-time Enable Banking setup",
+      "step1": "Create a free account and register a new production application in the control panel at",
+      "step2": "Whitelist this redirect URL in the application:",
+      "step3": "Download the .pem key file when creating the application.",
+      "step4": "Upload the key file below — the application ID is filled in automatically. When connecting you will be redirected to your bank to sign in.",
+      "keyLoaded": "Key loaded ✓",
+      "callbackTitle": "Authorization complete",
+      "callbackDescription": "Copy the code and paste it into the waiting connection dialog.",
+      "callbackCopy": "Copy code",
+      "callbackCopied": "Copied ✓",
+      "callbackErrorTitle": "Authorization failed",
+      "callbackErrorDescription": "The bank reported an error: {{error}}. Please start the sync again.",
+      "applicationIdHint": "Filled in automatically when you upload the key file",
+      "redirectNotAllowed": "Enable Banking does not allow the redirect URL {{url}}. Whitelist it in your application in the control panel and connect again.",
+      "reuseApp": "Your existing Enable Banking application is reused. The bank must be linked as an account in the <cp>control panel</cp>."
     }
   },
   "attributions": {
@@ -533,7 +557,9 @@
       "decoupledDescription": "Please open your {{bank}} app and approve the request. We're waiting for your confirmation.",
       "submit": "Confirm",
       "submitting": "Confirming …",
-      "codeLabel": "Code"
+      "codeLabel": "Code",
+      "authorizeDescription": "Sign in at {{bank}} via the link and approve access. You will land on a page showing a code — paste it here.",
+      "authorizeLink": "Sign in at {{bank}}"
     },
     "skipped": "{{bank}} skipped.",
     "failed": "{{bank}} couldn't be synced."

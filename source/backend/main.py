@@ -44,6 +44,7 @@ from source.backend.security.rate_limit import rate_limit_middleware
 from source.backend.services.auth import api_key_service, session_service
 from source.backend.services.banking import (
     bank_info_updater,
+    enable_banking_catalog,
     playwright_browser,
     sync_scheduler,
 )
@@ -69,6 +70,7 @@ load_dotenv()
 
 STARTUP_BACKGROUND_TASKS = (
     (bank_info_updater, "run_startup_update"),
+    (enable_banking_catalog, "run_startup_update"),
     (category_rescan, "run_startup_rescan"),
     (contract_detection_service, "run_startup_detection"),
     (sync_scheduler, "run_periodic_sync"),

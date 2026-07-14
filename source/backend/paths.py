@@ -21,6 +21,7 @@ DATA_DIR = _resolve_data_dir()
 
 DATABASE_PATH = DATA_DIR / "Quaestor.db"
 BANK_DB_PATH = DATA_DIR / "bank_info.pickle"
+ENABLE_BANKING_ASPSPS_PATH = DATA_DIR / "enable_banking_aspsps.json"
 PLAYWRIGHT_BROWSERS_PATH = DATA_DIR / "playwright"
 
 os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(PLAYWRIGHT_BROWSERS_PATH)

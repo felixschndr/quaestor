@@ -39,6 +39,7 @@ class SyncJobRead(BaseModel):
     expires_at: UtcDatetime | None = None
     error: str | None = None
     error_code: JobErrorCode | None = None
+    authorization_url: str | None = None
 
 
 class TwoFactorCode(BaseModel):
