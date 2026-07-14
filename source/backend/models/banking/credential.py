@@ -62,7 +62,9 @@ class Credential(Base):
         by_name = {account.name: account for account in self.accounts}
 
         transactions_since = (
-            date(year=1970, month=1, day=1)
+            # Day 2: some PSD2 ASPSPs (e.g. PayPal) reject 1970-01-01 as "earlier than 1970" once it shifts across a
+            # timezone
+            date(year=1970, month=1, day=2)
             if self.last_fetching_timestamp is None
             else self.last_fetching_timestamp.date()
         )
