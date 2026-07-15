@@ -307,6 +307,79 @@ describe('NewCredentialFormView', () => {
     expect(onSyncFailed).not.toHaveBeenCalled()
   })
 
+  it('deletes the credential when the user abandons the setup while the job is pending', async () => {
+    const user = userEvent.setup()
+    const fetchMock = globalThis.fetch as Mock
+    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      if (url === '/api/credentials' && init?.method === 'POST') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 201,
+            body: {
+              id: 42,
+              bank: 'ing',
+              accounts: [],
+              last_fetching_timestamp: null,
+              requires_two_factor_authentication: false,
+              sync_enabled: true,
+            },
+          }),
+        )
+      }
+      if (url === '/api/credentials/42/sync' && init?.method === 'POST') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 202,
+            body: {
+              job_id: 'job-abc',
+              credential_id: 42,
+              status: 'running',
+              expires_at: null,
+              error: null,
+            },
+          }),
+        )
+      }
+      if (url === '/api/credentials/42' && init?.method === 'DELETE') {
+        return Promise.resolve(jsonResponse({ status: 204, body: null }))
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+    })
+
+    const { unmount } = renderWithQuery(
+      <NewCredentialFormView
+        bankKey="ing"
+        bank={ING_BANK}
+        isLoading={false}
+        onCancel={vi.fn()}
+        onConnected={vi.fn()}
+        onSyncFailed={vi.fn()}
+      />,
+    )
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Password'), 'hunter2')
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+    const ws = await nextWebSocket((s) => s.url.includes('/credentials/42/sync/job-abc/ws'))
+    ws.push({
+      job_id: 'job-abc',
+      credential_id: 42,
+      status: 'awaiting_2fa',
+      expires_at: null,
+      error: null,
+    })
+    await screen.findByLabelText('Code')
+
+    unmount()
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) => url === '/api/credentials/42' && init?.method === 'DELETE',
+        ),
+      ).toBe(true),
+    )
+  })
+
   it('bounces back to onSyncFailed when the WS reports failed', async () => {
     const user = userEvent.setup()
     const fetchMock = globalThis.fetch as Mock

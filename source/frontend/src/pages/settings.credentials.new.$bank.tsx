@@ -132,14 +132,23 @@ function CredentialForm({
   const [code, setCode] = useState('')
   const { job } = useSyncJob(activeJob?.credentialId ?? null, activeJob?.jobId ?? null)
   const handledJobId = useRef<string | null>(null)
+  const pendingCleanup = useRef<number | null>(null)
+  useEffect(
+    () => () => {
+      if (pendingCleanup.current !== null) deleteCredential(pendingCleanup.current)
+    },
+    [deleteCredential],
+  )
 
   useEffect(() => {
     if (!job || handledJobId.current === job.job_id) return
     if (job.status === 'completed') {
       handledJobId.current = job.job_id
+      pendingCleanup.current = null
       if (activeJob) onConnected(activeJob.credentialId)
     } else if (job.status === 'failed') {
       handledJobId.current = job.job_id
+      pendingCleanup.current = null
       if (job.error_code === 'invalid_credentials') {
         if (activeJob) deleteCredential(activeJob.credentialId)
         toast.error(t('credentials.invalidCredentials', { bank: bankTitle }))
@@ -221,6 +230,7 @@ function CredentialForm({
 
     try {
       const started = await startSync.mutateAsync(createdId)
+      pendingCleanup.current = createdId
       setActiveJob({ credentialId: createdId, jobId: started.job_id })
     } catch {
       toast.error(t('credentials.syncFailed', { bank: bankTitle }))
