@@ -9,6 +9,7 @@ from typing import ClassVar
 from source.backend.db import SessionLocal
 from source.backend.exceptions import (
     InvalidCredentialsError,
+    PSD2ApplicationNotActivatedError,
     PSD2RedirectUrlNotAllowedError,
 )
 from source.backend.helpers import utc_now
@@ -33,6 +34,7 @@ class JobStatus(str, Enum):
 class JobErrorCode(str, Enum):
     INVALID_CREDENTIALS = "invalid_credentials"
     REDIRECT_URL_NOT_ALLOWED = "redirect_url_not_allowed"
+    APPLICATION_NOT_ACTIVATED = "application_not_activated"
     UNKNOWN = "unknown"
 
 
@@ -112,6 +114,11 @@ async def _run_sync(job: SyncJob) -> None:
     except PSD2RedirectUrlNotAllowedError as e:
         logger.warning(f"{job} failed: redirect URL not whitelisted")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.REDIRECT_URL_NOT_ALLOWED)
+    except PSD2ApplicationNotActivatedError as e:
+        logger.warning(f"{job} failed: Enable Banking application not activated")
+        _mark_terminal(
+            job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.APPLICATION_NOT_ACTIVATED
+        )
     except Exception as e:
         logger.exception(f"{job} failed")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.UNKNOWN)
@@ -119,9 +126,6 @@ async def _run_sync(job: SyncJob) -> None:
 
 
 def _make_two_factor_state_notifier(job: SyncJob) -> "Callable[[bool], None]":
-    # Invoked from the worker thread that runs the blocking sync. Schedules a
-    # state update on the event loop so subscribers (e.g., the WebSocket) see
-    # the awaiting / running transition while the sync is still in flight.
     loop = asyncio.get_running_loop()
 
     def notify(awaiting: bool) -> None:
@@ -189,6 +193,11 @@ async def _run_confirm(job: SyncJob, challenge_token: str, code: str) -> None:
     except InvalidCredentialsError as e:
         logger.warning(f"{job} 2FA confirmation failed: invalid credentials")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.INVALID_CREDENTIALS)
+    except PSD2ApplicationNotActivatedError as e:
+        logger.warning(f"{job} 2FA confirmation failed: Enable Banking application not activated")
+        _mark_terminal(
+            job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.APPLICATION_NOT_ACTIVATED
+        )
     except Exception as e:
         logger.exception(f"{job} 2FA confirmation failed")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.UNKNOWN)

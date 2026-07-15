@@ -90,7 +90,11 @@ export type SyncJobStatus =
   | 'completed'
   | 'failed'
 
-export type SyncJobErrorCode = 'invalid_credentials' | 'redirect_url_not_allowed' | 'unknown'
+export type SyncJobErrorCode =
+  | 'invalid_credentials'
+  | 'redirect_url_not_allowed'
+  | 'application_not_activated'
+  | 'unknown'
 
 export interface SyncJob {
   job_id: string

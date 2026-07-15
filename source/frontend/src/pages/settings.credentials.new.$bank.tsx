@@ -170,6 +170,9 @@ function CredentialForm({
           t('credentials.enableBanking.redirectNotAllowed', { url: enableBankingRedirectUrl() }),
           { duration: 12000 },
         )
+      } else if (job.error_code === 'application_not_activated') {
+        if (activeJob) deleteCredential(activeJob.credentialId)
+        toast.error(t('credentials.enableBanking.notActivated'), { duration: 12000 })
       } else {
         toast.error(t('credentials.syncFailed', { bank: bankTitle }))
         onSyncFailed()

@@ -70,6 +70,10 @@ class InvalidCredentialsError(Exception):
     pass
 
 
+class PSD2ApplicationNotActivatedError(Exception):
+    pass
+
+
 class PSD2RedirectUrlNotAllowedError(Exception):
     pass
 

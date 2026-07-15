@@ -22,6 +22,7 @@ from source.backend.bank_handlers.base import (
 )
 from source.backend.exceptions import (
     InvalidCredentialsError,
+    PSD2ApplicationNotActivatedError,
     PSD2RedirectUrlNotAllowedError,
     ReauthenticationRequiredError,
 )
@@ -80,6 +81,11 @@ class _EnableBankingApi(RestAPIClient):
     ) -> Response:
         response = super().request(method=method, path=path, json_body=json_body, params=params, data=data)
         if response.status_code in (401, 403):
+            if "not active" in response.text.lower():
+                raise PSD2ApplicationNotActivatedError(
+                    "The Enable Banking application is not active yet; an account has to be "
+                    "linked in the control panel first."
+                )
             raise InvalidCredentialsError(
                 f"Enable Banking rejected the application credentials ({response.status_code}): {response.text}"
             )

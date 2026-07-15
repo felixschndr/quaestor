@@ -489,7 +489,8 @@
       "reuseApp": "Your existing Enable Banking application is reused. The bank must be linked as an account in the <cp>control panel</cp>.",
       "httpsRequired": "Enable Banking requires Quaestor to be served over HTTPS. This page is currently served over HTTP; the connection will fail. Ask your administrator to set up HTTPS.",
       "countryLabel": "Country",
-      "countryPlaceholder": "Select country"
+      "countryPlaceholder": "Select country",
+      "notActivated": "Your Enable Banking application is not active yet. Link your bank in the control panel (“Link accounts”) first, then connect again."
     }
   },
   "attributions": {
