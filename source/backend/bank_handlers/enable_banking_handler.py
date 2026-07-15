@@ -22,8 +22,9 @@ from source.backend.exceptions import (
     PSD2RedirectUrlNotAllowedError,
     ReauthenticationRequiredError,
 )
-from source.backend.helpers import RestAPIClient, utc_now
+from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
+from source.backend.rest_api_client import RestAPIClient
 
 logger = get_logger(__name__)
 

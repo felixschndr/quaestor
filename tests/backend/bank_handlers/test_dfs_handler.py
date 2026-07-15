@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from source.backend import helpers
+from source.backend import rest_api_client
 from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.bank_handlers.dfs_handler import DFSHandler, _DFSSession
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
@@ -103,7 +103,7 @@ class FakeSession:
 
 
 def patch_session(monkeypatch: pytest.MonkeyPatch, fake: FakeSession) -> None:
-    monkeypatch.setattr(target=helpers, name="Session", value=lambda: fake)
+    monkeypatch.setattr(target=rest_api_client, name="Session", value=lambda: fake)
 
 
 def dfs_session() -> _DFSSession:

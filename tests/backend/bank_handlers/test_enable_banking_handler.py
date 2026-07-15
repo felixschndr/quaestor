@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.hazmat.primitives.hashes import SHA256
 
-from source.backend import helpers
+from source.backend import rest_api_client
 from source.backend.bank_handlers import BANKS_BY_NAME
 from source.backend.bank_handlers.enable_banking_handler import (
     EnableBankingHandler,
@@ -82,7 +82,7 @@ class FakeHttp:
 def fake_http(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict], FakeHttp]:
     def install(routes: dict) -> FakeHttp:
         fake = FakeHttp(routes)
-        monkeypatch.setattr(target=helpers, name="Session", value=lambda: fake)
+        monkeypatch.setattr(target=rest_api_client, name="Session", value=lambda: fake)
         return fake
 
     return install

@@ -13,9 +13,10 @@ from source.backend.bank_handlers.base import (
     FetchedTransaction,
 )
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
-from source.backend.helpers import RestAPIClient, epoch_ms_to_date, parse_german_decimal
+from source.backend.helpers import epoch_ms_to_date, parse_german_decimal
 from source.backend.logging_utils import get_logger
 from source.backend.models.transactions.transaction_type import TransactionType
+from source.backend.rest_api_client import RestAPIClient
 
 logger = get_logger(__name__)
 
