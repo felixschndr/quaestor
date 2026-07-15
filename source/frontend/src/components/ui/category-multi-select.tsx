@@ -20,13 +20,13 @@ function CategoryMultiSelect({ id, selectedIds, onChange, className }: CategoryM
   return (
     <MultiSelectPopover
       id={id}
-      ariaLabel={t('filters.categoriesLabel')}
+      ariaLabel={t('common.categories')}
       options={options}
       selected={selectedIds}
       onChange={onChange}
       triggerLabel={multiSelectTriggerLabel(selectedIds.length, options.length, {
         none: t('filters.categoriesNone'),
-        all: t('filters.categoriesAll'),
+        all: t('common.allCategories'),
         some: (count) => t('filters.categoriesCount', { count }),
       })}
       selectAll={{

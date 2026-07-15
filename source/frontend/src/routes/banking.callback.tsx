@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
+import { copyText } from '@/lib/clipboard'
 
 const callbackSearchSchema = z.object({
   code: z.string().optional(),
@@ -33,7 +34,7 @@ function BankingCallbackPage() {
           <code className="bg-muted rounded px-3 py-2 text-sm break-all select-all">{code}</code>
           <Button
             onClick={async () => {
-              await navigator.clipboard.writeText(code)
+              await copyText(code)
               setCopied(true)
             }}
           >

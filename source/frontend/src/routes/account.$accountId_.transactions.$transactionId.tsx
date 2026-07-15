@@ -192,7 +192,7 @@ function LinkConfirmSection({
       </p>
       <Button type="button" size="sm" disabled={link.isPending} onClick={confirm}>
         <ArrowLeftRight className="size-4" aria-hidden="true" />
-        {t('transaction.linkConfirmAction')}
+        {t('transaction.linkStart')}
       </Button>
     </section>
   )
@@ -227,7 +227,7 @@ function BackLink({ accountId }: { accountId: number }) {
     <Link
       to="/account/$accountId"
       params={{ accountId: String(accountId) }}
-      aria-label={t('transaction.back')}
+      aria-label={t('common.back')}
       className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
     >
       <ChevronLeft className="size-5" />

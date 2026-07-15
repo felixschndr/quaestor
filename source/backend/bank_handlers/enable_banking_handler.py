@@ -1,14 +1,10 @@
-import base64
-import json
 import secrets
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from typing import Iterator
 from urllib.parse import parse_qs, urlsplit
 
-from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
-from cryptography.hazmat.primitives.hashes import SHA256
-from cryptography.hazmat.primitives.serialization import load_pem_private_key
+import jwt
 from requests import Response
 
 from source.backend.bank_handlers.base import (
@@ -38,30 +34,18 @@ _REQUESTED_PSD2_CONSENT_VALIDITY = timedelta(days=179)  # ASPSPs cap it at their
 _BALANCE_TYPE_PREFERENCE = ("CLBD", "XPCD", "CLAV", "ITBD", "ITAV")  # Prefer settled balances
 
 
-def _base64url(raw: bytes) -> str:
-    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
-
-
 def _make_jwt(application_id: str, private_key_pem: str) -> str:
-    try:
-        private_key = load_pem_private_key(private_key_pem.encode("utf-8"), password=None)
-    except (ValueError, TypeError) as e:
-        raise InvalidCredentialsError(f"Enable Banking private key could not be loaded: {e}") from e
-    now = int(utc_now().replace(tzinfo=timezone.utc).timestamp())
+    now = utc_now().replace(tzinfo=timezone.utc)
     payload = {
         "iss": "enablebanking.com",
         "aud": "api.enablebanking.com",
         "iat": now,
-        "exp": now + int(_JWT_LIFETIME.total_seconds()),
+        "exp": now + _JWT_LIFETIME,
     }
-    header = {"typ": "JWT", "alg": "RS256", "kid": application_id}
-    signing_input = ".".join(
-        _base64url(json.dumps(part, separators=(",", ":")).encode("utf-8")) for part in (header, payload)
-    )
-    signature = private_key.sign(  # type: ignore[union-attr]
-        data=signing_input.encode("ascii"), padding=PKCS1v15(), algorithm=SHA256()
-    )
-    return f"{signing_input}.{_base64url(signature)}"
+    try:
+        return jwt.encode(payload=payload, key=private_key_pem, algorithm="RS256", headers={"kid": application_id})
+    except (ValueError, TypeError, jwt.exceptions.InvalidKeyError) as e:
+        raise InvalidCredentialsError(f"Enable Banking private key could not be loaded: {e}") from e
 
 
 class _EnableBankingApi(RestAPIClient):
@@ -219,7 +203,8 @@ class EnableBankingHandler(BankHandler):
         )
 
     def begin_two_factor_challenge(self, credential_id: int) -> TwoFactorChallenge:
-        response = self._api().request(
+        api = self._api()
+        response = api.request(
             method="POST",
             path="/auth",
             json_body={
@@ -235,7 +220,7 @@ class EnableBankingHandler(BankHandler):
                 f"The redirect URL {self.credentials['redirect_url']} is not whitelisted "
                 f"in the Enable Banking application."
             )
-        self._api().raise_for_status(response=response, label="authorization could not be started")
+        api.raise_for_status(response=response, label="authorization could not be started")
         logger.info(f"Enable Banking authorization started for credential {credential_id}")
         return TwoFactorChallenge(
             challenge_token=secrets.token_urlsafe(16),
@@ -244,10 +229,11 @@ class EnableBankingHandler(BankHandler):
         )
 
     def complete_two_factor_challenge(self, challenge_token: str, credential_id: int, code: str) -> dict:
-        response = self._api().request(method="POST", path="/sessions", json_body={"code": _extract_code(code)})
+        api = self._api()
+        response = api.request(method="POST", path="/sessions", json_body={"code": _extract_code(code)})
         if response.status_code == 422:
             raise InvalidCredentialsError(f"Enable Banking rejected the authorization code: {response.text}")
-        self._api().raise_for_status(response=response, label="session could not be created")
+        api.raise_for_status(response=response, label="session could not be created")
         session = response.json()
         logger.info(f"Enable Banking session created for credential {credential_id}")
         return {"session_id": session["session_id"], "valid_until": (session.get("access") or {}).get("valid_until")}
@@ -257,10 +243,11 @@ class EnableBankingHandler(BankHandler):
         session_id = (self.session_state or {}).get("session_id")
         if not session_id:
             raise ReauthenticationRequiredError("Enable Banking access has not been authorized yet.")
-        response = self._api().request(method="GET", path=f"/sessions/{session_id}")
+        api = self._api()
+        response = api.request(method="GET", path=f"/sessions/{session_id}")
         if response.status_code in (404, 410, 422):
             raise ReauthenticationRequiredError("Enable Banking session no longer exists; re-authorization required.")
-        self._api().raise_for_status(response=response, label="session lookup failed")
+        api.raise_for_status(response=response, label="session lookup failed")
         session = response.json()
         if session.get("status") != "AUTHORIZED":
             raise ReauthenticationRequiredError(
@@ -269,11 +256,11 @@ class EnableBankingHandler(BankHandler):
         accounts = [
             {"uid": account} if isinstance(account, str) else account for account in session.get("accounts") or []
         ]
-        accounts = [self._with_details(api=self._api(), account=account) for account in accounts]
+        accounts = [self._with_details(api=api, account=account) for account in accounts]
 
         transaction_history_incomplete = self.credentials.get("aspsp_name") == "PayPal"
         yield _EnableBankingSession(
-            api=(self._api()), accounts=accounts, transaction_history_incomplete=transaction_history_incomplete
+            api=api, accounts=accounts, transaction_history_incomplete=transaction_history_incomplete
         )
 
     @staticmethod

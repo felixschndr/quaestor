@@ -58,7 +58,7 @@ export function BackupCodes({ codes, onDone }: BackupCodesProps) {
       <div className="flex gap-2">
         <Button type="button" variant="outline" size="sm" onClick={copy} className="flex-1">
           {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
-          {copied ? t('twoFactor.copied') : t('twoFactor.copy')}
+          {copied ? t('common.copied') : t('common.copy')}
         </Button>
         <Button type="button" variant="outline" size="sm" onClick={download} className="flex-1">
           <Download className="size-3.5" />

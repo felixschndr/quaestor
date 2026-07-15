@@ -151,7 +151,7 @@ function SyncSettingsSection({ credential }: { credential: CredentialRead }) {
     setEnabled(next)
     try {
       await mutateAsync({ credentialId: credential.id, sync_enabled: next })
-      toast.success(t('credentials.detail.saved'))
+      toast.success(t('common.saved'))
     } catch {
       setEnabled(credential.sync_enabled)
       toast.error(t('credentials.detail.saveFailed'))
@@ -184,7 +184,7 @@ function AccountsSection({ credential }: { credential: CredentialRead }) {
     <section className="flex flex-col gap-3">
       <header className="flex items-center justify-between gap-2">
         <h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
-          {t('credentials.detail.accountsHeading')}
+          {t('common.accounts')}
         </h2>
       </header>
       {accounts.length === 0 ? (
@@ -348,7 +348,7 @@ function AccountRow({ account, isManual }: { account: AccountRead; isManual: boo
 
     const handle = setTimeout(() => {
       mutateAsync({ accountId: account.id, ...payload }).then(
-        () => toast.success(t('credentials.detail.saved')),
+        () => toast.success(t('common.saved')),
         () => toast.error(t('credentials.detail.saveFailed')),
       )
     }, AUTOSAVE_DEBOUNCE_MS)
@@ -387,7 +387,7 @@ function AccountRow({ account, isManual }: { account: AccountRead; isManual: boo
     setHidden(next)
     try {
       await mutateAsync({ accountId: account.id, is_hidden: next })
-      toast.success(t('credentials.detail.saved'))
+      toast.success(t('common.saved'))
     } catch {
       setHidden(account.is_hidden)
       toast.error(t('credentials.detail.saveFailed'))
@@ -531,7 +531,7 @@ function DeleteAccountControls({
             onClick={() => setConfirming(false)}
             disabled={remove.isPending}
           >
-            {t('credentials.detail.deleteAccountCancel')}
+            {t('common.cancel')}
           </Button>
         </>
       ) : (
@@ -543,7 +543,7 @@ function DeleteAccountControls({
           className="text-destructive hover:text-destructive"
         >
           <Trash2 className="size-3.5" aria-hidden="true" />
-          {t('credentials.detail.deleteAccount')}
+          {t('common.deleteAccount')}
         </Button>
       )}
     </div>
@@ -577,7 +577,7 @@ function DangerZone({
   return (
     <section className="border-destructive/40 flex flex-col gap-3 rounded-lg border p-4">
       <h2 className="text-destructive text-sm font-semibold uppercase tracking-wide">
-        {t('credentials.detail.deleteSection')}
+        {t('common.dangerZone')}
       </h2>
       <p className="text-muted-foreground text-sm">{t('credentials.detail.deleteDescription')}</p>
       {confirming ? (
@@ -596,7 +596,7 @@ function DangerZone({
             onClick={() => setConfirming(false)}
             disabled={remove.isPending}
           >
-            {t('credentials.detail.deleteCancel')}
+            {t('common.cancel')}
           </Button>
         </div>
       ) : (

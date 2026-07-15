@@ -47,7 +47,7 @@ function ContractFilterBar({ credentials, filters, onChange }: ContractFilterBar
     <section className="border-border bg-card flex flex-col gap-3 rounded-lg border p-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="contract-filter-accounts">{t('contracts.account')}</Label>
+          <Label htmlFor="contract-filter-accounts">{t('common.account')}</Label>
           <AccountMultiSelect
             id="contract-filter-accounts"
             credentials={credentials}
@@ -56,7 +56,7 @@ function ContractFilterBar({ credentials, filters, onChange }: ContractFilterBar
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="contract-filter-categories">{t('filters.categoriesLabel')}</Label>
+          <Label htmlFor="contract-filter-categories">{t('common.categories')}</Label>
           <CategoryMultiSelect
             id="contract-filter-categories"
             selectedIds={shownOrAll(filters.categories, FILTERABLE_CATEGORIES)}
@@ -77,8 +77,8 @@ function ContractFilterBar({ credentials, filters, onChange }: ContractFilterBar
 
       <AmountRangeFields
         idPrefix="contract-filter"
-        fromLabel={t('search.amountFrom')}
-        toLabel={t('search.amountTo')}
+        fromLabel={t('common.amountFrom')}
+        toLabel={t('common.amountTo')}
         from={filters.amount_from}
         to={filters.amount_to}
         onFromChange={(value) => update('amount_from', value)}

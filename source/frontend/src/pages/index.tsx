@@ -75,14 +75,14 @@ export function OverviewView({
           />
           <Link
             to="/stats"
-            aria-label={t('overview.statistics')}
+            aria-label={t('stats.title')}
             className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
           >
             <StatsIcon className="size-5" />
           </Link>
           <Link
             to="/contracts"
-            aria-label={t('overview.contracts')}
+            aria-label={t('contracts.title')}
             className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
           >
             <ContractIcon className="size-5" />
@@ -100,7 +100,7 @@ export function OverviewView({
           ) : null}
           <Link
             to="/settings"
-            aria-label={t('overview.settings')}
+            aria-label={t('settings.title')}
             className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
           >
             <Settings className="size-5 transition-transform duration-300 ease-in-out group-hover:rotate-90" />

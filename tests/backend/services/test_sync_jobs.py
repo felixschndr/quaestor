@@ -112,7 +112,7 @@ def test_start_sync_tags_invalid_credentials_with_error_code(patch_sync: PatchSy
 
     asyncio.run(scenario())
 
-    assert_log_contains(caplog, message="failed: invalid credentials")
+    assert_log_contains(caplog, message="failed: The bank rejected the login")
 
 
 def test_start_sync_tags_unexpected_failure_with_unknown_error_code(patch_sync: PatchSync):

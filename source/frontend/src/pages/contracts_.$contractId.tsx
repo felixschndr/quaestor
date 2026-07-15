@@ -167,12 +167,12 @@ export function ContractDetailView({
       ) : null}
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-foreground text-sm font-semibold">{t('contracts.category')}</h2>
+        <h2 className="text-foreground text-sm font-semibold">{t('common.category')}</h2>
         <ContractCategorySelect category={contract.category} onChange={onChangeCategory} />
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-foreground text-sm font-semibold">{t('contracts.note')}</h2>
+        <h2 className="text-foreground text-sm font-semibold">{t('common.note')}</h2>
         <NoteEditor remoteNote={contract.note ?? ''} onSave={onSaveNote} />
       </section>
 
@@ -251,7 +251,7 @@ function ContractCategorySelect({
 
   return (
     <SingleSelectPopover
-      ariaLabel={t('contracts.category')}
+      ariaLabel={t('common.category')}
       value={(category ?? 'UNKNOWN') as TransactionCategory}
       disabled={pending}
       onChange={(next) => void change(next)}

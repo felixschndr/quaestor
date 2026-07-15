@@ -90,7 +90,7 @@ export function ExpectedTransactionForm({
       }}
       className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4"
     >
-      <FormField id={`${fieldIdPrefix}-amount`} label={t('expectedTransactions.fieldAmount')}>
+      <FormField id={`${fieldIdPrefix}-amount`} label={t('common.amount')}>
         <AmountInput
           id={`${fieldIdPrefix}-amount`}
           value={amount}
@@ -123,7 +123,7 @@ export function ExpectedTransactionForm({
           onChange={(event) => setOtherParty(event.target.value)}
         />
       </FormField>
-      <FormField id={`${fieldIdPrefix}-note`} label={t('expectedTransactions.fieldNote')}>
+      <FormField id={`${fieldIdPrefix}-note`} label={t('common.note')}>
         <Input
           id={`${fieldIdPrefix}-note`}
           value={note}
@@ -138,10 +138,10 @@ export function ExpectedTransactionForm({
           disabled={pending}
           className="flex-1"
         >
-          {t('expectedTransactions.cancel')}
+          {t('common.cancel')}
         </Button>
         <Button type="submit" disabled={pending} className="flex-1">
-          {pending ? t('expectedTransactions.saving') : t('expectedTransactions.save')}
+          {pending ? t('common.saving') : t('common.save')}
         </Button>
       </div>
     </form>

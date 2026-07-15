@@ -99,7 +99,7 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
               </Button>
             ) : null}
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="global-sync-2fa-code">{t('sync.twoFactor.codeLabel')}</Label>
+              <Label htmlFor="global-sync-2fa-code">{t('common.code')}</Label>
               <Input
                 id="global-sync-2fa-code"
                 inputMode={current2fa.authorizationUrl ? 'text' : 'numeric'}
@@ -110,7 +110,7 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
               />
             </div>
             <Button type="submit" disabled={submitting || code.length === 0}>
-              {submitting ? t('sync.twoFactor.submitting') : t('sync.twoFactor.submit')}
+              {submitting ? t('common.confirming') : t('common.confirm')}
             </Button>
           </form>
         ) : null}

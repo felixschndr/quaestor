@@ -33,7 +33,7 @@ function LanguageSection({ user }: { user: UserRead }) {
       await update.mutateAsync({ language: next })
       // Switch i18next immediately so the rest of the UI re-renders without a reload.
       await i18n.changeLanguage(next)
-      toast.success(t('settings.userSaved'))
+      toast.success(t('common.saved'))
     } catch (err) {
       toast.error(readApiErrorMessage(err, t))
     } finally {
@@ -75,7 +75,7 @@ function ThemeSection({ user }: { user: UserRead }) {
     setPending(true)
     try {
       await update.mutateAsync({ theme: next })
-      toast.success(t('settings.userSaved'))
+      toast.success(t('common.saved'))
     } catch (err) {
       applyTheme(user.theme)
       toast.error(readApiErrorMessage(err, t))

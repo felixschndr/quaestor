@@ -165,7 +165,7 @@ export function NetWorthDetailPage() {
       </div>
 
       {range.isLoading ? (
-        <p className="text-muted-foreground text-sm">{t('stats.day.loading')}</p>
+        <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
       ) : range.isError ? (
         <p className="text-destructive text-sm">{t('stats.day.error')}</p>
       ) : groups.length === 0 ? (

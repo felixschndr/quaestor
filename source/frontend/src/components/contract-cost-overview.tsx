@@ -81,7 +81,7 @@ function BalanceHeader({ total }: { total: number }) {
   return (
     <div>
       <p className="text-muted-foreground text-xs">
-        {surplus ? t('contracts.cost.surplus') : t('contracts.cost.deficit')}
+        {surplus ? t('common.surplus') : t('contracts.cost.deficit')}
       </p>
       <p
         className={cn(
@@ -103,7 +103,7 @@ function ContractCostTable({ contracts }: { contracts: ContractRead[] }) {
       <thead>
         <tr className="text-muted-foreground border-border border-b">
           <th className="w-full min-w-[8rem] py-2 pr-3 text-left text-xs font-medium lg:min-w-0">
-            {t('contracts.name')}
+            {t('common.name')}
           </th>
           {CONTRACT_COST_PERIODS.map((period) => (
             <th key={period} className="px-3 py-2 text-right text-xs font-medium">

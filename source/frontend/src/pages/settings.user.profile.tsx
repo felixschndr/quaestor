@@ -47,7 +47,7 @@ function UserNameSection({ user }: { user: UserRead }) {
     if (normalized === user.user_name) return
     try {
       await update.mutateAsync({ user_name: normalized })
-      toast.success(t('settings.userSaved'))
+      toast.success(t('common.saved'))
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         form.setError('user_name', { type: 'server', message: t('login.userNameTaken') })
@@ -60,11 +60,11 @@ function UserNameSection({ user }: { user: UserRead }) {
   const dirty = form.watch('user_name').trim().toLowerCase() !== user.user_name
 
   return (
-    <Section title={t('settings.userName')}>
+    <Section title={t('common.username')}>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3">
         <FieldRow
           id="user-name"
-          label={t('settings.userName')}
+          label={t('common.username')}
           hideLabel
           autoComplete="username"
           error={form.formState.errors.user_name?.message}
@@ -103,7 +103,7 @@ function DisplayNameSection({ user }: { user: UserRead }) {
     if (values.display_name === user.display_name) return
     try {
       await update.mutateAsync({ display_name: values.display_name })
-      toast.success(t('settings.userSaved'))
+      toast.success(t('common.saved'))
     } catch (err) {
       toast.error(readApiErrorMessage(err, t))
     }
@@ -112,11 +112,11 @@ function DisplayNameSection({ user }: { user: UserRead }) {
   const dirty = form.watch('display_name') !== user.display_name
 
   return (
-    <Section title={t('settings.displayName')}>
+    <Section title={t('common.displayName')}>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3">
         <FieldRow
           id="display-name"
-          label={t('settings.displayName')}
+          label={t('common.displayName')}
           hideLabel
           autoComplete="name"
           error={form.formState.errors.display_name?.message}

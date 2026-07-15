@@ -163,7 +163,7 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <Field
         id="login-user-name"
-        label={t('login.username')}
+        label={t('common.username')}
         autoComplete="username"
         error={form.formState.errors.user_name?.message}
         {...form.register('user_name')}
@@ -171,7 +171,7 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
       <Field
         id="login-password"
         type="password"
-        label={t('login.password')}
+        label={t('common.password')}
         autoComplete="current-password"
         error={form.formState.errors.password?.message}
         {...form.register('password')}
@@ -188,7 +188,7 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
       {topLevelError ? <FormErrorBanner message={topLevelError} /> : null}
 
       <Button type="submit" disabled={login.isPending}>
-        {t('login.submitLogin')}
+        {t('login.loginTab')}
       </Button>
     </form>
   )
@@ -236,7 +236,7 @@ function TwoFactorLoginStep({
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-foreground text-lg font-semibold">{t('twoFactor.loginTitle')}</h2>
+        <h2 className="text-foreground text-lg font-semibold">{t('twoFactor.sectionTitle')}</h2>
         <p className="text-muted-foreground text-sm">{t('twoFactor.loginHint')}</p>
       </div>
       <div className="flex flex-col gap-1.5">
@@ -351,14 +351,14 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <Field
         id="register-user-name"
-        label={t('login.username')}
+        label={t('common.username')}
         autoComplete="username"
         error={form.formState.errors.user_name?.message}
         {...form.register('user_name')}
       />
       <Field
         id="register-display-name"
-        label={t('login.displayName')}
+        label={t('common.displayName')}
         autoComplete="name"
         error={form.formState.errors.display_name?.message}
         {...form.register('display_name')}
@@ -366,7 +366,7 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
       <Field
         id="register-password"
         type="password"
-        label={t('login.password')}
+        label={t('common.password')}
         autoComplete="new-password"
         error={form.formState.errors.password?.message}
         {...form.register('password')}
@@ -382,10 +382,10 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
       />
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="register-theme">{t('login.theme')}</Label>
+        <Label htmlFor="register-theme">{t('settings.theme')}</Label>
         <SingleSelectPopover
           id="register-theme"
-          ariaLabel={t('login.theme')}
+          ariaLabel={t('settings.theme')}
           value={form.watch('theme')}
           onChange={(next) => {
             form.setValue('theme', next)
@@ -402,13 +402,13 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
 
       <label className="border-border bg-card flex cursor-pointer items-center justify-between gap-3 rounded-md border p-3">
         <span className="flex flex-col">
-          <span className="text-sm font-medium">{t('twoFactor.enableLabel')}</span>
+          <span className="text-sm font-medium">{t('twoFactor.enable')}</span>
           <span className="text-muted-foreground text-xs">{t('twoFactor.enableHint')}</span>
         </span>
         <Switch
           checked={form.watch('enable_two_factor')}
           onCheckedChange={(checked) => form.setValue('enable_two_factor', checked === true)}
-          aria-label={t('twoFactor.enableLabel')}
+          aria-label={t('twoFactor.enable')}
         />
       </label>
 

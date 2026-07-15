@@ -17,7 +17,7 @@ export function ContractsSummaryCard({ accountIds }: { accountIds: number[] }) {
       <header className="flex items-center justify-between gap-2">
         <h2 className="text-primary inline-flex items-center gap-2 text-sm font-semibold">
           <Repeat className="size-4" aria-hidden="true" />
-          {t('stats.contracts.title')}
+          {t('contracts.title')}
         </h2>
         <Link
           to="/contracts"

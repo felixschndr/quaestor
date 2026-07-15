@@ -184,7 +184,7 @@ export function StatsView({
       <header className="flex items-center gap-2">
         <Link
           to="/"
-          aria-label={t('stats.back')}
+          aria-label={t('common.back')}
           className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
         >
           <ChevronLeft className="size-5" />
@@ -194,7 +194,7 @@ export function StatsView({
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="stats-accounts">{t('stats.accountsLabel')}</Label>
+          <Label htmlFor="stats-accounts">{t('common.accounts')}</Label>
           <AccountMultiSelect
             id="stats-accounts"
             credentials={credentials}
@@ -221,7 +221,7 @@ export function StatsView({
         />
         <SegmentedToggle
           fullWidth
-          ariaLabel={t('stats.directionLabel')}
+          ariaLabel={t('common.direction')}
           value={direction}
           onChange={updateDirection}
           options={[

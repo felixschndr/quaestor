@@ -30,9 +30,9 @@ export function SettingsDeleteAccountView({
   }
 
   return (
-    <SettingsSubPage title={t('settings.deleteAccount')}>
+    <SettingsSubPage title={t('common.deleteAccount')}>
       {confirming ? (
-        <Section title={t('settings.dangerZone')} description={t('settings.deleteConfirm')}>
+        <Section title={t('common.dangerZone')} description={t('settings.deleteConfirm')}>
           <div className="flex flex-col gap-2">
             <Button
               type="button"
@@ -55,14 +55,14 @@ export function SettingsDeleteAccountView({
           </div>
         </Section>
       ) : (
-        <Section title={t('settings.dangerZone')} description={t('settings.deleteDescription')}>
+        <Section title={t('common.dangerZone')} description={t('settings.deleteDescription')}>
           <Button
             type="button"
             variant="destructive"
             onClick={() => setConfirming(true)}
             className="w-full"
           >
-            {t('settings.deleteAccount')}
+            {t('common.deleteAccount')}
           </Button>
         </Section>
       )}

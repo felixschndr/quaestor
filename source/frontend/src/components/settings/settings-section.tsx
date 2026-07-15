@@ -24,7 +24,7 @@ export function SettingsSubPage({
       <header className="flex items-center gap-2">
         <Link
           to="/settings/user"
-          aria-label={t('settings.back')}
+          aria-label={t('common.back')}
           className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
         >
           <ChevronLeft className="size-5" />

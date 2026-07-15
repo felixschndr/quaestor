@@ -254,7 +254,7 @@ function RuleRow({
             disabled={remove.isPending}
             onClick={onDelete}
           >
-            {t('notifications.confirmDelete')}
+            {t('common.confirm')}
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => setConfirming(false)}>
             {t('common.cancel')}
@@ -276,7 +276,7 @@ function RuleRow({
             variant="destructive"
             size="sm"
             onClick={() => setConfirming(true)}
-            aria-label={t('notifications.delete')}
+            aria-label={t('common.delete')}
           >
             <Trash2 className="size-3.5" aria-hidden="true" />
           </Button>
@@ -489,7 +489,7 @@ function RuleDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="rule-accounts">{t('notifications.accountsLabel')}</Label>
+            <Label htmlFor="rule-accounts">{t('common.accounts')}</Label>
             <AccountMultiSelect
               id="rule-accounts"
               credentials={user.credentials}
@@ -519,7 +519,7 @@ function RuleDialog({
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="rule-categories">{t('notifications.categoriesLabel')}</Label>
+                  <Label htmlFor="rule-categories">{t('common.categories')}</Label>
                   <CategoryMultiSelect
                     id="rule-categories"
                     selectedIds={model.categories}
@@ -537,8 +537,8 @@ function RuleDialog({
               </div>
               <AmountRangeFields
                 idPrefix="rule"
-                fromLabel={t('notifications.amountFromLabel')}
-                toLabel={t('notifications.amountToLabel')}
+                fromLabel={t('common.amountFrom')}
+                toLabel={t('common.amountTo')}
                 from={model.min_amount}
                 to={model.max_amount}
                 onFromChange={(next) => set('min_amount', next)}
@@ -550,10 +550,10 @@ function RuleDialog({
           {model.trigger === 'balance_threshold' ? (
             <>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="rule-direction">{t('notifications.directionLabel')}</Label>
+                <Label htmlFor="rule-direction">{t('common.direction')}</Label>
                 <SingleSelectPopover
                   id="rule-direction"
-                  ariaLabel={t('notifications.directionLabel')}
+                  ariaLabel={t('common.direction')}
                   value={model.direction}
                   onChange={(next) => set('direction', next)}
                   options={BALANCE_DIRECTIONS.map((direction) => ({
@@ -603,7 +603,7 @@ function RuleDialog({
               {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={pending}>
-              {t('notifications.save')}
+              {t('common.save')}
             </Button>
           </div>
         </form>
@@ -632,7 +632,7 @@ function ruleSummaryLines(
   }
 
   lines.push({
-    label: t('notifications.accountsLabel'),
+    label: t('common.accounts'),
     value: describeAccounts(rule.account_ids, allAccountIds, t, accountNameById),
   })
 
@@ -641,12 +641,12 @@ function ruleSummaryLines(
       lines.push({ label: t('notifications.senderLabel'), value: rule.other_party_contains })
     }
     lines.push({
-      label: t('notifications.categoriesLabel'),
+      label: t('common.categories'),
       value: describeSelection(
         rule.categories,
         FILTERABLE_CATEGORIES.length,
         (category) => t(`category.${category}`),
-        t('notifications.allCategories'),
+        t('common.allCategories'),
       ),
     })
     lines.push({
@@ -655,16 +655,16 @@ function ruleSummaryLines(
         rule.types,
         TRANSACTION_TYPES.length,
         (type) => t(`transactionType.${type}`),
-        t('notifications.allTypes'),
+        t('common.allTypes'),
       ),
     })
     lines.push({
-      label: t('notifications.amountLabel'),
+      label: t('common.amount'),
       value: describeAmountRange(rule.min_amount, rule.max_amount, t),
     })
   } else if (rule.trigger === 'balance_threshold') {
     lines.push({
-      label: t('notifications.directionLabel'),
+      label: t('common.direction'),
       value: t(`notifications.direction.${rule.direction}`),
     })
     lines.push({
@@ -691,12 +691,12 @@ function describeAccounts(
 ): string {
   const selected = new Set(accountIds)
   if (allAccountIds.length > 0 && allAccountIds.every((id) => selected.has(id))) {
-    return t('notifications.allAccounts')
+    return t('common.allAccounts')
   }
   const names = accountIds
     .map((id) => accountNameById.get(id))
     .filter((name): name is string => Boolean(name))
-  return names.length > 0 ? names.join(', ') : t('notifications.allAccounts')
+  return names.length > 0 ? names.join(', ') : t('common.allAccounts')
 }
 
 function describeSelection<T>(
@@ -724,7 +724,7 @@ function BackLink() {
   return (
     <Link
       to="/settings/user"
-      aria-label={t('settings.back')}
+      aria-label={t('common.back')}
       className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
     >
       <ChevronLeft className="size-5" />

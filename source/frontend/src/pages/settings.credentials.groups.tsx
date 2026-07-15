@@ -101,7 +101,7 @@ export function GroupsEditorView({ layout, accountLookup }: GroupsEditorViewProp
     const payload = toWritePayload(localLayout)
     const handle = setTimeout(() => {
       mutateAsync(payload).then(
-        () => toast.success(t('credentials.groups.saved')),
+        () => toast.success(t('common.saved')),
         () => toast.error(t('credentials.groups.saveFailed')),
       )
     }, 400)
@@ -228,7 +228,7 @@ export function GroupsEditorView({ layout, accountLookup }: GroupsEditorViewProp
       <div className="flex items-center justify-between gap-2">
         <p className="text-muted-foreground text-sm">{t('credentials.groups.description')}</p>
         {isPending ? (
-          <span className="text-muted-foreground text-xs">{t('credentials.groups.saving')}</span>
+          <span className="text-muted-foreground text-xs">{t('common.saving')}</span>
         ) : null}
       </div>
 
@@ -437,7 +437,7 @@ function DraggableAccountItem({ account }: { account: AccountWithBank }) {
     if (nextValue === (account.display_name ?? null)) return
     try {
       await mutateAsync({ accountId: account.id, display_name: nextValue })
-      toast.success(t('credentials.groups.renameSaved'))
+      toast.success(t('common.saved'))
     } catch {
       toast.error(t('credentials.groups.renameFailed'))
     }

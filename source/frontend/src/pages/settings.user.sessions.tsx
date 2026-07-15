@@ -131,7 +131,7 @@ function BackLink() {
   return (
     <Link
       to="/settings/user"
-      aria-label={t('settings.back')}
+      aria-label={t('common.back')}
       className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
     >
       <ChevronLeft className="size-5" />
@@ -167,7 +167,7 @@ function SessionRow({
           </span>
         </div>
         <dl className="text-muted-foreground grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
-          <dt>{t('sessions.created')}</dt>
+          <dt>{t('common.created')}</dt>
           <dd>{formatDateTime(session.created_at)}</dd>
           <dt>{t('sessions.lastUsed')}</dt>
           <dd>{formatDateTime(session.last_used_at)}</dd>

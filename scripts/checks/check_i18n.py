@@ -131,14 +131,35 @@ def report_keys_missing_in_some_language(
     return union
 
 
+def report_duplicate_values(
+    errors: list[str], messages_by_language: dict[str, dict[str, str]], patterns: list[re.Pattern]
+) -> None:
+    languages = sorted(messages_by_language)
+    shared_keys = set.intersection(*(set(messages_by_language[language]) for language in languages))
+    keys_by_values: dict[tuple[str, ...], list[str]] = {}
+    for key in shared_keys:
+        if strip_plural(key) != key or matches_any(key, patterns):
+            continue
+        values = tuple(messages_by_language[language][key] for language in languages)
+        keys_by_values.setdefault(values, []).append(key)  # noqa FKA100
+    for values, keys in sorted(keys_by_values.items()):
+        if len(keys) > 1:
+            errors.append(
+                f"[frontend] duplicate translation {values[0]!r} under {', '.join(sorted(keys))}"
+                " --> keep one in common.*"
+            )
+
+
 def check_frontend_messages(errors: list[str]) -> None:
     literals, patterns, any_strings = extract_keys(FRONTEND_SOURCE_PATH)
-    keys_by_language = {
-        path.stem: set(flatten(json.loads(path.read_text()))) for path in sorted(FRONTEND_LOCALES_PATH.glob("*.json"))
+    messages_by_language = {
+        path.stem: flatten(json.loads(path.read_text())) for path in sorted(FRONTEND_LOCALES_PATH.glob("*.json"))
     }
+    keys_by_language = {language: set(messages) for language, messages in messages_by_language.items()}
 
     report_languages_must_match_supported(errors, languages=set(keys_by_language), label="frontend")
     report_keys_missing_in_some_language(errors, keys_by_language, label="frontend")
+    report_duplicate_values(errors, messages_by_language=messages_by_language, patterns=patterns)
 
     for language, keys in keys_by_language.items():
         for literal in sorted(literals):
