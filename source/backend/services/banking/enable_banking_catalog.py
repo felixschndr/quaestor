@@ -1,9 +1,6 @@
 import asyncio
 import json
-import time
-from datetime import timedelta
 
-from source.backend.bank_handlers.enable_banking_handler import API_BASE
 from source.backend.logging_utils import get_logger
 from source.backend.paths import ENABLE_BANKING_ASPSPS_PATH
 from source.backend.rest_api_client import RestAPIClient
@@ -11,18 +8,21 @@ from source.backend.services.banking import bank_catalog
 
 logger = get_logger(__name__)
 
-MAX_AGE = timedelta(days=7)
+_CATALOG_BASE_URL = "https://enablebanking.com"
 
 _aspsps: list[dict] = []
 
 
 def get_aspsps() -> list[dict]:
+    global _aspsps
+    if not _aspsps:
+        _aspsps = _load_cached()
+    if not _aspsps:
+        try:
+            _aspsps = _fetch()
+        except Exception as e:
+            logger.exception(message="Enable Banking ASPSP fetch failed; the catalog will not contain them", exc_info=e)
     return _aspsps
-
-
-def _is_fresh_enough() -> bool:
-    path = ENABLE_BANKING_ASPSPS_PATH
-    return path.exists() and time.time() - path.stat().st_mtime < MAX_AGE.total_seconds()
 
 
 def _load_cached() -> list[dict]:
@@ -35,30 +35,23 @@ def _load_cached() -> list[dict]:
         return []
 
 
-def _update() -> None:
-    global _aspsps
-    if _is_fresh_enough():
-        logger.info("Enable Banking ASPSP list is fresh enough; skipping update")
-        _aspsps = _load_cached()
-        return
-
-    fetched = RestAPIClient(name="Enable Banking", base_url=API_BASE).get("/api/aspsps")["aspsps"]
+def _fetch() -> list[dict]:
+    logger.info("Fetching bank ASPSP list")
+    fetched = RestAPIClient(name="Enable Banking", base_url=_CATALOG_BASE_URL).get("/api/aspsps")["aspsps"]
     if not fetched:
-        logger.warning("Enable Banking ASPSP list came back empty; keeping the cached list")
-        _aspsps = _load_cached()
-        return
-
+        logger.warning("Enable Banking ASPSP list came back empty")
+        return []
     ENABLE_BANKING_ASPSPS_PATH.parent.mkdir(parents=True, exist_ok=True)
     ENABLE_BANKING_ASPSPS_PATH.write_text(json.dumps(fetched))
-    _aspsps = fetched
     logger.info(f"Enable Banking ASPSP list updated: {len(fetched)} banks")
+    return fetched
 
 
 async def run_startup_update() -> None:
+    global _aspsps
     try:
-        await asyncio.to_thread(_update)
+        _aspsps = await asyncio.to_thread(_fetch) or _load_cached()
     except Exception as e:
         logger.exception(message="Enable Banking ASPSP update failed; using cached list", exc_info=e)
-        global _aspsps
         _aspsps = _load_cached()
     bank_catalog.invalidate_catalog_cache()

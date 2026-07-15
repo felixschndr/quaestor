@@ -39,6 +39,7 @@ from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.security import csrf, rate_limit
+from source.backend.services.banking import bank_catalog, enable_banking_catalog
 from source.backend.services.core import i18n_service
 
 USER_NAME = "alice"
@@ -112,6 +113,18 @@ def skip_browser_provisioning(request: pytest.FixtureRequest, monkeypatch: pytes
     if request.node.get_closest_marker("real_playwright_browser"):
         return
     monkeypatch.setattr(target=main.playwright_browser, name="ensure_chromium_installed", value=AsyncMock())
+
+
+@pytest.fixture(autouse=True)
+def isolate_bank_catalog(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(target=enable_banking_catalog, name="_aspsps", value=[])
+    monkeypatch.setattr(
+        target=enable_banking_catalog, name="ENABLE_BANKING_ASPSPS_PATH", value=tmp_path / "aspsps.json"
+    )
+    monkeypatch.setattr(target=enable_banking_catalog, name="_fetch", value=lambda: [])
+    bank_catalog.invalidate_catalog_cache()
+    yield
+    bank_catalog.invalidate_catalog_cache()
 
 
 @pytest.fixture(autouse=True)

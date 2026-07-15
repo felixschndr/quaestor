@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import html
 import json
 import os
@@ -18,11 +17,7 @@ from source.backend.helpers import (  # noqa: E402
     get_project_name,
     get_project_repository,
 )
-from source.backend.services.banking import enable_banking_catalog  # noqa: E402
 from source.backend.services.banking.bank_catalog import get_catalog  # noqa: E402
-from source.backend.services.banking.bank_info_updater import (  # noqa: E402
-    add_bank_info_overrides_to_db,
-)
 
 
 def _provider_notes() -> dict[str, dict[str, str]]:
@@ -234,8 +229,6 @@ _TEMPLATE = """<!DOCTYPE html>
 def main() -> None:
     out_path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "banks.html"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    add_bank_info_overrides_to_db()
-    asyncio.run(enable_banking_catalog.run_startup_update())
     entries = get_catalog()
     out_path.write_text(build_html(entries), encoding="utf-8")
     print(f"Wrote bank catalog page ({len(entries)} banks) to {out_path}")
