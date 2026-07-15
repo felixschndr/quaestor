@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 import uvicorn
 
@@ -9,10 +10,8 @@ logger = get_logger(__name__)
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
-# Comma-separated list of proxy IPs whose X-Forwarded-* headers we trust.
-# Default = "127.0.0.1" matches the typical "reverse proxy on the same host" setup.
-# Use "*" if the proxy is on an arbitrary IP (e.g. inside a container network).
 DEFAULT_FORWARDED_ALLOW_IPS = "127.0.0.1"
+GRACEFUL_SHUTDOWN_TIMEOUT = timedelta(seconds=5)
 
 
 def _ssl_options() -> dict:
@@ -33,6 +32,7 @@ def uvicorn_options() -> dict:
         "forwarded_allow_ips": os.environ.get(key="FORWARDED_ALLOW_IPS", default=DEFAULT_FORWARDED_ALLOW_IPS),
         "ws_ping_interval": None,
         "ws_ping_timeout": None,
+        "timeout_graceful_shutdown": int(GRACEFUL_SHUTDOWN_TIMEOUT.total_seconds()),
         **_ssl_options(),
     }
 
