@@ -318,8 +318,6 @@
     "pickerAccountsAdded_zero": "No accounts added yet",
     "pickerAccountsAdded_one": "{{count}} account already added",
     "pickerAccountsAdded_other": "{{count}} accounts already added",
-    "familyCount_one": "{{count}} bank",
-    "familyCount_other": "{{count}} banks",
     "formTitle": "Connect {{bank}}",
     "formTitleManual": "Create manual account",
     "submit": "Connect and sync",

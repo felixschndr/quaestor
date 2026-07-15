@@ -12,6 +12,7 @@ scripts/wip/
 
 *.har
 *.pem
+*.html
 
 # pytest-cov
 .coverage

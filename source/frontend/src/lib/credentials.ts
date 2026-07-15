@@ -5,10 +5,6 @@ import { api } from './api'
 import { authQueryKeys, type CredentialRead } from './auth'
 import { syncJobWebSocketUrl } from './syncSocket'
 
-/**
- * Mirrors `BankInfo.information_for_user` on the backend. `note` lives in the
- * frontend i18n bundle instead (keyed by `name`), so banks can be translated.
- */
 export interface CredentialFieldRule {
   name: string
   regex: string /* Regex string valid in both Python and JS; the field value must match it. */
@@ -29,7 +25,6 @@ export interface SupportedBank {
   tested: boolean
   required_fields: string[]
   field_rules?: Record<string, CredentialFieldSpec>
-  family: { slug: string; label: string } | null
   blzs: string[]
   country?: string | null
 }

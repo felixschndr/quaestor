@@ -318,8 +318,6 @@
     "pickerAccountsAdded_zero": "Noch keine Konten hinzugefügt",
     "pickerAccountsAdded_one": "{{count}} Konto bereits hinzugefügt",
     "pickerAccountsAdded_other": "{{count}} Konten bereits hinzugefügt",
-    "familyCount_one": "{{count}} Bank",
-    "familyCount_other": "{{count}} Banken",
     "formTitle": "{{bank}} verbinden",
     "formTitleManual": "Manuelles Konto erstellen",
     "submit": "Verbinden und synchronisieren",

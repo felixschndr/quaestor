@@ -212,7 +212,6 @@ def test_list_supported_banks_returns_catalog(http_client: TestClient):
         "name",
         "bic",
         "icon",
-        "family",
         "tested",
         "required_fields",
         "field_rules",

@@ -15,27 +15,8 @@ export interface BankPickerViewProps {
   banks: SupportedBank[]
   existingAccountCounts: Record<string, number>
   query: string
-  family: string | null
-  familyQuery: string
   onSearch: (value: string) => void
-  onOpenFamily: (slug: string) => void
-  onCloseFamily: () => void
-  onFamilySearch: (value: string) => void
 }
-
-/** A top-level picker entry: either a single bank, or a family that groups the many
- *  local Sparkassen / Volksbanken (etc.) sharing one logo behind a single row the
- *  user drills into. */
-type PickerItem =
-  | { kind: 'bank'; key: string; label: string; bank: SupportedBank }
-  | {
-      kind: 'family'
-      key: string
-      slug: string
-      label: string
-      icon: string | null
-      members: SupportedBank[]
-    }
 
 export function BankPickerView({
   isLoading,
@@ -43,41 +24,20 @@ export function BankPickerView({
   banks,
   existingAccountCounts,
   query,
-  family,
-  familyQuery,
   onSearch,
-  onOpenFamily,
-  onCloseFamily,
-  onFamilySearch,
 }: BankPickerViewProps) {
   const { t } = useTranslation()
   // "manual" is pinned to the top as its own box (the escape hatch for unlisted banks),
   // so it is kept out of the searchable catalog below.
   const manualBank = banks.find((bank) => bank.provider === 'manual') ?? null
-  const items = useMemo(
+  const catalog = useMemo(
     () =>
-      buildItems(
-        banks.filter((bank) => bank.provider !== 'manual'),
-        t,
-      ),
+      banks
+        .filter((bank) => bank.provider !== 'manual')
+        .sort((a, b) => displayName(t, a).localeCompare(displayName(t, b))),
     [banks, t],
   )
-  const matches = useMemo(() => filterItems(items, query), [items, query])
-  const openFamily =
-    family !== null
-      ? (items.find((it) => it.kind === 'family' && it.slug === family) ?? null)
-      : null
-
-  if (openFamily && openFamily.kind === 'family') {
-    return (
-      <FamilyView
-        family={openFamily}
-        query={familyQuery}
-        onQueryChange={onFamilySearch}
-        onBack={onCloseFamily}
-      />
-    )
-  }
+  const matches = useMemo(() => filterBanks(catalog, query), [catalog, query])
 
   return (
     <main className="mx-auto flex h-dvh max-w-page flex-col gap-6 p-4">
@@ -112,69 +72,18 @@ export function BankPickerView({
             // The list grows only as tall as its rows; once it would exceed the remaining
             // height it stops there (min-h-0) and scrolls instead of stretching past it.
             <ul className="border-border bg-card flex min-h-0 flex-col overflow-y-auto rounded-lg border">
-              {matches.map((item) =>
-                item.kind === 'family' ? (
-                  <FamilyRow key={item.key} family={item} onOpen={() => onOpenFamily(item.slug)} />
-                ) : (
-                  <BankRow
-                    key={item.key}
-                    bank={item.bank}
-                    accountsCount={
-                      item.bank.provider === item.bank.key
-                        ? (existingAccountCounts[item.bank.provider] ?? 0)
-                        : null
-                    }
-                  />
-                ),
-              )}
+              {matches.map((bank) => (
+                <BankRow
+                  key={bank.key}
+                  bank={bank}
+                  accountsCount={
+                    bank.provider === bank.key ? (existingAccountCounts[bank.provider] ?? 0) : null
+                  }
+                />
+              ))}
             </ul>
           )}
         </div>
-      )}
-    </main>
-  )
-}
-
-function FamilyView({
-  family,
-  query,
-  onQueryChange,
-  onBack,
-}: {
-  family: Extract<PickerItem, { kind: 'family' }>
-  query: string
-  onQueryChange: (value: string) => void
-  onBack: () => void
-}) {
-  const { t } = useTranslation()
-  const matches = useMemo(() => {
-    const sorted = [...family.members].sort((a, b) => a.name.localeCompare(b.name))
-    return filterBanks(sorted, query)
-  }, [family.members, query])
-
-  return (
-    <main className="mx-auto flex h-dvh max-w-page flex-col gap-6 p-4">
-      <header className="flex items-center gap-2">
-        <BackLink onClick={onBack} />
-        <BankLogo icon={family.icon} name={family.label} seed={family.slug} />
-        <h1 className="text-foreground truncate text-2xl font-semibold">{family.label}</h1>
-      </header>
-      <Input
-        type="search"
-        value={query}
-        onChange={(e) => onQueryChange(e.target.value)}
-        placeholder={t('credentials.searchPlaceholder')}
-        aria-label={t('credentials.searchPlaceholder')}
-        autoFocus
-      />
-      {matches.length === 0 ? (
-        <p className="text-muted-foreground text-sm">{t('credentials.noResults')}</p>
-      ) : (
-        <ul className="border-border bg-card flex min-h-0 flex-col overflow-y-auto rounded-lg border">
-          {matches.map((bank) => (
-            <BankRow key={bank.key} bank={bank} accountsCount={null} />
-          ))}
-        </ul>
       )}
     </main>
   )
@@ -184,46 +93,6 @@ function displayName(t: TFunction, bank: SupportedBank): string {
   return bank.provider === bank.key
     ? t(`banks.${bank.provider}.title`, { defaultValue: bank.name })
     : bank.name
-}
-
-/** Collapse banks that share a backend-assigned family into family rows (≥2 members);
- *  everything else stays a standalone row. The grouping is the backend's single source of
- *  truth (`bank.family`) — this only renders it. Result is sorted alphabetically by label. */
-function buildItems(banks: SupportedBank[], t: TFunction): PickerItem[] {
-  const byFamily = new Map<string, SupportedBank[]>()
-  const standalone: SupportedBank[] = []
-  for (const bank of banks) {
-    if (bank.family === null) {
-      standalone.push(bank)
-    } else {
-      const members = byFamily.get(bank.family.slug) ?? []
-      members.push(bank)
-      byFamily.set(bank.family.slug, members)
-    }
-  }
-
-  const items: PickerItem[] = []
-  for (const [slug, members] of byFamily) {
-    if (members.length >= 2) {
-      items.push({
-        kind: 'family',
-        key: `family:${slug}`,
-        slug,
-        // Every member carries the same family; take the label from the first.
-        label: members[0].family!.label,
-        // Members may lack a logo (e.g. a small co-op bank); use the first one that has one.
-        icon: members.find((member) => member.icon !== null)?.icon ?? null,
-        members,
-      })
-    } else {
-      // A lone "family" is just a normal bank.
-      standalone.push(...members)
-    }
-  }
-  for (const bank of standalone) {
-    items.push({ kind: 'bank', key: bank.key, label: displayName(t, bank), bank })
-  }
-  return items.sort((a, b) => a.label.localeCompare(b.label))
 }
 
 /** Slug for name matching on both sides (query AND bank name): lowercased, diacritics
@@ -250,22 +119,6 @@ function bankMatches(
   )
 }
 
-function filterItems(items: PickerItem[], query: string): PickerItem[] {
-  const slug = searchSlug(query)
-  // An empty query shows everything — the list is always visible and scrollable.
-  if (slug === '' && query.trim() === '') return items
-  const digits = query.replace(/\s/g, '')
-  const ibanBlz = isLikelyIban(query) ? ibanToBlz(query) : null
-  return items.filter((item) => {
-    if (searchSlug(item.label).includes(slug) && slug !== '') return true
-    // A BLZ/IBAN/name search surfaces the family if any of its members match, so the
-    // user can still reach a specific local bank by drilling in.
-    return item.kind === 'bank'
-      ? bankMatches(item.bank, slug, digits, ibanBlz)
-      : item.members.some((member) => bankMatches(member, slug, digits, ibanBlz))
-  })
-}
-
 function filterBanks(banks: SupportedBank[], query: string): SupportedBank[] {
   const slug = searchSlug(query)
   if (slug === '' && query.trim() === '') return banks
@@ -274,32 +127,9 @@ function filterBanks(banks: SupportedBank[], query: string): SupportedBank[] {
   return banks.filter((bank) => bankMatches(bank, slug, digits, ibanBlz))
 }
 
-function FamilyRow({
-  family,
-  onOpen,
-}: {
-  family: Extract<PickerItem, { kind: 'family' }>
-  onOpen: () => void
-}) {
-  const { t } = useTranslation()
-  return (
-    <li className="border-border/40 border-t first:border-t-0">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="hover:bg-muted/60 flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-3 text-left transition-colors"
-      >
-        <BankLogo icon={family.icon} name={family.label} seed={family.slug} />
-        <span className="flex flex-1 flex-col">
-          <span className="truncate text-sm font-medium">{family.label}</span>
-          <span className="text-muted-foreground text-xs">
-            {t('credentials.familyCount', { count: family.members.length })}
-          </span>
-        </span>
-        <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />
-      </button>
-    </li>
-  )
+const HANDLER_LABELS: Record<string, string> = {
+  fints: 'FinTS',
+  enable_banking: 'Enable Banking',
 }
 
 /** The grey line under a bank's name: its BLZ (the first, with a "+N" hint when the entry
@@ -316,6 +146,7 @@ function BankRow({ bank, accountsCount }: { bank: SupportedBank; accountsCount: 
   const { t } = useTranslation()
   const name = displayName(t, bank)
   const subtitle = bankSubtitle(bank)
+  const handlerLabel = HANDLER_LABELS[bank.provider]
   return (
     <li className="border-border/40 border-t first:border-t-0">
       <Link
@@ -332,6 +163,11 @@ function BankRow({ bank, accountsCount }: { bank: SupportedBank; accountsCount: 
                 {t('credentials.tested')}
               </span>
             ) : null}
+            {handlerLabel ? (
+              <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium">
+                {handlerLabel}
+              </span>
+            ) : null}
           </span>
           {subtitle ? <span className="text-muted-foreground text-xs">{subtitle}</span> : null}
           {accountsCount !== null ? (
@@ -346,26 +182,14 @@ function BankRow({ bank, accountsCount }: { bank: SupportedBank; accountsCount: 
   )
 }
 
-/** Back affordance: either a router link (top-level → credentials list) or a button that
- *  pops the family sub-view back to the top-level list. */
-function BackLink({ to, onClick }: { to?: string; onClick?: () => void }) {
+function BackLink({ to }: { to: string }) {
   const { t } = useTranslation()
-  const className =
-    'text-primary hover:text-primary/80 -ml-1.5 cursor-pointer rounded-md p-1.5 transition-colors'
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        aria-label={t('credentials.back')}
-        onClick={onClick}
-        className={className}
-      >
-        <ChevronLeft className="size-5" />
-      </button>
-    )
-  }
   return (
-    <Link to={to} aria-label={t('credentials.back')} className={className}>
+    <Link
+      to={to}
+      aria-label={t('credentials.back')}
+      className="text-primary hover:text-primary/80 -ml-1.5 cursor-pointer rounded-md p-1.5 transition-colors"
+    >
       <ChevronLeft className="size-5" />
     </Link>
   )

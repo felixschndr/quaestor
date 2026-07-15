@@ -30,8 +30,6 @@ vi.mock('@tanstack/react-router', () => ({
 import { BankPickerView } from '@/pages/settings.credentials.new.index'
 import type { SupportedBank } from '@/lib/credentials'
 
-/** The view is URL-controlled in production; this harness gives it the same state locally
- *  so the existing interaction tests (type, drill in, go back) keep working unchanged. */
 function StatefulPicker({
   isLoading = false,
   isError = false,
@@ -44,8 +42,6 @@ function StatefulPicker({
   existingAccountCounts?: Record<string, number>
 }) {
   const [query, setQuery] = useState('')
-  const [family, setFamily] = useState<string | null>(null)
-  const [familyQuery, setFamilyQuery] = useState('')
   return (
     <BankPickerView
       isLoading={isLoading}
@@ -53,15 +49,7 @@ function StatefulPicker({
       banks={banks}
       existingAccountCounts={existingAccountCounts}
       query={query}
-      family={family}
-      familyQuery={familyQuery}
       onSearch={setQuery}
-      onOpenFamily={(slug) => {
-        setFamily(slug)
-        setFamilyQuery(query)
-      }}
-      onCloseFamily={() => setFamily(null)}
-      onFamilySearch={setFamilyQuery}
     />
   )
 }
@@ -75,7 +63,6 @@ const BANKS: SupportedBank[] = [
     icon: '/static/banks/sparkasse.png',
     tested: true,
     required_fields: ['username', 'password'],
-    family: { slug: 'sparkasse', label: 'Sparkasse' },
     blzs: ['70150000'],
   },
   {
@@ -86,7 +73,6 @@ const BANKS: SupportedBank[] = [
     icon: null,
     tested: false,
     required_fields: ['username', 'password'],
-    family: null,
     blzs: ['10070000', '12070000'],
   },
   {
@@ -97,7 +83,6 @@ const BANKS: SupportedBank[] = [
     icon: '/static/banks/manual.png',
     tested: false,
     required_fields: [],
-    family: null,
     blzs: [],
   },
 ]
@@ -126,7 +111,6 @@ describe('BankPickerView', () => {
         icon: '/static/banks/sparkasse.png',
         tested: true,
         required_fields: ['username', 'password'],
-        family: { slug: 'sparkasse', label: 'Sparkasse' },
         blzs: ['66050101'],
       },
     ]
@@ -135,6 +119,31 @@ describe('BankPickerView', () => {
     )
     const row = screen.getByRole('listitem')
     expect(row).toHaveTextContent('66050101 · PZHSDE66XXX')
+  })
+
+  it('shows a handler badge on Enable Banking and FinTS rows', () => {
+    const banks: SupportedBank[] = [
+      {
+        provider: 'enable_banking',
+        key: 'eb-FI-Nordea',
+        name: 'Nordea',
+        bic: null,
+        icon: null,
+        tested: true,
+        required_fields: ['private_key', 'application_id'],
+        blzs: [],
+      },
+    ]
+    render(
+      <StatefulPicker
+        isLoading={false}
+        isError={false}
+        banks={[...banks, ...CATALOG]}
+        existingAccountCounts={{}}
+      />,
+    )
+    expect(screen.getByRole('link', { name: /Nordea/ })).toHaveTextContent('Enable Banking')
+    expect(screen.getByRole('link', { name: /Deutsche Bank/ })).toHaveTextContent('FinTS')
   })
 
   it('hints at extra branch BLZs with a +N suffix', () => {
@@ -289,157 +298,5 @@ describe('BankPickerView', () => {
     // Search for a FinTS bank — no accounts line
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'deutsche' } })
     expect(screen.getByRole('link', { name: /Deutsche Bank/ })).not.toHaveTextContent('account')
-  })
-})
-
-const FAMILY_LABELS: Record<string, string> = {
-  sparkasse: 'Sparkasse',
-  volksbank: 'Volksbank Raiffeisenbank',
-}
-
-function fintsBank(key: string, name: string, slug: string): SupportedBank {
-  return {
-    provider: 'fints',
-    key,
-    name,
-    bic: null,
-    icon: `/static/banks/${slug}.png`,
-    tested: false,
-    required_fields: ['username', 'password'],
-    family: { slug, label: FAMILY_LABELS[slug] ?? slug },
-    blzs: [key],
-  }
-}
-
-const FAMILY_BANKS: SupportedBank[] = [
-  fintsBank('70150000', 'Stadtsparkasse München', 'sparkasse'),
-  fintsBank('66050101', 'Sparkasse Pforzheim Calw', 'sparkasse'),
-  fintsBank('70090100', 'Münchner Bank', 'volksbank'),
-  fintsBank('60190000', 'Volksbank Stuttgart', 'volksbank'),
-  {
-    provider: 'manual',
-    key: 'manual',
-    name: 'manual',
-    bic: null,
-    icon: '/static/banks/manual.png',
-    tested: true,
-    required_fields: [],
-    family: null,
-    blzs: [],
-  },
-]
-
-describe('BankPickerView bank families', () => {
-  it('collapses same-logo banks into a single family row', () => {
-    render(
-      <StatefulPicker
-        isLoading={false}
-        isError={false}
-        banks={FAMILY_BANKS}
-        existingAccountCounts={{}}
-      />,
-    )
-    // The family is one row; its individual members are hidden until you drill in.
-    expect(screen.getByRole('button', { name: /Sparkasse/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Volksbank Raiffeisenbank/ })).toBeInTheDocument()
-    expect(screen.queryByText('Stadtsparkasse München')).not.toBeInTheDocument()
-    expect(screen.queryByText('Volksbank Stuttgart')).not.toBeInTheDocument()
-    // Standalone providers still render as a normal (link) row.
-    expect(screen.getByRole('link', { name: /Manual account/ })).toBeInTheDocument()
-  })
-
-  it('opens a family, searches its members, and links to the chosen member by key', () => {
-    render(
-      <StatefulPicker
-        isLoading={false}
-        isError={false}
-        banks={FAMILY_BANKS}
-        existingAccountCounts={{}}
-      />,
-    )
-    fireEvent.click(screen.getByRole('button', { name: /Sparkasse/ }))
-
-    // Both Sparkasse members are now visible; the Volksbank members are not.
-    expect(screen.getByText('Stadtsparkasse München')).toBeInTheDocument()
-    expect(screen.getByText('Sparkasse Pforzheim Calw')).toBeInTheDocument()
-    expect(screen.queryByText('Münchner Bank')).not.toBeInTheDocument()
-
-    // The sub-search filters the family members.
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'pforzheim' } })
-    expect(screen.queryByText('Stadtsparkasse München')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Sparkasse Pforzheim Calw/ })).toHaveAttribute(
-      'href',
-      '/settings/credentials/new/66050101',
-    )
-  })
-
-  it('carries the search term into the group when opening it', () => {
-    render(
-      <StatefulPicker
-        isLoading={false}
-        isError={false}
-        banks={FAMILY_BANKS}
-        existingAccountCounts={{}}
-      />,
-    )
-    // Search surfaces the Sparkasse family because a member matches.
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'pforzheim' } })
-    fireEvent.click(screen.getByRole('button', { name: /Sparkasse/ }))
-
-    // Inside the group the search is pre-applied — no need to retype it.
-    expect(screen.getByRole('searchbox')).toHaveValue('pforzheim')
-    expect(screen.getByText('Sparkasse Pforzheim Calw')).toBeInTheDocument()
-    expect(screen.queryByText('Stadtsparkasse München')).not.toBeInTheDocument()
-  })
-
-  it('returns to the top-level list via the back button', () => {
-    render(
-      <StatefulPicker
-        isLoading={false}
-        isError={false}
-        banks={FAMILY_BANKS}
-        existingAccountCounts={{}}
-      />,
-    )
-    fireEvent.click(screen.getByRole('button', { name: /Sparkasse/ }))
-    expect(screen.getByText('Stadtsparkasse München')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
-    // Back at the top level: the family is a collapsed row again.
-    expect(screen.getByRole('button', { name: /Sparkasse/ })).toBeInTheDocument()
-    expect(screen.queryByText('Stadtsparkasse München')).not.toBeInTheDocument()
-  })
-
-  it('puts a logo-less VR bank into the Volksbank family', () => {
-    const banks: SupportedBank[] = [
-      ...FAMILY_BANKS,
-      // No logo, but the cooperative "VR…" name pulls it into the Volksbank family.
-      { ...fintsBank('80063508', 'VR-Bank Altenburger Land', 'volksbank'), icon: null },
-    ]
-    render(
-      <StatefulPicker isLoading={false} isError={false} banks={banks} existingAccountCounts={{}} />,
-    )
-    // It is not a standalone row at the top level…
-    expect(screen.queryByText('VR-Bank Altenburger Land')).not.toBeInTheDocument()
-    // …it appears inside the Volksbank family.
-    fireEvent.click(screen.getByRole('button', { name: /Volksbank Raiffeisenbank/ }))
-    expect(screen.getByText('VR-Bank Altenburger Land')).toBeInTheDocument()
-  })
-
-  it('surfaces a family when a member matches a BLZ search at the top level', () => {
-    render(
-      <StatefulPicker
-        isLoading={false}
-        isError={false}
-        banks={FAMILY_BANKS}
-        existingAccountCounts={{}}
-      />,
-    )
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '66050101' } })
-    // The Sparkasse family stays a single row even though the match is a specific member.
-    expect(screen.getByRole('button', { name: /Sparkasse/ })).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: /Volksbank Raiffeisenbank/ }),
-    ).not.toBeInTheDocument()
   })
 })

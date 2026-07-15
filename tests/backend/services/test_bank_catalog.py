@@ -1,7 +1,7 @@
 import pytest
 
 from source.backend.services.banking import bank_catalog
-from source.backend.services.banking.bank_catalog import CatalogEntry, CatalogFamily
+from source.backend.services.banking.bank_catalog import CatalogEntry
 
 
 def _fake_fints_db() -> dict[str, dict]:
@@ -12,6 +12,7 @@ def _fake_fints_db() -> dict[str, dict]:
         "10070000": {"blz": "10070000", "name": "Deutsche Bank Fill A", "fints": "https://db/"},
         "12070000": {"blz": "12070000", "name": "Deutsche Bank Fill B", "fints": "https://db/"},
         "13061008": {"blz": "13061008", "name": "Volksbank Wolgast -alt-", "fints": "https://vb/"},
+        "26061556": {"blz": "26061556", "name": "Volksbank", "fints": "https://vb2/"},
     }
 
 
@@ -55,7 +56,7 @@ def test_same_named_banks_are_grouped_into_one_entry():
     assert db_entries[0].key == "10070000"
 
 
-@pytest.mark.parametrize(argnames="blz, expected_tested", argvalues=[("70150000", True), ("10070000", False)])
+@pytest.mark.parametrize(argnames="blz, expected_tested", argvalues=[("12030000", True), ("10070000", False)])
 def test_entry_is_tested_via_keyword(blz: str, expected_tested: bool):
     assert _by_key(_build(), key=blz).tested is expected_tested
 
@@ -81,21 +82,10 @@ def test_icon_uses_logo_slug_for_fints_entries():
     assert _by_key(_build(), key="70150000").icon == "/static/banks/sparkasse.png"
 
 
-def test_fints_entries_carry_their_family():
-    catalog = _build()
-
-    assert _by_key(catalog, key="70150000").family == CatalogFamily(slug="sparkasse", label="Sparkasse")
-    assert _by_key(catalog, key="10070000").family is None
-
-
-def test_non_fints_providers_have_no_family():
-    assert _by_key(_build(), key="trade_republic").family is None
-
-
 def test_get_catalog_serializes_entries_to_plain_dicts():
     entry = next(e for e in bank_catalog.get_catalog() if e["provider"] == "manual")
     assert isinstance(entry, dict)
-    assert entry["family"] is None
+    assert entry["key"] == "manual"
 
 
 @pytest.mark.parametrize(
@@ -105,8 +95,10 @@ def test_get_catalog_serializes_entries_to_plain_dicts():
         ("dfs", "dfs", True),
         ("fints", "ING-DiBa", True),
         ("fints", "Deutsche Kreditbank Berlin", True),
-        ("fints", "Stadtsparkasse München", True),
+        ("fints", "Sparkasse Karlsruhe", True),
         ("fints", "Volksbank Mittelhessen", True),
+        ("fints", "Stadtsparkasse München", False),
+        ("fints", "Volksbank Stuttgart", False),
         ("fints", "Commerzbank", False),
         ("manual", "manual", True),
     ],
@@ -144,6 +136,9 @@ def _fake_aspsps() -> list[dict]:
         {"name": "PayPal", "country": "FR", "logo": "x"},  # German variant exists --> dropped
         {"name": "Nordea", "country": "FI", "logo": "x"},  # no German variant --> kept per country
         {"name": "Sparkasse München Aktiengesellschaft", "country": "DE", "logo": "x"},  # suffixed variant
+        {"name": "Kreissparkasse Nirgendwo", "country": "DE", "logo": "x"},  # not in the FinTS DB
+        {"name": "Volksbank Mittelhessen", "country": "DE", "logo": "x"},  # generic "Volksbank" must not absorb it
+        {"name": "Volksbank", "country": "DE", "logo": "x"},  # exact duplicate of the literal "Volksbank"
         {"name": "Revolut", "country": "LT", "logo": "x"},
     ]
 
@@ -177,6 +172,9 @@ def test_enable_banking_german_fints_duplicates_are_dropped():
     assert ("ING", "DE") not in enable_banking_names
     assert ("Deutsche Bank", "DE") not in enable_banking_names
     assert ("Sparkasse München Aktiengesellschaft", "DE") not in enable_banking_names
+    assert ("Kreissparkasse Nirgendwo", "DE") in enable_banking_names
+    assert ("Volksbank Mittelhessen", "DE") in enable_banking_names
+    assert ("Volksbank", "DE") not in enable_banking_names
 
 
 def test_credential_display_for_enable_banking_uses_aspsp():
