@@ -35,7 +35,7 @@ export function TransactionFilterFields({
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={categoriesId}>{t('filters.categoriesLabel')}</Label>
+        <Label htmlFor={categoriesId}>{t('common.categories')}</Label>
         <CategoryMultiSelect
           id={categoriesId}
           selectedIds={selectedCategories}
@@ -43,7 +43,7 @@ export function TransactionFilterFields({
         />
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={typeId}>{t('filters.typeLabel')}</Label>
+        <Label htmlFor={typeId}>{t('common.type')}</Label>
         <TypeMultiSelect id={typeId} selected={selectedTypes} onChange={onTypesChange} />
       </div>
       <div className="flex flex-col gap-1.5">

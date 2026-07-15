@@ -159,11 +159,9 @@ class _FintsNameIndex:
 
 def _enable_banking_entries(aspsps: list[dict], fints_names: set[str]) -> list[CatalogEntry]:
     index = _FintsNameIndex.build(fints_names)
-    countries_by_name: dict[str, list[str]] = {}
+    countries_by_name: dict[str, set[str]] = {}
     for aspsp in aspsps:
-        name = aspsp["name"]
-        if aspsp["country"] not in countries_by_name.setdefault(name, []):  # noqa FKA100
-            countries_by_name[name].append(aspsp["country"])
+        countries_by_name.setdefault(aspsp["name"], set()).add(aspsp["country"])  # noqa FKA100
     return [
         _create_enable_banking_entry(name=name, countries=tuple(sorted(countries)))
         for name, countries in countries_by_name.items()

@@ -1,6 +1,6 @@
 import asyncio
 import secrets
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Coroutine
 from dataclasses import dataclass, field, fields, replace
 from datetime import datetime, timedelta
 from enum import Enum
@@ -105,22 +105,28 @@ async def start_sync(credential_id: int) -> SyncJob:
 
 async def _run_sync(job: SyncJob) -> None:
     notify_two_factor_state = _make_two_factor_state_notifier(job)
+    coroutine = asyncio.to_thread(_sync_in_thread, job.credential_id, notify_two_factor_state)  # noqa FKA100
+    await _apply_result_handling_errors(job=job, coroutine=coroutine, log_label="failed")
+
+
+async def _apply_result_handling_errors(
+    job: SyncJob, coroutine: "Coroutine[None, None, SyncResult]", log_label: str
+) -> None:
     try:
-        result = await asyncio.to_thread(_sync_in_thread, job.credential_id, notify_two_factor_state)  # noqa FKA100
-        _apply_result(job=job, result=result)
+        _apply_result(job=job, result=await coroutine)
     except InvalidCredentialsError as e:
-        logger.warning(f"{job} failed: invalid credentials")
+        logger.warning(f"{job} {log_label}: {e}")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.INVALID_CREDENTIALS)
     except PSD2RedirectUrlNotAllowedError as e:
-        logger.warning(f"{job} failed: redirect URL not whitelisted")
+        logger.warning(f"{job} {log_label}: {e}")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.REDIRECT_URL_NOT_ALLOWED)
     except PSD2ApplicationNotActivatedError as e:
-        logger.warning(f"{job} failed: Enable Banking application not activated")
+        logger.warning(f"{job} {log_label}: {e}")
         _mark_terminal(
             job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.APPLICATION_NOT_ACTIVATED
         )
     except Exception as e:
-        logger.exception(f"{job} failed")
+        logger.exception(f"{job} {log_label}")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.UNKNOWN)
     await _notify(job)
 
@@ -185,23 +191,10 @@ async def submit_two_factor(job_id: str, code: str) -> SyncJob | None:
 
 async def _run_confirm(job: SyncJob, challenge_token: str, code: str) -> None:
     await _notify(job)  # broadcast the running state before kicking off the blocking call
-    try:
-        result = await asyncio.to_thread(  # noqa FKA100
-            _confirm_in_thread, job.credential_id, challenge_token=challenge_token, code=code
-        )
-        _apply_result(job=job, result=result)
-    except InvalidCredentialsError as e:
-        logger.warning(f"{job} 2FA confirmation failed: invalid credentials")
-        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.INVALID_CREDENTIALS)
-    except PSD2ApplicationNotActivatedError as e:
-        logger.warning(f"{job} 2FA confirmation failed: Enable Banking application not activated")
-        _mark_terminal(
-            job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.APPLICATION_NOT_ACTIVATED
-        )
-    except Exception as e:
-        logger.exception(f"{job} 2FA confirmation failed")
-        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.UNKNOWN)
-    await _notify(job)
+    coroutine = asyncio.to_thread(  # noqa FKA100
+        _confirm_in_thread, job.credential_id, challenge_token=challenge_token, code=code
+    )
+    await _apply_result_handling_errors(job=job, coroutine=coroutine, log_label="2FA confirmation failed")
 
 
 def _confirm_in_thread(credential_id: int, challenge_token: str, code: str) -> SyncResult:

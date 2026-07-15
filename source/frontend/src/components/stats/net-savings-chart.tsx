@@ -34,7 +34,7 @@ export function NetSavingsChart({ data }: NetSavingsChartProps) {
   const { t } = useTranslation()
   const scrubLockRef = useHorizontalScrubLock<HTMLDivElement>()
   const monthLabel = useMonthLabel()
-  const netLabel = t('stats.netSavings.net')
+  const netLabel = t('common.surplus')
   const rateLabel = t('stats.netSavings.savingsRate')
 
   // Drop the savings-rate point for the current (incomplete) month: salary

@@ -101,7 +101,7 @@ function BackLink({ accountId }: { accountId: number }) {
           router.history.back()
         }
       }}
-      aria-label={t('search.back')}
+      aria-label={t('common.back')}
       className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
     >
       <ChevronLeft className="size-5" />
@@ -128,7 +128,7 @@ function SearchForm({
 
   return (
     <form onSubmit={(event) => event.preventDefault()} noValidate className="flex flex-col gap-4">
-      <Field id="search-accounts" label={t('search.accountsLabel')}>
+      <Field id="search-accounts" label={t('common.accounts')}>
         <AccountMultiSelect
           id="search-accounts"
           credentials={credentials}
@@ -150,8 +150,8 @@ function SearchForm({
 
       <AmountRangeFields
         idPrefix="search"
-        fromLabel={t('search.amountFrom')}
-        toLabel={t('search.amountTo')}
+        fromLabel={t('common.amountFrom')}
+        toLabel={t('common.amountTo')}
         from={draft.amount_from}
         to={draft.amount_to}
         onFromChange={(value) => onUpdate('amount_from', value)}

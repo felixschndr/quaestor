@@ -35,13 +35,13 @@ export function TypeMultiSelect({ id, selected, onChange, className }: TypeMulti
   return (
     <MultiSelectPopover
       id={id}
-      ariaLabel={t('filters.typeLabel')}
+      ariaLabel={t('common.type')}
       options={options}
       selected={selected}
       onChange={onChange}
       triggerLabel={multiSelectTriggerLabel(selected.length, options.length, {
         none: t('filters.typeNone'),
-        all: t('filters.typeAll'),
+        all: t('common.allTypes'),
         some: (count) => t('filters.typeCount', { count }),
       })}
       selectAll={{

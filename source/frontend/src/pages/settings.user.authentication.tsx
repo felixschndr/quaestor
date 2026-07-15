@@ -108,7 +108,7 @@ function PasswordSection({ user }: { user: UserRead }) {
   })
 
   return (
-    <Section title={t('settings.password')}>
+    <Section title={t('common.password')}>
       <PasswordRequirementsList password={newPassword} requirements={passwordRequirements} />
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3">
         <FieldRow

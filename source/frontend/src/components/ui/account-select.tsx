@@ -70,7 +70,7 @@ export function AccountSelectPopover({
       <PopoverTrigger
         id={id}
         type="button"
-        aria-label={t('search.accountsLabel')}
+        aria-label={t('common.accounts')}
         className={cn(popoverTriggerClassName, 'justify-between', className)}
       >
         <span
@@ -90,7 +90,7 @@ export function AccountSelectPopover({
         {header}
         <ul
           ref={listRef}
-          aria-label={t('search.accountsLabel')}
+          aria-label={t('common.accounts')}
           className="max-h-72 overflow-y-auto overscroll-contain p-1"
         >
           {groups.map((group) => (

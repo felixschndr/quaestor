@@ -87,7 +87,7 @@ function CreateKeyForm({ onCreated }: { onCreated: (apiKey: ApiKeyCreated) => vo
       <h2 className="text-foreground text-lg font-semibold">{t('apiKeys.createTitle')}</h2>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="api-key-name">{t('apiKeys.nameLabel')}</Label>
+          <Label htmlFor="api-key-name">{t('common.name')}</Label>
           <Input
             id="api-key-name"
             placeholder={t('apiKeys.namePlaceholder')}
@@ -135,7 +135,7 @@ function CreatedKeyReveal({ apiKey, onDone }: { apiKey: ApiKeyCreated; onDone: (
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button type="button" variant="outline" onClick={copy} className="flex-1">
           {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
-          {copied ? t('apiKeys.copied') : t('apiKeys.copy')}
+          {copied ? t('common.copied') : t('common.copy')}
         </Button>
         <Button type="button" onClick={onDone} className="flex-1">
           {t('apiKeys.createdDone')}
@@ -169,7 +169,7 @@ function ApiKeyRow({ apiKey }: { apiKey: ApiKeyRead }) {
         <dl className="text-muted-foreground grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
           <dt>{t('apiKeys.prefix')}</dt>
           <dd className="font-mono">{apiKey.prefix}…</dd>
-          <dt>{t('apiKeys.created')}</dt>
+          <dt>{t('common.created')}</dt>
           <dd>{formatDateTime(apiKey.created_at)}</dd>
           <dt>{t('apiKeys.lastUsed')}</dt>
           <dd>
@@ -188,7 +188,7 @@ function ApiKeyRow({ apiKey }: { apiKey: ApiKeyRead }) {
               onClick={onDelete}
               className="flex-1"
             >
-              {t('apiKeys.confirmDelete')}
+              {t('common.confirm')}
             </Button>
             <Button
               type="button"
@@ -210,7 +210,7 @@ function ApiKeyRow({ apiKey }: { apiKey: ApiKeyRead }) {
             className="w-full"
           >
             <Trash2 className="size-3.5" aria-hidden="true" />
-            {t('apiKeys.delete')}
+            {t('common.delete')}
           </Button>
         )}
       </div>
@@ -223,7 +223,7 @@ function BackLink() {
   return (
     <Link
       to="/settings/user"
-      aria-label={t('settings.back')}
+      aria-label={t('common.back')}
       className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
     >
       <ChevronLeft className="size-5" />

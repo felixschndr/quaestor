@@ -238,7 +238,7 @@ export function AccountDetailView({
               <Link
                 to="/contracts"
                 search={{ account_ids: [account.id] }}
-                aria-label={t('overview.contracts')}
+                aria-label={t('contracts.title')}
                 className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
               >
                 <ContractIcon className="size-5" />
@@ -369,7 +369,7 @@ function BalanceDisplay({
     }
     try {
       await update.mutateAsync({ accountId: account.id, balance: draft })
-      toast.success(t('credentials.detail.saved'))
+      toast.success(t('common.saved'))
       setEditing(false)
     } catch {
       toast.error(t('credentials.detail.saveFailed'))
@@ -695,7 +695,7 @@ function TransactionRow({
             onClick={() => void onDelete()}
             disabled={remove.isPending}
           >
-            {t('credentials.manualTransactions.deleteConfirm')}
+            {t('common.deleteConfirm')}
           </Button>
           <Button
             type="button"
@@ -704,7 +704,7 @@ function TransactionRow({
             onClick={() => setConfirmingDelete(false)}
             disabled={remove.isPending}
           >
-            {t('credentials.manualTransactions.cancel')}
+            {t('common.cancel')}
           </Button>
         </div>
       ) : (
@@ -714,7 +714,7 @@ function TransactionRow({
             size="sm"
             variant="ghost"
             onClick={() => setEditing(true)}
-            aria-label={t('credentials.manualTransactions.edit')}
+            aria-label={t('common.edit')}
             className="text-muted-foreground hover:text-foreground"
           >
             <Pencil className="size-3.5" aria-hidden="true" />
@@ -724,7 +724,7 @@ function TransactionRow({
             size="sm"
             variant="ghost"
             onClick={() => setConfirmingDelete(true)}
-            aria-label={t('credentials.manualTransactions.delete')}
+            aria-label={t('common.delete')}
             className="text-muted-foreground hover:text-destructive"
           >
             <Trash2 className="size-3.5" aria-hidden="true" />
@@ -833,7 +833,7 @@ function RecurringTransactionRow({
             onClick={() => void onDelete()}
             disabled={remove.isPending}
           >
-            {t('credentials.manualTransactions.deleteConfirm')}
+            {t('common.deleteConfirm')}
           </Button>
           <Button
             type="button"
@@ -842,7 +842,7 @@ function RecurringTransactionRow({
             onClick={() => setConfirmingDelete(false)}
             disabled={remove.isPending}
           >
-            {t('credentials.manualTransactions.cancel')}
+            {t('common.cancel')}
           </Button>
         </div>
       ) : (
@@ -852,7 +852,7 @@ function RecurringTransactionRow({
             size="sm"
             variant="ghost"
             onClick={() => setEditing(true)}
-            aria-label={t('credentials.manualTransactions.edit')}
+            aria-label={t('common.edit')}
             className="text-muted-foreground hover:text-foreground"
           >
             <Pencil className="size-3.5" aria-hidden="true" />
@@ -862,7 +862,7 @@ function RecurringTransactionRow({
             size="sm"
             variant="ghost"
             onClick={() => setConfirmingDelete(true)}
-            aria-label={t('credentials.manualTransactions.delete')}
+            aria-label={t('common.delete')}
             className="text-muted-foreground hover:text-destructive"
           >
             <Trash2 className="size-3.5" aria-hidden="true" />
@@ -987,7 +987,7 @@ function ExpectedTransactionRow({
             onClick={() => void onDelete()}
             disabled={remove.isPending}
           >
-            {t('expectedTransactions.deleteConfirm')}
+            {t('common.deleteConfirm')}
           </Button>
           <Button
             type="button"
@@ -996,7 +996,7 @@ function ExpectedTransactionRow({
             onClick={() => setConfirmingDelete(false)}
             disabled={remove.isPending}
           >
-            {t('expectedTransactions.cancel')}
+            {t('common.cancel')}
           </Button>
         </div>
       ) : (
@@ -1006,7 +1006,7 @@ function ExpectedTransactionRow({
             size="sm"
             variant="ghost"
             onClick={() => setEditing(true)}
-            aria-label={t('expectedTransactions.edit')}
+            aria-label={t('common.edit')}
             className="text-muted-foreground hover:text-foreground px-1 sm:px-2.5"
           >
             <Pencil className="size-3.5" aria-hidden="true" />
@@ -1016,7 +1016,7 @@ function ExpectedTransactionRow({
             size="sm"
             variant="ghost"
             onClick={() => setConfirmingDelete(true)}
-            aria-label={t('expectedTransactions.delete')}
+            aria-label={t('common.delete')}
             className="text-muted-foreground hover:text-destructive px-1 sm:px-2.5"
           >
             <Trash2 className="size-3.5" aria-hidden="true" />

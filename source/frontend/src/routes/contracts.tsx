@@ -224,7 +224,7 @@ function CreateContractDialog({ credentials }: { credentials: CredentialRead[] }
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="contract-name">{t('contracts.name')}</Label>
+            <Label htmlFor="contract-name">{t('common.name')}</Label>
             <Input
               id="contract-name"
               value={name}
@@ -233,7 +233,7 @@ function CreateContractDialog({ credentials }: { credentials: CredentialRead[] }
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="contract-account">{t('contracts.account')}</Label>
+            <Label htmlFor="contract-account">{t('common.account')}</Label>
             <AccountSingleSelect
               id="contract-account"
               credentials={credentials}
@@ -253,10 +253,10 @@ function CreateContractDialog({ credentials }: { credentials: CredentialRead[] }
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="contract-category">{t('contracts.category')}</Label>
+            <Label htmlFor="contract-category">{t('common.category')}</Label>
             <SingleSelectPopover
               id="contract-category"
-              ariaLabel={t('contracts.category')}
+              ariaLabel={t('common.category')}
               value={category}
               onChange={setCategory}
               options={categoryOptions}

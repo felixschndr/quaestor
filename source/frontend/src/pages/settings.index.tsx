@@ -44,7 +44,7 @@ export function SettingsIndexView({
           <SettingsLink
             to="/settings/credentials"
             icon={CreditCard}
-            label={t('settings.credentials')}
+            label={t('credentials.title')}
             description={t('settings.credentialsDescription')}
           />
         </ul>
@@ -55,14 +55,14 @@ export function SettingsIndexView({
           <SettingsLink
             to="/settings/version"
             icon={Tag}
-            label={t('settings.serverVersion')}
+            label={t('version.title')}
             description={versionDescription}
             highlight={serverVersion?.update_available ?? false}
           />
           <SettingsLink
             to="/settings/attributions"
             icon={Info}
-            label={t('settings.attributions')}
+            label={t('attributions.title')}
             description={t('settings.attributionsDescription')}
           />
         </ul>
@@ -76,7 +76,7 @@ function BackLink() {
   return (
     <Link
       to="/"
-      aria-label={t('settings.back')}
+      aria-label={t('common.back')}
       className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
     >
       <ChevronLeft className="size-5" />

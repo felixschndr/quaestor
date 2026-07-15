@@ -38,7 +38,7 @@ export function ChartCard({
         {action}
       </header>
       {isLoading ? (
-        <p className="text-muted-foreground text-sm">{t('stats.loading')}</p>
+        <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
       ) : isError ? (
         <p className="text-destructive text-sm">{t('stats.error')}</p>
       ) : isEmpty ? (

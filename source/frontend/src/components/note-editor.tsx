@@ -111,10 +111,10 @@ export function NoteEditor({
 function NoteStatus({ status }: { status: AutoSaveStatus }) {
   const { t } = useTranslation()
   if (status === 'saving' || status === 'pending') {
-    return <span className="text-muted-foreground text-xs">{t('note.saving')}</span>
+    return <span className="text-muted-foreground text-xs">{t('common.saving')}</span>
   }
   if (status === 'saved') {
-    return <span className="text-success text-xs">{t('note.saved')}</span>
+    return <span className="text-success text-xs">{t('common.saved')}</span>
   }
   return null
 }

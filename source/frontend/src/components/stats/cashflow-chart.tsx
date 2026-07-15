@@ -51,13 +51,13 @@ export function CashflowChart({ data }: CashflowChartProps) {
               legend order beneath the chart. */}
           <Bar
             dataKey="expenses"
-            name={t('stats.cashflow.expenses')}
+            name={t('stats.direction.OUTGOING')}
             fill="var(--color-destructive)"
             radius={[4, 4, 0, 0]}
           />
           <Bar
             dataKey="income"
-            name={t('stats.cashflow.income')}
+            name={t('stats.direction.INCOMING')}
             fill="var(--color-success)"
             radius={[4, 4, 0, 0]}
           />

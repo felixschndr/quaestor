@@ -21,7 +21,7 @@ export function TransferMultiSelect({ id, value, onChange, className }: Transfer
   const options = [
     {
       value: 'linked' as const,
-      label: t('filters.transfer.linked'),
+      label: t('filters.transferLabel'),
       leading: <ArrowLeftRight className={iconClass} aria-hidden="true" />,
     },
     {
@@ -35,10 +35,10 @@ export function TransferMultiSelect({ id, value, onChange, className }: Transfer
 
   const triggerLabel =
     value === 'linked'
-      ? t('filters.transfer.linked')
+      ? t('filters.transferLabel')
       : value === 'unlinked'
         ? t('filters.transfer.unlinked')
-        : t('filters.anyOption')
+        : t('common.any')
 
   return (
     <MultiSelectPopover

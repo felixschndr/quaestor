@@ -92,7 +92,7 @@ function UnknownBankFallback({ onCancel }: { onCancel: () => void }) {
     <div className="flex flex-col gap-3">
       <p className="text-muted-foreground text-sm">{t('credentials.pickerEmpty')}</p>
       <Button type="button" variant="outline" onClick={onCancel} className="self-start">
-        {t('credentials.back')}
+        {t('common.back')}
       </Button>
     </div>
   )
@@ -132,14 +132,9 @@ function CredentialForm({
   const [keyFileName, setKeyFileName] = useState('')
   const countries = bank.provider === 'enable_banking' ? (bank.countries ?? []) : []
   const [country, setCountry] = useState('')
-  const countryOptions = useMemo(
-    () =>
-      countries
-        .map((code) => ({ value: code, label: countryName(code, i18n.language) }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [countries.join(','), i18n.language],
-  )
+  const countryOptions = countries
+    .map((code) => ({ value: code, label: countryName(code, i18n.language) }))
+    .sort((a, b) => a.label.localeCompare(b.label))
   const [activeJob, setActiveJob] = useState<{ credentialId: number; jobId: string } | null>(null)
   const [code, setCode] = useState('')
   const { job } = useSyncJob(activeJob?.credentialId ?? null, activeJob?.jobId ?? null)
@@ -294,19 +289,19 @@ function CredentialForm({
       <form onSubmit={onConfirm2fa} noValidate className="flex flex-col gap-4">
         <p className="text-muted-foreground text-sm">
           {authorizationUrl
-            ? t('credentials.twoFactor.authorizeDescription', { bank: bankTitle })
+            ? t('sync.twoFactor.authorizeDescription', { bank: bankTitle })
             : t('credentials.twoFactor.description')}
         </p>
         {authorizationUrl ? (
           <Button asChild variant="outline">
             <a href={authorizationUrl} target="_blank" rel="noopener noreferrer">
-              {t('credentials.twoFactor.authorizeLink', { bank: bankTitle })}
+              {t('sync.twoFactor.authorizeLink', { bank: bankTitle })}
             </a>
           </Button>
         ) : null}
         <FieldRow
           id="credential-2fa-code"
-          label={t('credentials.twoFactor.codeLabel')}
+          label={t('common.code')}
           inputMode={authorizationUrl ? 'text' : 'numeric'}
           autoComplete="one-time-code"
           value={code}
@@ -317,9 +312,7 @@ function CredentialForm({
           disabled={confirm2fa.isPending || code.length === 0}
           className="w-full"
         >
-          {confirm2fa.isPending
-            ? t('credentials.twoFactor.submitting')
-            : t('credentials.twoFactor.submit')}
+          {confirm2fa.isPending ? t('common.confirming') : t('common.confirm')}
         </Button>
       </form>
     )
@@ -602,7 +595,7 @@ function BackLink() {
   return (
     <Link
       to="/settings/credentials/new"
-      aria-label={t('credentials.back')}
+      aria-label={t('common.back')}
       className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
     >
       <ChevronLeft className="size-5" />

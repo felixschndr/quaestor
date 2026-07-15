@@ -3,17 +3,15 @@ import json
 import time
 from datetime import timedelta
 
-import requests
-
 from source.backend.bank_handlers.enable_banking_handler import API_BASE
+from source.backend.helpers import RestAPIClient
 from source.backend.logging_utils import get_logger
 from source.backend.paths import ENABLE_BANKING_ASPSPS_PATH
 from source.backend.services.banking import bank_catalog
 
 logger = get_logger(__name__)
 
-_ASPSPS_URL = f"{API_BASE}/api/aspsps"
-DEFAULT_MAX_AGE = timedelta(days=7)
+MAX_AGE = timedelta(days=7)
 
 _aspsps: list[dict] = []
 
@@ -22,9 +20,9 @@ def get_aspsps() -> list[dict]:
     return _aspsps
 
 
-def _is_fresh_enough(max_age: timedelta) -> bool:
+def _is_fresh_enough() -> bool:
     path = ENABLE_BANKING_ASPSPS_PATH
-    return path.exists() and time.time() - path.stat().st_mtime < max_age.total_seconds()
+    return path.exists() and time.time() - path.stat().st_mtime < MAX_AGE.total_seconds()
 
 
 def _load_cached() -> list[dict]:
@@ -39,14 +37,12 @@ def _load_cached() -> list[dict]:
 
 def _update() -> None:
     global _aspsps
-    if _is_fresh_enough(DEFAULT_MAX_AGE):
+    if _is_fresh_enough():
         logger.info("Enable Banking ASPSP list is fresh enough; skipping update")
         _aspsps = _load_cached()
         return
 
-    response = requests.get(_ASPSPS_URL, timeout=30)
-    response.raise_for_status()
-    fetched = response.json()["aspsps"]
+    fetched = RestAPIClient(name="Enable Banking", base_url=API_BASE).get("/api/aspsps")["aspsps"]
     if not fetched:
         logger.warning("Enable Banking ASPSP list came back empty; keeping the cached list")
         _aspsps = _load_cached()

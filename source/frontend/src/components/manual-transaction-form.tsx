@@ -170,7 +170,7 @@ export function ManualTransactionForm({
         if (Object.keys(patch).length > 0) {
           await update.mutateAsync(patch)
         }
-        toast.success(t('credentials.manualTransactions.updated'))
+        toast.success(t('common.saved'))
       }
       onDone()
     } catch {
@@ -229,10 +229,7 @@ export function ManualTransactionForm({
             <DatePicker id={`${fieldIdPrefix}-date`} value={date} max={today} onChange={setDate} />
           </FormField>
         )}
-        <FormField
-          id={`${fieldIdPrefix}-amount`}
-          label={t('credentials.manualTransactions.fieldAmount')}
-        >
+        <FormField id={`${fieldIdPrefix}-amount`} label={t('common.amount')}>
           <AmountInput
             id={`${fieldIdPrefix}-amount`}
             value={amount}
@@ -253,10 +250,7 @@ export function ManualTransactionForm({
           onChange={(event) => setOtherParty(event.target.value)}
         />
       </FormField>
-      <FormField
-        id={`${fieldIdPrefix}-purpose`}
-        label={t('credentials.manualTransactions.fieldPurpose')}
-      >
+      <FormField id={`${fieldIdPrefix}-purpose`} label={t('common.purpose')}>
         <Input
           id={`${fieldIdPrefix}-purpose`}
           value={purpose}
@@ -264,17 +258,14 @@ export function ManualTransactionForm({
         />
       </FormField>
       <div className="grid grid-cols-2 gap-3">
-        <FormField
-          id={`${fieldIdPrefix}-type`}
-          label={t('credentials.manualTransactions.fieldType')}
-        >
+        <FormField id={`${fieldIdPrefix}-type`} label={t('common.type')}>
           <SingleSelectPopover
             id={`${fieldIdPrefix}-type`}
-            ariaLabel={t('credentials.manualTransactions.fieldType')}
+            ariaLabel={t('common.type')}
             value={txnType}
             onChange={setTxnType}
             options={[
-              { value: '', label: t('credentials.manualTransactions.anyOption') },
+              { value: '', label: t('common.any') },
               ...TRANSACTION_TYPES.map((type) => ({
                 value: type,
                 label: t(`transactionType.${type}`),
@@ -282,17 +273,14 @@ export function ManualTransactionForm({
             ]}
           />
         </FormField>
-        <FormField
-          id={`${fieldIdPrefix}-category`}
-          label={t('credentials.manualTransactions.fieldCategory')}
-        >
+        <FormField id={`${fieldIdPrefix}-category`} label={t('common.category')}>
           <SingleSelectPopover
             id={`${fieldIdPrefix}-category`}
-            ariaLabel={t('credentials.manualTransactions.fieldCategory')}
+            ariaLabel={t('common.category')}
             value={category}
             onChange={setCategory}
             options={[
-              { value: '', label: t('credentials.manualTransactions.anyOption') },
+              { value: '', label: t('common.any') },
               ...TRANSACTION_CATEGORIES.map((cat) => ({
                 value: cat,
                 label: t(`category.${cat}`),
@@ -301,7 +289,7 @@ export function ManualTransactionForm({
           />
         </FormField>
       </div>
-      <FormField id={`${fieldIdPrefix}-note`} label={t('credentials.manualTransactions.fieldNote')}>
+      <FormField id={`${fieldIdPrefix}-note`} label={t('common.note')}>
         <Input
           id={`${fieldIdPrefix}-note`}
           value={note}
@@ -387,14 +375,12 @@ export function ManualTransactionForm({
           disabled={pending}
           className="flex-1"
         >
-          {t('credentials.manualTransactions.cancel')}
+          {t('common.cancel')}
         </Button>
         {/* Enabled even when invalid so a save attempt can surface the
             validation state (e.g. an empty amount turns red). */}
         <Button type="submit" disabled={pending} className="flex-1">
-          {pending
-            ? t('credentials.manualTransactions.saving')
-            : t('credentials.manualTransactions.save')}
+          {pending ? t('common.saving') : t('common.save')}
         </Button>
       </div>
     </form>

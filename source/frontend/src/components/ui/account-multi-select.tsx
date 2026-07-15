@@ -40,7 +40,7 @@ function AccountMultiSelect({
     selectedCount === 0
       ? t('search.accountsNone')
       : allSelected
-        ? t('search.accountsAll')
+        ? t('common.allAccounts')
         : t('search.accountsCount', { count: selectedCount })
 
   const toggle = (accountId: number) => {

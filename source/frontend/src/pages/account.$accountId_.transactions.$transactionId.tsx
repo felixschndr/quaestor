@@ -84,10 +84,10 @@ export function TransactionDetailView({
         <DetailRow label={t(otherPartyLabelKey(transaction.amount))}>
           {transaction.other_party?.trim() || <EmptyValue />}
         </DetailRow>
-        <DetailRow label={t('transaction.purpose')}>
+        <DetailRow label={t('common.purpose')}>
           {transaction.purpose?.trim() || <EmptyValue />}
         </DetailRow>
-        <DetailRow label={t('transaction.category')}>
+        <DetailRow label={t('common.category')}>
           {transaction.pending ? (
             <span className="text-sm">{t(`category.${transaction.category}`)}</span>
           ) : (
@@ -106,7 +106,7 @@ export function TransactionDetailView({
         ) : (
           (linkSection ?? null)
         )}
-        <DetailRow label={t('transaction.account')}>
+        <DetailRow label={t('common.account')}>
           {accountName?.trim() ? (
             <Link
               to="/account/$accountId"
@@ -121,7 +121,7 @@ export function TransactionDetailView({
         </DetailRow>
         {contractSection}
         {transaction.pending ? null : (
-          <DetailRow label={t('transaction.note')} align="start">
+          <DetailRow label={t('common.note')} align="start">
             <NoteEditor remoteNote={transaction.note ?? ''} onSave={onSaveNote} />
           </DetailRow>
         )}
@@ -188,7 +188,7 @@ function BackLink({ accountId }: { accountId: number }) {
     <Link
       to="/account/$accountId"
       params={{ accountId: String(accountId) }}
-      aria-label={t('transaction.back')}
+      aria-label={t('common.back')}
       className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
     >
       <ChevronLeft className="size-5" />
@@ -265,7 +265,7 @@ function CategorySelect({
 
   return (
     <SingleSelectPopover
-      ariaLabel={t('transaction.category')}
+      ariaLabel={t('common.category')}
       value={value}
       disabled={pending}
       onChange={(next) => void change(next)}
