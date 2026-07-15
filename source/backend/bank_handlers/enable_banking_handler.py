@@ -197,6 +197,13 @@ class EnableBankingHandler(BankHandler):
                 description="be the PEM private key file downloaded when registering the application",
             ),
         ),
+        "redirect_url": (
+            FieldRule(
+                name="redirect_url_https",
+                regex=r"^https://",
+                description="be an HTTPS URL (Enable Banking requires the app to be served over HTTPS)",
+            ),
+        ),
     }
     WHITESPACE_STRIPPED_FIELDS = frozenset({"application_id"})
 

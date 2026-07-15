@@ -102,8 +102,19 @@ def _validate_credentials(bank: BankProvider, credentials: dict[str, str]) -> di
     return cleaned
 
 
+_ENABLE_BANKING_KEY_FILE_NAME = re.compile(pattern=r"^([0-9a-f-]{36})\.pem$", flags=re.IGNORECASE)
+
+
+def _extract_enable_banking_application_id(credentials: dict[str, str]) -> dict[str, str]:
+    filled = dict(credentials)
+    file_name = filled.pop("private_key_file_name", "")
+    match = _ENABLE_BANKING_KEY_FILE_NAME.match(file_name)
+    if not filled.get("application_id") and match is not None:
+        filled["application_id"] = match.group(1).lower()
+    return filled
+
+
 def _inherit_enable_banking_application(db_session: Session, user: User, credentials: dict[str, str]) -> dict[str, str]:
-    # One Enable Banking application serves all of the user's banks, but every bank is its own credential
     filled = dict(credentials)
     missing = [field for field in ("application_id", "private_key") if not filled.get(field)]
     if not missing:
@@ -127,6 +138,7 @@ def create_credential(
 ) -> Credential:
     logger.debug(f"Creating {bank.value} credential for {user}")
     if bank == BankProvider.ENABLE_BANKING:
+        credentials = _extract_enable_banking_application_id(credentials)
         credentials = _inherit_enable_banking_application(db_session=db_session, user=user, credentials=credentials)
     validated_credentials = _validate_credentials(bank=bank, credentials=credentials)
 

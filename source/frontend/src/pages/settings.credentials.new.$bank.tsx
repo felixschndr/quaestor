@@ -122,13 +122,12 @@ function CredentialForm({
   const requiredFields = useMemo(
     () =>
       hasEnableBankingApp
-        ? bank.required_fields.filter(
-            (field) => field !== 'application_id' && field !== 'private_key',
-          )
+        ? bank.required_fields.filter((field) => field !== 'private_key')
         : bank.required_fields,
     [bank.required_fields, hasEnableBankingApp],
   )
 
+  const [keyFileName, setKeyFileName] = useState('')
   const [activeJob, setActiveJob] = useState<{ credentialId: number; jobId: string } | null>(null)
   const [code, setCode] = useState('')
   const { job } = useSyncJob(activeJob?.credentialId ?? null, activeJob?.jobId ?? null)
@@ -210,6 +209,7 @@ function CredentialForm({
       credentials.aspsp_name = bank.name
       credentials.aspsp_country = bank.country ?? ''
       credentials.redirect_url = enableBankingRedirectUrl()
+      if (keyFileName) credentials.private_key_file_name = keyFileName
     }
     try {
       const created = await create.mutateAsync({ bank: submitProvider, credentials })
@@ -284,7 +284,6 @@ function CredentialForm({
           label={t('credentials.twoFactor.codeLabel')}
           inputMode={authorizationUrl ? 'text' : 'numeric'}
           autoComplete="one-time-code"
-          autoFocus
           value={code}
           onChange={(event) => setCode(event.target.value)}
         />
@@ -306,6 +305,9 @@ function CredentialForm({
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       {note ? <p className="text-muted-foreground text-sm">{note}</p> : null}
+      {bank.provider === 'enable_banking' && window.location.protocol !== 'https:' ? (
+        <p className="text-destructive text-sm">{t('credentials.enableBanking.httpsRequired')}</p>
+      ) : null}
       {bank.provider === 'enable_banking' ? (
         hasEnableBankingApp ? (
           <p className="text-muted-foreground text-sm">
@@ -336,13 +338,7 @@ function CredentialForm({
             error={form.formState.errors[field]?.message as string | undefined}
             onLoaded={(pem, fileName) => {
               form.setValue(field, pem, { shouldValidate: true })
-              // Enable Banking names the key file after the application ID — autofill it.
-              const applicationId = fileName.match(/^([0-9a-f-]{36})\.pem$/i)?.[1]
-              if (applicationId) {
-                form.setValue('application_id', applicationId.toLowerCase(), {
-                  shouldValidate: true,
-                })
-              }
+              setKeyFileName(fileName)
             }}
           />
         ) : (
@@ -352,11 +348,6 @@ function CredentialForm({
             label={t(`banks.field.${field}`, { defaultValue: field })}
             type={maskedField(field) ? 'password' : 'text'}
             autoComplete={autoCompleteFor(field)}
-            placeholder={
-              field === 'application_id'
-                ? t('credentials.enableBanking.applicationIdHint')
-                : undefined
-            }
             error={form.formState.errors[field]?.message as string | undefined}
             {...form.register(field)}
           />
@@ -389,9 +380,29 @@ export function enableBankingRedirectUrl(): string {
   return `${window.location.origin}/banking/callback`
 }
 
+const QUAESTOR_REPO_URL = 'https://github.com/felixschndr/quaestor'
+
+function GuideCode({ children }: { children: React.ReactNode }) {
+  return (
+    <code className="bg-muted text-foreground rounded px-1.5 py-0.5 text-xs break-all select-all">
+      {children}
+    </code>
+  )
+}
+
+/** Mirrors the one-time setup section of docs/bank_handlers/enable_banking.md. The Enable
+ *  Banking control panel is English, so its form labels and values stay untranslated. */
 function EnableBankingGuide() {
   const { t } = useTranslation()
   const redirectUrl = enableBankingRedirectUrl()
+  const applicationInfo: Array<[string, React.ReactNode]> = [
+    ['Application name', 'Quaestor'],
+    ['Allowed redirect URLs', redirectUrl],
+    ['Application description', QUAESTOR_REPO_URL],
+    ['Email for data protection matters', t('credentials.enableBanking.emailPlaceholder')],
+    ['Privacy URL of the application', QUAESTOR_REPO_URL],
+    ['Terms URL of the application', `${QUAESTOR_REPO_URL}/blob/main/LICENSE`],
+  ]
   return (
     <section className="border-border bg-card flex flex-col gap-2 rounded-lg border p-4">
       <h2 className="text-sm font-semibold">{t('credentials.enableBanking.guideTitle')}</h2>
@@ -406,15 +417,31 @@ function EnableBankingGuide() {
           >
             enablebanking.com
           </a>
+          <ul className="mt-1 flex list-disc flex-col gap-1 pl-4">
+            <li>
+              {t('credentials.enableBanking.step1Environment')} <GuideCode>Production</GuideCode>
+            </li>
+            <li>
+              {t('credentials.enableBanking.step1Key')}{' '}
+              <GuideCode>
+                Generate in the browser (using SubtleCrypto) and export private key
+              </GuideCode>
+            </li>
+            <li>
+              {t('credentials.enableBanking.step1Info')}
+              <ul className="mt-1 flex list-disc flex-col gap-1 pl-4">
+                {applicationInfo.map(([label, value]) => (
+                  <li key={label}>
+                    {label}: <GuideCode>{value}</GuideCode>
+                  </li>
+                ))}
+              </ul>
+            </li>
+            <li>{t('credentials.enableBanking.step1Register')}</li>
+          </ul>
         </li>
-        <li>
-          {t('credentials.enableBanking.step2')}
-          <code className="bg-muted text-foreground mt-1 block w-fit rounded px-1.5 py-0.5 text-xs break-all select-all">
-            {redirectUrl}
-          </code>
-        </li>
+        <li>{t('credentials.enableBanking.step2')}</li>
         <li>{t('credentials.enableBanking.step3')}</li>
-        <li>{t('credentials.enableBanking.step4')}</li>
       </ol>
     </section>
   )

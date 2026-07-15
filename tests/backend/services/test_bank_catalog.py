@@ -155,7 +155,7 @@ def test_enable_banking_entries_carry_country_and_visible_fields_only():
     assert entry.country == "DE"
     assert entry.icon is None
     assert entry.tested is True
-    assert entry.required_fields == ["private_key", "application_id"]
+    assert entry.required_fields == ["private_key"]
     assert set(entry.field_rules) <= set(entry.required_fields)
 
 
