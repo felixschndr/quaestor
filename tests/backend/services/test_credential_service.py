@@ -419,6 +419,50 @@ def test_create_enable_banking_credential_inherits_the_application_from_an_exist
     assert second.credentials["aspsp_name"] == "ING"
 
 
+def test_create_enable_banking_credential_extracts_the_application_id_from_the_key_file_name(
+    session_factory: sessionmaker,
+):
+    user_id = create_user(session_factory).id
+
+    with session_factory() as session:
+        user = session.get(entity=User, ident=user_id)
+        credential = credential_service.create_credential(
+            session,
+            user=user,
+            bank=BankProvider.ENABLE_BANKING,
+            credentials={
+                "private_key": _ENABLE_BANKING_APP["private_key"],
+                "private_key_file_name": "AAAAAAAA-bbbb-cccc-dddd-eeeeeeeeeeee.pem",
+                "redirect_url": _ENABLE_BANKING_APP["redirect_url"],
+                "aspsp_name": "PayPal",
+                "aspsp_country": "DE",
+            },
+        )
+        session.commit()
+
+    assert credential.credentials["application_id"] == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    assert "private_key_file_name" not in credential.credentials
+
+
+def test_create_enable_banking_credential_rejects_a_non_https_redirect_url(session_factory: sessionmaker):
+    user_id = create_user(session_factory).id
+
+    with session_factory() as session:
+        user = session.get(entity=User, ident=user_id)
+        with pytest.raises(InvalidCredentialFieldError):
+            credential_service.create_credential(
+                session,
+                user=user,
+                bank=BankProvider.ENABLE_BANKING,
+                credentials={
+                    **_ENABLE_BANKING_APP,
+                    "redirect_url": "http://localhost:8000/banking/callback",
+                    "aspsp_name": "PayPal",
+                    "aspsp_country": "DE",
+                },
+            )
+
+
 def test_create_enable_banking_credential_without_existing_application_requires_the_fields(
     session_factory: sessionmaker,
 ):

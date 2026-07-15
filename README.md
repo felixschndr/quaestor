@@ -102,34 +102,9 @@ This app is primarily intended for German users. You can find the reason for thi
 
 ## Supported banks
 
-The following connections are currently supported:
+Quaestor connects to banks through several handlers, see [docs/bank_handlers](docs/bank_handlers/README.md).
 
-- Trade Republic
-- _All_ FinTS banks
-  - FinTS is a _standardized_ protocol for banking. It allows this app to fetch balances and transactions from any bank that supports it. It's a standard that mostly German banks use (because they are legally obligated to do so). However, not all banks implement it the same way.
-  - Thus, **tested** are
-    - ING-DiBa
-    - Deutsche Kreditbank Berlin (DKB)
-    - Sparkasse Karlsruhe
-    - Volksbank Mittelhessen
-  - But the app gets a list of all banks that support FinTS and they _should_ work. If they don't, please open an issue.
-    - This can have some common reasons:
-      - The bank uses a (yet) unsupported way to implement 2FA.
-      - The FinTS url of the bank is not correct in the upstream database.
-      - The Bank is not listed in the upstream database.
-        - For this case there is [this file](source/backend/services/banking/bank_info_updater.py) which holds any additional banks that are not listed in the upstream database and tested.
-    - If you encounter such a bank, please open an issue and we can work together to implement it.
-- Manual accounts: These allow the user to set the balance and add transactions manually.
-- Deutsche Flugsicherung GmbH retirement plan (http://www.dfs-vorsorgeplan.de / https://www.value-account.eu)
-- fin4u retirement plan (https://www.alte-leipziger.de/service/rund-um-ihre-vertraege/kundenportal-fin4u)
-
-You can browse the full list of every supported bank [here](https://quaestordocs.fschneider.me/banks.html).
-
-### Why are some banks not supported?
-
-This is a hobby project. Apps such as Finanzguru can support more banks because they use the `PSD2` standard, which exposes more data and supports more banks than FinTS does. However, it requires an expensive banking license (several thousand dollars) to use.
-
-This is the reason why PayPal is not supported by this App. To fetch PayPal personal accounts, you need a PSD2 license. I could implement business accounts of PayPal, please open an issue if you need this.
+You can browse the full list of every supported bank [here](https://quaestordocs.fschneider.me/banks.html) where every entry carries a badge naming its handler.
 
 ## Security
 

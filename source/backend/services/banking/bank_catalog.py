@@ -103,11 +103,7 @@ def _normalize_bank_name(name: str) -> str:
 
 def _create_enable_banking_entry(aspsp: dict) -> CatalogEntry:
     bank_info = BANKS_BY_NAME[_ENABLE_BANKING_PROVIDER]
-    # Only the application credentials are typed in (key first — uploading it autofills
-    # the application ID from the file name). The ASPSP identity is pinned by the catalog
-    # entry and the redirect URL is derived from the browser origin; the frontend submits
-    # both alongside the visible fields (like the BLZ for FinTS).
-    visible_fields = ["private_key", "application_id"]
+    visible_fields = ["private_key"]
     return CatalogEntry(
         provider=_ENABLE_BANKING_PROVIDER,
         key=f"eb-{aspsp['country']}-{aspsp['name']}",

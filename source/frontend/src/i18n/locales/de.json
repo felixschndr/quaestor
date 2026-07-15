@@ -272,7 +272,6 @@
       "password": "Passwort",
       "phone": "Telefonnummer",
       "pin": "PIN",
-      "application_id": "Application-ID",
       "private_key": "Privater Schlüssel (.pem)"
     },
     "enable_banking": {
@@ -470,10 +469,14 @@
     },
     "enableBanking": {
       "guideTitle": "Einmalige Einrichtung bei Enable Banking",
-      "step1": "Erstelle einen kostenlosen Account und registriere eine neue Production-Applikation im Control Panel auf",
-      "step2": "Trage diese Redirect-URL in der Applikation ein:",
-      "step3": "Lade beim Erstellen die .pem-Schlüsseldatei herunter.",
-      "step4": "Lade die Schlüsseldatei unten hoch — die Application-ID wird automatisch übernommen. Beim Verbinden wirst du zur Anmeldung bei deiner Bank weitergeleitet.",
+      "step1": "Erstelle einen kostenlosen Account und registriere eine neue Applikation im Control Panel auf",
+      "step1Environment": "Wähle als Environment der Applikation:",
+      "step1Key": "Wähle, wie der private RSA-Schlüssel und das Zertifikat erzeugt werden:",
+      "step1Info": "Fülle die Informationen zur Applikation aus:",
+      "step1Register": "Klicke auf „Register“; die Schlüsseldatei (.pem) wird automatisch heruntergeladen.",
+      "step2": "Verknüpfe deine Bank im Control Panel über „Link accounts“.",
+      "step3": "Lade die Schlüsseldatei unten hoch. Beim Verbinden wirst du zur Anmeldung bei deiner Bank weitergeleitet.",
+      "emailPlaceholder": "<deine E-Mail-Adresse>",
       "keyLoaded": "Schlüssel geladen ✓",
       "callbackTitle": "Autorisierung abgeschlossen",
       "callbackDescription": "Kopiere den Code und füge ihn im wartenden Verbindungs-Dialog ein.",
@@ -481,9 +484,9 @@
       "callbackCopied": "Kopiert ✓",
       "callbackErrorTitle": "Autorisierung fehlgeschlagen",
       "callbackErrorDescription": "Die Bank hat einen Fehler gemeldet: {{error}}. Bitte starte die Synchronisierung erneut.",
-      "applicationIdHint": "Wird beim Hochladen der Schlüsseldatei automatisch ausgefüllt",
       "redirectNotAllowed": "Enable Banking kennt die Redirect-URL {{url}} nicht. Trage sie im Control Panel bei deiner Applikation ein und verbinde erneut.",
-      "reuseApp": "Deine bestehende Enable-Banking-Applikation wird wiederverwendet. Die Bank muss im <cp>Control Panel</cp> als verknüpftes Konto hinterlegt sein."
+      "reuseApp": "Deine bestehende Enable-Banking-Applikation wird wiederverwendet. Die Bank muss im <cp>Control Panel</cp> als verknüpftes Konto hinterlegt sein.",
+      "httpsRequired": "Enable Banking erfordert, dass Quaestor über HTTPS erreichbar ist. Diese Seite läuft gerade über HTTP; die Verbindung wird fehlschlagen. Bitte deinen Administrator, HTTPS einzurichten."
     }
   },
   "attributions": {

@@ -272,7 +272,6 @@
       "password": "Password",
       "phone": "Phone number",
       "pin": "PIN",
-      "application_id": "Application ID",
       "private_key": "Private key (.pem)"
     },
     "enable_banking": {
@@ -470,10 +469,14 @@
     },
     "enableBanking": {
       "guideTitle": "One-time Enable Banking setup",
-      "step1": "Create a free account and register a new production application in the control panel at",
-      "step2": "Whitelist this redirect URL in the application:",
-      "step3": "Download the .pem key file when creating the application.",
-      "step4": "Upload the key file below — the application ID is filled in automatically. When connecting you will be redirected to your bank to sign in.",
+      "step1": "Create a free account and register a new application in the control panel at",
+      "step1Environment": "Choose your application's environment:",
+      "step1Key": "Choose how to generate a private RSA key and a certificate:",
+      "step1Info": "Fill out information about your application:",
+      "step1Register": "Click “Register”; the key file (.pem) is downloaded automatically.",
+      "step2": "Add your bank via the “Link accounts” button in the control panel.",
+      "step3": "Upload the key file below. When connecting you will be redirected to your bank to sign in.",
+      "emailPlaceholder": "<your mail address>",
       "keyLoaded": "Key loaded ✓",
       "callbackTitle": "Authorization complete",
       "callbackDescription": "Copy the code and paste it into the waiting connection dialog.",
@@ -481,9 +484,9 @@
       "callbackCopied": "Copied ✓",
       "callbackErrorTitle": "Authorization failed",
       "callbackErrorDescription": "The bank reported an error: {{error}}. Please start the sync again.",
-      "applicationIdHint": "Filled in automatically when you upload the key file",
       "redirectNotAllowed": "Enable Banking does not allow the redirect URL {{url}}. Whitelist it in your application in the control panel and connect again.",
-      "reuseApp": "Your existing Enable Banking application is reused. The bank must be linked as an account in the <cp>control panel</cp>."
+      "reuseApp": "Your existing Enable Banking application is reused. The bank must be linked as an account in the <cp>control panel</cp>.",
+      "httpsRequired": "Enable Banking requires Quaestor to be served over HTTPS. This page is currently served over HTTP; the connection will fail. Ask your administrator to set up HTTPS."
     }
   },
   "attributions": {
