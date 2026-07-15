@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { TFunction } from 'i18next'
 
 import { type SupportedBank } from '@/lib/credentials'
-import { ibanToBlz, isLikelyIban } from '@/lib/bankIdentity'
+import { countryName, ibanToBlz, isLikelyIban } from '@/lib/bankIdentity'
 import { BankLogo } from '@/components/BankLogo'
 import { Input } from '@/components/ui/input'
 
@@ -132,9 +132,8 @@ const HANDLER_LABELS: Record<string, string> = {
   enable_banking: 'Enable Banking',
 }
 
-/** The grey line under a bank's name: its BLZ (the first, with a "+N" hint when the entry
- *  spans several branch BLZs) and its BIC, when known. */
-function bankSubtitle(bank: SupportedBank): string | null {
+function bankSubtitle(bank: SupportedBank, locale: string): string | null {
+  if (bank.countries?.length === 1) return countryName(bank.countries[0], locale)
   const parts: string[] = []
   if (bank.blzs.length === 1) parts.push(bank.blzs[0])
   else if (bank.blzs.length > 1) parts.push(`${bank.blzs[0]} +${bank.blzs.length - 1}`)
@@ -143,9 +142,9 @@ function bankSubtitle(bank: SupportedBank): string | null {
 }
 
 function BankRow({ bank, accountsCount }: { bank: SupportedBank; accountsCount: number | null }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const name = displayName(t, bank)
-  const subtitle = bankSubtitle(bank)
+  const subtitle = bankSubtitle(bank, i18n.language)
   const handlerLabel = HANDLER_LABELS[bank.provider]
   return (
     <li className="border-border/40 border-t first:border-t-0">

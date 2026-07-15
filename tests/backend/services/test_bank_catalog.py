@@ -132,9 +132,9 @@ def _fake_aspsps() -> list[dict]:
         {"name": "DKB", "country": "DE", "logo": "x"},  # initials of "Deutsche Kreditbank Berlin"
         {"name": "ING", "country": "DE", "logo": "x"},  # prefix of "ING-DiBa"
         {"name": "Deutsche Bank", "country": "DE", "logo": "x"},  # exact duplicate
-        {"name": "Deutsche Bank", "country": "IT", "logo": "x"},  # German variant exists --> dropped
-        {"name": "PayPal", "country": "FR", "logo": "x"},  # German variant exists --> dropped
-        {"name": "Nordea", "country": "FI", "logo": "x"},  # no German variant --> kept per country
+        {"name": "Deutsche Bank", "country": "IT", "logo": "x"},  # FinTS covers the name --> dropped
+        {"name": "PayPal", "country": "FR", "logo": "x"},  # every country is its own ASPSP --> kept
+        {"name": "Nordea", "country": "FI", "logo": "x"},
         {"name": "Sparkasse München Aktiengesellschaft", "country": "DE", "logo": "x"},  # suffixed variant
         {"name": "Kreissparkasse Nirgendwo", "country": "DE", "logo": "x"},  # not in the FinTS DB
         {"name": "Volksbank Mittelhessen", "country": "DE", "logo": "x"},  # generic "Volksbank" must not absorb it
@@ -147,12 +147,13 @@ def _build_with_aspsps() -> list[CatalogEntry]:
     return bank_catalog.build_catalog(fints_db=_fake_fints_db(), schwifty_index=_fake_schwifty(), aspsps=_fake_aspsps())
 
 
-def test_enable_banking_entries_carry_country_and_visible_fields_only():
-    entry = _by_key(_build_with_aspsps(), key="eb-DE-PayPal")
+def test_enable_banking_entries_carry_countries_and_visible_fields_only():
+    entry = _by_key(_build_with_aspsps(), key="eb-PayPal")
 
     assert entry.provider == "enable_banking"
     assert entry.name == "PayPal"
-    assert entry.country == "DE"
+    # One entry per institution; each country is its own ASPSP and is picked when connecting.
+    assert entry.countries == ("DE", "FR")
     assert entry.icon is None
     assert entry.tested is True
     assert entry.required_fields == ["private_key"]
@@ -161,20 +162,18 @@ def test_enable_banking_entries_carry_country_and_visible_fields_only():
 
 def test_enable_banking_german_fints_duplicates_are_dropped():
     catalog = _build_with_aspsps()
-    enable_banking_names = {(e.name, e.country) for e in catalog if e.provider == "enable_banking"}
+    enable_banking_names = {e.name for e in catalog if e.provider == "enable_banking"}
 
-    assert ("PayPal", "DE") in enable_banking_names
-    assert ("Revolut", "LT") in enable_banking_names
-    assert ("Nordea", "FI") in enable_banking_names  # no German variant --> per-country entries stay
-    assert ("PayPal", "FR") not in enable_banking_names  # collapsed into the German entry
-    assert ("Deutsche Bank", "IT") not in enable_banking_names  # collapsed, then deduplicated via FinTS
-    assert ("DKB", "DE") not in enable_banking_names
-    assert ("ING", "DE") not in enable_banking_names
-    assert ("Deutsche Bank", "DE") not in enable_banking_names
-    assert ("Sparkasse München Aktiengesellschaft", "DE") not in enable_banking_names
-    assert ("Kreissparkasse Nirgendwo", "DE") in enable_banking_names
-    assert ("Volksbank Mittelhessen", "DE") in enable_banking_names
-    assert ("Volksbank", "DE") not in enable_banking_names
+    assert "PayPal" in enable_banking_names
+    assert "Revolut" in enable_banking_names
+    assert "Nordea" in enable_banking_names
+    assert "Deutsche Bank" not in enable_banking_names  # FinTS covers the name, any country
+    assert "DKB" not in enable_banking_names
+    assert "ING" not in enable_banking_names
+    assert "Sparkasse München Aktiengesellschaft" not in enable_banking_names
+    assert "Kreissparkasse Nirgendwo" in enable_banking_names
+    assert "Volksbank Mittelhessen" in enable_banking_names
+    assert "Volksbank" not in enable_banking_names
 
 
 def test_credential_display_for_enable_banking_uses_aspsp():

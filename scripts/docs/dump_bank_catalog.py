@@ -44,6 +44,7 @@ def _prepare(entry: dict, notes: dict[str, dict[str, str]]) -> dict:
         "bic": entry["bic"],
         "icon": icon.lstrip("/") if icon else None,
         "tested": entry["tested"],
+        "countries": list(entry["countries"]),
         "blzs": entry["blzs"],
         "fields": entry["required_fields"],
         "note": meta.get("note"),
@@ -191,6 +192,9 @@ _TEMPLATE = """<!DOCTYPE html>
     const blz = b.blzs.length
       ? `<div class="meta">BLZ <code>${{b.blzs[0]}}</code>${{b.blzs.length > 1 ? " …" : ""}}</div>`
       : "";
+    const countries = b.countries && b.countries.length
+      ? `<div class="meta">${{b.countries.join(", ")}}</div>`
+      : "";
     const note = b.note ? `<div class="note">${{b.note}}</div>` : "";
     el.innerHTML = `
       <div class="bank-head">
@@ -200,7 +204,7 @@ _TEMPLATE = """<!DOCTYPE html>
         </div>
       </div>
       <div class="badges">${{badges.join("")}}</div>
-      ${{bic}}${{blz}}${{note}}`;
+      ${{bic}}${{blz}}${{countries}}${{note}}`;
     return el;
   }}
 

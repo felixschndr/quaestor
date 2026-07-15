@@ -10,10 +10,12 @@ import { toast } from 'sonner'
 import type { TFunction } from 'i18next'
 
 import { Button } from '@/components/ui/button'
+import { CopyButton } from '@/components/copy-button'
+import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { FieldRow } from '@/components/settings/settings-section'
 import { ApiError } from '@/lib/api'
 import { authQueryKeys, type UserRead } from '@/lib/auth'
-import { ibanToBlz } from '@/lib/bankIdentity'
+import { countryName, ibanToBlz } from '@/lib/bankIdentity'
 import {
   useConfirmTwoFactor,
   useCreateCredential,
@@ -107,7 +109,7 @@ function CredentialForm({
   onConnected: (credentialId: number) => void
   onSyncFailed: () => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const create = useCreateCredential()
   const startSync = useStartSync()
   const confirm2fa = useConfirmTwoFactor()
@@ -128,6 +130,16 @@ function CredentialForm({
   )
 
   const [keyFileName, setKeyFileName] = useState('')
+  const countries = bank.provider === 'enable_banking' ? (bank.countries ?? []) : []
+  const [country, setCountry] = useState('')
+  const countryOptions = useMemo(
+    () =>
+      countries
+        .map((code) => ({ value: code, label: countryName(code, i18n.language) }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [countries.join(','), i18n.language],
+  )
   const [activeJob, setActiveJob] = useState<{ credentialId: number; jobId: string } | null>(null)
   const [code, setCode] = useState('')
   const { job } = useSyncJob(activeJob?.credentialId ?? null, activeJob?.jobId ?? null)
@@ -216,7 +228,7 @@ function CredentialForm({
     }
     if (bank.provider === 'enable_banking') {
       credentials.aspsp_name = bank.name
-      credentials.aspsp_country = bank.country ?? ''
+      credentials.aspsp_country = countries.length === 1 ? countries[0] : country
       credentials.redirect_url = enableBankingRedirectUrl()
       if (keyFileName) credentials.private_key_file_name = keyFileName
     }
@@ -339,6 +351,21 @@ function CredentialForm({
           <EnableBankingGuide />
         )
       ) : null}
+      {countries.length > 1 ? (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="credential-eb-country" className="text-sm font-medium">
+            {t('credentials.enableBanking.countryLabel')}
+          </label>
+          <SingleSelectPopover
+            id="credential-eb-country"
+            ariaLabel={t('credentials.enableBanking.countryLabel')}
+            options={countryOptions}
+            value={country}
+            onChange={setCountry}
+            placeholder={t('credentials.enableBanking.countryPlaceholder')}
+          />
+        </div>
+      ) : null}
       {requiredFields.map((field) =>
         field === 'private_key' ? (
           <PrivateKeyUploadRow
@@ -373,7 +400,11 @@ function CredentialForm({
         />
       ) : null}
 
-      <Button type="submit" disabled={submitting} className="w-full">
+      <Button
+        type="submit"
+        disabled={submitting || (countries.length > 1 && country === '')}
+        className="w-full"
+      >
         {isSyncing
           ? t('credentials.syncing')
           : create.isPending || startSync.isPending
@@ -392,24 +423,28 @@ export function enableBankingRedirectUrl(): string {
 
 const QUAESTOR_REPO_URL = 'https://github.com/felixschndr/quaestor'
 
-function GuideCode({ children }: { children: React.ReactNode }) {
+function GuideCode({ children, copy = true }: { children: string; copy?: boolean }) {
+  const { t } = useTranslation()
   return (
-    <code className="bg-muted text-foreground rounded px-1.5 py-0.5 text-xs break-all select-all">
-      {children}
-    </code>
+    <span className="inline-flex max-w-full items-center gap-1 align-middle">
+      <code className="bg-muted text-foreground rounded px-1.5 py-0.5 text-xs break-all select-all">
+        {children}
+      </code>
+      {copy ? (
+        <CopyButton value={children} label={t('common.copy')} className="text-muted-foreground" />
+      ) : null}
+    </span>
   )
 }
 
-/** Mirrors the one-time setup section of docs/bank_handlers/enable_banking.md. The Enable
- *  Banking control panel is English, so its form labels and values stay untranslated. */
 function EnableBankingGuide() {
   const { t } = useTranslation()
   const redirectUrl = enableBankingRedirectUrl()
-  const applicationInfo: Array<[string, React.ReactNode]> = [
+  const applicationInfo: Array<[string, string, boolean?]> = [
     ['Application name', 'Quaestor'],
     ['Allowed redirect URLs', redirectUrl],
     ['Application description', QUAESTOR_REPO_URL],
-    ['Email for data protection matters', t('credentials.enableBanking.emailPlaceholder')],
+    ['Email for data protection matters', t('credentials.enableBanking.emailPlaceholder'), false],
     ['Privacy URL of the application', QUAESTOR_REPO_URL],
     ['Terms URL of the application', `${QUAESTOR_REPO_URL}/blob/main/LICENSE`],
   ]
@@ -440,9 +475,9 @@ function EnableBankingGuide() {
             <li>
               {t('credentials.enableBanking.step1Info')}
               <ul className="mt-1 flex list-disc flex-col gap-1 pl-4">
-                {applicationInfo.map(([label, value]) => (
+                {applicationInfo.map(([label, value, copyable]) => (
                   <li key={label}>
-                    {label}: <GuideCode>{value}</GuideCode>
+                    {label}: <GuideCode copy={copyable !== false}>{value}</GuideCode>
                   </li>
                 ))}
               </ul>
