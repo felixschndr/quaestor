@@ -19,6 +19,7 @@ from source.backend.bank_handlers.enable_banking_handler import (
 )
 from source.backend.exceptions import (
     InvalidCredentialsError,
+    PSD2ApplicationNotActivatedError,
     PSD2RedirectUrlNotAllowedError,
     ReauthenticationRequiredError,
 )
@@ -298,10 +299,18 @@ def test_begin_two_factor_challenge_returns_authorization_url(fake_http: Callabl
     assert body["access"]["valid_until"].endswith("+00:00")  # The API rejects naive timestamps
 
 
-def test_begin_two_factor_challenge_with_inactive_application_raises_invalid_credentials(
+def test_begin_two_factor_challenge_with_inactive_application_raises_specific_error(
     fake_http: Callable[[dict], FakeHttp],
 ):
     fake_http({("POST", "/auth"): FakeHttpResponse(json_data={}, status_code=403, text="Application is not active")})
+    with pytest.raises(PSD2ApplicationNotActivatedError):
+        _handler().begin_two_factor_challenge(credential_id=7)
+
+
+def test_begin_two_factor_challenge_with_rejected_jwt_raises_invalid_credentials(
+    fake_http: Callable[[dict], FakeHttp],
+):
+    fake_http({("POST", "/auth"): FakeHttpResponse(json_data={}, status_code=401, text="Invalid JWT")})
     with pytest.raises(InvalidCredentialsError):
         _handler().begin_two_factor_challenge(credential_id=7)
 
