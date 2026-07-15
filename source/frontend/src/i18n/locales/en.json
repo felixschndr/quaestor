@@ -43,7 +43,8 @@
     "pullToRefresh": "Pull to refresh",
     "releaseToRefresh": "Release to refresh",
     "refreshing": "Refreshing …",
-    "refreshServerOnly": "No bank query — only refreshes data already on the server"
+    "refreshServerOnly": "No bank query — only refreshes data already on the server",
+    "copy": "Copy"
   },
   "errors": {
     "serverOffline": {
@@ -486,7 +487,9 @@
       "callbackErrorDescription": "The bank reported an error: {{error}}. Please start the sync again.",
       "redirectNotAllowed": "Enable Banking does not allow the redirect URL {{url}}. Whitelist it in your application in the control panel and connect again.",
       "reuseApp": "Your existing Enable Banking application is reused. The bank must be linked as an account in the <cp>control panel</cp>.",
-      "httpsRequired": "Enable Banking requires Quaestor to be served over HTTPS. This page is currently served over HTTP; the connection will fail. Ask your administrator to set up HTTPS."
+      "httpsRequired": "Enable Banking requires Quaestor to be served over HTTPS. This page is currently served over HTTP; the connection will fail. Ask your administrator to set up HTTPS.",
+      "countryLabel": "Country",
+      "countryPlaceholder": "Select country"
     }
   },
   "attributions": {

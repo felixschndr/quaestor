@@ -43,7 +43,8 @@
     "pullToRefresh": "Zum Aktualisieren ziehen",
     "releaseToRefresh": "Loslassen zum Aktualisieren",
     "refreshing": "Aktualisiere …",
-    "refreshServerOnly": "Keine Bankabfrage – lädt nur bereits auf dem Server vorhandene Daten neu"
+    "refreshServerOnly": "Keine Bankabfrage – lädt nur bereits auf dem Server vorhandene Daten neu",
+    "copy": "Kopieren"
   },
   "errors": {
     "serverOffline": {
@@ -486,7 +487,9 @@
       "callbackErrorDescription": "Die Bank hat einen Fehler gemeldet: {{error}}. Bitte starte die Synchronisierung erneut.",
       "redirectNotAllowed": "Enable Banking kennt die Redirect-URL {{url}} nicht. Trage sie im Control Panel bei deiner Applikation ein und verbinde erneut.",
       "reuseApp": "Deine bestehende Enable-Banking-Applikation wird wiederverwendet. Die Bank muss im <cp>Control Panel</cp> als verknüpftes Konto hinterlegt sein.",
-      "httpsRequired": "Enable Banking erfordert, dass Quaestor über HTTPS erreichbar ist. Diese Seite läuft gerade über HTTP; die Verbindung wird fehlschlagen. Bitte deinen Administrator, HTTPS einzurichten."
+      "httpsRequired": "Enable Banking erfordert, dass Quaestor über HTTPS erreichbar ist. Diese Seite läuft gerade über HTTP; die Verbindung wird fehlschlagen. Bitte deinen Administrator, HTTPS einzurichten.",
+      "countryLabel": "Land",
+      "countryPlaceholder": "Land auswählen"
     }
   },
   "attributions": {

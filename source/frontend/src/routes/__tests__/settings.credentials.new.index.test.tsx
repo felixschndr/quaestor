@@ -130,8 +130,9 @@ describe('BankPickerView', () => {
         bic: null,
         icon: null,
         tested: true,
-        required_fields: ['private_key', 'application_id'],
+        required_fields: ['private_key'],
         blzs: [],
+        countries: ['FI'],
       },
     ]
     render(
@@ -143,6 +144,7 @@ describe('BankPickerView', () => {
       />,
     )
     expect(screen.getByRole('link', { name: /Nordea/ })).toHaveTextContent('Enable Banking')
+    expect(screen.getByRole('link', { name: /Nordea/ })).toHaveTextContent('Finland')
     expect(screen.getByRole('link', { name: /Deutsche Bank/ })).toHaveTextContent('FinTS')
   })
 

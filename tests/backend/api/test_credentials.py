@@ -216,7 +216,7 @@ def test_list_supported_banks_returns_catalog(http_client: TestClient):
         "required_fields",
         "field_rules",
         "blzs",
-        "country",
+        "countries",
     }
     assert expected_keys == sample.keys()
     fints_entry = next(entry for entry in catalog if entry["provider"] == "fints")

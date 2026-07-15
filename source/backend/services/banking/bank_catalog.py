@@ -32,7 +32,7 @@ class CatalogEntry:
     required_fields: list[str]
     field_rules: dict[str, dict]
     blzs: list[str]
-    country: str | None = None  # Enable Banking entries only
+    countries: tuple[str, ...] = ()
 
 
 def is_tested(provider: str, name: str) -> bool:
@@ -101,20 +101,20 @@ def _normalize_bank_name(name: str) -> str:
     return re.sub(pattern=r"[^a-z0-9]", repl="", string=name.lower())
 
 
-def _create_enable_banking_entry(aspsp: dict) -> CatalogEntry:
+def _create_enable_banking_entry(name: str, countries: tuple[str, ...]) -> CatalogEntry:
     bank_info = BANKS_BY_NAME[_ENABLE_BANKING_PROVIDER]
     visible_fields = ["private_key"]
     return CatalogEntry(
         provider=_ENABLE_BANKING_PROVIDER,
-        key=f"eb-{aspsp['country']}-{aspsp['name']}",
-        name=aspsp["name"],
+        key=f"eb-{name}",
+        name=name,
         bic=None,
         icon=None,
         tested=True,
         required_fields=visible_fields,
         field_rules={field: rules for field, rules in bank_info.field_rules.items() if field in visible_fields},
         blzs=[],
-        country=aspsp["country"],
+        countries=countries,
     )
 
 
@@ -159,19 +159,16 @@ class _FintsNameIndex:
 
 def _enable_banking_entries(aspsps: list[dict], fints_names: set[str]) -> list[CatalogEntry]:
     index = _FintsNameIndex.build(fints_names)
-    # Pan-EU institutions (PayPal, Revolut, ...) are listed once per country with the same integration behind them
-    # Names FinTS already covers are dropped entirely (FinTS is the preferred route)
-    seen_names: set[str] = set()
-    entries = []
+    countries_by_name: dict[str, list[str]] = {}
     for aspsp in aspsps:
         name = aspsp["name"]
-        if name in seen_names:
-            continue
-        seen_names.add(name)
-        if index.matches(name):
-            continue
-        entries.append(_create_enable_banking_entry(aspsp))
-    return entries
+        if aspsp["country"] not in countries_by_name.setdefault(name, []):  # noqa FKA100
+            countries_by_name[name].append(aspsp["country"])
+    return [
+        _create_enable_banking_entry(name=name, countries=tuple(sorted(countries)))
+        for name, countries in countries_by_name.items()
+        if not index.matches(name)
+    ]
 
 
 def build_catalog(

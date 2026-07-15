@@ -242,6 +242,57 @@ describe('NewCredentialFormView', () => {
     expect(onCancel).toHaveBeenCalledTimes(1)
   })
 
+  it('asks for the country when an Enable Banking institution exists in several countries', () => {
+    const ebBank: SupportedBank = {
+      provider: 'enable_banking',
+      key: 'eb-PayPal',
+      name: 'PayPal',
+      bic: null,
+      icon: null,
+      tested: true,
+      required_fields: ['private_key'],
+      blzs: [],
+      countries: ['DE', 'FR'],
+    }
+    renderWithQuery(
+      <NewCredentialFormView
+        bankKey="eb-PayPal"
+        bank={ebBank}
+        isLoading={false}
+        onCancel={vi.fn()}
+        onConnected={vi.fn()}
+        onSyncFailed={vi.fn()}
+      />,
+    )
+    expect(screen.getByLabelText('Country')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Connect and sync' })).toBeDisabled()
+  })
+
+  it('does not ask for the country when the institution exists in a single country', () => {
+    const ebBank: SupportedBank = {
+      provider: 'enable_banking',
+      key: 'eb-Nordea',
+      name: 'Nordea',
+      bic: null,
+      icon: null,
+      tested: true,
+      required_fields: ['private_key'],
+      blzs: [],
+      countries: ['FI'],
+    }
+    renderWithQuery(
+      <NewCredentialFormView
+        bankKey="eb-Nordea"
+        bank={ebBank}
+        isLoading={false}
+        onCancel={vi.fn()}
+        onConnected={vi.fn()}
+        onSyncFailed={vi.fn()}
+      />,
+    )
+    expect(screen.queryByLabelText('Country')).not.toBeInTheDocument()
+  })
+
   it('creates the credential, starts the sync, and routes to onConnected when the WS reports completed', async () => {
     const user = userEvent.setup()
     const fetchMock = globalThis.fetch as Mock

@@ -26,7 +26,7 @@ export interface SupportedBank {
   required_fields: string[]
   field_rules?: Record<string, CredentialFieldSpec>
   blzs: string[]
-  country?: string | null
+  countries?: string[]
 }
 
 export const credentialQueryKeys = {
