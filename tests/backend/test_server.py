@@ -45,6 +45,7 @@ def test_uvicorn_options_defaults_to_http(monkeypatch: pytest.MonkeyPatch):
         "forwarded_allow_ips": server.DEFAULT_FORWARDED_ALLOW_IPS,
         "ws_ping_interval": None,
         "ws_ping_timeout": None,
+        "timeout_graceful_shutdown": int(server.GRACEFUL_SHUTDOWN_TIMEOUT.total_seconds()),
     }
 
 

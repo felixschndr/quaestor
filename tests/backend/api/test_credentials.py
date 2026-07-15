@@ -413,6 +413,34 @@ def test_sync_job_websocket_streams_terminal_state(http_client: TestClient, monk
     assert last["credential_id"] == credential_id
 
 
+def test_sync_job_websocket_ends_when_client_disconnects_while_job_pending(
+    http_client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    monkeypatch.setattr(
+        target=credential_service,
+        name="sync_credential",
+        value=lambda **_: SyncResult(
+            status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN, expires_at=datetime.max
+        ),
+    )
+    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
+
+    # Closing the socket while the job is still pending must end the handler (and drop its
+    # subscription) instead of waiting for job updates forever — that hang blocked every
+    # server shutdown/reload with an open sync WebSocket.
+    with http_client.websocket_connect(f"/api/credentials/{credential_id}/sync/{job_id}/ws") as ws:
+        while ws.receive_json()["status"] != JobStatus.AWAITING_TWO_FACTOR.value:
+            pass
+
+    for _ in range(100):
+        if not sync_jobs._subscribers.get(job_id):
+            break
+        time.sleep(0.01)
+    assert not sync_jobs._subscribers.get(job_id)
+
+
 def test_sync_job_websocket_rejects_unauthenticated_clients(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]

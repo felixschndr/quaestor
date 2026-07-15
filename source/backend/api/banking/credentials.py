@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import asdict
 
 from fastapi import Depends, WebSocket, WebSocketDisconnect
@@ -193,14 +194,30 @@ async def sync_job_ws(
         return
 
     await websocket.accept()
-    # Starlette closes the WebSocket when the handler returns, so we don't need an
-    # explicit finally-close — which would also trip ASYNC102 (await inside finally).
+    forward_task = asyncio.create_task(_forward_job_updates(websocket=websocket, job_id=job_id))
+    receive_task = asyncio.create_task(websocket.receive())
     try:
-        async for update in sync_jobs.subscribe(job_id):
-            payload = _get_job_payload(update)
-            logger.debug(f"WS job {job_id} -> {payload}")
-            await websocket.send_json(payload)
-            if update.finished_at is not None:
-                break
-    except WebSocketDisconnect:
+        done, _ = await asyncio.wait({forward_task, receive_task}, return_when=asyncio.FIRST_COMPLETED)  # noqa FKA100
+    except asyncio.CancelledError:
+        logger.info(f"WS for sync job {job_id} cancelled during server shutdown")
+        forward_task.cancel()
+        receive_task.cancel()
+        raise
+    forward_task.cancel()
+    receive_task.cancel()
+    if forward_task in done:
+        try:
+            forward_task.result()
+        except WebSocketDisconnect:
+            logger.debug(f"WebSocket client disconnected from sync job {job_id}")
+    else:
         logger.debug(f"WebSocket client disconnected from sync job {job_id}")
+
+
+async def _forward_job_updates(websocket: WebSocket, job_id: str) -> None:
+    async for update in sync_jobs.subscribe(job_id):
+        payload = _get_job_payload(update)
+        logger.debug(f"WS job {job_id} -> {payload}")
+        await websocket.send_json(payload)
+        if update.finished_at is not None:
+            break
