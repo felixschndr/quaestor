@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import html
 import json
 import os
@@ -17,7 +18,11 @@ from source.backend.helpers import (  # noqa: E402
     get_project_name,
     get_project_repository,
 )
+from source.backend.services.banking import enable_banking_catalog  # noqa: E402
 from source.backend.services.banking.bank_catalog import get_catalog  # noqa: E402
+from source.backend.services.banking.bank_info_updater import (  # noqa: E402
+    add_bank_info_overrides_to_db,
+)
 
 
 def _provider_notes() -> dict[str, dict[str, str]]:
@@ -34,11 +39,10 @@ def _prepare(entry: dict, notes: dict[str, dict[str, str]]) -> dict:
     meta = notes.get(entry["provider"], {})
     return {
         "provider": entry["provider"],
-        "name": meta.get("title") if entry["provider"] != "fints" else entry["name"],
+        "name": meta.get("title") if entry["provider"] == entry["key"] else entry["name"],
         "raw_name": entry["name"],
         "bic": entry["bic"],
         "icon": icon.lstrip("/") if icon else None,
-        "family": entry["family"]["label"] if entry["family"] else None,
         "tested": entry["tested"],
         "blzs": entry["blzs"],
         "fields": entry["required_fields"],
@@ -89,7 +93,7 @@ _TEMPLATE = """<!DOCTYPE html>
   }}
   h1 {{ margin: 0 0 .25rem; font-size: 1.9rem; letter-spacing: -.02em; }}
   h1 span {{ color: var(--primary); }}
-  .tagline {{ color: var(--fg); margin: 0 0 .5rem; max-width: 640px; }}
+  .tagline {{ color: var(--fg); margin: 0 0 .5rem; }}
   .sub {{ color: var(--dim); margin: 0; }}
   .sub a {{ color: var(--primary); text-decoration: none; }}
   .sub a:hover {{ text-decoration: underline; }}
@@ -123,7 +127,6 @@ _TEMPLATE = """<!DOCTYPE html>
     font-size: 1.05rem;
   }}
   .bank-name {{ font-weight: 600; line-height: 1.25; }}
-  .bank-fam {{ color: var(--dim); font-size: .8rem; }}
   .badges {{ display: flex; flex-wrap: wrap; gap: .4rem; }}
   .badge {{
     font-size: .72rem; padding: .15rem .5rem; border-radius: 6px;
@@ -158,6 +161,7 @@ _TEMPLATE = """<!DOCTYPE html>
 </main>
 <script>
   const BANKS = {data};
+  const HANDLERS = {{ fints: "FinTS", enable_banking: "Enable Banking" }};
   let query = "";
 
   function initials(name) {{
@@ -181,8 +185,7 @@ _TEMPLATE = """<!DOCTYPE html>
       : `<div class="mono">${{initials(b.name || b.raw_name)}}</div>`;
     const badges = [];
     if (b.tested) badges.push('<span class="badge ok">Tested</span>');
-    if (b.provider === "fints") badges.push('<span class="badge">FinTS</span>');
-    else badges.push(`<span class="badge">${{b.provider}}</span>`);
+    badges.push(`<span class="badge">${{HANDLERS[b.provider] || b.provider}}</span>`);
     if (b.blzs.length > 1) badges.push(`<span class="badge">${{b.blzs.length}} sort codes</span>`);
     const bic = b.bic ? `<div class="meta">BIC <code>${{b.bic}}</code></div>` : "";
     const blz = b.blzs.length
@@ -194,7 +197,6 @@ _TEMPLATE = """<!DOCTYPE html>
         ${{logo}}
         <div>
           <div class="bank-name">${{b.name || b.raw_name}}</div>
-          ${{b.family ? `<div class="bank-fam">${{b.family}}</div>` : ""}}
         </div>
       </div>
       <div class="badges">${{badges.join("")}}</div>
@@ -228,6 +230,8 @@ _TEMPLATE = """<!DOCTYPE html>
 def main() -> None:
     out_path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "banks.html"
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    add_bank_info_overrides_to_db()
+    asyncio.run(enable_banking_catalog.run_startup_update())
     entries = get_catalog()
     out_path.write_text(build_html(entries), encoding="utf-8")
     print(f"Wrote bank catalog page ({len(entries)} banks) to {out_path}")

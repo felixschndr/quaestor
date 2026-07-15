@@ -31,7 +31,6 @@ const ING_BANK: SupportedBank = {
   icon: '/static/banks/ing-diba.png',
   tested: true,
   required_fields: ['username', 'password'],
-  family: null,
   blzs: ['50010517'],
 }
 
@@ -43,7 +42,6 @@ const DFS_BANK: SupportedBank = {
   icon: '/static/banks/dfs.png',
   tested: false,
   required_fields: ['username', 'password'],
-  family: null,
   blzs: [],
 }
 
@@ -55,7 +53,6 @@ const TR_BANK: SupportedBank = {
   icon: '/static/banks/trade_republic.png',
   tested: true,
   required_fields: ['phone', 'pin'],
-  family: null,
   blzs: [],
   field_rules: {
     phone: {
@@ -84,7 +81,6 @@ const SPARKASSE_BANK: SupportedBank = {
   icon: '/static/banks/sparkasse.png',
   tested: true,
   required_fields: ['username', 'password'],
-  family: { slug: 'sparkasse', label: 'Sparkasse' },
   blzs: ['66050101'],
 }
 
@@ -97,7 +93,6 @@ const DEUTSCHE_BANK: SupportedBank = {
   icon: null,
   tested: false,
   required_fields: ['username', 'password'],
-  family: null,
   blzs: ['10070000', '12070000'],
 }
 

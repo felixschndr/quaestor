@@ -6,11 +6,7 @@ import fints_url
 from schwifty import registry
 
 from source.backend.bank_handlers import BANKS_BY_NAME, SUPPORTED_BANKS
-from source.backend.bank_handlers.bank_logos import (
-    family_for_name,
-    logo_exists,
-    logo_slug,
-)
+from source.backend.bank_handlers.bank_logos import logo_exists, logo_slug
 from source.backend.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -20,14 +16,8 @@ _ENABLE_BANKING_PROVIDER = "enable_banking"
 _NON_FINTS_PROVIDERS = frozenset({"dfs", "fin4u", "trade_republic", "manual"})
 
 _TESTED_FINTS_PROVIDERS = frozenset(
-    {"ING-DiBa", "Deutsche Kreditbank Berlin", "Sparkasse", "Raiffeisenbank", "Volksbank"}
+    {"ING-DiBa", "Deutsche Kreditbank Berlin", "Sparkasse Karlsruhe", "Volksbank Mittelhessen"}
 )
-
-
-@dataclass(frozen=True)
-class CatalogFamily:
-    slug: str
-    label: str
 
 
 @dataclass(frozen=True)
@@ -38,7 +28,6 @@ class CatalogEntry:
     name: str
     bic: str | None
     icon: str | None
-    family: CatalogFamily | None
     tested: bool
     required_fields: list[str]
     field_rules: dict[str, dict]
@@ -74,11 +63,6 @@ def _icon_for_name(name: str) -> str | None:
     return f"/static/banks/{slug}.png" if logo_exists(slug) else None
 
 
-def _family_of(name: str) -> CatalogFamily | None:
-    family = family_for_name(name)
-    return CatalogFamily(slug=family.slug, label=family.label) if family is not None else None
-
-
 def _create_group_entry(name: str, blzs: list[str], schwifty_index: dict[str, dict]) -> CatalogEntry:
     ordered = sorted(blzs)
     representative = ordered[0]
@@ -89,7 +73,6 @@ def _create_group_entry(name: str, blzs: list[str], schwifty_index: dict[str, di
         name=name,
         bic=enriched.get("bic"),
         icon=_icon_for_name(name),
-        family=_family_of(name),
         tested=is_tested(provider=_GENERIC_FINTS_PROVIDER, name=name),
         required_fields=["username", "password"],
         field_rules={},
@@ -107,7 +90,6 @@ def _create_non_fints_provider_entry(provider: str) -> CatalogEntry:
         name=name,
         bic=None,
         icon=bank_info.icon,
-        family=None,
         tested=is_tested(provider=provider, name=name),
         required_fields=bank_info.required_fields,
         field_rules=bank_info.field_rules,
@@ -132,7 +114,6 @@ def _create_enable_banking_entry(aspsp: dict) -> CatalogEntry:
         name=aspsp["name"],
         bic=None,
         icon=None,
-        family=None,
         tested=True,
         required_fields=visible_fields,
         field_rules={field: rules for field, rules in bank_info.field_rules.items() if field in visible_fields},
@@ -147,27 +128,23 @@ def _bank_name_tokens(name: str) -> list[str]:
 
 @dataclass(frozen=True)
 class _FintsNameIndex:
-    """Derived name signatures of all FinTS catalog entries, used to detect that an
-    Enable Banking ASPSP duplicates a bank FinTS already covers. Fully data-driven:
-
-    - normalized names catch identical names ("Commerzbank"),
-    - initials catch abbreviations ("DKB" = Deutsche Kreditbank Berlin),
-    - prefixes catch shortened ("ING" ~ ING-DiBa) and suffixed
-      ("Bordesholmer Sparkasse Aktiengesellschaft" ~ Bordesholmer Sparkasse) variants,
-    - token subsets catch reordered/embedded names ("Comdirect" ~ Commerzbank - GF comdirect).
-    """
-
     normalized: frozenset[str]
     initials: frozenset[str]
     token_sets: tuple[frozenset[str], ...]
+    multi_token: frozenset[str]
 
     @classmethod
     def build(cls: type["_FintsNameIndex"], names: set[str]) -> "_FintsNameIndex":
-        tokens_per_name = [_bank_name_tokens(name) for name in names]
+        tokens_per_name = {name: _bank_name_tokens(name) for name in names}
         return cls(
             normalized=frozenset(_normalize_bank_name(name) for name in names),
-            initials=frozenset("".join(token[0] for token in tokens) for tokens in tokens_per_name if len(tokens) >= 2),
-            token_sets=tuple(frozenset(tokens) for tokens in tokens_per_name),
+            initials=frozenset(
+                "".join(token[0] for token in tokens) for tokens in tokens_per_name.values() if len(tokens) >= 2
+            ),
+            token_sets=tuple(frozenset(tokens) for tokens in tokens_per_name.values()),
+            multi_token=frozenset(
+                _normalize_bank_name(name) for name, tokens in tokens_per_name.items() if len(tokens) >= 2
+            ),
         )
 
     def matches(self, name: str) -> bool:
@@ -176,9 +153,9 @@ class _FintsNameIndex:
             return False
         if normalized in self.normalized or normalized in self.initials:
             return True
-        if any(
-            known.startswith(normalized) or normalized.startswith(known) for known in self.normalized if len(known) >= 3
-        ):
+        if any(known.startswith(normalized) for known in self.normalized if len(known) >= 3):
+            return True
+        if any(normalized.startswith(known) for known in self.multi_token if len(known) >= 3):
             return True
         tokens = frozenset(_bank_name_tokens(name))
         return any(tokens <= known_tokens for known_tokens in self.token_sets)
