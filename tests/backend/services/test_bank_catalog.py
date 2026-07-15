@@ -154,7 +154,7 @@ def test_enable_banking_entries_carry_countries_and_visible_fields_only():
     assert entry.name == "PayPal"
     # One entry per institution; each country is its own ASPSP and is picked when connecting.
     assert entry.countries == ("DE", "FR")
-    assert entry.icon is None
+    assert entry.icon == "/static/banks/paypal.png"
     assert entry.tested is True
     assert entry.required_fields == ["private_key"]
     assert set(entry.field_rules) <= set(entry.required_fields)
@@ -180,4 +180,4 @@ def test_credential_display_for_enable_banking_uses_aspsp():
     name, icon = bank_catalog.get_name_and_icon_of_provider(provider="enable_banking", blz=None, aspsp_name="PayPal")
 
     assert name == "PayPal"
-    assert icon is None
+    assert icon == "/static/banks/paypal.png"

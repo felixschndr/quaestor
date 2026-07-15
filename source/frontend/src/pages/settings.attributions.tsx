@@ -24,6 +24,10 @@ const ATTRIBUTIONS: Attribution[] = [
     href: 'https://companieslogo.com/de/commerzbank/logo/',
   },
   {
+    textKey: 'attributions.text.deutscheBankLogo',
+    href: 'https://www.cleanpng.com/png-deutsche-bank-finance-loan-transaction-authenticat-znbniq/download-png.html',
+  },
+  {
     textKey: 'attributions.text.dfsLogo',
     href: 'https://www.youtube.com/channel/UC0Gp2sTjIcV-vYT1wzG8yxw',
   },
@@ -36,8 +40,24 @@ const ATTRIBUTIONS: Attribution[] = [
     href: 'https://play.google.com/store/apps/details?id=de.alteleipziger.fin4u&hl=de',
   },
   {
+    textKey: 'attributions.text.hypovereinsbankLogo',
+    href: 'https://www.facebook.com/Hypovereinsbankag/',
+  },
+  {
     textKey: 'attributions.text.ingLogo',
     href: 'https://play.google.com/store/apps/details?id=com.ingcb.mobile.cbportal&hl=de',
+  },
+  {
+    textKey: 'attributions.text.n26Logo',
+    href: 'https://n26.com/en-eu/logo-assets',
+  },
+  {
+    textKey: 'attributions.text.paypalLogo',
+    href: 'https://www.flaticon.com/de/kostenloses-icon/paypal_174861',
+  },
+  {
+    textKey: 'attributions.text.revolutLogo',
+    href: 'https://icons8.de/icons/set/revolut-logo',
   },
   {
     textKey: 'attributions.text.sparkasseLogo',
