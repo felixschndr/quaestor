@@ -4,9 +4,9 @@ import time
 from datetime import timedelta
 
 from source.backend.bank_handlers.enable_banking_handler import API_BASE
-from source.backend.helpers import RestAPIClient
 from source.backend.logging_utils import get_logger
 from source.backend.paths import ENABLE_BANKING_ASPSPS_PATH
+from source.backend.rest_api_client import RestAPIClient
 from source.backend.services.banking import bank_catalog
 
 logger = get_logger(__name__)
