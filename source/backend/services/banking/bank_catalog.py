@@ -53,8 +53,6 @@ def _schwifty_index() -> dict[str, dict]:
 
 
 def _icon_for_name(name: str) -> str | None:
-    # The bank's logo, but only when a matching PNG is actually shipped; otherwise None, so the
-    # frontend renders a monogram instead
     slug = logo_slug(name)
     return f"/static/banks/{slug}.png" if logo_exists(slug) else None
 
@@ -105,7 +103,7 @@ def _create_enable_banking_entry(name: str, countries: tuple[str, ...]) -> Catal
         key=f"eb-{name}",
         name=name,
         bic=None,
-        icon=None,
+        icon=_icon_for_name(name),
         tested=True,
         required_fields=visible_fields,
         field_rules={field: rules for field, rules in bank_info.field_rules.items() if field in visible_fields},
@@ -225,7 +223,7 @@ def get_name_and_icon_of_provider(
         # Unknown BLZ (e.g. a bank missing from the FinTS DB): show the BLZ rather than nothing.
         return blz, None
     if provider == _ENABLE_BANKING_PROVIDER and aspsp_name is not None:
-        return aspsp_name, None
+        return aspsp_name, _icon_for_name(aspsp_name)
     bank_info = BANKS_BY_NAME[provider] if provider in BANKS_BY_NAME else None
     return None, bank_info.icon if bank_info is not None else None
 

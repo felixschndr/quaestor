@@ -460,7 +460,8 @@ function EnableBankingGuide() {
           </a>
           <ul className="mt-1 flex list-disc flex-col gap-1 pl-4">
             <li>
-              {t('credentials.enableBanking.step1Environment')} <GuideCode>Production</GuideCode>
+              {t('credentials.enableBanking.step1Environment')}{' '}
+              <GuideCode copy={false}>Production</GuideCode>
             </li>
             <li>
               {t('credentials.enableBanking.step1Key')}{' '}
