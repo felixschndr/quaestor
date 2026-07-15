@@ -2,12 +2,12 @@ import re
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 
-import fints_url
 from schwifty import registry
 
 from source.backend.bank_handlers import BANKS_BY_NAME, SUPPORTED_BANKS
 from source.backend.bank_handlers.bank_logos import logo_exists, logo_slug
 from source.backend.logging_utils import get_logger
+from source.backend.services.banking import enable_banking_catalog, fints_db_updater
 
 logger = get_logger(__name__)
 
@@ -50,10 +50,6 @@ def _schwifty_index() -> dict[str, dict]:
         if bank_code not in index or bank.get("primary"):
             index[bank_code] = bank
     return index
-
-
-def _get_fints_db() -> dict[str, dict]:
-    return fints_url.__bank_info__
 
 
 def _icon_for_name(name: str) -> str | None:
@@ -197,11 +193,9 @@ def build_catalog(
 
 @lru_cache(maxsize=1)
 def _canonical_catalog() -> tuple[CatalogEntry, ...]:
-    from source.backend.services.banking import enable_banking_catalog
-
     return tuple(
         build_catalog(
-            fints_db=_get_fints_db(),
+            fints_db=fints_db_updater.get_bank_db(),
             schwifty_index=_schwifty_index(),
             aspsps=enable_banking_catalog.get_aspsps(),
         )
