@@ -14,6 +14,7 @@ load_dotenv(dotenv_path=ENV_FILE_PATH)
 
 
 DATA_DIR = Path(os.environ.get(DATA_DIR_ENV_VARIABLE_NAME) or (ROOT / "data"))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 DATABASE_PATH = DATA_DIR / "Quaestor.db"
 BANK_DB_PATH = DATA_DIR / "bank_info.pickle"

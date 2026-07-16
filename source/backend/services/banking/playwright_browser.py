@@ -40,7 +40,7 @@ async def ensure_chromium_installed() -> None:
 
     logger.info(
         f"Playwright {BROWSER} browser not found at {executable_path}; downloading it into "
-        f"{PLAYWRIGHT_BROWSERS_PATH}. This happens once per version and may take a moment ..."
+        f"{PLAYWRIGHT_BROWSERS_PATH}. This happens only once and may take a moment ..."
     )
     try:
         await _download_chromium()
