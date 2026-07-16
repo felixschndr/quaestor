@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -23,6 +23,7 @@ from tests.backend.conftest import (
     FakeBankSession,
     assert_log_contains,
     build_handler,
+    create_fetched_transaction,
     make_account,
     make_credential,
     make_transaction,
@@ -136,23 +137,76 @@ def test_sync_does_not_duplicate_already_existing_transactions(session_factory: 
         assert len(credential.accounts[0].transactions) == 1
 
 
-def _create_fetched_transaction(amount: float, day: int, pending: bool) -> FetchedTransaction:
-    return FetchedTransaction(
-        amount=amount,
-        purpose="booked" if not pending else "vorgemerkt",
-        date=date(year=2026, month=5, day=day),
-        other_party="ACME",
-        transaction_type=TransactionType.OUTGOING,
-        pending=pending,
+def _referenced_transaction(reference: str | None, purpose: str = "Coffee") -> FetchedTransaction:
+    return create_fetched_transaction(purpose=purpose, other_party="Café", bank_reference=reference)
+
+
+def test_sync_matches_by_bank_reference_even_when_fingerprint_fields_changed(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    sync_with_booked(session_factory, credential_id=credential_id, booked=[_referenced_transaction("ref-1")])
+    # Same bank reference, but the bank now words the purpose differently
+    sync_with_booked(
+        session_factory,
+        credential_id=credential_id,
+        booked=[_referenced_transaction("ref-1", purpose="Coffee Shop GmbH")],
     )
+
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert len(transactions) == 1
+
+
+def test_sync_creates_both_when_identical_looking_transactions_have_different_references(
+    session_factory: sessionmaker,
+):
+    credential_id = persist_credential_with_new_user(session_factory)
+    sync_with_booked(
+        session_factory,
+        credential_id=credential_id,
+        booked=[_referenced_transaction("ref-1"), _referenced_transaction("ref-2")],
+    )
+
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert len(transactions) == 2
+
+
+def test_sync_matches_by_fingerprint_when_bank_omits_a_previously_delivered_reference(
+    session_factory: sessionmaker,
+):
+    credential_id = persist_credential_with_new_user(session_factory)
+    sync_with_booked(session_factory, credential_id=credential_id, booked=[_referenced_transaction("ref-1")])
+    # Flaky ASPSP: the same transaction arrives without its entry_reference this time
+    sync_with_booked(session_factory, credential_id=credential_id, booked=[_referenced_transaction(None)])
+
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert len(transactions) == 1
+        assert transactions[0].bank_reference == "ref-1"
+
+
+def test_sync_backfills_bank_reference_onto_rows_matched_by_fingerprint(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    sync_with_booked(session_factory, credential_id=credential_id, booked=[_referenced_transaction(None)])
+    # The bank starts delivering ids (or the row predates the bank_reference column)
+    sync_with_booked(session_factory, credential_id=credential_id, booked=[_referenced_transaction("ref-1")])
+
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert len(transactions) == 1
+        assert transactions[0].bank_reference == "ref-1"
 
 
 def _booked_transaction(amount: float, day: int) -> FetchedTransaction:
-    return _create_fetched_transaction(amount=amount, day=day, pending=False)
+    return create_fetched_transaction(
+        amount=amount, purpose="booked", date=RECENT_DATE + timedelta(days=day), other_party="ACME"
+    )
 
 
 def _pending_transaction(amount: float, day: int) -> FetchedTransaction:
-    return _create_fetched_transaction(amount=amount, day=day, pending=True)
+    return create_fetched_transaction(
+        amount=amount, purpose="vorgemerkt", date=RECENT_DATE + timedelta(days=day), other_party="ACME", pending=True
+    )
 
 
 def test_sync_stores_pending_flag(session_factory: sessionmaker):
@@ -207,7 +261,7 @@ def test_sync_rebuilds_pending_each_time_without_accumulating(session_factory: s
         assert len(transactions) == 2
         pending = [tx for tx in transactions if tx.pending]
         assert len(pending) == 1
-        assert pending[0].date == date(year=2026, month=5, day=13)
+        assert pending[0].date == RECENT_DATE + timedelta(days=13)
 
 
 def test_pending_that_becomes_booked_is_not_duplicated(session_factory: sessionmaker):
@@ -256,8 +310,8 @@ def test_pending_transactions_are_excluded_from_balance_history(session_factory:
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
         balance_days = set(credential.accounts[0].balance_at_date.keys())
-        assert date(year=2026, month=5, day=10) in balance_days
-        assert date(year=2026, month=5, day=12) not in balance_days
+        assert RECENT_DATE + timedelta(days=10) in balance_days
+        assert RECENT_DATE + timedelta(days=12) not in balance_days
 
 
 def test_sync_keeps_expected_transactions_while_wiping_bank_pending(session_factory: sessionmaker):

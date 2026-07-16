@@ -30,6 +30,7 @@ class FetchedTransaction:
     other_party: str | None
     transaction_type: TransactionType | None = None
     pending: bool = False
+    bank_reference: str | None = None
 
     def __post_init__(self) -> None:
         if self.purpose:

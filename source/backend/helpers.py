@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from source.backend.bank_handlers.base import FetchedTransaction
     from source.backend.models.transactions.transaction import Transaction
 
@@ -35,6 +37,18 @@ def apply_fields(entity: object, fields: dict) -> None:
 def get_key_of_transaction(transaction: "FetchedTransaction | Transaction") -> str:
     # Only use fields that cannot change
     return f"{transaction.date} {transaction.purpose} {transaction.other_party} {transaction.amount}"
+
+
+def index_transactions_for_matching(transactions: "Iterable[Transaction]") -> dict[str, "Transaction"]:
+    # Each transaction is indexed under its bank reference (when the bank provides one) AND under its
+    # field fingerprint, so a fetched transaction still matches when the bank omits the reference it
+    # delivered on an earlier sync.
+    index = {}
+    for transaction in transactions:
+        if transaction.bank_reference:
+            index[transaction.bank_reference] = transaction
+        index[get_key_of_transaction(transaction)] = transaction
+    return index
 
 
 def format_transaction_for_categorization(transaction: "FetchedTransaction | Transaction") -> str:

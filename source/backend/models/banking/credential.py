@@ -8,7 +8,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from source.backend.bank_handlers import BankHandler, BankProvider, handler_for
 from source.backend.bank_handlers.base import BankSession, FetchedAccount
-from source.backend.helpers import get_key_of_transaction, utc_now
+from source.backend.helpers import (
+    get_key_of_transaction,
+    index_transactions_for_matching,
+    utc_now,
+)
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
 from source.backend.models.base import Base
@@ -134,9 +138,9 @@ class Credential(Base):
         for pending_transaction in pending_transactions:
             account.transactions.remove(pending_transaction)
 
-        existing_transactions = {
-            get_key_of_transaction(transaction) for transaction in account.transactions if not transaction.expected
-        }
+        existing_transactions = index_transactions_for_matching(
+            transaction for transaction in account.transactions if not transaction.expected
+        )
         created_transactions = 0
 
         for fetched_transaction in fetched_transactions:
@@ -144,12 +148,23 @@ class Credential(Base):
                 account.transactions.append(Transaction.from_fetched(fetched_transaction))
                 continue
 
-            key = get_key_of_transaction(fetched_transaction)
-            if key in existing_transactions:
+            reference = fetched_transaction.bank_reference
+            if reference and reference in existing_transactions:
                 continue
 
-            account.transactions.append(Transaction.from_fetched(fetched_transaction))
-            existing_transactions.add(key)
+            key = get_key_of_transaction(fetched_transaction)
+            matched = existing_transactions.get(key)
+            if matched is not None and not (reference and matched.bank_reference):
+                if reference:
+                    matched.bank_reference = reference  # backfill rows from before the id existed
+                    existing_transactions[reference] = matched
+                continue
+
+            transaction = Transaction.from_fetched(fetched_transaction)
+            account.transactions.append(transaction)
+            existing_transactions[key] = transaction
+            if reference:
+                existing_transactions[reference] = transaction
             created_transactions += 1
 
         Credential._match_expected_transactions(account=account)
@@ -159,13 +174,6 @@ class Credential(Base):
 
     @staticmethod
     def _match_expected_transactions(account: Account) -> None:
-        """Resolve user-created expected transactions against freshly booked ones.
-
-        For each expected transaction, find a booked (non-pending, non-expected) transaction dated on or after the
-        expectation's date, with the same sign and an amount (+tolerance).
-        If an other_party is given on the expectation, additionally require a loose match.
-        On a match, the expectation's note is carried over into the booked transaction and the expectation is removed.
-        """
         expected_transactions = [t for t in account.transactions if t.expected]
         if not expected_transactions:
             return
