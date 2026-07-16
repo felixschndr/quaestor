@@ -27,6 +27,7 @@ from tests.backend.conftest import (
     ACCOUNT_UID,
     APPLICATION_ID,
     CHALLENGE_TOKEN,
+    SECOND_ACCOUNT_UID,
     SESSION_ID,
     FakeHttpResponse,
 )
@@ -263,18 +264,15 @@ def test_session_fetches_accounts_balances_and_paginated_transactions(fake_http:
 
 
 def test_session_keeps_same_named_accounts_with_distinct_uids_separate(fake_http: Callable[[dict], FakeHttp]):
-    # Regression test: some ASPSPs (e.g. C24) expose multiple sub-accounts/pots sharing the same
-    # name/product. Before, these were deduplicated by that derived name and one silently vanished.
-    second_uid = "11111111-2222-3333-4444-555555555555"
     fake_http(
         {
             ("GET", f"/sessions/{SESSION_ID}"): FakeHttpResponse(
-                json_data={"status": "AUTHORIZED", "accounts": [ACCOUNT_UID, second_uid]}
+                json_data={"status": "AUTHORIZED", "accounts": [ACCOUNT_UID, SECOND_ACCOUNT_UID]}
             ),
             ("GET", f"/accounts/{ACCOUNT_UID}/details"): FakeHttpResponse(
                 json_data={"name": None, "product": "Girokonto", "account_id": None}
             ),
-            ("GET", f"/accounts/{second_uid}/details"): FakeHttpResponse(
+            ("GET", f"/accounts/{SECOND_ACCOUNT_UID}/details"): FakeHttpResponse(
                 json_data={"name": None, "product": "Girokonto", "account_id": None}
             ),
         }
@@ -284,7 +282,7 @@ def test_session_keeps_same_named_accounts_with_distinct_uids_separate(fake_http
         accounts = bank.get_accounts()
 
     assert [account.name for account in accounts] == ["Girokonto", "Girokonto"]
-    assert {account.external_id for account in accounts} == {ACCOUNT_UID, second_uid}
+    assert {account.external_id for account in accounts} == {ACCOUNT_UID, SECOND_ACCOUNT_UID}
 
 
 def test_balance_prefers_settled_over_expected(fake_http: Callable[[dict], FakeHttp]):
