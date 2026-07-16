@@ -4,24 +4,15 @@ import inspect
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
-from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.services.transactions import statistics_service
 from tests.backend.conftest import (
-    make_account,
-    make_credential,
     make_transaction,
     make_user,
+    make_user_and_credential_and_account,
     seed_snapshot,
 )
-
-
-def _user_with_account(db_session: Session) -> tuple[User, Account]:
-    user = make_user(db_session)
-    credential = make_credential(db_session, user_id=user.id)
-    account = make_account(db_session, credential_id=credential.id)
-    return user, account
 
 
 @pytest.mark.parametrize(
@@ -59,7 +50,7 @@ def test_daily_net_worth_returns_empty_when_account_has_no_snapshots(session_fac
     # An owned account with no balance snapshots has no earliest date to anchor the
     # auto-start (date_from=None), so the series is empty.
     with session_factory() as session:
-        user, account = _user_with_account(session)
+        user, _, account = make_user_and_credential_and_account(session)
         result = statistics_service.daily_net_worth(
             db_session=session,
             user=user,
@@ -75,7 +66,7 @@ def test_daily_net_worth_anchors_to_earliest_snapshot_when_no_start_given(sessio
     # spans from that snapshot up to today and is non-empty.
     snapshot_day = datetime.date.today() - datetime.timedelta(days=2)
     with session_factory() as session:
-        user, account = _user_with_account(session)
+        user, _, account = make_user_and_credential_and_account(session)
         account.balance = 123.0
         session.commit()
         user_id, account_id = user.id, account.id
@@ -97,7 +88,7 @@ def test_daily_net_worth_anchors_to_earliest_snapshot_when_no_start_given(sessio
 def test_daily_net_worth_uses_live_balance_for_todays_point(session_factory: sessionmaker):
     snapshot_day = datetime.date.today() - datetime.timedelta(days=2)
     with session_factory() as session:
-        user, account = _user_with_account(session)
+        user, _, account = make_user_and_credential_and_account(session)
         account.balance = 150.0
         session.commit()
         user_id, account_id = user.id, account.id
@@ -122,7 +113,7 @@ def test_daily_net_worth_returns_empty_when_range_is_inverted(session_factory: s
     # date_from in the future while date_to defaults to today → end_date < date_from.
     future = datetime.date(year=2999, month=1, day=1)
     with session_factory() as session:
-        user, account = _user_with_account(session)
+        user, _, account = make_user_and_credential_and_account(session)
         result = statistics_service.daily_net_worth(
             db_session=session,
             user=user,
@@ -137,7 +128,7 @@ def test_net_worth_range_reports_before_after_and_transactions(session_factory: 
     end = datetime.date(year=2026, month=5, day=20)
     start = end - datetime.timedelta(days=1)
     with session_factory() as session:
-        user, account = _user_with_account(session)
+        user, _, account = make_user_and_credential_and_account(session)
         session.commit()
         user_id, account_id = user.id, account.id
     # Balance at the end of `start` was 100; two booked transactions push it to 130 by `end`.
@@ -203,7 +194,7 @@ def test_net_worth_range_handles_account_without_prior_snapshot(session_factory:
     end = datetime.date(year=2026, month=5, day=20)
     start = end - datetime.timedelta(days=1)
     with session_factory() as session:
-        user, account = _user_with_account(session)
+        user, _, account = make_user_and_credential_and_account(session)
         session.commit()
         user_id, account_id = user.id, account.id
     seed_snapshot(session_factory, account_id=account_id, day=end, balance=250.0)
@@ -228,9 +219,7 @@ def test_net_worth_range_uses_live_balance_for_today(session_factory: sessionmak
     today = datetime.date.today()
     start = today - datetime.timedelta(days=1)
     with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(session, user_id=user.id)
-        account = make_account(session, credential_id=credential.id, balance=80.0)
+        user, _, account = make_user_and_credential_and_account(session, balance=80.0)
         session.commit()
         user_id, account_id = user.id, account.id
 
@@ -271,7 +260,7 @@ def _seed_count_transactions(session: Session, account_id: int) -> None:
 )
 def test_transaction_counts_grouping(session_factory: sessionmaker, group_by: str, expected: list[tuple[str, int]]):
     with session_factory() as session:
-        user, account = _user_with_account(session)
+        user, _, account = make_user_and_credential_and_account(session)
         _seed_count_transactions(session, account_id=account.id)
         result = statistics_service.transaction_counts(
             db_session=session,
@@ -288,7 +277,7 @@ def test_transaction_counts_grouping(session_factory: sessionmaker, group_by: st
 
 def test_transaction_counts_respects_date_range(session_factory: sessionmaker):
     with session_factory() as session:
-        user, account = _user_with_account(session)
+        user, _, account = make_user_and_credential_and_account(session)
         _seed_count_transactions(session, account_id=account.id)
         result = statistics_service.transaction_counts(
             db_session=session,

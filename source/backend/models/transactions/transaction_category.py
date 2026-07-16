@@ -184,7 +184,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "aktenzeichen",
         "kartensperre",
         "abschluss per",
-        "umsatzsteuer",
+        "steuer",
     ],
     TransactionCategory.SAVINGS: ["sparen", "einzahlung"],
     TransactionCategory.ONLINE_SHOPPING: [

@@ -22,14 +22,13 @@ from tests.backend.conftest import (
     make_credential,
     make_transaction,
     make_user,
+    make_user_and_credential_and_account,
 )
 
 
 def _create_user_with_accounts(session_factory: sessionmaker) -> tuple[int, list[int]]:
     with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(session, user_id=user.id)
-        first = make_account(session, credential_id=credential.id, name=ACCOUNT_IBAN, balance=10.0)
+        user, credential, first = make_user_and_credential_and_account(session, balance=10.0)
         second = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN, balance=20.0)
         session.commit()
         return user.id, [first.id, second.id]

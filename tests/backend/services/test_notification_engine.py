@@ -36,6 +36,7 @@ from tests.backend.conftest import (
     make_credential,
     make_transaction,
     make_user,
+    make_user_and_credential_and_account,
 )
 
 ALL_CATEGORIES = [category.value for category in TransactionCategory]
@@ -79,9 +80,9 @@ def _make_notification_rule(
 
 
 def _account_with_notification_rule(db_session: Session, **rule_kwargs: object) -> tuple[Credential, int]:
-    user = make_user(db_session)
-    credential = make_credential(db_session, user_id=user.id)
-    account = make_account(db_session, credential_id=credential.id, balance=rule_kwargs.pop("balance", 0.0))
+    user, credential, account = make_user_and_credential_and_account(
+        db_session, balance=rule_kwargs.pop("balance", 0.0)
+    )
     _make_notification_rule(db_session, user_id=user.id, account_ids=[account.id], **rule_kwargs)
     db_session.flush()
     return credential, account.id
@@ -247,9 +248,7 @@ def test_first_sight_account_is_skipped(session_factory: sessionmaker):
 
 def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_factory: sessionmaker):
     with session_factory() as db_session:
-        user = make_user(db_session)
-        credential = make_credential(db_session, user_id=user.id)
-        account = make_account(db_session, credential_id=credential.id)
+        user, credential, account = make_user_and_credential_and_account(db_session)
         expected = make_transaction(
             db_session, account_id=account.id, amount=100.0, other_party="Landlord", expected=True, pending=True
         )
@@ -274,9 +273,7 @@ def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_f
 
 def test_expected_transaction_rule_quiet_when_nothing_booked(session_factory: sessionmaker):
     with session_factory() as db_session:
-        user = make_user(db_session)
-        credential = make_credential(db_session, user_id=user.id)
-        account = make_account(db_session, credential_id=credential.id)
+        user, credential, account = make_user_and_credential_and_account(db_session)
         make_transaction(db_session, account_id=account.id, amount=100.0, expected=True, pending=True)
         _make_notification_rule(
             db_session,
@@ -429,9 +426,7 @@ def test_balance_below_rule_without_content_omits_balance_and_threshold(session_
 
 def test_expected_transaction_rule_without_content_omits_amount(session_factory: sessionmaker):
     with session_factory() as db_session:
-        user = make_user(db_session)
-        credential = make_credential(db_session, user_id=user.id)
-        account = make_account(db_session, credential_id=credential.id)
+        user, credential, account = make_user_and_credential_and_account(db_session)
         expected = make_transaction(db_session, account_id=account.id, amount=123.45, expected=True, pending=True)
         _make_notification_rule(
             db_session,
@@ -536,9 +531,7 @@ def _capture_sent(monkeypatch: pytest.MonkeyPatch) -> list[Notification]:
 def test_overdue_contract_notifies_once_and_dedups(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     sent = _capture_sent(monkeypatch)
     with session_factory() as db_session:
-        user = make_user(db_session)
-        credential = make_credential(db_session, user_id=user.id)
-        account = make_account(db_session, credential_id=credential.id)
+        user, credential, account = make_user_and_credential_and_account(db_session)
         _make_notification_rule(
             db_session,
             user_id=user.id,
@@ -565,9 +558,7 @@ def test_overdue_contract_notifies_once_and_dedups(session_factory: sessionmaker
 def test_contract_within_grace_period_does_not_notify(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     sent = _capture_sent(monkeypatch)
     with session_factory() as db_session:
-        user = make_user(db_session)
-        credential = make_credential(db_session, user_id=user.id)
-        account = make_account(db_session, credential_id=credential.id)
+        user, credential, account = make_user_and_credential_and_account(db_session)
         _make_notification_rule(
             db_session,
             user_id=user.id,
@@ -587,9 +578,7 @@ def test_overdue_contract_without_covering_rule_is_not_notified(
 ):
     sent = _capture_sent(monkeypatch)
     with session_factory() as db_session:
-        user = make_user(db_session)
-        credential = make_credential(db_session, user_id=user.id)
-        account = make_account(db_session, credential_id=credential.id)
+        user, credential, account = make_user_and_credential_and_account(db_session)
         contract = make_contract(
             db_session,
             account_id=account.id,
@@ -606,9 +595,7 @@ def test_overdue_contract_without_covering_rule_is_not_notified(
 def test_overdue_flag_resets_once_payment_arrives(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     _capture_sent(monkeypatch)
     with session_factory() as db_session:
-        user = make_user(db_session)
-        credential = make_credential(db_session, user_id=user.id)
-        account = make_account(db_session, credential_id=credential.id)
+        user, credential, account = make_user_and_credential_and_account(db_session)
         _make_notification_rule(
             db_session,
             user_id=user.id,

@@ -53,6 +53,7 @@ NEW_VALID_PASSWORD = "BrandNewPa55word!"  # nosec B105
 WRONG_PASSWORD = "Wr0ngPassword!!"  # nosec B105
 PHONE_NUMBER = "+491234567890"
 PIN = "1234"
+TWO_FACTOR_CODE = "4321"
 HTTP_SESSION_TOKEN = "eyJ_test_token_payload"  # nosec B105
 CHALLENGE_TOKEN = "challenge-token"  # nosec B105
 BANK_USERNAME = "bankuser"
@@ -533,6 +534,20 @@ def persist_account_with_new_user(session_factory: sessionmaker, balance: float 
     return persist_account(session_factory, credential_id=credential_id, balance=balance)
 
 
+def make_user_and_credential_and_account(
+    db_session: Session,
+    user_name: str = USER_NAME,
+    bank: BankProvider = BankProvider.FINTS,
+    name: str = ACCOUNT_IBAN,
+    balance: float = 0.0,
+) -> tuple[User, Credential, Account]:
+    user = make_user(db_session, user_name=user_name)
+    credentials = {} if bank == BankProvider.MANUAL else None
+    credential = make_credential(db_session, user_id=user.id, bank=bank, credentials=credentials)
+    account = make_account(db_session, credential_id=credential.id, name=name, balance=balance)
+    return user, credential, account
+
+
 def make_account_with_new_user(
     db_session: Session,
     user_name: str = USER_NAME,
@@ -540,10 +555,10 @@ def make_account_with_new_user(
     name: str = ACCOUNT_IBAN,
     balance: float = 0.0,
 ) -> Account:
-    user = make_user(db_session, user_name=user_name)
-    credentials = {} if bank == BankProvider.MANUAL else None
-    credential = make_credential(db_session, user_id=user.id, bank=bank, credentials=credentials)
-    return make_account(db_session, credential_id=credential.id, name=name, balance=balance)
+    _, _, account = make_user_and_credential_and_account(
+        db_session, user_name=user_name, bank=bank, name=name, balance=balance
+    )
+    return account
 
 
 def persist_manual_account_with_new_user(session_factory: sessionmaker, balance: float = 100.0) -> int:
