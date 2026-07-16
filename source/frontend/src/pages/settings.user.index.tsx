@@ -2,7 +2,6 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
   Bell,
-  ChevronLeft,
   ChevronRight,
   KeyRound,
   MonitorSmartphone,
@@ -14,6 +13,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { BackLink } from '@/components/back-link'
 
 type UserSettingsRoute =
   | '/settings/user/profile'
@@ -29,7 +29,7 @@ export function SettingsUserIndexView() {
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
-        <BackLink />
+        <BackLink to="/settings" />
         <h1 className="text-foreground flex-1 text-2xl font-semibold">{t('settings.user')}</h1>
       </header>
 
@@ -86,19 +86,6 @@ export function SettingsUserIndexView() {
         </ul>
       </nav>
     </main>
-  )
-}
-
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/settings"
-      aria-label={t('common.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
   )
 }
 

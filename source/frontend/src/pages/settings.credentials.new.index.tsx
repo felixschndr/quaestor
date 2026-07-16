@@ -1,13 +1,13 @@
 import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import type { TFunction } from 'i18next'
+import { ChevronRight } from 'lucide-react'
 
-import { type SupportedBank } from '@/lib/credentials'
+import { type SupportedBank, bankDisplayName } from '@/lib/credentials'
 import { countryName, ibanToBlz, isLikelyIban } from '@/lib/bankIdentity'
 import { BankLogo } from '@/components/BankLogo'
 import { Input } from '@/components/ui/input'
+import { BackLink } from '@/components/back-link'
 
 export interface BankPickerViewProps {
   isLoading: boolean
@@ -34,7 +34,7 @@ export function BankPickerView({
     () =>
       banks
         .filter((bank) => bank.provider !== 'manual')
-        .sort((a, b) => displayName(t, a).localeCompare(displayName(t, b))),
+        .sort((a, b) => bankDisplayName(t, a).localeCompare(bankDisplayName(t, b))),
     [banks, t],
   )
   const matches = useMemo(() => filterBanks(catalog, query), [catalog, query])
@@ -89,15 +89,6 @@ export function BankPickerView({
   )
 }
 
-function displayName(t: TFunction, bank: SupportedBank): string {
-  return bank.provider === bank.key
-    ? t(`banks.${bank.provider}.title`, { defaultValue: bank.name })
-    : bank.name
-}
-
-/** Slug for name matching on both sides (query AND bank name): lowercased, diacritics
- *  folded (ü → u), everything non-alphanumeric dropped — so "ING DiBa", "ing-diba" and
- *  "ingdiba" all find "ING-DiBa". */
 function searchSlug(value: string): string {
   return value
     .toLowerCase()
@@ -143,7 +134,7 @@ function bankSubtitle(bank: SupportedBank, locale: string): string | null {
 
 function BankRow({ bank, accountsCount }: { bank: SupportedBank; accountsCount: number | null }) {
   const { t, i18n } = useTranslation()
-  const name = displayName(t, bank)
+  const name = bankDisplayName(t, bank)
   const subtitle = bankSubtitle(bank, i18n.language)
   const handlerLabel = HANDLER_LABELS[bank.provider]
   return (
@@ -178,18 +169,5 @@ function BankRow({ bank, accountsCount }: { bank: SupportedBank; accountsCount: 
         <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />
       </Link>
     </li>
-  )
-}
-
-function BackLink({ to }: { to: string }) {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to={to}
-      aria-label={t('common.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 cursor-pointer rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
   )
 }

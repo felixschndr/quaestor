@@ -4,28 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    children,
-    ...rest
-  }: {
-    to: string
-    params?: Record<string, string>
-    children: React.ReactNode
-  } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
-    let href = to
-    if (params)
-      for (const [key, value] of Object.entries(params)) href = href.replace(`$${key}`, value)
-    return (
-      <a href={href} {...rest}>
-        {children}
-      </a>
-    )
-  },
-  createFileRoute: () => () => ({}),
-}))
+vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
 import { BankPickerView } from '@/pages/settings.credentials.new.index'
 import type { SupportedBank } from '@/lib/credentials'

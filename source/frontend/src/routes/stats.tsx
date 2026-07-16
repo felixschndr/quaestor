@@ -17,39 +17,22 @@ import {
   type TransactionCountsGroupBy,
 } from '@/lib/statistics'
 import { StatsView } from '@/pages/stats'
+import { oneOrMany } from '@/lib/searchParams'
 
 const hiddenCategorySchema = z.enum([...TRANSACTION_CATEGORIES, 'OTHER'] as const)
 
-// URL-state schema. `account_ids` may be omitted (→ all accounts) or carry a
-// single account when opened from an account detail view; `categories` is
-// omitted when all are selected (→ all categories).
 const searchParamsSchema = z.object({
   date_from: z.string().optional(),
   date_to: z.string().optional(),
   chart_type: z.enum(['bar', 'pie']).optional(),
   count_group: z.enum(['day', 'week', 'month', 'weekday']).optional(),
   direction: z.enum(['INCOMING', 'OUTGOING']).optional(),
-  transaction_types: z
-    .union([z.enum(TRANSACTION_TYPES), z.array(z.enum(TRANSACTION_TYPES))])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional(),
+  transaction_types: oneOrMany(z.enum(TRANSACTION_TYPES)).optional(),
   linked: z.enum(['linked', 'unlinked', 'any']).optional(),
-  account_ids: z
-    .union([z.array(z.coerce.number()), z.coerce.number()])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional(),
-  categories: z
-    .union([z.enum(TRANSACTION_CATEGORIES), z.array(z.enum(TRANSACTION_CATEGORIES))])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional(),
-  hidden_categories: z
-    .union([hiddenCategorySchema, z.array(hiddenCategorySchema)])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional(),
-  hidden_parties: z
-    .union([z.array(z.coerce.string()), z.coerce.string()])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional(),
+  account_ids: oneOrMany(z.coerce.number()).optional(),
+  categories: oneOrMany(z.enum(TRANSACTION_CATEGORIES)).optional(),
+  hidden_categories: oneOrMany(hiddenCategorySchema).optional(),
+  hidden_parties: oneOrMany(z.coerce.string()).optional(),
 })
 
 export type StatsSearchParams = z.infer<typeof searchParamsSchema>

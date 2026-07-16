@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeftRight, ChevronLeft, CircleHelp } from 'lucide-react'
+import { ArrowLeftRight, CircleHelp } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { TransactionRead } from '@/lib/accountHistory'
@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { cn } from '@/lib/utils'
 import type { TransactionDetailViewProps } from '@/routes/account.$accountId_.transactions.$transactionId'
+import { BackLink } from '@/components/back-link'
+import { EmptyValue } from '@/components/empty-value'
 
 export function otherPartyLabelKey(amount: number): string {
   if (amount < 0) return 'transaction.recipient'
@@ -49,7 +51,7 @@ export function TransactionDetailView({
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-8 p-4">
       <header className="flex items-center">
-        <BackLink accountId={accountId} />
+        <BackLink to="/account/$accountId" params={{ accountId: String(accountId) }} />
       </header>
 
       <section className="flex min-h-[18vh] flex-col items-center justify-center gap-4">
@@ -182,20 +184,6 @@ function LinkedTransactionSection({
   )
 }
 
-function BackLink({ accountId }: { accountId: number }) {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/account/$accountId"
-      params={{ accountId: String(accountId) }}
-      aria-label={t('common.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
-  )
-}
-
 export function DetailRow({
   label,
   children,
@@ -224,14 +212,8 @@ export function DetailRow({
   )
 }
 
-function EmptyValue() {
+function TypeBadge({ transactionType }: { transactionType: string }) {
   const { t } = useTranslation()
-  return <span className="text-muted-foreground">{t('transaction.fieldEmpty')}</span>
-}
-
-function TypeBadge({ transactionType }: { transactionType: string | null }) {
-  const { t } = useTranslation()
-  if (!transactionType) return <EmptyValue />
   const Icon = TRANSACTION_TYPE_ICONS[transactionType] ?? CircleHelp
   return (
     <span className="inline-flex items-center gap-2">

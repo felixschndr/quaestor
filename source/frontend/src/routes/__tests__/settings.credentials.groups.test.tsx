@@ -16,6 +16,7 @@ vi.mock('@tanstack/react-router', () => ({
 import { __testing } from '@/pages/settings.credentials.groups'
 import type { AccountGroupLayout } from '@/lib/accountGroups'
 import type { UserRead } from '@/lib/auth'
+import { buildUser as buildBaseUser } from './-settingsUserTestHelpers'
 
 const {
   moveAccount,
@@ -28,14 +29,7 @@ const {
 } = __testing
 
 function buildUser(): UserRead {
-  return {
-    id: 1,
-    user_name: 'alice',
-    display_name: 'Alice',
-    language: 'en',
-    theme: 'SYSTEM',
-    two_factor_enabled: false,
-    balance: 0,
+  return buildBaseUser({
     credentials: [
       {
         id: 10,
@@ -65,7 +59,7 @@ function buildUser(): UserRead {
         sync_enabled: true,
       },
     ],
-  }
+  })
 }
 
 const sampleLayout: AccountGroupLayout = {

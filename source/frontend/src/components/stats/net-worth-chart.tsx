@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { de, enUS, type Locale } from 'date-fns/locale'
 import { format, parseISO } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
@@ -22,6 +21,7 @@ import { readPinnedDate, writePinnedDate } from '@/lib/netWorthPin'
 import type { DailyNetWorth, NetWorthSummary } from '@/lib/statistics'
 import { AXIS_TICK, euroAxisFormat } from './chartTheme'
 import { AxisValueTick } from './chart-parts'
+import { useDateFnsLocale } from '@/components/stats/chartTheme'
 
 export interface NetWorthChartProps {
   data: DailyNetWorth[]
@@ -30,16 +30,14 @@ export interface NetWorthChartProps {
   onOpenDay?: (date: string) => void
 }
 
-const LOCALES: Record<string, Locale> = { en: enUS, de }
-
 interface ChartMouseState {
   activeTooltipIndex?: number | string | null
   activeLabel?: string | number | null
 }
 
 export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWorthChartProps) {
-  const { t, i18n } = useTranslation()
-  const locale = LOCALES[i18n.language] ?? enUS
+  const { t } = useTranslation()
+  const locale = useDateFnsLocale()
 
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const [pinnedDate, setPinnedDate] = useState<string | null>(() => readPinnedDate())

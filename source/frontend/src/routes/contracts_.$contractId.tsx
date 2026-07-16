@@ -1,6 +1,5 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -12,6 +11,7 @@ import {
 } from '@/lib/contract'
 import { type TransactionCategory } from '@/lib/transaction'
 import { ContractDetailView } from '@/pages/contracts_.$contractId'
+import { BackLink } from '@/components/back-link'
 
 export const Route = createFileRoute('/contracts_/$contractId')({
   component: ContractDetailPage,
@@ -61,7 +61,7 @@ function ContractNotFoundView() {
   const { t } = useTranslation()
   return (
     <main className="mx-auto max-w-page p-4">
-      <BackLink />
+      <BackLink to="/contracts">{t('contracts.title')}</BackLink>
       <p className="text-muted-foreground mt-6 text-sm">{t('contracts.notFound')}</p>
     </main>
   )
@@ -75,17 +75,4 @@ export interface ContractDetailViewProps {
   onChangeFrequency: (frequency: ContractFrequency | null) => Promise<unknown>
   onSaveNote: (note: string | null) => Promise<unknown>
   onDelete: () => void
-}
-
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/contracts"
-      className="text-primary hover:text-primary/80 -ml-1.5 inline-flex items-center gap-1 rounded-md p-1.5 text-sm transition-colors"
-    >
-      <ChevronLeft className="size-4" />
-      {t('contracts.title')}
-    </Link>
-  )
 }

@@ -11,34 +11,19 @@ const routerState = vi.hoisted(() => ({
   canGoBack: true,
 }))
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-    params,
-    ...rest
-  }: {
-    to: string
-    children: React.ReactNode
-    params?: Record<string, string>
-  } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'children'>) => {
-    void params // not forwarded to the DOM <a> in this mock
-    return (
-      <a href={to} {...rest}>
-        {children}
-      </a>
-    )
-  },
-  createFileRoute: () => () => ({
-    useSearch: () => routerState.search,
+vi.mock('@tanstack/react-router', async () =>
+  (await import('./-routerMock')).routerMocks({
+    createFileRoute: () => () => ({
+      useSearch: () => routerState.search,
+    }),
+    getRouteApi: () => ({
+      useSearch: () => routerState.search,
+    }),
+    useNavigate: () => routerState.navigate,
+    useRouter: () => ({ history: { back: routerState.back } }),
+    useCanGoBack: () => routerState.canGoBack,
   }),
-  getRouteApi: () => ({
-    useSearch: () => routerState.search,
-  }),
-  useNavigate: () => routerState.navigate,
-  useRouter: () => ({ history: { back: routerState.back } }),
-  useCanGoBack: () => routerState.canGoBack,
-}))
+)
 
 vi.mock('@/lib/auth', () => ({
   useAuthMe: () => ({

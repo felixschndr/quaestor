@@ -15,16 +15,6 @@ export type TestOutcome =
   | { status: 'denied' }
   | { status: 'done'; sent: number; failed: number; error?: string | null }
 
-function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
-  // applicationServerKey must be a raw byte array; the backend sends it base64url-encoded.
-  const padding = '='.repeat((4 - (base64.length % 4)) % 4)
-  const normalized = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const raw = atob(normalized)
-  const output = new Uint8Array(raw.length)
-  for (let i = 0; i < raw.length; i += 1) output[i] = raw.charCodeAt(i)
-  return output
-}
-
 export function pushSupported(): boolean {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
@@ -38,7 +28,7 @@ async function ensureSubscription(): Promise<void> {
     const { public_key } = await api<PublicKeyResponse>('/push/public-key')
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(public_key),
+      applicationServerKey: Uint8Array.fromBase64(public_key, { alphabet: 'base64url' }),
     })
   }
 

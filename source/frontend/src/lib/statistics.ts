@@ -18,13 +18,10 @@ import {
   type TransactionCategory,
   type TransactionType,
 } from './transaction'
+import { appendParams } from '@/lib/searchParams'
 
-// Direction of money flow a statistic is computed over. Mirrors the backend's
-// StatisticsDirection and the TransactionType member names: OUTGOING = money out
-// (negative amounts), INCOMING = money in (positive amounts).
 export type StatsDirection = 'INCOMING' | 'OUTGOING'
 
-// Which visual a chart renders in. Only the category chart is switchable.
 export type ChartType = 'bar' | 'pie'
 
 export interface StatsFilters {
@@ -116,23 +113,32 @@ export type DateRangePreset = '2w' | '1m' | '3m' | '6m' | '1y' | '3y'
 
 export const DATE_RANGE_PRESETS: readonly DateRangePreset[] = ['2w', '1m', '3m', '6m', '1y', '3y']
 
+export type DetailRangePreset = '1d' | '3d' | '1w' | '2w' | '1m'
+
+export const DETAIL_RANGE_PRESETS: readonly DetailRangePreset[] = ['1d', '3d', '1w', '2w', '1m']
+
 const formatDay = (date: Date): string => format(date, 'yyyy-MM-dd')
 
-function presetStart(preset: DateRangePreset, today: Date): Date {
-  switch (preset) {
-    case '2w':
-      return subWeeks(today, 2)
-    case '1m':
-      return subMonths(today, 1)
-    case '3m':
-      return subMonths(today, 3)
-    case '6m':
-      return subMonths(today, 6)
-    case '1y':
-      return subYears(today, 1)
-    case '3y':
-      return subYears(today, 3)
-  }
+const PRESET_START: Record<DateRangePreset | DetailRangePreset, (end: Date) => Date> = {
+  '1d': (end) => subDays(end, 1),
+  '3d': (end) => subDays(end, 3),
+  '1w': (end) => subWeeks(end, 1),
+  '2w': (end) => subWeeks(end, 2),
+  '1m': (end) => subMonths(end, 1),
+  '3m': (end) => subMonths(end, 3),
+  '6m': (end) => subMonths(end, 6),
+  '1y': (end) => subYears(end, 1),
+  '3y': (end) => subYears(end, 3),
+}
+
+function matchPreset<P extends DateRangePreset | DetailRangePreset>(
+  presets: readonly P[],
+  from: string,
+  to: string,
+  today: Date,
+): P | null {
+  if (formatDay(today) !== to) return null
+  return presets.find((preset) => formatDay(PRESET_START[preset](today)) === from) ?? null
 }
 
 /**
@@ -145,27 +151,8 @@ export function presetDateRange(
   today: Date = new Date(),
 ): Required<StatsFilters> {
   return {
-    date_from: formatDay(presetStart(preset, today)),
+    date_from: formatDay(PRESET_START[preset](today)),
     date_to: formatDay(today),
-  }
-}
-
-export type DetailRangePreset = '1d' | '3d' | '1w' | '2w' | '1m'
-
-export const DETAIL_RANGE_PRESETS: readonly DetailRangePreset[] = ['1d', '3d', '1w', '2w', '1m']
-
-function detailPresetStart(preset: DetailRangePreset, end: Date): Date {
-  switch (preset) {
-    case '1d':
-      return subDays(end, 1)
-    case '3d':
-      return subDays(end, 3)
-    case '1w':
-      return subWeeks(end, 1)
-    case '2w':
-      return subWeeks(end, 2)
-    case '1m':
-      return subMonths(end, 1)
   }
 }
 
@@ -174,7 +161,7 @@ export function detailPresetRange(
   today: Date = new Date(),
 ): { start: string; end: string } {
   return {
-    start: formatDay(detailPresetStart(preset, today)),
+    start: formatDay(PRESET_START[preset](today)),
     end: formatDay(today),
   }
 }
@@ -184,13 +171,7 @@ export function matchingDetailPreset(
   end: string,
   today: Date = new Date(),
 ): DetailRangePreset | null {
-  for (const preset of DETAIL_RANGE_PRESETS) {
-    const range = detailPresetRange(preset, today)
-    if (range.start === start && range.end === end) {
-      return preset
-    }
-  }
-  return null
+  return matchPreset(DETAIL_RANGE_PRESETS, start, end, today)
 }
 
 export function defaultStatsDateRange(today: Date = new Date()): Required<StatsFilters> {
@@ -202,13 +183,7 @@ export function matchingPreset(
   today: Date = new Date(),
 ): DateRangePreset | null {
   if (!filters.date_from || !filters.date_to) return null
-  for (const preset of DATE_RANGE_PRESETS) {
-    const range = presetDateRange(preset, today)
-    if (range.date_from === filters.date_from && range.date_to === filters.date_to) {
-      return preset
-    }
-  }
-  return null
+  return matchPreset(DATE_RANGE_PRESETS, filters.date_from, filters.date_to, today)
 }
 
 export function buildStatsQueryString(
@@ -221,29 +196,16 @@ export function buildStatsQueryString(
   for (const accountId of accountIds) {
     params.append('account_ids', String(accountId))
   }
-  // Empty `categories` means "all" — the backend applies no category filter.
   for (const category of categories) {
     params.append('categories', category)
   }
-  for (const [key, value] of Object.entries({ ...filters, ...extra })) {
-    if (value === undefined || value === null) continue
-    if (Array.isArray(value)) {
-      for (const item of value) params.append(key, String(item))
-      continue
-    }
-    if (typeof value === 'string' && value.length === 0) continue
-    params.append(key, String(value))
-  }
+  appendParams(params, { ...filters, ...extra })
   return params.toString()
 }
 
 const sortedIds = (accountIds: number[]) => [...accountIds].sort((a, b) => a - b)
 const sortedCategories = (categories: TransactionCategory[]) => [...categories].sort()
 
-/**
- * Shared query plumbing for the /statistics/* endpoints. Every key starts with
- * 'statistics' so prefix invalidation (see accounts.ts) hits all of them.
- */
 function useStats<T>(args: {
   path: string
   accountIds: number[]

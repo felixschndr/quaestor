@@ -1,10 +1,11 @@
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight, CreditCard, Info, LogOut, Tag, User } from 'lucide-react'
+import { ChevronRight, CreditCard, Info, LogOut, Tag, User } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import type { SettingsIndexViewProps } from '@/routes/settings.index'
+import { BackLink } from '@/components/back-link'
 
 export function SettingsIndexView({
   logoutPending,
@@ -19,7 +20,7 @@ export function SettingsIndexView({
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
-        <BackLink />
+        <BackLink to="/" />
         <h1 className="text-foreground flex-1 text-2xl font-semibold">{t('settings.title')}</h1>
         <Button
           type="button"
@@ -68,19 +69,6 @@ export function SettingsIndexView({
         </ul>
       </nav>
     </main>
-  )
-}
-
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/"
-      aria-label={t('common.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
   )
 }
 

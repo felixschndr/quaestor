@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeftRight, ChevronLeft } from 'lucide-react'
+import { ArrowLeftRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
@@ -24,6 +24,7 @@ import {
   TransactionDetailView,
   transferPartnerLabel,
 } from '@/pages/account.$accountId_.transactions.$transactionId'
+import { BackLink } from '@/components/back-link'
 
 const searchParamsSchema = z.object({
   link_account_id: z.coerce.number().optional(),
@@ -202,7 +203,7 @@ function TransactionNotFoundView({ accountId }: { accountId: number }) {
   const { t } = useTranslation()
   return (
     <main className="mx-auto max-w-page p-4">
-      <BackLink accountId={accountId} />
+      <BackLink to="/account/$accountId" params={{ accountId: String(accountId) }} />
       <p className="text-muted-foreground mt-6 text-sm">{t('transaction.notFound')}</p>
     </main>
   )
@@ -219,20 +220,6 @@ export interface TransactionDetailViewProps {
   contractSection?: ReactNode
   linkSection?: ReactNode
   linkConfirmSection?: ReactNode
-}
-
-function BackLink({ accountId }: { accountId: number }) {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/account/$accountId"
-      params={{ accountId: String(accountId) }}
-      aria-label={t('common.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
-  )
 }
 
 function ContractSection({ transaction }: { transaction: TransactionRead }) {

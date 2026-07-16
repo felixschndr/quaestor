@@ -1,14 +1,7 @@
-import { Link } from '@tanstack/react-router'
-import { ChevronLeft } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
-
+import { BackLink } from '@/components/back-link'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-/**
- * Layout shell shared by every user-setting sub-page: a centred column with a header
- * that always links back to the user-settings overview.
- */
 export function SettingsSubPage({
   title,
   headerExtra,
@@ -18,17 +11,10 @@ export function SettingsSubPage({
   headerExtra?: React.ReactNode
   children: React.ReactNode
 }) {
-  const { t } = useTranslation()
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-8 p-4">
       <header className="flex items-center gap-2">
-        <Link
-          to="/settings/user"
-          aria-label={t('common.back')}
-          className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-        >
-          <ChevronLeft className="size-5" />
-        </Link>
+        <BackLink to="/settings/user" />
         <h1 className="text-foreground flex-1 text-2xl font-semibold">{title}</h1>
         {headerExtra}
       </header>

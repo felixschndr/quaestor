@@ -26,16 +26,12 @@ import { cn } from '@/lib/utils'
 // would create a route-file ↔ page-file import cycle.
 const detailRoute = getRouteApi('/stats_/detail')
 
-function formatIsoDate(date: Date): string {
-  const yyyy = date.getFullYear()
-  const mm = String(date.getMonth() + 1).padStart(2, '0')
-  const dd = String(date.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
+// en-CA locale formats as YYYY-MM-DD
+const toIsoDate = (date: Date): string => date.toLocaleDateString('en-CA')
 
 function shiftIsoDay(iso: string, delta: number): string {
   const [year, month, day] = iso.split('-').map(Number)
-  return formatIsoDate(new Date(year, month - 1, day + delta))
+  return toIsoDate(new Date(year, month - 1, day + delta))
 }
 
 function formatSignedEuro(value: number): string {
@@ -53,7 +49,7 @@ export function NetWorthDetailPage() {
   const accountIds = search.account_ids ?? []
   // `end` is the closing day (defaults to today); the start defaults to the
   // day before, which reproduces the original single-day comparison.
-  const endDate = search.end ?? formatIsoDate(new Date())
+  const endDate = search.end ?? toIsoDate(new Date())
   const startDate = search.start ?? shiftIsoDay(endDate, -1)
   const range = useNetWorthRange(startDate, endDate, accountIds)
 

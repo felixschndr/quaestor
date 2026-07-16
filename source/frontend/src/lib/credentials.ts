@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -180,4 +181,10 @@ export function useSyncJob(credentialId: number | null, jobId: string | null): U
   const isConnected = state.key === subscriptionKey && state.isConnected
   const isFinished = job?.status === 'completed' || job?.status === 'failed'
   return { job, isFinished, isDisconnected: !isConnected }
+}
+
+export function bankDisplayName(t: TFunction, bank: SupportedBank): string {
+  return bank.provider === bank.key
+    ? t(`banks.${bank.provider}.title`, { defaultValue: bank.name })
+    : bank.name
 }

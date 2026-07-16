@@ -2,11 +2,9 @@ import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 
 import { NetWorthDetailPage } from '@/pages/stats_.detail'
+import { oneOrMany } from '@/lib/searchParams'
 
-const idListSchema = z
-  .union([z.array(z.coerce.number()), z.coerce.number()])
-  .transform((value) => (Array.isArray(value) ? value : [value]))
-  .optional()
+const idListSchema = oneOrMany(z.coerce.number()).optional()
 
 const searchParamsSchema = z.object({
   start: z.string().optional(),

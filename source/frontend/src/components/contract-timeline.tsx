@@ -1,6 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { de, enUS, type Locale } from 'date-fns/locale'
 import { format, parseISO } from 'date-fns'
 import {
   Bar,
@@ -18,8 +17,7 @@ import {
 import { formatEuro } from '@/lib/format'
 import { AXIS_TICK } from '@/components/stats/chartTheme'
 import type { ContractMemberRead } from '@/lib/contract'
-
-const LOCALES: Record<string, Locale> = { en: enUS, de }
+import { useDateFnsLocale } from '@/components/stats/chartTheme'
 
 export interface ContractTimelineProps {
   members: ContractMemberRead[]
@@ -156,9 +154,9 @@ function MedianLabel({ value, viewBox }: MedianLabelProps) {
 }
 
 export function ContractTimeline({ members, median, expectedNextDate }: ContractTimelineProps) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const navigate = useNavigate()
-  const locale = LOCALES[i18n.language] ?? enUS
+  const locale = useDateFnsLocale()
 
   const goToTransaction = (point: TimelinePoint) => {
     if (point.isGhost || point.accountId === null) return

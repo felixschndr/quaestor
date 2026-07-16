@@ -22,15 +22,6 @@ describe('FormField', () => {
     expect(screen.getByText('How far a match may deviate')).toBeInTheDocument()
   })
 
-  it('renders an inline labelHint next to the label', () => {
-    render(
-      <FormField id="day" label="Day" labelHint={<span>ⓘ</span>}>
-        <input id="day" />
-      </FormField>,
-    )
-    expect(screen.getByText('ⓘ')).toBeInTheDocument()
-  })
-
   it('omits the hint paragraph when no hint is given', () => {
     const { container } = render(
       <FormField id="note" label="Note">

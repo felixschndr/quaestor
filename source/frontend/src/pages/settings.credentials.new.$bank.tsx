@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
-import type { TFunction } from 'i18next'
 
 import { Button } from '@/components/ui/button'
 import { CopyButton } from '@/components/copy-button'
@@ -24,7 +21,9 @@ import {
   useSyncJob,
   type CredentialFieldSpec,
   type SupportedBank,
+  bankDisplayName,
 } from '@/lib/credentials'
+import { BackLink } from '@/components/back-link'
 
 export interface NewCredentialFormViewProps {
   bankKey: string
@@ -55,13 +54,13 @@ export function NewCredentialFormView({
   const { t } = useTranslation()
   // Special providers keep their curated i18n title; grouped FinTS banks use their catalog name.
   const bankTitle = bank
-    ? displayName(t, bank)
+    ? bankDisplayName(t, bank)
     : t(`banks.${bankKey}.title`, { defaultValue: bankKey })
 
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
-        <BackLink />
+        <BackLink to="/settings/credentials/new" />
         <h1 className="text-foreground text-2xl font-semibold">
           {bankKey === 'manual'
             ? t('credentials.formTitleManual')
@@ -219,10 +218,8 @@ function CredentialForm({
     let createdId: number
     const declared = Object.fromEntries(requiredFields.map((field) => [field, values[field]]))
     const credentials = stripCredentialWhitespace(declared, bank.field_rules)
-    let submitProvider = bank.provider
     if (bank.provider === 'fints') {
       credentials.blz = bank.blzs.length > 1 ? ibanToBlz(values.iban)! : bank.blzs[0]
-      submitProvider = 'fints'
     }
     if (bank.provider === 'enable_banking') {
       credentials.aspsp_name = bank.name
@@ -231,7 +228,7 @@ function CredentialForm({
       if (keyFileName) credentials.private_key_file_name = keyFileName
     }
     try {
-      const created = await create.mutateAsync({ bank: submitProvider, credentials })
+      const created = await create.mutateAsync({ bank: bank.provider, credentials })
       createdId = created.id
     } catch (err) {
       handleCreateError(err, form.setError, t, bankTitle)
@@ -583,23 +580,4 @@ function handleCreateError(
     }
   }
   toast.error(t('credentials.connectFailed', { bank: bankTitle }))
-}
-
-function displayName(t: TFunction, bank: SupportedBank): string {
-  return bank.provider === bank.key
-    ? t(`banks.${bank.provider}.title`, { defaultValue: bank.name })
-    : bank.name
-}
-
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/settings/credentials/new"
-      aria-label={t('common.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
-  )
 }

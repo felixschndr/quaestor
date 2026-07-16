@@ -1,12 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeftRight,
   BellRing,
   CalendarClock,
   CalendarX2,
-  ChevronLeft,
   Pencil,
   Plus,
   Smartphone,
@@ -36,7 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { type UserRead } from '@/lib/auth'
-import { accountDisplayName } from '@/lib/accounts'
+import { accountNamesById } from '@/lib/accounts'
 import { formatEuro } from '@/lib/format'
 import { readApiErrorMessage } from '@/lib/apiError'
 import { sendTestNotification } from '@/lib/push'
@@ -60,6 +58,7 @@ import {
   type NotificationRuleDraft,
   type NotificationTrigger,
 } from '@/lib/notificationRules'
+import { SettingsSubPage } from '@/components/settings/settings-section'
 
 const TRIGGER_ICONS: Record<NotificationTrigger, LucideIcon> = {
   expected_transaction: CalendarClock,
@@ -74,13 +73,7 @@ export function SettingsNotificationsView({ user }: { user: UserRead }) {
   // `null` = closed, `'new'` = create dialog, otherwise the rule being edited.
   const [editing, setEditing] = useState<NotificationRule | 'new' | null>(null)
 
-  const accountNameById = useMemo(() => {
-    const map = new Map<number, string>()
-    for (const credential of user.credentials) {
-      for (const account of credential.accounts) map.set(account.id, accountDisplayName(account))
-    }
-    return map
-  }, [user.credentials])
+  const accountNameById = useMemo(() => accountNamesById(user.credentials), [user.credentials])
 
   const allAccountIds = useMemo(
     () =>
@@ -107,18 +100,15 @@ export function SettingsNotificationsView({ user }: { user: UserRead }) {
   const list = rules.data ?? []
 
   return (
-    <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
-      <header className="flex items-center gap-2">
-        <BackLink />
-        <h1 className="text-foreground flex-1 text-2xl font-semibold">
-          {t('notifications.title')}
-        </h1>
+    <SettingsSubPage
+      title={t('notifications.title')}
+      headerExtra={
         <Button type="button" size="sm" onClick={() => setEditing('new')}>
           <Plus className="size-3.5" aria-hidden="true" />
           {t('notifications.new')}
         </Button>
-      </header>
-
+      }
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-muted-foreground text-sm">{t('notifications.description')}</p>
         <Button
@@ -157,12 +147,13 @@ export function SettingsNotificationsView({ user }: { user: UserRead }) {
       {editing !== null ? (
         <RuleDialog
           user={user}
+          allAccountIds={allAccountIds}
           rule={editing === 'new' ? null : editing}
           existingRules={list}
           onClose={() => setEditing(null)}
         />
       ) : null}
-    </main>
+    </SettingsSubPage>
   )
 }
 
@@ -374,11 +365,13 @@ function modelToDraft(model: RuleFormModel): NotificationRuleDraft {
 
 function RuleDialog({
   user,
+  allAccountIds,
   rule,
   existingRules,
   onClose,
 }: {
   user: UserRead
+  allAccountIds: number[]
   rule: NotificationRule | null
   existingRules: NotificationRule[]
   onClose: () => void
@@ -386,11 +379,6 @@ function RuleDialog({
   const { t } = useTranslation()
   const create = useCreateNotificationRule()
   const update = useUpdateNotificationRule()
-  const allAccountIds = useMemo(
-    () =>
-      user.credentials.flatMap((credential) => credential.accounts.map((account) => account.id)),
-    [user.credentials],
-  )
   const [model, setModel] = useState<RuleFormModel>(() =>
     modelFromRule(rule, {
       accountIds: allAccountIds,
@@ -717,17 +705,4 @@ function describeAmountRange(min: number | null, max: number | null, t: TFunctio
   if (min !== null) return t('notifications.summary.amountFrom', { amount: formatEuro(min) })
   if (max !== null) return t('notifications.summary.amountTo', { amount: formatEuro(max) })
   return t('notifications.anyAmount')
-}
-
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/settings/user"
-      aria-label={t('common.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
-  )
 }

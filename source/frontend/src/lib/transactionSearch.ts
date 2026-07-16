@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from './api'
 import type { TransactionRead } from './accountHistory'
 import type { TransactionCategory, TransactionType } from './transaction'
+import { appendParams } from '@/lib/searchParams'
 
 export interface TransactionFilters {
   text?: string
@@ -25,15 +26,7 @@ export function buildFilterQueryString(accountIds: number[], filters: Transactio
   for (const accountId of accountIds) {
     params.append('account_ids', String(accountId))
   }
-  for (const [key, value] of Object.entries(filters)) {
-    if (value === undefined || value === null) continue
-    if (Array.isArray(value)) {
-      for (const item of value) params.append(key, String(item))
-      continue
-    }
-    if (typeof value === 'string' && value.length === 0) continue
-    params.append(key, String(value))
-  }
+  appendParams(params, { ...filters })
   return params.toString()
 }
 

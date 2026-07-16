@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight, LayoutGrid, Plus } from 'lucide-react'
+import { ChevronRight, LayoutGrid, Plus } from 'lucide-react'
 import type { TFunction } from 'i18next'
 
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { BankLogo } from '@/components/BankLogo'
 import type { CredentialRead } from '@/lib/auth'
 import { formatRelativeDateTime } from '@/lib/format'
 import type { SettingsCredentialsIndexViewProps } from '@/routes/settings.credentials.index'
+import { BackLink } from '@/components/back-link'
 
 function bankTitle(t: TFunction, credential: CredentialRead): string {
   return (
@@ -24,7 +25,7 @@ export function SettingsCredentialsIndexView({ user }: SettingsCredentialsIndexV
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
-        <BackLink />
+        <BackLink to="/settings" />
         <h1 className="text-foreground flex-1 text-2xl font-semibold">{t('credentials.title')}</h1>
         <Button asChild size="sm">
           <Link to="/settings/credentials/new">
@@ -98,18 +99,5 @@ function CredentialRow({ credential }: { credential: CredentialRead }) {
         <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />
       </Link>
     </li>
-  )
-}
-
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/settings"
-      aria-label={t('common.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
   )
 }

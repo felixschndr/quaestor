@@ -14,7 +14,6 @@ export function AmountInput({
   autoFocus = false,
   disabled = false,
   onKeyDown,
-  className,
   inputClassName,
   negative,
   onNegativeChange,
@@ -29,11 +28,7 @@ export function AmountInput({
   autoFocus?: boolean
   disabled?: boolean
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
-  className?: string
   inputClassName?: string
-  // Controlled sign: pass `negative` (plus `onNegativeChange`) to let a parent
-  // link the sign across several inputs — e.g. a from/to range that flips both
-  // signs together. When omitted, the toggle manages its own sign internally.
   negative?: boolean
   onNegativeChange?: (next: boolean) => void
   'aria-label'?: string
@@ -86,7 +81,7 @@ export function AmountInput({
   }
 
   return (
-    <div className={cn('flex min-w-0 items-center gap-1.5', className)}>
+    <div className="flex min-w-0 items-center gap-1.5">
       <button
         type="button"
         aria-label={isNegative ? t('search.amountMakePositive') : t('search.amountMakeNegative')}

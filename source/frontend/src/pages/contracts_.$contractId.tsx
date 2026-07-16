@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, TriangleAlert } from 'lucide-react'
+import { TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -26,6 +26,8 @@ import { useCategoryOptions } from '@/lib/categoryIcons'
 import { useFrequencyOptions } from '@/lib/contractFrequencyIcons'
 import { cn } from '@/lib/utils'
 import type { ContractDetailViewProps } from '@/routes/contracts_.$contractId'
+import { BackLink } from '@/components/back-link'
+import { EmptyValue } from '@/components/empty-value'
 
 export function ContractDetailView({
   contract,
@@ -71,7 +73,7 @@ export function ContractDetailView({
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-4 p-4">
       <header className="flex items-center justify-between gap-2">
-        <BackLink />
+        <BackLink to="/contracts">{t('contracts.title')}</BackLink>
         <div className="flex items-center gap-1">
           <RenameContractButton disabled={editingName} onClick={() => setEditingName(true)} />
           <DeleteContractButton onConfirm={onDelete} isDeleting={isDeleting} />
@@ -124,7 +126,7 @@ export function ContractDetailView({
 
       <dl className="border-border bg-card grid grid-cols-2 gap-3 rounded-lg border p-3">
         <StripStat label={t('contracts.lastPayment')}>
-          {lastPaymentDate ? formatDateWithoutYear(lastPaymentDate) : <Empty />}
+          {lastPaymentDate ? formatDateWithoutYear(lastPaymentDate) : <EmptyValue />}
         </StripStat>
         <StripStat label={t('contracts.nextExpected')} align="end">
           {contract.expected_next_date ? (
@@ -132,7 +134,7 @@ export function ContractDetailView({
               {formatDateWithoutYear(contract.expected_next_date)}
             </span>
           ) : (
-            <Empty />
+            <EmptyValue />
           )}
         </StripStat>
       </dl>
@@ -315,7 +317,7 @@ function ProjectionRow({
           highlight ? highlightColor : 'text-foreground',
         )}
       >
-        {value === null ? <Empty /> : formatEuro(value)}
+        {value === null ? <EmptyValue /> : formatEuro(value)}
       </dd>
     </div>
   )
@@ -327,22 +329,16 @@ function StripStat({
   children,
 }: {
   label: string
-  align?: 'start' | 'center' | 'end'
+  align?: 'start' | 'end'
   children: React.ReactNode
 }) {
-  const alignment =
-    align === 'center' ? 'items-center text-center' : align === 'end' ? 'items-end text-right' : ''
+  const alignment = align === 'end' ? 'items-end text-right' : ''
   return (
     <div className={cn('flex min-w-0 flex-col gap-1', alignment)}>
       <dt className="text-muted-foreground text-xs">{label}</dt>
       <dd className="text-foreground text-sm font-semibold tabular-nums">{children}</dd>
     </div>
   )
-}
-
-function Empty() {
-  const { t } = useTranslation()
-  return <span className="text-muted-foreground">{t('transaction.fieldEmpty')}</span>
 }
 
 function OverdueBanner({ contract }: { contract: ContractDetailRead }) {
@@ -359,18 +355,5 @@ function OverdueBanner({ contract }: { contract: ContractDetailRead }) {
       <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       <p>{t('contracts.overdueBanner', { count: months })}</p>
     </div>
-  )
-}
-
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/contracts"
-      className="text-primary hover:text-primary/80 -ml-1.5 inline-flex items-center gap-1 rounded-md p-1.5 text-sm transition-colors"
-    >
-      <ChevronLeft className="size-4" />
-      {t('contracts.title')}
-    </Link>
   )
 }

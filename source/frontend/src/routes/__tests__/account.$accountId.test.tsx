@@ -7,31 +7,7 @@ import '@/i18n'
 import type { AccountRead } from '@/lib/auth'
 import type { AccountHistoryPage, TransactionRead } from '@/lib/accountHistory'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    children,
-    ...rest
-  }: {
-    to: string
-    params?: Record<string, string>
-    children: React.ReactNode
-  } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'children'>) => {
-    let href = to
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        href = href.replace(`$${key}`, value)
-      }
-    }
-    return (
-      <a href={href} {...rest}>
-        {children}
-      </a>
-    )
-  },
-  createFileRoute: () => () => ({}),
-}))
+vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
 const { mockUseExpectedTransactions } = vi.hoisted(() => ({
   mockUseExpectedTransactions: vi.fn(),
@@ -45,9 +21,7 @@ import { AccountDetailView } from '@/pages/account.$accountId'
 import type { ExpectedTransactionRead } from '@/lib/expectedTransaction'
 
 beforeAll(() => {
-  // jsdom does not implement scrollIntoView.
   Element.prototype.scrollIntoView = vi.fn()
-  // jsdom does not implement IntersectionObserver (used by InfiniteScrollSentinel).
   if (typeof globalThis.IntersectionObserver === 'undefined') {
     class NoopIntersectionObserver {
       observe() {}

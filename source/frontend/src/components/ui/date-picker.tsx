@@ -2,8 +2,6 @@
 
 import { useState } from 'react'
 import { CalendarIcon } from 'lucide-react'
-import { de, enUS, type Locale } from 'date-fns/locale'
-import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
 import { formatDate, formatDateShortWeekday } from '@/lib/format'
@@ -14,8 +12,8 @@ import {
   PopoverTrigger,
   popoverTriggerClassName,
 } from '@/components/ui/popover'
-
-const LOCALES: Record<string, Locale> = { en: enUS, de }
+import { useDateFnsLocale } from '@/components/stats/chartTheme'
+import { format, isValid, parseISO } from 'date-fns'
 
 export interface DatePickerProps {
   id?: string
@@ -27,17 +25,9 @@ export interface DatePickerProps {
   max?: string
 }
 
-/**
- * A button that opens a Popover with a Calendar. Mirrors the visual shape of
- * the Input component so it lines up with text/number fields in the same
- * grid. Values are exchanged as ISO yyyy-mm-dd strings — same wire format
- * as `<input type="date">` had — so the surrounding form state doesn't
- * need to know about Date objects.
- */
 function DatePicker({ id, value, onChange, placeholder, className, max }: DatePickerProps) {
-  const { i18n } = useTranslation()
   const [open, setOpen] = useState(false)
-  const locale = LOCALES[i18n.language] ?? enUS
+  const locale = useDateFnsLocale()
   const selected = value ? parseIsoDate(value) : undefined
   const maxDate = max ? parseIsoDate(max) : undefined
 
@@ -95,18 +85,10 @@ function DatePicker({ id, value, onChange, placeholder, className, max }: DatePi
 }
 
 function parseIsoDate(iso: string): Date | undefined {
-  // Parse manually so that "2026-05-23" is treated as a local date, not as
-  // UTC midnight (which `new Date("2026-05-23")` would do).
-  const [year, month, day] = iso.split('-').map(Number)
-  if (!year || !month || !day) return undefined
-  return new Date(year, month - 1, day)
+  const parsed = parseISO(iso)
+  return isValid(parsed) ? parsed : undefined
 }
 
-function formatIsoDate(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
+const formatIsoDate = (date: Date): string => format(date, 'yyyy-MM-dd')
 
 export { DatePicker }

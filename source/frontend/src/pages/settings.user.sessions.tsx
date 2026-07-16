@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Link, useRouter } from '@tanstack/react-router'
+import { useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, LogOut } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ import {
 import { useLogout } from '@/lib/user'
 import { formatDateTime } from '@/lib/format'
 import type { SettingsSessionsViewProps } from '@/routes/settings.user.sessions'
+import { SettingsSubPage } from '@/components/settings/settings-section'
 
 export function SettingsSessionsView({ user }: SettingsSessionsViewProps) {
   const { t } = useTranslation()
@@ -62,11 +63,10 @@ export function SettingsSessionsView({ user }: SettingsSessionsViewProps) {
   const otherSessionCount = list.filter((session) => !session.is_current).length
 
   return (
-    <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
-      <header className="flex items-center gap-2">
-        <BackLink />
-        <h1 className="text-foreground text-2xl font-semibold flex-1">{t('settings.sessions')}</h1>
-        {otherSessionCount > 0 ? (
+    <SettingsSubPage
+      title={t('settings.sessions')}
+      headerExtra={
+        otherSessionCount > 0 ? (
           confirming ? (
             <div className="flex gap-2">
               <Button
@@ -99,9 +99,9 @@ export function SettingsSessionsView({ user }: SettingsSessionsViewProps) {
               {t('sessions.signOutEverywhere')}
             </Button>
           )
-        ) : null}
-      </header>
-
+        ) : null
+      }
+    >
       {sessions.isLoading ? (
         <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
       ) : sessions.isError ? (
@@ -122,20 +122,7 @@ export function SettingsSessionsView({ user }: SettingsSessionsViewProps) {
           ))}
         </ul>
       )}
-    </main>
-  )
-}
-
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/settings/user"
-      aria-label={t('common.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
+    </SettingsSubPage>
   )
 }
 

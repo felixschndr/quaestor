@@ -1,15 +1,12 @@
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowUpRight, ChevronLeft } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
+import { BackLink } from '@/components/back-link'
 
 interface Attribution {
-  /** Localised credit text shown as the link content. */
   textKey: string
   href: string
 }
 
-// Single source of truth for the list. Add new entries here as third-party
-// assets are introduced. Each entry is a single clickable credit line.
 const ATTRIBUTIONS: Attribution[] = [
   {
     textKey: 'attributions.text.faviconMoneyIcons',
@@ -78,7 +75,7 @@ export function SettingsAttributionsPage() {
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
-        <BackLink />
+        <BackLink to="/settings" />
         <h1 className="text-foreground text-2xl font-semibold">{t('attributions.title')}</h1>
       </header>
 
@@ -101,18 +98,5 @@ export function SettingsAttributionsPage() {
         ))}
       </ul>
     </main>
-  )
-}
-
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/settings"
-      aria-label={t('common.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
   )
 }

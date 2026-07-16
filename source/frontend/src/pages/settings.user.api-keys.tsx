@@ -1,17 +1,16 @@
 import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronLeft, Copy, Trash2 } from 'lucide-react'
+import { Check, Copy, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { readApiErrorMessage } from '@/lib/apiError'
 import { copyText } from '@/lib/clipboard'
+import { readApiErrorMessage } from '@/lib/apiError'
 import { formatDateTime } from '@/lib/format'
 import {
   useApiKeys,
@@ -20,6 +19,7 @@ import {
   type ApiKeyCreated,
   type ApiKeyRead,
 } from '@/lib/apiKeys'
+import { SettingsSubPage } from '@/components/settings/settings-section'
 
 export function SettingsApiKeysView() {
   const { t } = useTranslation()
@@ -31,12 +31,7 @@ export function SettingsApiKeysView() {
   const sortedList = [...list].sort((a, b) => b.created_at.localeCompare(a.created_at))
 
   return (
-    <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
-      <header className="flex items-center gap-2">
-        <BackLink />
-        <h1 className="text-foreground flex-1 text-2xl font-semibold">{t('apiKeys.title')}</h1>
-      </header>
-
+    <SettingsSubPage title={t('apiKeys.title')}>
       <p className="text-muted-foreground text-sm">{t('apiKeys.description')}</p>
 
       {createdKey ? (
@@ -58,7 +53,7 @@ export function SettingsApiKeysView() {
           ))}
         </ul>
       )}
-    </main>
+    </SettingsSubPage>
   )
 }
 
@@ -215,18 +210,5 @@ function ApiKeyRow({ apiKey }: { apiKey: ApiKeyRead }) {
         )}
       </div>
     </li>
-  )
-}
-
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/settings/user"
-      aria-label={t('common.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
   )
 }

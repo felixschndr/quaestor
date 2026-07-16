@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { AmountInput } from '@/components/ui/amount-input'
@@ -23,12 +23,12 @@ import { useDeleteCredential, useUpdateCredential } from '@/lib/credentials'
 import { useAppSettings } from '@/lib/settings'
 import { formatDecimal, formatEuro, formatRelativeDateTime } from '@/lib/format'
 import type { CredentialDetailViewProps } from '@/routes/settings.credentials.$credentialId'
+import { BackLink } from '@/components/back-link'
+import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
+import { RowActions } from '@/components/row-actions'
 
 const MANUAL_BANK = 'manual'
 
-// Wait this long after the user's last keystroke before auto-saving. Short
-// enough that "save on next focus" feels natural; long enough that we don't
-// fire a PATCH for every character.
 const AUTOSAVE_DEBOUNCE_MS = 600
 
 export function CredentialDetailView({ credential, onDeleted }: CredentialDetailViewProps) {
@@ -41,7 +41,7 @@ export function CredentialDetailView({ credential, onDeleted }: CredentialDetail
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
-        <BackLink />
+        <BackLink to="/settings/credentials" label={t('credentials.detail.backToList')} />
       </header>
 
       {!credential ? (
@@ -55,19 +55,6 @@ export function CredentialDetailView({ credential, onDeleted }: CredentialDetail
         </>
       )}
     </main>
-  )
-}
-
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/settings/credentials"
-      aria-label={t('credentials.detail.backToList')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
   )
 }
 
@@ -334,35 +321,32 @@ function AccountRow({ account, isManual }: { account: AccountRead; isManual: boo
 
   const trimmedDisplay = displayName.trim()
   const normalisedDisplay: string | null = trimmedDisplay.length === 0 ? null : trimmedDisplay
-  const displayNameDirty = normalisedDisplay !== (account.display_name ?? null)
 
-  const hasPendingSave = factorDirty || displayNameDirty
-
-  // Auto-save after the user pauses typing. Cancel & reschedule on every keystroke
-  // so we only fire a single PATCH for a burst of edits.
-  useEffect(() => {
-    if (!hasPendingSave) return
-    const payload: AccountUpdatePayload = {}
-    if (factorDirty) payload.balance_factor = parsed
-    if (displayNameDirty) payload.display_name = normalisedDisplay
-
-    const handle = setTimeout(() => {
-      mutateAsync({ accountId: account.id, ...payload }).then(
+  // Auto-save after the user pauses typing. The composite value is encoded as
+  // JSON so the hook's strict-equality dirty check works on one value.
+  useDebouncedAutoSave({
+    value: JSON.stringify({
+      balance_factor: factorDirty ? parsed : account.balance_factor,
+      display_name: normalisedDisplay,
+    }),
+    remoteValue: JSON.stringify({
+      balance_factor: account.balance_factor,
+      display_name: account.display_name ?? null,
+    }),
+    delayMs: AUTOSAVE_DEBOUNCE_MS,
+    onSave: (encoded: string) => {
+      const next = JSON.parse(encoded) as { balance_factor: number; display_name: string | null }
+      const payload: AccountUpdatePayload = {}
+      if (next.balance_factor !== account.balance_factor)
+        payload.balance_factor = next.balance_factor
+      if (next.display_name !== (account.display_name ?? null))
+        payload.display_name = next.display_name
+      return mutateAsync({ accountId: account.id, ...payload }).then(
         () => toast.success(t('common.saved')),
         () => toast.error(t('credentials.detail.saveFailed')),
       )
-    }, AUTOSAVE_DEBOUNCE_MS)
-    return () => clearTimeout(handle)
-  }, [
-    account.id,
-    factorDirty,
-    displayNameDirty,
-    parsed,
-    normalisedDisplay,
-    hasPendingSave,
-    mutateAsync,
-    t,
-  ])
+    },
+  })
 
   const cardTitle = accountDisplayName(account)
   const cardSubtitle = accountSecondaryName(account)
@@ -498,7 +482,6 @@ function DeleteAccountControls({
   accountName: string
 }) {
   const { t } = useTranslation()
-  const [confirming, setConfirming] = useState(false)
   const remove = useDeleteAccount()
 
   const onConfirm = async () => {
@@ -507,45 +490,29 @@ function DeleteAccountControls({
       toast.success(`${t('credentials.detail.deleteAccountSuccess')}: ${accountName}`)
     } catch {
       toast.error(t('credentials.detail.deleteAccountFailed'))
-      setConfirming(false)
     }
   }
 
   return (
     <div className="flex items-center justify-end gap-2 p-3">
-      {confirming ? (
-        <>
+      <RowActions
+        onDelete={onConfirm}
+        deleting={remove.isPending}
+        confirmLabel={t('credentials.detail.deleteAccountConfirm')}
+        className="gap-2"
+        renderTrigger={(confirm) => (
           <Button
             type="button"
-            variant="destructive"
+            variant="ghost"
             size="sm"
-            onClick={onConfirm}
-            disabled={remove.isPending}
+            onClick={confirm}
+            className="text-destructive hover:text-destructive"
           >
-            {t('credentials.detail.deleteAccountConfirm')}
+            <Trash2 className="size-3.5" aria-hidden="true" />
+            {t('common.deleteAccount')}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setConfirming(false)}
-            disabled={remove.isPending}
-          >
-            {t('common.cancel')}
-          </Button>
-        </>
-      ) : (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setConfirming(true)}
-          className="text-destructive hover:text-destructive"
-        >
-          <Trash2 className="size-3.5" aria-hidden="true" />
-          {t('common.deleteAccount')}
-        </Button>
-      )}
+        )}
+      />
     </div>
   )
 }
@@ -560,7 +527,6 @@ function DangerZone({
   onDeleted: () => void
 }) {
   const { t } = useTranslation()
-  const [confirming, setConfirming] = useState(false)
   const remove = useDeleteCredential()
 
   const onConfirm = async () => {
@@ -570,7 +536,6 @@ function DangerZone({
       onDeleted()
     } catch {
       toast.error(t('credentials.detail.deleteFailed'))
-      setConfirming(false)
     }
   }
 
@@ -580,35 +545,18 @@ function DangerZone({
         {t('common.dangerZone')}
       </h2>
       <p className="text-muted-foreground text-sm">{t('credentials.detail.deleteDescription')}</p>
-      {confirming ? (
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={onConfirm}
-            disabled={remove.isPending}
-          >
-            {t('credentials.detail.deleteConfirm')}
+      <RowActions
+        onDelete={onConfirm}
+        deleting={remove.isPending}
+        confirmLabel={t('credentials.detail.deleteConfirm')}
+        size="default"
+        className="gap-2"
+        renderTrigger={(confirm) => (
+          <Button type="button" variant="destructive" onClick={confirm} className="self-start">
+            {t('credentials.detail.delete')}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setConfirming(false)}
-            disabled={remove.isPending}
-          >
-            {t('common.cancel')}
-          </Button>
-        </div>
-      ) : (
-        <Button
-          type="button"
-          variant="destructive"
-          onClick={() => setConfirming(true)}
-          className="self-start"
-        >
-          {t('credentials.detail.delete')}
-        </Button>
-      )}
+        )}
+      />
     </section>
   )
 }

@@ -1,9 +1,8 @@
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft } from 'lucide-react'
 
 import type { VersionInfo } from '@/lib/version'
 import type { SettingsVersionViewProps } from '@/routes/settings.version'
+import { BackLink } from '@/components/back-link'
 
 export function SettingsVersionView({ versionInfo, isLoading }: SettingsVersionViewProps) {
   const { t } = useTranslation()
@@ -11,7 +10,7 @@ export function SettingsVersionView({ versionInfo, isLoading }: SettingsVersionV
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
-        <BackLink />
+        <BackLink to="/settings" />
         <h1 className="text-foreground text-2xl font-semibold">{t('version.title')}</h1>
       </header>
 
@@ -76,17 +75,4 @@ function StatusLine({
     return <span className="text-destructive font-medium">{t('version.updateAvailable')}</span>
   }
   return <span className="text-success font-medium">{t('version.upToDate')}</span>
-}
-
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/settings"
-      aria-label={t('common.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
-  )
 }

@@ -7,42 +7,13 @@ import '@/i18n'
 import type { TransactionRead } from '@/lib/accountHistory'
 import type { CredentialRead } from '@/lib/auth'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    search,
-    children,
-    ...rest
-  }: {
-    to: string
-    params?: Record<string, string>
-    search?: Record<string, unknown>
-    children: React.ReactNode
-  } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'children'>) => {
-    let href = to
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        href = href.replace(`$${key}`, value)
-      }
-    }
-    if (search) {
-      const qs = new URLSearchParams(
-        Object.entries(search).map(([k, v]) => [k, String(v)]),
-      ).toString()
-      if (qs) href = `${href}?${qs}`
-    }
-    return (
-      <a href={href} {...rest}>
-        {children}
-      </a>
-    )
-  },
-  createFileRoute: () => () => ({}),
-  useNavigate: () => vi.fn(),
-  useRouter: () => ({ history: { back: vi.fn() } }),
-  useCanGoBack: () => false,
-}))
+vi.mock('@tanstack/react-router', async () =>
+  (await import('./-routerMock')).routerMocks({
+    useNavigate: () => vi.fn(),
+    useRouter: () => ({ history: { back: vi.fn() } }),
+    useCanGoBack: () => false,
+  }),
+)
 
 vi.mock('@/lib/accountGroups', () => ({
   useAccountGroupLayout: () => ({ data: undefined }),

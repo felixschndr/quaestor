@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Info } from 'lucide-react'
 
 import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
@@ -9,7 +8,6 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { FormField } from '@/components/form-field'
 import {
@@ -318,7 +316,7 @@ export function ManualTransactionForm({
               <FormField
                 id={`${fieldIdPrefix}-day-of-month`}
                 label={t('credentials.manualTransactions.fieldDayOfMonth')}
-                labelHint={<InfoHint text={t('credentials.manualTransactions.dayOfMonthHint')} />}
+                hint={t('credentials.manualTransactions.dayOfMonthHint')}
               >
                 <SingleSelectPopover
                   id={`${fieldIdPrefix}-day-of-month`}
@@ -384,30 +382,5 @@ export function ManualTransactionForm({
         </Button>
       </div>
     </form>
-  )
-}
-
-function InfoHint({ text }: { text: string }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={text}
-          onMouseEnter={() => setOpen(true)}
-          onMouseLeave={() => setOpen(false)}
-          className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-        >
-          <Info className="size-3.5" aria-hidden="true" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="text-muted-foreground max-w-60 text-xs"
-        onOpenAutoFocus={(event) => event.preventDefault()}
-      >
-        {text}
-      </PopoverContent>
-    </Popover>
   )
 }

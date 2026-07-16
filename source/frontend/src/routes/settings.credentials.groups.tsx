@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft } from 'lucide-react'
+
+import { BackLink } from '@/components/back-link'
 
 import { useAccountGroupLayout } from '@/lib/accountGroups'
 import { useAuthMe } from '@/lib/auth'
@@ -12,6 +13,7 @@ export const Route = createFileRoute('/settings/credentials/groups')({
 })
 
 function GroupsEditorPage() {
+  const { t } = useTranslation()
   const { data: user } = useAuthMe()
   const layoutQuery = useAccountGroupLayout()
   const accountLookup = useMemo(() => buildAccountLookup(user), [user])
@@ -19,35 +21,17 @@ function GroupsEditorPage() {
   if (!user) return null
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
-      <Header />
+      <header className="flex items-center gap-2">
+        <BackLink to="/settings/credentials" />
+        <h1 className="text-foreground flex-1 text-2xl font-semibold">
+          {t('credentials.groups.title')}
+        </h1>
+      </header>
       {layoutQuery.isLoading || !layoutQuery.data ? (
-        <LoadingPlaceholder />
+        <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
       ) : (
         <GroupsEditorView layout={layoutQuery.data} accountLookup={accountLookup} />
       )}
     </main>
   )
-}
-
-function Header() {
-  const { t } = useTranslation()
-  return (
-    <header className="flex items-center gap-2">
-      <Link
-        to="/settings/credentials"
-        aria-label={t('common.back')}
-        className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-      >
-        <ChevronLeft className="size-5" />
-      </Link>
-      <h1 className="text-foreground flex-1 text-2xl font-semibold">
-        {t('credentials.groups.title')}
-      </h1>
-    </header>
-  )
-}
-
-function LoadingPlaceholder() {
-  const { t } = useTranslation()
-  return <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
 }

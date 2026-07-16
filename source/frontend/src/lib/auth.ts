@@ -54,12 +54,14 @@ export const authQueryKeys = {
   passwordRequirements: ['auth', 'password_requirements'] as const,
 }
 
+const meQueryOptions = {
+  queryKey: authQueryKeys.me,
+  queryFn: () => api<UserRead>('/auth/me'),
+  retry: false,
+} as const
+
 export function useAuthMe() {
-  return useQuery({
-    queryKey: authQueryKeys.me,
-    queryFn: () => api<UserRead>('/auth/me'),
-    retry: false,
-  })
+  return useQuery(meQueryOptions)
 }
 
 export function safeNext(next: string | undefined): string {
@@ -75,11 +77,7 @@ export async function ensureAuthenticated(args: {
 }): Promise<void> {
   if (args.pathname === '/login') return
   try {
-    await args.queryClient.ensureQueryData({
-      queryKey: authQueryKeys.me,
-      queryFn: () => api<UserRead>('/auth/me'),
-      retry: false,
-    })
+    await args.queryClient.ensureQueryData(meQueryOptions)
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
       throw redirect({
@@ -96,11 +94,7 @@ export async function redirectIfAuthenticated(args: {
   next: string | undefined
 }): Promise<void> {
   try {
-    await args.queryClient.ensureQueryData({
-      queryKey: authQueryKeys.me,
-      queryFn: () => api<UserRead>('/auth/me'),
-      retry: false,
-    })
+    await args.queryClient.ensureQueryData(meQueryOptions)
   } catch {
     // Not authenticated (401) or backend unreachable --> show the login form.
     return
@@ -194,6 +188,7 @@ export interface UseGlobalSyncResult {
   submit2fa: (code: string) => Promise<void>
   skip2fa: () => void
   succeededAt: number | null
+  failedAt: number | null
 }
 
 const TWO_FACTOR_STATUSES = new Set<SyncJobStatus>(['awaiting_2fa', 'awaiting_decoupled_approval'])
@@ -368,17 +363,8 @@ export function useGlobalSync(): UseGlobalSyncResult {
   return useSyncMachine(startJobs)
 }
 
-export type CredentialSyncStatus = 'idle' | 'starting' | 'running' | 'awaiting_2fa' | 'done'
-
-export interface UseCredentialSyncResult {
-  start: () => void
-  status: CredentialSyncStatus
-  current2fa: Current2FA | null
-  submit2fa: (code: string) => Promise<void>
-  skip2fa: () => void
-  succeededAt: number | null
-  failedAt: number | null
-}
+export type CredentialSyncStatus = GlobalSyncStatus
+export type UseCredentialSyncResult = UseGlobalSyncResult
 
 export function useCredentialSync(credentialId: number): UseCredentialSyncResult {
   const startJobs = useCallback(

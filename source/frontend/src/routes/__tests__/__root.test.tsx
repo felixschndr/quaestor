@@ -3,14 +3,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 
-// __root.tsx imports devtools that pull in the full TanStack Router runtime.
-// Stub the bits we don't need so the route module imports cleanly under jsdom.
 vi.mock('@tanstack/react-router', () => ({
   Outlet: () => null,
   createRootRouteWithContext: () => () => ({}),
 }))
-vi.mock('@tanstack/react-router-devtools', () => ({ TanStackRouterDevtools: () => null }))
-vi.mock('@tanstack/react-query-devtools', () => ({ ReactQueryDevtools: () => null }))
 vi.mock('sonner', () => ({ Toaster: () => null }))
 
 import { LoadingScreen } from '@/routes/__root'

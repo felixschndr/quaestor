@@ -29,12 +29,7 @@ export function writeCollapsed(keys: Set<string>): void {
   window.localStorage?.setItem(STORAGE_KEY, JSON.stringify([...keys]))
 }
 
-export interface CollapsedGroups {
-  isCollapsed: (key: string) => boolean
-  toggle: (key: string) => void
-}
-
-export function useCollapsedGroups(): CollapsedGroups {
+export function useCollapsedGroups() {
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed)
 
   const isCollapsed = useCallback((key: string) => collapsed.has(key), [collapsed])

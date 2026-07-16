@@ -84,24 +84,6 @@ export function ruleSignature(rule: NotificationRule | NotificationRuleDraft): s
   return JSON.stringify({ trigger: rule.trigger, accounts })
 }
 
-const BASE_PATH = '/notification_rules'
-
-function listRules(): Promise<NotificationRule[]> {
-  return api<NotificationRule[]>(BASE_PATH)
-}
-
-function createRule(draft: NotificationRuleDraft): Promise<NotificationRule> {
-  return api<NotificationRule>(BASE_PATH, { method: 'POST', body: draft })
-}
-
-function updateRule(id: number, draft: NotificationRuleDraft): Promise<NotificationRule> {
-  return api<NotificationRule>(`${BASE_PATH}/${id}`, { method: 'PUT', body: draft })
-}
-
-function removeRule(id: number): Promise<void> {
-  return api<void>(`${BASE_PATH}/${id}`, { method: 'DELETE' })
-}
-
 export const notificationRuleQueryKeys = {
   list: ['notification-rules'] as const,
 }
@@ -109,14 +91,15 @@ export const notificationRuleQueryKeys = {
 export function useNotificationRules() {
   return useQuery({
     queryKey: notificationRuleQueryKeys.list,
-    queryFn: listRules,
+    queryFn: () => api<NotificationRule[]>('/notification_rules'),
   })
 }
 
 export function useCreateNotificationRule() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (draft: NotificationRuleDraft) => createRule(draft),
+    mutationFn: (draft: NotificationRuleDraft) =>
+      api<NotificationRule>('/notification_rules', { method: 'POST', body: draft }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: notificationRuleQueryKeys.list }),
   })
 }
@@ -125,7 +108,7 @@ export function useUpdateNotificationRule() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, draft }: { id: number; draft: NotificationRuleDraft }) =>
-      updateRule(id, draft),
+      api<NotificationRule>(`/notification_rules/${id}`, { method: 'PUT', body: draft }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: notificationRuleQueryKeys.list }),
   })
 }
@@ -133,7 +116,7 @@ export function useUpdateNotificationRule() {
 export function useDeleteNotificationRule() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => removeRule(id),
+    mutationFn: (id: number) => api<void>(`/notification_rules/${id}`, { method: 'DELETE' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: notificationRuleQueryKeys.list }),
   })
 }

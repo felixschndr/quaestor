@@ -3,8 +3,8 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
-import { Button } from '@/components/ui/button'
 import { copyText } from '@/lib/clipboard'
+import { Button } from '@/components/ui/button'
 
 const callbackSearchSchema = z.object({
   code: z.string().optional(),

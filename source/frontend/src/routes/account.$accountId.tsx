@@ -1,8 +1,7 @@
 import { useCallback, useEffect } from 'react'
-import { Link, createFileRoute, useLocation } from '@tanstack/react-router'
+import { createFileRoute, useLocation } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { authQueryKeys, useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
@@ -10,6 +9,7 @@ import { findAccountInUser, useAccountHistory, type AccountHistoryPage } from '@
 import { PullToRefresh } from '@/components/pull-to-refresh'
 import { TwoFactorModal } from '@/components/two-factor-modal'
 import { AccountDetailView } from '@/pages/account.$accountId'
+import { BackLink } from '@/components/back-link'
 
 const MANUAL_BANK = 'manual'
 
@@ -118,7 +118,7 @@ function AccountNotFoundView() {
   const { t } = useTranslation()
   return (
     <main className="mx-auto max-w-page p-4">
-      <BackLink />
+      <BackLink to="/" label={t('account.back')} />
       <p className="text-muted-foreground mt-6 text-sm">{t('account.notFound')}</p>
     </main>
   )
@@ -132,34 +132,11 @@ export interface AccountDetailViewProps {
   isFetchingNextPage: boolean
   hasNextPage: boolean
   onLoadMore: () => void
-  /** Overridable for tests so "Today" / "Yesterday" labels are deterministic. */
   today?: Date
-  /** Wired by the page to {@link useCredentialSync}. Omitted = button hidden
-   *  (e.g. manual accounts have no remote sync). */
   onSyncClick?: () => void
   syncDisabled?: boolean
   syncSpinning?: boolean
-  /** Passed straight to the {@link SyncButton}; a fresh Date.now() value
-   *  triggers the green-check zoom animation. */
   syncSucceededAt?: number | null
-  /** When set: load history pages until this transaction is present, then
-   *  smooth-scroll to it and briefly highlight it (deep-link from a counterpart). */
   focusTransactionId?: number
-  /** Unique per navigation. The scroll/highlight one-shot guard is keyed on this
-   *  so re-navigating to the same focus id (e.g. clicking the same linked
-   *  transaction again) re-triggers it, while page loads within one visit don't. */
   focusNavKey?: string
-}
-
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/"
-      aria-label={t('account.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
-  )
 }

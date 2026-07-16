@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
 import { accountQueryKeys } from './accountHistory'
-import { authQueryKeys, type AccountRead } from './auth'
+import { authQueryKeys, type AccountRead, type CredentialRead } from './auth'
 import { formatIban } from './format'
 
 /**
@@ -76,4 +76,12 @@ export function useDeleteAccount() {
       queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     },
   })
+}
+
+export function accountNamesById(credentials: CredentialRead[]): Map<number, string> {
+  const map = new Map<number, string>()
+  for (const credential of credentials) {
+    for (const account of credential.accounts) map.set(account.id, accountDisplayName(account))
+  }
+  return map
 }

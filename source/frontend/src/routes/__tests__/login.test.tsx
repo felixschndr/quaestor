@@ -1,34 +1,12 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
 
 import '@/i18n'
 import { LoginForm, LoginPageContent, RegisterForm } from '@/pages/login'
 import type { PasswordRequirements } from '@/lib/auth'
-
-function renderWithQuery(ui: React.ReactNode) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, gcTime: 0 },
-      mutations: { retry: false },
-    },
-  })
-  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
-}
-
-interface MockResponse {
-  status: number
-  body: unknown
-}
-
-function jsonResponse({ status, body }: MockResponse): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
-}
+import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
 
 const PASSWORD_REQUIREMENTS: PasswordRequirements = {
   min_length: 15,

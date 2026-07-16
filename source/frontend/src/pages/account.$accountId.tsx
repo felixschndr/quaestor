@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronLeft, Copy, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { Check, Copy, Pencil, Plus, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { type AccountRead } from '@/lib/auth'
@@ -29,8 +29,8 @@ import {
   isIban,
   relativeDateKey,
 } from '@/lib/format'
-import { cn } from '@/lib/utils'
 import { copyText } from '@/lib/clipboard'
+import { cn } from '@/lib/utils'
 import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
 import { ManualTransactionForm } from '@/components/manual-transaction-form'
@@ -39,6 +39,8 @@ import { ContractIcon } from '@/components/contract-icon'
 import { StatsIcon } from '@/components/stats-icon'
 import { SyncButton } from '@/components/sync-button'
 import type { AccountDetailViewProps } from '@/routes/account.$accountId'
+import { BackLink } from '@/components/back-link'
+import { RowActions } from '@/components/row-actions'
 
 const MANUAL_BANK = 'manual'
 
@@ -214,7 +216,7 @@ export function AccountDetailView({
       <div ref={stickyHeaderRef} className="bg-background fixed top-0 right-0 left-0 z-20">
         <div className="mx-auto flex w-full max-w-page flex-col gap-4 px-4 pt-4 pb-3">
           <header className="flex items-center justify-between gap-2">
-            <BackLink />
+            <BackLink to="/" label={t('account.back')} />
             {/* translate-y nudge matches the magnifier below: optical alignment
                 with the chevron-shaped back arrow. */}
             <div className="flex translate-y-[6px] items-center gap-1">
@@ -256,25 +258,16 @@ export function AccountDetailView({
 
           <section aria-labelledby="account-balance-label" className="flex flex-col gap-2">
             {personalisedName ? (
-              <>
-                <p className="text-foreground text-xl font-semibold leading-tight">
-                  {personalisedName}
-                </p>
-                <IbanRow
-                  id="account-balance-label"
-                  value={account.name}
-                  lastUpdated={lastUpdated}
-                  today={today}
-                />
-              </>
-            ) : (
-              <IbanRow
-                id="account-balance-label"
-                value={account.name}
-                lastUpdated={lastUpdated}
-                today={today}
-              />
-            )}
+              <p className="text-foreground text-xl font-semibold leading-tight">
+                {personalisedName}
+              </p>
+            ) : null}
+            <IbanRow
+              id="account-balance-label"
+              value={account.name}
+              lastUpdated={lastUpdated}
+              today={today}
+            />
             <BalanceDisplay account={account} isManual={isManual} negative={negative} />
             {isManual ? (
               <div className="flex flex-wrap gap-2">
@@ -460,19 +453,6 @@ function BalanceDisplay({
   )
 }
 
-function BackLink() {
-  const { t } = useTranslation()
-  return (
-    <Link
-      to="/"
-      aria-label={t('account.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
-  )
-}
-
 function TransactionGroupList({
   accountId,
   groups,
@@ -588,7 +568,6 @@ function TransactionRow({
 }) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const remove = useDeleteTransaction(accountId)
 
   const negative = transaction.amount < 0
@@ -663,7 +642,6 @@ function TransactionRow({
       toast.success(t('credentials.manualTransactions.deleted'))
     } catch {
       toast.error(t('credentials.manualTransactions.deleteFailed'))
-      setConfirmingDelete(false)
     }
   }
 
@@ -686,51 +664,7 @@ function TransactionRow({
       >
         {formatEuro(transaction.amount)}
       </span>
-      {confirmingDelete ? (
-        <div className="flex gap-1">
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            onClick={() => void onDelete()}
-            disabled={remove.isPending}
-          >
-            {t('common.deleteConfirm')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setConfirmingDelete(false)}
-            disabled={remove.isPending}
-          >
-            {t('common.cancel')}
-          </Button>
-        </div>
-      ) : (
-        <div className="flex gap-1">
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setEditing(true)}
-            aria-label={t('common.edit')}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Pencil className="size-3.5" aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setConfirmingDelete(true)}
-            aria-label={t('common.delete')}
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 className="size-3.5" aria-hidden="true" />
-          </Button>
-        </div>
-      )}
+      <RowActions onEdit={() => setEditing(true)} onDelete={onDelete} deleting={remove.isPending} />
     </li>
   )
 }
@@ -763,7 +697,6 @@ function RecurringTransactionRow({
   rule: RecurringTransactionRead
 }) {
   const { t } = useTranslation()
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [editing, setEditing] = useState(false)
   const remove = useDeleteRecurringTransaction(accountId)
   const negative = rule.amount < 0
@@ -782,7 +715,6 @@ function RecurringTransactionRow({
       toast.success(t('credentials.manualTransactions.recurringDeleted'))
     } catch {
       toast.error(t('credentials.manualTransactions.recurringDeleteFailed'))
-      setConfirmingDelete(false)
     }
   }
 
@@ -824,51 +756,7 @@ function RecurringTransactionRow({
       >
         {formatEuro(rule.amount)}
       </span>
-      {confirmingDelete ? (
-        <div className="flex gap-1">
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            onClick={() => void onDelete()}
-            disabled={remove.isPending}
-          >
-            {t('common.deleteConfirm')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setConfirmingDelete(false)}
-            disabled={remove.isPending}
-          >
-            {t('common.cancel')}
-          </Button>
-        </div>
-      ) : (
-        <div className="flex gap-1">
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setEditing(true)}
-            aria-label={t('common.edit')}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Pencil className="size-3.5" aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setConfirmingDelete(true)}
-            aria-label={t('common.delete')}
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 className="size-3.5" aria-hidden="true" />
-          </Button>
-        </div>
-      )}
+      <RowActions onEdit={() => setEditing(true)} onDelete={onDelete} deleting={remove.isPending} />
     </li>
   )
 }
@@ -933,7 +821,6 @@ function ExpectedTransactionRow({
   expectation: ExpectedTransactionRead
 }) {
   const { t } = useTranslation()
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [editing, setEditing] = useState(false)
   const remove = useDeleteExpectedTransaction(accountId)
   const negative = expectation.amount < 0
@@ -944,7 +831,6 @@ function ExpectedTransactionRow({
       toast.success(t('expectedTransactions.deleted'))
     } catch {
       toast.error(t('expectedTransactions.deleteFailed'))
-      setConfirmingDelete(false)
     }
   }
 
@@ -978,51 +864,7 @@ function ExpectedTransactionRow({
       >
         {formatEuro(expectation.amount)}
       </span>
-      {confirmingDelete ? (
-        <div className="flex gap-1">
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            onClick={() => void onDelete()}
-            disabled={remove.isPending}
-          >
-            {t('common.deleteConfirm')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setConfirmingDelete(false)}
-            disabled={remove.isPending}
-          >
-            {t('common.cancel')}
-          </Button>
-        </div>
-      ) : (
-        <div className="flex gap-0 sm:gap-1">
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setEditing(true)}
-            aria-label={t('common.edit')}
-            className="text-muted-foreground hover:text-foreground px-1 sm:px-2.5"
-          >
-            <Pencil className="size-3.5" aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setConfirmingDelete(true)}
-            aria-label={t('common.delete')}
-            className="text-muted-foreground hover:text-destructive px-1 sm:px-2.5"
-          >
-            <Trash2 className="size-3.5" aria-hidden="true" />
-          </Button>
-        </div>
-      )}
+      <RowActions onEdit={() => setEditing(true)} onDelete={onDelete} deleting={remove.isPending} />
     </li>
   )
 }

@@ -6,6 +6,7 @@ import { useAuthMe, type CredentialRead } from '@/lib/auth'
 import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from '@/lib/transaction'
 import { type TransactionFilters } from '@/lib/transactionSearch'
 import { TransactionSearchView } from '@/pages/account.$accountId_.search'
+import { oneOrMany } from '@/lib/searchParams'
 
 const searchParamsSchema = z.object({
   text: z.string().optional(),
@@ -13,19 +14,10 @@ const searchParamsSchema = z.object({
   amount_to: z.coerce.number().optional(),
   date_from: z.string().optional(),
   date_to: z.string().optional(),
-  transaction_types: z
-    .union([z.enum(TRANSACTION_TYPES), z.array(z.enum(TRANSACTION_TYPES))])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional(),
-  categories: z
-    .union([z.enum(TRANSACTION_CATEGORIES), z.array(z.enum(TRANSACTION_CATEGORIES))])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional(),
+  transaction_types: oneOrMany(z.enum(TRANSACTION_TYPES)).optional(),
+  categories: oneOrMany(z.enum(TRANSACTION_CATEGORIES)).optional(),
   linked: z.enum(['linked', 'unlinked']).optional(),
-  account_ids: z
-    .union([z.array(z.coerce.number()), z.coerce.number()])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional(),
+  account_ids: oneOrMany(z.coerce.number()).optional(),
   link_account_id: z.coerce.number().optional(),
   link_transaction_id: z.coerce.number().optional(),
 })

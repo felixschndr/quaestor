@@ -1,6 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
 
@@ -22,6 +21,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 import { CredentialDetailView } from '@/pages/settings.credentials.$credentialId'
 import type { AccountRead, CredentialRead } from '@/lib/auth'
+import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
 
 function buildAccount(overrides: Partial<AccountRead> = {}): AccountRead {
   return {
@@ -49,30 +49,8 @@ function buildCredential(overrides: Partial<CredentialRead> = {}): CredentialRea
   }
 }
 
-interface MockResponse {
-  status: number
-  body?: unknown
-}
-
-function jsonResponse({ status, body }: MockResponse): Response {
-  return new Response(body !== undefined ? JSON.stringify(body) : null, {
-    status,
-    headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
-  })
-}
-
 function mutatingFetchCalls(fetchMock: Mock) {
   return fetchMock.mock.calls.filter(([, init]) => init?.method && init.method !== 'GET')
-}
-
-function renderWithQuery(ui: React.ReactNode) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, gcTime: 0 },
-      mutations: { retry: false },
-    },
-  })
-  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
 }
 
 beforeEach(() => {

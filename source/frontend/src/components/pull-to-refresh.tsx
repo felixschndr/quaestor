@@ -1,26 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { RotateCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
-
-function CircularArrow({ className, style }: { className?: string; style?: CSSProperties }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-      style={style}
-    >
-      <path d="M16.02 6.27 A7 7 0 1 1 7.98 6.27" />
-      <path d="M4.78 6.27 L7.98 6.27 L6.89 9.28" />
-    </svg>
-  )
-}
 
 const PULL_TO_TRIGGER_PX = 130
 const MAX_PULL_PX = 160
@@ -151,8 +133,8 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
           }}
         >
           <span className="bg-card border-border text-primary flex size-9 items-center justify-center rounded-full border shadow-sm">
-            {/* Winds up as the user pulls, then spins continuously while refreshing. */}
-            <CircularArrow
+            <RotateCw
+              aria-hidden="true"
               className={cn('size-5', refreshing && 'animate-spin')}
               style={refreshing ? undefined : { transform: `rotate(${spin}deg)` }}
             />

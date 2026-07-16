@@ -1,9 +1,8 @@
-import { forwardRef, useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useTranslation } from 'react-i18next'
-import { Check, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,19 +12,13 @@ import { Switch } from '@/components/ui/switch'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { TwoFactorSetup } from '@/components/two-factor-setup'
 import { ApiError } from '@/lib/api'
-import {
-  evaluatePassword,
-  safeNext,
-  useLogin,
-  usePasswordRequirements,
-  useRegister,
-  type PasswordRequirements,
-  type Theme,
-} from '@/lib/auth'
+import { safeNext, useLogin, usePasswordRequirements, useRegister, type Theme } from '@/lib/auth'
 import { useAppSettings } from '@/lib/settings'
 import { useVerifyTwoFactorLogin } from '@/lib/twoFactor'
 import { applyTheme, readStoredTheme, THEME_VALUES } from '@/lib/theme'
 import { cn } from '@/lib/utils'
+import { FieldRow } from '@/components/settings/settings-section'
+import { PasswordRequirementsList } from '@/components/password-requirements-list'
 
 type Mode = 'login' | 'register'
 
@@ -38,6 +31,7 @@ export function LoginPageContent({
 }) {
   const { t } = useTranslation()
   const [mode, setMode] = useState<Mode>('login')
+  const [inTwoFactorStep, setInTwoFactorStep] = useState(false)
   const { data: settings } = useAppSettings()
 
   const handleSuccess = () => {
@@ -48,21 +42,23 @@ export function LoginPageContent({
     <main className="mx-auto flex min-h-full max-w-sm flex-col gap-6 p-6">
       <h1 className="text-foreground text-2xl font-semibold">Quaestor</h1>
 
-      <div role="tablist" aria-label="Authentication mode" className="bg-muted flex rounded-md p-1">
-        <ModeButton mode="login" active={mode === 'login'} onClick={() => setMode('login')}>
-          {t('login.loginTab')}
-        </ModeButton>
-        <ModeButton
-          mode="register"
-          active={mode === 'register'}
-          onClick={() => setMode('register')}
+      {inTwoFactorStep ? null : (
+        <div
+          role="tablist"
+          aria-label="Authentication mode"
+          className="bg-muted flex rounded-md p-1"
         >
-          {t('login.registerTab')}
-        </ModeButton>
-      </div>
+          <ModeButton active={mode === 'login'} onClick={() => setMode('login')}>
+            {t('login.loginTab')}
+          </ModeButton>
+          <ModeButton active={mode === 'register'} onClick={() => setMode('register')}>
+            {t('login.registerTab')}
+          </ModeButton>
+        </div>
+      )}
 
       {mode === 'login' ? (
-        <LoginForm onSuccess={handleSuccess} />
+        <LoginForm onSuccess={handleSuccess} onTwoFactorStepChange={setInTwoFactorStep} />
       ) : settings?.allow_new_user_registration === false ? (
         <p role="status" className="text-muted-foreground text-sm">
           {t('login.registrationDisabled')}
@@ -75,12 +71,10 @@ export function LoginPageContent({
 }
 
 function ModeButton({
-  mode,
   active,
   onClick,
   children,
 }: {
-  mode: Mode
   active: boolean
   onClick: () => void
   children: React.ReactNode
@@ -90,7 +84,6 @@ function ModeButton({
       type="button"
       role="tab"
       aria-selected={active}
-      data-mode={mode}
       onClick={onClick}
       className={cn(
         'flex-1 cursor-pointer rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
@@ -123,7 +116,13 @@ interface PendingChallenge {
   rememberMe: boolean
 }
 
-export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
+export function LoginForm({
+  onSuccess,
+  onTwoFactorStepChange,
+}: {
+  onSuccess: () => void
+  onTwoFactorStepChange?: (active: boolean) => void
+}) {
   const { t } = useTranslation()
   const login = useLogin()
   const [challenge, setChallenge] = useState<PendingChallenge | null>(null)
@@ -138,6 +137,7 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
       const result = await login.mutateAsync(values)
       if (result.kind === 'two_factor_required') {
         setChallenge({ challengeToken: result.challenge_token, rememberMe: values.remember_me })
+        onTwoFactorStepChange?.(true)
         return
       }
       onSuccess()
@@ -154,21 +154,24 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
         challengeToken={challenge.challengeToken}
         rememberMe={challenge.rememberMe}
         onSuccess={onSuccess}
-        onBack={() => setChallenge(null)}
+        onBack={() => {
+          setChallenge(null)
+          onTwoFactorStepChange?.(false)
+        }}
       />
     )
   }
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-      <Field
+      <FieldRow
         id="login-user-name"
         label={t('common.username')}
         autoComplete="username"
         error={form.formState.errors.user_name?.message}
         {...form.register('user_name')}
       />
-      <Field
+      <FieldRow
         id="login-password"
         type="password"
         label={t('common.password')}
@@ -349,21 +352,21 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-      <Field
+      <FieldRow
         id="register-user-name"
         label={t('common.username')}
         autoComplete="username"
         error={form.formState.errors.user_name?.message}
         {...form.register('user_name')}
       />
-      <Field
+      <FieldRow
         id="register-display-name"
         label={t('common.displayName')}
         autoComplete="name"
         error={form.formState.errors.display_name?.message}
         {...form.register('display_name')}
       />
-      <Field
+      <FieldRow
         id="register-password"
         type="password"
         label={t('common.password')}
@@ -372,7 +375,7 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
         {...form.register('password')}
       />
       <PasswordRequirementsList password={password} requirements={passwordRequirements} />
-      <Field
+      <FieldRow
         id="register-password-confirm"
         type="password"
         label={t('login.passwordConfirm')}
@@ -421,78 +424,11 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
   )
 }
 
-interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  id: string
-  label: string
-  error?: string
-}
-
-const Field = forwardRef<HTMLInputElement, FieldProps>(({ id, label, error, ...rest }, ref) => (
-  <div className="flex flex-col gap-1.5">
-    <Label htmlFor={id}>{label}</Label>
-    <Input
-      id={id}
-      ref={ref}
-      aria-invalid={error ? true : undefined}
-      aria-describedby={error ? `${id}-error` : undefined}
-      {...rest}
-    />
-    {error ? (
-      <p id={`${id}-error`} role="alert" className="text-destructive text-xs">
-        {error}
-      </p>
-    ) : null}
-  </div>
-))
-Field.displayName = 'Field'
-
 function FormErrorBanner({ message }: { message: string }) {
   return (
     <p role="alert" className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">
       {message}
     </p>
-  )
-}
-
-function PasswordRequirementsList({
-  password,
-  requirements,
-}: {
-  password: string
-  requirements: PasswordRequirements | undefined
-}) {
-  const { t } = useTranslation()
-  if (!requirements) return null
-  const { unmetRuleNames, tooShort } = evaluatePassword(password, requirements)
-  const items: { key: string; ok: boolean; label: string }[] = [
-    {
-      key: 'min_length',
-      ok: !tooShort,
-      label: t('login.passwordRuleMinLength', { count: requirements.min_length }),
-    },
-    ...requirements.rules.map((rule) => ({
-      key: rule.name,
-      ok: !unmetRuleNames.includes(rule.name),
-      // Use the backend description as fallback so a new rule we haven't translated
-      // yet still renders something useful in the UI.
-      label: t(`login.passwordRule.${rule.name}`, { defaultValue: rule.description }),
-    })),
-  ]
-  return (
-    <ul aria-label={t('login.passwordRules')} className="flex flex-col gap-1 text-xs">
-      {items.map((item) => (
-        <li
-          key={item.key}
-          className={cn(
-            'flex items-center gap-1.5',
-            item.ok ? 'text-success' : 'text-muted-foreground',
-          )}
-        >
-          {item.ok ? <Check className="size-3.5" /> : <X className="size-3.5" />}
-          {item.label}
-        </li>
-      ))}
-    </ul>
   )
 }
 

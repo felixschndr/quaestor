@@ -6,39 +6,7 @@ import '@/i18n'
 import { selectFromPopover } from '@/test/popover-select'
 import type { TransactionDetailRead, TransactionRead } from '@/lib/accountHistory'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    search,
-    children,
-    ...rest
-  }: {
-    to: string
-    params?: Record<string, string>
-    search?: Record<string, unknown>
-    children: React.ReactNode
-  } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'children'>) => {
-    let href = to
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        href = href.replace(`$${key}`, value)
-      }
-    }
-    if (search) {
-      const qs = new URLSearchParams(
-        Object.entries(search).map(([k, v]) => [k, String(v)]),
-      ).toString()
-      if (qs) href = `${href}?${qs}`
-    }
-    return (
-      <a href={href} {...rest}>
-        {children}
-      </a>
-    )
-  },
-  createFileRoute: () => () => ({}),
-}))
+vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
 import {
   TransactionDetailView,

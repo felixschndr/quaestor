@@ -29,10 +29,10 @@ export function buildUser(overrides: Partial<UserRead> = {}): UserRead {
   }
 }
 
-export function jsonResponse({ status, body }: { status: number; body: unknown }): Response {
-  return new Response(JSON.stringify(body), {
+export function jsonResponse({ status, body }: { status: number; body?: unknown }): Response {
+  return new Response(body !== undefined ? JSON.stringify(body) : null, {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
   })
 }
 

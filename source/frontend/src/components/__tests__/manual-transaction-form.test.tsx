@@ -134,12 +134,12 @@ describe('ManualTransactionForm — recurring', () => {
     expect(within(list).getByRole('button', { name: '05' })).toBeInTheDocument()
   })
 
-  it('offers an info hint about month-end clamping next to the day-of-month field', async () => {
+  it('shows a hint about month-end clamping below the day-of-month field', async () => {
     const user = userEvent.setup()
     renderForm()
 
     await user.click(screen.getByRole('switch', { name: 'Recurring' }))
-    expect(screen.getByRole('button', { name: /last day of that month/ })).toBeInTheDocument()
+    expect(screen.getByText(/last day of that month/)).toBeInTheDocument()
   })
 
   it('edits an existing recurring rule via PATCH, pre-filled and without a date field', async () => {

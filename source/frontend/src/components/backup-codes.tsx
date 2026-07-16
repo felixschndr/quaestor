@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, Copy, Download } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { copyText } from '@/lib/clipboard'
+import { Button } from '@/components/ui/button'
 
 export interface BackupCodesProps {
   codes: string[]

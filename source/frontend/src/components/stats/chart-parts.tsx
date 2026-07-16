@@ -6,10 +6,6 @@ import { formatEuro } from '@/lib/format'
 // value fits inside its bar.
 const APPROX_CHAR_WIDTH = 6.5
 
-// Left edge shared by every axis label so all charts line up with the card
-// title/icon (which sits at the content-left edge). 0 = flush with the icon.
-export const AXIS_LABEL_LEFT = 0
-
 // Width reserved for the drill-arrow axis. The chevron right-anchors to this
 // band's right edge, so with the chart's right margin at 0 it lands flush
 // against the card's content edge — as far right as the padding allows, with no
@@ -23,24 +19,9 @@ export interface BarValueLabelProps {
   width?: number
   height?: number
   value?: number
-  /** Text color when the label sits inside the (colored) bar. Outside labels
-   *  always use the foreground color since they're drawn on the card. */
-  insideFill?: string
 }
 
-/**
- * Value label for a horizontal bar: rendered inside the bar when it's wide
- * enough, otherwise just to its right — so short bars don't overlap whatever is
- * to their left.
- */
-export function BarValueLabel({
-  x = 0,
-  y = 0,
-  width = 0,
-  height = 0,
-  value,
-  insideFill = 'var(--color-foreground)',
-}: BarValueLabelProps) {
+export function BarValueLabel({ x = 0, y = 0, width = 0, height = 0, value }: BarValueLabelProps) {
   if (value == null) return null
   const text = formatEuro(value)
   const fitsInside = width >= text.length * APPROX_CHAR_WIDTH + 10
@@ -52,7 +33,7 @@ export function BarValueLabel({
       textAnchor={fitsInside ? 'end' : 'start'}
       fontSize={11}
       fontWeight={600}
-      fill={fitsInside ? insideFill : 'var(--color-foreground)'}
+      fill="var(--color-foreground)"
     >
       {text}
     </text>
@@ -107,7 +88,9 @@ export function ToggleTick({
   const isHidden = hidden.has(key)
   return (
     <text
-      x={AXIS_LABEL_LEFT}
+      // Left edge shared by every axis label so all charts line up with the card
+      // title/icon (which sits at the content-left edge). 0 = flush with the icon.
+      x={0}
       y={y}
       dy="0.32em"
       textAnchor="start"

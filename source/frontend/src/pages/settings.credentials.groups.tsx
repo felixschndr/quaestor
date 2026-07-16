@@ -34,7 +34,11 @@ import {
 import { accountDisplayName, useUpdateAccount } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
 import { cn } from '@/lib/utils'
-import type { AccountRead, UserRead } from '@/lib/auth'
+import type { UserRead } from '@/lib/auth'
+import {
+  buildAccountLookup as buildLibAccountLookup,
+  type AccountWithBank,
+} from '@/lib/accountDisplayGroups'
 
 // Stable id namespaces so dnd-kit can tell account items, account drop
 // containers, and sortable group sections apart in a single DndContext.
@@ -49,28 +53,10 @@ const groupSortableId = (groupId: number): string => `group-${groupId}`
 const groupIdFromSortableId = (sortableId: string): number =>
   Number(sortableId.replace('group-', ''))
 
-interface AccountWithBank extends AccountRead {
-  bank: string
-  bankName: string | null
-  bankIcon: string | null
-}
-
 type AccountLookup = Map<number, AccountWithBank>
 
 export function buildAccountLookup(user: UserRead | undefined): AccountLookup {
-  const map: AccountLookup = new Map()
-  if (!user) return map
-  for (const credential of user.credentials) {
-    for (const account of credential.accounts) {
-      map.set(account.id, {
-        ...account,
-        bank: credential.bank,
-        bankName: credential.bank_name,
-        bankIcon: credential.bank_icon,
-      })
-    }
-  }
-  return map
+  return user ? buildLibAccountLookup(user) : new Map()
 }
 
 export interface GroupsEditorViewProps {
@@ -214,7 +200,7 @@ export function GroupsEditorView({ layout, accountLookup }: GroupsEditorViewProp
     })
   }
 
-  const accountCount = Array.from(accountLookup.values()).length
+  const accountCount = accountLookup.size
   if (accountCount === 0) {
     return (
       <div className="flex flex-col gap-3">
@@ -687,22 +673,7 @@ function toWritePayload(layout: AccountGroupLayout): AccountGroupLayoutWrite {
 }
 
 function sameLayout(a: AccountGroupLayout, b: AccountGroupLayout): boolean {
-  if (a.groups.length !== b.groups.length) return false
-  if (a.ungrouped.length !== b.ungrouped.length) return false
-  for (let i = 0; i < a.groups.length; i++) {
-    const ga = a.groups[i]
-    const gb = b.groups[i]
-    if (ga.id !== gb.id) return false
-    if (ga.name !== gb.name) return false
-    if (ga.accounts.length !== gb.accounts.length) return false
-    for (let j = 0; j < ga.accounts.length; j++) {
-      if (ga.accounts[j].id !== gb.accounts[j].id) return false
-    }
-  }
-  for (let i = 0; i < a.ungrouped.length; i++) {
-    if (a.ungrouped[i].id !== b.ungrouped[i].id) return false
-  }
-  return true
+  return JSON.stringify(toWritePayload(a)) === JSON.stringify(toWritePayload(b))
 }
 
 // Re-export for tests so they can verify the pure logic without DnD setup.

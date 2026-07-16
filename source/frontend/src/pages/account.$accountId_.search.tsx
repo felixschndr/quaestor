@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useCanGoBack, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeftRight, ChevronLeft } from 'lucide-react'
+import { ArrowLeftRight } from 'lucide-react'
 
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
 import { AmountRangeFields } from '@/components/ui/amount-range-fields'
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { TransactionFilterFields } from '@/components/ui/transaction-filter-fields'
 import type { TransactionRead } from '@/lib/accountHistory'
-import { accountDisplayName } from '@/lib/accounts'
+import { accountNamesById } from '@/lib/accounts'
 import { type CredentialRead } from '@/lib/auth'
 import { formatDate, formatEuro, formatIban } from '@/lib/format'
 import { CategoryAvatar } from '@/lib/categoryIcons'
@@ -23,6 +23,7 @@ import type {
   TransactionSearchParams,
   TransactionSearchViewProps,
 } from '@/routes/account.$accountId_.search'
+import { BackLink } from '@/components/back-link'
 
 export function TransactionSearchView({
   anchorAccountId,
@@ -56,7 +57,7 @@ export function TransactionSearchView({
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
-        <BackLink accountId={anchorAccountId} />
+        <HistoryBackLink accountId={anchorAccountId} />
         <h1 className="text-foreground text-lg font-semibold">{t('search.title')}</h1>
       </header>
 
@@ -87,12 +88,11 @@ export function TransactionSearchView({
   )
 }
 
-function BackLink({ accountId }: { accountId: number }) {
-  const { t } = useTranslation()
+function HistoryBackLink({ accountId }: { accountId: number }) {
   const router = useRouter()
   const canGoBack = useCanGoBack()
   return (
-    <Link
+    <BackLink
       to="/account/$accountId"
       params={{ accountId: String(accountId) }}
       onClick={(event) => {
@@ -101,11 +101,7 @@ function BackLink({ accountId }: { accountId: number }) {
           router.history.back()
         }
       }}
-      aria-label={t('common.back')}
-      className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-    >
-      <ChevronLeft className="size-5" />
-    </Link>
+    />
   )
 }
 
@@ -224,16 +220,8 @@ function SearchResults({
   const { t } = useTranslation()
   const query = useSearchTransactions(accountIds, filters)
   const [sort, setSort] = useState<SortKey>('date_desc')
-  // Only show the per-row account label when the search spans more than
-  // one account — otherwise it'd be redundant.
   const showAccountLabel = accountIds.length > 1
-  const accountNameById = useMemo(() => {
-    const map = new Map<number, string>()
-    for (const credential of credentials) {
-      for (const account of credential.accounts) map.set(account.id, accountDisplayName(account))
-    }
-    return map
-  }, [credentials])
+  const accountNameById = useMemo(() => accountNamesById(credentials), [credentials])
   const results = useMemo(() => {
     const sorted = [...(query.data ?? [])].sort(SORT_COMPARATORS[sort])
     if (!linkSource) return sorted
@@ -341,14 +329,6 @@ function ResultRow({
 }
 
 function toFilters(search: TransactionSearchParams): TransactionFilters {
-  const {
-    account_ids: _accountIds,
-    link_account_id: _linkAccountId,
-    link_transaction_id: _linkTransactionId,
-    ...filters
-  } = search
-  void _accountIds
-  void _linkAccountId
-  void _linkTransactionId
+  const { account_ids, link_account_id, link_transaction_id, ...filters } = search
   return filters
 }

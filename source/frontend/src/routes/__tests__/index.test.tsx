@@ -6,64 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/i18n'
 import type { UserRead } from '@/lib/auth'
 
-// TanStack Router's <Link> needs a router context, which is more setup than
-// this test needs. Replace it with a plain anchor so we can assert on href.
-// Also stub createFileRoute so importing the route module doesn't try to wire
-// itself into a real route tree at import time.
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    search,
-    children,
-    ...rest
-  }: {
-    to: string
-    params?: Record<string, string>
-    search?: Record<string, unknown>
-    children: React.ReactNode
-  } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'children'>) => {
-    let href = to
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        href = href.replace(`$${key}`, value)
-      }
-    }
-    if (search) {
-      const query = new URLSearchParams()
-      for (const [key, value] of Object.entries(search)) {
-        for (const item of Array.isArray(value) ? value : [value]) {
-          query.append(key, String(item))
-        }
-      }
-      const queryString = query.toString()
-      if (queryString) href = `${href}?${queryString}`
-    }
-    return (
-      <a href={href} {...rest}>
-        {children}
-      </a>
-    )
-  },
-  createFileRoute: () => () => ({}),
-}))
+vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
 import { OverviewView } from '@/pages'
 import { sumFactoredBalance } from '@/lib/accountDisplayGroups'
-
-function buildUser(overrides: Partial<UserRead> = {}): UserRead {
-  return {
-    id: 1,
-    user_name: 'alice',
-    display_name: 'Alice',
-    language: 'en',
-    theme: 'SYSTEM',
-    two_factor_enabled: false,
-    balance: 0,
-    credentials: [],
-    ...overrides,
-  }
-}
+import { buildUser } from './-settingsUserTestHelpers'
 
 function render_(user: UserRead) {
   const queryClient = new QueryClient({

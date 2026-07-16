@@ -33,27 +33,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { oneOrMany } from '@/lib/searchParams'
 
-const numberList = z
-  .union([z.array(z.coerce.number()), z.coerce.number()])
-  .transform((value) => (Array.isArray(value) ? value : [value]))
+const numberList = oneOrMany(z.coerce.number())
 
 const contractFiltersSchema = z.object({
   account_ids: numberList.optional(),
   amount_from: z.coerce.number().optional(),
   amount_to: z.coerce.number().optional(),
-  categories: z
-    .union([z.enum(TRANSACTION_CATEGORIES), z.array(z.enum(TRANSACTION_CATEGORIES))])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional(),
-  frequencies: z
-    .union([z.enum(CONTRACT_FREQUENCY_FILTERS), z.array(z.enum(CONTRACT_FREQUENCY_FILTERS))])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional(),
-  overdue: z
-    .union([z.boolean(), z.literal('true'), z.literal('false')])
-    .transform((value) => value === true || value === 'true')
-    .optional(),
+  categories: oneOrMany(z.enum(TRANSACTION_CATEGORIES)).optional(),
+  frequencies: oneOrMany(z.enum(CONTRACT_FREQUENCY_FILTERS)).optional(),
+  overdue: z.boolean().or(z.stringbool()).optional(),
 })
 
 export const Route = createFileRoute('/contracts')({
