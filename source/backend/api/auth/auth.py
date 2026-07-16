@@ -35,14 +35,6 @@ router = create_router()
 logger = get_logger(__name__)
 
 
-def _get_client_ip(request: Request) -> str | None:
-    return request.client.host if request.client else None
-
-
-def _get_client_user_agent(request: Request) -> str | None:
-    return request.headers.get("user-agent")
-
-
 @router.post("/register", response_model=UserRead, status_code=201)
 def register(
     payload: UserCreate, request: Request, response: Response, db_session: Session = Depends(get_session)
@@ -109,8 +101,8 @@ def _start_session(request: Request, response: Response, db_session: Session, us
         db_session=db_session,
         user=user,
         remember_me=remember_me,
-        ip=_get_client_ip(request),
-        user_agent=_get_client_user_agent(request),
+        ip=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
     )
     session_service.set_session_cookie(response=response, raw_token=raw_token, remember_me=remember_me)
 

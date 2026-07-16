@@ -7,16 +7,12 @@ class TwoFactorSetupRead(BaseModel):
     qr_code: str  # SVG data URI, ready to drop into an <img src>
 
 
-class TwoFactorEnableRequest(BaseModel):
+class TwoFactorCodeRequest(BaseModel):
     code: str
 
 
 class BackupCodesRead(BaseModel):
     backup_codes: list[str]
-
-
-class TwoFactorDisableRequest(BaseModel):
-    code: str
 
 
 class TwoFactorRequired(BaseModel):

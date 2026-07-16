@@ -5,18 +5,13 @@ from source.backend.api.core.create_router import create_router
 from source.backend.api.schemas.auth.session import SessionRead
 from source.backend.api.schemas.auth.two_factor import (
     BackupCodesRead,
-    TwoFactorDisableRequest,
-    TwoFactorEnableRequest,
+    TwoFactorCodeRequest,
     TwoFactorSetupRead,
 )
 from source.backend.api.schemas.auth.user import UserRead, UserUpdate
 from source.backend.api.schemas.banking.credential import SyncJobRead
 from source.backend.db import get_session
-from source.backend.exceptions import (
-    InvalidCredentialsError,
-    UserNotFoundError,
-    ValidationError,
-)
+from source.backend.exceptions import InvalidCredentialsError, UserNotFoundError
 from source.backend.models.auth.user import User
 from source.backend.services.auth import (
     session_service,
@@ -55,16 +50,10 @@ def list_user_sessions(
 def revoke_all_other_user_sessions(
     user_id: int,
     request: Request,
-    exclude_current: bool = False,
     current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
 ) -> None:
     _require_self(user_id=user_id, current_user=current_user)
-    if not exclude_current:
-        raise ValidationError(
-            "This endpoint only supports exclude_current=true; "
-            "use DELETE /api/users/{id}/sessions/{session_id} or POST /api/auth/logout for other cases"
-        )
     session_service.revoke_all_other_sessions_for_user(
         db_session=db_session,
         user=current_user,
@@ -129,7 +118,7 @@ def setup_two_factor(
 @router.post("/{user_id}/2fa/enable", response_model=BackupCodesRead)
 def enable_two_factor(
     user_id: int,
-    payload: TwoFactorEnableRequest,
+    payload: TwoFactorCodeRequest,
     request: Request,
     current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
@@ -147,7 +136,7 @@ def enable_two_factor(
 @router.post("/{user_id}/2fa/disable", status_code=204)
 def disable_two_factor(
     user_id: int,
-    payload: TwoFactorDisableRequest,
+    payload: TwoFactorCodeRequest,
     current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
 ) -> None:

@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 
+StatisticsLinked = Literal["linked", "unlinked"]
+
 
 class TransactionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -63,9 +65,8 @@ class TransactionSearchQuery(BaseModel):
     transaction_types: list[TransactionType] = Field(default_factory=list)
     categories: list[TransactionCategory] = Field(default_factory=list)
     note: str | None = None
-    # "linked" = transaction is part of a transfer (has a counterpart),
-    # "unlinked" = no counterpart. Missing means "no filter".
-    linked: Literal["linked", "unlinked"] | None = None
+    # Missing means "no filter".
+    linked: StatisticsLinked | None = None
 
     def to_filter_parameters(self) -> dict:
         data = self.model_dump(exclude={"account_ids"})

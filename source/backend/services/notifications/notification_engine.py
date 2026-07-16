@@ -203,43 +203,31 @@ def _notifications_for_rule(
     balance_before: float,
     language: str,
 ) -> list[Notification]:
-    if rule.trigger is NotificationTrigger.EXPECTED_TRANSACTION:
+    # Literal keys, not f-strings: scripts/checks/check_i18n.py greps for them.
+    transaction_message_keys = {
+        NotificationTrigger.EXPECTED_TRANSACTION: {
+            "title": "expected_transaction.title",
+            "body": "expected_transaction.body",
+            "body_minimal": "expected_transaction.body_minimal",
+        },
+        NotificationTrigger.TRANSACTION: {
+            "title": "transaction.title",
+            "body": "transaction.body",
+            "body_minimal": "transaction.body_minimal",
+        },
+    }
+    if rule.trigger in transaction_message_keys:
+        keys = transaction_message_keys[rule.trigger]
+        is_expected = rule.trigger is NotificationTrigger.EXPECTED_TRANSACTION
+        candidates = booked_expected_transactions if is_expected else new_transactions
         notifications = []
-        for transaction in booked_expected_transactions:
-            if rule.include_content:
-                body = notification_messages.translate(
-                    language,
-                    key="expected_transaction.body",
-                    account=account.display_label,
-                    amount=format_amount(transaction.amount),
-                )
-                if transaction.other_party:
-                    body += f" · {transaction.other_party}"
-            else:
-                body = notification_messages.translate(
-                    language, key="expected_transaction.body_minimal", account=account.display_label
-                )
-            notifications.append(
-                _build_notification(
-                    rule=rule,
-                    account=account,
-                    default_title=notification_messages.translate(language, key="expected_transaction.title"),
-                    body=body,
-                )
-            )
-        if notifications:
-            logger.debug(f"{rule}: {len(notifications)} expected transaction(s) booked on {account}")
-        return notifications
-
-    if rule.trigger is NotificationTrigger.TRANSACTION:
-        notifications = []
-        for transaction in new_transactions:
-            if not _transaction_matches(rule=rule, transaction=transaction):
+        for transaction in candidates:
+            if not is_expected and not _transaction_matches(rule=rule, transaction=transaction):
                 continue
             if rule.include_content:
                 body = notification_messages.translate(
                     language,
-                    key="transaction.body",
+                    key=keys["body"],
                     account=account.display_label,
                     amount=format_amount(transaction.amount),
                 )
@@ -247,17 +235,17 @@ def _notifications_for_rule(
                     body += f" · {transaction.other_party}"
             else:
                 body = notification_messages.translate(
-                    language, key="transaction.body_minimal", account=account.display_label
+                    language, key=keys["body_minimal"], account=account.display_label
                 )
             notifications.append(
                 _build_notification(
                     rule=rule,
                     account=account,
-                    default_title=notification_messages.translate(language, key="transaction.title"),
+                    default_title=notification_messages.translate(language, key=keys["title"]),
                     body=body,
                 )
             )
-        logger.debug(f"{rule}: matched {len(notifications)}/{len(new_transactions)} new transaction(s) on {account}")
+        logger.debug(f"{rule}: matched {len(notifications)}/{len(candidates)} transaction(s) on {account}")
         return notifications
 
     if rule.trigger is NotificationTrigger.BALANCE_THRESHOLD:

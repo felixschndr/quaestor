@@ -12,4 +12,4 @@ class SupportedLanguages(BaseModel):
 
 @router.get("/languages", response_model=SupportedLanguages)
 def list_languages() -> SupportedLanguages:
-    return SupportedLanguages(languages=i18n_service.list_supported_languages())
+    return SupportedLanguages(languages=list(i18n_service.SUPPORTED_LANGUAGES))

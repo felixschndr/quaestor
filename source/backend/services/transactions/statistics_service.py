@@ -110,43 +110,6 @@ def category_breakdown(
     return slices
 
 
-def _monthly_cashflow(
-    db_session: Session,
-    account_ids: list[int],
-    date_from: datetime.date | None,
-    date_to: datetime.date | None,
-    categories: list[TransactionCategory],
-    transaction_types: list[TransactionType] | None = None,
-    linked: StatisticsLinked | None = None,
-) -> list[MonthlyCashflow]:
-    month = func.strftime("%Y-%m", Transaction.date)  # noqa: FKA100
-    income = func.sum(case((Transaction.amount > 0, Transaction.amount), else_=0.0))
-    expenses = func.sum(case((Transaction.amount < 0, -Transaction.amount), else_=0.0))
-    rows = db_session.execute(
-        select(month, income, expenses)  # noqa: FKA100
-        .where(
-            *_base_conditions(
-                account_ids=account_ids,
-                date_from=date_from,
-                date_to=date_to,
-                categories=categories,
-                transaction_types=transaction_types,
-                linked=linked,
-            )
-        )
-        .group_by(month)
-        .order_by(month)
-    ).all()
-    return [
-        MonthlyCashflow(
-            month=month_value,
-            income=round(number=income_value, ndigits=2),
-            expenses=round(number=expenses_value, ndigits=2),
-        )
-        for month_value, income_value, expenses_value in rows
-    ]
-
-
 def monthly_cashflow(
     db_session: Session,
     user: User,
@@ -162,15 +125,32 @@ def monthly_cashflow(
     )
     if not owned_account_ids:
         return []
-    cashflow = _monthly_cashflow(
-        db_session=db_session,
-        account_ids=owned_account_ids,
-        date_from=date_from,
-        date_to=date_to,
-        categories=categories,
-        transaction_types=transaction_types,
-        linked=linked,
-    )
+    month = func.strftime("%Y-%m", Transaction.date)  # noqa: FKA100
+    income = func.sum(case((Transaction.amount > 0, Transaction.amount), else_=0.0))
+    expenses = func.sum(case((Transaction.amount < 0, -Transaction.amount), else_=0.0))
+    rows = db_session.execute(
+        select(month, income, expenses)  # noqa: FKA100
+        .where(
+            *_base_conditions(
+                account_ids=owned_account_ids,
+                date_from=date_from,
+                date_to=date_to,
+                categories=categories,
+                transaction_types=transaction_types,
+                linked=linked,
+            )
+        )
+        .group_by(month)
+        .order_by(month)
+    ).all()
+    cashflow = [
+        MonthlyCashflow(
+            month=month_value,
+            income=round(number=income_value, ndigits=2),
+            expenses=round(number=expenses_value, ndigits=2),
+        )
+        for month_value, income_value, expenses_value in rows
+    ]
     logger.debug(f"Computed monthly cashflow over {len(cashflow)} month(s) for {user}")
     return cashflow
 
@@ -185,14 +165,10 @@ def monthly_net_savings(
     transaction_types: list[TransactionType] | None = None,
     linked: StatisticsLinked | None = None,
 ) -> list[MonthlyNetSavings]:
-    owned_account_ids = account_service.resolve_owned_account_ids(
-        db_session=db_session, user=user, account_ids=account_ids
-    )
-    if not owned_account_ids:
-        return []
-    cashflow = _monthly_cashflow(
+    cashflow = monthly_cashflow(
         db_session=db_session,
-        account_ids=owned_account_ids,
+        user=user,
+        account_ids=account_ids,
         date_from=date_from,
         date_to=date_to,
         categories=categories,
@@ -386,20 +362,16 @@ def daily_net_worth(
     return NetWorthResponse(series=result, summary=summary)
 
 
-def _get_balance_as_of(db_session: Session, account_id: int, cutoff: datetime.date) -> float | None:
+def _balance_at_end_of(db_session: Session, account: Account, cutoff: datetime.date) -> float | None:
+    if cutoff >= datetime.date.today():
+        return account.balance
     return db_session.scalar(
         select(AccountBalanceSnapshot.balance)
-        .where(AccountBalanceSnapshot.account_id == account_id)
+        .where(AccountBalanceSnapshot.account_id == account.id)
         .where(AccountBalanceSnapshot.date <= cutoff)
         .order_by(AccountBalanceSnapshot.date.desc())
         .limit(1)
     )
-
-
-def _balance_at_end_of(db_session: Session, account: Account, cutoff: datetime.date) -> float | None:
-    if cutoff >= datetime.date.today():
-        return account.balance
-    return _get_balance_as_of(db_session=db_session, account_id=account.id, cutoff=cutoff)
 
 
 def get_net_worth_of_range(

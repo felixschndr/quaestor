@@ -95,7 +95,7 @@ class Credential(Base):
         for fetched_account in bank_session.get_accounts():
             account = by_name.get(fetched_account.name)
             if account is None:
-                account = Account.from_fetched(fetched_account)
+                account = Account(name=fetched_account.name)
                 self.accounts.append(account)
                 created_accounts += 1
             elif account.name != fetched_account.name:

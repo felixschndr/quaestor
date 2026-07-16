@@ -27,10 +27,6 @@ _BANK_INFO_OVERRIDES: dict[str, dict[str, str]] = {
 _MIN_PLAUSIBLE_ENTRIES = 1000
 
 
-def _redirect_update_target(pickle_path: Path) -> None:
-    update_bank_info.__file__ = str(pickle_path)
-
-
 def _reload_in_memory_db(pickle_path: Path) -> int:
     with pickle_path.open("rb") as handle:
         reloaded = pickle.load(handle)  # nosec: B301
@@ -65,7 +61,7 @@ def _update_raw_db_file() -> None:
         return
 
     logger.info("Updating FinTS bank DB from the aqbanking dataset ...")
-    _redirect_update_target(pickle_path)
+    update_bank_info.__file__ = str(pickle_path)
     with contextlib.redirect_stdout(io.StringIO()):
         update_bank_info.update()
 

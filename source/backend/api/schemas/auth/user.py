@@ -1,14 +1,18 @@
 import re
-from typing import TYPE_CHECKING
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from source.backend.api.schemas.banking.credential import CredentialRead
 from source.backend.models.auth.theme import Theme
 from source.backend.services.core import i18n_service
-
-if TYPE_CHECKING:
-    from pydantic.v1.main import ModelMetaclass
 
 MIN_PASSWORD_LENGTH = 15
 PASSWORD_RULES = {
@@ -17,6 +21,8 @@ PASSWORD_RULES = {
     "digit": (re.compile(r"\d"), "a digit"),
     "symbol": (re.compile(r"[^A-Za-z0-9]"), "a special character"),
 }
+
+UserName = Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, min_length=1)]
 
 
 def _validate_password_complexity(value: str) -> str:
@@ -27,19 +33,14 @@ def _validate_password_complexity(value: str) -> str:
 
 
 class UserCreate(BaseModel):
-    user_name: str
+    user_name: UserName
     display_name: str
     password: str = Field(min_length=MIN_PASSWORD_LENGTH)
     theme: Theme = Theme.SYSTEM
 
-    @field_validator("user_name")
-    @classmethod
-    def _normalize_user_name(cls: "ModelMetaclass", value: str) -> str | None:
-        return _normalize_user_name(value)
-
     @field_validator("password")
     @classmethod
-    def _check_password(cls: "ModelMetaclass", value: str) -> str:
+    def _check_password(cls: type["UserCreate"], value: str) -> str:
         return _validate_password_complexity(value)
 
 
@@ -68,41 +69,31 @@ class UserRead(BaseModel):
 
 
 class UserLogin(BaseModel):
-    user_name: str
+    user_name: UserName
     password: str
     remember_me: bool = False
 
-    @field_validator("user_name")
-    @classmethod
-    def _normalize_user_name(cls: "ModelMetaclass", value: str) -> str | None:
-        return _normalize_user_name(value)
-
 
 class UserUpdate(BaseModel):
-    user_name: str | None = None
+    user_name: UserName | None = None
     display_name: str | None = None
     language: str | None = None
     theme: Theme | None = None
     current_password: str | None = None
     new_password: str | None = Field(default=None, min_length=MIN_PASSWORD_LENGTH)
 
-    @field_validator("user_name")
-    @classmethod
-    def _normalize_user_name(cls: "ModelMetaclass", value: str | None) -> str | None:
-        return _normalize_user_name(value)
-
     @field_validator("new_password")
     @classmethod
-    def _check_new_password(cls: "ModelMetaclass", value: str | None) -> str | None:
+    def _check_new_password(cls: type["UserUpdate"], value: str | None) -> str | None:
         return _validate_password_complexity(value) if value is not None else None
 
     @field_validator("language")
     @classmethod
-    def _check_language(cls: "ModelMetaclass", value: str | None) -> str | None:
+    def _check_language(cls: type["UserUpdate"], value: str | None) -> str | None:
         if value is None:
             return None
         if not i18n_service.is_supported(value):
-            supported = ", ".join(i18n_service.list_supported_languages())
+            supported = ", ".join(i18n_service.SUPPORTED_LANGUAGES)
             raise ValueError(f"Language {value!r} is not supported (supported: {supported})")
         return value
 
@@ -111,12 +102,3 @@ class UserUpdate(BaseModel):
         if self.new_password is not None and not self.current_password:
             raise ValueError("Changing the password requires the current password")
         return self
-
-
-def _normalize_user_name(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip().lower()
-    if not normalized:
-        raise ValueError("user_name must not be empty")
-    return normalized

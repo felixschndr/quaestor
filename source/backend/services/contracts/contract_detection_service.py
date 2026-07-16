@@ -186,14 +186,12 @@ def _classify_cadence(dates: list[datetime.date]) -> tuple[ContractFrequency | N
     if len(gaps) < MIN_TRANSACTIONS_PER_CONTRACT - 1:
         return None, None
 
-    best_frequency: ContractFrequency | None = None
-    best_match_count = 0
-    for frequency in ContractFrequency:
-        match_count = sum(1 for gap in gaps if _gap_matches(gap=gap, frequency=frequency))
-        if match_count > best_match_count:
-            best_frequency = frequency
-            best_match_count = match_count
-    if best_frequency is None:
+    match_counts = {
+        frequency: sum(1 for gap in gaps if _gap_matches(gap=gap, frequency=frequency))
+        for frequency in ContractFrequency
+    }
+    best_frequency, best_match_count = max(match_counts.items(), key=lambda item: item[1])
+    if best_match_count == 0:
         return None, None
     if best_match_count < MIN_TRANSACTIONS_PER_CONTRACT - 1 or best_match_count / len(gaps) < MIN_MATCHING_GAP_FRACTION:
         return None, None

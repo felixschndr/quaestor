@@ -1,27 +1,12 @@
-from typing import TYPE_CHECKING
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, StringConstraints
 
 from source.backend.api.schemas.core.common import UtcDatetime
 
-if TYPE_CHECKING:
-    from pydantic.v1.main import ModelMetaclass
-
-MAX_NAME_LENGTH = 100
-
 
 class ApiKeyCreate(BaseModel):
-    name: str
-
-    @field_validator("name")
-    @classmethod
-    def _normalize_name(cls: "ModelMetaclass", value: str) -> str:
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("name must not be empty")
-        if len(normalized) > MAX_NAME_LENGTH:
-            raise ValueError(f"name must be at most {MAX_NAME_LENGTH} characters")
-        return normalized
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 
 
 class ApiKeyRead(BaseModel):

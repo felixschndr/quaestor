@@ -8,7 +8,7 @@ def test_list_languages_returns_supported_languages(http_client: TestClient):
     response = http_client.get("/api/i18n/languages")
 
     assert response.status_code == 200
-    assert response.json() == {"languages": i18n_service.list_supported_languages()}
+    assert response.json() == {"languages": list(i18n_service.SUPPORTED_LANGUAGES)}
 
 
 def test_list_languages_is_public(http_client: TestClient):

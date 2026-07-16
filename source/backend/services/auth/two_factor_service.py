@@ -94,7 +94,7 @@ def regenerate_backup_codes(db_session: Session, user: User) -> list[str]:
 
 
 def _issue_backup_codes(user: User) -> list[str]:
-    _replace_backup_codes(user=user)
+    user.backup_codes.clear()
     backup_codes = generate_backup_codes()
     for backup_code in backup_codes:
         user.backup_codes.append(BackupCode(code_hash=hash_password(_normalize_backup_code(backup_code))))
@@ -109,7 +109,7 @@ def disable(db_session: Session, user: User, code: str) -> None:
 
     user.two_factor_enabled = False
     user.two_factor_secret = None
-    _replace_backup_codes(user=user)
+    user.backup_codes.clear()
     db_session.commit()
     logger.info(f"Disabled 2FA for {user}")
 
@@ -135,10 +135,6 @@ def _consume_backup_code(db_session: Session, user: User, code: str) -> bool:
     return False
 
 
-def _replace_backup_codes(user: User) -> None:
-    user.backup_codes.clear()
-
-
 def create_challenge(db_session: Session, user: User) -> str:
     raw_token = secrets.token_urlsafe(32)
     now = utc_now()
@@ -154,7 +150,7 @@ def create_challenge(db_session: Session, user: User) -> str:
     return raw_token
 
 
-def _get_challenge(db_session: Session, raw_token: str) -> TwoFactorChallenge | None:
+def resolve_challenge(db_session: Session, raw_token: str) -> User | None:
     challenge = db_session.scalar(
         select(TwoFactorChallenge).where(TwoFactorChallenge.token_hash == hash_token(raw_token))
     )
@@ -165,12 +161,7 @@ def _get_challenge(db_session: Session, raw_token: str) -> TwoFactorChallenge | 
         db_session.delete(challenge)
         db_session.commit()
         return None
-    return challenge
-
-
-def resolve_challenge(db_session: Session, raw_token: str) -> User | None:
-    challenge = _get_challenge(db_session=db_session, raw_token=raw_token)
-    return challenge.user if challenge else None
+    return challenge.user
 
 
 def delete_challenge(db_session: Session, raw_token: str) -> None:

@@ -1,6 +1,5 @@
 import functools
 import hashlib
-import pathlib
 import tomllib
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
@@ -76,7 +75,7 @@ def parse_german_decimal(value: str) -> float:
 
 
 def get_root_path_of_repository() -> Path:
-    return pathlib.Path(__file__).parent.parent.parent
+    return Path(__file__).parent.parent.parent
 
 
 @functools.cache

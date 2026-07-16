@@ -42,7 +42,7 @@ def test_notify_user_without_subscriptions_sends_nothing(
             db_session=db_session, user=user, notification=Notification(title="t", body="b")
         )
 
-    assert result.delivered == 0 and result.attempted == 0
+    assert result.delivered == 0 and result.pruned == 0 and result.failed == 0
     assert calls == []
 
 

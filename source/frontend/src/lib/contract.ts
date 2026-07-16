@@ -28,9 +28,6 @@ export interface ContractRead {
   source: ContractSource
   median_amount: number | null
   amount_spread: number | null
-  min_amount: number | null
-  average_amount: number | null
-  max_amount: number | null
   frequency: ContractFrequency | null
   interval_days: number | null
   expected_next_date: string | null

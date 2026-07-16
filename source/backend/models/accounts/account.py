@@ -11,7 +11,7 @@ from sqlalchemy.orm import (
     relationship,
 )
 
-from source.backend.bank_handlers.base import BalanceObservation, FetchedAccount
+from source.backend.bank_handlers.base import BalanceObservation
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account_balance_snapshot import (
     AccountBalanceSnapshot,
@@ -69,10 +69,6 @@ class Account(Base):
         cascade="all, delete-orphan",
         collection_class=attribute_keyed_dict("date"),
     )
-
-    @classmethod
-    def from_fetched(cls: type["Account"], fetched_account: FetchedAccount) -> "Account":
-        return cls(name=fetched_account.name)
 
     @property
     def display_label(self) -> str:

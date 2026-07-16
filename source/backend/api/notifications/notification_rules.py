@@ -75,32 +75,22 @@ class RuleRead(BaseModel):
     direction: BalanceDirection | None = None
 
 
+_RULE_DEFAULTS = {
+    "other_party_contains": None,
+    "categories": [],
+    "types": [],
+    "min_amount": None,
+    "max_amount": None,
+    "threshold": None,
+    "direction": None,
+}
+
+
 def _columns(payload: ExpectedRuleIn | ContractOverdueRuleIn | TransactionRuleIn | BalanceRuleIn) -> dict:
-    # Map a validated, trigger-specific payload onto the model's flat column set
-    columns = {
-        "enabled": payload.enabled,
-        "include_content": payload.include_content,
-        "name": payload.name,
-        "trigger": NotificationTrigger(payload.trigger),
-        "account_ids": payload.account_ids,
-        "other_party_contains": None,
-        "categories": [],
-        "types": [],
-        "min_amount": None,
-        "max_amount": None,
-        "threshold": None,
-        "direction": None,
-    }
-    if isinstance(payload, TransactionRuleIn):
-        columns.update(
-            other_party_contains=payload.other_party_contains,
-            categories=[category.value for category in payload.categories],
-            types=[transaction_type.value for transaction_type in payload.types],
-            min_amount=payload.min_amount,
-            max_amount=payload.max_amount,
-        )
-    elif isinstance(payload, BalanceRuleIn):
-        columns.update(threshold=payload.threshold, direction=payload.direction)
+    columns = _RULE_DEFAULTS | payload.model_dump(mode="json")
+    columns["trigger"] = NotificationTrigger(payload.trigger)
+    if columns["direction"] is not None:
+        columns["direction"] = BalanceDirection(columns["direction"])
     return columns
 
 

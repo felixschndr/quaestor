@@ -39,14 +39,9 @@ DOCS_POLICY = "; ".join(
     ]
 )
 
-DOCS_PATHS = frozenset({"/redoc"})
-
-
-def _policy_for(path: str) -> str:
-    return DOCS_POLICY if path in DOCS_PATHS else DEFAULT_POLICY
-
 
 async def csp_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     response = await call_next(request)
-    response.headers.setdefault(HEADER_NAME, _policy_for(request.url.path))  # noqa FKA100
+    policy = DOCS_POLICY if request.url.path == "/redoc" else DEFAULT_POLICY
+    response.headers.setdefault(HEADER_NAME, policy)  # noqa FKA100
     return response

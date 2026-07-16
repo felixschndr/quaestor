@@ -70,7 +70,9 @@ def replace_layout(db_session: Session, user: User, payload: AccountGroupLayoutW
     accounts_by_id = {
         account.id: account
         for account in db_session.scalars(
-            select(Account).where(Account.credential_id.in_(_credential_ids(db_session=db_session, user_id=user.id)))
+            select(Account)
+            .join(Credential, onclause=Account.credential_id == Credential.id)
+            .where(Credential.user_id == user.id)
         )
     }
     for group, incoming in zip(target_groups, payload.groups, strict=True):
@@ -103,10 +105,6 @@ def _user_account_ids(db_session: Session, user_id: int) -> set[int]:
         .where(Credential.user_id == user_id)
     )
     return set(db_session.scalars(statement))
-
-
-def _credential_ids(db_session: Session, user_id: int) -> list[int]:
-    return list(db_session.scalars(select(Credential.id).where(Credential.user_id == user_id)))
 
 
 def _validate_account_ownership(payload: AccountGroupLayoutWrite, user_account_ids: set[int]) -> None:

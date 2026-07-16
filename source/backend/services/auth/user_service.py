@@ -37,10 +37,6 @@ def create_user(
     theme: Theme = Theme.SYSTEM,
 ) -> User:
     normalized_user_name = user_name.strip().lower()
-
-    if db_session.scalar(select(User.id).where(User.user_name == normalized_user_name)) is not None:
-        raise UserNameAlreadyExistsError(f"User name {normalized_user_name!r} is already taken")
-
     user = User(
         user_name=normalized_user_name,
         display_name=display_name,
@@ -85,10 +81,6 @@ def get_user_by_user_name(db_session: Session, user_name: str) -> User:
 def update_user(db_session: Session, user: User, fields: dict) -> User:
     logger.debug(f"Updating {user} with fields {sorted(fields)}")
     new_user_name = fields.get("user_name")
-    if new_user_name is not None and new_user_name != user.user_name:
-        conflicting_id = db_session.scalar(select(User.id).where(User.user_name == new_user_name))
-        if conflicting_id is not None:
-            raise UserNameAlreadyExistsError(f"User name {new_user_name!r} is already taken")
     state_before_update = snapshot_columns(user)
     apply_fields(entity=user, fields=fields)
     try:

@@ -3,20 +3,25 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from source.backend.api.schemas.transactions.transaction import TransactionRead
+from source.backend.api.schemas.transactions.transaction import (
+    StatisticsLinked,
+    TransactionRead,
+)
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 
 StatisticsDirection = Literal["INCOMING", "OUTGOING"]
-StatisticsLinked = Literal["linked", "unlinked"]
 
 TransactionCountsGroupBy = Literal["day", "week", "month", "weekday"]
 
 
-class StatisticsQuery(BaseModel):
+class NetWorthQuery(BaseModel):
     account_ids: list[int] = Field(min_length=1)
     date_from: date | None = None
     date_to: date | None = None
+
+
+class StatisticsQuery(NetWorthQuery):
     categories: list[TransactionCategory] = Field(default_factory=list)
     transaction_types: list[TransactionType] = Field(default_factory=list)
     linked: StatisticsLinked | None = None
@@ -28,16 +33,6 @@ class DirectionalStatisticsQuery(StatisticsQuery):
 
 class TransactionCountsQuery(StatisticsQuery):
     group_by: TransactionCountsGroupBy = "day"
-
-
-class OtherPartyStatisticsQuery(DirectionalStatisticsQuery):
-    limit: int = Field(default=15, ge=1, le=100)
-
-
-class NetWorthQuery(BaseModel):
-    account_ids: list[int] = Field(min_length=1)
-    date_from: date | None = None
-    date_to: date | None = None
 
 
 class CategorySlice(BaseModel):

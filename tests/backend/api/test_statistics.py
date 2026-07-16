@@ -289,16 +289,17 @@ def _seed_other_parties(session_factory: sessionmaker, account_id: int) -> None:
         session.commit()
 
 
-def test_other_parties_orders_by_total_desc_and_limits(http_client: TestClient, session_factory: sessionmaker):
+def test_other_parties_orders_by_total_desc(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     _seed_other_parties(session_factory=session_factory, account_id=account_id)
 
-    response = http_client.get("/api/statistics/other-parties", params=[("account_ids", account_id), ("limit", 2)])
+    response = http_client.get("/api/statistics/other-parties", params=[("account_ids", account_id)])
 
     assert response.status_code == 200
     assert response.json() == [
         {"other_party": "Edeka", "total": 30.0},
         {"other_party": "Rewe", "total": 20.0},
+        {"other_party": "Amazon", "total": 5.0},
     ]
 
 

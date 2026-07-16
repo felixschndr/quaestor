@@ -20,7 +20,6 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.base import snapshot_columns
-from source.backend.services.banking import bank_catalog
 from source.backend.services.contracts import contract_detection_service
 from source.backend.services.notifications import notification_engine
 from source.backend.services.notifications.notification_service import Notification
@@ -42,10 +41,6 @@ class SyncResult:
     challenge_token: str | None = None
     expires_at: datetime | None = None
     authorization_url: str | None = None
-
-
-def list_all_possible() -> list[dict]:
-    return bank_catalog.get_catalog()
 
 
 def list_credentials(db_session: Session, user: User) -> list[Credential]:

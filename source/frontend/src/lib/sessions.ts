@@ -34,16 +34,10 @@ export function useRevokeSession(userId: number) {
   })
 }
 
-/**
- * "Sign out everywhere else". The backend deliberately rejects calls without
- * `exclude_current=true`, so we always pass it. The current session is the
- * only one left after this call.
- */
 export function useRevokeAllOtherSessions(userId: number) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: () =>
-      api<void>(`/users/${userId}/sessions?exclude_current=true`, { method: 'DELETE' }),
+    mutationFn: () => api<void>(`/users/${userId}/sessions`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: sessionQueryKeys.list(userId) })
       // The current session's last_used_at can change too — keep me in sync.

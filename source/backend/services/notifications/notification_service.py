@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -20,12 +20,7 @@ class Notification:
     tag: str | None = None
 
     def to_payload(self) -> dict:
-        payload: dict = {"title": self.title, "body": self.body}
-        if self.url is not None:
-            payload["url"] = self.url
-        if self.tag is not None:
-            payload["tag"] = self.tag
-        return payload
+        return {key: value for key, value in asdict(self).items() if value is not None}
 
 
 @dataclass
@@ -34,10 +29,6 @@ class NotificationResult:
     pruned: int = 0
     failed: int = 0
     error: str | None = field(default=None)
-
-    @property
-    def attempted(self) -> int:
-        return self.delivered + self.pruned + self.failed
 
 
 def notify_user(db_session: Session, user: User, notification: Notification) -> NotificationResult:

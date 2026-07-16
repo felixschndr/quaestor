@@ -25,8 +25,6 @@ class CredentialRead(BaseModel):
 
 
 class CredentialUpdate(BaseModel):
-    bank: BankProvider | None = None
-    credentials: dict[str, str] | None = None
     sync_enabled: bool | None = None
 
 

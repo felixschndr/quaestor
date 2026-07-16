@@ -112,19 +112,16 @@ async def _run_sync(job: SyncJob) -> None:
 async def _apply_result_handling_errors(
     job: SyncJob, coroutine: "Coroutine[None, None, SyncResult]", log_label: str
 ) -> None:
+    error_codes = {
+        InvalidCredentialsError: JobErrorCode.INVALID_CREDENTIALS,
+        PSD2RedirectUrlNotAllowedError: JobErrorCode.REDIRECT_URL_NOT_ALLOWED,
+        PSD2ApplicationNotActivatedError: JobErrorCode.APPLICATION_NOT_ACTIVATED,
+    }
     try:
         _apply_result(job=job, result=await coroutine)
-    except InvalidCredentialsError as e:
+    except tuple(error_codes) as e:
         logger.warning(f"{job} {log_label}: {e}")
-        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.INVALID_CREDENTIALS)
-    except PSD2RedirectUrlNotAllowedError as e:
-        logger.warning(f"{job} {log_label}: {e}")
-        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.REDIRECT_URL_NOT_ALLOWED)
-    except PSD2ApplicationNotActivatedError as e:
-        logger.warning(f"{job} {log_label}: {e}")
-        _mark_terminal(
-            job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.APPLICATION_NOT_ACTIVATED
-        )
+        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=error_codes[type(e)])
     except Exception as e:
         logger.exception(f"{job} {log_label}")
         _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.UNKNOWN)

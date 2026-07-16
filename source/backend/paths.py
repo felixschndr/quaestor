@@ -13,11 +13,7 @@ ENV_FILE_PATH = ROOT / ".env"
 load_dotenv(dotenv_path=ENV_FILE_PATH)
 
 
-def _resolve_data_dir() -> Path:
-    return Path(os.environ.get(DATA_DIR_ENV_VARIABLE_NAME) or (ROOT / "data"))
-
-
-DATA_DIR = _resolve_data_dir()
+DATA_DIR = Path(os.environ.get(DATA_DIR_ENV_VARIABLE_NAME) or (ROOT / "data"))
 
 DATABASE_PATH = DATA_DIR / "Quaestor.db"
 BANK_DB_PATH = DATA_DIR / "bank_info.pickle"

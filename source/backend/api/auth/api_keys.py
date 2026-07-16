@@ -8,6 +8,7 @@ from source.backend.api.schemas.auth.api_key import (
     ApiKeyRead,
 )
 from source.backend.db import get_session
+from source.backend.models.auth.api_key import ApiKey
 from source.backend.models.auth.user import User
 from source.backend.services.auth import api_key_service, session_service
 
@@ -18,11 +19,8 @@ router = create_router()
 def list_api_keys(
     current_user: User = Depends(session_service.get_current_user_from_session),
     db_session: Session = Depends(get_session),
-) -> list[ApiKeyRead]:
-    return [
-        ApiKeyRead.model_validate(api_key)
-        for api_key in api_key_service.list_api_keys(db_session=db_session, user=current_user)
-    ]
+) -> list[ApiKey]:
+    return api_key_service.list_api_keys(db_session=db_session, user=current_user)
 
 
 @router.post("", response_model=ApiKeyCreated, status_code=201)

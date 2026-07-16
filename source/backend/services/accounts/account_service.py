@@ -417,17 +417,10 @@ def get_filtered_transactions_for_user(
     account_ids_to_search_through: list[int],
     filter_parameters: dict,
 ) -> list[Transaction]:
-    owned_account_ids = resolve_owned_account_ids(
-        db_session=db_session, user=user, account_ids=account_ids_to_search_through
-    )
-    if not owned_account_ids:
+    account_ids = resolve_owned_account_ids(db_session=db_session, user=user, account_ids=account_ids_to_search_through)
+    if not account_ids:
         return []
-    return _filter_transactions(
-        db_session=db_session, account_ids=owned_account_ids, filter_parameters=filter_parameters
-    )
 
-
-def _filter_transactions(db_session: Session, account_ids: list[int], filter_parameters: dict) -> list[Transaction]:
     query = select(Transaction).where(Transaction.account_id.in_(account_ids))
 
     if (text := filter_parameters.get("text")) is not None:

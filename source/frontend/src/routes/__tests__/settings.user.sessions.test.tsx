@@ -158,7 +158,7 @@ describe('SettingsSessionsView', () => {
     })
   })
 
-  it('signs out everywhere else via DELETE ?exclude_current=true after a confirm step', async () => {
+  it('signs out everywhere else via DELETE /sessions after a confirm step', async () => {
     const user = userEvent.setup()
     const fetchMock = globalThis.fetch as Mock
     fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
@@ -176,7 +176,7 @@ describe('SettingsSessionsView', () => {
           }),
         )
       }
-      if (url === '/api/users/1/sessions?exclude_current=true' && init?.method === 'DELETE') {
+      if (url === '/api/users/1/sessions' && init?.method === 'DELETE') {
         return Promise.resolve(new Response(null, { status: 204 }))
       }
       return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
@@ -189,7 +189,7 @@ describe('SettingsSessionsView', () => {
     await user.click(screen.getByRole('button', { name: /Sign out elsewhere/i }))
     expect(
       fetchMock.mock.calls.find(
-        ([url, init]) => url.includes('exclude_current=true') && init?.method === 'DELETE',
+        ([url, init]) => url === '/api/users/1/sessions' && init?.method === 'DELETE',
       ),
     ).toBeUndefined()
 
@@ -197,8 +197,7 @@ describe('SettingsSessionsView', () => {
     await user.click(screen.getByRole('button', { name: /Yes, sign out everywhere else/i }))
     await waitFor(() => {
       const del = fetchMock.mock.calls.find(
-        ([url, init]) =>
-          url === '/api/users/1/sessions?exclude_current=true' && init?.method === 'DELETE',
+        ([url, init]) => url === '/api/users/1/sessions' && init?.method === 'DELETE',
       )
       expect(del).toBeTruthy()
     })

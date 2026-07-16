@@ -41,9 +41,6 @@ class ContractRead(BaseModel):
     source: ContractSource
     median_amount: float | None
     amount_spread: float | None
-    min_amount: float | None = None
-    average_amount: float | None = None
-    max_amount: float | None = None
     frequency: ContractFrequency | None
     interval_days: int | None
     expected_next_date: datetime.date | None
@@ -56,14 +53,7 @@ class ContractRead(BaseModel):
     def from_contract(cls: type["ContractRead"], contract: Contract) -> "ContractRead":
         instance = cls.model_validate(contract)
         instance.is_overdue = contract.is_overdue_on(today=utc_now().date())
-        members = contract.members()
-        instance.member_count = len(members)
-
-        amounts = [member.amount for member in members]
-        if amounts:
-            instance.min_amount = min(amounts)
-            instance.max_amount = max(amounts)
-            instance.average_amount = sum(amounts) / len(amounts)
+        instance.member_count = len(contract.members())
 
         anchor_days = contract.frequency.interval_days if contract.frequency else contract.interval_days
         if contract.median_amount is not None and anchor_days:
