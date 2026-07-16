@@ -82,16 +82,20 @@ class _EnableBankingSession(BankSession):
         self._api = api
         self._accounts = accounts
         self._transaction_history_incomplete = transaction_history_incomplete
-        self._uid_by_name: dict[str, str] = {}
-        self._balance_by_name: dict[str, float] = {}
+        self._balance_by_uid: dict[str, float] = {}
 
     def get_accounts(self) -> list[FetchedAccount]:
-        for account in self._accounts:
-            self._uid_by_name[self._account_name(account)] = account["uid"]
-        logger.debug(f"Enable Banking session exposes {len(self._uid_by_name)} account(s)")
+        # Key by the Enable Banking `uid`, not the derived display name: some ASPSPs (e.g. C24) expose
+        # several sub-accounts/pots sharing the same name/product, which would otherwise collide and
+        # silently drop accounts.
+        logger.debug(f"Enable Banking session exposes {len(self._accounts)} account(s)")
         return [
-            FetchedAccount(name=name, transaction_history_incomplete=self._transaction_history_incomplete)
-            for name in self._uid_by_name
+            FetchedAccount(
+                name=self._account_name(account),
+                external_id=account["uid"],
+                transaction_history_incomplete=self._transaction_history_incomplete,
+            )
+            for account in self._accounts
         ]
 
     @staticmethod
@@ -107,7 +111,7 @@ class _EnableBankingSession(BankSession):
         )
 
     def get_balance(self, account: FetchedAccount) -> float:
-        balances = self._api.get(f"/accounts/{self._uid_by_name[account.name]}/balances").get("balances") or []
+        balances = self._api.get(f"/accounts/{account.external_id}/balances").get("balances") or []
         if not balances:
             return 0.0
         by_type: dict[str, dict] = {}
@@ -119,16 +123,16 @@ class _EnableBankingSession(BankSession):
                 by_type[balance.get("balance_type")] = balance
         chosen = next((by_type[t] for t in _BALANCE_TYPE_PREFERENCE if t in by_type), balances[0])
         balance = float(chosen["balance_amount"]["amount"])
-        self._balance_by_name[account.name] = balance
+        self._balance_by_uid[account.external_id] = balance
         return balance
 
     def get_balance_observations(self, account: FetchedAccount) -> list[BalanceObservation]:
-        if account.name not in self._balance_by_name:
+        if account.external_id not in self._balance_by_uid:
             return []
-        return [BalanceObservation(date=date.today(), amount=self._balance_by_name[account.name])]
+        return [BalanceObservation(date=date.today(), amount=self._balance_by_uid[account.external_id])]
 
     def get_transactions(self, account: FetchedAccount, start_date: date) -> list[FetchedTransaction]:
-        uid = self._uid_by_name[account.name]
+        uid = account.external_id
         transactions = []
         continuation_key: str | None = None
         while True:

@@ -63,6 +63,7 @@ class Credential(Base):
         )
 
     def sync(self, handler: BankHandler) -> None:
+        by_external_id = {account.external_id: account for account in self.accounts if account.external_id}
         by_name = {account.name: account for account in self.accounts}
 
         transactions_since = (
@@ -74,7 +75,10 @@ class Credential(Base):
         )
         with handler.session() as bank:
             created_accounts, updated_accounts, created_transactions = self._sync_accounts_of_credential(
-                bank_session=bank, by_name=by_name, transactions_since=transactions_since
+                bank_session=bank,
+                by_external_id=by_external_id,
+                by_name=by_name,
+                transactions_since=transactions_since,
             )
         self.last_fetching_timestamp = utc_now()
         logger.info(
@@ -85,22 +89,37 @@ class Credential(Base):
     def _sync_accounts_of_credential(
         self,
         bank_session: BankSession,
+        by_external_id: dict[str, Account],
         by_name: dict[str, Account],
         transactions_since: date,
     ) -> tuple[int, int, int]:
         created_accounts = 0
         updated_accounts = 0
         created_transactions = 0
+        claimed_account_ids: set[int] = set()
 
         for fetched_account in bank_session.get_accounts():
-            account = by_name.get(fetched_account.name)
+            # Prefer matching by the stable external id (present when the handler supports one); fall
+            # back to name so pre-existing rows (synced before this column existed) are still matched
+            # and then "adopted" (backfilled with their external id) instead of duplicated. A name-based
+            # fallback match is only used once per sync: if a later fetched account shares that same
+            # name but not the external id (e.g. two distinct C24 sub-accounts previously collapsed into
+            # one local row), it gets its own new Account instead of re-merging into the already-claimed one.
+            account = by_external_id.get(fetched_account.external_id) if fetched_account.external_id else None
             if account is None:
-                account = Account(name=fetched_account.name)
+                name_match = by_name.get(fetched_account.name)
+                if name_match is not None and id(name_match) not in claimed_account_ids:
+                    account = name_match
+            if account is None:
+                account = Account(name=fetched_account.name, external_id=fetched_account.external_id)
                 self.accounts.append(account)
                 created_accounts += 1
-            elif account.name != fetched_account.name:
+            else:
+                if account.name != fetched_account.name or account.external_id != fetched_account.external_id:
+                    updated_accounts += 1
                 account.name = fetched_account.name
-                updated_accounts += 1
+                account.external_id = fetched_account.external_id
+            claimed_account_ids.add(id(account))
             account.transaction_history_incomplete = fetched_account.transaction_history_incomplete
             account.balance = bank_session.get_balance(fetched_account)
 

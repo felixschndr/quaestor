@@ -52,7 +52,7 @@ def test_account_repr_contains_identifying_fields():
     account = Account(id=42, credential_id=7, name="Checking", balance=123.45, balance_factor=80)
 
     assert repr(account) == (
-        "<Account(id=42, credential_id=7, name=Checking, display_name=None, "
+        "<Account(id=42, credential_id=7, name=Checking, external_id=None, display_name=None, "
         "balance=123.45, balance_factor=80, is_hidden=None, transaction_history_incomplete=None, "
         "group_id=None, position=None)>"
     )

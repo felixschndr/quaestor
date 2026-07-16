@@ -43,6 +43,10 @@ class Account(Base):
 
     credential_id: Mapped[int] = mapped_column(ForeignKey("credentials.id"))
     name: Mapped[str] = mapped_column(String(120))
+    # Stable identifier from the bank/aggregator (IBAN, ISIN, uid, ...) used to match this account
+    # across syncs, since `name` alone can collide (e.g. same-named sub-accounts at one bank).
+    # Nullable: not every handler provides one, and existing rows predate this column.
+    external_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
     balance: Mapped[float] = mapped_column(Float, default=0.0)
     balance_factor: Mapped[float] = mapped_column(Float, default=100.0)

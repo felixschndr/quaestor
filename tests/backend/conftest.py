@@ -344,6 +344,7 @@ def make_account(
     db_session: Session,
     credential_id: int,
     name: str = ACCOUNT_IBAN,
+    external_id: str | None = None,
     display_name: str | None = None,
     balance: float = 0.0,
     balance_factor: int = 100,
@@ -353,6 +354,7 @@ def make_account(
     account = Account(
         credential=credential,
         name=name,
+        external_id=external_id,
         display_name=display_name,
         balance=balance,
         balance_factor=balance_factor,
@@ -653,18 +655,23 @@ class FakeBankSession(BankSession):
     def get_accounts(self) -> list[FetchedAccount]:
         return self._accounts
 
+    @staticmethod
+    def _key(account: FetchedAccount) -> str:
+        return account.external_id or account.name
+
     def get_balance(self, account: FetchedAccount) -> float:
-        return self._balances[account.name]
+        return self._balances[self._key(account)]
 
     def get_transactions(self, account: FetchedAccount, start_date: _date) -> list[FetchedTransaction]:
-        self.get_transactions_calls.append((account.name, start_date))
-        return self._transactions[account.name] if account.name in self._transactions else []
+        key = self._key(account)
+        self.get_transactions_calls.append((key, start_date))
+        return self._transactions[key] if key in self._transactions else []
 
     def get_balance_observations(self, account: FetchedAccount) -> list[BalanceObservation]:
-        return self._observations.get(account.name, [])  # noqa: FKA100
+        return self._observations.get(self._key(account), [])  # noqa: FKA100
 
     def get_market_value_history(self, account: FetchedAccount) -> list[BalanceObservation]:
-        return self._market_values.get(account.name, [])  # noqa: FKA100
+        return self._market_values.get(self._key(account), [])  # noqa: FKA100
 
 
 def build_handler(bank_session: FakeBankSession) -> MagicMock:

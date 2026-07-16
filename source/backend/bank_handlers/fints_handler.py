@@ -50,7 +50,7 @@ class _FinTSSession(BankSession):
         accounts = self._resolve(self._client.get_sepa_accounts())
         self._account_mapping = {account.iban: account for account in accounts}
         logger.debug(f"FinTS returned {len(accounts)} SEPA account(s)")
-        return [FetchedAccount(name=account.iban) for account in accounts]
+        return [FetchedAccount(name=account.iban, external_id=account.iban) for account in accounts]
 
     def get_balance(self, account: FetchedAccount) -> float:
         balance = self._resolve(self._client.get_balance(self._account_mapping[account.name]))
