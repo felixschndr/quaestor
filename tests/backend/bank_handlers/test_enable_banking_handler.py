@@ -262,6 +262,31 @@ def test_session_fetches_accounts_balances_and_paginated_transactions(fake_http:
     assert transaction_requests[1]["params"] == {"date_from": "2026-06-01", "continuation_key": "page2"}
 
 
+def test_session_keeps_same_named_accounts_with_distinct_uids_separate(fake_http: Callable[[dict], FakeHttp]):
+    # Regression test: some ASPSPs (e.g. C24) expose multiple sub-accounts/pots sharing the same
+    # name/product. Before, these were deduplicated by that derived name and one silently vanished.
+    second_uid = "11111111-2222-3333-4444-555555555555"
+    fake_http(
+        {
+            ("GET", f"/sessions/{SESSION_ID}"): FakeHttpResponse(
+                json_data={"status": "AUTHORIZED", "accounts": [ACCOUNT_UID, second_uid]}
+            ),
+            ("GET", f"/accounts/{ACCOUNT_UID}/details"): FakeHttpResponse(
+                json_data={"name": None, "product": "Girokonto", "account_id": None}
+            ),
+            ("GET", f"/accounts/{second_uid}/details"): FakeHttpResponse(
+                json_data={"name": None, "product": "Girokonto", "account_id": None}
+            ),
+        }
+    )
+
+    with _handler(session_state={"session_id": SESSION_ID}).session() as bank:
+        accounts = bank.get_accounts()
+
+    assert [account.name for account in accounts] == ["Girokonto", "Girokonto"]
+    assert {account.external_id for account in accounts} == {ACCOUNT_UID, second_uid}
+
+
 def test_balance_prefers_settled_over_expected(fake_http: Callable[[dict], FakeHttp]):
     fake_http(
         {
