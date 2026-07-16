@@ -18,9 +18,11 @@ def _ssl_options() -> dict:
     certfile = os.environ.get("SSL_CERTFILE")
     keyfile = os.environ.get("SSL_KEYFILE")
     if certfile and keyfile:
+        logger.info(f'HTTPS enabled ("{certfile}" and "{keyfile}")')
         return {"ssl_certfile": certfile, "ssl_keyfile": keyfile}
     if certfile or keyfile:
         raise RuntimeError("HTTPS requires both SSL_CERTFILE and SSL_KEYFILE to be set")
+    logger.info("HTTPS disabled (SSL_CERTFILE/SSL_KEYFILE not set), serving plain HTTP")
     return {}
 
 

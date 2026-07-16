@@ -9,14 +9,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 const FRONTEND_PORT = Number(process.env.FRONTEND_PORT ?? 8000)
 const BACKEND_DEV_PORT = Number(process.env.BACKEND_DEV_PORT ?? 8001)
 
-// Serve the dev server over HTTPS when the local certificate exists (see README /
-// docs/enable-banking.md) — PSD2 redirect URLs must be https. Falls back to http.
-const SSL_CERTFILE = fileURLToPath(new URL('../../data/localhost-cert.pem', import.meta.url))
-const SSL_KEYFILE = fileURLToPath(new URL('../../data/localhost-key.pem', import.meta.url))
+const SSL_CERTFILE = process.env.SSL_CERTFILE
+const SSL_KEYFILE = process.env.SSL_KEYFILE
 const https =
-  fs.existsSync(SSL_CERTFILE) && fs.existsSync(SSL_KEYFILE)
+  SSL_CERTFILE && SSL_KEYFILE && fs.existsSync(SSL_CERTFILE) && fs.existsSync(SSL_KEYFILE)
     ? { cert: fs.readFileSync(SSL_CERTFILE), key: fs.readFileSync(SSL_KEYFILE) }
     : undefined
+console.log(
+  https
+    ? `Dev server: HTTPS enabled ("${SSL_CERTFILE}" and "${SSL_KEYFILE}")`
+    : 'Dev server: HTTPS disabled; SSL_CERTFILE and/or SSL_KEYFILE not set or not found, falling back to http',
+)
 
 export default defineConfig({
   resolve: {
