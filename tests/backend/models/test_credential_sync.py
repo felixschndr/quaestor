@@ -108,8 +108,6 @@ def test_sync_matches_existing_account_by_name_and_adds_missing_ones(session_fac
 
 
 def test_sync_keeps_same_named_accounts_separate_when_external_ids_differ(session_factory: sessionmaker):
-    # Regression test: some ASPSPs (e.g. C24 via Enable Banking) expose multiple sub-accounts/pots that
-    # share the same display name/product but have distinct stable ids. These must not collapse into one.
     credential_id = persist_credential_with_new_user(session_factory)
     shared_name = "Girokonto"
     accounts = [
@@ -167,8 +165,6 @@ def test_sync_backfills_external_id_on_existing_account_matched_by_name(session_
 def test_sync_splits_previously_merged_same_named_account_once_external_ids_are_available(
     session_factory: sessionmaker,
 ):
-    # Simulates recovery from the bug: a single local row already exists (created before external ids
-    # were tracked, or from a prior name collision) for a name that the bank now reports as two accounts.
     credential_id = persist_credential_with_new_user(session_factory)
     shared_name = "Pot"
     with session_factory() as session:
@@ -196,6 +192,38 @@ def test_sync_splits_previously_merged_same_named_account_once_external_ids_are_
         assert len(credential.accounts) == 2
         external_ids_to_balance = {account.external_id: account.balance for account in credential.accounts}
         assert external_ids_to_balance == {"uid-a": 10.0, "uid-b": 20.0}
+
+
+def test_sync_does_not_let_new_same_named_account_hijack_row_with_other_external_id(
+    session_factory: sessionmaker,
+):
+    credential_id = persist_credential_with_new_user(session_factory)
+    shared_name = "Girokonto"
+    with session_factory() as session:
+        make_account(session, credential_id=credential_id, name=shared_name, external_id="uid-old", balance=10.0)
+        session.commit()
+
+    handler = build_handler(
+        FakeBankSession(
+            accounts=[
+                FetchedAccount(name=shared_name, external_id="uid-new"),
+                FetchedAccount(name=shared_name, external_id="uid-old"),
+            ],
+            balances={"uid-new": 5.0, "uid-old": 10.0},
+            transactions={},
+        )
+    )
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.sync(handler)
+        session.commit()
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        assert len(credential.accounts) == 2
+        external_ids_to_balance = {account.external_id: account.balance for account in credential.accounts}
+        assert external_ids_to_balance == {"uid-new": 5.0, "uid-old": 10.0}
 
 
 def test_sync_does_not_duplicate_already_existing_transactions(session_factory: sessionmaker):

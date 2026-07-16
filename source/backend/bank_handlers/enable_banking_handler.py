@@ -85,14 +85,11 @@ class _EnableBankingSession(BankSession):
         self._balance_by_uid: dict[str, float] = {}
 
     def get_accounts(self) -> list[FetchedAccount]:
-        # Key by the Enable Banking `uid`, not the derived display name: some ASPSPs (e.g. C24) expose
-        # several sub-accounts/pots sharing the same name/product, which would otherwise collide and
-        # silently drop accounts.
         logger.debug(f"Enable Banking session exposes {len(self._accounts)} account(s)")
         return [
             FetchedAccount(
                 name=self._account_name(account),
-                external_id=account["uid"],
+                external_id=account["uid"],  # Enable Banking provides an actual uid (not like FinTS)
                 transaction_history_incomplete=self._transaction_history_incomplete,
             )
             for account in self._accounts

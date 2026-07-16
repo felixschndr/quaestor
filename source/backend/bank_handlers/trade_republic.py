@@ -88,7 +88,6 @@ class _TradeRepublicSession(BankSession):
     def get_accounts(self) -> list[FetchedAccount]:
         asyncio.run(self._fetch())
         return [
-            # The cash account's "name" is already its accountNumber (stable); positions carry their ISIN.
             FetchedAccount(name=account_name, external_id=state["isin"] or account_name)
             for account_name, state in self._accounts.items()
         ]

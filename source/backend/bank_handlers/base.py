@@ -19,10 +19,6 @@ class TwoFactorChallenge:
 @dataclass(frozen=True)
 class FetchedAccount:
     name: str
-    # A stable identifier from the bank/aggregator (IBAN, ISIN, internal account uid, ...) used to
-    # match accounts across syncs. Falls back to matching by `name` when unavailable (e.g. handlers
-    # with only one account). Needed because `name` alone can collide across distinct accounts
-    # (e.g. multiple same-named sub-accounts/pots at one bank via Enable Banking).
     external_id: str | None = None
     transaction_history_incomplete: bool = False
 
