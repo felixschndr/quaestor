@@ -47,7 +47,22 @@ class PayPalAggregator(Aggregator):
         return None
 
 
-AGGREGATORS: tuple[Aggregator, ...] = (PayPalAggregator(),)
+class KlarnaAggregator(Aggregator):
+    name = "klarna"
+
+    _MERCHANT_PATTERN = re.compile(r"purchase at\s+(?P<merchant>.+)", flags=re.IGNORECASE)
+
+    def matches(self, other_party: str | None) -> bool:
+        return other_party is not None and "klarna" in normalize_string(other_party)
+
+    def extract_merchant(self, purpose: str) -> str | None:
+        match = self._MERCHANT_PATTERN.search(purpose)
+        if match:
+            return match.group("merchant").strip() or None
+        return None
+
+
+AGGREGATORS: tuple[Aggregator, ...] = (PayPalAggregator(), KlarnaAggregator())
 
 
 def compute_fingerprint(transaction: "Transaction") -> Fingerprint | None:

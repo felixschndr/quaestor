@@ -62,6 +62,31 @@ def test_paypal_without_extractable_merchant_is_skipped(session_factory: session
     assert result is None
 
 
+def test_klarna_purpose_yields_merchant_fingerprint(session_factory: sessionmaker):
+    account_id = persist_account_with_new_user(session_factory)
+
+    with session_factory() as session:
+        fingerprint = _fingerprint(
+            session,
+            account_id=account_id,
+            other_party="Klarna Bank AB",
+            purpose="Purchase at ticket.io",
+        )
+
+    assert fingerprint is not None
+    assert fingerprint.key == "klarna:ticket io"
+    assert fingerprint.display_name == "ticket.io"
+
+
+def test_klarna_without_purpose_is_skipped(session_factory: sessionmaker):
+    account_id = persist_account_with_new_user(session_factory)
+
+    with session_factory() as session:
+        result = _fingerprint(session, account_id=account_id, other_party="KlarnaBank AB", purpose=None)
+
+    assert result is None
+
+
 def test_regular_other_party_uses_generic_fingerprint(session_factory: sessionmaker):
     account_id = persist_account_with_new_user(session_factory)
 
