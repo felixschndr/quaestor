@@ -6,8 +6,8 @@ Unlike the other handlers, the connection is not direct: your Quaestor server ta
 which talks to your bank. Your online-banking login happens on your bank's own website; Quaestor or Enable Banking never sees those credentials.
 
 > [!IMPORTANT]
-> Enable Banking requires Quaestor to be served over **HTTPS**; over plain HTTP the connection
-> is rejected. See the [README](../../README.md#security) for how to enable HTTPS.
+> Enable Banking **requires** Quaestor to be served over **HTTPS**; over plain HTTP the connection
+> is rejected. See the [README](../../README.md#environment-variables) for how to enable HTTPS.
 
 ## One-time setup
 
