@@ -168,6 +168,7 @@ def _to_fetched_transaction(raw: dict) -> FetchedTransaction | None:
         date=date.fromisoformat(transaction_date),
         other_party=counterparty.get("name"),
         pending=status == "PDNG",
+        bank_reference=raw.get("entry_reference") or None,
     )
 
 

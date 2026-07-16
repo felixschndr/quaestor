@@ -269,6 +269,7 @@ def create_fetched_transaction(
     other_party: str | None = None,
     transaction_type: TransactionType | None = TransactionType.OUTGOING,
     pending: bool = False,
+    bank_reference: str | None = None,
 ) -> FetchedTransaction:
     return FetchedTransaction(
         amount=amount,
@@ -277,6 +278,7 @@ def create_fetched_transaction(
         other_party=other_party,
         transaction_type=transaction_type,
         pending=pending,
+        bank_reference=bank_reference,
     )
 
 

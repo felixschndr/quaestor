@@ -126,6 +126,7 @@ def test_transaction_mapping_signs_and_dates():
     booked = _to_fetched_transaction(
         {
             "status": "BOOK",
+            "entry_reference": "ref-42",
             "transaction_amount": {"currency": "EUR", "amount": "17.88"},
             "credit_debit_indicator": "DBIT",
             "booking_date": None,
@@ -142,10 +143,12 @@ def test_transaction_mapping_signs_and_dates():
     assert booked.other_party == "Serverprofis GmbH"
     assert booked.purpose is None
     assert booked.pending is False
+    assert booked.bank_reference == "ref-42"
 
     credit = _to_fetched_transaction(
         {
             "status": "PDNG",
+            "entry_reference": "",
             "transaction_amount": {"currency": "EUR", "amount": "5.00"},
             "credit_debit_indicator": "CRDT",
             "booking_date": "2026-07-01",
@@ -158,6 +161,7 @@ def test_transaction_mapping_signs_and_dates():
     assert credit.purpose == "thanks for lunch"
     assert credit.other_party == "Nipper"
     assert credit.pending is True
+    assert credit.bank_reference is None
 
 
 def test_transaction_mapping_skips_undateable_and_info_entries():
