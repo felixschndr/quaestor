@@ -13,6 +13,16 @@ COPY source/frontend/ ./
 RUN pnpm build
 
 
+# The release commit bumps `version` in pyproject.toml, which would invalidate the
+# poetry-install layer even when no dependency changed.
+FROM python:3.14-slim-trixie AS lockfiles
+
+WORKDIR /app
+
+COPY pyproject.toml poetry.lock ./
+RUN sed -i 's/^version = ".*"/version = "0.0.0"/' pyproject.toml
+
+
 FROM python:3.14-slim-trixie AS backend-builder
 
 ENV POETRY_VIRTUALENVS_IN_PROJECT=true \
@@ -22,7 +32,7 @@ RUN pip install poetry
 
 WORKDIR /app
 
-COPY pyproject.toml poetry.lock ./
+COPY --from=lockfiles /app/ ./
 RUN poetry install --no-root --without dev
 
 
