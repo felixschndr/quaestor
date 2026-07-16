@@ -8,6 +8,7 @@ from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.transactions.transaction import Transaction
+from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 
 logger = get_logger(__name__)
@@ -25,8 +26,6 @@ MAX_DISTANCE = timedelta(days=5)
 
 
 def _is_match(outflow: Transaction, inflow: Transaction) -> bool:
-    if inflow.account_id == outflow.account_id:
-        return False
     if outflow.amount != -inflow.amount:
         return False
     return abs(outflow.date - inflow.date) <= MAX_DISTANCE
@@ -34,9 +33,11 @@ def _is_match(outflow: Transaction, inflow: Transaction) -> bool:
 
 def _candidate_rank(outflow: Transaction, inflow: Transaction) -> tuple:
     # Amounts already match exactly, so rank by a matching purpose first, then closest date, then id.
+    # A different-account candidate (real transfer) beats a same-account one (refund/reversal).
     purpose_matches = outflow.purpose is not None and outflow.purpose == inflow.purpose
     return (
         0 if purpose_matches else 1,
+        0 if inflow.account_id != outflow.account_id else 1,
         abs(outflow.date - inflow.date),
         inflow.id,
     )
@@ -80,6 +81,8 @@ def detect_transfers_for_user(db_session: Session, user: User) -> int:
         best.transaction_type = TransactionType.TRANSFER_IN
         outflow.transfer_counterpart_id = best.id
         best.transfer_counterpart_id = outflow.id
+        if best.account_id == outflow.account_id:
+            best.category = TransactionCategory.REIMBURSEMENT
         consumed_inflow_ids.add(best.id)
         created += 1
         logger.debug(

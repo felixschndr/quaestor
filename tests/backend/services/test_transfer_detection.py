@@ -7,6 +7,7 @@ from source.backend.bank_handlers import BankProvider
 from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.transactions.transaction import Transaction
+from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.transactions import transfer_detection
 from tests.backend.conftest import (
@@ -97,19 +98,43 @@ def test_no_match_when_time_difference_is_too_big(session_factory: sessionmaker)
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 0
 
 
-def test_does_not_match_within_the_same_account(session_factory: sessionmaker):
+def test_same_account_pair_is_linked_as_reimbursement(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
         account_a, _ = _create_two_accounts(session, user_id=user.id)
-        make_transaction(
+        out_transaction = make_transaction(
             session, account_id=account_a.id, amount=-50.0, date=_BASE_DATE, transaction_type=TransactionType.OUTGOING
         )
-        make_transaction(
+        in_transaction = make_transaction(
             session, account_id=account_a.id, amount=50.0, date=_BASE_DATE, transaction_type=TransactionType.INCOMING
         )
         session.flush()
 
-        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 0
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
+        assert out_transaction.transfer_counterpart_id == in_transaction.id
+        assert in_transaction.transfer_counterpart_id == out_transaction.id
+        assert out_transaction.category != TransactionCategory.REIMBURSEMENT
+        assert in_transaction.category == TransactionCategory.REIMBURSEMENT
+
+
+def test_prefers_a_different_account_over_the_same_account(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, account_b = _create_two_accounts(session, user_id=user.id)
+        out_transaction = make_transaction(
+            session, account_id=account_a.id, amount=-50.0, date=_BASE_DATE, transaction_type=TransactionType.OUTGOING
+        )
+        same_account = make_transaction(
+            session, account_id=account_a.id, amount=50.0, date=_BASE_DATE, transaction_type=TransactionType.INCOMING
+        )
+        other_account = make_transaction(
+            session, account_id=account_b.id, amount=50.0, date=_BASE_DATE, transaction_type=TransactionType.INCOMING
+        )
+        session.flush()
+
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
+        assert out_transaction.transfer_counterpart_id == other_account.id
+        assert same_account.transfer_counterpart_id is None
 
 
 def test_does_not_match_across_different_users(session_factory: sessionmaker):
