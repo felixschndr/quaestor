@@ -157,13 +157,13 @@ def test_expected_transactions_are_excluded_from_history(http_client: TestClient
     assert body["total_days"] == 1  # the expected transaction must not add a day
 
 
-def test_search_includes_pending_and_expected_transactions(http_client: TestClient, session_factory: sessionmaker):
+def test_search_includes_pending_but_not_expected_transactions(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     booked_id = persist_transaction(session_factory=session_factory, account_id=account_id, purpose="booked")
     pending_id = persist_transaction(
         session_factory=session_factory, account_id=account_id, purpose="vorgemerkt", pending=True
     )
-    expected_id = persist_transaction(
+    persist_transaction(
         session_factory=session_factory,
         account_id=account_id,
         purpose="erwartet",
@@ -175,4 +175,4 @@ def test_search_includes_pending_and_expected_transactions(http_client: TestClie
     response = http_client.get("/api/transactions/search", params=[("account_ids", account_id)])
 
     assert response.status_code == 200
-    assert {row["id"] for row in response.json()} == {booked_id, pending_id, expected_id}
+    assert {row["id"] for row in response.json()} == {booked_id, pending_id}

@@ -421,7 +421,7 @@ def get_filtered_transactions_for_user(
     if not account_ids:
         return []
 
-    query = select(Transaction).where(Transaction.account_id.in_(account_ids))
+    query = select(Transaction).where(Transaction.account_id.in_(account_ids)).where(Transaction.expected.is_(False))
 
     if (text := filter_parameters.get("text")) is not None:
         pattern = f"%{text}%"

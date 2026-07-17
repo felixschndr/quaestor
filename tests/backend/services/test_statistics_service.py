@@ -8,6 +8,7 @@ from source.backend.models.auth.user import User
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.services.transactions import statistics_service
 from tests.backend.conftest import (
+    LATEST_DATE,
     make_transaction,
     make_user,
     make_user_and_credential_and_account,
@@ -138,6 +139,7 @@ def test_net_worth_range_reports_before_after_and_transactions(session_factory: 
         first = make_transaction(session, account_id=account_id, amount=50.0, date=end)
         second = make_transaction(session, account_id=account_id, amount=-20.0, date=end)
         make_transaction(session, account_id=account_id, amount=-999.0, date=end, pending=True)
+        make_transaction(session, account_id=account_id, amount=-888.0, date=end, expected=True)
         # A transaction on `start` itself is part of the "before" snapshot, not the range.
         make_transaction(session, account_id=account_id, amount=7.0, date=start)
         session.commit()
@@ -238,15 +240,10 @@ def test_net_worth_range_uses_live_balance_for_today(session_factory: sessionmak
 
 
 def _seed_count_transactions(session: Session, account_id: int) -> None:
-    for day in [
-        datetime.date(year=2026, month=6, day=1),
-        datetime.date(year=2026, month=6, day=1),
-        datetime.date(year=2026, month=6, day=7),
-        datetime.date(year=2026, month=6, day=8),
-        datetime.date(year=2026, month=7, day=1),
-    ]:
-        make_transaction(session, account_id=account_id, date=day)
-    make_transaction(session, account_id=account_id, date=datetime.date(year=2026, month=6, day=1), pending=True)
+    for offset_days in [0, 0, 6, 7, 30]:
+        make_transaction(session, account_id=account_id, date=LATEST_DATE + datetime.timedelta(days=offset_days))
+    make_transaction(session, account_id=account_id, date=LATEST_DATE, pending=True)
+    make_transaction(session, account_id=account_id, date=LATEST_DATE, expected=True)
 
 
 @pytest.mark.parametrize(

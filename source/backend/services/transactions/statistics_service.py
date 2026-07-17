@@ -43,10 +43,10 @@ def _base_conditions(
     transaction_types: list[TransactionType] | None = None,
     linked: StatisticsLinked | None = None,
 ) -> list[ColumnElement[bool]]:
-    # Conditions shared by every statistic
     conditions: list[ColumnElement[bool]] = [
         Transaction.account_id.in_(account_ids),
         Transaction.pending.is_(False),
+        Transaction.expected.is_(False),
     ]
     if date_from is not None:
         conditions.append(Transaction.date >= date_from)
@@ -402,6 +402,7 @@ def get_net_worth_of_range(
                 .where(Transaction.date > start)
                 .where(Transaction.date <= end)
                 .where(Transaction.pending.is_(False))
+                .where(Transaction.expected.is_(False))
                 .order_by(Transaction.date.desc())
                 .order_by(Transaction.id.desc())
             )

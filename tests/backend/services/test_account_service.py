@@ -417,6 +417,7 @@ def test_filter_transactions(
             make_transaction(session, purpose="Supermarket", other_party="Rewe", **common_attrs),
             make_transaction(session, purpose="Drug store", other_party="DM", **common_attrs),
         ]
+        make_transaction(session, purpose="Supermarket", other_party="Rewe", expected=True, **common_attrs)
         session.commit()
     expected_ids = [
         all_transactions[i].id
