@@ -43,7 +43,8 @@ def _klarna_merchant(purpose: str) -> str | None:
 
 # Payment intermediaries (e.g. PayPal, Klarna) whose own name hides the real merchant:
 # name substring to match in the normalized other_party → merchant extractor for the purpose.
-_AGGREGATORS: "tuple[tuple[str, Callable[[str], str | None]], ...]" = (
+# Also used by transfer detection to pair intermediary-account bookings with their funding leg.
+INTERMEDIARIES: "tuple[tuple[str, Callable[[str], str | None]], ...]" = (
     ("paypal", _paypal_merchant),
     ("klarna", _klarna_merchant),
 )
@@ -55,7 +56,7 @@ def compute_fingerprint(transaction: "Transaction") -> Fingerprint | None:
         return None
 
     normalized_party = normalize_string(other_party)
-    for name, extract_merchant in _AGGREGATORS:
+    for name, extract_merchant in INTERMEDIARIES:
         if name in normalized_party:
             merchant = extract_merchant(transaction.purpose or "")
             if not merchant:

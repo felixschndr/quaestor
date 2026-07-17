@@ -6,7 +6,7 @@ import uvicorn
 from source.backend.logging_utils import get_logger
 from source.backend.main import app
 
-logger = get_logger(__name__)
+logger = get_logger("main")
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
