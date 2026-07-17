@@ -25,3 +25,11 @@ class TransactionType(str, Enum):
     TRANSFER_OUT = "TRANSFER_OUT"
 
     ZERO = "ZERO"  # when amount == 0
+
+    @classmethod
+    def from_amount(cls: type["TransactionType"], amount: float) -> "TransactionType":
+        if amount > 0:
+            return cls.INCOMING
+        if amount < 0:
+            return cls.OUTGOING
+        return cls.ZERO

@@ -111,7 +111,7 @@ class _FinTSSession(BankSession):
                     purpose=data.get("purpose"),
                     date=data["date"],
                     other_party=data.get("applicant_name"),
-                    transaction_type=_transaction_type_from_amount(amount=amount),
+                    transaction_type=TransactionType.from_amount(amount=amount),
                 )
             )
         return transactions
@@ -167,14 +167,6 @@ def _extract_balance_observations(raw_transactions: list) -> list[BalanceObserva
         return []
     observation_date = date(year=balance.date.year, month=balance.date.month, day=balance.date.day)
     return [BalanceObservation(date=observation_date, amount=float(balance.amount.amount))]
-
-
-def _transaction_type_from_amount(amount: float) -> TransactionType:
-    if amount > 0:
-        return TransactionType.INCOMING
-    if amount < 0:
-        return TransactionType.OUTGOING
-    return TransactionType.ZERO
 
 
 class FinTSHandler(BankHandler):

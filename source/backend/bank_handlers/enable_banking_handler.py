@@ -24,6 +24,7 @@ from source.backend.exceptions import (
 )
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
+from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.rest_api_client import RestAPIClient
 
 logger = get_logger(__name__)
@@ -168,6 +169,7 @@ def _to_fetched_transaction(raw: dict) -> FetchedTransaction | None:
         purpose=purpose or None,
         date=date.fromisoformat(transaction_date),
         other_party=counterparty.get("name"),
+        transaction_type=TransactionType.from_amount(amount=amount),
         pending=status == "PDNG",
         bank_reference=raw.get("entry_reference") or None,
     )

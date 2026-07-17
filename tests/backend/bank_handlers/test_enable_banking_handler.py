@@ -23,6 +23,7 @@ from source.backend.exceptions import (
     PSD2RedirectUrlNotAllowedError,
     ReauthenticationRequiredError,
 )
+from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
     ACCOUNT_UID,
     APPLICATION_ID,
@@ -145,6 +146,7 @@ def test_transaction_mapping_signs_and_dates():
     assert booked.purpose is None
     assert booked.pending is False
     assert booked.bank_reference == "ref-42"
+    assert booked.transaction_type == TransactionType.OUTGOING
 
     credit = _to_fetched_transaction(
         {
@@ -163,6 +165,7 @@ def test_transaction_mapping_signs_and_dates():
     assert credit.other_party == "Nipper"
     assert credit.pending is True
     assert credit.bank_reference is None
+    assert credit.transaction_type == TransactionType.INCOMING
 
 
 def test_transaction_mapping_skips_undateable_and_info_entries():
