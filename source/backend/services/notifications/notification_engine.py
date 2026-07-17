@@ -61,6 +61,10 @@ def capture_sync_snapshot(credential: Credential) -> SyncSnapshot:
     return SyncSnapshot(accounts=accounts)
 
 
+def _rule_applies_to_account(rule: NotificationRule, account_id: int) -> bool:
+    return not rule.account_ids or account_id in rule.account_ids
+
+
 def collect_notifications(db_session: Session, credential: Credential, snapshot: SyncSnapshot) -> list[Notification]:
     all_rules = notification_rule_service.list_rules(db_session=db_session, user=credential.user)
     rules = [rule for rule in all_rules if rule.enabled]
@@ -98,7 +102,7 @@ def collect_notifications(db_session: Session, credential: Credential, snapshot:
         )
 
         for rule in rules:
-            if account.id not in rule.account_ids:
+            if not _rule_applies_to_account(rule=rule, account_id=account.id):
                 continue
 
             rule_notifications = _notifications_for_rule(
@@ -135,8 +139,6 @@ def _collect_overdue_notifications(db_session: Session, user: User, today: datet
         for rule in notification_rule_service.list_rules(db_session=db_session, user=user)
         if rule.enabled and rule.trigger is NotificationTrigger.CONTRACT_OVERDUE
     ]
-    covered_account_ids = {account_id for rule in overdue_rules for account_id in rule.account_ids}
-
     contracts = db_session.scalars(
         select(Contract)
         .join(Account, onclause=Contract.account_id == Account.id)
@@ -152,10 +154,13 @@ def _collect_overdue_notifications(db_session: Session, user: User, today: datet
             continue
         if contract.overdue_notified_at is not None:
             continue  # Already notified for this overdue episode.
-        if contract.account_id not in covered_account_ids:
+        rule = next(
+            (rule for rule in overdue_rules if _rule_applies_to_account(rule=rule, account_id=contract.account_id)),
+            None,
+        )
+        if rule is None:
             continue  # No enabled rule covers this account
 
-        rule = next(rule for rule in overdue_rules if contract.account_id in rule.account_ids)
         notifications.append(_build_overdue_notification(rule=rule, contract=contract, language=user.language))
         contract.overdue_notified_at = utc_now()
         logger.info(f"{contract} is overdue (expected {contract.expected_next_date}); queued notification")

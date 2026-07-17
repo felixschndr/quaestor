@@ -24,7 +24,7 @@ class _RuleInBase(BaseModel):
     enabled: bool = True
     include_content: bool = True
     name: str | None = None
-    account_ids: list[int] = Field(min_length=1)
+    account_ids: list[int]  # empty = all accounts, including future ones
 
 
 class ExpectedRuleIn(_RuleInBase):

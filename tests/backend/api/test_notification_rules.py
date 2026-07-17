@@ -117,12 +117,13 @@ def test_delete_rule(http_client: TestClient, session_factory: sessionmaker, cap
     assert_log_contains(caplog, message="Deleted notification rule")
 
 
-def test_create_rule_requires_at_least_one_account(http_client: TestClient, session_factory: sessionmaker):
+def test_create_rule_with_empty_accounts_means_all(http_client: TestClient, session_factory: sessionmaker):
     setup_account(http_client=http_client, session_factory=session_factory)
 
     response = http_client.post("/api/notification_rules", json=_balance_rule_payload(account_id=0, account_ids=[]))
 
-    assert response.status_code == 422
+    assert response.status_code == 201
+    assert response.json()["account_ids"] == []
 
 
 def test_create_rule_rejects_foreign_account(http_client: TestClient, session_factory: sessionmaker):

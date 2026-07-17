@@ -309,7 +309,7 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
     enabled: rule?.enabled ?? true,
     include_content: rule?.include_content ?? true,
     name: rule?.name ?? '',
-    account_ids: rule?.account_ids ?? defaults.accountIds,
+    account_ids: rule && rule.account_ids.length > 0 ? rule.account_ids : defaults.accountIds,
     other_party_contains: '',
     categories: defaults.categories,
     types: defaults.types,
@@ -331,12 +331,14 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
   return base
 }
 
-function modelToDraft(model: RuleFormModel): NotificationRuleDraft {
+function modelToDraft(model: RuleFormModel, allAccountIds: number[]): NotificationRuleDraft {
+  const selected = new Set(model.account_ids)
+  const coversAll = allAccountIds.length > 0 && allAccountIds.every((id) => selected.has(id))
   const shared = {
     enabled: model.enabled,
     include_content: model.include_content,
     name: model.name.trim() || null,
-    account_ids: model.account_ids,
+    account_ids: coversAll ? [] : model.account_ids,
   }
   switch (model.trigger) {
     case 'expected_transaction':
@@ -397,20 +399,17 @@ function RuleDialog({
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
 
-    // At least one account is required — "all accounts" is not allowed.
     if (model.account_ids.length === 0) {
       setAccountError(true)
       return
     }
-    // The balance threshold is mandatory for the balance_threshold trigger.
     if (model.trigger === 'balance_threshold' && model.threshold === undefined) {
       setThresholdError(true)
       return
     }
 
-    const draft = modelToDraft(model)
+    const draft = modelToDraft(model, allAccountIds)
 
-    // Reject an exact duplicate of an existing rule (ignoring its enabled flag).
     const signature = ruleSignature(draft)
     const isDuplicate = existingRules.some(
       (existing) => existing.id !== rule?.id && ruleSignature(existing) === signature,
@@ -677,6 +676,7 @@ function describeAccounts(
   t: TFunction,
   accountNameById: Map<number, string>,
 ): string {
+  if (accountIds.length === 0) return t('common.allAccounts')
   const selected = new Set(accountIds)
   if (allAccountIds.length > 0 && allAccountIds.every((id) => selected.has(id))) {
     return t('common.allAccounts')

@@ -220,6 +220,32 @@ def test_rule_scoped_to_other_account_does_not_trigger(session_factory: sessionm
     assert notifications == []
 
 
+def test_rule_with_empty_account_list_covers_every_account(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        user = make_user(db_session)
+        credential = make_credential(db_session, user_id=user.id)
+        first = make_account(db_session, credential_id=credential.id, name="DE-first")
+        second = make_account(db_session, credential_id=credential.id, name="DE-second")
+        _make_notification_rule(
+            db_session,
+            user_id=user.id,
+            trigger=NotificationTrigger.TRANSACTION,
+            account_ids=[],
+            categories=ALL_CATEGORIES,
+            types=ALL_TYPES,
+        )
+        db_session.flush()
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        for account in [first, second]:
+            make_transaction(db_session, account_id=account.id, amount=-1.0, other_party="Shop")
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert len(notifications) == 2
+
+
 def test_first_sight_account_is_skipped(session_factory: sessionmaker):
     with session_factory() as db_session:
         user = make_user(db_session)
