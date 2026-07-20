@@ -206,12 +206,14 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
   const [queue, setQueue] = useState<number[]>([])
   const [succeededAt, setSucceededAt] = useState<number | null>(null)
   const [failedAt, setFailedAt] = useState<number | null>(null)
-  // The WS handler captures this ref so it can read the latest queue
-  // without forcing the per-job effect below to resubscribe on every render.
   const queueRef = useRef<number[]>(queue)
   useEffect(() => {
     queueRef.current = queue
   }, [queue])
+  const jobsRef = useRef<Map<number, SyncJob>>(jobs)
+  useEffect(() => {
+    jobsRef.current = jobs
+  }, [jobs])
 
   const current2faId = queue[0] ?? null
 
@@ -299,11 +301,13 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
     phaseRef.current = 'done'
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPhase('done')
-    const everyJobCompleted = Array.from(jobs.values()).every((j) => j.status === 'completed')
-    if (everyJobCompleted) {
-      setSucceededAt(Date.now())
-    } else {
-      setFailedAt(Date.now())
+    const reportable = Array.from(jobs.values()).filter((j) => j.error_code !== 'cancelled')
+    if (reportable.length > 0) {
+      if (reportable.every((j) => j.status === 'completed')) {
+        setSucceededAt(Date.now())
+      } else {
+        setFailedAt(Date.now())
+      }
     }
     queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     if (invalidateAccounts) {
@@ -353,6 +357,10 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
     const activeId = queueRef.current[0]
     if (activeId === undefined) return
     setQueue((prev) => prev.filter((id) => id !== activeId))
+    const job = jobsRef.current.get(activeId)
+    if (job) {
+      void api(`/credentials/${activeId}/sync/${job.job_id}`, { method: 'DELETE' }).catch(() => {})
+    }
   }, [])
 
   return { start, status, jobs, current2fa, submit2fa, skip2fa, succeededAt, failedAt }

@@ -106,6 +106,14 @@ def get_sync_job(job_id: str, credential: Credential = Depends(owned_credential)
     return SyncJobRead.model_validate(job)
 
 
+@router.delete("/{credential_id}/sync/{job_id}", status_code=204)
+async def cancel_sync_job(job_id: str, credential: Credential = Depends(owned_credential)) -> None:
+    job = sync_jobs.get_job_by_id(job_id)
+    if job is None or job.credential_id != credential.id:
+        raise NotFoundError(f"Sync job {job_id} not found for {credential}")
+    await sync_jobs.cancel(job_id=job_id)
+
+
 @router.post("/{credential_id}/sync/{job_id}/2fa", response_model=SyncJobRead, status_code=202)
 async def submit_sync_two_factor(
     job_id: str,

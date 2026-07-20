@@ -92,6 +92,7 @@ export type SyncJobStatus =
   | 'failed'
 
 export type SyncJobErrorCode =
+  | 'cancelled'
   | 'invalid_credentials'
   | 'redirect_url_not_allowed'
   | 'application_not_activated'
@@ -104,7 +105,6 @@ export interface SyncJob {
   expires_at: string | null
   error: string | null
   error_code: SyncJobErrorCode | null
-  /** External page (e.g. a PSD2 bank authorization) the user must visit to get the 2FA code. */
   authorization_url?: string | null
 }
 

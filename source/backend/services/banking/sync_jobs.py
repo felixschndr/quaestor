@@ -32,6 +32,7 @@ class JobStatus(str, Enum):
 
 
 class JobErrorCode(str, Enum):
+    CANCELLED = "cancelled"
     INVALID_CREDENTIALS = "invalid_credentials"
     REDIRECT_URL_NOT_ALLOWED = "redirect_url_not_allowed"
     APPLICATION_NOT_ACTIVATED = "application_not_activated"
@@ -73,7 +74,11 @@ def _spawn(coro: "asyncio.coroutines.Coroutine") -> None:
 
 
 def _cleanup_old_jobs() -> None:
-    cutoff_time = utc_now() - JOB_RETENTION_DURATION
+    now = utc_now()
+    for job in _jobs.values():
+        if job.finished_at is None and job.expires_at and job.expires_at < now:
+            _mark_terminal(job=job, status=JobStatus.FAILED, error="2FA challenge expired")
+    cutoff_time = now - JOB_RETENTION_DURATION
     stale_jobs = [job_id for job_id, job in _jobs.items() if job.finished_at and job.finished_at < cutoff_time]
     for job_id in stale_jobs:
         _jobs.pop(job_id, None)
@@ -183,6 +188,17 @@ async def submit_two_factor(job_id: str, code: str) -> SyncJob | None:
     _spawn(_run_confirm(job, challenge_token=challenge_token, code=code))
     # Yield once so the background task gets a chance to start before we return.
     await asyncio.sleep(0)
+    return job
+
+
+async def cancel(job_id: str) -> SyncJob | None:
+    job = _jobs.get(job_id)
+    if job is None or job.status in TERMINAL_JOB_STATUSSES:
+        return None
+    _mark_terminal(job=job, status=JobStatus.FAILED, error="Cancelled by user", error_code=JobErrorCode.CANCELLED)
+    job.challenge_token = None
+    logger.info(f"{job} cancelled")
+    await _notify(job)
     return job
 
 

@@ -235,3 +235,53 @@ def test_cleanup_drops_old_finished_jobs():
 
     assert sync_jobs.get_job_by_id(fresh.job_id) is fresh
     assert sync_jobs.get_job_by_id(stale.job_id) is None
+
+
+def test_cancel_marks_awaiting_job_failed_and_notifies_subscribers(patch_sync: PatchSync):
+    patch_sync(SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN))
+
+    async def scenario() -> list[SyncJob]:
+        job = await sync_jobs.start_sync(credential_id=42)
+        await _wait_until(lambda: job.status == JobStatus.AWAITING_TWO_FACTOR)
+        updates: list[SyncJob] = []
+
+        async def listen() -> None:
+            async for update in sync_jobs.subscribe(job.job_id):
+                updates.append(update)
+                if update.finished_at is not None:
+                    break
+
+        task = asyncio.create_task(listen())
+        await asyncio.sleep(0)
+        await sync_jobs.cancel(job_id=job.job_id)
+        await task
+        return updates
+
+    updates = asyncio.run(scenario())
+    assert updates[-1].status == JobStatus.FAILED
+    assert updates[-1].error_code == JobErrorCode.CANCELLED
+    assert updates[-1].challenge_token is None
+
+
+def test_cancel_ignores_unknown_and_terminal_jobs():
+    done = SyncJob(job_id="done", credential_id=1, status=JobStatus.COMPLETED, finished_at=utc_now())
+    sync_jobs._jobs[done.job_id] = done
+
+    assert asyncio.run(sync_jobs.cancel(job_id="missing")) is None
+    assert asyncio.run(sync_jobs.cancel(job_id=done.job_id)) is None
+    assert done.status == JobStatus.COMPLETED
+
+
+def test_cleanup_fails_expired_two_factor_jobs():
+    expired = SyncJob(
+        job_id="expired",
+        credential_id=1,
+        status=JobStatus.AWAITING_TWO_FACTOR,
+        expires_at=utc_now() - timedelta(minutes=1),
+    )
+    sync_jobs._jobs[expired.job_id] = expired
+
+    sync_jobs._cleanup_old_jobs()
+
+    assert expired.status == JobStatus.FAILED
+    assert expired.finished_at is not None
