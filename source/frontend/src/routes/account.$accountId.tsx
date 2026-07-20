@@ -55,6 +55,7 @@ function AccountDetailPage() {
     const bankTitle = t(`banks.${syncBank}.title`, { defaultValue: syncBank })
     const rateLimited = Array.from(syncJobs.values()).some((j) => j.error_code === 'rate_limited')
     toast.error(t(rateLimited ? 'sync.rateLimited' : 'sync.failed', { bank: bankTitle }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncFailedAt, syncBank, t])
 
   if (!user) return null // Root guard already redirected on 401.

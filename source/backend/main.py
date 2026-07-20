@@ -256,13 +256,13 @@ async def log_http_requests(request: Request, call_next: Callable[[Request], Awa
             "query": dict(request.query_params),
             "headers": redact_headers(dict(request.headers)),
             "body": _loggable_json_body(
-                raw=request_body, content_type=request.headers.get(key="content-type", default="")
+                raw=request_body, content_type=request.headers.get("content-type", "")  # noqa FKA100
             ),
         },
         "response": {
             "headers": redact_headers(dict(response.headers)),
             "body": _loggable_json_body(
-                raw=response_body, content_type=response.headers.get(key="content-type", default="")
+                raw=response_body, content_type=response.headers.get("content-type", "")  # noqa FKA100
             ),
         },
     }
