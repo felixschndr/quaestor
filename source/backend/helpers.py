@@ -78,10 +78,13 @@ def get_root_path_of_repository() -> Path:
     return Path(__file__).parent.parent.parent
 
 
+def get_pyproject_toml_path() -> Path:
+    return get_root_path_of_repository() / "pyproject.toml"
+
+
 @functools.cache
 def get_content_of_pyproject_toml() -> dict:
-    pyproject_path = get_root_path_of_repository() / "pyproject.toml"
-    with pyproject_path.open("rb") as handle:
+    with get_pyproject_toml_path().open("rb") as handle:
         return tomllib.load(handle)
 
 

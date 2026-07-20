@@ -99,7 +99,6 @@ def test_get_root_path_of_repository_points_at_the_repo_root():
 
     assert root.is_dir()
     assert (root / "pyproject.toml").is_file()
-    assert (root / "alembic.ini").is_file()
 
 
 def test_get_backend_source_path_points_at_source_backend():

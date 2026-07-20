@@ -12,7 +12,9 @@ _real_upgrade_to_head = migrations.upgrade_to_head
 def test_upgrade_to_head_invokes_alembic_with_repo_config(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    fake_config_class = MagicMock(side_effect=lambda file_: MagicMock(name=f"Config({file_})", file_=file_))
+    fake_config_class = MagicMock(
+        side_effect=lambda toml_file: MagicMock(name=f"Config({toml_file})", toml_file=toml_file)
+    )
     fake_upgrade = MagicMock()
     monkeypatch.setattr(target=migrations.command, name="upgrade", value=fake_upgrade)
     monkeypatch.setattr(target=migrations, name="Config", value=fake_config_class)
@@ -23,9 +25,9 @@ def test_upgrade_to_head_invokes_alembic_with_repo_config(
         caplog, messages=["Applying database migrations to head", "Database migrations now are at head"]
     )
     fake_config_class.assert_called_once()
-    ini_path = Path(fake_config_class.call_args.kwargs["file_"])
-    assert ini_path.name == "alembic.ini"
-    assert ini_path.is_file()
+    toml_path = Path(fake_config_class.call_args.kwargs["toml_file"])
+    assert toml_path.name == "pyproject.toml"
+    assert toml_path.is_file()
     fake_upgrade.assert_called_once()
     assert fake_upgrade.call_args.kwargs["revision"] == "head"
 

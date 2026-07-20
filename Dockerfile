@@ -59,7 +59,6 @@ COPY --from=backend-builder /app/.venv /app/.venv
 RUN playwright install-deps chromium \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --chown=${USER_TO_USE}:${USER_TO_USE} alembic.ini ./
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} pyproject.toml ./
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} source/backend ./source/backend
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} scripts/db/db_common.sh scripts/db/db.sh scripts/db/resetpw.sh scripts/db/get_uncategorized_transactions.sh ./scripts/db/

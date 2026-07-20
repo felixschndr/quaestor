@@ -51,6 +51,11 @@ env = [
 ]
 markers = ["real_playwright_browser: exercise the real Playwright browser provisioning logic"]
 
+[tool.alembic]
+script_location = "source/backend/alembic"
+prepend_sys_path = ["."]
+file_template = "%%(rev)s_%%(slug)s"
+
 [tool.isort]
 profile = "black"
 src_paths = ["source", "tests"]
