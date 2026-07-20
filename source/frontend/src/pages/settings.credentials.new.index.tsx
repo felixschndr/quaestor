@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { forwardRef, useMemo, useRef } from 'react'
 import { Link } from '@tanstack/react-router'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTranslation } from 'react-i18next'
 import { BookOpen, ChevronRight } from 'lucide-react'
 
@@ -77,23 +78,57 @@ export function BankPickerView({
           {matches.length === 0 ? (
             <p className="text-muted-foreground text-sm">{t('credentials.noResults')}</p>
           ) : (
-            // The list grows only as tall as its rows; once it would exceed the remaining
-            // height it stops there (min-h-0) and scrolls instead of stretching past it.
-            <ul className="border-border bg-card flex min-h-0 flex-col overflow-y-auto rounded-lg border">
-              {matches.map((bank) => (
-                <BankRow
-                  key={bank.key}
-                  bank={bank}
-                  accountsCount={
-                    bank.provider === bank.key ? (existingAccountCounts[bank.provider] ?? 0) : null
-                  }
-                />
-              ))}
-            </ul>
+            <VirtualBankList matches={matches} existingAccountCounts={existingAccountCounts} />
           )}
         </div>
       )}
     </main>
+  )
+}
+
+function VirtualBankList({
+  matches,
+  existingAccountCounts,
+}: {
+  matches: SupportedBank[]
+  existingAccountCounts: Record<string, number>
+}) {
+  const scrollRef = useRef<HTMLUListElement>(null)
+  const virtualizer = useVirtualizer({
+    count: matches.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 64,
+    overscan: 8,
+  })
+  return (
+    <ul
+      ref={scrollRef}
+      className="border-border bg-card min-h-0 flex-1 overflow-y-auto rounded-lg border"
+    >
+      <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+        {virtualizer.getVirtualItems().map((item) => {
+          const bank = matches[item.index]
+          return (
+            <BankRow
+              key={bank.key}
+              ref={virtualizer.measureElement}
+              data-index={item.index}
+              bank={bank}
+              accountsCount={
+                bank.provider === bank.key ? (existingAccountCounts[bank.provider] ?? 0) : null
+              }
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${item.start}px)`,
+              }}
+            />
+          )
+        })}
+      </div>
+    </ul>
   )
 }
 
@@ -143,13 +178,21 @@ function bankSubtitle(bank: SupportedBank): string | null {
   return parts.length > 0 ? parts.join(' · ') : null
 }
 
-function BankRow({ bank, accountsCount }: { bank: SupportedBank; accountsCount: number | null }) {
+const BankRow = forwardRef<
+  HTMLLIElement,
+  {
+    bank: SupportedBank
+    accountsCount: number | null
+    style?: React.CSSProperties
+    'data-index'?: number
+  }
+>(function BankRow({ bank, accountsCount, ...rest }, ref) {
   const { t } = useTranslation()
   const name = bankDisplayName(t, bank)
   const subtitle = bankSubtitle(bank)
   const badge = handlerBadge(bank.provider)
   return (
-    <li className="border-border/40 border-t first:border-t-0">
+    <li ref={ref} {...rest} className="border-border/40 border-t">
       <Link
         to="/settings/credentials/new/$bank"
         params={{ bank: bank.key }}
@@ -181,4 +224,4 @@ function BankRow({ bank, accountsCount }: { bank: SupportedBank; accountsCount: 
       </Link>
     </li>
   )
-}
+})

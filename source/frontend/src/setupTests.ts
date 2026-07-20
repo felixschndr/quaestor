@@ -1,7 +1,5 @@
 import '@testing-library/jest-dom/vitest'
 
-// jsdom doesn't provide ResizeObserver, but Radix primitives (e.g. Checkbox)
-// rely on it. Provide a no-op shim so they mount.
 class NoopResizeObserver {
   observe() {}
   unobserve() {}
@@ -9,6 +7,25 @@ class NoopResizeObserver {
 }
 if (typeof globalThis.ResizeObserver === 'undefined') {
   globalThis.ResizeObserver = NoopResizeObserver as unknown as typeof ResizeObserver
+}
+
+if (!('__virtualSizePatched' in Element.prototype)) {
+  Object.defineProperty(Element.prototype, '__virtualSizePatched', { value: true })
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, value: 800 })
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, value: 800 })
+  Element.prototype.getBoundingClientRect = function (): DOMRect {
+    return {
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 800,
+      bottom: 64,
+      width: 800,
+      height: 64,
+      toJSON() {},
+    }
+  }
 }
 
 const localStorageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')

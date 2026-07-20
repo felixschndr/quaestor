@@ -90,7 +90,7 @@ def _create_non_fints_provider_entry(provider: str) -> CatalogEntry:
     )
 
 
-def _create_enable_banking_entry(name: str, countries: tuple[str, ...]) -> CatalogEntry:
+def _create_enable_banking_entry(name: str, countries: tuple[str, ...], logo: str | None) -> CatalogEntry:
     bank_info = BANKS_BY_NAME[_ENABLE_BANKING_PROVIDER]
     visible_fields = ["private_key"]
     return CatalogEntry(
@@ -98,7 +98,7 @@ def _create_enable_banking_entry(name: str, countries: tuple[str, ...]) -> Catal
         key=f"eb-{name}",
         name=name,
         bic=None,
-        icon=_icon_for_name(name),
+        icon=_icon_for_name(name) or logo,
         tested=True,
         required_fields=visible_fields,
         field_rules={field: rules for field, rules in bank_info.field_rules.items() if field in visible_fields},
@@ -109,10 +109,12 @@ def _create_enable_banking_entry(name: str, countries: tuple[str, ...]) -> Catal
 
 def _enable_banking_entries(aspsps: list[dict]) -> list[CatalogEntry]:
     countries_by_name: dict[str, set[str]] = {}
+    logo_by_name: dict[str, str | None] = {}
     for aspsp in aspsps:
         countries_by_name.setdefault(aspsp["name"], set()).add(aspsp["country"])  # noqa FKA100
+        logo_by_name.setdefault(aspsp["name"], aspsp.get("logo"))  # noqa FKA100
     return [
-        _create_enable_banking_entry(name=name, countries=tuple(sorted(countries)))
+        _create_enable_banking_entry(name=name, countries=tuple(sorted(countries)), logo=logo_by_name[name])
         for name, countries in countries_by_name.items()
     ]
 

@@ -1,20 +1,28 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { initials, monogramColor } from '@/lib/bankIdentity'
+
+const pinned = new Map<string, HTMLImageElement>()
+function preloadIcon(url: string): void {
+  if (pinned.has(url)) return
+  const img = new Image()
+  pinned.set(url, img)
+  img.onerror = () => pinned.delete(url) // let failed loads retry later
+  img.src = url
+}
 
 export interface BankLogoProps {
   icon: string | null
   name: string
-  /** Seed for the deterministic monogram colour (use the catalog key/BLZ). */
   seed: string
   className?: string
 }
 
-/** A bank's logo image, with an initials-monogram fallback when no logo exists
- *  or the image fails to load. */
 export function BankLogo({ icon, name, seed, className = 'size-8' }: BankLogoProps) {
   const [failedIcon, setFailedIcon] = useState<string | null>(null)
-  // Reset the failure flag when the icon changes (e.g. list re-render with a new bank).
   const failed = failedIcon === icon
+  useEffect(() => {
+    if (icon) preloadIcon(icon)
+  }, [icon])
 
   if (icon && !failed) {
     return (
