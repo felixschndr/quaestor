@@ -1,24 +1,16 @@
 .git
-.gitignore
 .github
-.idea
-.vscode
 .venv
+data
+tests
+docs
 __pycache__
-*.pyc
-*.pyo
 .pytest_cache
-.mypy_cache
-.ruff_cache
-htmlcov
 .coverage
-coverage.xml
 
-Quaestor.db
-Quaestor.db-shm
-Quaestor.db-wal
 .env
 .env.*
+*.pem
 
 source/frontend/node_modules
 source/frontend/dist
@@ -29,15 +21,3 @@ source/frontend/tests
 source/frontend/playwright.config.ts
 source/frontend/vitest.config.ts
 source/frontend/src/**/__tests__
-
-README.md
-LICENSE
-Taskfile.yml
-scripts/*
-!scripts/db/db_common.sh
-!scripts/db/db.sh
-!scripts/db/resetpw.sh
-tests
-idea_for_frontend.md
-Dockerfile
-.dockerignore
