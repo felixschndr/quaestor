@@ -50,7 +50,7 @@ const TR_BANK: SupportedBank = {
   key: 'trade_republic',
   name: 'Trade Republic',
   bic: null,
-  icon: '/static/banks/trade_republic.png',
+  icon: '/static/banks/trade-republic.png',
   tested: true,
   required_fields: ['phone', 'pin'],
   blzs: [],

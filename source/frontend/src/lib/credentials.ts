@@ -189,3 +189,12 @@ export function bankDisplayName(t: TFunction, bank: SupportedBank): string {
     ? t(`banks.${bank.provider}.title`, { defaultValue: bank.name })
     : bank.name
 }
+
+const VIA_HANDLER_LABELS: Record<string, string> = {
+  fints: 'FinTS',
+  enable_banking: 'Enable Banking',
+}
+
+export function viaHandlerLabel(provider: string): string | null {
+  return VIA_HANDLER_LABELS[provider] ?? null
+}

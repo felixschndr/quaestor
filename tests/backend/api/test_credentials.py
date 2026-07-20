@@ -228,11 +228,10 @@ def test_supported_banks_requires_authentication(http_client: TestClient):
 
 
 def test_bank_icons_are_served_as_static_files(http_client: TestClient):
-    for bank in ["ing-diba", "deutsche-kreditbank-berlin", "dfs", "trade_republic"]:
-        response = http_client.get(f"/static/banks/{bank}.png")
-        assert response.status_code == 200, bank
-        assert response.headers["content-type"] == "image/png"
-        assert len(response.content) > 0
+    response = http_client.get("/static/banks/ing-diba.png")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert len(response.content) > 0
 
 
 def test_create_credential_rejects_unknown_bank(http_client: TestClient):

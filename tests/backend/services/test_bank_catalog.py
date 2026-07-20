@@ -131,14 +131,14 @@ def _fake_aspsps() -> list[dict]:
         {"name": "PayPal", "country": "DE", "logo": "https://enablebanking.com/brands/DE/PayPal/"},
         {"name": "DKB", "country": "DE", "logo": "x"},  # initials of "Deutsche Kreditbank Berlin"
         {"name": "ING", "country": "DE", "logo": "x"},  # prefix of "ING-DiBa"
-        {"name": "Deutsche Bank", "country": "DE", "logo": "x"},  # exact duplicate
-        {"name": "Deutsche Bank", "country": "IT", "logo": "x"},  # FinTS covers the name --> dropped
+        {"name": "Deutsche Bank", "country": "DE", "logo": "x"},  # also offered via FinTS --> kept, user chooses
+        {"name": "Deutsche Bank", "country": "IT", "logo": "x"},
         {"name": "PayPal", "country": "FR", "logo": "x"},  # every country is its own ASPSP --> kept
         {"name": "Nordea", "country": "FI", "logo": "x"},
-        {"name": "Sparkasse München Aktiengesellschaft", "country": "DE", "logo": "x"},  # suffixed variant
-        {"name": "Kreissparkasse Nirgendwo", "country": "DE", "logo": "x"},  # not in the FinTS DB
-        {"name": "Volksbank Mittelhessen", "country": "DE", "logo": "x"},  # generic "Volksbank" must not absorb it
-        {"name": "Volksbank", "country": "DE", "logo": "x"},  # exact duplicate of the literal "Volksbank"
+        {"name": "Sparkasse München Aktiengesellschaft", "country": "DE", "logo": "x"},
+        {"name": "Kreissparkasse Nirgendwo", "country": "DE", "logo": "x"},
+        {"name": "Volksbank Mittelhessen", "country": "DE", "logo": "x"},
+        {"name": "Volksbank", "country": "DE", "logo": "x"},
         {"name": "Revolut", "country": "LT", "logo": "x"},
     ]
 
@@ -160,20 +160,27 @@ def test_enable_banking_entries_carry_countries_and_visible_fields_only():
     assert set(entry.field_rules) <= set(entry.required_fields)
 
 
-def test_enable_banking_german_fints_duplicates_are_dropped():
+def test_enable_banking_keeps_banks_also_offered_via_fints():
     catalog = _build_with_aspsps()
     enable_banking_names = {e.name for e in catalog if e.provider == "enable_banking"}
 
     assert "PayPal" in enable_banking_names
     assert "Revolut" in enable_banking_names
     assert "Nordea" in enable_banking_names
-    assert "Deutsche Bank" not in enable_banking_names  # FinTS covers the name, any country
-    assert "DKB" not in enable_banking_names
-    assert "ING" not in enable_banking_names
-    assert "Sparkasse München Aktiengesellschaft" not in enable_banking_names
+    assert "Deutsche Bank" in enable_banking_names
+    assert "DKB" in enable_banking_names
+    assert "ING" in enable_banking_names
     assert "Kreissparkasse Nirgendwo" in enable_banking_names
     assert "Volksbank Mittelhessen" in enable_banking_names
-    assert "Volksbank" not in enable_banking_names
+    assert "Volksbank" in enable_banking_names
+
+
+def test_fints_and_enable_banking_entry_for_the_same_bank_have_distinct_keys():
+    catalog = _build_with_aspsps()
+    fints_dkb = next(e for e in catalog if e.provider == "fints" and e.name == "Deutsche Kreditbank Berlin")
+    eb_dkb = _by_key(catalog, key="eb-DKB")
+
+    assert fints_dkb.key != eb_dkb.key
 
 
 def test_credential_display_for_enable_banking_uses_aspsp():

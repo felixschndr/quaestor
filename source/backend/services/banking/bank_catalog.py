@@ -1,4 +1,3 @@
-import re
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 
@@ -91,10 +90,6 @@ def _create_non_fints_provider_entry(provider: str) -> CatalogEntry:
     )
 
 
-def _normalize_bank_name(name: str) -> str:
-    return re.sub(pattern=r"[^a-z0-9]", repl="", string=name.lower())
-
-
 def _create_enable_banking_entry(name: str, countries: tuple[str, ...]) -> CatalogEntry:
     bank_info = BANKS_BY_NAME[_ENABLE_BANKING_PROVIDER]
     visible_fields = ["private_key"]
@@ -112,54 +107,13 @@ def _create_enable_banking_entry(name: str, countries: tuple[str, ...]) -> Catal
     )
 
 
-def _bank_name_tokens(name: str) -> list[str]:
-    return [token for token in re.split(pattern=r"[^a-z0-9]+", string=name.lower()) if token]
-
-
-@dataclass(frozen=True)
-class _FintsNameIndex:
-    normalized: frozenset[str]
-    initials: frozenset[str]
-    token_sets: tuple[frozenset[str], ...]
-    multi_token: frozenset[str]
-
-    @classmethod
-    def build(cls: type["_FintsNameIndex"], names: set[str]) -> "_FintsNameIndex":
-        tokens_per_name = {name: _bank_name_tokens(name) for name in names}
-        return cls(
-            normalized=frozenset(_normalize_bank_name(name) for name in names),
-            initials=frozenset(
-                "".join(token[0] for token in tokens) for tokens in tokens_per_name.values() if len(tokens) >= 2
-            ),
-            token_sets=tuple(frozenset(tokens) for tokens in tokens_per_name.values()),
-            multi_token=frozenset(
-                _normalize_bank_name(name) for name, tokens in tokens_per_name.items() if len(tokens) >= 2
-            ),
-        )
-
-    def matches(self, name: str) -> bool:
-        normalized = _normalize_bank_name(name)
-        if len(normalized) < 3:
-            return False
-        if normalized in self.normalized or normalized in self.initials:
-            return True
-        if any(known.startswith(normalized) for known in self.normalized if len(known) >= 3):
-            return True
-        if any(normalized.startswith(known) for known in self.multi_token if len(known) >= 3):
-            return True
-        tokens = frozenset(_bank_name_tokens(name))
-        return any(tokens <= known_tokens for known_tokens in self.token_sets)
-
-
-def _enable_banking_entries(aspsps: list[dict], fints_names: set[str]) -> list[CatalogEntry]:
-    index = _FintsNameIndex.build(fints_names)
+def _enable_banking_entries(aspsps: list[dict]) -> list[CatalogEntry]:
     countries_by_name: dict[str, set[str]] = {}
     for aspsp in aspsps:
         countries_by_name.setdefault(aspsp["name"], set()).add(aspsp["country"])  # noqa FKA100
     return [
         _create_enable_banking_entry(name=name, countries=tuple(sorted(countries)))
         for name, countries in countries_by_name.items()
-        if not index.matches(name)
     ]
 
 
@@ -185,7 +139,7 @@ def build_catalog(
         _create_group_entry(name=name, blzs=blzs, schwifty_index=schwifty_index) for name, blzs in grouped.items()
     ]
     entries.extend(_create_non_fints_provider_entry(provider=provider) for provider in _NON_FINTS_PROVIDERS)
-    entries.extend(_enable_banking_entries(aspsps=aspsps or [], fints_names=set(grouped)))
+    entries.extend(_enable_banking_entries(aspsps=aspsps or []))
     return entries
 
 

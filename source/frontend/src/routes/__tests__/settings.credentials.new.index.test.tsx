@@ -123,7 +123,6 @@ describe('BankPickerView', () => {
       />,
     )
     expect(screen.getByRole('link', { name: /Nordea/ })).toHaveTextContent('Enable Banking')
-    expect(screen.getByRole('link', { name: /Nordea/ })).toHaveTextContent('Finland')
     expect(screen.getByRole('link', { name: /Deutsche Bank/ })).toHaveTextContent('FinTS')
   })
 

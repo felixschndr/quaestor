@@ -1,13 +1,15 @@
 import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight } from 'lucide-react'
+import { BookOpen, ChevronRight } from 'lucide-react'
 
-import { type SupportedBank, bankDisplayName } from '@/lib/credentials'
-import { countryName, ibanToBlz, isLikelyIban } from '@/lib/bankIdentity'
+import { type SupportedBank, bankDisplayName, viaHandlerLabel } from '@/lib/credentials'
+import { ibanToBlz, isLikelyIban } from '@/lib/bankIdentity'
 import { BankLogo } from '@/components/BankLogo'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { BackLink } from '@/components/back-link'
+import { BANK_HANDLERS_DOCS_URL } from '@/lib/links'
 
 export interface BankPickerViewProps {
   isLoading: boolean
@@ -44,6 +46,12 @@ export function BankPickerView({
       <header className="flex items-center gap-2">
         <BackLink to="/settings/credentials" />
         <h1 className="text-foreground text-2xl font-semibold">{t('credentials.pickerTitle')}</h1>
+        <Button asChild size="sm" className="ml-auto">
+          <a href={BANK_HANDLERS_DOCS_URL} target="_blank" rel="noopener noreferrer">
+            <BookOpen className="size-4" aria-hidden="true" />
+            {t('credentials.pickerDocs')}
+          </a>
+        </Button>
       </header>
       <Input
         type="search"
@@ -118,13 +126,16 @@ function filterBanks(banks: SupportedBank[], query: string): SupportedBank[] {
   return banks.filter((bank) => bankMatches(bank, slug, digits, ibanBlz))
 }
 
-const HANDLER_LABELS: Record<string, string> = {
-  fints: 'FinTS',
-  enable_banking: 'Enable Banking',
+const DIRECT_PROVIDERS = new Set(['dfs', 'trade_republic', 'fin4u'])
+
+function handlerBadge(provider: string): { key: string; handler?: string } | null {
+  const via = viaHandlerLabel(provider)
+  if (via) return { key: 'credentials.viaHandler', handler: via }
+  if (DIRECT_PROVIDERS.has(provider)) return { key: 'credentials.directHandler' }
+  return null
 }
 
-function bankSubtitle(bank: SupportedBank, locale: string): string | null {
-  if (bank.countries?.length === 1) return countryName(bank.countries[0], locale)
+function bankSubtitle(bank: SupportedBank): string | null {
   const parts: string[] = []
   if (bank.blzs.length === 1) parts.push(bank.blzs[0])
   else if (bank.blzs.length > 1) parts.push(`${bank.blzs[0]} +${bank.blzs.length - 1}`)
@@ -133,10 +144,10 @@ function bankSubtitle(bank: SupportedBank, locale: string): string | null {
 }
 
 function BankRow({ bank, accountsCount }: { bank: SupportedBank; accountsCount: number | null }) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const name = bankDisplayName(t, bank)
-  const subtitle = bankSubtitle(bank, i18n.language)
-  const handlerLabel = HANDLER_LABELS[bank.provider]
+  const subtitle = bankSubtitle(bank)
+  const badge = handlerBadge(bank.provider)
   return (
     <li className="border-border/40 border-t first:border-t-0">
       <Link
@@ -153,9 +164,9 @@ function BankRow({ bank, accountsCount }: { bank: SupportedBank; accountsCount: 
                 {t('credentials.tested')}
               </span>
             ) : null}
-            {handlerLabel ? (
+            {badge ? (
               <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium">
-                {handlerLabel}
+                {t(badge.key, { handler: badge.handler })}
               </span>
             ) : null}
           </span>

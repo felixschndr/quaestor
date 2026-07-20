@@ -4,6 +4,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import date, datetime
 
+from source.backend.bank_handlers.bank_logos import logo_slug
 from source.backend.models.transactions.transaction_type import TransactionType
 
 TwoFactorStateCallback = Callable[[bool], None]
@@ -117,13 +118,10 @@ class BankInfo:
 
     @property
     def icon(self) -> str:
-        return f"/static/banks/{self.name}.png"
+        return f"/static/banks/{logo_slug(self.name)}.png"
 
     @property
     def field_rules(self) -> dict[str, dict]:
-        # Single source of truth for input validation, consumed by both the backend
-        # (on create) and the frontend (live). A field appears here if it has rules
-        # and/or its whitespace is stripped.
         handler = self.handler
         fields = set(handler.FIELD_RULES) | set(handler.WHITESPACE_STRIPPED_FIELDS)
         return {

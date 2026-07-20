@@ -144,6 +144,7 @@ _TEMPLATE = """<!DOCTYPE html>
   <p class="tagline">{description}</p>
   <p class="sub">
     <a href="./index.html">API docs</a> &middot;
+    <a href="{repo}/blob/main/docs/bank_handlers/README.md">Documentation about bank integrations</a> &middot;
     <a href="{repo}">GitHub</a>
   </p>
 </header>
@@ -158,6 +159,7 @@ _TEMPLATE = """<!DOCTYPE html>
 <script>
   const BANKS = {data};
   const HANDLERS = {{ fints: "FinTS", enable_banking: "Enable Banking" }};
+  const DIRECT = new Set(["dfs", "trade_republic", "fin4u"]);
   let query = "";
 
   function initials(name) {{
@@ -181,14 +183,12 @@ _TEMPLATE = """<!DOCTYPE html>
       : `<div class="mono">${{initials(b.name || b.raw_name)}}</div>`;
     const badges = [];
     if (b.tested) badges.push('<span class="badge ok">Tested</span>');
-    badges.push(`<span class="badge">${{HANDLERS[b.provider] || b.provider}}</span>`);
+    const handler = HANDLERS[b.provider] || (DIRECT.has(b.provider) ? "Direct" : null);
+    if (handler) badges.push(`<span class="badge">${{handler}}</span>`);
     if (b.blzs.length > 1) badges.push(`<span class="badge">${{b.blzs.length}} sort codes</span>`);
     const bic = b.bic ? `<div class="meta">BIC <code>${{b.bic}}</code></div>` : "";
     const blz = b.blzs.length
       ? `<div class="meta">BLZ <code>${{b.blzs[0]}}</code>${{b.blzs.length > 1 ? " …" : ""}}</div>`
-      : "";
-    const countries = b.countries && b.countries.length
-      ? `<div class="meta">${{b.countries.join(", ")}}</div>`
       : "";
     const note = b.note ? `<div class="note">${{b.note}}</div>` : "";
     el.innerHTML = `
@@ -199,7 +199,7 @@ _TEMPLATE = """<!DOCTYPE html>
         </div>
       </div>
       <div class="badges">${{badges.join("")}}</div>
-      ${{bic}}${{blz}}${{countries}}${{note}}`;
+      ${{bic}}${{blz}}${{note}}`;
     return el;
   }}
 

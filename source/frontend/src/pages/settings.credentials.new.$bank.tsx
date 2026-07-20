@@ -13,6 +13,7 @@ import { FieldRow } from '@/components/settings/settings-section'
 import { ApiError } from '@/lib/api'
 import { authQueryKeys, type UserRead } from '@/lib/auth'
 import { countryName, ibanToBlz } from '@/lib/bankIdentity'
+import { QUAESTOR_REPO_URL } from '@/lib/links'
 import {
   useConfirmTwoFactor,
   useCreateCredential,
@@ -22,6 +23,7 @@ import {
   type CredentialFieldSpec,
   type SupportedBank,
   bankDisplayName,
+  viaHandlerLabel,
 } from '@/lib/credentials'
 import { BackLink } from '@/components/back-link'
 
@@ -56,6 +58,7 @@ export function NewCredentialFormView({
   const bankTitle = bank
     ? bankDisplayName(t, bank)
     : t(`banks.${bankKey}.title`, { defaultValue: bankKey })
+  const viaLabel = bank ? viaHandlerLabel(bank.provider) : null
 
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
@@ -65,6 +68,12 @@ export function NewCredentialFormView({
           {bankKey === 'manual'
             ? t('credentials.formTitleManual')
             : t('credentials.formTitle', { bank: bankTitle })}
+          {viaLabel ? (
+            <span className="text-muted-foreground text-lg font-normal">
+              {' '}
+              {t('credentials.viaHandlerInline', { handler: viaLabel })}
+            </span>
+          ) : null}
         </h1>
       </header>
 
@@ -413,8 +422,6 @@ function CredentialForm({
 export function enableBankingRedirectUrl(): string {
   return `${window.location.origin}/banking/callback`
 }
-
-const QUAESTOR_REPO_URL = 'https://github.com/felixschndr/quaestor'
 
 function GuideCode({ children, copy = true }: { children: string; copy?: boolean }) {
   const { t } = useTranslation()
