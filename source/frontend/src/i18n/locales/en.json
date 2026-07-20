@@ -530,7 +530,8 @@
       "authorizeLink": "Sign in at {{bank}}"
     },
     "skipped": "{{bank}} skipped.",
-    "failed": "{{bank}} couldn't be synced."
+    "failed": "{{bank}} couldn't be synced.",
+    "rateLimited": "{{bank}} received too many requests. Please try again later."
   },
   "transaction": {
     "otherParty": "Other party",

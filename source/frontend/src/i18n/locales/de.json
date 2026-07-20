@@ -530,7 +530,8 @@
       "authorizeLink": "Bei {{bank}} anmelden"
     },
     "skipped": "{{bank}} übersprungen.",
-    "failed": "{{bank}} konnte nicht synchronisiert werden."
+    "failed": "{{bank}} konnte nicht synchronisiert werden.",
+    "rateLimited": "{{bank}} hat zu viele Anfragen erhalten. Bitte versuche es später erneut."
   },
   "transaction": {
     "otherParty": "Empfänger / Absender",

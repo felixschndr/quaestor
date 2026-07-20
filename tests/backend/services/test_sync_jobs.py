@@ -5,7 +5,7 @@ from typing import Union
 
 import pytest
 
-from source.backend.exceptions import InvalidCredentialsError
+from source.backend.exceptions import BankRateLimitedError, InvalidCredentialsError
 from source.backend.helpers import utc_now
 from source.backend.services.banking import sync_jobs
 from source.backend.services.banking.credential_service import SyncResult, SyncStatus
@@ -285,3 +285,16 @@ def test_cleanup_fails_expired_two_factor_jobs():
 
     assert expired.status == JobStatus.FAILED
     assert expired.finished_at is not None
+
+
+def test_rate_limit_is_reported_as_rate_limited_error_code(patch_sync: PatchSync):
+    patch_sync(BankRateLimitedError("429"))
+
+    async def scenario() -> SyncJob:
+        job = await sync_jobs.start_sync(credential_id=42)
+        await _wait_until(lambda: job.finished_at is not None)
+        return job
+
+    job = asyncio.run(scenario())
+    assert job.status == JobStatus.FAILED
+    assert job.error_code == JobErrorCode.RATE_LIMITED

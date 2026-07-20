@@ -94,6 +94,7 @@ export type SyncJobStatus =
 export type SyncJobErrorCode =
   | 'cancelled'
   | 'invalid_credentials'
+  | 'rate_limited'
   | 'redirect_url_not_allowed'
   | 'application_not_activated'
   | 'unknown'

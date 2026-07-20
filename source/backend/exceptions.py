@@ -70,6 +70,10 @@ class InvalidCredentialsError(Exception):
     pass
 
 
+class BankRateLimitedError(Exception):
+    pass
+
+
 class PSD2ApplicationNotActivatedError(Exception):
     pass
 

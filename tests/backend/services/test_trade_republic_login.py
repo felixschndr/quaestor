@@ -4,7 +4,11 @@ from pathlib import Path
 import pytest
 import requests
 
-from source.backend.exceptions import InvalidCredentialsError, InvalidTwoFactorError
+from source.backend.exceptions import (
+    BankRateLimitedError,
+    InvalidCredentialsError,
+    InvalidTwoFactorError,
+)
 from source.backend.helpers import utc_now
 from source.backend.services.banking import trade_republic_login as module
 from tests.backend.conftest import (
@@ -44,7 +48,7 @@ def test_start_translates_http_400_into_invalid_credentials(
     _patch_client(monkeypatch=monkeypatch, initiate_side_effect=_http_error(400))
 
     with pytest.raises(InvalidCredentialsError):
-        module.start(credential_id=1, phone_no="+490000000000", pin="0000")
+        module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
 
     assert_log_contains(caplog, messages=["Initiating Trade Republic web login", "Trade Republic rejected the login"])
 
@@ -53,21 +57,21 @@ def test_start_translates_value_error_into_invalid_credentials(monkeypatch: pyte
     _patch_client(monkeypatch=monkeypatch, initiate_side_effect=ValueError("bad phone number"))
 
     with pytest.raises(InvalidCredentialsError):
-        module.start(credential_id=1, phone_no="nonsense", pin="0000")
+        module.start(credential_id=1, phone_no="nonsense", pin=PIN)
 
 
 def test_start_reraises_server_errors_as_generic(monkeypatch: pytest.MonkeyPatch):
     _patch_client(monkeypatch=monkeypatch, initiate_side_effect=_http_error(503))
 
     with pytest.raises(requests.exceptions.HTTPError):
-        module.start(credential_id=1, phone_no="+490000000000", pin="0000")
+        module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
 
 
-def test_start_reraises_rate_limit_as_generic(monkeypatch: pytest.MonkeyPatch):
+def test_start_translates_rate_limit_into_bank_rate_limited(monkeypatch: pytest.MonkeyPatch):
     _patch_client(monkeypatch=monkeypatch, initiate_side_effect=_http_error(429))
 
-    with pytest.raises(requests.exceptions.HTTPError):
-        module.start(credential_id=1, phone_no="+490000000000", pin="0000")
+    with pytest.raises(BankRateLimitedError):
+        module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
 
 
 def _patch_successful_client(
@@ -125,7 +129,7 @@ def test_complete_translates_http_error_into_invalid_two_factor(monkeypatch: pyt
     token, _ = module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
 
     with pytest.raises(InvalidTwoFactorError, match="Invalid 2FA code"):
-        module.complete(challenge_token=token, credential_id=1, code="0000")
+        module.complete(challenge_token=token, credential_id=1, code=PIN)
 
     assert module._pending_logins == {}
     assert not cookie_paths[0].exists()

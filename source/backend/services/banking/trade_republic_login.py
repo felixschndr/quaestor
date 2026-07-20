@@ -7,7 +7,11 @@ from pathlib import Path
 import requests
 from pytr.api import TradeRepublicApi
 
-from source.backend.exceptions import InvalidCredentialsError, InvalidTwoFactorError
+from source.backend.exceptions import (
+    BankRateLimitedError,
+    InvalidCredentialsError,
+    InvalidTwoFactorError,
+)
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
 
@@ -40,6 +44,14 @@ def _cleanup_expired_pending_logins() -> None:
         logger.debug(f"Cleaned up {len(expired)} expired pending 2FA login(s)")
 
 
+def _raise_if_rate_limited(exc: requests.exceptions.HTTPError, credential_id: int) -> None:
+    if exc.response is None or exc.response.status_code != 429:
+        return
+    error_message = f"Trade Republic rate limited the login for credential {credential_id}"
+    logger.warning(error_message)
+    raise BankRateLimitedError(error_message) from exc
+
+
 def start(credential_id: int, phone_no: str, pin: str) -> tuple[str, datetime]:
     logger.info(f"Initiating Trade Republic web login for credential {credential_id}")
     _cleanup_expired_pending_logins()
@@ -62,8 +74,9 @@ def start(credential_id: int, phone_no: str, pin: str) -> tuple[str, datetime]:
     except requests.exceptions.HTTPError as e:
         cookies_path.unlink(missing_ok=True)
         # TR answers with a 4xx when the phone number / PIN is wrong.
+        _raise_if_rate_limited(exc=e, credential_id=credential_id)
         status = e.response.status_code if e.response is not None else None
-        if status is None or status == 429 or not (400 <= status < 500):
+        if status is None or not (400 <= status < 500):
             raise
         error_message = f"Trade Republic rejected the login for credential {credential_id}: {e}"
         logger.warning(error_message)
@@ -97,6 +110,7 @@ def complete(challenge_token: str, credential_id: int, code: str) -> str:
         logger.info(f"2FA login completed for credential {credential_id}")
         return cookies
     except requests.exceptions.HTTPError as exc:
+        _raise_if_rate_limited(exc=exc, credential_id=credential_id)
         error_message = f"Invalid 2FA code for credential {credential_id}: {exc}"
         logger.warning(error_message)
         raise InvalidTwoFactorError(error_message) from exc

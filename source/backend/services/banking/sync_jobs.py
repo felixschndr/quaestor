@@ -8,6 +8,7 @@ from typing import ClassVar
 
 from source.backend.db import SessionLocal
 from source.backend.exceptions import (
+    BankRateLimitedError,
     InvalidCredentialsError,
     PSD2ApplicationNotActivatedError,
     PSD2RedirectUrlNotAllowedError,
@@ -34,6 +35,7 @@ class JobStatus(str, Enum):
 class JobErrorCode(str, Enum):
     CANCELLED = "cancelled"
     INVALID_CREDENTIALS = "invalid_credentials"
+    RATE_LIMITED = "rate_limited"
     REDIRECT_URL_NOT_ALLOWED = "redirect_url_not_allowed"
     APPLICATION_NOT_ACTIVATED = "application_not_activated"
     UNKNOWN = "unknown"
@@ -119,6 +121,7 @@ async def _apply_result_handling_errors(
 ) -> None:
     error_codes = {
         InvalidCredentialsError: JobErrorCode.INVALID_CREDENTIALS,
+        BankRateLimitedError: JobErrorCode.RATE_LIMITED,
         PSD2RedirectUrlNotAllowedError: JobErrorCode.REDIRECT_URL_NOT_ALLOWED,
         PSD2ApplicationNotActivatedError: JobErrorCode.APPLICATION_NOT_ACTIVATED,
     }

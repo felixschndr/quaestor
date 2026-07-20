@@ -49,10 +49,12 @@ function AccountDetailPage() {
   // below never sees it. `failedAt` is the only signal that the async job died
   const syncFailedAt = sync.failedAt
   const syncBank = accountInfo?.bank
+  const syncJobs = sync.jobs
   useEffect(() => {
     if (syncFailedAt === null || syncBank === undefined) return
     const bankTitle = t(`banks.${syncBank}.title`, { defaultValue: syncBank })
-    toast.error(t('sync.failed', { bank: bankTitle }))
+    const rateLimited = Array.from(syncJobs.values()).some((j) => j.error_code === 'rate_limited')
+    toast.error(t(rateLimited ? 'sync.rateLimited' : 'sync.failed', { bank: bankTitle }))
   }, [syncFailedAt, syncBank, t])
 
   if (!user) return null // Root guard already redirected on 401.

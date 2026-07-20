@@ -39,11 +39,16 @@ function OverviewPage() {
       return
     }
     for (const job of sync.jobs.values()) {
-      if (job.status === 'failed' && !toastedRef.current.has(job.credential_id)) {
+      if (
+        job.status === 'failed' &&
+        job.error_code !== 'cancelled' &&
+        !toastedRef.current.has(job.credential_id)
+      ) {
         toastedRef.current.add(job.credential_id)
         const bank = user?.credentials.find((c) => c.id === job.credential_id)?.bank ?? ''
         const bankTitle = t(`banks.${bank}.title`, { defaultValue: bank })
-        toast.error(t('sync.failed', { bank: bankTitle }))
+        const key = job.error_code === 'rate_limited' ? 'sync.rateLimited' : 'sync.failed'
+        toast.error(t(key, { bank: bankTitle }))
       }
     }
   }, [sync.jobs, sync.status, user, t])
