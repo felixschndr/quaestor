@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from source.backend.models.transactions.transaction import Transaction
@@ -117,10 +119,21 @@ def test_from_fetched_logs_unknown_with_other_party_and_purpose(caplog: pytest.L
     assert_log_contains(caplog, messages=["No category matched", UNKNOWN_TRANSACTION_OTHER_PARTY, "Miscellaneous"])
 
 
-def test_from_fetched_does_not_log_unknown_for_matched_transaction(caplog: pytest.LogCaptureFixture):
+def test_from_fetched_debug_logs_matched_category(caplog: pytest.LogCaptureFixture):
+    caplog.set_level(logging.DEBUG)
     fetched = create_fetched_transaction(other_party="REWE Markt")
 
     Transaction.from_fetched(fetched_transaction=fetched)
+
+    assert_log_contains(caplog, message="No category matched", negate=True)
+    assert_log_contains(caplog, messages=["Matched", "REWE Markt", TransactionCategory.SUPERMARKET.value])
+
+
+def test_log_result_false_keeps_the_log_quiet(caplog: pytest.LogCaptureFixture):
+    caplog.set_level(logging.DEBUG)
+    fetched = create_fetched_transaction(other_party=UNKNOWN_TRANSACTION_OTHER_PARTY, purpose="Miscellaneous")
+
+    TransactionCategory.from_transaction(transaction=fetched, log_result=False)
 
     assert_log_contains(caplog, message="No category matched", negate=True)
 

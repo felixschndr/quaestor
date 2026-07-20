@@ -30,7 +30,7 @@ def _rescan(db_session: Session) -> None:
     )
     for transaction in db_session.scalars(stmt):
         checked += 1
-        new_category = TransactionCategory.from_transaction(transaction=transaction)
+        new_category = TransactionCategory.from_transaction(transaction=transaction, log_result=False)
         if new_category != TransactionCategory.UNKNOWN:
             logger.info(f"Re-scanned {format_transaction_for_categorization(transaction)} to {new_category}")
             transaction.category = new_category

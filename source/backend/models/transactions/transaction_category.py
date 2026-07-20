@@ -44,6 +44,18 @@ class TransactionCategory(str, Enum):
 
     @classmethod
     def from_transaction(
+        cls: type["TransactionCategory"], transaction: "FetchedTransaction | Transaction", log_result: bool = True
+    ) -> "TransactionCategory":
+        category = cls._match(transaction=transaction)
+        if log_result:
+            if category is cls.UNKNOWN:
+                logger.info(f"No category matched for {format_transaction_for_categorization(transaction)}")
+            else:
+                logger.debug(f"Matched {format_transaction_for_categorization(transaction)} to {category.value}")
+        return category
+
+    @classmethod
+    def _match(
         cls: type["TransactionCategory"], transaction: "FetchedTransaction | Transaction"
     ) -> "TransactionCategory":
         if transaction.transaction_type is not None:
@@ -57,7 +69,6 @@ class TransactionCategory(str, Enum):
                 if any(matcher in haystack for haystack in haystacks):
                     return category
 
-        logger.info(f"No category matched for {format_transaction_for_categorization(transaction)}")
         return cls.UNKNOWN
 
 
