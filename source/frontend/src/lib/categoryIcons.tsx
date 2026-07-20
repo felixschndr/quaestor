@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils'
 import { TRANSACTION_CATEGORIES, type TransactionCategory } from '@/lib/transaction'
 import type { SingleSelectOption } from '@/components/ui/single-select-popover'
 
-const CATEGORY_ICONS: Record<string, LucideIcon> = {
+export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   SALARY: Wallet,
   ALLOWANCE: HandCoins,
   PENSION: Armchair,

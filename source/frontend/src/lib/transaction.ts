@@ -37,42 +37,9 @@ export const TRANSACTION_TYPES = [
 
 export type TransactionType = (typeof TRANSACTION_TYPES)[number]
 
-/**
- * Mirrors `TransactionCategory` in source/backend/models/transaction_category.py.
- * Order here is the order shown in the dropdown — by spec the list is the full
- * enum, with UNKNOWN last so it doesn't get accidentally chosen.
- */
-export const TRANSACTION_CATEGORIES = [
-  'SALARY',
-  'ALLOWANCE',
-  'PENSION',
-  'SIDE_INCOME',
-  'REIMBURSEMENT',
-  'INTEREST',
-  'INVESTMENT',
-  'SUBSCRIPTIONS',
-  'RENT',
-  'UTILITIES',
-  'TRAVEL',
-  'FUEL',
-  'FITNESS',
-  'ONLINE_SHOPPING',
-  'SUPERMARKET',
-  'DRUGSTORE',
-  'RESTAURANTS',
-  'PERSONAL_CARE',
-  'CLOTHING',
-  'GIFTS',
-  'ENTERTAINMENT',
-  'FEES',
-  'SAVINGS',
-  'WITHDRAWAL',
-  'DEPOSIT',
-  'TRANSFER',
-  'UNKNOWN',
-] as const
-
-export type TransactionCategory = (typeof TRANSACTION_CATEGORIES)[number]
+// Imported (not just re-exported) so the type is in local scope for the payloads below.
+import { TRANSACTION_CATEGORIES, type TransactionCategory } from './transactionCategories.gen'
+export { TRANSACTION_CATEGORIES, type TransactionCategory }
 
 export const transactionQueryKeys = {
   detail: (accountId: number, transactionId: number) =>

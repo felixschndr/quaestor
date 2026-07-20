@@ -50,7 +50,7 @@ repos:
     hooks:
       - id: prettier
         files: '^source/frontend/.*\.(ts|tsx|js|jsx|css|json|md|html|yaml|yml)$'
-        exclude: '^source/frontend/(pnpm-lock\.yaml|src/routeTree\.gen\.ts)$'
+        exclude: '^source/frontend/(pnpm-lock\.yaml|src/routeTree\.gen\.ts|src/lib/transactionCategories\.gen\.ts)$'
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.0
@@ -85,4 +85,11 @@ repos:
         language: system
         entry: python3 scripts/checks/check_transaction_category_mapping.py
         files: '^source/backend/models/transactions/transaction_category.py$'
+        pass_filenames: false
+
+      - id: generate-frontend-categories
+        name: generate frontend category list
+        language: system
+        entry: python3 scripts/checks/generate_frontend_categories.py
+        files: '^(source/backend/models/transactions/transaction_category.py|source/frontend/src/lib/transactionCategories\.gen\.ts)$'
         pass_filenames: false
