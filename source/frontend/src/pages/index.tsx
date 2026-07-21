@@ -10,6 +10,7 @@ import { StatsIcon } from '@/components/stats-icon'
 import { type UserRead } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { SyncButton } from '@/components/sync-button'
+import { SyncStatusIcon, type SyncState } from '@/components/sync-check'
 import { formatEuro, formatFactorMultiplier } from '@/lib/format'
 import { accountDisplayName, displayNameOrUserName } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
@@ -21,6 +22,7 @@ import {
   type DisplayGroup,
 } from '@/lib/accountDisplayGroups'
 import { useCollapsedGroups } from '@/lib/collapsedGroups'
+import type { SyncJob } from '@/lib/credentials'
 import { cn } from '@/lib/utils'
 
 interface OverviewViewProps {
@@ -32,6 +34,9 @@ interface OverviewViewProps {
    *  triggers the green-check zoom animation. Defaults to null for tests
    *  that don't care about the success path. */
   syncSucceededAt?: number | null
+  /** Live sync jobs keyed by credential id, so each account row can show
+   *  whether its own bank is still syncing. */
+  syncJobs?: Map<number, SyncJob>
 }
 
 export function OverviewView({
@@ -40,6 +45,7 @@ export function OverviewView({
   syncDisabled,
   syncSpinning,
   syncSucceededAt = null,
+  syncJobs,
 }: OverviewViewProps) {
   const { t } = useTranslation()
   // When the user has defined custom groups, render by those. Otherwise fall
@@ -50,6 +56,20 @@ export function OverviewView({
     [user, customLayout.data],
   )
   const hasAccounts = displayGroups.some((group) => group.accounts.length > 0)
+  // A job belongs to a credential; every account behind that credential shares
+  // its state, so the map is flattened down to account ids once here.
+  const accountSyncStates = useMemo(() => {
+    const states = new Map<number, SyncState>()
+    if (!syncJobs) return states
+    for (const credential of user.credentials) {
+      const job = syncJobs.get(credential.id)
+      if (!job) continue
+      const state: SyncState =
+        job.status === 'completed' ? 'completed' : job.status === 'failed' ? undefined : 'running'
+      for (const account of credential.accounts) states.set(account.id, state)
+    }
+    return states
+  }, [user, syncJobs])
   const allAccountIds = user.credentials.flatMap((credential) =>
     credential.accounts.map((account) => account.id),
   )
@@ -112,12 +132,22 @@ export function OverviewView({
         <p className="text-primary text-5xl font-bold tracking-tight">{formatEuro(user.balance)}</p>
       </section>
 
-      {hasAccounts ? <AccountGroupList groups={displayGroups} /> : <EmptyState />}
+      {hasAccounts ? (
+        <AccountGroupList groups={displayGroups} syncStates={accountSyncStates} />
+      ) : (
+        <EmptyState />
+      )}
     </main>
   )
 }
 
-function AccountGroupList({ groups }: { groups: DisplayGroup[] }) {
+function AccountGroupList({
+  groups,
+  syncStates,
+}: {
+  groups: DisplayGroup[]
+  syncStates: Map<number, SyncState>
+}) {
   const { t } = useTranslation()
   const { isCollapsed, toggle } = useCollapsedGroups()
   return (
@@ -129,7 +159,7 @@ function AccountGroupList({ groups }: { groups: DisplayGroup[] }) {
             : group.heading
 
         const accountRows = group.accounts.map((account) => (
-          <AccountRow key={account.id} account={account} />
+          <AccountRow key={account.id} account={account} syncState={syncStates.get(account.id)} />
         ))
 
         // Legacy "by bank" layout has no heading and therefore no row to act as
@@ -169,7 +199,7 @@ function AccountGroupList({ groups }: { groups: DisplayGroup[] }) {
   )
 }
 
-function AccountRow({ account }: { account: AccountWithBank }) {
+function AccountRow({ account, syncState }: { account: AccountWithBank; syncState: SyncState }) {
   const negative = account.balance < 0
   // Surface a non-100 balance_factor so the user can see why their group total
   // doesn't equal a naive sum of account balances. Rendered in the muted
@@ -187,7 +217,10 @@ function AccountRow({ account }: { account: AccountWithBank }) {
           name={account.bankName ?? account.bank}
           seed={account.bankName ?? account.bank}
         />
-        <span className="flex-1 truncate text-sm font-medium">{accountDisplayName(account)}</span>
+        <span className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="truncate text-sm font-medium">{accountDisplayName(account)}</span>
+          <SyncStatusIcon state={syncState} />
+        </span>
         <span className="text-sm font-semibold tabular-nums">
           {hasFactor ? (
             <span className="text-muted-foreground mr-1.5 font-normal">

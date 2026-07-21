@@ -67,6 +67,7 @@ function OverviewPage() {
           syncDisabled={isBusy}
           syncSpinning={isBusy}
           syncSucceededAt={sync.succeededAt}
+          syncJobs={sync.jobs}
         />
       </PullToRefresh>
       <TwoFactorModal

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 import type { UserRead } from '@/lib/auth'
+import type { SyncJob } from '@/lib/credentials'
 
 vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
@@ -545,5 +546,72 @@ describe('OverviewView', () => {
     render_(user)
     const amount = screen.getByText('-150,50 €')
     expect(amount.className).toMatch(/text-destructive/)
+  })
+
+  it('spins only the accounts whose credential is still syncing, then shows a check', async () => {
+    const credential = (id: number, accountId: number, name: string) => ({
+      id,
+      bank: 'ing',
+      bank_name: null,
+      bank_icon: null,
+      accounts: [
+        {
+          id: accountId,
+          name,
+          display_name: null,
+          balance: 0,
+          balance_factor: 100,
+          is_hidden: false,
+        },
+      ],
+      last_fetching_timestamp: null,
+      requires_two_factor_authentication: false,
+      sync_enabled: true,
+    })
+    const user = buildUser({ credentials: [credential(1, 11, 'Slow'), credential(2, 22, 'Fast')] })
+    const job = (credentialId: number, status: SyncJob['status']): SyncJob => ({
+      job_id: `j${credentialId}`,
+      credential_id: credentialId,
+      status,
+      expires_at: null,
+      error: null,
+      error_code: null,
+    })
+    const view = (jobs: Map<number, SyncJob>) => (
+      <OverviewView
+        user={user}
+        onSyncClick={() => {}}
+        syncDisabled={false}
+        syncSpinning={true}
+        syncJobs={jobs}
+      />
+    )
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+    const { rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        {view(
+          new Map([
+            [1, job(1, 'running')],
+            [2, job(2, 'running')],
+          ]),
+        )}
+      </QueryClientProvider>,
+    )
+    expect(screen.getAllByLabelText('Syncing')).toHaveLength(2)
+
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        {view(
+          new Map([
+            [1, job(1, 'running')],
+            [2, job(2, 'completed')],
+          ]),
+        )}
+      </QueryClientProvider>,
+    )
+    await waitFor(() => expect(screen.getByLabelText('Synced')).toBeInTheDocument())
+    expect(screen.getAllByLabelText('Syncing')).toHaveLength(1)
   })
 })

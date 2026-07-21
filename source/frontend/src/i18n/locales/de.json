@@ -92,6 +92,8 @@
     "syncAll": {
       "aria": "Alle Konten synchronisieren"
     },
+    "syncing": "Wird synchronisiert",
+    "synced": "Synchronisiert",
     "search": "Transaktionen durchsuchen"
   },
   "account": {
