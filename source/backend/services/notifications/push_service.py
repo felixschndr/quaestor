@@ -7,16 +7,16 @@ from cryptography.hazmat.primitives import serialization
 from py_vapid import Vapid02
 from pywebpush import WebPushException, webpush
 
+from source.backend.helpers import get_project_author_emails
 from source.backend.logging_utils import get_logger
 from source.backend.paths import DATA_DIR
 
 logger = get_logger(__name__)
 
 VAPID_PRIVATE_KEY_PATH = DATA_DIR / "vapid_private.pem"
-# The push services (FCM/Mozilla/Apple) want a contact in the JWT so they can reach
-# the app operator about misbehaving pushes. Apple in particular validates this and
-# rejects bogus values with "BadJwtToken", so the default uses a real, resolvable TLD.
-DEFAULT_VAPID_SUBJECT = "mailto:quaestor@example.com"
+# The push services (FCM/Mozilla/Apple) want a contact in the JWT so they can reach the app operator about misbehaving
+# pushes. Apple in particular validates this and rejects bogus values with "BadJwtToken"
+DEFAULT_VAPID_SUBJECT = f"mailto:{get_project_author_emails()[0]}"
 
 _GONE_STATUS_CODES = frozenset({404, 410})
 _STALE_VAPID_STATUS_CODES = frozenset({400, 403})

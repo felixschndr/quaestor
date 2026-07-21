@@ -14,6 +14,7 @@ from source.backend.helpers import (
     get_frontend_path,
     get_frontend_source_path,
     get_key_of_transaction,
+    get_project_author_emails,
     get_project_description,
     get_project_name,
     get_project_repository,
@@ -136,6 +137,13 @@ def test_get_project_description_reads_the_description_from_pyproject():
     description = get_project_description()
     assert isinstance(description, str)
     assert "treasurer" in description
+
+
+def test_get_project_author_emails_strips_the_names():
+    emails = get_project_author_emails()
+
+    assert emails
+    assert all("@" in email and "<" not in email for email in emails)
 
 
 def test_get_project_repository_reads_the_repository_from_pyproject():

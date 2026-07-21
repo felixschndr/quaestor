@@ -3,7 +3,7 @@ updates:
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     cooldown:
       default-days: 3 # Prevent supply chain attacks.
     # Assignment happens in .github/workflows/dependabot-auto-merge.yml
@@ -21,7 +21,7 @@ updates:
   - package-ecosystem: "npm"
     directory: "/source/frontend"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     cooldown:
       default-days: 3
     labels:
@@ -36,7 +36,7 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     cooldown:
       default-days: 3
     labels:

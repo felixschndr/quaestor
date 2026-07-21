@@ -19,6 +19,11 @@ export function pushSupported(): boolean {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
+function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> {
+  const binary = atob(value.replaceAll('-', '+').replaceAll('_', '/'))
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0))
+}
+
 async function ensureSubscription(): Promise<void> {
   const registration = await navigator.serviceWorker.ready
 
@@ -27,7 +32,7 @@ async function ensureSubscription(): Promise<void> {
     const { public_key } = await api<PublicKeyResponse>('/push/public-key')
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: Uint8Array.fromBase64(public_key, { alphabet: 'base64url' }),
+      applicationServerKey: decodeBase64Url(public_key),
     })
   }
 

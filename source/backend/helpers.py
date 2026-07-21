@@ -2,6 +2,7 @@ import functools
 import hashlib
 import tomllib
 from datetime import date, datetime, time, timedelta, timezone
+from email.utils import parseaddr
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -98,6 +99,11 @@ def get_project_description() -> str:
 
 def get_project_version() -> str:
     return get_content_of_pyproject_toml()["tool"]["poetry"]["version"]
+
+
+def get_project_author_emails() -> list[str]:
+    authors = get_content_of_pyproject_toml()["tool"]["poetry"]["authors"]
+    return [email for _, email in (parseaddr(author) for author in authors) if email]
 
 
 def get_project_repository() -> str:

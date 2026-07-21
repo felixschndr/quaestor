@@ -102,9 +102,9 @@ This app is primarily intended for German users. You can find the reason for thi
 
 ## Supported banks
 
-Quaestor connects to banks through several handlers, see [docs/bank_handlers](docs/bank_handlers/README.md).
+Quaestor connects to banks through several handlers, see [here](docs/bank_handlers/README.md).
 
-You can browse the full list of every supported bank [here](https://quaestordocs.fschneider.me/banks.html) where every entry carries a badge naming its handler.
+You can browse the full list of every supported bank [here](https://quaestordocs.fschneider.me/banks.html) where every entry carries a badge naming its integration.
 
 ## Security
 
