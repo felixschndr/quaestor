@@ -9,7 +9,6 @@
 
 :root,
 .dark {
-  /* Brand palette per idea_for_frontend.md §4 */
   --background: #1e1e1e;
   --foreground: #ffffff;
   --primary: #03ecfc;
@@ -111,8 +110,6 @@
   }
 }
 
-/* Radix Collapsible height transitions for the overview's account groups. The
-   --radix-collapsible-content-height var is set by the primitive at runtime. */
 @keyframes collapsible-down {
   from {
     height: 0;
@@ -216,17 +213,9 @@
 
 @layer base {
   :root {
-    /* Reserve scrollbar space so mx-auto'd content doesn't recenter (and
-       visibly shift) when a classic scrollbar appears mid-scroll. On
-       macOS with overlay scrollbars this is a no-op. */
-    scrollbar-gutter: stable;
+    scrollbar-gutter: stable both-edges;
   }
 
-  /* Radix dialogs lock scroll via react-remove-scroll, which adds
-     `margin-right: <scrollbar>px` to the body to offset the removed scrollbar.
-     We already reserve that space with scrollbar-gutter: stable, so the extra
-     margin double-compensates and shifts page content left (making centered
-     dialogs look nudged right). Cancel it. */
   body[data-scroll-locked] {
     margin-right: 0 !important;
   }
