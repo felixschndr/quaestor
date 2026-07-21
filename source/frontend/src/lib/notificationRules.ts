@@ -6,6 +6,7 @@ import type { TransactionCategory, TransactionType } from './transaction'
 export const NOTIFICATION_TRIGGERS = [
   'expected_transaction',
   'contract_overdue',
+  'contract_amount_increased',
   'upcoming_shortfall',
   'transaction',
   'balance_threshold',
@@ -37,6 +38,10 @@ export interface ContractOverdueRule extends RuleBase {
   days: number
 }
 
+export interface ContractAmountIncreasedRule extends RuleBase {
+  trigger: 'contract_amount_increased'
+}
+
 export interface UpcomingShortfallRule extends RuleBase {
   trigger: 'upcoming_shortfall'
   days: number
@@ -60,12 +65,14 @@ export interface BalanceThresholdRule extends RuleBase {
 export type NotificationRule =
   | ExpectedTransactionRule
   | ContractOverdueRule
+  | ContractAmountIncreasedRule
   | UpcomingShortfallRule
   | TransactionRule
   | BalanceThresholdRule
 export type NotificationRuleDraft =
   | Omit<ExpectedTransactionRule, 'id'>
   | Omit<ContractOverdueRule, 'id'>
+  | Omit<ContractAmountIncreasedRule, 'id'>
   | Omit<UpcomingShortfallRule, 'id'>
   | Omit<TransactionRule, 'id'>
   | Omit<BalanceThresholdRule, 'id'>

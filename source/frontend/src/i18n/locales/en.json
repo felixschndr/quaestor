@@ -675,14 +675,16 @@
       "contract_overdue": "Contract overdue",
       "upcoming_shortfall": "Balance below upcoming payments",
       "transaction": "Transaction booked",
-      "balance_threshold": "Balance crosses threshold"
+      "balance_threshold": "Balance crosses threshold",
+      "contract_amount_increased": "Contract amount increased"
     },
     "triggerHint": {
       "expected_transaction": "Notify me when a transaction I entered manually as expected is booked.",
       "contract_overdue": "Notify me when a contract payment is overdue by more than the grace period.",
       "upcoming_shortfall": "Notify me when contract payments due within the chosen period exceed the account balance.",
       "transaction": "Notify me when a booked transaction matches the criteria below.",
-      "balance_threshold": "Notify me when an account's balance crosses the threshold in the chosen direction."
+      "balance_threshold": "Notify me when an account's balance crosses the threshold in the chosen direction.",
+      "contract_amount_increased": "Notify me when a contract payment comes in higher than before: more than three times its usual fluctuation, and at the latest once it deviates by 25% from the previous amount. Deviations below 1 € never trigger."
     },
     "direction": {
       "below": "Falls below",

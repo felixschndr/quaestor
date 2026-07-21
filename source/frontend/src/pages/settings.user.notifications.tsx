@@ -7,6 +7,7 @@ import {
   CalendarX2,
   Pencil,
   Plus,
+  Receipt,
   Smartphone,
   Trash2,
   TrendingDown,
@@ -65,6 +66,7 @@ import { SettingsSubPage } from '@/components/settings/settings-section'
 const TRIGGER_ICONS: Record<NotificationTrigger, LucideIcon> = {
   expected_transaction: CalendarClock,
   contract_overdue: CalendarX2,
+  contract_amount_increased: Receipt,
   upcoming_shortfall: TriangleAlert,
   transaction: ArrowLeftRight,
   balance_threshold: TrendingDown,
@@ -358,6 +360,8 @@ function modelToDraft(model: RuleFormModel, allAccountIds: number[]): Notificati
       return { ...shared, trigger: 'expected_transaction' }
     case 'contract_overdue':
       return { ...shared, trigger: 'contract_overdue', days: model.days }
+    case 'contract_amount_increased':
+      return { ...shared, trigger: 'contract_amount_increased' }
     case 'upcoming_shortfall':
       return { ...shared, trigger: 'upcoming_shortfall', days: model.days }
     case 'balance_threshold':

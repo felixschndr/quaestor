@@ -14,6 +14,7 @@ from source.backend.models.contracts.contract import (
     SHORTFALL_LOOKAHEAD_DAYS,
     Contract,
 )
+from source.backend.models.contracts.contract_assignment import ContractAssignment
 from source.backend.models.notifications.notification_rule import (
     BalanceDirection,
     NotificationRule,
@@ -230,6 +231,11 @@ def _notifications_for_rule(
             rule=rule, account=account, balance_before=balance_before, language=language
         )
 
+    if rule.trigger is NotificationTrigger.CONTRACT_AMOUNT_INCREASED:
+        return _contract_amount_notifications(
+            rule=rule, account=account, new_transactions=new_transactions, language=language
+        )
+
     if rule.trigger is NotificationTrigger.UPCOMING_SHORTFALL:
         return _upcoming_shortfall_notifications(
             rule=rule, account=account, balance_before=balance_before, language=language, today=today
@@ -364,6 +370,44 @@ def _upcoming_shortfall_notifications(
             tag=f"shortfall-{rule.id}-{account.id}",
         )
     ]
+
+
+def _contract_amount_notifications(
+    rule: NotificationRule, account: Account, new_transactions: list[Transaction], language: str
+) -> list[Notification]:
+    notifications = []
+    for transaction in new_transactions:
+        contract = transaction.contract
+        if contract is None or transaction.contract_assignment is ContractAssignment.EXCLUDED:
+            continue
+        if contract.median_amount is None or abs(transaction.amount) <= abs(contract.median_amount):
+            continue
+        if not contract.is_outlier(transaction):
+            continue
+
+        if rule.include_content:
+            body = notification_messages.translate(
+                language,
+                key="contract_amount_increased.body",
+                account=account.display_label,
+                name=contract.name,
+                amount=format_amount(transaction.amount),
+                previous=format_amount(contract.median_amount),
+            )
+        else:
+            body = notification_messages.translate(
+                language, key="contract_amount_increased.body_minimal", account=account.display_label
+            )
+        logger.info(f"{contract} charged {transaction.amount} against a median of {contract.median_amount}")
+        notifications.append(
+            Notification(
+                title=rule.name or notification_messages.translate(language, key="contract_amount_increased.title"),
+                body=body,
+                url=f"/contracts/{contract.id}",
+                tag=f"contract-amount-{contract.id}",
+            )
+        )
+    return notifications
 
 
 def _upcoming_fixed_costs(account: Account, today: datetime.date, lookahead: datetime.timedelta) -> float:

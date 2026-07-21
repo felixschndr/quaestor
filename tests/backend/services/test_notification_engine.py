@@ -46,9 +46,11 @@ ALL_CATEGORIES = [category.value for category in TransactionCategory]
 ALL_TYPES = [transaction_type.value for transaction_type in TransactionType]
 
 
-def assert_one_notification(notifications: list[Notification], body: str) -> None:
+def assert_one_notification(notifications: list[Notification], body: str, url: str | None = None) -> None:
     assert len(notifications) == 1
     assert notifications[0].body == body
+    if url is not None:
+        assert notifications[0].url == url
 
 
 def _make_notification_rule(
@@ -406,6 +408,71 @@ def test_balance_above_rule_does_not_trigger_on_downward_crossing(session_factor
         )
 
     assert notifications == []
+
+
+# --- contract amount increased trigger -------------------------------------
+
+
+def _contract_charge(
+    db_session: Session, amount: float, median: float = -50.0, spread: float = 1.0
+) -> tuple[Credential, notification_engine.SyncSnapshot]:
+    credential, account_id = _account_with_notification_rule(
+        db_session, trigger=NotificationTrigger.CONTRACT_AMOUNT_INCREASED
+    )
+    contract = make_contract(db_session, account_id=account_id, name="Gym", median_amount=median, amount_spread=spread)
+    snapshot = notification_engine.capture_sync_snapshot(credential)
+    transaction = make_transaction(db_session, account_id=account_id, amount=amount)
+    transaction.contract_id = contract.id
+    db_session.flush()
+    return credential, snapshot
+
+
+def test_contract_amount_increase_notifies(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential, snapshot = _contract_charge(db_session, amount=-70.0)
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+        assert_one_notification(
+            notifications,
+            body=f"{ACCOUNT_IBAN}: Gym -70,00 € instead of -50,00 €",
+            url=f"/contracts/{credential.accounts[0].contracts[0].id}",
+        )
+
+
+def test_contract_amount_within_usual_spread_is_quiet(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential, snapshot = _contract_charge(db_session, amount=-51.0)
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert notifications == []
+
+
+def test_contract_amount_drop_is_quiet(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential, snapshot = _contract_charge(db_session, amount=-10.0)
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert notifications == []
+
+
+def test_incoming_contract_reports_a_bigger_payout(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential, snapshot = _contract_charge(db_session, amount=3000.0, median=2000.0, spread=10.0)
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+        assert_one_notification(notifications, body=f"{ACCOUNT_IBAN}: Gym 3.000,00 € instead of 2.000,00 €")
 
 
 # --- upcoming shortfall trigger --------------------------------------------

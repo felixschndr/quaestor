@@ -40,6 +40,10 @@ class ContractOverdueRuleIn(_RuleInBase):
     days: int = Field(default=OVERDUE_GRACE_DAYS, ge=0, le=90)
 
 
+class ContractAmountIncreasedRuleIn(_RuleInBase):
+    trigger: Literal["contract_amount_increased"]
+
+
 class UpcomingShortfallRuleIn(_RuleInBase):
     trigger: Literal["upcoming_shortfall"]
     days: int = Field(default=SHORTFALL_LOOKAHEAD_DAYS, ge=1, le=90)
@@ -61,7 +65,14 @@ class BalanceRuleIn(_RuleInBase):
 
 
 RuleIn = Annotated[
-    Union[ExpectedRuleIn, ContractOverdueRuleIn, UpcomingShortfallRuleIn, TransactionRuleIn, BalanceRuleIn],
+    Union[
+        ExpectedRuleIn,
+        ContractOverdueRuleIn,
+        ContractAmountIncreasedRuleIn,
+        UpcomingShortfallRuleIn,
+        TransactionRuleIn,
+        BalanceRuleIn,
+    ],
     Field(discriminator="trigger"),
 ]
 
@@ -99,7 +110,14 @@ _RULE_DEFAULTS = {
 
 
 def _columns(
-    payload: ExpectedRuleIn | ContractOverdueRuleIn | UpcomingShortfallRuleIn | TransactionRuleIn | BalanceRuleIn,
+    payload: (
+        ExpectedRuleIn
+        | ContractOverdueRuleIn
+        | ContractAmountIncreasedRuleIn
+        | UpcomingShortfallRuleIn
+        | TransactionRuleIn
+        | BalanceRuleIn
+    ),
 ) -> dict:
     columns = _RULE_DEFAULTS | payload.model_dump(mode="json")
     columns["trigger"] = NotificationTrigger(payload.trigger)

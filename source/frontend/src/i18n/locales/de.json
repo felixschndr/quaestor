@@ -675,14 +675,16 @@
       "contract_overdue": "Vertrag überfällig",
       "upcoming_shortfall": "Kontostand reicht nicht",
       "transaction": "Transaktion gebucht",
-      "balance_threshold": "Kontostand-Schwelle"
+      "balance_threshold": "Kontostand-Schwelle",
+      "contract_amount_increased": "Vertragsbetrag gestiegen"
     },
     "triggerHint": {
       "expected_transaction": "Benachrichtige mich, wenn eine von mir manuell eingetragene erwartete Transaktion gebucht wird.",
       "contract_overdue": "Benachrichtige mich, wenn die nächste Zahlung eines Vertrags länger als die Karenzzeit überfällig ist.",
       "upcoming_shortfall": "Benachrichtige mich, wenn die im gewählten Zeitraum fälligen Vertragszahlungen den Kontostand übersteigen.",
       "transaction": "Benachrichtige mich, wenn eine gebuchte Transaktion die folgenden Kriterien erfüllt.",
-      "balance_threshold": "Benachrichtige mich, wenn der Kontostand eines Kontos den Schwellwert in der gewählten Richtung überschreitet."
+      "balance_threshold": "Benachrichtige mich, wenn der Kontostand eines Kontos den Schwellwert in der gewählten Richtung überschreitet.",
+      "contract_amount_increased": "Benachrichtige mich, wenn eine Vertragszahlung höher ausfällt als bisher: mehr als das Dreifache der üblichen Schwankung, spätestens aber ab 25 % Abweichung vom bisherigen Betrag. Abweichungen unter 1 € lösen nie aus."
     },
     "direction": {
       "below": "Fällt unter",
