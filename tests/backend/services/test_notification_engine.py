@@ -46,6 +46,11 @@ ALL_CATEGORIES = [category.value for category in TransactionCategory]
 ALL_TYPES = [transaction_type.value for transaction_type in TransactionType]
 
 
+def assert_one_notification(notifications: list[Notification], body: str) -> None:
+    assert len(notifications) == 1
+    assert notifications[0].body == body
+
+
 def _make_notification_rule(
     db_session: Session,
     user_id: int,
@@ -114,8 +119,7 @@ def test_transaction_rule_triggers_on_matching_new_transaction(
             db_session=db_session, credential=credential, snapshot=snapshot
         )
 
-    assert len(notifications) == 1
-    assert notifications[0].body == f"{ACCOUNT_IBAN}: -9,99 € · Netflix Intl."
+    assert_one_notification(notifications=notifications, body=f"{ACCOUNT_IBAN}: -9,99 € · Netflix Intl.")
     assert_log_contains(caplog, messages=["matched on", "Collected"])
 
 
@@ -157,8 +161,7 @@ def test_transaction_rule_respects_amount_bounds(session_factory: sessionmaker):
             db_session=db_session, credential=credential, snapshot=snapshot
         )
 
-    assert len(notifications) == 1
-    assert notifications[0].body == f"{ACCOUNT_IBAN}: -75,00 €"
+    assert_one_notification(notifications=notifications, body=f"{ACCOUNT_IBAN}: -75,00 €")
 
 
 def test_transaction_rule_filters_by_category(session_factory: sessionmaker):
@@ -177,8 +180,7 @@ def test_transaction_rule_filters_by_category(session_factory: sessionmaker):
             db_session=db_session, credential=credential, snapshot=snapshot
         )
 
-    assert len(notifications) == 1
-    assert notifications[0].body == f"{ACCOUNT_IBAN}: -5,00 €"
+    assert_one_notification(notifications=notifications, body=f"{ACCOUNT_IBAN}: -5,00 €")
 
 
 def test_disabled_rule_never_triggers(session_factory: sessionmaker):
@@ -298,8 +300,7 @@ def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_f
             db_session=db_session, credential=credential, snapshot=snapshot
         )
 
-    assert len(notifications) == 1
-    assert notifications[0].body == f"{ACCOUNT_IBAN}: 100,00 € booked · Landlord"
+    assert_one_notification(notifications=notifications, body=f"{ACCOUNT_IBAN}: 100,00 € booked · Landlord")
 
 
 def test_expected_transaction_rule_quiet_when_nothing_booked(session_factory: sessionmaker):
@@ -342,8 +343,7 @@ def test_balance_below_rule_triggers_on_downward_crossing(session_factory: sessi
             db_session=db_session, credential=credential, snapshot=snapshot
         )
 
-    assert len(notifications) == 1
-    assert notifications[0].body == f"{ACCOUNT_IBAN}: 40,00 € (threshold 50,00 €)"
+    assert_one_notification(notifications=notifications, body=f"{ACCOUNT_IBAN}: 40,00 € (threshold 50,00 €)")
     assert notifications[0].tag is not None  # balance alerts collapse via a tag
 
 
@@ -384,9 +384,8 @@ def test_balance_above_rule_triggers_on_upward_crossing(session_factory: session
             db_session=db_session, credential=credential, snapshot=snapshot
         )
 
-    assert len(notifications) == 1
+    assert_one_notification(notifications=notifications, body=f"{ACCOUNT_IBAN}: 60,00 € (threshold 50,00 €)")
     assert notifications[0].title == "Balance above threshold"
-    assert notifications[0].body == f"{ACCOUNT_IBAN}: 60,00 € (threshold 50,00 €)"
 
 
 def test_balance_above_rule_does_not_trigger_on_downward_crossing(session_factory: sessionmaker):
@@ -441,8 +440,9 @@ def test_upcoming_shortfall_notifies_when_balance_drops_below_due_payments(sessi
             db_session=db_session, credential=credential, snapshot=snapshot
         )
 
-    assert len(notifications) == 1
-    assert notifications[0].body == f"{ACCOUNT_IBAN}: 300,00 € due within 7 days, only 100,00 € available"
+    assert_one_notification(
+        notifications=notifications, body=f"{ACCOUNT_IBAN}: 300,00 € due within 7 days, only 100,00 € available"
+    )
 
 
 def test_upcoming_shortfall_quiet_when_balance_still_covers_payments(session_factory: sessionmaker):
@@ -488,8 +488,9 @@ def test_upcoming_shortfall_honours_a_custom_lookahead(session_factory: sessionm
             db_session=db_session, credential=credential, snapshot=snapshot
         )
 
-    assert len(notifications) == 1
-    assert notifications[0].body == f"{ACCOUNT_IBAN}: 300,00 € due within 30 days, only 100,00 € available"
+    assert_one_notification(
+        notifications=notifications, body=f"{ACCOUNT_IBAN}: 300,00 € due within 30 days, only 100,00 € available"
+    )
 
 
 def test_upcoming_shortfall_quiet_when_already_short_before_sync(session_factory: sessionmaker):
@@ -525,8 +526,7 @@ def test_transaction_rule_without_content_omits_amount_and_other_party(session_f
             db_session=db_session, credential=credential, snapshot=snapshot
         )
 
-    assert len(notifications) == 1
-    assert notifications[0].body == account_label
+    assert_one_notification(notifications=notifications, body=account_label)
 
 
 def test_balance_below_rule_without_content_omits_balance_and_threshold(session_factory: sessionmaker):
@@ -547,8 +547,7 @@ def test_balance_below_rule_without_content_omits_balance_and_threshold(session_
             db_session=db_session, credential=credential, snapshot=snapshot
         )
 
-    assert len(notifications) == 1
-    assert notifications[0].body == account_label
+    assert_one_notification(notifications=notifications, body=account_label)
 
 
 def test_expected_transaction_rule_without_content_omits_amount(session_factory: sessionmaker):
@@ -571,8 +570,7 @@ def test_expected_transaction_rule_without_content_omits_amount(session_factory:
             db_session=db_session, credential=credential, snapshot=snapshot
         )
 
-    assert len(notifications) == 1
-    assert notifications[0].body == account_label
+    assert_one_notification(notifications=notifications, body=account_label)
 
 
 # --- dispatch + full sync wiring -------------------------------------------
@@ -778,6 +776,5 @@ def test_notifications_are_rendered_in_recipient_language(session_factory: sessi
             db_session=db_session, credential=credential, snapshot=snapshot
         )
 
-    assert len(notifications) == 1
+    assert_one_notification(notifications=notifications, body=f"{ACCOUNT_IBAN}: 100,00 € gebucht")
     assert notifications[0].title == "Erwartete Transaktion gebucht"
-    assert notifications[0].body == f"{ACCOUNT_IBAN}: 100,00 € gebucht"
