@@ -8,6 +8,7 @@ from source.backend.bank_handlers import BankProvider
 from source.backend.bank_handlers.base import BankHandler
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 from source.backend.exceptions import (
+    CredentialNotFoundError,
     InvalidCredentialFieldError,
     MissingCredentialFieldError,
     ReauthenticationRequiredError,
@@ -22,6 +23,7 @@ from tests.backend.conftest import (
     HTTP_SESSION_TOKEN,
     PHONE_NUMBER,
     PIN,
+    SECOND_USER_NAME,
     VALID_PASSWORD,
     assert_log_contains,
     create_user,
@@ -31,7 +33,7 @@ from tests.backend.conftest import (
 )
 
 
-def test_validated_credentials_rejects_unexpected_fields():
+def test_validated_credentials_rejects_unexpected_fields(caplog: pytest.LogCaptureFixture):
     with pytest.raises(MissingCredentialFieldError, match="Unexpected field"):
         credential_service._validate_credentials(
             bank=BankProvider.FINTS,
@@ -43,10 +45,14 @@ def test_validated_credentials_rejects_unexpected_fields():
             },
         )
 
+    assert_log_contains(caplog, message="Unexpected field(s) for")
 
-def test_validated_credentials_rejects_missing_required_field():
+
+def test_validated_credentials_rejects_missing_required_field(caplog: pytest.LogCaptureFixture):
     with pytest.raises(MissingCredentialFieldError, match="Missing required field"):
         credential_service._validate_credentials(bank=BankProvider.FINTS, credentials={"username": BANK_USERNAME})
+
+    assert_log_contains(caplog, message="Missing required field(s) for")
 
 
 def test_validate_credentials_strips_whitespace_for_trade_republic():
@@ -66,12 +72,14 @@ def test_validate_credentials_rejects_phone_without_country_code(phone_number: s
         )
 
 
-def test_validate_credentials_rejects_pin_that_is_not_four_digits():
+def test_validate_credentials_rejects_pin_that_is_not_four_digits(caplog: pytest.LogCaptureFixture):
     with pytest.raises(InvalidCredentialFieldError):
         credential_service._validate_credentials(
             bank=BankProvider.TRADE_REPUBLIC,
             credentials={"phone": PHONE_NUMBER, "pin": "12"},
         )
+
+    assert_log_contains(caplog, message="The pin must")
 
 
 def test_validate_credentials_strips_whitespace_from_fints_blz():
@@ -81,6 +89,42 @@ def test_validate_credentials_strips_whitespace_from_fints_blz():
     )
     assert cleaned["blz"] == "66050101"
     assert cleaned["password"] == VALID_PASSWORD  # this contains spaces which should not be stripped
+
+
+def test_get_credential_logs_and_raises_for_an_unknown_id(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    with session_factory() as session:
+        with pytest.raises(CredentialNotFoundError):
+            credential_service.get_credential(db_session=session, credential_id=12345)
+
+    assert_log_contains(caplog, message="Credential with the ID 12345 not found")
+
+
+def test_get_credential_for_user_logs_and_raises_for_a_foreign_credential(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    owner_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=owner_id)
+
+    with session_factory() as session:
+        other_user = make_user(session, user_name=SECOND_USER_NAME)
+        session.commit()
+        with pytest.raises(CredentialNotFoundError):
+            credential_service.get_credential_for_user(db_session=session, credential_id=credential_id, user=other_user)
+
+    assert_log_contains(caplog, message="attempted to access <Credential(")
+
+
+def test_delete_credential_logs_the_deletion(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential_service.delete_credential(db_session=session, credential=credential)
+
+    assert_log_contains(caplog, messages=["Deleted", "<Credential("])
 
 
 def test_sync_all_due_credentials_counts_synced_skipped_failed(
@@ -179,7 +223,7 @@ def test_sync_credential_object_for_handler_with_2fa_returns_completed_on_resume
 
 
 def test_sync_marks_credential_when_handler_requests_two_factor(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     user_id = create_user(session_factory).id
     credential_id = persist_credential(session_factory, user_id=user_id)
@@ -200,6 +244,7 @@ def test_sync_marks_credential_when_handler_requests_two_factor(
         assert credential.requires_two_factor_authentication is True
 
     assert result.status == credential_service.SyncStatus.COMPLETED
+    assert_log_contains(caplog, message="2FA requirement re-evaluated: False -> True")
 
 
 def test_sync_leaves_two_factor_flag_unset_without_two_factor(
@@ -266,7 +311,7 @@ def test_sync_reraises_reauth_when_handler_has_no_interactive_challenge(
 
 
 def test_sync_credential_object_for_handler_with_2fa_starts_2fa_when_reauth_required(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     with session_factory() as session:
         user = make_user(session)
@@ -297,10 +342,11 @@ def test_sync_credential_object_for_handler_with_2fa_starts_2fa_when_reauth_requ
     assert result.challenge_token == HTTP_SESSION_TOKEN
     assert result.expires_at == expires_at
     start_login.assert_called_once_with(credential_id=credential_id, phone_no=PHONE_NUMBER, pin=PIN)
+    assert_log_contains(caplog, message="requires 2FA re-authentication; started interactive challenge")
 
 
 def test_confirm_two_factor_completes_login_and_syncs_credential(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     with session_factory() as session:
         user = make_user(session)
@@ -326,6 +372,7 @@ def test_confirm_two_factor_completes_login_and_syncs_credential(
     complete_login.assert_called_once_with(challenge_token=CHALLENGE_TOKEN, credential_id=credential_id, code="0000")
     with session_factory() as session:
         assert session.get(entity=Credential, ident=credential_id).session_state == {"cookies": "cookies-from-2fa"}
+    assert_log_contains(caplog, message="Confirming 2FA for")
 
 
 def test_create_generic_fints_credential_persists_blz(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):

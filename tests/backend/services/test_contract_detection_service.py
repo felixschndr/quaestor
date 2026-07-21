@@ -1,4 +1,6 @@
+import asyncio
 from datetime import timedelta
+from unittest.mock import Mock
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
@@ -8,7 +10,16 @@ from source.backend.models.contracts.contract_assignment import ContractAssignme
 from source.backend.models.contracts.contract_frequency import ContractFrequency
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
-from source.backend.services.contracts import contract_detection_service
+from source.backend.services.contracts import (
+    contract_detection_service,
+    contract_overdue_scheduler,
+)
+from source.backend.services.contracts.contract_detection_service import (
+    run_startup_detection as real_run_startup_detection,
+)
+from source.backend.services.contracts.contract_overdue_scheduler import (
+    run_periodic_overdue_check as real_run_periodic_overdue_check,
+)
 from tests.backend.conftest import (
     OLDER_DATE,
     SECOND_USER_NAME,
@@ -40,7 +51,7 @@ def _seed(
         )
 
 
-def test_detects_monthly_series_as_contract(session_factory: sessionmaker):
+def test_detects_monthly_series_as_contract(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     with session_factory() as session:
         account = make_account_with_new_user(session)
         _seed(session, account_id=account.id, other_party="Netflix", amount=-12.99, day_offsets=[0, 30, 60, 90])
@@ -55,6 +66,7 @@ def test_detects_monthly_series_as_contract(session_factory: sessionmaker):
         assert len(contract.members()) == 4
         assert contract.median_amount == -12.99
         assert contract.expected_next_date == OLDER_DATE + timedelta(days=120)
+        assert_log_contains(caplog, messages=["Detected new <Contract(", "1 recurring contract(s) detected"])
 
 
 def test_detects_biweekly_series(session_factory: sessionmaker):
@@ -258,3 +270,38 @@ def test_excluded_transaction_is_not_re_added(session_factory: sessionmaker):
         session.refresh(excluded)
         assert excluded.contract_assignment == ContractAssignment.EXCLUDED
         assert excluded.id not in {member.id for member in contract.members()}
+
+
+def test_startup_detection_logs_and_swallows_a_crash(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
+    monkeypatch.setattr(
+        target=contract_detection_service,
+        name="detect_contracts_for_all_users",
+        value=Mock(side_effect=RuntimeError("detection failed")),
+    )
+
+    asyncio.run(real_run_startup_detection())
+
+    assert_log_contains(caplog, message="Startup contract detection backfill crashed")
+
+
+def test_periodic_overdue_check_logs_and_keeps_running_on_exception(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    class _StopLoop(Exception):
+        pass
+
+    monkeypatch.setattr(
+        target=contract_overdue_scheduler,
+        name="_evaluate_overdue_contracts",
+        value=Mock(side_effect=RuntimeError("evaluation failed")),
+    )
+
+    async def fake_sleep(_seconds: float):  # noqa: ASYNC124
+        raise _StopLoop
+
+    monkeypatch.setattr(target=contract_overdue_scheduler.asyncio, name="sleep", value=fake_sleep)
+
+    with pytest.raises(_StopLoop):
+        asyncio.run(real_run_periodic_overdue_check())
+
+    assert_log_contains(caplog, message="Overdue contract check run crashed")

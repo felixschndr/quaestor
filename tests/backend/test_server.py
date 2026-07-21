@@ -18,7 +18,7 @@ from sqlalchemy.orm import sessionmaker
 
 from source.backend import main, server
 from source.backend.db import get_session
-from tests.backend.conftest import VALID_PASSWORD
+from tests.backend.conftest import VALID_PASSWORD, assert_log_contains
 
 
 def test_run_invokes_uvicorn_with_resolved_options(monkeypatch: pytest.MonkeyPatch):
@@ -32,12 +32,13 @@ def test_run_invokes_uvicorn_with_resolved_options(monkeypatch: pytest.MonkeyPat
     uvicorn_run.assert_called_once_with(main.app, **fake_options)
 
 
-def test_uvicorn_options_defaults_to_http(monkeypatch: pytest.MonkeyPatch):
+def test_uvicorn_options_defaults_to_http(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
     for variable in ("HOST", "PORT", "SSL_CERTFILE", "SSL_KEYFILE", "FORWARDED_ALLOW_IPS"):
         monkeypatch.delenv(name=variable, raising=False)
 
     options = server.uvicorn_options()
 
+    assert_log_contains(caplog, message="HTTPS disabled")
     assert options == {
         "host": server.DEFAULT_HOST,
         "port": server.DEFAULT_PORT,
@@ -58,7 +59,9 @@ def test_uvicorn_options_forwarded_allow_ips_is_overridable(monkeypatch: pytest.
     assert options["proxy_headers"] is True
 
 
-def test_uvicorn_options_includes_ssl_when_both_files_set(monkeypatch: pytest.MonkeyPatch):
+def test_uvicorn_options_includes_ssl_when_both_files_set(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     monkeypatch.setenv(name="SSL_CERTFILE", value="certfile.pem")
     monkeypatch.setenv(name="SSL_KEYFILE", value="keyfile.pem")
 
@@ -66,6 +69,7 @@ def test_uvicorn_options_includes_ssl_when_both_files_set(monkeypatch: pytest.Mo
 
     assert options["ssl_certfile"] == "certfile.pem"
     assert options["ssl_keyfile"] == "keyfile.pem"
+    assert_log_contains(caplog, message='HTTPS enabled ("certfile.pem" and "keyfile.pem")')
 
 
 @pytest.mark.parametrize(

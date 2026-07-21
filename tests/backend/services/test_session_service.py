@@ -70,4 +70,4 @@ def test_renew_session_extends_expiry_and_last_used_for_valid_session(
         assert renewed.expires_at >= original_expiry
         assert renewed.last_used_at >= original_last_used
 
-    assert_log_contains(caplog, message="<UserSession(")
+    assert_log_contains(caplog, message="Created session <UserSession(")

@@ -53,11 +53,15 @@ def test_start_translates_http_400_into_invalid_credentials(
     assert_log_contains(caplog, messages=["Initiating Trade Republic web login", "Trade Republic rejected the login"])
 
 
-def test_start_translates_value_error_into_invalid_credentials(monkeypatch: pytest.MonkeyPatch):
+def test_start_translates_value_error_into_invalid_credentials(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     _patch_client(monkeypatch=monkeypatch, initiate_side_effect=ValueError("bad phone number"))
 
     with pytest.raises(InvalidCredentialsError):
         module.start(credential_id=1, phone_no="nonsense", pin=PIN)
+
+    assert_log_contains(caplog, message="Trade Republic rejected the login for credential 1")
 
 
 def test_start_reraises_server_errors_as_generic(monkeypatch: pytest.MonkeyPatch):
@@ -67,11 +71,15 @@ def test_start_reraises_server_errors_as_generic(monkeypatch: pytest.MonkeyPatch
         module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
 
 
-def test_start_translates_rate_limit_into_bank_rate_limited(monkeypatch: pytest.MonkeyPatch):
+def test_start_translates_rate_limit_into_bank_rate_limited(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     _patch_client(monkeypatch=monkeypatch, initiate_side_effect=_http_error(429))
 
     with pytest.raises(BankRateLimitedError):
         module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
+
+    assert_log_contains(caplog, message="Trade Republic rate limited the login for credential 1")
 
 
 def _patch_successful_client(
@@ -96,7 +104,9 @@ def _patch_successful_client(
     return cookie_paths
 
 
-def test_start_and_complete_roundtrip_returns_cookies_and_cleans_up(monkeypatch: pytest.MonkeyPatch):
+def test_start_and_complete_roundtrip_returns_cookies_and_cleans_up(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     cookie_paths = _patch_successful_client(monkeypatch)
 
     token, expires_at = module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
@@ -107,6 +117,10 @@ def test_start_and_complete_roundtrip_returns_cookies_and_cleans_up(monkeypatch:
     assert cookies == "cookie-jar"
     assert module._pending_logins == {}
     assert not cookie_paths[0].exists()
+    assert_log_contains(
+        caplog,
+        messages=["2FA challenge issued for credential 1", "2FA login completed for credential 1"],
+    )
 
 
 def test_complete_rejects_unknown_token(caplog: pytest.LogCaptureFixture):
@@ -124,7 +138,9 @@ def test_complete_rejects_token_issued_for_other_credential(monkeypatch: pytest.
         module.complete(challenge_token=token, credential_id=2, code=TWO_FACTOR_CODE)
 
 
-def test_complete_translates_http_error_into_invalid_two_factor(monkeypatch: pytest.MonkeyPatch):
+def test_complete_translates_http_error_into_invalid_two_factor(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     cookie_paths = _patch_successful_client(monkeypatch, complete_side_effect=_http_error(400))
     token, _ = module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
 
@@ -133,6 +149,7 @@ def test_complete_translates_http_error_into_invalid_two_factor(monkeypatch: pyt
 
     assert module._pending_logins == {}
     assert not cookie_paths[0].exists()
+    assert_log_contains(caplog, message="Invalid 2FA code for credential 1")
 
 
 def test_expired_challenge_is_cleaned_up_and_rejected(monkeypatch: pytest.MonkeyPatch):

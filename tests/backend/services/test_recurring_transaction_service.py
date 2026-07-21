@@ -274,7 +274,9 @@ def test_update_schedule_recomputes_next_run_and_clears_other_day(
         assert updated.next_run_date == _d("2026-06-08")  # next Monday on/after today
 
 
-def test_update_unknown_rule_raises(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+def test_update_unknown_rule_raises(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
     account_id = persist_manual_account_with_new_user(session_factory)
     with session_factory() as session:
@@ -286,6 +288,7 @@ def test_update_unknown_rule_raises(session_factory: sessionmaker, monkeypatch: 
                 recurring_transaction_id=999999,
                 fields={"amount": 1.0, "frequency": RecurrenceFrequency.WEEKLY, "day_of_week": 0},
             )
+        assert_log_contains(caplog, message="Recurring transaction 999999 not found for")
 
 
 def test_delete_detaches_booked_transactions_and_removes_rule(

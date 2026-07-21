@@ -340,7 +340,7 @@ def test_backdated_transaction_missing_from_anchor_does_not_leak_across_seam(
         assert snapshots[d4] == 1150.0  # no bookings on d4 -> no change
         assert snapshots[d3] == 1113.10  # d4 -> d3 delta is exactly the -36.90 booking, no phantom +150
         # The stale d4 anchor (1000 vs walk 1150) is flagged, not silently absorbed.
-        assert_log_contains(caplog, message="drift")
+        assert_log_contains(caplog, message="Balance drift on <Account(")
 
 
 def test_bank_anchor_within_tolerance_does_not_warn(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from pathlib import Path
 
@@ -6,6 +7,8 @@ import pytest
 
 from source.backend.services.banking import fints_db_updater as updater
 from tests.backend.conftest import assert_log_contains
+
+_REAL_RUN_STARTUP_UPDATE = updater.run_startup_update
 
 
 @pytest.fixture
@@ -70,4 +73,31 @@ def test_apply_overrides_keeps_a_dataset_entry_if_present(
         updater.get_bank_db()
 
     assert fints_url.__bank_info__["12030000"]["fints"] == "https://from-dataset/"
-    assert_log_contains(caplog, message="12030000")
+    assert_log_contains(caplog, message="FinTS bank DB already contains an entry for BLZ 12030000")
+
+
+def test_update_keeps_bundled_db_when_the_directory_is_not_writable(
+    isolated_paths: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    reloaded: list[Path] = []
+    isolated_paths.write_bytes(b"bundled")
+    monkeypatch.setattr(target=updater.os, name="access", value=lambda path, mode: False)
+    monkeypatch.setattr(target=updater, name="_reload_in_memory_db", value=lambda path: reloaded.append(path))
+
+    updater._update_raw_db_file()
+
+    assert reloaded == [isolated_paths]
+    assert_log_contains(caplog, message="is not writable; keeping bundled DB")
+
+
+def test_startup_update_logs_the_failure_and_does_not_raise(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    def explode() -> None:
+        raise RuntimeError("dataset unreachable")
+
+    monkeypatch.setattr(target=updater, name="_update_raw_db_file", value=explode)
+
+    asyncio.run(_REAL_RUN_STARTUP_UPDATE())
+
+    assert_log_contains(caplog, message="Startup FinTS bank DB update failed; keeping existing DB")

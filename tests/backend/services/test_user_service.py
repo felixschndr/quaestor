@@ -26,10 +26,12 @@ def test_get_user_by_id_returns_the_user(session_factory: sessionmaker):
     assert user.user_name == USER_NAME
 
 
-def test_get_user_by_id_raises_when_missing(session_factory: sessionmaker):
+def test_get_user_by_id_raises_when_missing(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     with session_factory() as session:
         with pytest.raises(UserNotFoundError, match="ID 999"):
             user_service.get_user_by_id(db_session=session, user_id=999)
+
+    assert_log_contains(caplog, message="User with the ID 999 not found")
 
 
 def test_list_users_returns_all_users(session_factory: sessionmaker):

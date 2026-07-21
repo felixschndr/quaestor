@@ -242,13 +242,15 @@ def test_resolve_decoupled_notifies_false_even_when_polling_raises(
     assert_log_contains(caplog, message="pushTAN approval did not arrive within")
 
 
-def test_resolve_decoupled_raises_when_non_decoupled():
+def test_resolve_decoupled_raises_when_non_decoupled(caplog: pytest.LogCaptureFixture):
     pending = MagicMock(spec=module.NeedTANResponse)
     pending.decoupled = False
     client = MagicMock()
 
     with pytest.raises(ReauthenticationRequiredError, match="non-decoupled"):
         _resolve_decoupled(client=client, response=pending)
+
+    assert_log_contains(caplog, message="Bank requested a non-decoupled TAN")
 
 
 def test_session_resolves_tan_responses_from_get_transactions(monkeypatch: pytest.MonkeyPatch):

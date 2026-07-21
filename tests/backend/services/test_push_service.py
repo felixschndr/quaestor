@@ -17,10 +17,13 @@ def isolate_vapid_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=push_service, name="_vapid", value=None)
 
 
-def test_application_server_key_is_generated_persisted_and_reloaded(monkeypatch: pytest.MonkeyPatch):
+def test_application_server_key_is_generated_persisted_and_reloaded(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     key = push_service.get_application_server_key()
 
     assert key
+    assert_log_contains(caplog, message="Generated a new VAPID key pair at")
     assert "=" not in key  # urlsafe base64 without padding, as the browser Push API expects
     assert push_service.VAPID_PRIVATE_KEY_PATH.exists()
 

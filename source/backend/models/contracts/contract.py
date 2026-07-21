@@ -105,7 +105,6 @@ class Contract(Base):
 @event.listens_for(target=Contract, identifier="before_delete")
 def _clear_contract_links(_mapper: "Mapper", connection: "Connection", target: Contract) -> None:
     # SQLite has foreign keys off, so emulate ON DELETE SET NULL and clear the assignment too.
-    # TODO: Can we turn foreign keys on?
     connection.execute(
         update(Transaction)
         .where(Transaction.contract_id == target.id)

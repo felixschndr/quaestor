@@ -237,7 +237,9 @@ def test_cleanup_drops_old_finished_jobs():
     assert sync_jobs.get_job_by_id(stale.job_id) is None
 
 
-def test_cancel_marks_awaiting_job_failed_and_notifies_subscribers(patch_sync: PatchSync):
+def test_cancel_marks_awaiting_job_failed_and_notifies_subscribers(
+    patch_sync: PatchSync, caplog: pytest.LogCaptureFixture
+):
     patch_sync(SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN))
 
     async def scenario() -> list[SyncJob]:
@@ -261,6 +263,7 @@ def test_cancel_marks_awaiting_job_failed_and_notifies_subscribers(patch_sync: P
     assert updates[-1].status == JobStatus.FAILED
     assert updates[-1].error_code == JobErrorCode.CANCELLED
     assert updates[-1].challenge_token is None
+    assert_log_contains(caplog, message="cancelled")
 
 
 def test_cancel_ignores_unknown_and_terminal_jobs():

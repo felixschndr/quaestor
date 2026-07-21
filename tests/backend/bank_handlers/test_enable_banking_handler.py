@@ -31,6 +31,7 @@ from tests.backend.conftest import (
     SECOND_ACCOUNT_UID,
     SESSION_ID,
     FakeHttpResponse,
+    assert_log_contains,
 )
 
 _TEST_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -313,7 +314,9 @@ def test_balance_prefers_settled_over_expected(fake_http: Callable[[dict], FakeH
         assert bank.get_balance(accounts[0]) == 2.00
 
 
-def test_begin_two_factor_challenge_returns_authorization_url(fake_http: Callable[[dict], FakeHttp]):
+def test_begin_two_factor_challenge_returns_authorization_url(
+    fake_http: Callable[[dict], FakeHttp], caplog: pytest.LogCaptureFixture
+):
     fake = fake_http(
         {("POST", "/auth"): FakeHttpResponse(json_data={"url": "https://tilisy.enablebanking.com/ais/start?x=1"})}
     )
@@ -327,6 +330,7 @@ def test_begin_two_factor_challenge_returns_authorization_url(fake_http: Callabl
     assert body["psu_type"] == "personal"
     assert body["redirect_url"] == _credentials()["redirect_url"]
     assert body["access"]["valid_until"].endswith("+00:00")  # The API rejects naive timestamps
+    assert_log_contains(caplog, message="Enable Banking authorization started for credential 7")
 
 
 def test_begin_two_factor_challenge_with_inactive_application_raises_specific_error(
@@ -345,7 +349,9 @@ def test_begin_two_factor_challenge_with_rejected_jwt_raises_invalid_credentials
         _handler().begin_two_factor_challenge(credential_id=7)
 
 
-def test_complete_two_factor_challenge_creates_session_from_redirect_url(fake_http: Callable[[dict], FakeHttp]):
+def test_complete_two_factor_challenge_creates_session_from_redirect_url(
+    fake_http: Callable[[dict], FakeHttp], caplog: pytest.LogCaptureFixture
+):
     fake = fake_http(
         {
             ("POST", "/sessions"): FakeHttpResponse(
@@ -362,6 +368,7 @@ def test_complete_two_factor_challenge_creates_session_from_redirect_url(fake_ht
 
     assert state == {"session_id": SESSION_ID, "valid_until": "2027-01-09T13:24:20Z"}
     assert fake.requests[0]["json"] == {"code": "the-code"}
+    assert_log_contains(caplog, message="Enable Banking session created for credential 7")
 
 
 def test_complete_two_factor_challenge_rejects_bad_code(fake_http: Callable[[dict], FakeHttp]):

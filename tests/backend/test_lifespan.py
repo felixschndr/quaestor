@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from source.backend import main
+from tests.backend.conftest import assert_log_contains
 
 
 def test_lifespan_runs_alembic_upgrade_before_serving_requests(
@@ -57,7 +58,9 @@ def test_lifespan_cancels_all_background_tasks_on_shutdown(
     assert sync_cancelled.wait(timeout=5), "sync task was not cancelled on shutdown"
 
 
-def test_lifespan_closes_db_on_shutdown(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+def test_lifespan_closes_db_on_shutdown(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     monkeypatch.setattr(target=main, name="SessionLocal", value=session_factory)
     close = MagicMock()
     monkeypatch.setattr(target=main, name="close_engine", value=close)
@@ -66,6 +69,7 @@ def test_lifespan_closes_db_on_shutdown(session_factory: sessionmaker, monkeypat
         close.assert_not_called()
 
     close.assert_called_once()
+    assert_log_contains(caplog, message="Shutdown complete")
 
 
 def test_lifespan_disposes_db_engine_after_background_tasks_are_cancelled(

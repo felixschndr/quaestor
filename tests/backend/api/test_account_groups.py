@@ -64,7 +64,7 @@ def test_set_layout_creates_a_new_group_and_assigns_accounts(
     assert body["groups"][0]["name"] == "Sparen"
     assert body["groups"][0]["accounts"] == [{"id": account_id_1}]
     assert body["ungrouped"] == [{"id": account_id_2}]
-    assert_log_contains(caplog, messages=["<User(", "layout"])
+    assert_log_contains(caplog, messages=["<User(", "layout", "group(s)", "ungrouped account(s)"])
 
 
 def test_set_layout_renames_and_reorders_groups(http_client: TestClient, session_factory: sessionmaker):

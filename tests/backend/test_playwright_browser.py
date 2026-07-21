@@ -62,3 +62,20 @@ def test_download_failure_is_logged_and_does_not_raise(
     asyncio.run(playwright_browser.ensure_chromium_installed())
 
     assert_log_contains(caplog, message="Failed to download")
+
+
+def test_download_logs_the_playwright_output(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
+    class _FakeProcess:
+        returncode = 0
+
+        async def communicate(self) -> tuple[bytes, None]:
+            return b"Downloading Chromium\r  50%\r  100%\nChromium downloaded to /browsers\n", None
+
+    async def fake_exec(*args: object, **kwargs: object) -> _FakeProcess:  # noqa: ASYNC124
+        return _FakeProcess()
+
+    monkeypatch.setattr(target=asyncio, name="create_subprocess_exec", value=fake_exec)
+
+    asyncio.run(playwright_browser._download_chromium())
+
+    assert_log_contains(caplog, messages=["Downloading Chromium", "Chromium downloaded to /browsers"])

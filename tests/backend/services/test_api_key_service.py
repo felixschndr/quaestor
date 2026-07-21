@@ -53,7 +53,7 @@ def test_delete_removes_the_key(session_factory: sessionmaker, caplog: pytest.Lo
         api_key_service.delete_api_key(db_session=db_session, api_key=api_key)
         assert db_session.scalars(select(ApiKey)).all() == []
 
-    assert_log_contains(caplog, messages=["Deleted", "<ApiKey("])
+    assert_log_contains(caplog, message="Deleted <ApiKey(")
 
 
 def test_get_foreign_key_raises_not_found_and_keeps_it(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):

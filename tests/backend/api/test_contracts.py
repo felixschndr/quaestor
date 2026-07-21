@@ -77,7 +77,9 @@ def test_changing_the_turnus_of_a_manual_contract(http_client: TestClient, sessi
     assert cleared.json()["frequency"] == "MONTHLY"
 
 
-def test_assign_and_remove_transaction(http_client: TestClient, session_factory: sessionmaker):
+def test_assign_and_remove_transaction(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory, account_id=account_id)
     contract = _create_contract(http_client, account_id=account_id)
@@ -96,6 +98,7 @@ def test_assign_and_remove_transaction(http_client: TestClient, session_factory:
     removed = http_client.delete(f"/api/contracts/{contract['id']}/transactions/{transaction_id}")
     assert removed.status_code == 200
     assert removed.json()["member_count"] == 0
+    assert_log_contains(caplog, messages=["Assigned <Transaction(", "Removed <Transaction("])
 
 
 def test_reassigning_transaction_moves_it_between_contracts(http_client: TestClient, session_factory: sessionmaker):
@@ -124,7 +127,9 @@ def test_removing_transaction_detaches_it_from_the_contract(http_client: TestCli
     assert detail["contract_id"] is None
 
 
-def test_update_and_delete_contract(http_client: TestClient, session_factory: sessionmaker):
+def test_update_and_delete_contract(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     contract = _create_contract(http_client, account_id=account_id)
 
@@ -136,6 +141,14 @@ def test_update_and_delete_contract(http_client: TestClient, session_factory: se
 
     assert http_client.delete(f"/api/contracts/{contract['id']}").status_code == 204
     assert http_client.get(f"/api/contracts/{contract['id']}").status_code == 404
+    assert_log_contains(
+        caplog,
+        messages=[
+            "Updated <Contract(",
+            f"Deleted contract {contract['id']}",
+            f"Contract with the ID {contract['id']} not found",
+        ],
+    )
 
 
 def test_contract_note(http_client: TestClient, session_factory: sessionmaker):
@@ -197,7 +210,9 @@ def test_assigning_transaction_to_categorised_contract_applies_its_category(
     assert detail["category"] == "FITNESS"
 
 
-def test_contract_of_other_user_is_not_accessible(http_client: TestClient, session_factory: sessionmaker):
+def test_contract_of_other_user_is_not_accessible(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     contract = _create_contract(http_client, account_id=account_id)
 
@@ -206,3 +221,4 @@ def test_contract_of_other_user_is_not_accessible(http_client: TestClient, sessi
 
     assert http_client.get(f"/api/contracts/{contract['id']}").status_code == 404
     assert http_client.get("/api/contracts").json() == []
+    assert_log_contains(caplog, message="attempted to access <Contract(")

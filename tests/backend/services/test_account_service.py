@@ -4,7 +4,11 @@ import pytest
 from sqlalchemy.orm import sessionmaker
 
 from source.backend.bank_handlers import BankProvider
-from source.backend.exceptions import AccountNotFoundError, PermissionDeniedError
+from source.backend.exceptions import (
+    AccountNotFoundError,
+    PermissionDeniedError,
+    TransactionNotFoundError,
+)
 from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
@@ -271,7 +275,7 @@ def test_delete_account_only_works_for_manual_credential(
 
     with session_factory() as session:
         account_service.delete_account(db_session=session, account=session.get(entity=Account, ident=manual_account_id))
-        assert_log_contains(caplog, message="Deleted manual")
+        assert_log_contains(caplog, messages=["Deleted last manual account on", "Deleted manual"])
 
     with session_factory() as session:
         assert session.get(entity=Account, ident=manual_account_id) is None
@@ -468,3 +472,62 @@ def test_unlink_transactions_clears_both_sides_and_restores_types(
         assert in_transaction.transaction_type == TransactionType.DEPOSIT
         assert out_transaction.transfer_original_type is None
         assert in_transaction.transfer_original_type is None
+
+
+def test_get_account_for_user_rejects_a_foreign_account(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    _, account_ids = _create_user_with_accounts(session_factory)
+    with session_factory() as session:
+        intruder = make_user(session, user_name=SECOND_USER_NAME)
+        session.commit()
+        intruder_id = intruder.id
+
+    with session_factory() as session:
+        intruder = session.get(entity=User, ident=intruder_id)
+        with pytest.raises(AccountNotFoundError, match="not found"):
+            account_service.get_account_for_user(db_session=session, account_id=account_ids[0], user=intruder)
+        assert_log_contains(caplog, message="attempted to access <Account(")
+
+
+def test_get_transaction_for_account_rejects_unknown_and_foreign_transactions(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    _, account_ids = _create_user_with_accounts(session_factory)
+    with session_factory() as session:
+        foreign_transaction = make_transaction(session, account_id=account_ids[1], amount=-5.0)
+        session.commit()
+        foreign_transaction_id = foreign_transaction.id
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_ids[0])
+        with pytest.raises(TransactionNotFoundError, match="not found"):
+            account_service.get_transaction_for_account(db_session=session, account=account, transaction_id=99999)
+        with pytest.raises(TransactionNotFoundError, match="not found"):
+            account_service.get_transaction_for_account(
+                db_session=session, account=account, transaction_id=foreign_transaction_id
+            )
+        assert_log_contains(caplog, messages=["Transaction with the ID 99999 not found", "does not belong to"])
+
+
+def test_link_transactions_links_both_legs(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
+    with session_factory() as session:
+        user = make_user(session)
+        credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
+        account_a = make_account(session, credential_id=credential.id, name=ACCOUNT_IBAN)
+        account_b = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN)
+        out_transaction = make_transaction(
+            session, account_id=account_a.id, amount=-50.0, transaction_type=TransactionType.OUTGOING
+        )
+        in_transaction = make_transaction(
+            session, account_id=account_b.id, amount=50.0, transaction_type=TransactionType.DEPOSIT
+        )
+        session.flush()
+
+        account_service.link_transactions(db_session=session, transaction=out_transaction, counterpart=in_transaction)
+
+        assert_log_contains(caplog, message="Linked <Transaction(")
+        assert out_transaction.transfer_counterpart_id == in_transaction.id
+        assert in_transaction.transfer_counterpart_id == out_transaction.id
+        assert out_transaction.transaction_type == TransactionType.TRANSFER_OUT
+        assert in_transaction.transaction_type == TransactionType.TRANSFER_IN

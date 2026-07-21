@@ -470,7 +470,9 @@ def _user_with_digest_rule(db_session: Session, period: DigestPeriod, **rule_kwa
     return user
 
 
-def test_weekly_digest_reports_the_previous_week(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+def test_weekly_digest_reports_the_previous_week(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     sent = _capture_sent(monkeypatch)
     with session_factory() as db_session:
         user = _user_with_digest_rule(db_session, period=DigestPeriod.WEEKLY)
@@ -489,6 +491,7 @@ def test_weekly_digest_reports_the_previous_week(session_factory: sessionmaker, 
         body="Spent 60,00 € · Received 100,00 € · 2 transactions",
         url="/stats?date_from=2026-07-13&date_to=2026-07-19",
     )
+    assert_log_contains(caplog, messages=["Evaluating digest rules for", "digest for 2026-07-13..2026-07-19"])
 
 
 def test_weekly_digest_is_quiet_on_other_weekdays(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
@@ -545,7 +548,7 @@ def test_digest_without_content_hides_the_amounts(session_factory: sessionmaker,
 # --- duplicate transaction trigger -----------------------------------------
 
 
-def test_duplicate_booking_notifies(session_factory: sessionmaker):
+def test_duplicate_booking_notifies(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     with session_factory() as db_session:
         credential, account_id = _account_with_notification_rule(
             db_session, trigger=NotificationTrigger.DUPLICATE_TRANSACTION
@@ -568,6 +571,7 @@ def test_duplicate_booking_notifies(session_factory: sessionmaker):
                 f"&date_to={RECENT_DATE.isoformat()}&text=netflix"
             ),
         )
+        assert_log_contains(caplog, message="looks like a duplicate of")
 
 
 def test_duplicate_outside_the_window_is_quiet(session_factory: sessionmaker):
@@ -664,7 +668,7 @@ def _contract_charge(
     return credential, snapshot
 
 
-def test_contract_amount_increase_notifies(session_factory: sessionmaker):
+def test_contract_amount_increase_notifies(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     with session_factory() as db_session:
         credential, snapshot = _contract_charge(db_session, amount=-70.0)
 
@@ -678,6 +682,7 @@ def test_contract_amount_increase_notifies(session_factory: sessionmaker):
             body=f"{ACCOUNT_IBAN}: Gym -70,00 € instead of -50,00 €",
             url=f"/contracts/{credential.accounts[0].contracts[0].id}",
         )
+        assert_log_contains(caplog, message="against a median of")
 
 
 def test_contract_amount_within_usual_spread_is_quiet(session_factory: sessionmaker):
@@ -986,7 +991,9 @@ def _capture_sent(monkeypatch: pytest.MonkeyPatch) -> list[Notification]:
     return sent_notifications
 
 
-def test_overdue_contract_notifies_once_and_dedups(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+def test_overdue_contract_notifies_once_and_dedups(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     sent = _capture_sent(monkeypatch)
     with session_factory() as db_session:
         user, credential, account = make_user_and_credential_and_account(db_session)
@@ -1011,6 +1018,9 @@ def test_overdue_contract_notifies_once_and_dedups(session_factory: sessionmaker
             url=f"/contracts/{contract.id}",
         )
         assert contract.overdue_notified_at is not None
+        assert_log_contains(
+            caplog, messages=["Evaluating overdue contracts for", "is overdue (expected", "queued notification"]
+        )
 
         # A second run on the same overdue episode must not notify again.
         notification_engine.evaluate_overdue_contracts(db_session=db_session, today=_TODAY)

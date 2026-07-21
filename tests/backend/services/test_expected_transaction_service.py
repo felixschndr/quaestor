@@ -113,7 +113,9 @@ def test_update_expected_transaction_changes_fields(session_factory: sessionmake
         assert account.balance == 100.0
 
 
-def test_update_expected_transaction_rejects_a_normal_transaction(session_factory: sessionmaker):
+def test_update_expected_transaction_rejects_a_normal_transaction(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     account_id = persist_account_with_new_user(session_factory)
     with session_factory() as session:
         booked = make_transaction(session, account_id=account_id, amount=-5.0)
@@ -126,6 +128,7 @@ def test_update_expected_transaction_rejects_a_normal_transaction(session_factor
             account_service.update_expected_transaction(
                 db_session=session, account=account, expected_transaction_id=booked_id, fields={"amount": 1.0}
             )
+        assert_log_contains(caplog, message="not found for <Account(")
 
 
 def test_delete_expected_transaction_removes_it(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):

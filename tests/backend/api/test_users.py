@@ -14,6 +14,7 @@ from tests.backend.conftest import (
     USER_NAME,
     VALID_PASSWORD,
     WRONG_PASSWORD,
+    assert_log_contains,
     login_as,
     make_credential,
     register,
@@ -230,13 +231,14 @@ def test_update_user_can_change_display_name_and_password_together(http_client: 
     assert login_as(http_client, user_name=USER_NAME, password=NEW_VALID_PASSWORD).status_code == 200
 
 
-def test_delete_user_removes_account_and_invalidates_session(http_client: TestClient):
+def test_delete_user_removes_account_and_invalidates_session(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     user_id = register_and_get_id(http_client)
 
     delete_response = http_client.delete(f"/api/users/{user_id}")
 
     assert delete_response.status_code == 204
     assert http_client.get("/api/auth/me").status_code == 401
+    assert_log_contains(caplog, message="Deleted user <User(")
 
 
 def test_sync_without_credentials_returns_empty_list(http_client: TestClient):
@@ -363,7 +365,7 @@ def test_last_used_at_is_bumped_on_authenticated_request(http_client: TestClient
     assert bumped >= initial
 
 
-def test_revoke_other_session_deletes_it(http_client: TestClient):
+def test_revoke_other_session_deletes_it(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     user_id = register_and_get_id(http_client)
     http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
     sessions = http_client.get(f"/api/users/{user_id}/sessions").json()
@@ -374,6 +376,7 @@ def test_revoke_other_session_deletes_it(http_client: TestClient):
     assert response.status_code == 204
     remaining = http_client.get(f"/api/users/{user_id}/sessions").json()
     assert all(s["id"] != other_session_id for s in remaining)
+    assert_log_contains(caplog, message="Revoked <UserSession(")
 
 
 def test_revoke_current_session_returns_422(http_client: TestClient):
@@ -394,7 +397,7 @@ def test_revoke_unknown_session_returns_404(http_client: TestClient):
     assert response.status_code == 404
 
 
-def test_revoke_other_users_session_returns_404(http_client: TestClient):
+def test_revoke_other_users_session_returns_404(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     first_user_id = register_and_get_id(http_client, user_name=USER_NAME)
     first_user_session_id = http_client.get(f"/api/users/{first_user_id}/sessions").json()[0]["id"]
 
@@ -403,6 +406,7 @@ def test_revoke_other_users_session_returns_404(http_client: TestClient):
     response = http_client.delete(f"/api/users/{other_user_id}/sessions/{first_user_session_id}")
 
     assert response.status_code == 404
+    assert_log_contains(caplog, message="which does not belong to them")
 
 
 def test_revoke_session_for_other_user_id_returns_404(http_client: TestClient):
@@ -418,7 +422,7 @@ def test_revoke_session_requires_authentication(http_client: TestClient):
     assert http_client.delete("/api/users/1/sessions/1").status_code == 401
 
 
-def test_revoke_all_other_sessions_keeps_only_current(http_client: TestClient):
+def test_revoke_all_other_sessions_keeps_only_current(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     user_id = register_and_get_id(http_client)
     http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
     http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
@@ -430,6 +434,7 @@ def test_revoke_all_other_sessions_keeps_only_current(http_client: TestClient):
     remaining = http_client.get(f"/api/users/{user_id}/sessions").json()
     assert len(remaining) == 1
     assert remaining[0]["is_current"] is True
+    assert_log_contains(caplog, message="Revoked 2 other session(s) for")
 
 
 def test_revoke_all_other_sessions_with_only_current_session_is_noop(http_client: TestClient):

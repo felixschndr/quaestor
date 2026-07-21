@@ -276,7 +276,7 @@ def test_password_requirements_is_public(http_client: TestClient):
     assert http_client.get("/api/auth/password_requirements").status_code == 200
 
 
-def test_logout_returns_no_content_and_invalidates_session(http_client: TestClient):
+def test_logout_returns_no_content_and_invalidates_session(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     register(http_client, user_name="dave")
     assert http_client.get("/api/auth/me").status_code == 200
 
@@ -284,6 +284,7 @@ def test_logout_returns_no_content_and_invalidates_session(http_client: TestClie
 
     assert logout_response.status_code == 204
     assert http_client.get("/api/auth/me").status_code == 401
+    assert_log_contains(caplog, message="Deleted session <UserSession(")
 
 
 def test_logout_without_session_cookie_is_idempotent(http_client: TestClient):

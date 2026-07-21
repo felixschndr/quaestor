@@ -14,6 +14,7 @@ from source.backend.bank_handlers.trade_republic import (
     TradeRepublicHandler,
     _TradeRepublicSession,
 )
+from source.backend.exceptions import ReauthenticationRequiredError
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.banking import trade_republic_login
 from tests.backend.conftest import (
@@ -285,6 +286,28 @@ def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest
 
     assert session_state == {"cookies": "fresh-cookie"}
     assert calls == [{"challenge_token": CHALLENGE_TOKEN, "credential_id": 7, "code": "0000"}]
+
+
+def test_session_without_resumable_websession_requires_reauthentication(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    class _FakeApi:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        def resume_websession(self) -> bool:
+            return False
+
+    monkeypatch.setattr(target=trade_republic, name="TradeRepublicApi", value=_FakeApi)
+    handler = _handler()
+    handler.session_state = {"cookies": "stale-cookie"}
+
+    with caplog.at_level(logging.INFO):
+        with pytest.raises(ReauthenticationRequiredError, match="2FA re-authentication required"):
+            with handler.session():
+                pass
+
+    assert_log_contains(caplog, message="Trade Republic websession could not be resumed")
 
 
 def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.MonkeyPatch):

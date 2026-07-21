@@ -1,4 +1,5 @@
 import logging
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,7 +14,7 @@ from source.backend.logging_utils import (
     redact_headers,
     session_log_context,
 )
-from tests.backend.conftest import PIN, VALID_PASSWORD, register
+from tests.backend.conftest import PIN, VALID_PASSWORD, assert_log_contains, register
 
 
 @pytest.mark.parametrize(
@@ -70,6 +71,17 @@ def test_extra_is_appended_and_redacted_at_debug_level(caplog: pytest.LogCapture
     assert VALID_PASSWORD not in message
     assert REDACTION_PLACEHOLDER in message
     assert '"ok": 1' in message
+
+
+def test_update_logs_the_entity_description(caplog: pytest.LogCaptureFixture):
+    logger = get_logger("test.logging.update")
+    entity = MagicMock()
+    entity.describe_update.return_value = "Updated User 1: name 'old' --> 'new'"
+
+    logger.update(state_before_update={"name": "old"}, entity_after_update=entity)
+
+    entity.describe_update.assert_called_once_with(state_before_update={"name": "old"})
+    assert_log_contains(caplog, message="Updated User 1: name 'old' --> 'new'")
 
 
 def test_debug_extra_is_dropped_when_logger_below_debug(caplog: pytest.LogCaptureFixture):

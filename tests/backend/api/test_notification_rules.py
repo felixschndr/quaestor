@@ -41,7 +41,7 @@ def test_create_and_list_balance_rule(
     response = http_client.post("/api/notification_rules", json=_balance_rule_payload(account_id))
 
     assert response.status_code == 201
-    assert_log_contains(caplog, messages=["Created", "<NotificationRule("])
+    assert_log_contains(caplog, messages=["Created", "<NotificationRule(", "default notification rules for"])
     created = response.json()
     assert created["trigger"] == "balance_threshold"
     assert created["threshold"] == 100.0
@@ -91,7 +91,7 @@ def test_create_transaction_rule_round_trips_criteria(http_client: TestClient, s
     assert created["min_amount"] == -50.0
 
 
-def test_update_rule(http_client: TestClient, session_factory: sessionmaker):
+def test_update_rule(http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     rule_id = http_client.post("/api/notification_rules", json=_balance_rule_payload(account_id)).json()["id"]
 
@@ -105,6 +105,7 @@ def test_update_rule(http_client: TestClient, session_factory: sessionmaker):
     assert updated["threshold"] == 42.0
     assert updated["enabled"] is False
     assert updated["name"] == "Updated"
+    assert_log_contains(caplog, message="Updated Notificationrule: enabled: True → False")
 
 
 def test_delete_rule(http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
@@ -136,8 +137,11 @@ def test_create_rule_rejects_foreign_account(http_client: TestClient, session_fa
     assert response.status_code == 404
 
 
-def test_unknown_rule_returns_404(http_client: TestClient, session_factory: sessionmaker):
+def test_unknown_rule_returns_404(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     assert http_client.delete("/api/notification_rules/999999").status_code == 404
     assert http_client.put("/api/notification_rules/999999", json=_balance_rule_payload(account_id)).status_code == 404
+    assert_log_contains(caplog, message="attempted to access notification rule 999999 which is not theirs")

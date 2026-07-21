@@ -13,6 +13,7 @@ from source.backend.exceptions import (
     UserNotFoundError,
     ValidationError,
 )
+from tests.backend.conftest import assert_log_contains
 
 CASES = {
     "validation": (ValidationError, 422),
@@ -59,8 +60,18 @@ def test_known_exception_detail_is_logged(client: TestClient, caplog: pytest.Log
     with caplog.at_level(logging.WARNING):
         client.get("/raise/validation")
 
-    assert "ValidationError" in caplog.text
-    assert "Something went wrong: validation" in caplog.text
+    assert_log_contains(caplog, messages=["ValidationError", "Something went wrong: validation"])
+    assert caplog.records[-1].levelname == "WARNING"
+
+
+def test_server_error_is_logged_with_a_traceback(client: TestClient, caplog: pytest.LogCaptureFixture):
+    with caplog.at_level(logging.ERROR):
+        client.get("/raise/internal")
+
+    assert_log_contains(caplog, messages=["UnknownInternalError", "Something went wrong: internal", "-> 500"])
+    record = caplog.records[-1]
+    assert record.levelname == "ERROR"
+    assert record.exc_info is not None
 
 
 def test_request_validation_error_is_handled_and_logged(caplog: pytest.LogCaptureFixture):
@@ -79,8 +90,8 @@ def test_request_validation_error_is_handled_and_logged(caplog: pytest.LogCaptur
     detail = response.json()["detail"]
     assert isinstance(detail, list)
     assert detail[0]["loc"] == ["path", "number"]
-    assert "RequestValidationError" in caplog.text
-    assert "number" in caplog.text
+    assert_log_contains(caplog, messages=["RequestValidationError", "number"])
+    assert caplog.records[-1].levelname == "ERROR"
 
 
 def test_validation_error_does_not_log_submitted_values(caplog: pytest.LogCaptureFixture):
