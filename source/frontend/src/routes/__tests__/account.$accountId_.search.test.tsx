@@ -308,7 +308,7 @@ describe('TransactionSearchView — results', () => {
 
     await waitFor(() => expect(fetchSpy).not.toHaveBeenCalled())
     expect(screen.queryByRole('region', { name: 'Search results' })).toBeNull()
-    expect(screen.queryByText('No transactions match your filters.')).toBeNull()
+    expect(screen.getByText('No transactions match your filters.')).toBeInTheDocument()
   })
 
   it('shows no results and does not search when no type is selected', async () => {
@@ -324,7 +324,7 @@ describe('TransactionSearchView — results', () => {
 
     await waitFor(() => expect(fetchSpy).not.toHaveBeenCalled())
     expect(screen.queryByRole('region', { name: 'Search results' })).toBeNull()
-    expect(screen.queryByText('No transactions match your filters.')).toBeNull()
+    expect(screen.getByText('No transactions match your filters.')).toBeInTheDocument()
   })
 
   it('renders one row per returned transaction with the right link and colour', async () => {

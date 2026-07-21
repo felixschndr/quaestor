@@ -30,6 +30,7 @@
     "verifyLogin": "Verify"
   },
   "common": {
+    "searchAndFilters": "Search & filters",
     "loading": "Loading…",
     "save": "Save",
     "cancel": "Cancel",
@@ -137,8 +138,8 @@
     "empty": "No transactions match your filters.",
     "error": "Search failed. Please try again.",
     "resultsHeading": "Search results",
-    "resultsCount": "{{count}} result",
-    "resultsCount_other": "{{count}} results",
+    "resultsCount": "{{count}} transaction",
+    "resultsCount_other": "{{count}} transactions",
     "sortLabel": "Sort",
     "sortDateDesc": "Newest first",
     "sortDateAsc": "Oldest first",
@@ -591,6 +592,7 @@
     },
     "error": "Could not load.",
     "empty": "No data for this period.",
+    "noMatches": "No data matches your filters.",
     "other": "Other",
     "direction": {
       "OUTGOING": "Expenses",
@@ -663,6 +665,7 @@
     "title": "Notifications",
     "description": "Custom rules for push notifications",
     "empty": "No notifications yet.",
+    "emptyFiltered": "No notifications match your filters.",
     "new": "New rule",
     "edit": "Edit notification",
     "create": "New notification",
@@ -673,6 +676,10 @@
     "includeContentOn": "Details shown",
     "includeContentOff": "Account only",
     "triggerLabel": "Trigger",
+    "triggersAll": "All triggers",
+    "triggersNone": "No triggers",
+    "triggersCount_one": "{{count}} trigger",
+    "triggersCount_other": "{{count}} triggers",
     "trigger": {
       "expected_transaction": "Expected transaction booked",
       "contract_overdue": "Contract overdue",
@@ -740,9 +747,10 @@
     "edit": "Edit note"
   },
   "contracts": {
+    "searchPlaceholder": "Contract name",
     "title": "Contracts",
     "empty": "No contracts detected yet.",
-    "noMatches": "No contracts match the filters.",
+    "noMatches": "No contracts match your filters.",
     "count_one": "{{count}} contract",
     "count_other": "{{count}} contracts",
     "filtersReset": "Reset filters",

@@ -53,16 +53,17 @@ export interface ContractFilters {
   categories?: TransactionCategory[]
   frequencies?: ContractFrequencyFilter[]
   overdue?: boolean
+  text?: string
 }
 
 export function filterContracts(
   contracts: ContractRead[],
   filters: ContractFilters,
 ): ContractRead[] {
-  const { account_ids, amount_from, amount_to, categories, frequencies, overdue } = filters
-  // A facet is inactive only when its key is absent. A present-but-empty array
-  // means "none selected" and matches nothing (the "Keine" button).
+  const { account_ids, amount_from, amount_to, categories, frequencies, overdue, text } = filters
+  const needle = text?.trim().toLowerCase()
   return contracts.filter((contract) => {
+    if (needle && !contract.name.toLowerCase().includes(needle)) return false
     if (account_ids && !account_ids.includes(contract.account_id)) return false
     if (categories && !(contract.category && categories.includes(contract.category))) return false
     if (frequencies && !frequencies.includes(contract.frequency ?? 'NONE')) return false
@@ -112,7 +113,8 @@ export function hasActiveContractFilters(filters: ContractFilters): boolean {
     filters.frequencies !== undefined ||
     filters.amount_from !== undefined ||
     filters.amount_to !== undefined ||
-    filters.overdue,
+    filters.overdue ||
+    filters.text,
   )
 }
 

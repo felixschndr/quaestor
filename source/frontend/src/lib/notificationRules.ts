@@ -131,6 +131,35 @@ export function ruleSignature(rule: NotificationRule | NotificationRuleDraft): s
   return JSON.stringify({ trigger: rule.trigger, accounts })
 }
 
+export function filterAndSortRules(
+  rules: NotificationRule[],
+  filters: { accountIds?: number[]; triggers?: NotificationTrigger[]; text?: string },
+  labels: {
+    trigger: (trigger: NotificationTrigger) => string
+    title: (rule: NotificationRule) => string
+  },
+  language?: string,
+): NotificationRule[] {
+  const accounts = filters.accountIds && new Set(filters.accountIds)
+  const triggers = filters.triggers && new Set(filters.triggers)
+  const needle = filters.text?.trim().toLowerCase()
+  return rules
+    .filter(
+      (rule) =>
+        (!needle || labels.title(rule).toLowerCase().includes(needle)) &&
+        (!triggers || triggers.has(rule.trigger)) &&
+        (!accounts ||
+          (rule.account_ids.length === 0
+            ? accounts.size > 0
+            : rule.account_ids.some((id) => accounts.has(id)))),
+    )
+    .sort(
+      (a, b) =>
+        labels.trigger(a.trigger).localeCompare(labels.trigger(b.trigger), language) ||
+        labels.title(a).localeCompare(labels.title(b), language),
+    )
+}
+
 export const notificationRuleQueryKeys = {
   list: ['notification-rules'] as const,
 }

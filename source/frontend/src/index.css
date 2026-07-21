@@ -235,6 +235,13 @@
     height: 100%;
   }
 
+  h1,
+  h2,
+  h3,
+  nav a {
+    user-select: none;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     margin: 0;

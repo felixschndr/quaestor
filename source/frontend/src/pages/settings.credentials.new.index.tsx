@@ -1,6 +1,6 @@
-import { forwardRef, useMemo, useRef } from 'react'
+import { forwardRef, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useVirtualizer } from '@tanstack/react-virtual'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { useTranslation } from 'react-i18next'
 import { BookOpen, ChevronRight } from 'lucide-react'
 
@@ -43,11 +43,11 @@ export function BankPickerView({
   const matches = useMemo(() => filterBanks(catalog, query), [catalog, query])
 
   return (
-    <main className="mx-auto flex h-dvh max-w-page flex-col gap-6 p-4">
+    <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
         <BackLink to="/settings/credentials" />
         <h1 className="text-foreground text-2xl font-semibold">{t('credentials.pickerTitle')}</h1>
-        <Button asChild size="sm" className="ml-auto">
+        <Button asChild variant="primary" size="sm" className="ml-auto">
           <a href={BANK_HANDLERS_DOCS_URL} target="_blank" rel="noopener noreferrer">
             <BookOpen className="size-4" aria-hidden="true" />
             {t('credentials.pickerDocs')}
@@ -66,7 +66,7 @@ export function BankPickerView({
       ) : isError ? (
         <p className="text-destructive text-sm">{t('login.genericError')}</p>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <div className="flex flex-col gap-3">
           {manualBank ? (
             <ul className="border-border bg-card flex flex-col rounded-lg border">
               <BankRow
@@ -93,18 +93,18 @@ function VirtualBankList({
   matches: SupportedBank[]
   existingAccountCounts: Record<string, number>
 }) {
-  const scrollRef = useRef<HTMLUListElement>(null)
-  const virtualizer = useVirtualizer({
+  const listRef = useRef<HTMLUListElement>(null)
+  // The page itself scrolls, so the virtualizer needs to know where the list starts.
+  const [listTop, setListTop] = useState(0)
+  useLayoutEffect(() => setListTop(listRef.current?.offsetTop ?? 0), [])
+  const virtualizer = useWindowVirtualizer({
     count: matches.length,
-    getScrollElement: () => scrollRef.current,
     estimateSize: () => 64,
     overscan: 8,
+    scrollMargin: listTop,
   })
   return (
-    <ul
-      ref={scrollRef}
-      className="border-border bg-card min-h-0 flex-1 overflow-y-auto rounded-lg border"
-    >
+    <ul ref={listRef} className="border-border bg-card rounded-lg border">
       <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
         {virtualizer.getVirtualItems().map((item) => {
           const bank = matches[item.index]
@@ -122,7 +122,7 @@ function VirtualBankList({
                 top: 0,
                 left: 0,
                 width: '100%',
-                transform: `translateY(${item.start}px)`,
+                transform: `translateY(${item.start - listTop}px)`,
               }}
             />
           )

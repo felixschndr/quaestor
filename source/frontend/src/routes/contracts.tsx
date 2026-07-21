@@ -44,6 +44,7 @@ const contractFiltersSchema = z.object({
   categories: oneOrMany(z.enum(TRANSACTION_CATEGORIES)).optional(),
   frequencies: oneOrMany(z.enum(CONTRACT_FREQUENCY_FILTERS)).optional(),
   overdue: z.boolean().or(z.stringbool()).optional(),
+  text: z.string().optional(),
 })
 
 export const Route = createFileRoute('/contracts')({
@@ -135,7 +136,7 @@ function ContractsPage() {
       {visible.length > 0 ? (
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+            <h2 className="text-primary text-sm font-semibold">
               {t('contracts.count', { count: visible.length })}
             </h2>
             <div className="w-48">
@@ -200,7 +201,7 @@ function CreateContractDialog({ credentials }: { credentials: CredentialRead[] }
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant="primary"
           aria-label={t('contracts.create')}
           disabled={!hasAccounts}
         >

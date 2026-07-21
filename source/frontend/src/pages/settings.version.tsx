@@ -16,16 +16,16 @@ export function SettingsVersionView({ versionInfo, isLoading }: SettingsVersionV
 
       <ul className="border-border bg-card flex flex-col rounded-lg border">
         <li className="border-border/40 flex items-center justify-between border-t px-3 py-3 first:border-t-0">
-          <span className="text-muted-foreground text-sm">{t('version.current')}</span>
+          <span className="text-muted-foreground text-sm select-none">{t('version.current')}</span>
           <span className="text-sm font-medium">
             {isLoading || !versionInfo ? '…' : versionInfo.current}
           </span>
         </li>
         <li className="border-border/40 flex items-center justify-between border-t px-3 py-3 first:border-t-0">
-          <span className="text-muted-foreground text-sm">{t('version.latest')}</span>
+          <span className="text-muted-foreground text-sm select-none">{t('version.latest')}</span>
           <LatestValue versionInfo={versionInfo} isLoading={isLoading} />
         </li>
-        <li className="border-border/40 border-t px-3 py-3 text-sm first:border-t-0">
+        <li className="border-border/40 border-t px-3 py-3 text-sm select-none first:border-t-0">
           <StatusLine versionInfo={versionInfo} isLoading={isLoading} />
         </li>
       </ul>

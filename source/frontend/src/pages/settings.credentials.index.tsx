@@ -27,7 +27,7 @@ export function SettingsCredentialsIndexView({ user }: SettingsCredentialsIndexV
       <header className="flex items-center gap-2">
         <BackLink to="/settings" />
         <h1 className="text-foreground flex-1 text-2xl font-semibold">{t('credentials.title')}</h1>
-        <Button asChild size="sm">
+        <Button asChild variant="primary" size="sm">
           <Link to="/settings/credentials/new">
             <Plus className="size-3.5" aria-hidden="true" />
             {t('credentials.add')}

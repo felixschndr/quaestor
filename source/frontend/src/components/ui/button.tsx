@@ -8,6 +8,8 @@ const buttonBase =
 
 const buttonVariantClasses = {
   default: 'bg-primary text-primary-foreground [a]:hover:bg-primary/80',
+  primary:
+    'border-primary/30 bg-primary/10 text-primary hover:border-primary/50 hover:bg-primary/20 dark:bg-primary/20 dark:hover:bg-primary/30',
   outline:
     'border-border bg-background hover:border-ring aria-expanded:border-ring dark:border-input dark:bg-input/30',
   ghost:

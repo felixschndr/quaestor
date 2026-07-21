@@ -74,6 +74,14 @@ describe('filterContracts', () => {
     expect(ids(filterContracts(all, {}))).toEqual([1, 2, 3, 4, 5])
   })
 
+  it('filters by name, case-insensitively', () => {
+    const named = [
+      makeContract({ id: 7, name: 'Netflix' }),
+      makeContract({ id: 8, name: 'Spotify' }),
+    ]
+    expect(ids(filterContracts(named, { text: ' netflix ' }))).toEqual([7])
+  })
+
   it('filters by account', () => {
     expect(ids(filterContracts(all, { account_ids: [10] }))).toEqual([1, 3, 5])
   })

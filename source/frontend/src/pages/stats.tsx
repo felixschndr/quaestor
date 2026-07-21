@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
+import { FilterHeading } from '@/components/ui/filter-heading'
 import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { Label } from '@/components/ui/label'
 import { TransactionFilterFields } from '@/components/ui/transaction-filter-fields'
@@ -192,7 +193,8 @@ export function StatsView({
         <h1 className="text-foreground text-lg font-semibold">{t('stats.title')}</h1>
       </header>
 
-      <section className="flex flex-col gap-4">
+      <section className="border-border bg-card flex flex-col gap-3 rounded-lg border p-3">
+        <FilterHeading />
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="stats-accounts">{t('common.accounts')}</Label>
           <AccountMultiSelect
@@ -240,7 +242,9 @@ export function StatsView({
         />
       </section>
 
-      {!hasSelection ? null : (
+      {!hasSelection ? (
+        <p className="text-muted-foreground text-sm">{t('stats.noMatches')}</p>
+      ) : (
         <>
           <ContractsSummaryCard accountIds={accountIds} />
 

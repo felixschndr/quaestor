@@ -13,6 +13,8 @@ import { AccountMultiSelect } from '@/components/ui/account-multi-select'
 import { AmountRangeFields } from '@/components/ui/amount-range-fields'
 import { CategoryMultiSelect } from '@/components/ui/category-multi-select'
 import { FrequencyMultiSelect } from '@/components/ui/frequency-multi-select'
+import { FilterHeading } from '@/components/ui/filter-heading'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 
@@ -22,12 +24,6 @@ export interface ContractFilterBarProps {
   onChange: (next: ContractFilters) => void
 }
 
-/**
- * Filter controls for the contract list, built entirely from the shared filter
- * primitives used by transaction search. Every facet is live and defaults to
- * "all": an unset facet shows every option selected, and selecting all (or none)
- * collapses back to no filter so the URL stays clean.
- */
 function ContractFilterBar({ credentials, filters, onChange }: ContractFilterBarProps) {
   const { t } = useTranslation()
   const accountIds = credentials.flatMap((credential) =>
@@ -38,13 +34,24 @@ function ContractFilterBar({ credentials, filters, onChange }: ContractFilterBar
     onChange({ ...filters, [key]: value })
 
   const shownOrAll = <T,>(selected: T[] | undefined, all: readonly T[]): T[] => selected ?? [...all]
-  // A full selection is the default ("all", no filter); anything less — including
-  // an empty selection from the "Keine" button — is kept as an explicit filter.
   const normalize = <T,>(next: T[], total: number): T[] | undefined =>
     next.length >= total ? undefined : next
 
   return (
     <section className="border-border bg-card flex flex-col gap-3 rounded-lg border p-3">
+      <FilterHeading />
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="contract-filter-text">{t('common.name')}</Label>
+        <Input
+          id="contract-filter-text"
+          type="search"
+          inputMode="search"
+          value={filters.text ?? ''}
+          placeholder={t('contracts.searchPlaceholder')}
+          onChange={(event) => update('text', event.target.value || undefined)}
+        />
+      </div>
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="contract-filter-accounts">{t('common.account')}</Label>

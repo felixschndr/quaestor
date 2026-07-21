@@ -6,6 +6,7 @@ import { ArrowLeftRight } from 'lucide-react'
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
 import { AmountRangeFields } from '@/components/ui/amount-range-fields'
 import { DateRangeFields } from '@/components/ui/date-range-fields'
+import { FilterHeading } from '@/components/ui/filter-heading'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
@@ -83,7 +84,9 @@ export function TransactionSearchView({
           filters={debouncedDraft}
           linkSource={linkSource}
         />
-      ) : null}
+      ) : (
+        <p className="text-muted-foreground text-sm">{t('search.empty')}</p>
+      )}
     </main>
   )
 }
@@ -123,7 +126,12 @@ function SearchForm({
   const selectedTypes = draft.transaction_types ?? [...TRANSACTION_TYPES]
 
   return (
-    <form onSubmit={(event) => event.preventDefault()} noValidate className="flex flex-col gap-4">
+    <form
+      onSubmit={(event) => event.preventDefault()}
+      noValidate
+      className="border-border bg-card flex flex-col gap-3 rounded-lg border p-3"
+    >
+      <FilterHeading />
       <Field id="search-accounts" label={t('common.accounts')}>
         <AccountMultiSelect
           id="search-accounts"
@@ -245,7 +253,7 @@ function SearchResults({
   return (
     <section aria-label={t('search.resultsHeading')} className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+        <h2 className="text-primary text-sm font-semibold">
           {t('search.resultsCount', { count: results.length })}
         </h2>
         <SingleSelectPopover

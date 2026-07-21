@@ -30,6 +30,7 @@
     "verifyLogin": "Bestätigen"
   },
   "common": {
+    "searchAndFilters": "Suche & Filter",
     "loading": "Lädt …",
     "save": "Speichern",
     "cancel": "Abbrechen",
@@ -137,8 +138,8 @@
     "empty": "Keine Transaktionen passen zu deinen Filtern.",
     "error": "Suche fehlgeschlagen. Bitte erneut versuchen.",
     "resultsHeading": "Suchergebnisse",
-    "resultsCount": "{{count}} Treffer",
-    "resultsCount_other": "{{count}} Treffer",
+    "resultsCount": "{{count}} Transaktion",
+    "resultsCount_other": "{{count}} Transaktionen",
     "sortLabel": "Sortieren",
     "sortDateDesc": "Neueste zuerst",
     "sortDateAsc": "Älteste zuerst",
@@ -591,6 +592,7 @@
     },
     "error": "Konnte nicht geladen werden.",
     "empty": "Keine Daten für diesen Zeitraum.",
+    "noMatches": "Keine Daten passen zu deinen Filtern.",
     "other": "Sonstige",
     "direction": {
       "OUTGOING": "Ausgaben",
@@ -663,6 +665,7 @@
     "title": "Benachrichtigungen",
     "description": "Eigene Regeln für Push-Benachrichtigungen",
     "empty": "Noch keine Benachrichtigungen.",
+    "emptyFiltered": "Keine Benachrichtigungen passen zu deinen Filtern.",
     "new": "Neue Regel",
     "edit": "Benachrichtigung bearbeiten",
     "create": "Neue Benachrichtigung",
@@ -673,6 +676,10 @@
     "includeContentOn": "Details sichtbar",
     "includeContentOff": "Nur Konto",
     "triggerLabel": "Auslöser",
+    "triggersAll": "Alle Auslöser",
+    "triggersNone": "Keine Auslöser",
+    "triggersCount_one": "{{count}} Auslöser",
+    "triggersCount_other": "{{count}} Auslöser",
     "trigger": {
       "expected_transaction": "Erwartete Transaktion gebucht",
       "contract_overdue": "Vertrag überfällig",
@@ -740,9 +747,10 @@
     "edit": "Notiz bearbeiten"
   },
   "contracts": {
+    "searchPlaceholder": "Vertragsname",
     "title": "Verträge",
     "empty": "Noch keine Verträge erkannt.",
-    "noMatches": "Keine Verträge entsprechen den Filtern.",
+    "noMatches": "Keine Verträge passen zu deinen Filtern.",
     "count_one": "{{count}} Vertrag",
     "count_other": "{{count}} Verträge",
     "filtersReset": "Filter zurücksetzen",

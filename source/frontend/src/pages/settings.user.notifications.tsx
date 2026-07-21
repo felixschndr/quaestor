@@ -28,6 +28,8 @@ import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { AmountInput } from '@/components/ui/amount-input'
 import { AmountRangeFields } from '@/components/ui/amount-range-fields'
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
+import { FilterHeading } from '@/components/ui/filter-heading'
+import { MultiSelectPopover, multiSelectTriggerLabel } from '@/components/ui/multi-select-popover'
 import { CategoryMultiSelect } from '@/components/ui/category-multi-select'
 import { TypeMultiSelect } from '@/components/ui/type-multi-select'
 import {
@@ -54,6 +56,7 @@ import {
   DIGEST_PERIODS,
   NOTIFICATION_TRIGGERS,
   TRIGGER_DEFAULT_DAYS,
+  filterAndSortRules,
   useCreateNotificationRule,
   useDeleteNotificationRule,
   useNotificationRules,
@@ -78,8 +81,12 @@ const TRIGGER_ICONS: Record<NotificationTrigger, LucideIcon> = {
   balance_threshold: TrendingDown,
 }
 
+function ruleTitle(rule: NotificationRule, t: TFunction): string {
+  return rule.name?.trim() || t(`notifications.trigger.${rule.trigger}`)
+}
+
 export function SettingsNotificationsView({ user }: { user: UserRead }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const rules = useNotificationRules()
   // `null` = closed, `'new'` = create dialog, otherwise the rule being edited.
   const [editing, setEditing] = useState<NotificationRule | 'new' | null>(null)
@@ -108,13 +115,31 @@ export function SettingsNotificationsView({ user }: { user: UserRead }) {
     }
   }
 
-  const list = rules.data ?? []
+  const all = useMemo(() => rules.data ?? [], [rules.data])
+
+  const [accountFilter, setAccountFilter] = useState<number[]>()
+  const [triggerFilter, setTriggerFilter] = useState<NotificationTrigger[]>()
+  const [textFilter, setTextFilter] = useState('')
+
+  const list = useMemo(
+    () =>
+      filterAndSortRules(
+        all,
+        { accountIds: accountFilter, triggers: triggerFilter, text: textFilter },
+        {
+          trigger: (trigger) => t(`notifications.trigger.${trigger}`),
+          title: (rule) => ruleTitle(rule, t),
+        },
+        i18n.language,
+      ),
+    [all, accountFilter, triggerFilter, textFilter, t, i18n.language],
+  )
 
   return (
     <SettingsSubPage
       title={t('notifications.title')}
       headerExtra={
-        <Button type="button" size="sm" onClick={() => setEditing('new')}>
+        <Button type="button" variant="primary" size="sm" onClick={() => setEditing('new')}>
           <Plus className="size-3.5" aria-hidden="true" />
           {t('notifications.new')}
         </Button>
@@ -137,10 +162,72 @@ export function SettingsNotificationsView({ user }: { user: UserRead }) {
 
       <PwaInstallNotice />
 
+      {all.length > 0 ? (
+        <section className="border-border bg-card flex flex-col gap-3 rounded-lg border p-3">
+          <FilterHeading />
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="rule-filter-text">{t('common.name')}</Label>
+            <Input
+              id="rule-filter-text"
+              type="search"
+              inputMode="search"
+              value={textFilter}
+              placeholder={t('notifications.namePlaceholder')}
+              onChange={(event) => setTextFilter(event.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="rule-filter-accounts">{t('common.account')}</Label>
+              <AccountMultiSelect
+                id="rule-filter-accounts"
+                credentials={user.credentials}
+                selectedIds={accountFilter ?? allAccountIds}
+                onChange={(next) =>
+                  setAccountFilter(next.length >= allAccountIds.length ? undefined : next)
+                }
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="rule-filter-triggers">{t('notifications.triggerLabel')}</Label>
+              <MultiSelectPopover
+                id="rule-filter-triggers"
+                ariaLabel={t('notifications.triggerLabel')}
+                options={NOTIFICATION_TRIGGERS.map((trigger) => ({
+                  value: trigger,
+                  label: t(`notifications.trigger.${trigger}`),
+                })).sort((a, b) => a.label.localeCompare(b.label, i18n.language))}
+                selected={triggerFilter ?? [...NOTIFICATION_TRIGGERS]}
+                onChange={(next) =>
+                  setTriggerFilter(next.length >= NOTIFICATION_TRIGGERS.length ? undefined : next)
+                }
+                triggerLabel={multiSelectTriggerLabel(
+                  (triggerFilter ?? NOTIFICATION_TRIGGERS).length,
+                  NOTIFICATION_TRIGGERS.length,
+                  {
+                    none: t('notifications.triggersNone'),
+                    all: t('notifications.triggersAll'),
+                    some: (count) => t('notifications.triggersCount', { count }),
+                  },
+                )}
+                selectAll={{
+                  all: t('search.selectAll'),
+                  none: t('search.selectNone'),
+                  count: (count) => t('notifications.triggersCount', { count }),
+                }}
+                checkboxIdPrefix="rule-filter-trigger"
+              />
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {rules.isLoading ? (
         <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
       ) : list.length === 0 ? (
-        <p className="text-muted-foreground text-sm">{t('notifications.empty')}</p>
+        <p className="text-muted-foreground text-sm">
+          {t(all.length === 0 ? 'notifications.empty' : 'notifications.emptyFiltered')}
+        </p>
       ) : (
         <ul className="border-border bg-card flex flex-col rounded-lg border">
           {list.map((rule) => (
@@ -160,7 +247,7 @@ export function SettingsNotificationsView({ user }: { user: UserRead }) {
           user={user}
           allAccountIds={allAccountIds}
           rule={editing === 'new' ? null : editing}
-          existingRules={list}
+          existingRules={all}
           onClose={() => setEditing(null)}
         />
       ) : null}
@@ -232,9 +319,7 @@ function RuleRow({
         aria-hidden="true"
       />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-sm font-medium">
-          {rule.name?.trim() || t(`notifications.trigger.${rule.trigger}`)}
-        </span>
+        <span className="text-sm font-medium">{ruleTitle(rule, t)}</span>
         {ruleSummaryLines(rule, t, accountNameById, allAccountIds).map((line) => (
           <span key={line.label} className="text-muted-foreground text-xs">
             <span className="text-foreground/70 font-medium">{line.label}:</span> {line.value}
