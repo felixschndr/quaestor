@@ -45,6 +45,9 @@ OVERDUE_GRACE_DAYS = 5
 # How far ahead the "upcoming shortfall" notification adds up due contract payments.
 SHORTFALL_LOOKAHEAD_DAYS = 7
 
+# How close together two identical bookings must be for the "duplicate transaction" notification.
+DUPLICATE_WINDOW_DAYS = 3
+
 
 class Contract(Base):
     # A recurring stream of transactions (subscription, salary, rent, ...)

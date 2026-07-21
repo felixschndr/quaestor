@@ -8,6 +8,7 @@ from source.backend.api.core.create_router import create_router
 from source.backend.db import get_session
 from source.backend.models.auth.user import User
 from source.backend.models.contracts.contract import (
+    DUPLICATE_WINDOW_DAYS,
     OVERDUE_GRACE_DAYS,
     SHORTFALL_LOOKAHEAD_DAYS,
 )
@@ -44,6 +45,11 @@ class ContractAmountIncreasedRuleIn(_RuleInBase):
     trigger: Literal["contract_amount_increased"]
 
 
+class DuplicateTransactionRuleIn(_RuleInBase):
+    trigger: Literal["duplicate_transaction"]
+    days: int = Field(default=DUPLICATE_WINDOW_DAYS, ge=1, le=90)
+
+
 class UpcomingShortfallRuleIn(_RuleInBase):
     trigger: Literal["upcoming_shortfall"]
     days: int = Field(default=SHORTFALL_LOOKAHEAD_DAYS, ge=1, le=90)
@@ -69,6 +75,7 @@ RuleIn = Annotated[
         ExpectedRuleIn,
         ContractOverdueRuleIn,
         ContractAmountIncreasedRuleIn,
+        DuplicateTransactionRuleIn,
         UpcomingShortfallRuleIn,
         TransactionRuleIn,
         BalanceRuleIn,
@@ -114,6 +121,7 @@ def _columns(
         ExpectedRuleIn
         | ContractOverdueRuleIn
         | ContractAmountIncreasedRuleIn
+        | DuplicateTransactionRuleIn
         | UpcomingShortfallRuleIn
         | TransactionRuleIn
         | BalanceRuleIn

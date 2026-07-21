@@ -19,6 +19,7 @@ class NotificationTrigger(str, enum.Enum):
     CONTRACT_OVERDUE = "contract_overdue"
     UPCOMING_SHORTFALL = "upcoming_shortfall"
     CONTRACT_AMOUNT_INCREASED = "contract_amount_increased"
+    DUPLICATE_TRANSACTION = "duplicate_transaction"
 
 
 class BalanceDirection(str, enum.Enum):

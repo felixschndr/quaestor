@@ -7,6 +7,7 @@ export const NOTIFICATION_TRIGGERS = [
   'expected_transaction',
   'contract_overdue',
   'contract_amount_increased',
+  'duplicate_transaction',
   'upcoming_shortfall',
   'transaction',
   'balance_threshold',
@@ -15,6 +16,7 @@ export type NotificationTrigger = (typeof NOTIFICATION_TRIGGERS)[number]
 
 export const TRIGGER_DEFAULT_DAYS = {
   contract_overdue: 5,
+  duplicate_transaction: 3,
   upcoming_shortfall: 7,
 } as const
 
@@ -42,6 +44,11 @@ export interface ContractAmountIncreasedRule extends RuleBase {
   trigger: 'contract_amount_increased'
 }
 
+export interface DuplicateTransactionRule extends RuleBase {
+  trigger: 'duplicate_transaction'
+  days: number
+}
+
 export interface UpcomingShortfallRule extends RuleBase {
   trigger: 'upcoming_shortfall'
   days: number
@@ -66,6 +73,7 @@ export type NotificationRule =
   | ExpectedTransactionRule
   | ContractOverdueRule
   | ContractAmountIncreasedRule
+  | DuplicateTransactionRule
   | UpcomingShortfallRule
   | TransactionRule
   | BalanceThresholdRule
@@ -73,6 +81,7 @@ export type NotificationRuleDraft =
   | Omit<ExpectedTransactionRule, 'id'>
   | Omit<ContractOverdueRule, 'id'>
   | Omit<ContractAmountIncreasedRule, 'id'>
+  | Omit<DuplicateTransactionRule, 'id'>
   | Omit<UpcomingShortfallRule, 'id'>
   | Omit<TransactionRule, 'id'>
   | Omit<BalanceThresholdRule, 'id'>
@@ -90,7 +99,11 @@ export function ruleSignature(rule: NotificationRule | NotificationRuleDraft): s
       max_amount: rule.max_amount ?? null,
     })
   }
-  if (rule.trigger === 'upcoming_shortfall' || rule.trigger === 'contract_overdue') {
+  if (
+    rule.trigger === 'upcoming_shortfall' ||
+    rule.trigger === 'contract_overdue' ||
+    rule.trigger === 'duplicate_transaction'
+  ) {
     return JSON.stringify({ trigger: rule.trigger, accounts, days: rule.days })
   }
   if (rule.trigger === 'balance_threshold') {

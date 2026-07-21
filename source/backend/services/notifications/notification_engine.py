@@ -10,6 +10,7 @@ from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.contracts.contract import (
+    DUPLICATE_WINDOW_DAYS,
     OVERDUE_GRACE_DAYS,
     SHORTFALL_LOOKAHEAD_DAYS,
     Contract,
@@ -231,6 +232,11 @@ def _notifications_for_rule(
             rule=rule, account=account, balance_before=balance_before, language=language
         )
 
+    if rule.trigger is NotificationTrigger.DUPLICATE_TRANSACTION:
+        return _duplicate_notifications(
+            rule=rule, account=account, new_transactions=new_transactions, language=language
+        )
+
     if rule.trigger is NotificationTrigger.CONTRACT_AMOUNT_INCREASED:
         return _contract_amount_notifications(
             rule=rule, account=account, new_transactions=new_transactions, language=language
@@ -370,6 +376,61 @@ def _upcoming_shortfall_notifications(
             tag=f"shortfall-{rule.id}-{account.id}",
         )
     ]
+
+
+def _duplicate_notifications(
+    rule: NotificationRule, account: Account, new_transactions: list[Transaction], language: str
+) -> list[Notification]:
+    window = datetime.timedelta(days=rule.days or DUPLICATE_WINDOW_DAYS)
+    new = set(new_transactions)
+    earlier = [
+        transaction
+        for transaction in account.transactions
+        if not transaction.expected and not transaction.pending and transaction not in new
+    ]
+
+    notifications = []
+    for transaction in new_transactions:
+        twin = next(
+            (other for other in earlier if _is_duplicate(candidate=other, transaction=transaction, window=window)), None
+        )
+        earlier.append(transaction)
+        if twin is None:
+            continue
+
+        if rule.include_content:
+            body = notification_messages.translate(
+                language,
+                key="duplicate_transaction.body",
+                account=account.display_label,
+                amount=format_amount(transaction.amount),
+                other_party=transaction.other_party or "",
+                days=window.days,
+            )
+        else:
+            body = notification_messages.translate(
+                language, key="duplicate_transaction.body_minimal", account=account.display_label
+            )
+        logger.info(f"{transaction} looks like a duplicate of {twin}")
+        notifications.append(
+            _build_notification(
+                rule=rule,
+                account=account,
+                default_title=notification_messages.translate(language, key="duplicate_transaction.title"),
+                body=body,
+            )
+        )
+    return notifications
+
+
+def _is_duplicate(candidate: Transaction, transaction: Transaction, window: datetime.timedelta) -> bool:
+    # Without a counterparty there is nothing to tell a duplicate from an ordinary repeat purchase.
+    other_party = (transaction.other_party or "").strip().lower()
+    if not other_party or other_party != (candidate.other_party or "").strip().lower():
+        return False
+    if abs(candidate.amount - transaction.amount) >= 0.01:
+        return False
+    return abs(candidate.date - transaction.date) <= window
 
 
 def _contract_amount_notifications(

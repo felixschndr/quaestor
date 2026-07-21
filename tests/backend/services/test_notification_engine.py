@@ -410,6 +410,93 @@ def test_balance_above_rule_does_not_trigger_on_downward_crossing(session_factor
     assert notifications == []
 
 
+# --- duplicate transaction trigger -----------------------------------------
+
+
+def test_duplicate_booking_notifies(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential, account_id = _account_with_notification_rule(
+            db_session, trigger=NotificationTrigger.DUPLICATE_TRANSACTION
+        )
+        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="Netflix")
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="netflix")
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+        assert_one_notification(notifications, body=f"{ACCOUNT_IBAN}: -42,00 € · netflix booked twice within 3 days")
+
+
+def test_duplicate_outside_the_window_is_quiet(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential, account_id = _account_with_notification_rule(
+            db_session, trigger=NotificationTrigger.DUPLICATE_TRANSACTION, days=3
+        )
+        make_transaction(
+            db_session, account_id=account_id, amount=-42.0, other_party="Netflix", date=RECENT_DATE - timedelta(days=4)
+        )
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="Netflix")
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert notifications == []
+
+
+def test_different_other_party_or_amount_is_no_duplicate(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential, account_id = _account_with_notification_rule(
+            db_session, trigger=NotificationTrigger.DUPLICATE_TRANSACTION
+        )
+        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="Netflix")
+        make_transaction(db_session, account_id=account_id, amount=-11.0, other_party="Spotify")
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="Spotify")
+        make_transaction(db_session, account_id=account_id, amount=-11.0, other_party="Netflix")
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert notifications == []
+
+
+def test_duplicate_without_other_party_is_quiet(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential, account_id = _account_with_notification_rule(
+            db_session, trigger=NotificationTrigger.DUPLICATE_TRANSACTION
+        )
+        make_transaction(db_session, account_id=account_id, amount=-42.0)
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        make_transaction(db_session, account_id=account_id, amount=-42.0)
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert notifications == []
+
+
+def test_two_new_duplicates_notify_once(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential, account_id = _account_with_notification_rule(
+            db_session, trigger=NotificationTrigger.DUPLICATE_TRANSACTION
+        )
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="Netflix")
+        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="Netflix")
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+        assert_one_notification(notifications, body=f"{ACCOUNT_IBAN}: -42,00 € · Netflix booked twice within 3 days")
+
+
 # --- contract amount increased trigger -------------------------------------
 
 

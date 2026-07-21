@@ -5,6 +5,7 @@ import {
   BellRing,
   CalendarClock,
   CalendarX2,
+  Copy,
   Pencil,
   Plus,
   Receipt,
@@ -67,6 +68,7 @@ const TRIGGER_ICONS: Record<NotificationTrigger, LucideIcon> = {
   expected_transaction: CalendarClock,
   contract_overdue: CalendarX2,
   contract_amount_increased: Receipt,
+  duplicate_transaction: Copy,
   upcoming_shortfall: TriangleAlert,
   transaction: ArrowLeftRight,
   balance_threshold: TrendingDown,
@@ -315,6 +317,12 @@ function daysDefault(trigger: NotificationTrigger): number {
     : 0
 }
 
+function daysLabelKey(trigger: NotificationTrigger): string {
+  if (trigger === 'contract_overdue') return 'notifications.graceLabel'
+  if (trigger === 'duplicate_transaction') return 'notifications.windowLabel'
+  return 'notifications.lookaheadLabel'
+}
+
 function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): RuleFormModel {
   const base: RuleFormModel = {
     trigger: rule?.trigger ?? defaults.trigger,
@@ -337,7 +345,7 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
     base.types = rule.types
     base.min_amount = rule.min_amount ?? undefined
     base.max_amount = rule.max_amount ?? undefined
-  } else if (rule?.trigger === 'upcoming_shortfall' || rule?.trigger === 'contract_overdue') {
+  } else if (rule && 'days' in rule) {
     base.days = rule.days
   } else if (rule?.trigger === 'balance_threshold') {
     base.threshold = rule.threshold
@@ -362,6 +370,8 @@ function modelToDraft(model: RuleFormModel, allAccountIds: number[]): Notificati
       return { ...shared, trigger: 'contract_overdue', days: model.days }
     case 'contract_amount_increased':
       return { ...shared, trigger: 'contract_amount_increased' }
+    case 'duplicate_transaction':
+      return { ...shared, trigger: 'duplicate_transaction', days: model.days }
     case 'upcoming_shortfall':
       return { ...shared, trigger: 'upcoming_shortfall', days: model.days }
     case 'balance_threshold':
@@ -584,10 +594,7 @@ function RuleDialog({
           {model.trigger in TRIGGER_DEFAULT_DAYS ? (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="rule-days">
-                {model.trigger === 'contract_overdue'
-                  ? t('notifications.graceLabel')
-                  : t('notifications.lookaheadLabel')}{' '}
-                {t('notifications.daysUnit')}
+                {t(daysLabelKey(model.trigger))} {t('notifications.daysUnit')}
               </Label>
               <Input
                 id="rule-days"
@@ -701,12 +708,9 @@ function ruleSummaryLines(
       label: t('common.amount'),
       value: describeAmountRange(rule.min_amount, rule.max_amount, t),
     })
-  } else if (rule.trigger === 'upcoming_shortfall' || rule.trigger === 'contract_overdue') {
+  } else if ('days' in rule) {
     lines.push({
-      label:
-        rule.trigger === 'contract_overdue'
-          ? t('notifications.graceLabel')
-          : t('notifications.lookaheadLabel'),
+      label: t(daysLabelKey(rule.trigger)),
       value: t('notifications.summary.lookaheadDays', { count: rule.days }),
     })
   } else if (rule.trigger === 'balance_threshold') {
