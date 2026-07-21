@@ -13,6 +13,7 @@ from source.backend.models.auth.user import User
 from source.backend.models.base import snapshot_columns
 from source.backend.services.auth.password_service import hash_password
 from source.backend.services.core import i18n_service
+from source.backend.services.notifications import notification_rule_service
 
 logger = get_logger(__name__)
 
@@ -51,6 +52,7 @@ def create_user(
         db_session.rollback()
         raise UserNameAlreadyExistsError(f"User name {normalized_user_name!r} is already taken")
     logger.info(f"Created {user}")
+    notification_rule_service.create_default_rules(db_session=db_session, user=user)
     return user
 
 

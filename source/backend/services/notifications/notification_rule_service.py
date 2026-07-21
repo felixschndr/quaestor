@@ -6,10 +6,29 @@ from source.backend.helpers import apply_fields
 from source.backend.logging_utils import get_logger
 from source.backend.models.auth.user import User
 from source.backend.models.base import snapshot_columns
-from source.backend.models.notifications.notification_rule import NotificationRule
+from source.backend.models.notifications.notification_rule import (
+    DigestPeriod,
+    NotificationRule,
+    NotificationTrigger,
+)
 from source.backend.services.accounts import account_service
 
 logger = get_logger(__name__)
+
+DEFAULT_RULES: list[dict] = [
+    {"trigger": NotificationTrigger.EXPECTED_TRANSACTION},
+    {"trigger": NotificationTrigger.UPCOMING_SHORTFALL},
+    {"trigger": NotificationTrigger.DUPLICATE_TRANSACTION},
+    {"trigger": NotificationTrigger.CONTRACT_OVERDUE},
+    {"trigger": NotificationTrigger.CONTRACT_AMOUNT_INCREASED},
+    {"trigger": NotificationTrigger.DIGEST, "period": DigestPeriod.WEEKLY},
+]
+
+
+def create_default_rules(db_session: Session, user: User) -> None:
+    db_session.add_all(NotificationRule(user_id=user.id, **fields) for fields in DEFAULT_RULES)
+    db_session.commit()
+    logger.info(f"Created {len(DEFAULT_RULES)} default notification rules for {user}")
 
 
 def list_rules(db_session: Session, user: User) -> list[NotificationRule]:

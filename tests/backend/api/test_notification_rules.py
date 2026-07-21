@@ -51,7 +51,7 @@ def test_create_and_list_balance_rule(
     assert created["include_content"] is True
 
     listed = http_client.get("/api/notification_rules").json()
-    assert [rule["id"] for rule in listed] == [created["id"]]
+    assert created["id"] in [rule["id"] for rule in listed]
 
 
 def test_create_and_list_contract_overdue_rule(http_client: TestClient, session_factory: sessionmaker):
@@ -113,7 +113,7 @@ def test_delete_rule(http_client: TestClient, session_factory: sessionmaker, cap
     rule_id = http_client.post("/api/notification_rules", json=_balance_rule_payload(account_id)).json()["id"]
 
     assert http_client.delete(f"/api/notification_rules/{rule_id}").status_code == 204
-    assert http_client.get("/api/notification_rules").json() == []
+    assert rule_id not in [rule["id"] for rule in http_client.get("/api/notification_rules").json()]
     assert_log_contains(caplog, message="Deleted notification rule")
 
 
