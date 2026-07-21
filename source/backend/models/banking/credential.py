@@ -229,6 +229,7 @@ class Credential(Base):
             Credential._carry_over_expected_note(
                 booked_transaction=best_match, expected_transaction=expected_transaction
             )
+            best_match.matched_expected_id = expected_transaction.id
             consumed_transaction_ids.add(id(best_match))
             account.transactions.remove(expected_transaction)
             matched_expected_transactions += 1

@@ -1,5 +1,6 @@
 import datetime
 from dataclasses import dataclass
+from urllib.parse import urlencode
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -34,6 +35,8 @@ from source.backend.services.notifications.notification_service import Notificat
 from source.backend.services.transactions import statistics_service
 
 logger = get_logger(__name__)
+
+AMOUNT_TOLERANCE = 0.01  # Two amounts less than a cent apart are the same amount
 
 _ALL_CATEGORIES = [category.value for category in TransactionCategory]
 _ALL_TYPES = [transaction_type.value for transaction_type in TransactionType]
@@ -326,6 +329,7 @@ def _notifications_for_rule(
             candidates=booked_expected_transactions if is_expected else new_transactions,
             match_criteria=not is_expected,
             language=language,
+            bookings=new_transactions if is_expected else None,
         )
 
     if rule.trigger is NotificationTrigger.BALANCE_THRESHOLD:
@@ -384,6 +388,7 @@ def _transaction_notifications(
     candidates: list[Transaction],
     match_criteria: bool,
     language: str,
+    bookings: list[Transaction] | None = None,
 ) -> list[Notification]:
     keys = _MESSAGE_KEYS[rule.trigger]
     notifications = []
@@ -407,6 +412,9 @@ def _transaction_notifications(
                 account=account,
                 default_title=notification_messages.translate(language, key=keys["title"]),
                 body=body,
+                url=_transaction_url(
+                    account=account, transaction=_booking_for(transaction=transaction, bookings=bookings)
+                ),
             )
         )
     logger.debug(f"{rule}: matched {len(notifications)}/{len(candidates)} transaction(s) on {account}")
@@ -531,6 +539,13 @@ def _duplicate_notifications(
                 account=account,
                 default_title=notification_messages.translate(language, key="duplicate_transaction.title"),
                 body=body,
+                url=_search_url(
+                    account=account,
+                    amount=transaction.amount,
+                    date_from=min(twin.date, transaction.date),
+                    date_to=max(twin.date, transaction.date),
+                    text=transaction.other_party,
+                ),
             )
         )
     return notifications
@@ -541,7 +556,7 @@ def _is_duplicate(candidate: Transaction, transaction: Transaction, window: date
     other_party = (transaction.other_party or "").strip().lower()
     if not other_party or other_party != (candidate.other_party or "").strip().lower():
         return False
-    if abs(candidate.amount - transaction.amount) >= 0.01:
+    if abs(candidate.amount - transaction.amount) >= AMOUNT_TOLERANCE:
         return False
     return abs(candidate.date - transaction.date) <= window
 
@@ -627,11 +642,50 @@ def _selection_matches(value: str | None, selected: list[str], all_values: list[
 
 
 def _build_notification(
-    rule: NotificationRule, account: Account, default_title: str, body: str, tag: str | None = None
+    rule: NotificationRule,
+    account: Account,
+    default_title: str,
+    body: str,
+    tag: str | None = None,
+    url: str | None = None,
 ) -> Notification:
     return Notification(
         title=rule.name or default_title,
         body=body,
-        url=f"/account/{account.id}",
+        url=url or f"/account/{account.id}",
         tag=tag,  # Collapse repeated balance alerts for the same account/rule.
     )
+
+
+def _booking_for(transaction: Transaction, bookings: list[Transaction] | None) -> Transaction | None:
+    # An expected transaction is deleted once a booking matches it, so link to that booking instead.
+    # Without a match there is no row left to link to.
+    if bookings is None:
+        return transaction
+    return next((booking for booking in bookings if booking.matched_expected_id == transaction.id), None)
+
+
+def _transaction_url(account: Account, transaction: Transaction | None) -> str:
+    # A transaction that was never flushed has no id to link to, so fall back to its account.
+    if transaction is None or transaction.id is None:
+        return f"/account/{account.id}"
+    return f"/account/{account.id}/transactions/{transaction.id}"
+
+
+def _search_url(
+    account: Account,
+    amount: float,
+    date_from: datetime.date,
+    date_to: datetime.date | None = None,
+    text: str | None = None,
+) -> str:
+    query = {
+        "account_ids": str(account.id),
+        "amount_from": f"{amount - AMOUNT_TOLERANCE:.2f}",
+        "amount_to": f"{amount + AMOUNT_TOLERANCE:.2f}",
+        "date_from": date_from.isoformat(),
+        "date_to": date_to.isoformat() if date_to else None,
+        "text": text or None,
+    }
+    parameters = urlencode({key: value for key, value in query.items() if value is not None})
+    return f"/account/{account.id}/search?{parameters}"

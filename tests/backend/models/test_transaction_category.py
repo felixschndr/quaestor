@@ -86,6 +86,11 @@ from tests.backend.conftest import (
         ("GoCardless Ltd", "GCNTGPQ", TransactionCategory.FEES),
         ("Stadt Karlsruhe", "503016420621/Bewohnerparkausweis", TransactionCategory.FEES),
         ("VISA DEUTSCHE POST AG", None, TransactionCategory.FEES),
+        ("HUK-COBURG", "Beitrag Haftpflichtversicherung", TransactionCategory.FEES),
+        ("R+V Allgemeine Versicherung Aktiengesellschaft", "Police", TransactionCategory.FEES),
+        ("AOK", "Krankenversicherung", TransactionCategory.FEES),
+        ("Kanzlei Meier", "Rechtsanwalt Honorar", TransactionCategory.FEES),
+        ("Notariat Dr. Schmidt", "Beurkundung", TransactionCategory.FEES),
         # Private person names alone stay UNKNOWN — no matcher rule
         ("Max Mustermann", None, TransactionCategory.UNKNOWN),
         ("Alica Parker", None, TransactionCategory.UNKNOWN),

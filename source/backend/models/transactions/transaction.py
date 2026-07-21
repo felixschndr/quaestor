@@ -1,5 +1,5 @@
 import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy import Boolean, Date
 from sqlalchemy import Enum as SQLEnum
@@ -74,6 +74,9 @@ class Transaction(Base):
 
     account: Mapped["Account"] = relationship(back_populates="transactions")
     contract: Mapped["Contract | None"] = relationship(back_populates="transactions", foreign_keys=[contract_id])
+
+    # Set during a sync when this booking resolved a user's expected transaction; never persisted.
+    matched_expected_id: ClassVar[int | None] = None
 
     FIELDS_THAT_ARE_ONLY_EDITABLE_ON_MANUAL_ACCOUNTS = frozenset(
         {"amount", "date", "purpose", "other_party", "transaction_type"}
