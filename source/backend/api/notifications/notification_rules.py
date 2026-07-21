@@ -7,6 +7,10 @@ from sqlalchemy.orm import Session
 from source.backend.api.core.create_router import create_router
 from source.backend.db import get_session
 from source.backend.models.auth.user import User
+from source.backend.models.contracts.contract import (
+    OVERDUE_GRACE_DAYS,
+    SHORTFALL_LOOKAHEAD_DAYS,
+)
 from source.backend.models.notifications.notification_rule import (
     BalanceDirection,
     NotificationRule,
@@ -33,6 +37,12 @@ class ExpectedRuleIn(_RuleInBase):
 
 class ContractOverdueRuleIn(_RuleInBase):
     trigger: Literal["contract_overdue"]
+    days: int = Field(default=OVERDUE_GRACE_DAYS, ge=0, le=90)
+
+
+class UpcomingShortfallRuleIn(_RuleInBase):
+    trigger: Literal["upcoming_shortfall"]
+    days: int = Field(default=SHORTFALL_LOOKAHEAD_DAYS, ge=1, le=90)
 
 
 class TransactionRuleIn(_RuleInBase):
@@ -51,7 +61,7 @@ class BalanceRuleIn(_RuleInBase):
 
 
 RuleIn = Annotated[
-    Union[ExpectedRuleIn, ContractOverdueRuleIn, TransactionRuleIn, BalanceRuleIn],
+    Union[ExpectedRuleIn, ContractOverdueRuleIn, UpcomingShortfallRuleIn, TransactionRuleIn, BalanceRuleIn],
     Field(discriminator="trigger"),
 ]
 
@@ -73,6 +83,7 @@ class RuleRead(BaseModel):
     max_amount: float | None = None
     threshold: float | None = None
     direction: BalanceDirection | None = None
+    days: int | None = None
 
 
 _RULE_DEFAULTS = {
@@ -83,10 +94,13 @@ _RULE_DEFAULTS = {
     "max_amount": None,
     "threshold": None,
     "direction": None,
+    "days": None,
 }
 
 
-def _columns(payload: ExpectedRuleIn | ContractOverdueRuleIn | TransactionRuleIn | BalanceRuleIn) -> dict:
+def _columns(
+    payload: ExpectedRuleIn | ContractOverdueRuleIn | UpcomingShortfallRuleIn | TransactionRuleIn | BalanceRuleIn,
+) -> dict:
     columns = _RULE_DEFAULTS | payload.model_dump(mode="json")
     columns["trigger"] = NotificationTrigger(payload.trigger)
     if columns["direction"] is not None:

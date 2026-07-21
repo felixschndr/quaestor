@@ -11,6 +11,7 @@ import {
   Trash2,
   TrendingDown,
   TrendingUp,
+  TriangleAlert,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { LucideIcon } from 'lucide-react'
@@ -48,6 +49,7 @@ import {
 import {
   BALANCE_DIRECTIONS,
   NOTIFICATION_TRIGGERS,
+  TRIGGER_DEFAULT_DAYS,
   useCreateNotificationRule,
   useDeleteNotificationRule,
   useNotificationRules,
@@ -63,6 +65,7 @@ import { SettingsSubPage } from '@/components/settings/settings-section'
 const TRIGGER_ICONS: Record<NotificationTrigger, LucideIcon> = {
   expected_transaction: CalendarClock,
   contract_overdue: CalendarX2,
+  upcoming_shortfall: TriangleAlert,
   transaction: ArrowLeftRight,
   balance_threshold: TrendingDown,
 }
@@ -294,18 +297,25 @@ interface RuleFormModel {
   max_amount: number | undefined
   threshold: number | undefined
   direction: BalanceDirection
+  days: number
 }
 
-// New rules start with every account, category and type selected.
 interface RuleDefaults {
+  trigger: NotificationTrigger
   accountIds: number[]
   categories: TransactionCategory[]
   types: TransactionType[]
 }
 
+function daysDefault(trigger: NotificationTrigger): number {
+  return trigger in TRIGGER_DEFAULT_DAYS
+    ? TRIGGER_DEFAULT_DAYS[trigger as keyof typeof TRIGGER_DEFAULT_DAYS]
+    : 0
+}
+
 function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): RuleFormModel {
   const base: RuleFormModel = {
-    trigger: rule?.trigger ?? 'transaction',
+    trigger: rule?.trigger ?? defaults.trigger,
     enabled: rule?.enabled ?? true,
     include_content: rule?.include_content ?? true,
     name: rule?.name ?? '',
@@ -317,6 +327,7 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
     max_amount: undefined,
     threshold: undefined,
     direction: 'below',
+    days: daysDefault(rule?.trigger ?? defaults.trigger),
   }
   if (rule?.trigger === 'transaction') {
     base.other_party_contains = rule.other_party_contains ?? ''
@@ -324,6 +335,8 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
     base.types = rule.types
     base.min_amount = rule.min_amount ?? undefined
     base.max_amount = rule.max_amount ?? undefined
+  } else if (rule?.trigger === 'upcoming_shortfall' || rule?.trigger === 'contract_overdue') {
+    base.days = rule.days
   } else if (rule?.trigger === 'balance_threshold') {
     base.threshold = rule.threshold
     base.direction = rule.direction
@@ -344,7 +357,9 @@ function modelToDraft(model: RuleFormModel, allAccountIds: number[]): Notificati
     case 'expected_transaction':
       return { ...shared, trigger: 'expected_transaction' }
     case 'contract_overdue':
-      return { ...shared, trigger: 'contract_overdue' }
+      return { ...shared, trigger: 'contract_overdue', days: model.days }
+    case 'upcoming_shortfall':
+      return { ...shared, trigger: 'upcoming_shortfall', days: model.days }
     case 'balance_threshold':
       return {
         ...shared,
@@ -378,11 +393,20 @@ function RuleDialog({
   existingRules: NotificationRule[]
   onClose: () => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const create = useCreateNotificationRule()
   const update = useUpdateNotificationRule()
+  const triggerOptions = useMemo(
+    () =>
+      NOTIFICATION_TRIGGERS.map((trigger) => ({
+        value: trigger,
+        label: t(`notifications.trigger.${trigger}`),
+      })).sort((a, b) => a.label.localeCompare(b.label, i18n.language)),
+    [t, i18n.language],
+  )
   const [model, setModel] = useState<RuleFormModel>(() =>
     modelFromRule(rule, {
+      trigger: triggerOptions[0].value,
       accountIds: allAccountIds,
       categories: [...FILTERABLE_CATEGORIES],
       types: [...TRANSACTION_TYPES],
@@ -436,7 +460,6 @@ function RuleDialog({
       >
         <DialogHeader>
           <DialogTitle>{rule ? t('notifications.edit') : t('notifications.create')}</DialogTitle>
-          <DialogDescription>{t(`notifications.triggerHint.${model.trigger}`)}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -467,13 +490,33 @@ function RuleDialog({
               id="rule-trigger"
               ariaLabel={t('notifications.triggerLabel')}
               value={model.trigger}
-              onChange={(next) => set('trigger', next)}
-              options={NOTIFICATION_TRIGGERS.map((trigger) => ({
-                value: trigger,
-                label: t(`notifications.trigger.${trigger}`),
-              }))}
+              onChange={(next) =>
+                setModel((current) => ({ ...current, trigger: next, days: daysDefault(next) }))
+              }
+              options={triggerOptions}
+            />
+            <DialogDescription className="text-xs">
+              {t(`notifications.triggerHint.${model.trigger}`)}
+            </DialogDescription>
+          </div>
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <Label htmlFor="rule-include-content" className="cursor-pointer">
+                {t('notifications.includeContentLabel')}
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                {t('notifications.includeContentHint')}
+              </p>
+            </div>
+            <Switch
+              id="rule-include-content"
+              checked={model.include_content}
+              onCheckedChange={(next) => set('include_content', next)}
             />
           </div>
+
+          <hr className="border-border" />
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="rule-accounts">{t('common.accounts')}</Label>
@@ -534,6 +577,27 @@ function RuleDialog({
             </>
           ) : null}
 
+          {model.trigger in TRIGGER_DEFAULT_DAYS ? (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="rule-days">
+                {model.trigger === 'contract_overdue'
+                  ? t('notifications.graceLabel')
+                  : t('notifications.lookaheadLabel')}{' '}
+                {t('notifications.daysUnit')}
+              </Label>
+              <Input
+                id="rule-days"
+                type="number"
+                min={1}
+                max={90}
+                value={model.days}
+                onChange={(event) =>
+                  set('days', Number(event.target.value) || daysDefault(model.trigger))
+                }
+              />
+            </div>
+          ) : null}
+
           {model.trigger === 'balance_threshold' ? (
             <>
               <div className="flex flex-col gap-1.5">
@@ -568,22 +632,6 @@ function RuleDialog({
               </div>
             </>
           ) : null}
-
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex flex-col gap-0.5">
-              <Label htmlFor="rule-include-content" className="cursor-pointer">
-                {t('notifications.includeContentLabel')}
-              </Label>
-              <p className="text-muted-foreground text-xs">
-                {t('notifications.includeContentHint')}
-              </p>
-            </div>
-            <Switch
-              id="rule-include-content"
-              checked={model.include_content}
-              onCheckedChange={(next) => set('include_content', next)}
-            />
-          </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
@@ -648,6 +696,14 @@ function ruleSummaryLines(
     lines.push({
       label: t('common.amount'),
       value: describeAmountRange(rule.min_amount, rule.max_amount, t),
+    })
+  } else if (rule.trigger === 'upcoming_shortfall' || rule.trigger === 'contract_overdue') {
+    lines.push({
+      label:
+        rule.trigger === 'contract_overdue'
+          ? t('notifications.graceLabel')
+          : t('notifications.lookaheadLabel'),
+      value: t('notifications.summary.lookaheadDays', { count: rule.days }),
     })
   } else if (rule.trigger === 'balance_threshold') {
     lines.push({

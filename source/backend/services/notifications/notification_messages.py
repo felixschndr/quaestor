@@ -16,6 +16,9 @@ _TRANSLATION_CATALOG: dict[str, dict[str, str]] = {
         "contract_overdue.title": "Payment overdue",
         "contract_overdue.body": "{account}: {name} overdue since {date}",
         "contract_overdue.body_minimal": "{account}",
+        "upcoming_shortfall.title": "Upcoming payments exceed balance",
+        "upcoming_shortfall.body": "{account}: {due} due within {days} days, only {amount} available",
+        "upcoming_shortfall.body_minimal": "{account}",
         "test.body": "🔔 Test notification → push works!",
     },
     "de": {
@@ -33,6 +36,9 @@ _TRANSLATION_CATALOG: dict[str, dict[str, str]] = {
         "contract_overdue.title": "Zahlung überfällig",
         "contract_overdue.body": "{account}: {name} überfällig seit {date}",
         "contract_overdue.body_minimal": "{account}",
+        "upcoming_shortfall.title": "Anstehende Zahlungen über Kontostand",
+        "upcoming_shortfall.body": "{account}: {due} fällig in {days} Tagen, nur {amount} verfügbar",
+        "upcoming_shortfall.body_minimal": "{account}",
         "test.body": "🔔 Testbenachrichtigung → Push funktioniert!",
     },
 }

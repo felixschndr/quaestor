@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, Boolean
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import Float, ForeignKey, String
+from sqlalchemy import Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from source.backend.models.base import Base
@@ -17,6 +17,7 @@ class NotificationTrigger(str, enum.Enum):
     TRANSACTION = "transaction"
     BALANCE_THRESHOLD = "balance_threshold"
     CONTRACT_OVERDUE = "contract_overdue"
+    UPCOMING_SHORTFALL = "upcoming_shortfall"
 
 
 class BalanceDirection(str, enum.Enum):
@@ -43,8 +44,12 @@ class NotificationRule(Base):
     min_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
     max_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    # "balance_threshold" trigger
-    threshold: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Day count whose meaning depends on the trigger:
+    # - SHORTFALL_LOOKAHEAD_DAYS for "upcoming_shortfall"
+    # - OVERDUE_GRACE_DAYS for "contract_overdue"
+    days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    threshold: Mapped[float | None] = mapped_column(Float, nullable=True)  # for "balance_threshold" trigger
     direction: Mapped[BalanceDirection | None] = mapped_column(SQLEnum(BalanceDirection), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="notification_rules")

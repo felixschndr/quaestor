@@ -673,12 +673,14 @@
     "trigger": {
       "expected_transaction": "Erwartete Transaktion gebucht",
       "contract_overdue": "Vertrag überfällig",
+      "upcoming_shortfall": "Kontostand reicht nicht",
       "transaction": "Transaktion gebucht",
       "balance_threshold": "Kontostand-Schwelle"
     },
     "triggerHint": {
       "expected_transaction": "Benachrichtige mich, wenn eine von mir manuell eingetragene erwartete Transaktion gebucht wird.",
-      "contract_overdue": "Benachrichtige mich, wenn die nächste Zahlung eines Vertrags mehr als 5 Tage überfällig ist.",
+      "contract_overdue": "Benachrichtige mich, wenn die nächste Zahlung eines Vertrags länger als die Karenzzeit überfällig ist.",
+      "upcoming_shortfall": "Benachrichtige mich, wenn die im gewählten Zeitraum fälligen Vertragszahlungen den Kontostand übersteigen.",
       "transaction": "Benachrichtige mich, wenn eine gebuchte Transaktion die folgenden Kriterien erfüllt.",
       "balance_threshold": "Benachrichtige mich, wenn der Kontostand eines Kontos den Schwellwert in der gewählten Richtung überschreitet."
     },
@@ -690,11 +692,15 @@
     "senderPlaceholder": "z. B. Netflix",
     "typesLabel": "Typen",
     "thresholdLabel": "Schwellwert",
+    "lookaheadLabel": "Vorlauf",
+    "graceLabel": "Karenzzeit",
     "anyAmount": "Beliebiger Betrag",
     "summary": {
-      "amountFrom": "ab {{amount}}",
-      "amountTo": "bis {{amount}}",
-      "amountBetween": "{{from}} - {{to}}"
+      "amountFrom": "Ab {{amount}}",
+      "amountTo": "Bis {{amount}}",
+      "amountBetween": "{{from}} - {{to}}",
+      "lookaheadDays_one": "{{count}} Tag",
+      "lookaheadDays_other": "{{count}} Tage"
     },
     "pwa": {
       "intro": "Auf dem Handy funktionieren Push-Benachrichtigungen nur, wenn Quaestor als App installiert ist (zum Startbildschirm hinzugefügt).",
@@ -712,7 +718,8 @@
     "testSent": "Testbenachrichtigung gesendet.",
     "testFailed": "Testbenachrichtigung konnte nicht zugestellt werden.",
     "testDenied": "Benachrichtigungen sind in den Browser-Einstellungen blockiert.",
-    "testUnsupported": "Push-Benachrichtigungen werden auf diesem Gerät nicht unterstützt."
+    "testUnsupported": "Push-Benachrichtigungen werden auf diesem Gerät nicht unterstützt.",
+    "daysUnit": "in Tagen"
   },
   "note": {
     "placeholder": "Notiz hinzufügen …",

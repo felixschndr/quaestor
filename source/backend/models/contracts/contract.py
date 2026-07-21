@@ -42,6 +42,9 @@ OUTLIER_RELATIVE_FACTOR = 0.25
 # A contract counts as overdue once the expected next payment is more than this many days late.
 OVERDUE_GRACE_DAYS = 5
 
+# How far ahead the "upcoming shortfall" notification adds up due contract payments.
+SHORTFALL_LOOKAHEAD_DAYS = 7
+
 
 class Contract(Base):
     # A recurring stream of transactions (subscription, salary, rent, ...)
@@ -82,10 +85,10 @@ class Contract(Base):
             if transaction.contract_assignment != ContractAssignment.EXCLUDED
         ]
 
-    def is_overdue_on(self, today: datetime.date) -> bool:
+    def is_overdue_on(self, today: datetime.date, grace_days: int = OVERDUE_GRACE_DAYS) -> bool:
         if self.expected_next_date is None:
             return False
-        return today > self.expected_next_date + datetime.timedelta(days=OVERDUE_GRACE_DAYS)
+        return today > self.expected_next_date + datetime.timedelta(days=grace_days)
 
     def is_outlier(self, transaction: "Transaction") -> bool:
         if self.median_amount is None or self.amount_spread is None:
@@ -99,7 +102,7 @@ class Contract(Base):
 @event.listens_for(target=Contract, identifier="before_delete")
 def _clear_contract_links(_mapper: "Mapper", connection: "Connection", target: Contract) -> None:
     # SQLite has foreign keys off, so emulate ON DELETE SET NULL and clear the assignment too.
-    # TODO: Can wen turn foreign keys on?
+    # TODO: Can we turn foreign keys on?
     connection.execute(
         update(Transaction)
         .where(Transaction.contract_id == target.id)

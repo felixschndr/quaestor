@@ -9,7 +9,11 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
-from source.backend.models.contracts.contract import Contract
+from source.backend.models.contracts.contract import (
+    OVERDUE_GRACE_DAYS,
+    SHORTFALL_LOOKAHEAD_DAYS,
+    Contract,
+)
 from source.backend.models.notifications.notification_rule import (
     BalanceDirection,
     NotificationRule,
@@ -112,6 +116,7 @@ def collect_notifications(db_session: Session, credential: Credential, snapshot:
                 booked_expected_transactions=booked_expected_transactions,
                 balance_before=before.balance,
                 language=language,
+                today=datetime.date.today(),
             )
             if rule_notifications:
                 logger.info(f"{rule} matched on {account}: {len(rule_notifications)} notification(s)")
@@ -148,16 +153,17 @@ def _collect_overdue_notifications(db_session: Session, user: User, today: datet
 
     notifications: list[Notification] = []
     for contract in contracts:
-        if not contract.is_overdue_on(today):
+        rule = next(
+            (rule for rule in overdue_rules if _rule_applies_to_account(rule=rule, account_id=contract.account_id)),
+            None,
+        )
+        grace_days = rule.days if rule is not None and rule.days is not None else OVERDUE_GRACE_DAYS
+        if not contract.is_overdue_on(today=today, grace_days=grace_days):
             # Payment arrived: reset so a future overdue episode notifies again.
             contract.overdue_notified_at = None
             continue
         if contract.overdue_notified_at is not None:
             continue  # Already notified for this overdue episode.
-        rule = next(
-            (rule for rule in overdue_rules if _rule_applies_to_account(rule=rule, account_id=contract.account_id)),
-            None,
-        )
         if rule is None:
             continue  # No enabled rule covers this account
 
@@ -207,91 +213,170 @@ def _notifications_for_rule(
     booked_expected_transactions: list[Transaction],
     balance_before: float,
     language: str,
+    today: datetime.date,
 ) -> list[Notification]:
-    # Literal keys, not f-strings: scripts/checks/check_i18n.py greps for them.
-    transaction_message_keys = {
-        NotificationTrigger.EXPECTED_TRANSACTION: {
-            "title": "expected_transaction.title",
-            "body": "expected_transaction.body",
-            "body_minimal": "expected_transaction.body_minimal",
-        },
-        NotificationTrigger.TRANSACTION: {
-            "title": "transaction.title",
-            "body": "transaction.body",
-            "body_minimal": "transaction.body_minimal",
-        },
-    }
-    if rule.trigger in transaction_message_keys:
-        keys = transaction_message_keys[rule.trigger]
+    if rule.trigger in _TRANSACTION_MESSAGE_KEYS:
         is_expected = rule.trigger is NotificationTrigger.EXPECTED_TRANSACTION
-        candidates = booked_expected_transactions if is_expected else new_transactions
-        notifications = []
-        for transaction in candidates:
-            if not is_expected and not _transaction_matches(rule=rule, transaction=transaction):
-                continue
-            if rule.include_content:
-                body = notification_messages.translate(
-                    language,
-                    key=keys["body"],
-                    account=account.display_label,
-                    amount=format_amount(transaction.amount),
-                )
-                if transaction.other_party:
-                    body += f" · {transaction.other_party}"
-            else:
-                body = notification_messages.translate(
-                    language, key=keys["body_minimal"], account=account.display_label
-                )
-            notifications.append(
-                _build_notification(
-                    rule=rule,
-                    account=account,
-                    default_title=notification_messages.translate(language, key=keys["title"]),
-                    body=body,
-                )
-            )
-        logger.debug(f"{rule}: matched {len(notifications)}/{len(candidates)} transaction(s) on {account}")
-        return notifications
+        return _transaction_notifications(
+            rule=rule,
+            account=account,
+            candidates=booked_expected_transactions if is_expected else new_transactions,
+            match_criteria=not is_expected,
+            language=language,
+        )
 
     if rule.trigger is NotificationTrigger.BALANCE_THRESHOLD:
-        if rule.threshold is None:
-            return []
+        return _balance_threshold_notifications(
+            rule=rule, account=account, balance_before=balance_before, language=language
+        )
 
-        if rule.direction is BalanceDirection.ABOVE:
-            crossed = balance_before <= rule.threshold < account.balance
-            title_key = "balance_above.title"
-            body_key = "balance_above.body"
-        else:
-            crossed = balance_before >= rule.threshold > account.balance
-            title_key = "balance_below.title"
-            body_key = "balance_below.body"
-        logger.debug(f"Evaluated {rule}: balance was {balance_before:.2f} before sync (crossed={crossed})")
-        if not crossed:
-            return []
+    if rule.trigger is NotificationTrigger.UPCOMING_SHORTFALL:
+        return _upcoming_shortfall_notifications(
+            rule=rule, account=account, balance_before=balance_before, language=language, today=today
+        )
 
+    return []
+
+
+# Literal keys, not f-strings: scripts/checks/check_i18n.py greps for them.
+_TRANSACTION_MESSAGE_KEYS = {
+    NotificationTrigger.EXPECTED_TRANSACTION: {
+        "title": "expected_transaction.title",
+        "body": "expected_transaction.body",
+        "body_minimal": "expected_transaction.body_minimal",
+    },
+    NotificationTrigger.TRANSACTION: {
+        "title": "transaction.title",
+        "body": "transaction.body",
+        "body_minimal": "transaction.body_minimal",
+    },
+}
+
+
+def _transaction_notifications(
+    rule: NotificationRule,
+    account: Account,
+    candidates: list[Transaction],
+    match_criteria: bool,
+    language: str,
+) -> list[Notification]:
+    keys = _TRANSACTION_MESSAGE_KEYS[rule.trigger]
+    notifications = []
+    for transaction in candidates:
+        if match_criteria and not _transaction_matches(rule=rule, transaction=transaction):
+            continue
         if rule.include_content:
             body = notification_messages.translate(
                 language,
-                key=body_key,
+                key=keys["body"],
                 account=account.display_label,
-                amount=format_amount(account.balance),
-                threshold=format_amount(rule.threshold),
+                amount=format_amount(transaction.amount),
             )
+            if transaction.other_party:
+                body += f" · {transaction.other_party}"
         else:
-            body = notification_messages.translate(
-                language, key="balance_threshold.body_minimal", account=account.display_label
-            )
-        return [
+            body = notification_messages.translate(language, key=keys["body_minimal"], account=account.display_label)
+        notifications.append(
             _build_notification(
                 rule=rule,
                 account=account,
-                default_title=notification_messages.translate(language, key=title_key),
+                default_title=notification_messages.translate(language, key=keys["title"]),
                 body=body,
-                tag=f"balance-{rule.id}-{account.id}",
             )
-        ]
+        )
+    logger.debug(f"{rule}: matched {len(notifications)}/{len(candidates)} transaction(s) on {account}")
+    return notifications
 
-    return []
+
+def _balance_threshold_notifications(
+    rule: NotificationRule, account: Account, balance_before: float, language: str
+) -> list[Notification]:
+    if rule.threshold is None:
+        return []
+
+    if rule.direction is BalanceDirection.ABOVE:
+        crossed = balance_before <= rule.threshold < account.balance
+        title_key = "balance_above.title"
+        body_key = "balance_above.body"
+    else:
+        crossed = balance_before >= rule.threshold > account.balance
+        title_key = "balance_below.title"
+        body_key = "balance_below.body"
+    logger.debug(f"Evaluated {rule}: balance was {balance_before:.2f} before sync (crossed={crossed})")
+    if not crossed:
+        return []
+
+    if rule.include_content:
+        body = notification_messages.translate(
+            language,
+            key=body_key,
+            account=account.display_label,
+            amount=format_amount(account.balance),
+            threshold=format_amount(rule.threshold),
+        )
+    else:
+        body = notification_messages.translate(
+            language, key="balance_threshold.body_minimal", account=account.display_label
+        )
+    return [
+        _build_notification(
+            rule=rule,
+            account=account,
+            default_title=notification_messages.translate(language, key=title_key),
+            body=body,
+            tag=f"balance-{rule.id}-{account.id}",
+        )
+    ]
+
+
+def _upcoming_shortfall_notifications(
+    rule: NotificationRule, account: Account, balance_before: float, language: str, today: datetime.date
+) -> list[Notification]:
+    lookahead = datetime.timedelta(days=rule.days or SHORTFALL_LOOKAHEAD_DAYS)
+    due = _upcoming_fixed_costs(account=account, today=today, lookahead=lookahead)
+    crossed = due > 0 and balance_before >= due > account.balance
+    logger.debug(
+        f"Evaluated {rule} on {account}: {format_amount(due)} due within {lookahead.days} days, "
+        f"balance {balance_before:.2f} -> {account.balance:.2f} (crossed={crossed})"
+    )
+    if not crossed:
+        return []
+
+    if rule.include_content:
+        body = notification_messages.translate(
+            language,
+            key="upcoming_shortfall.body",
+            account=account.display_label,
+            amount=format_amount(account.balance),
+            due=format_amount(due),
+            days=lookahead.days,
+        )
+    else:
+        body = notification_messages.translate(
+            language, key="upcoming_shortfall.body_minimal", account=account.display_label
+        )
+    return [
+        _build_notification(
+            rule=rule,
+            account=account,
+            default_title=notification_messages.translate(language, key="upcoming_shortfall.title"),
+            body=body,
+            tag=f"shortfall-{rule.id}-{account.id}",
+        )
+    ]
+
+
+def _upcoming_fixed_costs(account: Account, today: datetime.date, lookahead: datetime.timedelta) -> float:
+    horizon = today + lookahead
+    total = 0.0
+    for contract in account.contracts:
+        amount = contract.median_amount
+        due_date = contract.expected_next_date
+        if amount is None or amount >= 0 or due_date is None:
+            continue
+        if today <= due_date <= horizon:
+            total -= amount
+    return total
 
 
 def _transaction_matches(rule: NotificationRule, transaction: Transaction) -> bool:

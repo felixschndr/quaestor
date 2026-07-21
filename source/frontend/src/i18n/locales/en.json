@@ -673,12 +673,14 @@
     "trigger": {
       "expected_transaction": "Expected transaction booked",
       "contract_overdue": "Contract overdue",
+      "upcoming_shortfall": "Balance below upcoming payments",
       "transaction": "Transaction booked",
       "balance_threshold": "Balance crosses threshold"
     },
     "triggerHint": {
       "expected_transaction": "Notify me when a transaction I entered manually as expected is booked.",
-      "contract_overdue": "Notify me when a contract's next payment is more than 5 days overdue.",
+      "contract_overdue": "Notify me when a contract payment is overdue by more than the grace period.",
+      "upcoming_shortfall": "Notify me when contract payments due within the chosen period exceed the account balance.",
       "transaction": "Notify me when a booked transaction matches the criteria below.",
       "balance_threshold": "Notify me when an account's balance crosses the threshold in the chosen direction."
     },
@@ -690,11 +692,15 @@
     "senderPlaceholder": "e.g. Netflix",
     "typesLabel": "Types",
     "thresholdLabel": "Threshold",
+    "lookaheadLabel": "Look ahead",
+    "graceLabel": "Grace period",
     "anyAmount": "any amount",
     "summary": {
-      "amountFrom": "from {{amount}}",
-      "amountTo": "up to {{amount}}",
-      "amountBetween": "{{from}} - {{to}}"
+      "amountFrom": "From {{amount}}",
+      "amountTo": "Up to {{amount}}",
+      "amountBetween": "{{from}} - {{to}}",
+      "lookaheadDays_one": "{{count}} day",
+      "lookaheadDays_other": "{{count}} days"
     },
     "pwa": {
       "intro": "On phones, push notifications only work when Quaestor is installed as an app (added to your home screen).",
@@ -712,7 +718,8 @@
     "testSent": "Test notification sent.",
     "testFailed": "Test notification could not be delivered.",
     "testDenied": "Notifications are blocked in your browser settings.",
-    "testUnsupported": "Push notifications are not supported on this device."
+    "testUnsupported": "Push notifications are not supported on this device.",
+    "daysUnit": "in days"
   },
   "note": {
     "placeholder": "Add a note…",

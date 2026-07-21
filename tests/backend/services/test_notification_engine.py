@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
@@ -6,7 +6,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.helpers import utc_now
 from source.backend.models.banking.credential import Credential
-from source.backend.models.contracts.contract import OVERDUE_GRACE_DAYS
+from source.backend.models.contracts.contract import (
+    OVERDUE_GRACE_DAYS,
+    SHORTFALL_LOOKAHEAD_DAYS,
+)
 from source.backend.models.notifications.notification_rule import (
     BalanceDirection,
     NotificationRule,
@@ -58,6 +61,7 @@ def _make_notification_rule(
     max_amount: float | None = None,
     threshold: float | None = None,
     direction: BalanceDirection | None = None,
+    days: int | None = None,
 ) -> NotificationRule:
     rule = NotificationRule(
         user_id=user_id,
@@ -73,6 +77,7 @@ def _make_notification_rule(
         max_amount=max_amount,
         threshold=threshold,
         direction=direction,
+        days=days,
     )
     db_session.add(rule)
     db_session.flush()
@@ -404,6 +409,102 @@ def test_balance_above_rule_does_not_trigger_on_downward_crossing(session_factor
     assert notifications == []
 
 
+# --- upcoming shortfall trigger --------------------------------------------
+
+
+def _account_with_shortfall_rule(
+    db_session: Session, balance: float, due_in_days: int, median_amount: float, days: int | None = None
+) -> Credential:
+    credential, account_id = _account_with_notification_rule(
+        db_session,
+        trigger=NotificationTrigger.UPCOMING_SHORTFALL,
+        balance=balance,
+        days=days,
+    )
+    make_contract(
+        db_session,
+        account_id=account_id,
+        expected_next_date=date.today() + timedelta(days=due_in_days),
+        median_amount=median_amount,
+    )
+    db_session.flush()
+    return credential
+
+
+def test_upcoming_shortfall_notifies_when_balance_drops_below_due_payments(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential = _account_with_shortfall_rule(db_session, balance=500.0, due_in_days=3, median_amount=-300.0)
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        credential.accounts[0].balance = 100.0
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert len(notifications) == 1
+    assert notifications[0].body == f"{ACCOUNT_IBAN}: 300,00 € due within 7 days, only 100,00 € available"
+
+
+def test_upcoming_shortfall_quiet_when_balance_still_covers_payments(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential = _account_with_shortfall_rule(db_session, balance=500.0, due_in_days=3, median_amount=-300.0)
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        credential.accounts[0].balance = 400.0
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert notifications == []
+
+
+def test_upcoming_shortfall_ignores_payments_beyond_the_lookahead(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential = _account_with_shortfall_rule(
+            db_session,
+            balance=500.0,
+            due_in_days=SHORTFALL_LOOKAHEAD_DAYS + 1,
+            median_amount=-300.0,
+        )
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        credential.accounts[0].balance = 100.0
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert notifications == []
+
+
+def test_upcoming_shortfall_honours_a_custom_lookahead(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential = _account_with_shortfall_rule(
+            db_session, balance=500.0, due_in_days=20, median_amount=-300.0, days=30
+        )
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        credential.accounts[0].balance = 100.0
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert len(notifications) == 1
+    assert notifications[0].body == f"{ACCOUNT_IBAN}: 300,00 € due within 30 days, only 100,00 € available"
+
+
+def test_upcoming_shortfall_quiet_when_already_short_before_sync(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential = _account_with_shortfall_rule(db_session, balance=100.0, due_in_days=3, median_amount=-300.0)
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        credential.accounts[0].balance = 50.0
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert notifications == []
+
+
 # --- include_content (content redaction) -----------------------------------
 
 
@@ -579,6 +680,26 @@ def test_overdue_contract_notifies_once_and_dedups(session_factory: sessionmaker
         # A second run on the same overdue episode must not notify again.
         notification_engine.evaluate_overdue_contracts(db_session=db_session, today=_TODAY)
         assert len(sent) == 1
+
+
+def test_overdue_contract_honours_a_custom_grace_period(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    sent = _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        user, credential, account = make_user_and_credential_and_account(db_session)
+        _make_notification_rule(
+            db_session,
+            user_id=user.id,
+            trigger=NotificationTrigger.CONTRACT_OVERDUE,
+            account_ids=[account.id],
+            days=1,
+        )
+        make_contract(db_session, account_id=account.id, expected_next_date=_TODAY - timedelta(days=2))
+        db_session.commit()
+
+        notification_engine.evaluate_overdue_contracts(db_session=db_session, today=_TODAY)
+
+    # Two days late is within the default grace of five, but past the rule's own single day.
+    assert len(sent) == 1
 
 
 def test_contract_within_grace_period_does_not_notify(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):

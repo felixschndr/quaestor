@@ -6,10 +6,16 @@ import type { TransactionCategory, TransactionType } from './transaction'
 export const NOTIFICATION_TRIGGERS = [
   'expected_transaction',
   'contract_overdue',
+  'upcoming_shortfall',
   'transaction',
   'balance_threshold',
 ] as const
 export type NotificationTrigger = (typeof NOTIFICATION_TRIGGERS)[number]
+
+export const TRIGGER_DEFAULT_DAYS = {
+  contract_overdue: 5,
+  upcoming_shortfall: 7,
+} as const
 
 export const BALANCE_DIRECTIONS = ['below', 'above'] as const
 export type BalanceDirection = (typeof BALANCE_DIRECTIONS)[number]
@@ -28,6 +34,12 @@ export interface ExpectedTransactionRule extends RuleBase {
 
 export interface ContractOverdueRule extends RuleBase {
   trigger: 'contract_overdue'
+  days: number
+}
+
+export interface UpcomingShortfallRule extends RuleBase {
+  trigger: 'upcoming_shortfall'
+  days: number
 }
 
 export interface TransactionRule extends RuleBase {
@@ -48,18 +60,16 @@ export interface BalanceThresholdRule extends RuleBase {
 export type NotificationRule =
   | ExpectedTransactionRule
   | ContractOverdueRule
+  | UpcomingShortfallRule
   | TransactionRule
   | BalanceThresholdRule
 export type NotificationRuleDraft =
   | Omit<ExpectedTransactionRule, 'id'>
   | Omit<ContractOverdueRule, 'id'>
+  | Omit<UpcomingShortfallRule, 'id'>
   | Omit<TransactionRule, 'id'>
   | Omit<BalanceThresholdRule, 'id'>
 
-/**
- * A stable key for a rule's *meaning* (trigger + criteria), ignoring id and the
- * enabled flag. Used to detect "exactly the same rule already exists".
- */
 export function ruleSignature(rule: NotificationRule | NotificationRuleDraft): string {
   const accounts = [...rule.account_ids].sort((a, b) => a - b)
   if (rule.trigger === 'transaction') {
@@ -72,6 +82,9 @@ export function ruleSignature(rule: NotificationRule | NotificationRuleDraft): s
       min_amount: rule.min_amount ?? null,
       max_amount: rule.max_amount ?? null,
     })
+  }
+  if (rule.trigger === 'upcoming_shortfall' || rule.trigger === 'contract_overdue') {
+    return JSON.stringify({ trigger: rule.trigger, accounts, days: rule.days })
   }
   if (rule.trigger === 'balance_threshold') {
     return JSON.stringify({
