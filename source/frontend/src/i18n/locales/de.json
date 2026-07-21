@@ -55,6 +55,7 @@
     "amountFrom": "Betrag von",
     "amountTo": "Betrag bis",
     "category": "Kategorie",
+    "period": "Periode",
     "categories": "Kategorien",
     "allCategories": "Alle Kategorien",
     "allAccounts": "Alle Konten",
@@ -677,7 +678,8 @@
       "transaction": "Transaktion gebucht",
       "balance_threshold": "Kontostand-Schwelle",
       "contract_amount_increased": "Vertragsbetrag gestiegen",
-      "duplicate_transaction": "Mögliche Doppelbuchung"
+      "duplicate_transaction": "Mögliche Doppelbuchung",
+      "digest": "Zusammenfassung"
     },
     "triggerHint": {
       "expected_transaction": "Benachrichtige mich, wenn eine von mir manuell eingetragene erwartete Transaktion gebucht wird.",
@@ -686,7 +688,8 @@
       "transaction": "Benachrichtige mich, wenn eine gebuchte Transaktion die folgenden Kriterien erfüllt.",
       "balance_threshold": "Benachrichtige mich, wenn der Kontostand eines Kontos den Schwellwert in der gewählten Richtung überschreitet.",
       "contract_amount_increased": "Benachrichtige mich, wenn eine Vertragszahlung höher ausfällt als bisher: mehr als das Dreifache der üblichen Schwankung, spätestens aber ab 25 % Abweichung vom bisherigen Betrag. Abweichungen unter 1 € lösen nie aus.",
-      "duplicate_transaction": "Benachrichtige mich, wenn derselbe Betrag bei demselben Absender oder Empfänger innerhalb des Zeitfensters ein zweites Mal gebucht wird."
+      "duplicate_transaction": "Benachrichtige mich, wenn derselbe Betrag bei demselben Absender oder Empfänger innerhalb des Zeitfensters ein zweites Mal gebucht wird.",
+      "digest": "Schicke mir regelmäßig eine Zusammenfassung: Ausgaben, Einnahmen und Anzahl der Transaktionen der Periode, verglichen mit der vorherigen."
     },
     "direction": {
       "below": "Fällt unter",
@@ -724,7 +727,11 @@
     "testDenied": "Benachrichtigungen sind in den Browser-Einstellungen blockiert.",
     "testUnsupported": "Push-Benachrichtigungen werden auf diesem Gerät nicht unterstützt.",
     "daysUnit": "in Tagen",
-    "windowLabel": "Zeitfenster"
+    "windowLabel": "Zeitfenster",
+    "period": {
+      "weekly": "Wöchentlich (Montags)",
+      "monthly": "Monatlich (Am 01.)"
+    }
   },
   "note": {
     "placeholder": "Notiz hinzufügen …",
@@ -778,8 +785,7 @@
       "deficit": "Defizit",
       "viewList": "Liste",
       "viewTable": "Tabelle",
-      "viewLabel": "Ansicht",
-      "periodLabel": "Periode"
+      "viewLabel": "Ansicht"
     },
     "sortLabel": "Sortieren",
     "sort": {

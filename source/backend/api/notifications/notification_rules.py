@@ -14,6 +14,7 @@ from source.backend.models.contracts.contract import (
 )
 from source.backend.models.notifications.notification_rule import (
     BalanceDirection,
+    DigestPeriod,
     NotificationRule,
     NotificationTrigger,
 )
@@ -43,6 +44,11 @@ class ContractOverdueRuleIn(_RuleInBase):
 
 class ContractAmountIncreasedRuleIn(_RuleInBase):
     trigger: Literal["contract_amount_increased"]
+
+
+class DigestRuleIn(_RuleInBase):
+    trigger: Literal["digest"]
+    period: DigestPeriod
 
 
 class DuplicateTransactionRuleIn(_RuleInBase):
@@ -76,6 +82,7 @@ RuleIn = Annotated[
         ContractOverdueRuleIn,
         ContractAmountIncreasedRuleIn,
         DuplicateTransactionRuleIn,
+        DigestRuleIn,
         UpcomingShortfallRuleIn,
         TransactionRuleIn,
         BalanceRuleIn,
@@ -102,6 +109,7 @@ class RuleRead(BaseModel):
     threshold: float | None = None
     direction: BalanceDirection | None = None
     days: int | None = None
+    period: DigestPeriod | None = None
 
 
 _RULE_DEFAULTS = {
@@ -113,6 +121,7 @@ _RULE_DEFAULTS = {
     "threshold": None,
     "direction": None,
     "days": None,
+    "period": None,
 }
 
 
@@ -122,6 +131,7 @@ def _columns(
         | ContractOverdueRuleIn
         | ContractAmountIncreasedRuleIn
         | DuplicateTransactionRuleIn
+        | DigestRuleIn
         | UpcomingShortfallRuleIn
         | TransactionRuleIn
         | BalanceRuleIn
@@ -129,6 +139,8 @@ def _columns(
 ) -> dict:
     columns = _RULE_DEFAULTS | payload.model_dump(mode="json")
     columns["trigger"] = NotificationTrigger(payload.trigger)
+    if columns["period"] is not None:
+        columns["period"] = DigestPeriod(columns["period"])
     if columns["direction"] is not None:
         columns["direction"] = BalanceDirection(columns["direction"])
     return columns

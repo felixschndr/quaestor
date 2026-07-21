@@ -8,6 +8,7 @@ export const NOTIFICATION_TRIGGERS = [
   'contract_overdue',
   'contract_amount_increased',
   'duplicate_transaction',
+  'digest',
   'upcoming_shortfall',
   'transaction',
   'balance_threshold',
@@ -19,6 +20,9 @@ export const TRIGGER_DEFAULT_DAYS = {
   duplicate_transaction: 3,
   upcoming_shortfall: 7,
 } as const
+
+export const DIGEST_PERIODS = ['weekly', 'monthly'] as const
+export type DigestPeriod = (typeof DIGEST_PERIODS)[number]
 
 export const BALANCE_DIRECTIONS = ['below', 'above'] as const
 export type BalanceDirection = (typeof BALANCE_DIRECTIONS)[number]
@@ -49,6 +53,11 @@ export interface DuplicateTransactionRule extends RuleBase {
   days: number
 }
 
+export interface DigestRule extends RuleBase {
+  trigger: 'digest'
+  period: DigestPeriod
+}
+
 export interface UpcomingShortfallRule extends RuleBase {
   trigger: 'upcoming_shortfall'
   days: number
@@ -74,6 +83,7 @@ export type NotificationRule =
   | ContractOverdueRule
   | ContractAmountIncreasedRule
   | DuplicateTransactionRule
+  | DigestRule
   | UpcomingShortfallRule
   | TransactionRule
   | BalanceThresholdRule
@@ -82,6 +92,7 @@ export type NotificationRuleDraft =
   | Omit<ContractOverdueRule, 'id'>
   | Omit<ContractAmountIncreasedRule, 'id'>
   | Omit<DuplicateTransactionRule, 'id'>
+  | Omit<DigestRule, 'id'>
   | Omit<UpcomingShortfallRule, 'id'>
   | Omit<TransactionRule, 'id'>
   | Omit<BalanceThresholdRule, 'id'>
@@ -105,6 +116,9 @@ export function ruleSignature(rule: NotificationRule | NotificationRuleDraft): s
     rule.trigger === 'duplicate_transaction'
   ) {
     return JSON.stringify({ trigger: rule.trigger, accounts, days: rule.days })
+  }
+  if (rule.trigger === 'digest') {
+    return JSON.stringify({ trigger: rule.trigger, accounts, period: rule.period })
   }
   if (rule.trigger === 'balance_threshold') {
     return JSON.stringify({

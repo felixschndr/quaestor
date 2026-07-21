@@ -20,6 +20,12 @@ class NotificationTrigger(str, enum.Enum):
     UPCOMING_SHORTFALL = "upcoming_shortfall"
     CONTRACT_AMOUNT_INCREASED = "contract_amount_increased"
     DUPLICATE_TRANSACTION = "duplicate_transaction"
+    DIGEST = "digest"
+
+
+class DigestPeriod(str, enum.Enum):
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
 
 
 class BalanceDirection(str, enum.Enum):
@@ -49,8 +55,10 @@ class NotificationRule(Base):
     # Day count whose meaning depends on the trigger:
     # - SHORTFALL_LOOKAHEAD_DAYS for "upcoming_shortfall"
     # - OVERDUE_GRACE_DAYS for "contract_overdue"
+    # - DUPLICATE_WINDOW_DAYS for "duplicate_transaction"
     days: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    period: Mapped[DigestPeriod | None] = mapped_column(SQLEnum(DigestPeriod), nullable=True)  # for "digest" trigger
     threshold: Mapped[float | None] = mapped_column(Float, nullable=True)  # for "balance_threshold" trigger
     direction: Mapped[BalanceDirection | None] = mapped_column(SQLEnum(BalanceDirection), nullable=True)
 

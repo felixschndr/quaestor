@@ -5,6 +5,7 @@ import {
   BellRing,
   CalendarClock,
   CalendarX2,
+  Newspaper,
   Copy,
   Pencil,
   Plus,
@@ -50,6 +51,7 @@ import {
 } from '@/lib/transaction'
 import {
   BALANCE_DIRECTIONS,
+  DIGEST_PERIODS,
   NOTIFICATION_TRIGGERS,
   TRIGGER_DEFAULT_DAYS,
   useCreateNotificationRule,
@@ -58,6 +60,7 @@ import {
   useUpdateNotificationRule,
   ruleSignature,
   type BalanceDirection,
+  type DigestPeriod,
   type NotificationRule,
   type NotificationRuleDraft,
   type NotificationTrigger,
@@ -69,6 +72,7 @@ const TRIGGER_ICONS: Record<NotificationTrigger, LucideIcon> = {
   contract_overdue: CalendarX2,
   contract_amount_increased: Receipt,
   duplicate_transaction: Copy,
+  digest: Newspaper,
   upcoming_shortfall: TriangleAlert,
   transaction: ArrowLeftRight,
   balance_threshold: TrendingDown,
@@ -302,6 +306,7 @@ interface RuleFormModel {
   threshold: number | undefined
   direction: BalanceDirection
   days: number
+  period: DigestPeriod
 }
 
 interface RuleDefaults {
@@ -338,6 +343,7 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
     threshold: undefined,
     direction: 'below',
     days: daysDefault(rule?.trigger ?? defaults.trigger),
+    period: 'monthly',
   }
   if (rule?.trigger === 'transaction') {
     base.other_party_contains = rule.other_party_contains ?? ''
@@ -345,7 +351,9 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
     base.types = rule.types
     base.min_amount = rule.min_amount ?? undefined
     base.max_amount = rule.max_amount ?? undefined
-  } else if (rule && 'days' in rule) {
+  } else if (rule?.trigger === 'digest') {
+    base.period = rule.period
+  } else if (rule && 'days' in rule && rule.days !== null) {
     base.days = rule.days
   } else if (rule?.trigger === 'balance_threshold') {
     base.threshold = rule.threshold
@@ -372,6 +380,8 @@ function modelToDraft(model: RuleFormModel, allAccountIds: number[]): Notificati
       return { ...shared, trigger: 'contract_amount_increased' }
     case 'duplicate_transaction':
       return { ...shared, trigger: 'duplicate_transaction', days: model.days }
+    case 'digest':
+      return { ...shared, trigger: 'digest', period: model.period }
     case 'upcoming_shortfall':
       return { ...shared, trigger: 'upcoming_shortfall', days: model.days }
     case 'balance_threshold':
@@ -609,6 +619,22 @@ function RuleDialog({
             </div>
           ) : null}
 
+          {model.trigger === 'digest' ? (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="rule-period">{t('common.period')}</Label>
+              <SingleSelectPopover
+                id="rule-period"
+                ariaLabel={t('common.period')}
+                value={model.period}
+                onChange={(next) => set('period', next)}
+                options={DIGEST_PERIODS.map((period) => ({
+                  value: period,
+                  label: t(`notifications.period.${period}`),
+                }))}
+              />
+            </div>
+          ) : null}
+
           {model.trigger === 'balance_threshold' ? (
             <>
               <div className="flex flex-col gap-1.5">
@@ -708,7 +734,12 @@ function ruleSummaryLines(
       label: t('common.amount'),
       value: describeAmountRange(rule.min_amount, rule.max_amount, t),
     })
-  } else if ('days' in rule) {
+  } else if (rule.trigger === 'digest') {
+    lines.push({
+      label: t('common.period'),
+      value: t(`notifications.period.${rule.period}`),
+    })
+  } else if ('days' in rule && rule.days !== null) {
     lines.push({
       label: t(daysLabelKey(rule.trigger)),
       value: t('notifications.summary.lookaheadDays', { count: rule.days }),

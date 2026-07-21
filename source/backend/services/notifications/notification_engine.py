@@ -18,6 +18,7 @@ from source.backend.models.contracts.contract import (
 from source.backend.models.contracts.contract_assignment import ContractAssignment
 from source.backend.models.notifications.notification_rule import (
     BalanceDirection,
+    DigestPeriod,
     NotificationRule,
     NotificationTrigger,
 )
@@ -30,6 +31,7 @@ from source.backend.services.notifications import (
     notification_service,
 )
 from source.backend.services.notifications.notification_service import Notification
+from source.backend.services.transactions import statistics_service
 
 logger = get_logger(__name__)
 
@@ -176,6 +178,105 @@ def _collect_overdue_notifications(db_session: Session, user: User, today: datet
     return notifications
 
 
+def evaluate_digests(db_session: Session, today: datetime.date) -> None:
+    users = db_session.scalars(select(User)).all()
+    logger.info(f"Evaluating digest rules for {len(users)} user(s)")
+    for user in users:
+        digest_rules = [
+            rule
+            for rule in notification_rule_service.list_rules(db_session=db_session, user=user)
+            if rule.enabled and rule.trigger is NotificationTrigger.DIGEST
+        ]
+        notifications = [
+            notification
+            for rule in digest_rules
+            if (notification := _digest_notification(db_session=db_session, rule=rule, user=user, today=today))
+        ]
+        dispatch(db_session=db_session, user=user, notifications=notifications)
+
+
+def _digest_notification(
+    db_session: Session, rule: NotificationRule, user: User, today: datetime.date
+) -> Notification | None:
+    ranges = _digest_ranges(period=rule.period, today=today)
+    if ranges is None:
+        return None
+    (start, end), (previous_start, previous_end) = ranges
+
+    account_ids = rule.account_ids or [account.id for credential in user.credentials for account in credential.accounts]
+    current = statistics_service.range_summary(
+        db_session=db_session, user=user, account_ids=account_ids, date_from=start, date_to=end
+    )
+    previous = statistics_service.range_summary(
+        db_session=db_session, user=user, account_ids=account_ids, date_from=previous_start, date_to=previous_end
+    )
+    logger.info(f"{rule}: digest for {start}..{end}: {current}")
+
+    keys = _MESSAGE_KEYS[rule.period]
+    language = user.language
+    if not rule.include_content:
+        return Notification(
+            title=rule.name or notification_messages.translate(language, key=keys["title_minimal"]),
+            body=notification_messages.translate(language, key="digest.body_minimal"),
+            url=_digest_url(start=start, end=end),
+            tag=f"digest-{rule.id}",
+        )
+
+    title = notification_messages.translate(
+        language,
+        key=keys["title"],
+        net=format_amount(round(number=current.income - current.expenses, ndigits=2)),
+    )
+    comparison = _digest_comparison(current=current, previous=previous, keys=keys, language=language)
+    return Notification(
+        title=rule.name or (f"{title} ({comparison})" if comparison else title),
+        body=notification_messages.translate(
+            language,
+            key="digest.body",
+            expenses=format_amount(current.expenses),
+            income=format_amount(current.income),
+            count=current.count,
+        ),
+        url=_digest_url(start=start, end=end),
+        tag=f"digest-{rule.id}",
+    )
+
+
+def _digest_comparison(
+    current: statistics_service.RangeSummary,
+    previous: statistics_service.RangeSummary,
+    keys: dict[str, str],
+    language: str,
+) -> str | None:
+    if previous.expenses <= 0:
+        return None  # Nothing to compare against.
+    difference = current.expenses - previous.expenses
+    return notification_messages.translate(
+        language,
+        key=keys["more"] if difference > 0 else keys["less"],
+        percent=round(number=abs(difference) / previous.expenses * 100),
+        amount=format_amount(abs(difference)),
+    )
+
+
+def _digest_url(start: datetime.date, end: datetime.date) -> str:
+    return f"/stats?date_from={start.isoformat()}&date_to={end.isoformat()}"
+
+
+def _digest_ranges(
+    period: DigestPeriod | None, today: datetime.date
+) -> tuple[tuple[datetime.date, datetime.date], tuple[datetime.date, datetime.date]] | None:
+    end = today - datetime.timedelta(days=1)
+    if period is DigestPeriod.WEEKLY and today.weekday() == 0:
+        start = end - datetime.timedelta(days=6)
+        return (start, end), (start - datetime.timedelta(days=7), start - datetime.timedelta(days=1))
+    if period is DigestPeriod.MONTHLY and today.day == 1:
+        start = end.replace(day=1)
+        previous_end = start - datetime.timedelta(days=1)
+        return (start, end), (previous_end.replace(day=1), previous_end)
+    return None
+
+
 def _build_overdue_notification(rule: NotificationRule, contract: Contract, language: str) -> Notification:
     account = contract.account
     if rule.include_content:
@@ -217,7 +318,7 @@ def _notifications_for_rule(
     language: str,
     today: datetime.date,
 ) -> list[Notification]:
-    if rule.trigger in _TRANSACTION_MESSAGE_KEYS:
+    if rule.trigger in _MESSAGE_KEYS:
         is_expected = rule.trigger is NotificationTrigger.EXPECTED_TRANSACTION
         return _transaction_notifications(
             rule=rule,
@@ -251,7 +352,19 @@ def _notifications_for_rule(
 
 
 # Literal keys, not f-strings: scripts/checks/check_i18n.py greps for them.
-_TRANSACTION_MESSAGE_KEYS = {
+_MESSAGE_KEYS = {
+    DigestPeriod.WEEKLY: {
+        "title": "digest.weekly.title",
+        "title_minimal": "digest.weekly.title_minimal",
+        "more": "digest.weekly.more",
+        "less": "digest.weekly.less",
+    },
+    DigestPeriod.MONTHLY: {
+        "title": "digest.monthly.title",
+        "title_minimal": "digest.monthly.title_minimal",
+        "more": "digest.monthly.more",
+        "less": "digest.monthly.less",
+    },
     NotificationTrigger.EXPECTED_TRANSACTION: {
         "title": "expected_transaction.title",
         "body": "expected_transaction.body",
@@ -272,7 +385,7 @@ def _transaction_notifications(
     match_criteria: bool,
     language: str,
 ) -> list[Notification]:
-    keys = _TRANSACTION_MESSAGE_KEYS[rule.trigger]
+    keys = _MESSAGE_KEYS[rule.trigger]
     notifications = []
     for transaction in candidates:
         if match_criteria and not _transaction_matches(rule=rule, transaction=transaction):

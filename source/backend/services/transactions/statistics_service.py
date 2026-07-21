@@ -1,4 +1,5 @@
 import datetime
+from dataclasses import dataclass
 
 from sqlalchemy import ColumnElement, case, func, select
 from sqlalchemy.orm import Session
@@ -35,6 +36,13 @@ logger = get_logger(__name__)
 DEFAULT_TOP_OTHER_PARTIES_LIMIT = 15
 
 
+@dataclass
+class RangeSummary:
+    income: float
+    expenses: float
+    count: int
+
+
 def _base_conditions(
     account_ids: list[int],
     date_from: datetime.date | None,
@@ -68,6 +76,40 @@ def _direction_condition(direction: StatisticsDirection) -> ColumnElement[bool]:
     if direction == "OUTGOING":
         return Transaction.amount < 0
     return Transaction.amount > 0
+
+
+def range_summary(
+    db_session: Session,
+    user: User,
+    account_ids: list[int],
+    date_from: datetime.date,
+    date_to: datetime.date,
+) -> RangeSummary:
+    owned_account_ids = account_service.resolve_owned_account_ids(
+        db_session=db_session, user=user, account_ids=account_ids
+    )
+    if not owned_account_ids:
+        return RangeSummary(income=0.0, expenses=0.0, count=0)
+
+    income = func.sum(case((Transaction.amount > 0, Transaction.amount), else_=0.0))
+    expenses = func.sum(case((Transaction.amount < 0, -Transaction.amount), else_=0.0))
+    row = db_session.execute(
+        select(income, expenses, func.count()).where(  # noqa: FKA100
+            *_base_conditions(
+                account_ids=owned_account_ids,
+                date_from=date_from,
+                date_to=date_to,
+                categories=[],
+            )
+        )
+    ).one()
+    summary = RangeSummary(
+        income=round(number=row[0] or 0.0, ndigits=2),
+        expenses=round(number=row[1] or 0.0, ndigits=2),
+        count=row[2],
+    )
+    logger.debug(f"Computed range summary {date_from} to {date_to} for {user}: {summary}")
+    return summary
 
 
 def category_breakdown(

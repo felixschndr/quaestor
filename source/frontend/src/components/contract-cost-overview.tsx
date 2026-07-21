@@ -55,7 +55,7 @@ export function ContractCostOverview({ contracts }: { contracts: ContractRead[] 
           <div className="flex flex-col gap-3">
             <SegmentedToggle
               fullWidth
-              ariaLabel={t('contracts.cost.periodLabel')}
+              ariaLabel={t('common.period')}
               value={period}
               onChange={setPeriod}
               options={CONTRACT_COST_PERIODS.map((option) => ({

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from source.backend.bank_handlers.base import FetchedAccount
 from source.backend.helpers import utc_now
+from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.contracts.contract import (
     OVERDUE_GRACE_DAYS,
@@ -12,6 +13,7 @@ from source.backend.models.contracts.contract import (
 )
 from source.backend.models.notifications.notification_rule import (
     BalanceDirection,
+    DigestPeriod,
     NotificationRule,
     NotificationTrigger,
 )
@@ -46,11 +48,17 @@ ALL_CATEGORIES = [category.value for category in TransactionCategory]
 ALL_TYPES = [transaction_type.value for transaction_type in TransactionType]
 
 
-def assert_one_notification(notifications: list[Notification], body: str, url: str | None = None) -> None:
+def assert_one_notification(
+    notifications: list[Notification], title: str | None = None, body: str | None = None, url: str | None = None
+) -> None:
     assert len(notifications) == 1
-    assert notifications[0].body == body
+    first_notification = notifications[0]
+    if title is not None:
+        assert first_notification.title == title
+    if body is not None:
+        assert first_notification.body == body
     if url is not None:
-        assert notifications[0].url == url
+        assert first_notification.url == url
 
 
 def _make_notification_rule(
@@ -69,6 +77,7 @@ def _make_notification_rule(
     threshold: float | None = None,
     direction: BalanceDirection | None = None,
     days: int | None = None,
+    period: DigestPeriod | None = None,
 ) -> NotificationRule:
     rule = NotificationRule(
         user_id=user_id,
@@ -85,6 +94,7 @@ def _make_notification_rule(
         threshold=threshold,
         direction=direction,
         days=days,
+        period=period,
     )
     db_session.add(rule)
     db_session.flush()
@@ -408,6 +418,88 @@ def test_balance_above_rule_does_not_trigger_on_downward_crossing(session_factor
         )
 
     assert notifications == []
+
+
+# --- digest trigger --------------------------------------------------------
+
+_MONDAY = date(year=2026, month=7, day=20)
+
+
+def _user_with_digest_rule(db_session: Session, period: DigestPeriod, **rule_kwargs: object) -> User:
+    user, credential, account = make_user_and_credential_and_account(db_session)
+    _make_notification_rule(
+        db_session,
+        user_id=user.id,
+        trigger=NotificationTrigger.DIGEST,
+        account_ids=[account.id],
+        period=period,
+        **rule_kwargs,
+    )
+    return user
+
+
+def test_weekly_digest_reports_the_previous_week(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    sent = _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        user = _user_with_digest_rule(db_session, period=DigestPeriod.WEEKLY)
+        account_id = user.credentials[0].accounts[0].id
+        # Last week: 100 € in, 60 € out. The week before: 30 € out.
+        make_transaction(db_session, account_id=account_id, amount=100.0, date=_MONDAY - timedelta(days=3))
+        make_transaction(db_session, account_id=account_id, amount=-60.0, date=_MONDAY - timedelta(days=1))
+        make_transaction(db_session, account_id=account_id, amount=-30.0, date=_MONDAY - timedelta(days=9))
+        db_session.commit()
+
+        notification_engine.evaluate_digests(db_session=db_session, today=_MONDAY)
+
+    assert_one_notification(
+        notifications=sent,
+        title="Weekly review: 40,00 € (100 % / 30,00 € more spending than last week)",
+        body="Spent 60,00 € · Received 100,00 € · 2 transactions",
+        url="/stats?date_from=2026-07-13&date_to=2026-07-19",
+    )
+
+
+def test_weekly_digest_is_quiet_on_other_weekdays(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    sent = _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        _user_with_digest_rule(db_session, period=DigestPeriod.WEEKLY)
+        db_session.commit()
+
+        notification_engine.evaluate_digests(db_session=db_session, today=_MONDAY + timedelta(days=1))
+
+    assert sent == []
+
+
+def test_monthly_digest_reports_the_previous_month(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    sent = _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        user = _user_with_digest_rule(db_session, period=DigestPeriod.MONTHLY)
+        account_id = user.credentials[0].accounts[0].id
+        make_transaction(db_session, account_id=account_id, amount=-20.0, date=date(year=2026, month=6, day=15))
+        db_session.commit()
+
+        notification_engine.evaluate_digests(db_session=db_session, today=date(year=2026, month=7, day=1))
+
+    assert_one_notification(
+        notifications=sent, title="Monthly review: -20,00 €", url="/stats?date_from=2026-06-01&date_to=2026-06-30"
+    )
+
+
+def test_digest_without_content_hides_the_amounts(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    sent = _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        user = _user_with_digest_rule(db_session, period=DigestPeriod.WEEKLY, include_content=False)
+        make_transaction(
+            db_session,
+            account_id=user.credentials[0].accounts[0].id,
+            amount=-60.0,
+            date=_MONDAY - timedelta(days=1),
+        )
+        db_session.commit()
+
+        notification_engine.evaluate_digests(db_session=db_session, today=_MONDAY)
+
+    assert_one_notification(notifications=sent, title="Weekly review", body="See it in the statistics")
 
 
 # --- duplicate transaction trigger -----------------------------------------
@@ -825,8 +917,9 @@ def test_overdue_contract_notifies_once_and_dedups(session_factory: sessionmaker
         db_session.commit()
 
         notification_engine.evaluate_overdue_contracts(db_session=db_session, today=_TODAY)
-        assert len(sent) == 1
-        assert sent[0].body == f"{ACCOUNT_IBAN}: Gym overdue since {contract.expected_next_date.isoformat()}"
+        assert_one_notification(
+            sent, body=f"{ACCOUNT_IBAN}: Gym overdue since {contract.expected_next_date.isoformat()}"
+        )
         assert contract.overdue_notified_at is not None
 
         # A second run on the same overdue episode must not notify again.

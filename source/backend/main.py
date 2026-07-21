@@ -53,6 +53,7 @@ from source.backend.services.contracts import (
     contract_overdue_scheduler,
 )
 from source.backend.services.core import i18n_service, migrations
+from source.backend.services.notifications import digest_scheduler
 from source.backend.services.transactions import (
     category_rescan,
     recurring_transaction_scheduler,
@@ -76,6 +77,7 @@ STARTUP_BACKGROUND_TASKS = (
     (sync_scheduler, "run_periodic_sync"),
     (recurring_transaction_scheduler, "run_periodic_recurring"),
     (contract_overdue_scheduler, "run_periodic_overdue_check"),
+    (digest_scheduler, "run_periodic_digest"),
 )
 
 
