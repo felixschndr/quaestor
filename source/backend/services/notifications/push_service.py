@@ -19,6 +19,8 @@ VAPID_PRIVATE_KEY_PATH = DATA_DIR / "vapid_private.pem"
 DEFAULT_VAPID_SUBJECT = "mailto:quaestor@example.com"
 
 _GONE_STATUS_CODES = frozenset({404, 410})
+_STALE_VAPID_STATUS_CODES = frozenset({400, 403})
+_STALE_VAPID_MARKERS = ("VapidPkHashMismatch", "credentials")
 
 _vapid: Vapid02 | None = None
 
@@ -77,7 +79,10 @@ def send(subscription_info: dict, payload: dict) -> PushResult:
         response = e.response
         if response is not None:
             detail = f"{response.status_code} {response.text}".strip()
-            if response.status_code in _GONE_STATUS_CODES:
+            is_stale_vapid = response.status_code in _STALE_VAPID_STATUS_CODES and any(
+                marker in response.text for marker in _STALE_VAPID_MARKERS
+            )
+            if response.status_code in _GONE_STATUS_CODES or is_stale_vapid:
                 return PushResult(outcome=PushOutcome.EXPIRED, detail=detail)
         else:
             detail = str(e)

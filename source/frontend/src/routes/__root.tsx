@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Outlet, createRootRouteWithContext, useRouter } from '@tanstack/react-router'
 import { Toaster } from 'sonner'
 import { Loader2, CloudOff, AlertTriangle } from 'lucide-react'
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { NetworkError } from '@/lib/api'
 import { ensureAuthenticated, useAuthMe } from '@/lib/auth'
 import { ensureAppSettings } from '@/lib/settings'
+import { autoSubscribe } from '@/lib/push'
 import { readStoredTheme, useResolvedTheme } from '@/lib/theme'
 import { useApplyUserLanguage } from '@/i18n'
 
@@ -32,6 +34,10 @@ function RootComponent() {
   const preference = user?.theme ?? readStoredTheme()
   const resolved = useResolvedTheme(preference)
   useApplyUserLanguage(user?.language)
+  const userId = user?.id
+  useEffect(() => {
+    if (userId) void autoSubscribe()
+  }, [userId])
   return (
     <>
       <Outlet />

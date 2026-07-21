@@ -19,7 +19,6 @@ export function pushSupported(): boolean {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
-/** Register this device's push subscription with the backend (idempotent). */
 async function ensureSubscription(): Promise<void> {
   const registration = await navigator.serviceWorker.ready
 
@@ -39,10 +38,25 @@ async function ensureSubscription(): Promise<void> {
   })
 }
 
-/**
- * Ask for permission (first time), register this device, and have the backend
- * send a test push. Doubles as the "enable notifications on this device" action.
- */
+export async function autoSubscribe(): Promise<void> {
+  if (!pushSupported()) return
+  try {
+    const permission =
+      Notification.permission === 'default'
+        ? await Notification.requestPermission()
+        : Notification.permission
+    if (permission !== 'granted') return
+
+    const registration = await navigator.serviceWorker.ready
+    if (await registration.pushManager.getSubscription()) return
+
+    await ensureSubscription()
+    await api('/push/test', { method: 'POST' })
+  } catch (err) {
+    console.warn('Push auto-subscribe failed', err)
+  }
+}
+
 export async function sendTestNotification(): Promise<TestOutcome> {
   if (!pushSupported()) return { status: 'unsupported' }
 

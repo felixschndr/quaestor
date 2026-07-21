@@ -57,6 +57,31 @@ def test_send_reports_gone_subscription_as_expired(monkeypatch: pytest.MonkeyPat
     assert result.detail == f"{status_code} unsubscribed or expired"
 
 
+@pytest.mark.parametrize(
+    argnames=["status_code", "text"],
+    argvalues=[
+        (400, '{"reason":"VapidPkHashMismatch"}'),
+        (403, "the VAPID credentials in the authorization header do not correspond"),
+    ],
+)
+def test_send_reports_stale_vapid_subscription_as_expired(monkeypatch: pytest.MonkeyPatch, status_code: int, text: str):
+    response = FakeHttpResponse(text=text, status_code=status_code)
+    _patch_webpush_failure(monkeypatch, exception=WebPushException("stale", response=response))
+
+    result = push_service.send(subscription_info=SUBSCRIPTION_INFO, payload=PAYLOAD)
+
+    assert result.outcome == push_service.PushOutcome.EXPIRED
+
+
+def test_send_reports_unrelated_bad_request_as_failed(monkeypatch: pytest.MonkeyPatch):
+    response = FakeHttpResponse(text='{"reason":"InvalidTtl"}', status_code=400)
+    _patch_webpush_failure(monkeypatch, exception=WebPushException("bad ttl", response=response))
+
+    result = push_service.send(subscription_info=SUBSCRIPTION_INFO, payload=PAYLOAD)
+
+    assert result.outcome == push_service.PushOutcome.FAILED
+
+
 def test_send_reports_other_http_errors_as_failed(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
     response = FakeHttpResponse(text="server error", status_code=500)
     _patch_webpush_failure(monkeypatch, exception=WebPushException("boom", response=response))
