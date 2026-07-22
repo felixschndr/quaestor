@@ -34,12 +34,12 @@ WORKDIR /app
 
 COPY --from=lockfiles /app/ ./
 RUN poetry install --no-root --without dev
+RUN python -m compileall -q /app/.venv/lib || true
 
 
 FROM python:3.14-slim-trixie AS runtime
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
+ENV PYTHONUNBUFFERED=1 \
     PATH=/app/.venv/bin:${PATH} \
     HOST=0.0.0.0 \
     PORT=8000 \
@@ -63,6 +63,9 @@ COPY --chown=${USER_TO_USE}:${USER_TO_USE} pyproject.toml ./
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} source/backend ./source/backend
 COPY --chown=${USER_TO_USE}:${USER_TO_USE} scripts/db/db_common.sh scripts/db/db.sh scripts/db/resetpw.sh scripts/db/get_uncategorized_transactions.sh ./scripts/db/
 COPY --from=frontend-builder --chown=${USER_TO_USE}:${USER_TO_USE} /build/source/frontend/dist ./source/frontend/dist
+
+RUN python -m compileall -q ./source/backend \
+    && chown -R ${USER_TO_USE}:${USER_TO_USE} ./source/backend
 
 USER ${USER_TO_USE}
 
