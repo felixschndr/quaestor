@@ -22,8 +22,8 @@ function BankPickerPage() {
 
   const existingAccountCounts: Record<string, number> = {}
   for (const credential of user?.credentials ?? []) {
-    existingAccountCounts[credential.bank] =
-      (existingAccountCounts[credential.bank] ?? 0) + credential.accounts.length
+    const key = credential.bank_name ?? credential.bank
+    existingAccountCounts[key] = (existingAccountCounts[key] ?? 0) + credential.accounts.length
   }
 
   return (

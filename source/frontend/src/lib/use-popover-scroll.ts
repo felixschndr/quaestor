@@ -1,11 +1,6 @@
 import { useCallback, useRef, type RefCallback } from 'react'
 
-/**
- * Ref for a scroll container that keeps mouse-wheel scrolling working even when
- * the container lives inside a body-portalled popover that was opened from
- * within a modal Dialog.
- */
-export function useWheelScroll<T extends HTMLElement>(): RefCallback<T> {
+export function usePopoverScroll<T extends HTMLElement>(): RefCallback<T> {
   const cleanup = useRef<(() => void) | undefined>(undefined)
   return useCallback((node: T | null) => {
     cleanup.current?.()
@@ -24,7 +19,14 @@ export function useWheelScroll<T extends HTMLElement>(): RefCallback<T> {
       if ((delta < 0 && atTop) || (delta > 0 && atBottom)) return
       node.scrollTop += delta
     }
+    const onTouchMove = (event: TouchEvent) => {
+      if (node.scrollHeight > node.clientHeight) event.stopPropagation()
+    }
     node.addEventListener('wheel', onWheel, { passive: false })
-    cleanup.current = () => node.removeEventListener('wheel', onWheel)
+    node.addEventListener('touchmove', onTouchMove)
+    cleanup.current = () => {
+      node.removeEventListener('wheel', onWheel)
+      node.removeEventListener('touchmove', onTouchMove)
+    }
   }, [])
 }

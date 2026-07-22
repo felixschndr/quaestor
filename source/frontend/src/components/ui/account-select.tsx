@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { useWheelScroll } from '@/lib/use-wheel-scroll'
+import { usePopoverScroll } from '@/lib/use-popover-scroll'
 import { accountDisplayName } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
 import type { AccountRead } from '@/lib/auth'
@@ -63,7 +63,7 @@ export function AccountSelectPopover({
   renderAccount,
 }: AccountSelectPopoverProps) {
   const { t } = useTranslation()
-  const listRef = useWheelScroll<HTMLUListElement>()
+  const listRef = usePopoverScroll<HTMLUListElement>()
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>

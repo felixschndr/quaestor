@@ -1,4 +1,4 @@
-import { forwardRef, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { useTranslation } from 'react-i18next'
@@ -42,25 +42,36 @@ export function BankPickerView({
   )
   const matches = useMemo(() => filterBanks(catalog, query), [catalog, query])
 
+  useEffect(() => {
+    const onTouchMove = () => {
+      const active = document.activeElement
+      if (active instanceof HTMLInputElement && active.type === 'search') active.blur()
+    }
+    window.addEventListener('touchmove', onTouchMove, { passive: true })
+    return () => window.removeEventListener('touchmove', onTouchMove)
+  }, [])
+
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
-      <header className="flex items-center gap-2">
-        <BackLink to="/settings/credentials" />
-        <h1 className="text-foreground text-2xl font-semibold">{t('credentials.pickerTitle')}</h1>
-        <Button asChild variant="primary" size="sm" className="ml-auto">
-          <a href={BANK_HANDLERS_DOCS_URL} target="_blank" rel="noopener noreferrer">
-            <BookOpen className="size-4" aria-hidden="true" />
-            {t('credentials.pickerDocs')}
-          </a>
-        </Button>
-      </header>
-      <Input
-        type="search"
-        value={query}
-        onChange={(e) => onSearch(e.target.value)}
-        placeholder={t('credentials.searchPlaceholder')}
-        aria-label={t('credentials.searchPlaceholder')}
-      />
+      <div className="bg-background sticky top-0 z-10 -mx-4 -mt-4 -mb-3 flex flex-col gap-6 px-4 pt-4 pb-3">
+        <header className="flex items-center gap-2">
+          <BackLink to="/settings/credentials" />
+          <h1 className="text-foreground text-2xl font-semibold">{t('credentials.pickerTitle')}</h1>
+          <Button asChild variant="primary" size="sm" className="ml-auto">
+            <a href={BANK_HANDLERS_DOCS_URL} target="_blank" rel="noopener noreferrer">
+              <BookOpen className="size-4" aria-hidden="true" />
+              {t('credentials.pickerDocs')}
+            </a>
+          </Button>
+        </header>
+        <Input
+          type="search"
+          value={query}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder={t('credentials.searchPlaceholder')}
+          aria-label={t('credentials.searchPlaceholder')}
+        />
+      </div>
       {isLoading ? (
         <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
       ) : isError ? (
@@ -114,9 +125,7 @@ function VirtualBankList({
               ref={virtualizer.measureElement}
               data-index={item.index}
               bank={bank}
-              accountsCount={
-                bank.provider === bank.key ? (existingAccountCounts[bank.provider] ?? 0) : null
-              }
+              accountsCount={accountsCountFor(bank, existingAccountCounts)}
               style={{
                 position: 'absolute',
                 top: 0,
@@ -130,6 +139,14 @@ function VirtualBankList({
       </div>
     </ul>
   )
+}
+
+export function accountsCountFor(
+  bank: SupportedBank,
+  counts: Record<string, number>,
+): number | null {
+  if (bank.provider === bank.key) return counts[bank.provider] ?? 0
+  return counts[bank.name] ?? null
 }
 
 function searchSlug(value: string): string {
@@ -191,6 +208,21 @@ const BankRow = forwardRef<
   const name = bankDisplayName(t, bank)
   const subtitle = bankSubtitle(bank)
   const badge = handlerBadge(bank.provider)
+  const badges =
+    bank.tested || badge ? (
+      <>
+        {bank.tested ? (
+          <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs font-medium">
+            {t('credentials.tested')}
+          </span>
+        ) : null}
+        {badge ? (
+          <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium">
+            {t(badge.key, { handler: badge.handler })}
+          </span>
+        ) : null}
+      </>
+    ) : null
   return (
     <li ref={ref} {...rest} className="border-border/40 border-t">
       <Link
@@ -202,22 +234,16 @@ const BankRow = forwardRef<
         <span className="flex flex-1 flex-col">
           <span className="flex items-center gap-1.5 truncate text-sm font-medium">
             {name}
-            {bank.tested ? (
-              <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs font-medium">
-                {t('credentials.tested')}
-              </span>
-            ) : null}
-            {badge ? (
-              <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium">
-                {t(badge.key, { handler: badge.handler })}
-              </span>
-            ) : null}
+            <span className="hidden items-center gap-1.5 sm:flex">{badges}</span>
           </span>
           {subtitle ? <span className="text-muted-foreground text-xs">{subtitle}</span> : null}
           {accountsCount !== null ? (
             <span className="text-muted-foreground text-xs">
               {t('credentials.pickerAccountsAdded', { count: accountsCount })}
             </span>
+          ) : null}
+          {badges ? (
+            <span className="mt-1 flex flex-wrap items-center gap-1.5 sm:hidden">{badges}</span>
           ) : null}
         </span>
         <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />

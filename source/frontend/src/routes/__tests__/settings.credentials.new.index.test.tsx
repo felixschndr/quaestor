@@ -196,8 +196,9 @@ describe('BankPickerView', () => {
     expect(screen.queryByText('Verified')).not.toBeInTheDocument()
 
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'stadtsparkasse' } })
-    // "Stadtsparkasse München" is tested → badge present
-    expect(screen.getByText('Verified')).toBeInTheDocument()
+    // "Stadtsparkasse München" is tested → badge present (rendered twice: the
+    // inline desktop copy and the mobile row, one of them hidden by CSS)
+    expect(screen.getAllByText('Verified')).toHaveLength(2)
   })
 
   it('routes by key: Deutsche Bank link uses key 10070000', () => {
@@ -278,5 +279,20 @@ describe('BankPickerView', () => {
     // Search for a FinTS bank — no accounts line
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'deutsche' } })
     expect(screen.getByRole('link', { name: /Deutsche Bank/ })).not.toHaveTextContent('account')
+  })
+
+  it('shows the account count for a FinTS bank matched by its catalog name', () => {
+    render(
+      <StatefulPicker
+        isLoading={false}
+        isError={false}
+        existingAccountCounts={{ 'Deutsche Bank': 3 }}
+        banks={BANKS}
+      />,
+    )
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'deutsche' } })
+    expect(screen.getByRole('link', { name: /Deutsche Bank/ })).toHaveTextContent(
+      '3 accounts already added',
+    )
   })
 })

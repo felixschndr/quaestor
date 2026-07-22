@@ -213,13 +213,13 @@ function TwoFactorLoginStep({
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const onSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
+  const submit = async (value: string) => {
+    if (verify.isPending) return
     setError(null)
     try {
       await verify.mutateAsync({
         challenge_token: challengeToken,
-        code: code.trim(),
+        code: value.trim(),
         remember_me: rememberMe,
       })
       onSuccess()
@@ -237,7 +237,14 @@ function TwoFactorLoginStep({
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        void submit(code)
+      }}
+      noValidate
+      className="flex flex-col gap-4"
+    >
       <div className="flex flex-col gap-1">
         <h2 className="text-foreground text-lg font-semibold">{t('twoFactor.sectionTitle')}</h2>
         <p className="text-muted-foreground text-sm">{t('twoFactor.loginHint')}</p>
@@ -250,7 +257,11 @@ function TwoFactorLoginStep({
           autoComplete="one-time-code"
           autoFocus
           value={code}
-          onChange={(event) => setCode(event.target.value)}
+          onChange={(event) => {
+            const next = event.target.value
+            setCode(next)
+            if (/^\d{6}$/.test(next.trim())) void submit(next)
+          }}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? 'login-2fa-code-error' : undefined}
         />

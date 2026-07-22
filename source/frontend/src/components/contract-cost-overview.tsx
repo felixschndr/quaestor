@@ -102,7 +102,7 @@ function ContractCostTable({ contracts }: { contracts: ContractRead[] }) {
     <table className="w-full border-collapse text-sm">
       <thead>
         <tr className="text-muted-foreground border-border border-b">
-          <th className="w-full min-w-[8rem] py-2 pr-3 text-left text-xs font-medium lg:min-w-0">
+          <th className="w-full min-w-[14rem] py-2 pr-3 text-left text-xs font-medium lg:min-w-0">
             {t('common.name')}
           </th>
           {CONTRACT_COST_PERIODS.map((period) => (
@@ -124,24 +124,24 @@ function ContractCostTable({ contracts }: { contracts: ContractRead[] }) {
             }
             className="border-border hover:bg-muted/60 cursor-pointer border-b transition-colors"
           >
-            <td className="w-full max-w-0 min-w-[8rem] py-2.5 pr-3 lg:min-w-0">
+            <td className="w-full max-w-0 min-w-[14rem] py-2.5 pr-3 lg:min-w-0">
               <Link
                 to="/contracts/$contractId"
                 params={{ contractId: String(contract.id) }}
                 onClick={(event) => event.stopPropagation()}
-                className="hover:text-primary flex min-w-0 items-center gap-2.5 transition-colors"
+                className="hover:text-primary flex min-w-0 flex-col gap-1 transition-colors"
               >
-                <CategoryAvatar
-                  category={contract.category ?? 'UNKNOWN'}
-                  className="size-8"
-                  iconClassName="size-4"
-                />
-                <span className="flex min-w-0 flex-col">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate font-medium">{contract.name}</span>
-                    {contract.is_overdue ? <OverdueBadge label={t('contracts.overdue')} /> : null}
-                  </span>
-                  <span className="text-muted-foreground flex flex-col text-xs lg:flex-row lg:gap-1">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate font-medium">{contract.name}</span>
+                  {contract.is_overdue ? <OverdueBadge label={t('contracts.overdue')} /> : null}
+                </span>
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <CategoryAvatar
+                    category={contract.category ?? 'UNKNOWN'}
+                    className="size-8"
+                    iconClassName="size-4"
+                  />
+                  <span className="text-muted-foreground flex min-w-0 flex-col text-xs lg:flex-row lg:gap-1">
                     <span className="truncate">
                       {contract.frequency
                         ? t(`contracts.frequency.${contract.frequency}`)

@@ -3,7 +3,7 @@
 import { ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { useWheelScroll } from '@/lib/use-wheel-scroll'
+import { usePopoverScroll } from '@/lib/use-popover-scroll'
 import { Checkbox } from '@/components/ui/checkbox'
 import { handleSelectListArrowKeys } from '@/components/ui/select-list-keyboard'
 import {
@@ -42,7 +42,7 @@ export function MultiSelectPopover<T extends string>({
   checkboxIdPrefix,
   className,
 }: MultiSelectPopoverProps<T>) {
-  const listRef = useWheelScroll<HTMLUListElement>()
+  const listRef = usePopoverScroll<HTMLUListElement>()
   const selectedSet = new Set(selected)
   const selectedCount = selected.length
 

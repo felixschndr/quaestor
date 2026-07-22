@@ -225,7 +225,6 @@ describe('two-factor login', () => {
     const codeInput = await screen.findByLabelText('Authentication code')
     expect(onSuccess).not.toHaveBeenCalled()
     await user.type(codeInput, '123456')
-    await user.click(screen.getByRole('button', { name: 'Verify' }))
 
     await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1))
     const verifyCall = (globalThis.fetch as Mock).mock.calls.find(
@@ -236,6 +235,31 @@ describe('two-factor login', () => {
       code: '123456',
       remember_me: false,
     })
+  })
+
+  it('does not auto-submit a backup code', async () => {
+    const user = userEvent.setup()
+    ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
+      if (url === '/api/auth/login') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 200,
+            body: { two_factor_required: true, challenge_token: 'tok' },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`))
+    })
+
+    renderWithQuery(<LoginForm onSuccess={vi.fn()} />)
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Password'), 'wonderland-1234!')
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+    await user.type(await screen.findByLabelText('Authentication code'), 'ab12-cd34')
+
+    expect((globalThis.fetch as Mock).mock.calls.some(([url]) => url === '/api/auth/2fa')).toBe(
+      false,
+    )
   })
 
   it('shows an inline error when the 2FA code is rejected', async () => {

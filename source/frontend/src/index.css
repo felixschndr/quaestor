@@ -220,6 +220,10 @@
     margin-right: 0 !important;
   }
 
+  html:has(body[data-scroll-locked]) {
+    scrollbar-gutter: auto;
+  }
+
   :root,
   .dark {
     color-scheme: dark;

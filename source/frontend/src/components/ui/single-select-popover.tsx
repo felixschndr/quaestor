@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { useWheelScroll } from '@/lib/use-wheel-scroll'
+import { usePopoverScroll } from '@/lib/use-popover-scroll'
 import { handleSelectListArrowKeys } from '@/components/ui/select-list-keyboard'
 import {
   Popover,
@@ -41,7 +41,7 @@ export function SingleSelectPopover<T extends string>({
   className,
 }: SingleSelectPopoverProps<T>) {
   const [open, setOpen] = useState(false)
-  const listRef = useWheelScroll<HTMLUListElement>()
+  const listRef = usePopoverScroll<HTMLUListElement>()
   const selected = options.find((option) => option.value === value) ?? null
 
   return (
