@@ -20,8 +20,8 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
-from source.backend.db import KEY_ENV_VARIABLE_NAME  # noqa: E402
-from source.backend.paths import DATABASE_PATH, ENV_FILE_PATH  # noqa: E402
+from source.backend.db import KEY_ENV_VARIABLE_NAME
+from source.backend.paths import DATABASE_PATH, ENV_FILE_PATH
 
 
 def _write_env_key(env_path: Path, new_value: str) -> None:

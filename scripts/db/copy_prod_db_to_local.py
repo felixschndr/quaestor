@@ -16,10 +16,10 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import rotate_db_encryption_key  # noqa: E402
+import rotate_db_encryption_key
 
-from source.backend.db import KEY_ENV_VARIABLE_NAME  # noqa: E402
-from source.backend.paths import DATABASE_PATH, ENV_FILE_PATH  # noqa: E402
+from source.backend.db import KEY_ENV_VARIABLE_NAME
+from source.backend.paths import DATABASE_PATH, ENV_FILE_PATH
 
 REMOTE_HOST = "grievous.fs"
 REMOTE_DB = "server/Quaestor/data/quaestor/Quaestor.db"

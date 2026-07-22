@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-# Every matcher in TRANSACTION_TYPE_MAPPING must already be in normalized form
-# and unique across all categories.
 
+# Every matcher in TRANSACTION_TYPE_MAPPING must already be in normalized form and unique across all categories
 
 from __future__ import annotations
 
@@ -11,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from source.backend.models.transactions.transaction_category import (  # noqa: E402
+from source.backend.models.transactions.transaction_category import (
     TRANSACTION_CATEGORY_MAPPING,
     normalize_string,
 )

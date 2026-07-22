@@ -8,10 +8,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
-from source.backend.helpers import get_frontend_source_path  # noqa: E402
-from source.backend.models.transactions.transaction_category import (  # noqa: E402
-    TransactionCategory,
-)
+from source.backend.helpers import get_frontend_source_path
+from source.backend.models.transactions.transaction_category import TransactionCategory
 
 OUTPUT = get_frontend_source_path() / "lib" / "transactionCategories.gen.ts"
 

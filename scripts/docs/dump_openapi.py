@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT))
 
 os.environ.setdefault("ALLOW_MISSING_FRONTEND", "true")
 
-from source.backend.main import app  # noqa: E402
+from source.backend.main import app
 
 
 def main() -> None:

@@ -8,12 +8,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
-from source.backend.helpers import (  # noqa: E402
-    get_backend_source_path,
-    get_frontend_source_path,
-)
-from source.backend.services.core.i18n_service import SUPPORTED_LANGUAGES  # noqa: E402
-from source.backend.services.notifications.notification_messages import (  # noqa: E402
+from source.backend.helpers import get_backend_source_path, get_frontend_source_path
+from source.backend.services.core.i18n_service import SUPPORTED_LANGUAGES
+from source.backend.services.notifications.notification_messages import (
     _TRANSLATION_CATALOG,
 )
 

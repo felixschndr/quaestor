@@ -8,8 +8,6 @@ This app is heavily inspired by [Finanzguru](https://finanzguru.de/), with the k
 
 The tool is strictly read-only: it only ever *reads* your data and can **never** make changes to your accounts or move money.
 
-This app is primarily intended for German users. You can find the reason for this in the [supported banks](#supported-banks) section.
-
 ## Screenshots
 
 <details>
@@ -17,101 +15,144 @@ This app is primarily intended for German users. You can find the reason for thi
 
 **Overview**: Dark mode
 
-<img src="docs/screenshots/overview_dark.png" width="400" alt="Overview (dark mode)">
+<img src="docs/screenshots/overview_dark.png" width="500" alt="Overview (dark mode)">
 
 **Overview**: Light mode
 
-<img src="docs/screenshots/overview_light.png" width="400" alt="Overview (light mode)">
+<img src="docs/screenshots/overview_light.png" width="500" alt="Overview (light mode)">
 
 **Account**: A single account showing its current balance and its transactions grouped by date
 
-<img src="docs/screenshots/account.png" width="400" alt="Account">
+<img src="docs/screenshots/account.png" width="500" alt="Account">
 
 **Manual account**: A manually managed account where you can add and edit transactions yourself
 
-<img src="docs/screenshots/account_manual.png" width="400" alt="Manual account">
+<img src="docs/screenshots/account_manual.png" width="500" alt="Manual account">
 
 **Creation of Transaction in manual account**: Create a single or recurring transaction in your manual account
 
-<img src="docs/screenshots/account_manual_transaction.png" width="400" alt="Creation of Transaction in manual account">
+<img src="docs/screenshots/account_manual_transaction.png" width="500" alt="Creation of Transaction in manual account">
 
 **Transaction**: The detail view of a transaction with a personal note
 
-<img src="docs/screenshots/transaction.png" width="400" alt="Transaction detail">
+<img src="docs/screenshots/transaction_single.png" width="500" alt="Transaction detail">
 
 **Search**: Search for transactions across all accounts with specific filters such as keywords, dates, categories, notes, etc.
 
-<img src="docs/screenshots/transaction_search.png" width="400" alt="Search">
+<img src="docs/screenshots/transaction_search.png" width="500" alt="Search">
 
 **Statistics**: View diagrams about your financial data, grouped by account, time, and category
 
-<img src="docs/screenshots/statistics.png" width="400" alt="Statistics">
+<img src="docs/screenshots/statistics.png" width="500" alt="Statistics">
+
+**Contracts**: Get an overview of reoccurring transactions and how much many is left over after fixed costs
+
+<img src="docs/screenshots/contracts.png" width="500" alt="Contracts">
+
+**Details of a contract**: See a diagram about past transactions, the next expected transaction, outliers and how much the contracts costs you per time period
+
+<img src="docs/screenshots/contracts_single.png" width="500" alt="Contracts">
 
 **Bank connections**: The list of connected banks
 
-<img src="docs/screenshots/settings_credentials.png" width="400" alt="Bank connections">
+<img src="docs/screenshots/settings_credentials.png" width="500" alt="Bank connections">
 
 **Adding a bank connection**: Search for a bank and add it
 
-<img src="docs/screenshots/settings_credentials_new.png" width="400" alt="Adding a bank connection">
+<img src="docs/screenshots/settings_credentials_new.png" width="500" alt="Adding a bank connection">
 
 **Bank connection details**: Settings for a single connection
 
-<img src="docs/screenshots/settings_credentials_single.png" width="400" alt="Bank connection details">
+<img src="docs/screenshots/settings_credentials_single.png" width="500" alt="Bank connection details">
 
 **Account groups**: Drag accounts into custom groups to control how they are organized in the overview
 
-<img src="docs/screenshots/settings_credentials_groups.png" width="400" alt="Account groups">
+<img src="docs/screenshots/settings_credentials_groups.png" width="500" alt="Account groups">
 
 **User settings**
 
-<img src="docs/screenshots/settings_user.png" width="400" alt="User settings">
+<img src="docs/screenshots/settings_user.png" width="500" alt="User settings">
 
 **2FA support**: Create a token to enable 2FA for your account (and get backup codes in case you lose access to your device)
 
-<img src="docs/screenshots/settings_user_2fa.png" width="400" alt="2FA settings">
+<img src="docs/screenshots/settings_user_2fa.png" width="500" alt="2FA settings">
 
-**Notifications**: Create custom rules for notifications based on account balances, transaction amounts, or other criteria.
+**Notifications**: Create custom rules for notifications based on account balances, transaction amounts, overdue contracts, duplicate bookings, or other criteria.
 
-<img src="docs/screenshots/settings_user_notifications.png" width="400" alt="Notifications settings">
+<img src="docs/screenshots/settings_user_notifications.png" width="500" alt="Notifications settings">
 
 </details>
 
 ## Features
 
+### Accounts & banks
+
 - **Unified overview** of all your bank accounts and their balances in one place
-- **Multiple connection types**: Connects to multiple banks to fetch your data, see the [supported banks](#supported-banks) section
+- **Multiple connection types**: Connects to multiple banks to fetch your data, see the [supported banks](docs/bank_handlers/README.md) section
 - **Automatic background syncing** on a configurable interval, plus on-demand sync
+- **Bank 2FA during sync**: TAN prompts (pushTAN, SMS, …) are handled right in the frontend when a bank asks for one
+- **Manual accounts**: Track anything your banks don't cover (cash, a loan, a friend's IOU) by entering balances and transactions by hand
+- **Account groups**: Drag accounts into your own groups to organize the overview
+- **Custom display names** for accounts, and hide the ones you don't want to see
+
+### Transactions
+
 - **Transactions grouped by date**, covering past, today, and future entries (some bank apps, such as ING, don't show future transactions)
-- **Balance on any date**: See what an account's balance or the sum of multiple account balances were on a given day
-- **Statistics**: View diagrams about your financial data, grouped by account, time, and category.
 - **Search** for transactions across all accounts
 - **Automatic and manual categorization** of transactions
-- **Account balance at date**: See what an account's balance was on a given day
-  - This includes your normal bank accounts with simple incoming and outgoing transactions,
-  - But also banks such as Trade Republic. For e.g. Trade Republic in Questor you can see how much your holdings of an individual stock were worth on a given date.
-  - This information is not even visible in their app as their api does not provide it. Questor fetches all relevant data and calculates the balance on the fly.
+- **Transfer detection**: Movements between your own accounts are recognized and kept out of your income/spending figures
+- **Contracts**: Recurring payments (subscriptions, rent, insurance) are detected automatically, including their interval, next expected payment, and a warning when one is overdue
+- **Expected transactions**: Note down payments you await; they are matched against incoming bookings within a tolerance you define
 - **Custom notes** on transactions
-- **Account groups**: Drag accounts into your own groups to organize the overview
-- **Multi-language** interface (English & German (add an issue for another requested language))
+
+### Insights
+
+- **Statistics**: View diagrams about your financial data, grouped by account, time, and category
+- **Balance on any date**: See what an account's balance or the sum of multiple account balances was on a given day
+  - This includes your normal bank accounts with simple incoming and outgoing transactions,
+  - But also banks such as Trade Republic. For e.g. Trade Republic in Quaestor you can see how much your holdings of an individual stock were worth on a given date.
+  - This information is not even visible in their app as their API does not provide it. Quaestor fetches all relevant data and calculates the balance on the fly.
+
+### Notifications
+
+**Custom rules** per account, each with its own trigger:
+
+- **Transaction booked**: A transaction matching your criteria (amount range, sender/recipient, incoming/outgoing) is booked
+- **Balance crosses threshold**: An account's balance falls below or rises above an amount you set
+- **Balance below upcoming payments**: The contract payments due within the next *n* days exceed the account's balance
+- **Contract overdue**: A recurring payment hasn't arrived within the grace period
+- **Contract amount increased**: A contract is booked higher than usual
+- **Possible duplicate booking**: The same amount hits the same sender or recipient twice within a time window
+- **Expected transaction booked**: A payment you noted as expected actually arrives
+- **Summary**: A weekly or monthly digest of spending, income and transaction count, compared against the previous period
+
+These fire on your phone even when the app is not running. Each rule _can_ hide its details, so the notification only names the account and keeps amounts, balances and the other party off your lock screen.
+
+### Security & access
+
+- **Two-factor authentication** for your Quaestor login via any TOTP app, with one-time backup codes
 - **Session management**: Review active logins and sign out individual sessions
-- **Light & dark mode**
 - **API keys**: Create personal API keys in your settings to interact with the backend programmatically with the same access as the frontend; keys are shown once, stored as hashed values, and can be revoked at any time. The docs are available on `<your instance url>/redoc` and on [GitHub](https://quaestordocs.fschneider.me/).
-- **Notifications**: Create custom rules for notifications based on account balances, transaction amounts, or other criteria.
-  - These fire on your phone even when the app is not running.
+
+### App
+
+- **Installable** as a progressive web app (PWA) on desktop and phone
+- **Multi-language** interface (English & German (add an issue for another requested language))
+- **Light & dark mode**
 
 ## Supported banks
 
-Quaestor connects to banks through several handlers, see [here](docs/bank_handlers/README.md).
+Quaestor connects to banks through several integrations, see [here](docs/bank_handlers/README.md).
 
 You can browse the full list of every supported bank [here](https://quaestordocs.fschneider.me/banks.html) where every entry carries a badge naming its integration.
 
 ## Security
 
 I understand that any project with access to your bank accounts is, by nature, handling sensitive information.
-Security measures in place:
 
- - Your data stays with you: First of all, when you compare it to a software like Finanzguru, Quaestor has the big advantage that **your** data stays on **your** server (except Enable Banking, see [this](docs/bank_handlers/enable_banking.md). You don't share any passwords or other banking information with a third party.
+Thus, there are many security measures in place:
+
+ - Your data stays with you: First of all, when you compare it to a software like Finanzguru, Quaestor has the big advantage that **your** data **always** stays on **your** server (except Enable Banking, see [this](docs/bank_handlers/enable_banking.md)). You don't share any passwords or other banking information with a third party.
  - Encryption at rest: The SQLite database is fully encrypted, meaning its contents cannot be read without the encryption key (no matter whether the software is currently running or not). This applies not only to your account credentials but to **all** data stored in the database.
  - Secure communication with banks: All communication with banking servers is exclusively done via HTTP**S**.
  - Secure access to the server: I strongly recommend accessing the server only via HTTP**S** as well. Set `SSL_CERTFILE` and `SSL_KEYFILE` to enable it (see `Environment`); without them the server runs plain HTTP. Alternatively use a reverse proxy.
@@ -119,10 +160,11 @@ Security measures in place:
  - Read-only operations: The software only performs read requests; it **never** writes, updates, or deletes any resources on your accounts.
  - All the dependencies are pinned and automatically updated via Dependabot: All the updates for dependencies do have to be at least 3 days old to prevent supply chain attacks before being automatically merged.
  - There is no administration account/interface: A user can only access his/her own accounts/credentials/transactions. There is no possibility for an admin to access the data of another user (other than by accessing the database directly).
- - CSRF protection: state-changing requests require a `csrf_token` cookie + matching `X-CSRF-Token` header.
- - Rate limiting: auth endpoints are throttled heavily per source IP. Set `FORWARDED_ALLOW_IPS` if behind a reverse proxy.
- - Hardened headers and cookies: `Content-Security-Policy`, `HttpOnly`, `SameSite=Lax`, CSRF: `SameSite=Strict`, `Secure` flag when (`SESSION_COOKIE_SECURE=true`).
  - The container image runs as an unprivileged user.
+ - Frontend tweaks
+   - CSRF protection: state-changing requests require a `csrf_token` cookie + matching `X-CSRF-Token` header.
+   - Rate limiting: auth endpoints are throttled heavily per source IP. Set `FORWARDED_ALLOW_IPS` if behind a reverse proxy.
+   - Hardened headers and cookies: `Content-Security-Policy`, `HttpOnly`, `SameSite=Lax`, CSRF: `SameSite=Strict`, `Secure` flag when (`SESSION_COOKIE_SECURE=true`).
 
 ## Deployment
 
@@ -162,7 +204,6 @@ As an alternative, you can use a named volume instead. A commented out volume mo
 5. Build the frontend: `cd source/frontend && pnpm install && pnpm build && cd ../..`
 6. Run the application: `poetry run python -m source.backend.server`
 7. Access the application on [127.0.0.1:8000](http://127.0.0.1:8000)
-
 
 ### Access the DB
 
@@ -213,15 +254,22 @@ Ideas I might want to implement in the future are tracked as [`enhancement` issu
 
 ## Troubleshooting
 
-### Notifications
+### General
 
-#### General
+**Q: Why are there so many transactions without a category?**
+
+**A:** Quaestor has an internal algorithm that matches the sender/reciever and the purpose against known keywords to categorize transactions (the code can be found in the [TRANSACTION_CATEGORY_MAPPING](source/backend/models/transactions/transaction_category.py)).
+
+This list as only as good as their input. If you encounter a transaction that has some kind of keywords that Quaestor could match against (e.g. _Pharmacy_) you can open an issue or a PR to include it.
+There is a script `./scripts/db/get_uncategorized_transactions.sh` or `scripts/db/get_uncategorized_transactions.sh` (if you are using the container image) which outputs all the transactions that were not able to be categorized automatically. You can use it to find these transactions in an organized way and across all accounts to include multiple keywords in your issue/PR.
+
+### Notifications
 
 **Q: My notifications don't work at all?**
 
 **A:** Make sure your instance is served over `HTTPS`. Browsers only allow push notifications (and the service worker they rely on) in a secure context, so notifications will never work over plain `http://`. See the `SSL_CERTFILE`/`SSL_KEYFILE` and `SESSION_COOKIE_SECURE` environment variables, or terminate TLS at a reverse proxy in front of the app.
 
-#### Desktop
+---------
 
 **Q: Why don't notifications arrive on desktop?**
 
@@ -232,7 +280,7 @@ Ideas I might want to implement in the future are tracked as [`enhancement` issu
 
 ### Database
 
-**Q: The app crashes on startup with `unable to open database file` (`sqlcipher3.dbapi2.OperationalError`)?**
+**Q: The app crashes on startup with **`unable to open database file`** (**`sqlcipher3.dbapi2.OperationalError`**)?**
 
 **A:** The container runs as user `1000`, but the directory you bind-mount to `/data` is owned by another user (usually `root`, because Docker created it for you on first start). That user can't write there, so the database file can't be created. Give user `1000` ownership of the host directory before starting.
 Read how to do this in the section about [installation](#container-image).

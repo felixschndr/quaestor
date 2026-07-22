@@ -4,14 +4,15 @@
 PSD2 access normally requires an expensive banking license; Enable Banking offers it **free of charge for private customers**.
 Unlike the other handlers, the connection is not direct: your Quaestor server talks to the Enable Banking API,
 which talks to your bank. Your online-banking login happens on your bank's own website; Quaestor or Enable Banking never sees those credentials.
+Nevertheless, your banking data is not shared with any other parties (e.g. the developers of Quaestor).
 
 > [!IMPORTANT]
 > Enable Banking **requires** Quaestor to be served over **HTTPS**; over plain HTTP the connection
 > is rejected. See the [README](../../README.md#environment-variables) for how to enable HTTPS.
 
-## One-time setup
+## One-time setup (~2 min)
 
-Every user has to register their own **free** Enable Banking account:
+**Every user** (not only the server admin) (to be compliant with the [terms of service of Enable Banking](https://enablebanking.com/terms/)) has to register their own **free** Enable Banking account:
 
 1. Create a free account and register a new application in the [control panel](https://enablebanking.com/cp/applications).
 
@@ -30,4 +31,6 @@ Every user has to register their own **free** Enable Banking account:
 2. Add your bank via the `Link accounts` button in the control panel.
 3. In Quaestor, pick your bank and upload the key file. When connecting you are redirected to your bank to sign in.
 
-When you add further banks, your existing application is reused; each bank only needs to be linked in the control panel.
+When you want to add further banks in the future, your existing application is reused. Thus,
+1. link the new account in control panel of Enable Banking
+2. add the bank in Quaestor (no need to import the key file again)

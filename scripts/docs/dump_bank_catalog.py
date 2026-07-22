@@ -11,13 +11,13 @@ sys.path.insert(0, str(ROOT))
 
 os.environ.setdefault("ALLOW_MISSING_FRONTEND", "true")
 
-from source.backend.helpers import (  # noqa: E402
+from source.backend.helpers import (
     get_frontend_source_path,
     get_project_description,
     get_project_name,
     get_project_repository,
 )
-from source.backend.services.banking.bank_catalog import get_catalog  # noqa: E402
+from source.backend.services.banking.bank_catalog import get_catalog
 
 
 def _provider_notes() -> dict[str, dict[str, str]]:
@@ -91,8 +91,8 @@ _TEMPLATE = """<!DOCTYPE html>
   h1 span {{ color: var(--primary); }}
   .tagline {{ color: var(--fg); margin: 0 0 .5rem; }}
   .sub {{ color: var(--dim); margin: 0; }}
-  .sub a {{ color: var(--primary); text-decoration: none; }}
-  .sub a:hover {{ text-decoration: underline; }}
+  .sub a, .count-row a {{ color: var(--primary); text-decoration: none; }}
+  .sub a:hover, .count-row a:hover {{ text-decoration: underline; }}
   .controls {{
     position: sticky; top: 0; z-index: 5; background: var(--bg);
     padding: 1rem 1.5rem; max-width: 1100px; margin: 0 auto;
@@ -104,7 +104,11 @@ _TEMPLATE = """<!DOCTYPE html>
   }}
   input[type=search]:focus {{ outline: 2px solid var(--primary); border-color: transparent; }}
   main {{ max-width: 1100px; margin: 0 auto; padding: 1.5rem; }}
-  #count {{ color: var(--dim); margin: 0 0 1rem; font-size: .9rem; }}
+  .count-row {{
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 1rem; flex-wrap: wrap; margin: 0 0 1rem; font-size: .9rem;
+  }}
+  #count {{ color: var(--dim); margin: 0; }}
   .grid {{
     display: grid; gap: .9rem;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -152,7 +156,10 @@ _TEMPLATE = """<!DOCTYPE html>
   <input type="search" id="q" placeholder="Search by name, BIC or sort code (BLZ)…" autocomplete="off">
 </div>
 <main>
-  <p id="count"></p>
+  <div class="count-row">
+    <p id="count"></p>
+    <a href="{repo}/blob/main/docs/bank_handlers/fints_vs_enable_banking.md">Read here about duplicate entries</a>
+  </div>
   <div class="grid" id="grid"></div>
   <div class="empty" id="empty" hidden>No bank matches your filters.</div>
 </main>

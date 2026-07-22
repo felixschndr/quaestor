@@ -166,8 +166,9 @@ def _collect_overdue_notifications(db_session: Session, user: User, today: datet
         )
         grace_days = rule.days if rule is not None and rule.days is not None else OVERDUE_GRACE_DAYS
         if not contract.is_overdue_on(today=today, grace_days=grace_days):
-            # Payment arrived: reset so a future overdue episode notifies again.
-            contract.overdue_notified_at = None
+            if contract.overdue_notified_at is not None:
+                # Payment arrived: reset so a future overdue episode notifies again.
+                contract.overdue_notified_at = None
             continue
         if contract.overdue_notified_at is not None:
             continue  # Already notified for this overdue episode.
