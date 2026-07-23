@@ -17,17 +17,13 @@ from source.backend.models.accounts.account_balance_snapshot import (
     AccountBalanceSnapshot,
     BalanceSnapshotSource,
 )
-from source.backend.models.accounts.account_group import (  # noqa: F401 — registers FK target table
-    AccountGroup,
-)
+from source.backend.models.accounts.account_group import AccountGroup
 from source.backend.models.base import Base
 
 if TYPE_CHECKING:
     from source.backend.models.banking.credential import Credential
     from source.backend.models.contracts.contract import Contract
-    from source.backend.models.transactions.recurring_transaction import (
-        RecurringTransaction,
-    )
+    from source.backend.models.transactions.recurring_transaction import RecurringTransaction
     from source.backend.models.transactions.transaction import Transaction
 
 logger = get_logger(__name__)

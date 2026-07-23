@@ -26,9 +26,7 @@ from source.backend.bank_handlers.base import (
 from source.backend.db import get_session
 from source.backend.helpers import get_root_path_of_repository, utc_now
 from source.backend.models.accounts.account import Account
-from source.backend.models.accounts.account_balance_snapshot import (
-    AccountBalanceSnapshot,
-)
+from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.base import Base

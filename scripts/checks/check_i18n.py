@@ -10,9 +10,7 @@ sys.path.insert(0, str(ROOT))
 
 from source.backend.helpers import get_backend_source_path, get_frontend_source_path
 from source.backend.services.core.i18n_service import SUPPORTED_LANGUAGES
-from source.backend.services.notifications.notification_messages import (
-    _TRANSLATION_CATALOG,
-)
+from source.backend.services.notifications.notification_messages import _TRANSLATION_CATALOG
 
 FRONTEND_SOURCE_PATH = get_frontend_source_path()
 FRONTEND_LOCALES_PATH = FRONTEND_SOURCE_PATH / "i18n/locales"

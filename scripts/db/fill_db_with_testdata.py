@@ -28,9 +28,7 @@ from source.backend.models.notifications.notification_rule import (
     NotificationTrigger,
 )
 from source.backend.models.transactions.transaction import Transaction
-from source.backend.models.transactions.transaction_attachment import (
-    TransactionAttachment,
-)
+from source.backend.models.transactions.transaction_attachment import TransactionAttachment
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.paths import DATABASE_PATH

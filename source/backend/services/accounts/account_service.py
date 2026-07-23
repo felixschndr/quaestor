@@ -15,9 +15,7 @@ from source.backend.exceptions import (
 from source.backend.helpers import apply_fields
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
-from source.backend.models.accounts.account_balance_snapshot import (
-    AccountBalanceSnapshot,
-)
+from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.base import snapshot_columns

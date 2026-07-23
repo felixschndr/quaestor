@@ -9,8 +9,6 @@ from functools import partialmethod
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    # Type-only import: keeps this low-level logging module free of the ORM/sqlalchemy
-    # dependency at runtime (e.g. transaction_category imports get_logger).
     from source.backend.models.base import Base
 
 REDACTION_PLACEHOLDER = "XXXXXX"
@@ -29,8 +27,6 @@ def set_session_log_label(label: str) -> None:
 
 @contextmanager
 def session_log_context(label: str) -> Iterator[None]:
-    # Bind a label for the duration of a block and restore the previous one afterwards.
-    # Used by background tasks, which have no request to set the label for them.
     token = _session_log_label.set(label)
     try:
         yield
@@ -39,9 +35,6 @@ def session_log_context(label: str) -> Iterator[None]:
 
 
 def _install_session_log_record_factory() -> None:
-    # Attach the current session label to every LogRecord so the formatter can render
-    # `%(session)s`. Wrapping whatever factory is already installed keeps us composable
-    # and idempotent (importing this module twice must not stack factories).
     existing_factory = logging.getLogRecordFactory()
     if getattr(existing_factory, "_injects_session_label", False):
         return

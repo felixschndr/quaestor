@@ -2,11 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from source.backend.api.schemas.accounts.account_group import AccountGroupLayoutWrite
-from source.backend.exceptions import (
-    AccountNotFoundError,
-    NotFoundError,
-    ValidationError,
-)
+from source.backend.exceptions import AccountNotFoundError, NotFoundError, ValidationError
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
 from source.backend.models.accounts.account_group import AccountGroup

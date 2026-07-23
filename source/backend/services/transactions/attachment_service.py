@@ -12,9 +12,7 @@ from source.backend.exceptions import (
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.transactions.transaction import Transaction
-from source.backend.models.transactions.transaction_attachment import (
-    TransactionAttachment,
-)
+from source.backend.models.transactions.transaction_attachment import TransactionAttachment
 
 logger = get_logger(__name__)
 

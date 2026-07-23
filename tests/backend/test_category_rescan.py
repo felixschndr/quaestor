@@ -10,9 +10,7 @@ from source.backend import main
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.services.transactions import category_rescan
-from source.backend.services.transactions.category_rescan import (
-    run_startup_rescan as real_run_startup_rescan,
-)
+from source.backend.services.transactions.category_rescan import run_startup_rescan as real_run_startup_rescan
 from tests.backend.conftest import (
     UNKNOWN_TRANSACTION_OTHER_PARTY,
     assert_log_contains,

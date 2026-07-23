@@ -19,9 +19,7 @@ if TYPE_CHECKING:
 
     from source.backend.models.accounts.account import Account
     from source.backend.models.contracts.contract import Contract
-    from source.backend.models.transactions.transaction_attachment import (
-        TransactionAttachment,
-    )
+    from source.backend.models.transactions.transaction_attachment import TransactionAttachment
 
 logger = get_logger(__name__)
 

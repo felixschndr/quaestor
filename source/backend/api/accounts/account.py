@@ -29,17 +29,12 @@ from source.backend.api.schemas.transactions.transaction import (
 from source.backend.db import get_session
 from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
-from source.backend.models.transactions.recurring_transaction import (
-    RecurringTransaction,
-)
+from source.backend.models.transactions.recurring_transaction import RecurringTransaction
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.services.accounts import account_service
 from source.backend.services.auth import session_service
 from source.backend.services.banking import credential_service
-from source.backend.services.transactions import (
-    attachment_service,
-    recurring_transaction_service,
-)
+from source.backend.services.transactions import attachment_service, recurring_transaction_service
 
 router = create_router()
 

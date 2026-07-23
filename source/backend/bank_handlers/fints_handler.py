@@ -21,10 +21,7 @@ from source.backend.bank_handlers.base import (
     FetchedTransaction,
     TwoFactorStateCallback,
 )
-from source.backend.exceptions import (
-    InvalidCredentialsError,
-    ReauthenticationRequiredError,
-)
+from source.backend.exceptions import InvalidCredentialsError, ReauthenticationRequiredError
 from source.backend.helpers import get_key_of_transaction
 from source.backend.logging_utils import get_logger
 from source.backend.models.transactions.transaction_type import TransactionType

@@ -1,12 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from source.backend.services.auth.user_service import (
-    ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME,
-)
-from source.backend.services.banking.sync_scheduler import (
-    SYNC_INTERVAL_HOURS_ENV_VARIABLE_NAME,
-)
+from source.backend.services.auth.user_service import ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME
+from source.backend.services.banking.sync_scheduler import SYNC_INTERVAL_HOURS_ENV_VARIABLE_NAME
 from source.backend.services.core import i18n_service
 from source.backend.services.transactions import attachment_service
 

@@ -11,9 +11,7 @@ from source.backend.exceptions import (
 )
 from source.backend.models.accounts.account import Account
 from source.backend.models.transactions.recurrence_frequency import RecurrenceFrequency
-from source.backend.models.transactions.recurring_transaction import (
-    RecurringTransaction,
-)
+from source.backend.models.transactions.recurring_transaction import RecurringTransaction
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.services.accounts import account_service
 from source.backend.services.transactions import recurring_transaction_service

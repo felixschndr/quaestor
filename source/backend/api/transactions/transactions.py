@@ -4,10 +4,7 @@ from fastapi import Depends, Query
 from sqlalchemy.orm import Session
 
 from source.backend.api.core.create_router import create_router
-from source.backend.api.schemas.transactions.transaction import (
-    TransactionRead,
-    TransactionSearchQuery,
-)
+from source.backend.api.schemas.transactions.transaction import TransactionRead, TransactionSearchQuery
 from source.backend.db import get_session
 from source.backend.models.auth.user import User
 from source.backend.models.transactions.transaction import Transaction

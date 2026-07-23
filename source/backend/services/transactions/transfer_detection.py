@@ -9,10 +9,7 @@ from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.transactions.transaction import Transaction
-from source.backend.models.transactions.transaction_category import (
-    TransactionCategory,
-    normalize_string,
-)
+from source.backend.models.transactions.transaction_category import TransactionCategory, normalize_string
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.contracts.contract_aggregators import INTERMEDIARIES
 

@@ -48,16 +48,10 @@ from source.backend.services.banking import (
     playwright_browser,
     sync_scheduler,
 )
-from source.backend.services.contracts import (
-    contract_detection_service,
-    contract_overdue_scheduler,
-)
+from source.backend.services.contracts import contract_detection_service, contract_overdue_scheduler
 from source.backend.services.core import i18n_service, migrations
 from source.backend.services.notifications import digest_scheduler
-from source.backend.services.transactions import (
-    category_rescan,
-    recurring_transaction_scheduler,
-)
+from source.backend.services.transactions import category_rescan, recurring_transaction_scheduler
 
 logger = get_logger(__name__)
 

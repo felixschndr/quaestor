@@ -8,11 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from source.backend.bank_handlers import BankHandler, BankProvider, handler_for
 from source.backend.bank_handlers.base import BankSession, FetchedAccount
-from source.backend.helpers import (
-    get_key_of_transaction,
-    index_transactions_for_matching,
-    utc_now,
-)
+from source.backend.helpers import get_key_of_transaction, index_transactions_for_matching, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
 from source.backend.models.base import Base

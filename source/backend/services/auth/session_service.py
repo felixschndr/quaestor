@@ -8,11 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from source.backend.db import get_session
-from source.backend.exceptions import (
-    CannotRevokeCurrentSessionError,
-    InvalidCredentialsError,
-    SessionNotFoundError,
-)
+from source.backend.exceptions import CannotRevokeCurrentSessionError, InvalidCredentialsError, SessionNotFoundError
 from source.backend.helpers import hash_token, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.auth.session import UserSession

@@ -22,9 +22,7 @@ from source.backend.api.schemas.transactions.statistics import (
 from source.backend.api.schemas.transactions.transaction import TransactionRead
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
-from source.backend.models.accounts.account_balance_snapshot import (
-    AccountBalanceSnapshot,
-)
+from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot
 from source.backend.models.auth.user import User
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
