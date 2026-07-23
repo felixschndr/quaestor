@@ -1,19 +1,16 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 import type { CredentialRead } from '@/lib/auth'
 
-// Recharts measures its container (0×0 in jsdom) and renders SVG we don't assert
-// on — swap every export for a passthrough so the view mounts cleanly.
 vi.mock('recharts', () => {
   const Passthrough = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>
   return new Proxy({}, { get: () => Passthrough })
 })
 
-// The charts fetch via `api`; resolve to empty so queries settle without network.
 vi.mock('@/lib/api', () => ({
   api: vi.fn((path: string) =>
     Promise.resolve(path.includes('/net-worth') ? { series: [], summary: null } : []),
@@ -158,12 +155,13 @@ describe('StatsView', () => {
     expect(onChange.mock.calls.at(-1)?.[0].transactionTypes).toEqual(['FEES'])
   })
 
-  it('fires onChange restricting to transfers when only "Transfer" stays checked', async () => {
+  it('fires onChange restricting to transfers when picking "Transfer"', async () => {
     const user = userEvent.setup()
     const { onChange } = renderView({ linked: 'any' })
 
     await user.click(screen.getByLabelText('Transfer'))
-    await user.click(document.getElementById('transfer-multi-unlinked')!)
+    const list = screen.getByRole('list', { name: 'Transfer' })
+    await user.click(within(list).getByRole('button', { name: 'Transfer' }))
 
     expect(onChange.mock.calls.at(-1)?.[0].linked).toBe('linked')
   })
@@ -173,12 +171,13 @@ describe('StatsView', () => {
     expect(screen.getByLabelText('Transfer').textContent).toContain('No transfer')
   })
 
-  it('opting both transfer states back in means "Any"', async () => {
+  it('picking "Any" clears the transfer filter', async () => {
     const user = userEvent.setup()
     const { onChange } = renderView() // default: only "No transfer"
 
     await user.click(screen.getByLabelText('Transfer'))
-    await user.click(document.getElementById('transfer-multi-linked')!)
+    const list = screen.getByRole('list', { name: 'Transfer' })
+    await user.click(within(list).getByRole('button', { name: 'Any' }))
 
     expect(onChange.mock.calls.at(-1)?.[0].linked).toBeUndefined()
   })
@@ -196,7 +195,7 @@ describe('StatsView', () => {
     const user = userEvent.setup()
     const { onOpenSearch } = renderView()
 
-    await user.click(screen.getByRole('button', { name: 'View all transactions in this chart' }))
+    await user.click(screen.getByRole('button', { name: 'Transactions in this period' }))
 
     expect(onOpenSearch).toHaveBeenCalledTimes(1)
     const drill = onOpenSearch.mock.calls[0][0]

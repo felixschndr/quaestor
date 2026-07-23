@@ -37,21 +37,6 @@ import { oneOrMany } from '@/lib/searchParams'
 
 const numberList = oneOrMany(z.coerce.number())
 
-const contractFiltersSchema = z.object({
-  account_ids: numberList.optional(),
-  amount_from: z.coerce.number().optional(),
-  amount_to: z.coerce.number().optional(),
-  categories: oneOrMany(z.enum(TRANSACTION_CATEGORIES)).optional(),
-  frequencies: oneOrMany(z.enum(CONTRACT_FREQUENCY_FILTERS)).optional(),
-  overdue: z.boolean().or(z.stringbool()).optional(),
-  text: z.string().optional(),
-})
-
-export const Route = createFileRoute('/contracts')({
-  component: ContractsPage,
-  validateSearch: (search) => contractFiltersSchema.parse(search),
-})
-
 const SORT_OPTIONS = [
   'name',
   'amount_asc',
@@ -61,6 +46,22 @@ const SORT_OPTIONS = [
   'next',
 ] as const
 type SortOption = (typeof SORT_OPTIONS)[number]
+
+const contractFiltersSchema = z.object({
+  account_ids: numberList.optional(),
+  amount_from: z.coerce.number().optional(),
+  amount_to: z.coerce.number().optional(),
+  categories: oneOrMany(z.enum(TRANSACTION_CATEGORIES)).optional(),
+  frequencies: oneOrMany(z.enum(CONTRACT_FREQUENCY_FILTERS)).optional(),
+  overdue: z.boolean().or(z.stringbool()).optional(),
+  text: z.string().optional(),
+  sort: z.enum(SORT_OPTIONS).optional(),
+})
+
+export const Route = createFileRoute('/contracts')({
+  component: ContractsPage,
+  validateSearch: (search) => contractFiltersSchema.parse(search),
+})
 
 function sortContracts(contracts: ContractRead[], sort: SortOption): ContractRead[] {
   const amount = (contract: ContractRead) => contract.median_amount
@@ -99,9 +100,8 @@ function ContractsPage() {
   const { t } = useTranslation()
   const { data: contracts } = useContracts()
   const { data: user } = useAuthMe()
-  const filters = Route.useSearch()
+  const { sort = 'amount_asc', ...filters } = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
-  const [sort, setSort] = useState<SortOption>('amount_asc')
 
   const credentials: CredentialRead[] = user?.credentials ?? []
   const all = contracts ?? []
@@ -111,7 +111,10 @@ function ContractsPage() {
     [contracts, filters, sort],
   )
 
-  const setFilters = (next: ContractFilters) => navigate({ search: next, replace: true })
+  const setFilters = (next: ContractFilters) =>
+    navigate({ search: { ...next, sort }, replace: true })
+  const setSort = (next: SortOption) =>
+    navigate({ search: { ...filters, sort: next }, replace: true })
 
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">

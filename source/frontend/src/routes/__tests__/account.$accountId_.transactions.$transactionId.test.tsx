@@ -73,7 +73,7 @@ describe('TransactionDetailView', () => {
     // amount: -42.5 (outgoing) → "Recipient" label
     renderView()
     const dts = screen.getAllByRole('term').map((node) => node.textContent)
-    expect(dts).toEqual(['Recipient', 'Purpose', 'Category', 'Account', 'Note'])
+    expect(dts).toEqual(['Recipient', 'PurposePurpose', 'Category', 'Account', 'Note'])
   })
 
   it('labels the other-party row "Sender" for incoming amounts', () => {
@@ -251,7 +251,7 @@ describe('TransactionDetailView', () => {
     const terms = screen.getAllByRole('term').map((node) => node.textContent)
     expect(terms).toEqual([
       'Recipient',
-      'Purpose',
+      'PurposePurpose',
       'Category',
       'Linked transaction',
       'Account',

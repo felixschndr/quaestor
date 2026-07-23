@@ -129,9 +129,12 @@ describe('TransactionSearchView — form', () => {
     const user = userEvent.setup()
     const { onChange } = renderView()
 
-    // Default is "Any" (both checked); dropping "No transfer" isolates transfers.
     await user.click(screen.getByLabelText('Transfer'))
-    await user.click(document.getElementById('transfer-multi-unlinked')!)
+    await user.click(
+      within(screen.getByRole('list', { name: 'Transfer' })).getByRole('button', {
+        name: 'Transfer',
+      }),
+    )
 
     await waitFor(() => expect(lastPayload(onChange)?.filters.linked).toBe('linked'))
   })

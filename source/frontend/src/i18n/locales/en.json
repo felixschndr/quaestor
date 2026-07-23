@@ -662,7 +662,8 @@
     },
     "netWorth": {
       "title": "Net worth over time",
-      "viewTransactions": "View all transactions in this chart",
+      "viewTransactions": "Transactions in this period",
+      "viewTransactionsShort": "Transactions",
       "viewDay": "Break down this day",
       "viewDayShort": "Details",
       "value": "Net worth",

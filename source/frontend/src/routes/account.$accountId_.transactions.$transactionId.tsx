@@ -91,7 +91,11 @@ function TransactionDetailPage() {
       contractSection={
         query.data.pending ? undefined : <ContractSection transaction={query.data} />
       }
-      attachmentsSection={<AttachmentSection accountId={accountId} transactionId={transactionId} />}
+      attachmentsSection={
+        query.data.pending ? undefined : (
+          <AttachmentSection accountId={accountId} transactionId={transactionId} />
+        )
+      }
       linkSection={
         canStartLink ? (
           <LinkStartSection

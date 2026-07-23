@@ -246,7 +246,7 @@ export function StatsView({
         <p className="text-muted-foreground text-sm">{t('stats.noMatches')}</p>
       ) : (
         <>
-          <ContractsSummaryCard accountIds={accountIds} />
+          <ContractsSummaryCard accountIds={accountIds} categories={categoriesParam} />
 
           <ChartCard
             title={t('stats.netWorth.title')}
@@ -259,8 +259,10 @@ export function StatsView({
                 type="button"
                 onClick={openNetWorthSearch}
                 aria-label={t('stats.netWorth.viewTransactions')}
-                className="stats-drill-arrow -m-1 rounded-md p-1"
+                className="stats-drill-arrow -m-1 inline-flex items-center gap-1 rounded-md p-1 text-xs font-medium"
               >
+                <span className="sm:hidden">{t('stats.netWorth.viewTransactionsShort')}</span>
+                <span className="hidden sm:inline">{t('stats.netWorth.viewTransactions')}</span>
                 <DrillArrowIcon />
               </button>
             }

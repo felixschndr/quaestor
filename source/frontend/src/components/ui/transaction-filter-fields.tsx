@@ -42,8 +42,10 @@ export function TransactionFilterFields({
   const transferId = `${idPrefix}-transfer`
   const attachmentId = `${idPrefix}-attachment`
 
+  const columns = onAttachmentChange ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
+
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className={`grid grid-cols-1 gap-3 ${columns}`}>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={categoriesId}>{t('common.categories')}</Label>
         <CategoryMultiSelect

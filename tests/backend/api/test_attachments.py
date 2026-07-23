@@ -47,6 +47,22 @@ def test_upload_list_download_delete_roundtrip(http_client: TestClient, session_
     assert http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}/attachments").json() == []
 
 
+def test_upload_to_pending_transaction_is_rejected(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id, pending=True)
+
+    response = _upload(
+        http_client=http_client,
+        account_id=account_id,
+        transaction_id=transaction_id,
+        name="receipt.pdf",
+        content=b"%PDF-1.4 hello",
+    )
+
+    assert response.status_code == 409
+    assert http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}/attachments").json() == []
+
+
 def test_multiple_files_in_one_upload(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)

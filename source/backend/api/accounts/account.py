@@ -27,6 +27,7 @@ from source.backend.api.schemas.transactions.transaction import (
     TransferLinkCreate,
 )
 from source.backend.db import get_session
+from source.backend.exceptions import ConflictError
 from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.transactions.recurring_transaction import RecurringTransaction
@@ -199,6 +200,8 @@ def upload_attachments(
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
+    if transaction.pending:
+        raise ConflictError("Cannot attach files to a pending transaction")
     created = []
     for file in files:
         attachment_service.reject_if_too_large(size=file.size)

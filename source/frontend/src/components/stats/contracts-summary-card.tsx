@@ -4,8 +4,16 @@ import { ArrowRight, Repeat } from 'lucide-react'
 
 import { sumContractsForPeriod, useContracts } from '@/lib/contract'
 import { formatMoney } from '@/lib/format'
+import { StatMetric } from '@/components/stats/stat-metric'
+import type { TransactionCategory } from '@/lib/transaction'
 
-export function ContractsSummaryCard({ accountIds }: { accountIds: number[] }) {
+export function ContractsSummaryCard({
+  accountIds,
+  categories,
+}: {
+  accountIds: number[]
+  categories: TransactionCategory[]
+}) {
   const { t } = useTranslation()
   const { data } = useContracts()
   const contracts = (data ?? []).filter((contract) => accountIds.includes(contract.account_id))
@@ -21,6 +29,10 @@ export function ContractsSummaryCard({ accountIds }: { accountIds: number[] }) {
         </h2>
         <Link
           to="/contracts"
+          search={{
+            account_ids: accountIds,
+            categories: categories.length > 0 ? categories : undefined,
+          }}
           className="text-primary hover:text-primary/80 inline-flex items-center gap-1 text-sm transition-colors"
         >
           {t('stats.contracts.viewAll')}

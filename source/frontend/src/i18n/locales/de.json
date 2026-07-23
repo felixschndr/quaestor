@@ -662,7 +662,8 @@
     },
     "netWorth": {
       "title": "Vermögensverlauf",
-      "viewTransactions": "Alle Transaktionen dieses Diagramms anzeigen",
+      "viewTransactions": "Transaktionen in diesem Zeitraum",
+      "viewTransactionsShort": "Transaktionen",
       "viewDay": "Tag aufschlüsseln",
       "viewDayShort": "Details",
       "value": "Vermögen",

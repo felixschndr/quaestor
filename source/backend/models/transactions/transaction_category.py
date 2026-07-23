@@ -136,7 +136,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "baecker",
         "gaststaette",
         "sumup",
-        "spc*",
+        "brauhaus",
         "traumkuh",
         "kofteci",
         "irodion",
