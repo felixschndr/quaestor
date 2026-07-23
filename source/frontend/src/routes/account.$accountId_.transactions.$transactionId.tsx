@@ -1,7 +1,7 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useRef } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeftRight } from 'lucide-react'
+import { ArrowLeftRight, Download, Paperclip, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
@@ -17,6 +17,14 @@ import {
 } from '@/lib/transaction'
 import { useAuthMe } from '@/lib/auth'
 import { useContracts, useSetTransactionContract } from '@/lib/contract'
+import {
+  attachmentDownloadUrl,
+  useAttachments,
+  useDeleteAttachment,
+  useUploadAttachments,
+} from '@/lib/attachment'
+import { useAppSettings } from '@/lib/settings'
+import { ApiError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import {
@@ -83,6 +91,7 @@ function TransactionDetailPage() {
       contractSection={
         query.data.pending ? undefined : <ContractSection transaction={query.data} />
       }
+      attachmentsSection={<AttachmentSection accountId={accountId} transactionId={transactionId} />}
       linkSection={
         canStartLink ? (
           <LinkStartSection
@@ -199,6 +208,125 @@ function LinkConfirmSection({
   )
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  const kb = bytes / 1024
+  if (kb < 1024) return `${Math.round(kb)} KB`
+  return `${(kb / 1024).toFixed(1)} MB`
+}
+
+function AttachmentSection({
+  accountId,
+  transactionId,
+}: {
+  accountId: number
+  transactionId: number
+}) {
+  const { t } = useTranslation()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const { data: settings } = useAppSettings()
+  const allowedExtensions = settings?.allowed_attachment_extensions ?? []
+  const maxSizeMb = settings?.max_attachment_size_mb ?? 0
+  const accept = allowedExtensions.map((extension) => `.${extension}`).join(',')
+  const { data: attachments } = useAttachments(accountId, transactionId)
+  const upload = useUploadAttachments(accountId, transactionId)
+  const remove = useDeleteAttachment(accountId, transactionId)
+
+  const fileExtension = (name: string) => name.split('.').pop()?.toLowerCase() ?? ''
+
+  const onPick = (fileList: FileList | null) => {
+    const files = fileList ? Array.from(fileList) : []
+    if (files.length === 0) return
+    if (inputRef.current) inputRef.current.value = ''
+
+    const wrongType = files.find((file) => !allowedExtensions.includes(fileExtension(file.name)))
+    if (allowedExtensions.length > 0 && wrongType) {
+      toast.error(t('attachments.rejectedType'))
+      return
+    }
+    const tooLarge = files.find((file) => maxSizeMb > 0 && file.size > maxSizeMb * 1024 * 1024)
+    if (tooLarge) {
+      toast.error(t('attachments.rejectedSize', { max: maxSizeMb }))
+      return
+    }
+
+    upload.mutate(files, {
+      onError: (error) => {
+        if (error instanceof ApiError && error.status === 415) {
+          toast.error(t('attachments.rejectedType'))
+        } else if (error instanceof ApiError && error.status === 413) {
+          toast.error(
+            maxSizeMb > 0
+              ? t('attachments.rejectedSize', { max: maxSizeMb })
+              : t('attachments.rejectedSizeGeneric'),
+          )
+        } else {
+          toast.error(t('attachments.uploadFailed'))
+        }
+      },
+    })
+  }
+
+  return (
+    <DetailRow label={t('attachments.label')} align="start">
+      <div className="flex w-full flex-col gap-2">
+        {attachments && attachments.length > 0 ? (
+          <ul className="flex flex-col gap-1">
+            {attachments.map((attachment) => (
+              <li key={attachment.id} className="flex items-center gap-2">
+                <Paperclip className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
+                <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
+                  <a
+                    href={attachmentDownloadUrl(accountId, transactionId, attachment.id)}
+                    download={attachment.filename}
+                    className="text-primary hover:text-primary/80 inline-flex min-w-0 items-center gap-1.5 transition-colors"
+                  >
+                    <span className="truncate">{attachment.filename}</span>
+                    <Download className="size-3.5 shrink-0" aria-hidden="true" />
+                  </a>
+                  <span className="text-muted-foreground basis-full text-xs tabular-nums sm:basis-auto">
+                    {formatDate(attachment.created_at)} · {formatBytes(attachment.size)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => remove.mutate(attachment.id)}
+                  disabled={remove.isPending}
+                  aria-label={t('attachments.delete')}
+                  className="text-muted-foreground hover:text-destructive ml-auto shrink-0 transition-colors"
+                >
+                  <Trash2 className="size-4" aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span className="text-muted-foreground text-sm">{t('attachments.none')}</span>
+        )}
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept={accept}
+          className="hidden"
+          onChange={(event) => onPick(event.target.files)}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="self-start"
+          disabled={upload.isPending}
+          onClick={() => inputRef.current?.click()}
+        >
+          <Plus className="size-4" aria-hidden="true" />
+          {t('attachments.add')}
+        </Button>
+      </div>
+    </DetailRow>
+  )
+}
+
 function TransactionNotFoundView({ accountId }: { accountId: number }) {
   const { t } = useTranslation()
   return (
@@ -218,6 +346,7 @@ export interface TransactionDetailViewProps {
   onChangeCategory: (category: TransactionCategory) => Promise<unknown>
   onUnlink: () => Promise<unknown>
   contractSection?: ReactNode
+  attachmentsSection?: ReactNode
   linkSection?: ReactNode
   linkConfirmSection?: ReactNode
 }

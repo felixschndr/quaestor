@@ -2321,6 +2321,18 @@ files = [
 cli = ["click (>=5.0)"]
 
 [[package]]
+name = "python-multipart"
+version = "0.0.32"
+description = "A streaming multipart parser for Python"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "python_multipart-0.0.32-py3-none-any.whl", hash = "sha256:ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23"},
+    {file = "python_multipart-0.0.32.tar.gz", hash = "sha256:be54b7f3fa167bb83e4fcd936b887b708f4e57fe75911c02aebf53efaf8d938e"},
+]
+
+[[package]]
 name = "pytr"
 version = "0.4.9"
 description = "Use TradeRepublic in terminal"
@@ -3125,4 +3137,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.14"
-content-hash = "f68cf0b4f4cfe62252dc0e2cc4fd74a621102edf659403353e3e5fea90870be6"
+content-hash = "eb8e649311a21ed4354e5596a07904ab6ce931749b6e0f0ace58c401e1fd7067"

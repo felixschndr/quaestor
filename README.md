@@ -103,6 +103,7 @@ The tool is strictly read-only: it only ever *reads* your data and can **never**
 - **Transfer detection**: Movements between your own accounts are recognized and kept out of your income/spending figures
 - **Contracts**: Recurring payments (subscriptions, rent, insurance) are detected automatically, including their interval, next expected payment, and a warning when one is overdue
 - **Expected transactions**: Note down payments you await; they are matched against incoming bookings within a tolerance you define
+- **Attachments**: Add files such as receipts or other related documents
 - **Custom notes** on transactions
 
 ### Insights
@@ -245,6 +246,7 @@ To reset the password of a user and disable his/her two-factor authentication us
 | `DISPLAY_TIMEZONE`            | The IANA time zone (e.g. `Europe/Berlin`) the frontend renders timestamps in.                                                                                                                                                                                                                        | `UTC`                                                           |
 | `LOG_LEVEL`                   | The level to log at. When set to `DEBUG` all the http request and response data is logged. The app tries (but not ensures) to redact all sensible data. Don't set the `LOG_LEVEL` to `DEBUG` in production.                                                                                          | `INFO`                                                          |
 | `SYNC_INTERVAL_HOURS`         | How often (in hours) the server automatically syncs all credentials that don't require 2FA. Accepts fractional values (e.g. `0.5`).                                                                                                                                                                  | `12`                                                            |
+| `MAX_ATTACHMENT_SIZE_MB`      | Maximum size (in MB) of a single file attached to a transaction. Larger uploads are rejected.                                                                                                                                                                                                        | `20`                                                            |
 | `SESSION_COOKIE_SECURE`       | Whether to set the `Secure` flag on the session and CSRF cookies. Set to `true` whenever the app is reachable over HTTPS.                                                                                                                                                                            | `false`                                                         |
 | `FORWARDED_ALLOW_IPS`         | Comma-separated list of reverse-proxy IPs whose `X-Forwarded-For` / `X-Forwarded-Proto` headers the server trusts. Use `*` if the proxy IP is unpredictable (e.g. in container networks).                                                                                                            | `127.0.0.1`                                                     |
 

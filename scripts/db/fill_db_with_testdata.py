@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT))
 
 from source.backend.bank_handlers import BankProvider
 from source.backend.db import SessionLocal
+from source.backend.helpers import utc_now
 from source.backend.models.accounts.account import Account
 from source.backend.models.accounts.account_group import AccountGroup
 from source.backend.models.auth.user import User
@@ -27,6 +28,9 @@ from source.backend.models.notifications.notification_rule import (
     NotificationTrigger,
 )
 from source.backend.models.transactions.transaction import Transaction
+from source.backend.models.transactions.transaction_attachment import (
+    TransactionAttachment,
+)
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.paths import DATABASE_PATH
@@ -217,6 +221,23 @@ def _drop_database() -> None:
     print(f"Deleted {DATABASE_PATH}")
 
 
+def _seed_note_and_attachment_for_screenshot(session: Session) -> None:
+    transaction = session.get(Transaction, 10)
+    if transaction is None:
+        return
+    transaction.note = "Ingredients for dinner with Joe"
+    receipt = b"%PDF-1.4 demo receipt"
+    transaction.attachments.append(
+        TransactionAttachment(
+            filename="Receipt.pdf",
+            content_type="application/pdf",
+            size=int(1.1 * 1024 * 1024),
+            data=receipt,
+            created_at=utc_now(),
+        )
+    )
+
+
 def fill_db_with_testdata() -> None:
     _drop_database()
     migrations.upgrade_to_head()
@@ -321,6 +342,8 @@ def fill_db_with_testdata() -> None:
         _link_transactions(outflow, inflow)
 
         _seed_notification_rules(session, user=user, account_ids=[account.id for account in accounts])
+
+        _seed_note_and_attachment_for_screenshot(session)
 
         session.commit()
     print(f"Created demo data: user '{USER_NAME}' / password '{VALID_PASSWORD}'")

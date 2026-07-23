@@ -69,6 +69,7 @@
     "direction": "Richtung",
     "created": "Erstellt",
     "purpose": "Verwendungszweck",
+    "purposeShort": "Zweck",
     "username": "Benutzername",
     "password": "Passwort",
     "displayName": "Anzeigename",
@@ -559,6 +560,16 @@
     "linkConfirmPrompt": "Diese Transaktion mit {{partner}} · {{amount}} · {{date}} verknüpfen?",
     "linkSuccess": "Transaktionen verlinkt",
     "linkFailed": "Verlinken fehlgeschlagen"
+  },
+  "attachments": {
+    "label": "Anhänge",
+    "none": "Keine Anhänge",
+    "add": "Datei hinzufügen",
+    "delete": "Anhang löschen",
+    "uploadFailed": "Upload fehlgeschlagen",
+    "rejectedType": "Dateityp nicht erlaubt",
+    "rejectedSize": "Datei zu groß (maximal {{max}} MB)",
+    "rejectedSizeGeneric": "Datei zu groß"
   },
   "filters": {
     "transferLabel": "Umbuchung",

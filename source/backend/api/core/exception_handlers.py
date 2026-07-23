@@ -7,10 +7,12 @@ from fastapi.responses import JSONResponse
 
 from source.backend.exceptions import (
     ConflictError,
+    FileTooLargeError,
     InvalidCredentialsError,
     NotFoundError,
     PermissionDeniedError,
     UnknownInternalError,
+    UnsupportedFileTypeError,
     ValidationError,
 )
 from source.backend.logging_utils import get_logger
@@ -20,6 +22,8 @@ logger = get_logger(__name__)
 EXCEPTIONS_TO_CATCH_AND_THEIR_STATUS_CODES: dict[type[Exception], int] = {
     NotFoundError: 404,
     ValidationError: 422,
+    UnsupportedFileTypeError: 415,
+    FileTooLargeError: 413,
     InvalidCredentialsError: 401,
     PermissionDeniedError: 403,
     ConflictError: 409,

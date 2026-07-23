@@ -69,6 +69,7 @@
     "direction": "Direction",
     "created": "Created",
     "purpose": "Purpose",
+    "purposeShort": "Purpose",
     "username": "Username",
     "password": "Password",
     "displayName": "Display name",
@@ -559,6 +560,16 @@
     "linkConfirmPrompt": "Link this transaction with {{partner}} · {{amount}} · {{date}}?",
     "linkSuccess": "Transactions linked",
     "linkFailed": "Could not link the transactions"
+  },
+  "attachments": {
+    "label": "Attachments",
+    "none": "No attachments",
+    "add": "Add file",
+    "delete": "Delete attachment",
+    "uploadFailed": "Upload failed",
+    "rejectedType": "File type not allowed",
+    "rejectedSize": "File too large (maximum {{max}} MB)",
+    "rejectedSizeGeneric": "File too large"
   },
   "filters": {
     "transferLabel": "Transfer",

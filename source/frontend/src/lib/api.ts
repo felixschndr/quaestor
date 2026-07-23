@@ -44,7 +44,8 @@ export async function api<T = unknown>(path: string, options: RequestOptions = {
     ...(options.headers ?? {}),
   }
 
-  if (options.body !== undefined) {
+  const isFormData = options.body instanceof FormData
+  if (options.body !== undefined && !isFormData) {
     headers['Content-Type'] = 'application/json'
   }
 
@@ -53,8 +54,6 @@ export async function api<T = unknown>(path: string, options: RequestOptions = {
     if (csrf) headers['X-CSRF-Token'] = csrf
   }
 
-  // Match the `/api/` boundary, not the bare prefix `/api`, so an endpoint like `/api_keys` is
-  // still prefixed to `/api/api_keys` instead of being mistaken for an already-prefixed path.
   const alreadyPrefixed = path === '/api' || path.startsWith('/api/')
   const url = alreadyPrefixed ? path : `/api${path.startsWith('/') ? path : `/${path}`}`
 
@@ -65,10 +64,14 @@ export async function api<T = unknown>(path: string, options: RequestOptions = {
       headers,
       credentials: 'same-origin',
       signal: options.signal,
-      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      body:
+        options.body === undefined
+          ? undefined
+          : isFormData
+            ? (options.body as FormData)
+            : JSON.stringify(options.body),
     })
   } catch (err) {
-    // Preserve AbortError so callers / react-query can detect cancellation.
     if (err instanceof DOMException && err.name === 'AbortError') throw err
     throw new NetworkError(err)
   }

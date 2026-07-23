@@ -42,6 +42,7 @@ export function TransactionDetailView({
   onChangeCategory,
   onUnlink,
   contractSection,
+  attachmentsSection,
   linkSection,
   linkConfirmSection,
 }: TransactionDetailViewProps) {
@@ -82,11 +83,18 @@ export function TransactionDetailView({
 
       {linkConfirmSection}
 
-      <dl className="flex flex-col">
+      <dl className="grid grid-cols-[fit-content(5rem)_minmax(0,1fr)] gap-x-4 sm:grid-cols-[fit-content(11rem)_minmax(0,1fr)]">
         <DetailRow label={t(otherPartyLabelKey(transaction.amount))}>
           {transaction.other_party?.trim() || <EmptyValue />}
         </DetailRow>
-        <DetailRow label={t('common.purpose')}>
+        <DetailRow
+          label={
+            <>
+              <span className="sm:hidden">{t('common.purposeShort')}</span>
+              <span className="hidden sm:inline">{t('common.purpose')}</span>
+            </>
+          }
+        >
           {transaction.purpose?.trim() || <EmptyValue />}
         </DetailRow>
         <DetailRow label={t('common.category')}>
@@ -122,6 +130,7 @@ export function TransactionDetailView({
           )}
         </DetailRow>
         {contractSection}
+        {attachmentsSection}
         {transaction.pending ? null : (
           <DetailRow label={t('common.note')} align="start">
             <NoteEditor remoteNote={transaction.note ?? ''} onSave={onSaveNote} />
@@ -189,20 +198,14 @@ export function DetailRow({
   children,
   align = 'center',
 }: {
-  label: string
+  label: React.ReactNode
   children: React.ReactNode
   align?: 'center' | 'start'
 }) {
   return (
     <div
       className={cn(
-        // `minmax(0,1fr)` (not `1fr`) lets the value column shrink below its
-        // content's min-content width; `break-words` on the value then breaks
-        // long unbreakable tokens (e.g. EREF mandate refs in a purpose) instead
-        // of forcing the row wider than the viewport. The label column widens
-        // on sm+ so the longest label ("Verknüpfte Transaktion") stays on one
-        // line; on phones it keeps the value column usable and may wrap.
-        'border-border/40 grid grid-cols-[8rem_minmax(0,1fr)] gap-4 border-t py-3 first:border-t-0 sm:grid-cols-[11rem_minmax(0,1fr)]',
+        'border-border/40 col-span-2 grid grid-cols-subgrid border-t py-3 first:border-t-0',
         align === 'start' ? 'items-start' : 'items-center',
       )}
     >

@@ -1,4 +1,5 @@
-from fastapi import Depends, Query
+from fastapi import Depends, File, Query, UploadFile
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from source.backend.api.core.create_router import create_router
@@ -8,6 +9,7 @@ from source.backend.api.schemas.accounts.account import (
     AccountRead,
     AccountUpdate,
 )
+from source.backend.api.schemas.transactions.attachment import AttachmentRead
 from source.backend.api.schemas.transactions.expected_transaction import (
     ExpectedTransactionRead,
     ExpectedTransactionWrite,
@@ -34,7 +36,10 @@ from source.backend.models.transactions.transaction import Transaction
 from source.backend.services.accounts import account_service
 from source.backend.services.auth import session_service
 from source.backend.services.banking import credential_service
-from source.backend.services.transactions import recurring_transaction_service
+from source.backend.services.transactions import (
+    attachment_service,
+    recurring_transaction_service,
+)
 
 router = create_router()
 
@@ -168,6 +173,83 @@ def update_transaction(
         transaction=transaction,
         fields=payload.model_dump(exclude_unset=True),
     )
+
+
+@router.get(
+    "/{account_id}/transactions/{transaction_id}/attachments",
+    response_model=list[AttachmentRead],
+)
+def list_attachments(
+    transaction_id: int,
+    account: Account = Depends(owned_account),
+    db_session: Session = Depends(get_session),
+) -> list:
+    transaction = account_service.get_transaction_for_account(
+        db_session=db_session, account=account, transaction_id=transaction_id
+    )
+    return attachment_service.list_attachments(transaction=transaction)
+
+
+@router.post(
+    "/{account_id}/transactions/{transaction_id}/attachments",
+    response_model=list[AttachmentRead],
+    status_code=201,
+)
+def upload_attachments(
+    transaction_id: int,
+    files: list[UploadFile] = File(...),
+    account: Account = Depends(owned_account),
+    db_session: Session = Depends(get_session),
+) -> list:
+    transaction = account_service.get_transaction_for_account(
+        db_session=db_session, account=account, transaction_id=transaction_id
+    )
+    created = []
+    for file in files:
+        attachment_service.reject_if_too_large(size=file.size)
+        created.append(
+            attachment_service.create_attachment(
+                db_session=db_session,
+                transaction=transaction,
+                filename=file.filename or "Unnamed",
+                content_type=file.content_type,
+                data=file.file.read(),
+            )
+        )
+    return created
+
+
+@router.get("/{account_id}/transactions/{transaction_id}/attachments/{attachment_id}")
+def download_attachment(
+    transaction_id: int,
+    attachment_id: int,
+    account: Account = Depends(owned_account),
+    db_session: Session = Depends(get_session),
+) -> Response:
+    transaction = account_service.get_transaction_for_account(
+        db_session=db_session, account=account, transaction_id=transaction_id
+    )
+    attachment = attachment_service.get_attachment(
+        db_session=db_session, transaction=transaction, attachment_id=attachment_id
+    )
+    return Response(
+        content=attachment.data,
+        media_type=attachment.content_type or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{attachment.filename}"'},
+    )
+
+
+@router.delete("/{account_id}/transactions/{transaction_id}/attachments/{attachment_id}", status_code=204)
+def delete_attachment(
+    transaction_id: int,
+    attachment_id: int,
+    account: Account = Depends(owned_account),
+    db_session: Session = Depends(get_session),
+) -> None:
+    transaction = account_service.get_transaction_for_account(
+        db_session=db_session, account=account, transaction_id=transaction_id
+    )
+    attachment_service.delete_attachment(db_session=db_session, transaction=transaction, attachment_id=attachment_id)
 
 
 @router.post("/{account_id}/recurring-transactions", response_model=RecurringTransactionRead, status_code=201)

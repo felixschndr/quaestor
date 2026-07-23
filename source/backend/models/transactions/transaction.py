@@ -19,6 +19,9 @@ if TYPE_CHECKING:
 
     from source.backend.models.accounts.account import Account
     from source.backend.models.contracts.contract import Contract
+    from source.backend.models.transactions.transaction_attachment import (
+        TransactionAttachment,
+    )
 
 logger = get_logger(__name__)
 
@@ -74,6 +77,9 @@ class Transaction(Base):
 
     account: Mapped["Account"] = relationship(back_populates="transactions")
     contract: Mapped["Contract | None"] = relationship(back_populates="transactions", foreign_keys=[contract_id])
+    attachments: Mapped[list["TransactionAttachment"]] = relationship(
+        back_populates="transaction", cascade="all, delete-orphan"
+    )
 
     # Set during a sync when this booking resolved a user's expected transaction; never persisted.
     matched_expected_id: ClassVar[int | None] = None

@@ -7,6 +7,8 @@ export interface AppSettings {
   default_language: string
   display_timezone: string
   sync_interval_hours: number
+  allowed_attachment_extensions: string[]
+  max_attachment_size_mb: number
 }
 
 export const settingsQueryKey = ['settings'] as const
