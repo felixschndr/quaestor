@@ -132,7 +132,8 @@
     "selectAll": "All",
     "selectNone": "None",
     "text": "Search text",
-    "textPlaceholder": "Other party, purpose or note",
+    "textPlaceholder": "Other party, purpose, note or attachment",
+    "advancedFilters": "Advanced filters",
     "amountMakeNegative": "Make negative",
     "amountMakePositive": "Make positive",
     "datePlaceholder": "Pick a date",
@@ -573,6 +574,11 @@
   },
   "filters": {
     "transferLabel": "Transfer",
+    "attachmentLabel": "Attachment",
+    "attachment": {
+      "with": "With attachment",
+      "without": "Without attachment"
+    },
     "transfer": {
       "unlinked": "No transfer"
     },

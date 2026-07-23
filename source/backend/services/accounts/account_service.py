@@ -20,6 +20,7 @@ from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.base import snapshot_columns
 from source.backend.models.transactions.transaction import Transaction
+from source.backend.models.transactions.transaction_attachment import TransactionAttachment
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 
@@ -427,6 +428,7 @@ def get_filtered_transactions_for_user(
             Transaction.purpose.ilike(pattern)
             | Transaction.other_party.ilike(pattern)
             | Transaction.note.ilike(pattern)
+            | Transaction.attachments.any(TransactionAttachment.filename.ilike(pattern))
         )
 
     if (amount_from := filter_parameters.get("amount_from")) is not None:
@@ -452,6 +454,10 @@ def get_filtered_transactions_for_user(
             query = query.where(Transaction.transfer_counterpart_id.isnot(None))
         else:
             query = query.where(Transaction.transfer_counterpart_id.is_(None))
+
+    if (has_attachment := filter_parameters.get("has_attachment")) is not None:
+        exists = Transaction.attachments.any()
+        query = query.where(exists if has_attachment == "with" else ~exists)
 
     query = query.order_by(Transaction.date.desc()).order_by(Transaction.id.desc())
 

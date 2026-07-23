@@ -17,6 +17,7 @@ const searchParamsSchema = z.object({
   transaction_types: oneOrMany(z.enum(TRANSACTION_TYPES)).optional(),
   categories: oneOrMany(z.enum(TRANSACTION_CATEGORIES)).optional(),
   linked: z.enum(['linked', 'unlinked']).optional(),
+  has_attachment: z.enum(['with', 'without']).optional(),
   account_ids: oneOrMany(z.coerce.number()).optional(),
   link_account_id: z.coerce.number().optional(),
   link_transaction_id: z.coerce.number().optional(),

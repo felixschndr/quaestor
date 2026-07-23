@@ -1,9 +1,10 @@
-from datetime import date
+from datetime import date, datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
+from source.backend.models.transactions.transaction_attachment import TransactionAttachment
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
@@ -66,6 +67,25 @@ def _seed_linked_pair_and_single(session_factory: sessionmaker, account_id: int)
         single = make_transaction(session, account_id=account_id, amount=-5.0, purpose="standalone")
         session.commit()
         return {"out": out.id, "back": back.id, "single": single.id}
+
+
+def _seed_with_and_without_attachment(session_factory: sessionmaker, account_id: int) -> dict[str, int]:
+    with session_factory() as session:
+        with_att = make_transaction(session, account_id=account_id, amount=-9.0, purpose="invoice payment")
+        without_att = make_transaction(session, account_id=account_id, amount=-4.0, purpose="cash")
+        session.flush()
+        session.add(
+            TransactionAttachment(
+                transaction_id=with_att.id,
+                filename="Rechnung_2026.pdf",
+                content_type="application/pdf",
+                size=3,
+                data=b"pdf",
+                created_at=datetime.now(tz=timezone.utc),
+            )
+        )
+        session.commit()
+        return {"with": with_att.id, "without": without_att.id}
 
 
 def _ids_in_response(response_json: list[dict]) -> set[int]:
@@ -301,6 +321,56 @@ def test_search_rejects_invalid_linked_value(http_client: TestClient, session_fa
     response = http_client.get(
         "/api/transactions/search",
         params=[("account_ids", account_id), ("linked", "maybe")],
+    )
+
+    assert response.status_code == 422
+
+
+def test_search_has_attachment_with_returns_only_attached(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    ids = _seed_with_and_without_attachment(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("has_attachment", "with")],
+    )
+
+    assert response.status_code == 200
+    assert _ids_in_response(response.json()) == {ids["with"]}
+
+
+def test_search_has_attachment_without_returns_only_unattached(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    ids = _seed_with_and_without_attachment(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("has_attachment", "without")],
+    )
+
+    assert response.status_code == 200
+    assert _ids_in_response(response.json()) == {ids["without"]}
+
+
+def test_search_text_matches_attachment_filename(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    ids = _seed_with_and_without_attachment(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("text", "Rechnung")],
+    )
+
+    assert response.status_code == 200
+    assert _ids_in_response(response.json()) == {ids["with"]}
+
+
+def test_search_rejects_invalid_has_attachment_value(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("has_attachment", "maybe")],
     )
 
     assert response.status_code == 422

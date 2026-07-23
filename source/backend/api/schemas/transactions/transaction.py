@@ -7,6 +7,7 @@ from source.backend.models.transactions.transaction_category import TransactionC
 from source.backend.models.transactions.transaction_type import TransactionType
 
 StatisticsLinked = Literal["linked", "unlinked"]
+HasAttachment = Literal["with", "without"]
 
 
 class TransactionRead(BaseModel):
@@ -65,8 +66,8 @@ class TransactionSearchQuery(BaseModel):
     transaction_types: list[TransactionType] = Field(default_factory=list)
     categories: list[TransactionCategory] = Field(default_factory=list)
     note: str | None = None
-    # Missing means "no filter".
     linked: StatisticsLinked | None = None
+    has_attachment: HasAttachment | None = None
 
     def to_filter_parameters(self) -> dict:
         data = self.model_dump(exclude={"account_ids"})

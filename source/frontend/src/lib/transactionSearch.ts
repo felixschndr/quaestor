@@ -14,13 +14,9 @@ export interface TransactionFilters {
   transaction_types?: TransactionType[]
   categories?: TransactionCategory[]
   linked?: 'linked' | 'unlinked'
+  has_attachment?: 'with' | 'without'
 }
 
-/**
- * Drop empty strings + undefined; the backend treats "field missing" as "no
- * filter", so we deliberately don't send falsy garbage. Numeric zero stays
- * — `amount_from=0` means "everything with non-negative amount".
- */
 export function buildFilterQueryString(accountIds: number[], filters: TransactionFilters): string {
   const params = new URLSearchParams()
   for (const accountId of accountIds) {

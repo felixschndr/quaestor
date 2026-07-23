@@ -1,9 +1,9 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
-import { ArrowLeftRight, Unlink } from 'lucide-react'
+import { ArrowLeftRight, ListFilter, Unlink } from 'lucide-react'
 
-import { MultiSelectPopover } from '@/components/ui/multi-select-popover'
+import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 
 export type TransferFilter = 'linked' | 'unlinked'
 
@@ -20,6 +20,11 @@ export function TransferMultiSelect({ id, value, onChange, className }: Transfer
   const iconClass = 'text-muted-foreground size-4 shrink-0'
   const options = [
     {
+      value: 'any' as const,
+      label: t('common.any'),
+      leading: <ListFilter className={iconClass} aria-hidden="true" />,
+    },
+    {
       value: 'linked' as const,
       label: t('filters.transferLabel'),
       leading: <ArrowLeftRight className={iconClass} aria-hidden="true" />,
@@ -30,25 +35,14 @@ export function TransferMultiSelect({ id, value, onChange, className }: Transfer
       leading: <Unlink className={iconClass} aria-hidden="true" />,
     },
   ]
-  const selected: TransferFilter[] = value ? [value] : ['linked', 'unlinked']
-  const handleChange = (next: TransferFilter[]) => onChange(next.length === 1 ? next[0] : undefined)
-
-  const triggerLabel =
-    value === 'linked'
-      ? t('filters.transferLabel')
-      : value === 'unlinked'
-        ? t('filters.transfer.unlinked')
-        : t('common.any')
 
   return (
-    <MultiSelectPopover
+    <SingleSelectPopover
       id={id}
       ariaLabel={t('filters.transferLabel')}
       options={options}
-      selected={selected}
-      onChange={handleChange}
-      triggerLabel={triggerLabel}
-      checkboxIdPrefix="transfer-multi"
+      value={value ?? 'any'}
+      onChange={(next) => onChange(next === 'any' ? undefined : next)}
       className={className}
     />
   )

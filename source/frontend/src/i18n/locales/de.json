@@ -132,7 +132,8 @@
     "selectAll": "Alle",
     "selectNone": "Keine",
     "text": "Suchtext",
-    "textPlaceholder": "Empfänger / Absender / Zweck / Notiz",
+    "textPlaceholder": "Empfänger / Absender / Zweck / Notiz / Anhang",
+    "advancedFilters": "Erweiterte Filter",
     "amountMakeNegative": "Negativ machen",
     "amountMakePositive": "Positiv machen",
     "datePlaceholder": "Datum wählen",
@@ -575,6 +576,11 @@
     "transferLabel": "Umbuchung",
     "transfer": {
       "unlinked": "Keine Umbuchung"
+    },
+    "attachmentLabel": "Anhang",
+    "attachment": {
+      "with": "Mit Anhang",
+      "without": "Ohne Anhang"
     },
     "dateFrom": "Datum von",
     "dateTo": "Datum bis",

@@ -1,12 +1,16 @@
 import { useTranslation } from 'react-i18next'
 
+import {
+  AttachmentMultiSelect,
+  type AttachmentFilter,
+} from '@/components/ui/attachment-multi-select'
 import { CategoryMultiSelect } from '@/components/ui/category-multi-select'
 import { Label } from '@/components/ui/label'
 import { TypeMultiSelect } from '@/components/ui/type-multi-select'
 import { TransferMultiSelect, type TransferFilter } from '@/components/ui/transfer-multi-select'
 import type { TransactionCategory, TransactionType } from '@/lib/transaction'
 
-export type { TransferFilter }
+export type { TransferFilter, AttachmentFilter }
 
 export interface TransactionFilterFieldsProps {
   selectedCategories: TransactionCategory[]
@@ -15,6 +19,9 @@ export interface TransactionFilterFieldsProps {
   onTypesChange: (next: TransactionType[]) => void
   transfer: TransferFilter | undefined
   onTransferChange: (next: TransferFilter | undefined) => void
+  // Attachment filter only makes sense in transaction search, not in stats aggregation.
+  attachment?: AttachmentFilter | undefined
+  onAttachmentChange?: (next: AttachmentFilter | undefined) => void
   idPrefix?: string
 }
 
@@ -25,15 +32,18 @@ export function TransactionFilterFields({
   onTypesChange,
   transfer,
   onTransferChange,
+  attachment,
+  onAttachmentChange,
   idPrefix = 'filter',
 }: TransactionFilterFieldsProps) {
   const { t } = useTranslation()
   const categoriesId = `${idPrefix}-categories`
   const typeId = `${idPrefix}-type`
   const transferId = `${idPrefix}-transfer`
+  const attachmentId = `${idPrefix}-attachment`
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={categoriesId}>{t('common.categories')}</Label>
         <CategoryMultiSelect
@@ -50,6 +60,16 @@ export function TransactionFilterFields({
         <Label htmlFor={transferId}>{t('filters.transferLabel')}</Label>
         <TransferMultiSelect id={transferId} value={transfer} onChange={onTransferChange} />
       </div>
+      {onAttachmentChange ? (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={attachmentId}>{t('filters.attachmentLabel')}</Label>
+          <AttachmentMultiSelect
+            id={attachmentId}
+            value={attachment}
+            onChange={onAttachmentChange}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
