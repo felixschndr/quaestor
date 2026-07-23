@@ -7,22 +7,18 @@ export interface ChartCardProps {
   isLoading: boolean
   isError: boolean
   isEmpty: boolean
-  /** Optional controls rendered in the card header (e.g. chart-type toggle). */
+  emptyLabel?: string
   action?: ReactNode
   children: ReactNode
 }
 
-/**
- * Section wrapper for a single chart: titled card with shared loading / error /
- * empty states (mirroring the search page's result-state handling) so each
- * chart component only deals with the happy path.
- */
 export function ChartCard({
   title,
   icon,
   isLoading,
   isError,
   isEmpty,
+  emptyLabel,
   action,
   children,
 }: ChartCardProps) {
@@ -42,7 +38,9 @@ export function ChartCard({
       ) : isError ? (
         <p className="text-destructive text-sm">{t('stats.error')}</p>
       ) : isEmpty ? (
-        <p className="text-muted-foreground text-sm">{t('stats.empty')}</p>
+        <p className="text-muted-foreground text-sm">
+          {emptyLabel ?? t('common.noMatchingTransactions')}
+        </p>
       ) : (
         children
       )}

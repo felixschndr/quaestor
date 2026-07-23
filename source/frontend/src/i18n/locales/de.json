@@ -88,7 +88,8 @@
       "5": "Samstag",
       "6": "Sonntag"
     },
-    "passwordTooWeak": "Passwort erfüllt nicht alle Anforderungen"
+    "passwordTooWeak": "Passwort erfüllt nicht alle Anforderungen",
+    "noMatchingTransactions": "Keine Transaktionen passen zu deinen Filtern."
   },
   "errors": {
     "serverOffline": {
@@ -150,7 +151,6 @@
     "amountMakeNegative": "Negativ machen",
     "amountMakePositive": "Positiv machen",
     "datePlaceholder": "Datum wählen",
-    "empty": "Keine Transaktionen passen zu deinen Filtern.",
     "error": "Suche fehlgeschlagen. Bitte erneut versuchen.",
     "resultsHeading": "Suchergebnisse",
     "resultsCount": "{{count}} Transaktion",
@@ -620,7 +620,6 @@
       "3y": "3 J"
     },
     "error": "Konnte nicht geladen werden.",
-    "empty": "Keine Daten für diesen Zeitraum.",
     "noMatches": "Keine Daten passen zu deinen Filtern.",
     "other": "Sonstige",
     "direction": {
@@ -689,6 +688,18 @@
     "otherParties": {
       "titleOutgoing": "Top-Empfänger",
       "titleIncoming": "Top-Sender"
+    },
+    "runway": {
+      "title": "Finanzieller Puffer",
+      "remaining": "Verbleibend",
+      "monthsUnit": "Monate",
+      "infinite": "∞",
+      "balance": "Kontostand",
+      "avgExpenses": "Durchschnittliche Ausgaben/Monat",
+      "yearsValue_one": "{{count}} Jahr",
+      "yearsValue_other": "{{count}} Jahre",
+      "monthsValue_one": "{{count}} Monat",
+      "monthsValue_other": "{{count}} Monate"
     }
   },
   "notifications": {

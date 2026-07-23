@@ -83,6 +83,15 @@ export function formatDecimal(value: number): string {
   return decimalFormatter.format(value)
 }
 
+const monthsFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
+
+export function formatMonths(value: number): string {
+  return monthsFormatter.format(value)
+}
+
 const factorMultiplierFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
   minimumFractionDigits: 2,
   maximumFractionDigits: 4,

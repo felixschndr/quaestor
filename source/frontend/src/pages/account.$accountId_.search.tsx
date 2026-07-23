@@ -85,7 +85,7 @@ export function TransactionSearchView({
           linkSource={linkSource}
         />
       ) : (
-        <p className="text-muted-foreground text-sm">{t('search.empty')}</p>
+        <p className="text-muted-foreground text-sm">{t('common.noMatchingTransactions')}</p>
       )}
     </main>
   )
@@ -266,7 +266,7 @@ function SearchResults({
     return <p className="text-destructive text-sm">{t('search.error')}</p>
   }
   if (results.length === 0) {
-    return <p className="text-muted-foreground text-sm">{t('search.empty')}</p>
+    return <p className="text-muted-foreground text-sm">{t('common.noMatchingTransactions')}</p>
   }
 
   return (

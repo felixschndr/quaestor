@@ -19,6 +19,7 @@ import { CategoryChart } from '@/components/stats/category-chart'
 import { CashflowChart } from '@/components/stats/cashflow-chart'
 import { ChartCard } from '@/components/stats/chart-card'
 import { ContractsSummaryCard } from '@/components/stats/contracts-summary-card'
+import { RunwayCard } from '@/components/stats/runway-card'
 import { DrillArrowIcon } from '@/components/stats/chart-parts'
 import { OtherPartyChart } from '@/components/stats/other-party-chart'
 import { NetSavingsChart } from '@/components/stats/net-savings-chart'
@@ -247,6 +248,8 @@ export function StatsView({
       ) : (
         <>
           <ContractsSummaryCard accountIds={accountIds} categories={categoriesParam} />
+
+          <RunwayCard credentials={credentials} accountIds={accountIds} cashflow={cashflow.data} />
 
           <ChartCard
             title={t('stats.netWorth.title')}

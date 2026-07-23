@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import {
   aggregateTopN,
+  averageMonthlyExpenses,
   buildStatsQueryString,
   defaultStatsDateRange,
   fillTransactionCountBuckets,
+  runwayMonths,
+  runwayYearsMonths,
   sliceColor,
   type CategoryChartDatum,
+  type MonthlyCashflow,
 } from '@/lib/statistics'
 
 describe('buildStatsQueryString', () => {
@@ -173,5 +177,56 @@ describe('fillTransactionCountBuckets', () => {
 
   it('returns empty for time groupings without data or range', () => {
     expect(fillTransactionCountBuckets([], 'day')).toEqual([])
+  })
+})
+
+describe('averageMonthlyExpenses', () => {
+  const month = (m: string, expenses: number): MonthlyCashflow => ({
+    month: m,
+    income: 0,
+    expenses,
+  })
+
+  it('averages the expenses across the returned months', () => {
+    expect(
+      averageMonthlyExpenses([
+        month('2026-01', 1000),
+        month('2026-02', 2000),
+        month('2026-03', 3000),
+      ]),
+    ).toBe(2000)
+  })
+
+  it('returns 0 for no months', () => {
+    expect(averageMonthlyExpenses([])).toBe(0)
+  })
+})
+
+describe('runwayMonths', () => {
+  it('divides balance by average monthly expenses', () => {
+    expect(runwayMonths(10000, 2000)).toBe(5)
+  })
+
+  it('returns null when nothing is being spent (indefinite runway)', () => {
+    expect(runwayMonths(10000, 0)).toBeNull()
+  })
+
+  it('clamps a negative (overdrawn) balance to 0', () => {
+    expect(runwayMonths(-500, 2000)).toBe(0)
+  })
+})
+
+describe('runwayYearsMonths', () => {
+  it('splits whole months into years and months', () => {
+    expect(runwayYearsMonths(18)).toEqual({ years: 1, months: 6 })
+  })
+
+  it('rounds to the nearest whole month before splitting', () => {
+    expect(runwayYearsMonths(12.6)).toEqual({ years: 1, months: 1 })
+    expect(runwayYearsMonths(23.6)).toEqual({ years: 2, months: 0 })
+  })
+
+  it('is exact on whole-year boundaries', () => {
+    expect(runwayYearsMonths(24)).toEqual({ years: 2, months: 0 })
   })
 })

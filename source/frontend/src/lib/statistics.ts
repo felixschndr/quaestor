@@ -50,6 +50,21 @@ export interface MonthlyCashflow {
   expenses: number
 }
 
+export function averageMonthlyExpenses(cashflow: MonthlyCashflow[]): number {
+  if (cashflow.length === 0) return 0
+  return cashflow.reduce((sum, month) => sum + month.expenses, 0) / cashflow.length
+}
+
+export function runwayMonths(balance: number, avgMonthlyExpenses: number): number | null {
+  if (avgMonthlyExpenses <= 0) return null
+  return Math.max(0, balance / avgMonthlyExpenses)
+}
+
+export function runwayYearsMonths(totalMonths: number): { years: number; months: number } {
+  const whole = Math.round(totalMonths)
+  return { years: Math.floor(whole / 12), months: whole % 12 }
+}
+
 export interface MonthlyNetSavings {
   month: string
   net: number

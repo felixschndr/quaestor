@@ -4,7 +4,8 @@ import { ArrowRight, Repeat } from 'lucide-react'
 
 import { sumContractsForPeriod, useContracts } from '@/lib/contract'
 import { formatMoney } from '@/lib/format'
-import { StatMetric } from '@/components/stats/stat-metric'
+import { ChartCard } from '@/components/stats/chart-card'
+import { StatMetricGroup } from '@/components/stats/stat-metric'
 import type { TransactionCategory } from '@/lib/transaction'
 
 export function ContractsSummaryCard({
@@ -16,17 +17,22 @@ export function ContractsSummaryCard({
 }) {
   const { t } = useTranslation()
   const { data } = useContracts()
-  const contracts = (data ?? []).filter((contract) => accountIds.includes(contract.account_id))
-
-  if (contracts.length === 0) return null
+  const contracts = (data ?? []).filter(
+    (contract) =>
+      accountIds.includes(contract.account_id) &&
+      (categories.length === 0 ||
+        (contract.category !== null && categories.includes(contract.category))),
+  )
 
   return (
-    <section className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4">
-      <header className="flex items-center justify-between gap-2">
-        <h2 className="text-primary inline-flex items-center gap-2 text-sm font-semibold">
-          <Repeat className="size-4" aria-hidden="true" />
-          {t('contracts.title')}
-        </h2>
+    <ChartCard
+      title={t('contracts.title')}
+      icon={<Repeat className="size-4" aria-hidden="true" />}
+      isLoading={data === undefined}
+      isError={false}
+      isEmpty={contracts.length === 0}
+      emptyLabel={t('contracts.noMatches')}
+      action={
         <Link
           to="/contracts"
           search={{
@@ -38,30 +44,24 @@ export function ContractsSummaryCard({
           {t('stats.contracts.viewAll')}
           <ArrowRight className="size-3.5" aria-hidden="true" />
         </Link>
-      </header>
-      <div className="grid grid-cols-3 gap-2">
-        <Metric
-          label={t('stats.contracts.perDay')}
-          value={formatMoney(sumContractsForPeriod(contracts, 'DAY'))}
-        />
-        <Metric
-          label={t('stats.contracts.perMonth')}
-          value={formatMoney(sumContractsForPeriod(contracts, 'MONTHLY'))}
-        />
-        <Metric
-          label={t('stats.contracts.perYear')}
-          value={formatMoney(sumContractsForPeriod(contracts, 'YEARLY'))}
-        />
-      </div>
-    </section>
-  )
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-muted/50 flex flex-col items-center gap-0.5 rounded-md p-3 text-center">
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <span className="truncate text-base font-semibold tabular-nums">{value}</span>
-    </div>
+      }
+    >
+      <StatMetricGroup
+        metrics={[
+          {
+            label: t('stats.contracts.perDay'),
+            value: formatMoney(sumContractsForPeriod(contracts, 'DAY')),
+          },
+          {
+            label: t('stats.contracts.perMonth'),
+            value: formatMoney(sumContractsForPeriod(contracts, 'MONTHLY')),
+          },
+          {
+            label: t('stats.contracts.perYear'),
+            value: formatMoney(sumContractsForPeriod(contracts, 'YEARLY')),
+          },
+        ]}
+      />
+    </ChartCard>
   )
 }

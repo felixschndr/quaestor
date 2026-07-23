@@ -88,7 +88,8 @@
       "5": "Saturday",
       "6": "Sunday"
     },
-    "passwordTooWeak": "Password does not meet all requirements"
+    "passwordTooWeak": "Password does not meet all requirements",
+    "noMatchingTransactions": "No transactions match your filters."
   },
   "errors": {
     "serverOffline": {
@@ -150,7 +151,6 @@
     "amountMakeNegative": "Make negative",
     "amountMakePositive": "Make positive",
     "datePlaceholder": "Pick a date",
-    "empty": "No transactions match your filters.",
     "error": "Search failed. Please try again.",
     "resultsHeading": "Search results",
     "resultsCount": "{{count}} transaction",
@@ -620,7 +620,6 @@
       "3y": "3Y"
     },
     "error": "Could not load.",
-    "empty": "No data for this period.",
     "noMatches": "No data matches your filters.",
     "other": "Other",
     "direction": {
@@ -689,6 +688,18 @@
     "otherParties": {
       "titleOutgoing": "Top recipients",
       "titleIncoming": "Top senders"
+    },
+    "runway": {
+      "title": "Runway",
+      "remaining": "Remaining",
+      "monthsUnit": "months",
+      "infinite": "∞",
+      "balance": "Balance",
+      "avgExpenses": "Average expenses/month",
+      "yearsValue_one": "{{count}} year",
+      "yearsValue_other": "{{count}} years",
+      "monthsValue_one": "{{count}} month",
+      "monthsValue_other": "{{count}} months"
     }
   },
   "notifications": {
