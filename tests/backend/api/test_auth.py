@@ -255,6 +255,45 @@ def test_register_rejects_invalid_theme(http_client: TestClient):
     assert response.status_code == 422
 
 
+def test_register_defaults_language_and_currency(http_client: TestClient):
+    body = register(http_client).json()
+
+    assert body["language"] == "en"
+    assert body["currency"] == "EUR"
+
+
+def test_register_accepts_explicit_language_and_currency(http_client: TestClient):
+    response = http_client.post(
+        "/api/auth/register",
+        json={
+            "user_name": USER_NAME,
+            "display_name": DISPLAY_NAME,
+            "password": VALID_PASSWORD,
+            "language": "de",
+            "currency": "USD",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["language"] == "de"
+    assert body["currency"] == "USD"
+
+
+def test_register_rejects_unsupported_currency(http_client: TestClient):
+    response = http_client.post(
+        "/api/auth/register",
+        json={
+            "user_name": USER_NAME,
+            "display_name": DISPLAY_NAME,
+            "password": VALID_PASSWORD,
+            "currency": "XYZ",
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_password_requirements_returns_current_rules(http_client: TestClient):
     response = http_client.get("/api/auth/password_requirements")
 

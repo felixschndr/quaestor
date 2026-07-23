@@ -156,6 +156,8 @@ export interface RegisterPayload {
   display_name: string
   password: string
   theme?: Theme
+  language?: string
+  currency?: string
 }
 
 export function useRegister() {

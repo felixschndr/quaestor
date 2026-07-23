@@ -32,16 +32,46 @@ def _validate_password_complexity(value: str) -> str:
     return value
 
 
+def _validate_language(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if not i18n_service.is_supported(value):
+        supported = ", ".join(i18n_service.SUPPORTED_LANGUAGES)
+        raise ValueError(f"Language {value!r} is not supported (supported: {supported})")
+    return value
+
+
+def _validate_currency(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if not i18n_service.is_supported_currency(value):
+        supported = ", ".join(i18n_service.SUPPORTED_CURRENCIES)
+        raise ValueError(f"Currency {value!r} is not supported (supported: {supported})")
+    return value
+
+
 class UserCreate(BaseModel):
     user_name: UserName
     display_name: str
     password: str = Field(min_length=MIN_PASSWORD_LENGTH)
     theme: Theme = Theme.SYSTEM
+    language: str | None = None  # None → server default
+    currency: str | None = None  # None → server default
 
     @field_validator("password")
     @classmethod
     def _check_password(cls: type["UserCreate"], value: str) -> str:
         return _validate_password_complexity(value)
+
+    @field_validator("language")
+    @classmethod
+    def _check_language(cls: type["UserCreate"], value: str | None) -> str | None:
+        return _validate_language(value)
+
+    @field_validator("currency")
+    @classmethod
+    def _check_currency(cls: type["UserCreate"], value: str | None) -> str | None:
+        return _validate_currency(value)
 
 
 class PasswordRule(BaseModel):
@@ -92,22 +122,12 @@ class UserUpdate(BaseModel):
     @field_validator("language")
     @classmethod
     def _check_language(cls: type["UserUpdate"], value: str | None) -> str | None:
-        if value is None:
-            return None
-        if not i18n_service.is_supported(value):
-            supported = ", ".join(i18n_service.SUPPORTED_LANGUAGES)
-            raise ValueError(f"Language {value!r} is not supported (supported: {supported})")
-        return value
+        return _validate_language(value)
 
     @field_validator("currency")
     @classmethod
     def _check_currency(cls: type["UserUpdate"], value: str | None) -> str | None:
-        if value is None:
-            return None
-        if not i18n_service.is_supported_currency(value):
-            supported = ", ".join(i18n_service.SUPPORTED_CURRENCIES)
-            raise ValueError(f"Currency {value!r} is not supported (supported: {supported})")
-        return value
+        return _validate_currency(value)
 
     @model_validator(mode="after")
     def _password_change_requires_current(self) -> "UserUpdate":

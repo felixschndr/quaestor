@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useRef, useState } from 'react'
+import { useForm, type UseFormReturn } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useTranslation } from 'react-i18next'
@@ -12,7 +12,16 @@ import { Switch } from '@/components/ui/switch'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { TwoFactorSetup } from '@/components/two-factor-setup'
 import { ApiError } from '@/lib/api'
-import { safeNext, useLogin, usePasswordRequirements, useRegister, type Theme } from '@/lib/auth'
+import {
+  evaluatePassword,
+  safeNext,
+  useLogin,
+  usePasswordRequirements,
+  useRegister,
+  type PasswordRequirements,
+  type Theme,
+} from '@/lib/auth'
+import { useSupportedCurrencies, useSupportedLanguages } from '@/lib/user'
 import { useAppSettings } from '@/lib/settings'
 import { useVerifyTwoFactorLogin } from '@/lib/twoFactor'
 import { applyTheme, readStoredTheme, THEME_VALUES } from '@/lib/theme'
@@ -287,19 +296,39 @@ interface RegisterValues {
   display_name: string
   password: string
   password_confirm: string
-  theme: Theme
   enable_two_factor: boolean
+  language: string
+  currency: string
+  theme: Theme
 }
 
-function buildRegisterSchema(t: (key: string) => string) {
+const ACCOUNT_FIELDS = ['user_name', 'display_name', 'password', 'password_confirm'] as const
+
+function buildRegisterSchema(
+  t: (key: string) => string,
+  requirements: PasswordRequirements | undefined,
+) {
   return z
     .object({
       user_name: z.string().min(1, { message: t('login.required') }),
       display_name: z.string().min(1, { message: t('login.required') }),
       password: z.string().min(1, { message: t('login.required') }),
       password_confirm: z.string().min(1, { message: t('login.required') }),
-      theme: z.enum(THEME_VALUES as readonly [Theme, ...Theme[]]),
       enable_two_factor: z.boolean(),
+      language: z.string().min(1),
+      currency: z.string().min(1),
+      theme: z.enum(THEME_VALUES as readonly [Theme, ...Theme[]]),
+    })
+    .superRefine((values, ctx) => {
+      if (values.password.length === 0) return
+      const { unmetRuleNames, tooShort } = evaluatePassword(values.password, requirements)
+      if (tooShort || unmetRuleNames.length > 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['password'],
+          message: t('common.passwordTooWeak'),
+        })
+      }
     })
     .refine((values) => values.password === values.password_confirm, {
       path: ['password_confirm'],
@@ -308,24 +337,33 @@ function buildRegisterSchema(t: (key: string) => string) {
 }
 
 export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const register = useRegister()
   const { data: passwordRequirements } = usePasswordRequirements()
   const [setupUserId, setSetupUserId] = useState<number | null>(null)
+  const [step, setStep] = useState<'account' | 'appearance'>('account')
+
+  const requirementsRef = useRef(passwordRequirements)
+  requirementsRef.current = passwordRequirements
 
   const form = useForm<RegisterValues>({
-    resolver: zodResolver(buildRegisterSchema(t)),
+    resolver: (values, context, options) =>
+      zodResolver(buildRegisterSchema(t, requirementsRef.current))(values, context, options),
     defaultValues: {
       user_name: '',
       display_name: '',
       password: '',
       password_confirm: '',
-      // Pre-fill with whatever the user already picked pre-login (or SYSTEM
-      // for a first-time visitor); the select reflects this default.
-      theme: readStoredTheme(),
       enable_two_factor: false,
+      language: i18n.language,
+      currency: 'EUR',
+      theme: readStoredTheme(),
     },
   })
+
+  const goToAppearance = async () => {
+    if (await form.trigger(ACCOUNT_FIELDS)) setStep('appearance')
+  }
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
@@ -334,6 +372,8 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
         display_name: values.display_name,
         password: values.password,
         theme: values.theme,
+        language: values.language,
+        currency: values.currency,
       })
       if (values.enable_two_factor) {
         setSetupUserId(user.id)
@@ -342,6 +382,7 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
       onSuccess()
     } catch (err) {
       applyServerError(err, form.setError as unknown as SetError, t)
+      setStep('account')
     }
   })
 
@@ -354,84 +395,158 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
         <div className="flex flex-col gap-1">
           <h2 className="text-foreground text-lg font-semibold">{t('twoFactor.setupTitle')}</h2>
         </div>
-        {/* No cancel here: the account already exists; finishing (or skipping via "done"
-            after enabling) is the only forward path. */}
-        <TwoFactorSetup userId={setupUserId} onFinished={onSuccess} />
+        <TwoFactorSetup
+          userId={setupUserId}
+          onFinished={onSuccess}
+          onCancel={onSuccess}
+          cancelLabel={t('twoFactor.skipSetup')}
+        />
       </div>
     )
   }
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-      <FieldRow
-        id="register-user-name"
-        label={t('common.username')}
-        autoComplete="username"
-        error={form.formState.errors.user_name?.message}
-        {...form.register('user_name')}
-      />
-      <FieldRow
-        id="register-display-name"
-        label={t('common.displayName')}
-        autoComplete="name"
-        error={form.formState.errors.display_name?.message}
-        {...form.register('display_name')}
-      />
-      <FieldRow
-        id="register-password"
-        type="password"
-        label={t('common.password')}
-        autoComplete="new-password"
-        error={form.formState.errors.password?.message}
-        {...form.register('password')}
-      />
-      <PasswordRequirementsList password={password} requirements={passwordRequirements} />
-      <FieldRow
-        id="register-password-confirm"
-        type="password"
-        label={t('login.passwordConfirm')}
-        autoComplete="new-password"
-        error={form.formState.errors.password_confirm?.message}
-        {...form.register('password_confirm')}
-      />
+      {step === 'account' ? (
+        <>
+          <FieldRow
+            id="register-user-name"
+            label={t('common.username')}
+            autoComplete="username"
+            error={form.formState.errors.user_name?.message}
+            {...form.register('user_name')}
+          />
+          <FieldRow
+            id="register-display-name"
+            label={t('common.displayName')}
+            autoComplete="name"
+            error={form.formState.errors.display_name?.message}
+            {...form.register('display_name')}
+          />
+          <FieldRow
+            id="register-password"
+            type="password"
+            label={t('common.password')}
+            autoComplete="new-password"
+            error={form.formState.errors.password?.message}
+            {...form.register('password')}
+          />
+          <PasswordRequirementsList password={password} requirements={passwordRequirements} />
+          <FieldRow
+            id="register-password-confirm"
+            type="password"
+            label={t('login.passwordConfirm')}
+            autoComplete="new-password"
+            error={form.formState.errors.password_confirm?.message}
+            {...form.register('password_confirm')}
+          />
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="register-theme">{t('settings.theme')}</Label>
-        <SingleSelectPopover
-          id="register-theme"
-          ariaLabel={t('settings.theme')}
-          value={form.watch('theme')}
-          onChange={(next) => {
-            form.setValue('theme', next)
-            // Live preview: applies to the whole page immediately so the user
-            // sees what they're picking before they submit.
-            applyTheme(next)
-          }}
-          options={THEME_VALUES.map((value) => ({
-            value,
-            label: t(`settings.theme${value.charAt(0)}${value.slice(1).toLowerCase()}`),
-          }))}
-        />
-      </div>
+          <label className="border-border bg-card flex cursor-pointer items-center justify-between gap-3 rounded-md border p-3">
+            <span className="flex flex-col">
+              <span className="text-sm font-medium">{t('twoFactor.enable')}</span>
+              <span className="text-muted-foreground text-xs">{t('twoFactor.enableHint')}</span>
+            </span>
+            <Switch
+              checked={form.watch('enable_two_factor')}
+              onCheckedChange={(checked) => form.setValue('enable_two_factor', checked === true)}
+              aria-label={t('twoFactor.enable')}
+            />
+          </label>
 
-      <label className="border-border bg-card flex cursor-pointer items-center justify-between gap-3 rounded-md border p-3">
-        <span className="flex flex-col">
-          <span className="text-sm font-medium">{t('twoFactor.enable')}</span>
-          <span className="text-muted-foreground text-xs">{t('twoFactor.enableHint')}</span>
-        </span>
-        <Switch
-          checked={form.watch('enable_two_factor')}
-          onCheckedChange={(checked) => form.setValue('enable_two_factor', checked === true)}
-          aria-label={t('twoFactor.enable')}
-        />
-      </label>
+          {topLevelError ? <FormErrorBanner message={topLevelError} /> : null}
 
-      {topLevelError ? <FormErrorBanner message={topLevelError} /> : null}
+          <Button type="button" onClick={() => void goToAppearance()}>
+            {t('common.continue')}
+          </Button>
+        </>
+      ) : (
+        <>
+          <h2 className="text-foreground text-lg font-semibold">{t('settings.appearance')}</h2>
 
-      <Button type="submit" disabled={register.isPending}>
-        {t('login.submitRegister')}
-      </Button>
+          <RegisterLanguageField form={form} />
+          <RegisterCurrencyField form={form} />
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="register-theme">{t('settings.theme')}</Label>
+            <SingleSelectPopover
+              id="register-theme"
+              ariaLabel={t('settings.theme')}
+              value={form.watch('theme')}
+              onChange={(next) => {
+                form.setValue('theme', next)
+                applyTheme(next)
+              }}
+              options={THEME_VALUES.map((value) => ({
+                value,
+                label: t(`settings.theme${value.charAt(0)}${value.slice(1).toLowerCase()}`),
+              }))}
+            />
+          </div>
+
+          {topLevelError ? <FormErrorBanner message={topLevelError} /> : null}
+
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setStep('account')}
+              disabled={register.isPending}
+            >
+              {t('common.back')}
+            </Button>
+            <Button type="submit" className="flex-1" disabled={register.isPending}>
+              {t('login.submitRegister')}
+            </Button>
+          </div>
+        </>
+      )}
     </form>
+  )
+}
+
+function RegisterLanguageField({ form }: { form: UseFormReturn<RegisterValues> }) {
+  const { t, i18n } = useTranslation()
+  const { data: languages } = useSupportedLanguages()
+  const options = (languages?.languages ?? [form.watch('language')])
+    .map((code) => ({ value: code, label: t(`languages.${code}`, { defaultValue: code }) }))
+    .sort((a, b) => a.label.localeCompare(b.label, i18n.language))
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor="register-language">{t('settings.language')}</Label>
+      <SingleSelectPopover
+        id="register-language"
+        ariaLabel={t('settings.language')}
+        value={form.watch('language')}
+        disabled={!languages}
+        onChange={(next) => form.setValue('language', next)}
+        options={options}
+      />
+    </div>
+  )
+}
+
+function RegisterCurrencyField({ form }: { form: UseFormReturn<RegisterValues> }) {
+  const { t } = useTranslation()
+  const { data: currencies } = useSupportedCurrencies()
+  const options = (currencies?.currencies ?? [form.watch('currency')]).map((code) => ({
+    value: code,
+    label: t(`currencies.${code}`, { defaultValue: code }),
+  }))
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor="register-currency">{t('settings.currency')}</Label>
+      <SingleSelectPopover
+        id="register-currency"
+        ariaLabel={t('settings.currency')}
+        value={form.watch('currency')}
+        disabled={!currencies}
+        onChange={(next) => form.setValue('currency', next)}
+        options={options}
+      />
+    </div>
   )
 }
 
@@ -447,9 +562,6 @@ type SetError = (name: string, error: { type: string; message: string }) => void
 
 function applyServerError(err: unknown, setError: SetError, t: (key: string) => string) {
   if (!(err instanceof ApiError)) return
-  // 401 (invalid credentials) is surfaced via the top-level banner — we can't
-  // safely blame a specific field because the backend doesn't tell which one
-  // is wrong.
   if (err.status === 409) {
     setError('user_name', { type: 'server', message: t('login.userNameTaken') })
     return

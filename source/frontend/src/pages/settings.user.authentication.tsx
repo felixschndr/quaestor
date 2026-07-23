@@ -57,9 +57,6 @@ function PasswordSection({ user }: { user: UserRead }) {
   const newPassword = form.watch('new_password')
 
   const onSubmit = form.handleSubmit(async (values) => {
-    // Block submit client-side when the new password fails the live rules, so
-    // we never surface the backend's untranslated Pydantic 422 message
-    // ("String should have at least 15 characters") in the UI.
     if (passwordRequirements) {
       const { unmetRuleNames, tooShort } = evaluatePassword(
         values.new_password,
@@ -68,7 +65,7 @@ function PasswordSection({ user }: { user: UserRead }) {
       if (tooShort || unmetRuleNames.length > 0) {
         form.setError('new_password', {
           type: 'validate',
-          message: t('settings.passwordTooWeak'),
+          message: t('common.passwordTooWeak'),
         })
         return
       }
@@ -88,13 +85,10 @@ function PasswordSection({ user }: { user: UserRead }) {
         })
         return
       }
-      // 422 from the server only fires if the user raced the requirements
-      // query (or the rules drifted). Pin the inline error to the password
-      // field with a translated message instead of leaking Pydantic's English.
       if (err instanceof ApiError && err.status === 422) {
         form.setError('new_password', {
           type: 'server',
-          message: t('settings.passwordTooWeak'),
+          message: t('common.passwordTooWeak'),
         })
         return
       }

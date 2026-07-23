@@ -18,6 +18,7 @@
     "copySecret": "Secret kopieren",
     "codeLabel": "Authentifizierungscode",
     "verifyAndEnable": "Bestätigen und aktivieren",
+    "skipSetup": "Ohne Zwei-Faktor fortfahren",
     "invalidCode": "Dieser Code ist nicht korrekt. Bitte versuche es erneut.",
     "setupFailed": "Die Einrichtung konnte nicht gestartet werden. Bitte versuche es erneut.",
     "backupTitle": "Speichere deine Backup-Codes",
@@ -43,6 +44,7 @@
     "refreshServerOnly": "Keine Bankabfrage – lädt nur bereits auf dem Server vorhandene Daten neu",
     "copy": "Kopieren",
     "back": "Zurück",
+    "continue": "Weiter",
     "saved": "Gespeichert",
     "copied": "Kopiert",
     "delete": "Löschen",
@@ -85,7 +87,8 @@
       "4": "Freitag",
       "5": "Samstag",
       "6": "Sonntag"
-    }
+    },
+    "passwordTooWeak": "Passwort erfüllt nicht alle Anforderungen"
   },
   "errors": {
     "serverOffline": {
@@ -259,7 +262,6 @@
     "newPassword": "Neues Passwort",
     "changePassword": "Passwort ändern",
     "passwordChanged": "Passwort geändert",
-    "passwordTooWeak": "Passwort erfüllt nicht alle Anforderungen",
     "wrongCurrentPassword": "Das aktuelle Passwort ist falsch",
     "deleteDescription": "Lösche dein Konto und alle zugehörigen Daten unwiderruflich.",
     "deleteConfirm": "Bist du sicher? Das kann nicht rückgängig gemacht werden.",

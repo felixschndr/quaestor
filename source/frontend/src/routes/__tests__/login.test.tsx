@@ -18,6 +18,16 @@ const PASSWORD_REQUIREMENTS: PasswordRequirements = {
   ],
 }
 
+function appearanceRoute(url: string): ReturnType<typeof jsonResponse> | null {
+  if (url === '/api/i18n/languages') {
+    return jsonResponse({ status: 200, body: { languages: ['en', 'de'] } })
+  }
+  if (url === '/api/i18n/currencies') {
+    return jsonResponse({ status: 200, body: { currencies: ['EUR', 'USD'] } })
+  }
+  return null
+}
+
 beforeEach(() => {
   globalThis.fetch = vi.fn() as unknown as typeof fetch
   // Cookie carries CSRF token via api wrapper; not needed for these tests
@@ -123,21 +133,48 @@ describe('RegisterForm', () => {
     await user.type(screen.getByLabelText('Display name'), 'Alice')
     await user.type(screen.getByLabelText('Password'), 'Sup3rSecret!Pass')
     await user.type(screen.getByLabelText('Confirm password'), 'Sup3rSecret!Diff')
-    await user.click(screen.getByRole('button', { name: 'Create account' }))
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
 
     expect(await screen.findByText('Passwords do not match')).toBeInTheDocument()
     expect(onSuccess).not.toHaveBeenCalled()
-    // Only the GET for password requirements, no POST to /register.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('blocks Continue when the password does not meet the requirements', async () => {
+    const user = userEvent.setup()
+    ;(globalThis.fetch as Mock).mockResolvedValueOnce(
+      jsonResponse({ status: 200, body: PASSWORD_REQUIREMENTS }),
+    )
+    const onSuccess = vi.fn()
+
+    renderWithQuery(<RegisterForm onSuccess={onSuccess} />)
+    await screen.findByText('Password must contain:')
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Display name'), 'Alice')
+    await user.type(screen.getByLabelText('Password'), 'weak')
+    await user.type(screen.getByLabelText('Confirm password'), 'weak')
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+
+    expect(await screen.findByText('Password does not meet all requirements')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Create account' })).not.toBeInTheDocument()
     expect(globalThis.fetch).toHaveBeenCalledTimes(1)
   })
 
   it('shows inline error on username when backend returns 409', async () => {
     const user = userEvent.setup()
-    ;(globalThis.fetch as Mock)
-      .mockResolvedValueOnce(jsonResponse({ status: 200, body: PASSWORD_REQUIREMENTS }))
-      .mockResolvedValueOnce(
-        jsonResponse({ status: 409, body: { detail: "User name 'alice' is already taken" } }),
-      )
+    ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
+      if (url === '/api/auth/password_requirements') {
+        return Promise.resolve(jsonResponse({ status: 200, body: PASSWORD_REQUIREMENTS }))
+      }
+      const appearance = appearanceRoute(url)
+      if (appearance) return Promise.resolve(appearance)
+      if (url === '/api/auth/register') {
+        return Promise.resolve(
+          jsonResponse({ status: 409, body: { detail: "User name 'alice' is already taken" } }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`))
+    })
     const onSuccess = vi.fn()
 
     renderWithQuery(<RegisterForm onSuccess={onSuccess} />)
@@ -145,24 +182,32 @@ describe('RegisterForm', () => {
     await user.type(screen.getByLabelText('Display name'), 'Alice')
     await user.type(screen.getByLabelText('Password'), 'Sup3rSecret!Pass')
     await user.type(screen.getByLabelText('Confirm password'), 'Sup3rSecret!Pass')
-    await user.click(screen.getByRole('button', { name: 'Create account' }))
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await user.click(await screen.findByRole('button', { name: 'Create account' }))
 
     expect(await screen.findByText('This username is already taken')).toBeInTheDocument()
     expect(onSuccess).not.toHaveBeenCalled()
-    // No generic top-level banner duplication.
     expect(screen.queryByText('Something went wrong. Please try again.')).not.toBeInTheDocument()
   })
 
-  it('submits a valid registration payload', async () => {
+  it('submits a valid registration payload including language and currency', async () => {
     const user = userEvent.setup()
-    ;(globalThis.fetch as Mock)
-      .mockResolvedValueOnce(jsonResponse({ status: 200, body: PASSWORD_REQUIREMENTS }))
-      .mockResolvedValueOnce(
-        jsonResponse({
-          status: 201,
-          body: { id: 1, user_name: 'alice', display_name: 'Alice', language: 'en', balance: 0 },
-        }),
-      )
+    ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
+      if (url === '/api/auth/password_requirements') {
+        return Promise.resolve(jsonResponse({ status: 200, body: PASSWORD_REQUIREMENTS }))
+      }
+      const appearance = appearanceRoute(url)
+      if (appearance) return Promise.resolve(appearance)
+      if (url === '/api/auth/register') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 201,
+            body: { id: 1, user_name: 'alice', display_name: 'Alice', language: 'en', balance: 0 },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`))
+    })
     const onSuccess = vi.fn()
 
     renderWithQuery(<RegisterForm onSuccess={onSuccess} />)
@@ -170,7 +215,8 @@ describe('RegisterForm', () => {
     await user.type(screen.getByLabelText('Display name'), 'Alice')
     await user.type(screen.getByLabelText('Password'), 'Sup3rSecret!Pass')
     await user.type(screen.getByLabelText('Confirm password'), 'Sup3rSecret!Pass')
-    await user.click(screen.getByRole('button', { name: 'Create account' }))
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await user.click(await screen.findByRole('button', { name: 'Create account' }))
 
     await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1))
     const registerCall = (globalThis.fetch as Mock).mock.calls.find(
@@ -182,6 +228,8 @@ describe('RegisterForm', () => {
       display_name: 'Alice',
       password: 'Sup3rSecret!Pass',
       theme: 'SYSTEM',
+      language: 'en',
+      currency: 'EUR',
     })
   })
 })
@@ -301,6 +349,8 @@ describe('registration with two-factor', () => {
       if (url === '/api/auth/password_requirements') {
         return Promise.resolve(jsonResponse({ status: 200, body: PASSWORD_REQUIREMENTS }))
       }
+      const appearance = appearanceRoute(url)
+      if (appearance) return Promise.resolve(appearance)
       if (url === '/api/auth/register') {
         return Promise.resolve(
           jsonResponse({
@@ -343,7 +393,8 @@ describe('registration with two-factor', () => {
     await user.type(screen.getByLabelText('Password'), 'Sup3rSecret!Pass')
     await user.type(screen.getByLabelText('Confirm password'), 'Sup3rSecret!Pass')
     await user.click(screen.getByRole('switch', { name: 'Enable two-factor authentication' }))
-    await user.click(screen.getByRole('button', { name: 'Create account' }))
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await user.click(await screen.findByRole('button', { name: 'Create account' }))
 
     expect(await screen.findByText('JBSWY3DPEHPK3PXP')).toBeInTheDocument()
     await user.type(screen.getByLabelText('Authentication code'), '123456')
@@ -353,6 +404,61 @@ describe('registration with two-factor', () => {
     expect(onSuccess).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: "I've saved my backup codes" }))
     await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1))
+  })
+
+  it('lets the user skip 2FA from the setup screen and continue to the app', async () => {
+    const user = userEvent.setup()
+    ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
+      if (url === '/api/auth/password_requirements') {
+        return Promise.resolve(jsonResponse({ status: 200, body: PASSWORD_REQUIREMENTS }))
+      }
+      const appearance = appearanceRoute(url)
+      if (appearance) return Promise.resolve(appearance)
+      if (url === '/api/auth/register') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 201,
+            body: {
+              id: 1,
+              user_name: 'alice',
+              display_name: 'Alice',
+              language: 'en',
+              two_factor_enabled: false,
+              balance: 0,
+            },
+          }),
+        )
+      }
+      if (url === '/api/users/1/2fa/setup') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 200,
+            body: {
+              secret: 'JBSWY3DPEHPK3PXP',
+              otpauth_uri: 'otpauth://x',
+              qr_code: 'data:image/svg+xml;base64,abc',
+            },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`))
+    })
+    const onSuccess = vi.fn()
+
+    renderWithQuery(<RegisterForm onSuccess={onSuccess} />)
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Display name'), 'Alice')
+    await user.type(screen.getByLabelText('Password'), 'Sup3rSecret!Pass')
+    await user.type(screen.getByLabelText('Confirm password'), 'Sup3rSecret!Pass')
+    await user.click(screen.getByRole('switch', { name: 'Enable two-factor authentication' }))
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await user.click(await screen.findByRole('button', { name: 'Create account' }))
+
+    await user.click(await screen.findByRole('button', { name: 'Continue without two-factor' }))
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1))
+    expect(
+      (globalThis.fetch as Mock).mock.calls.some(([url]) => url === '/api/users/1/2fa/enable'),
+    ).toBe(false)
   })
 })
 

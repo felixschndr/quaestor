@@ -48,6 +48,8 @@ def register(
         display_name=payload.display_name,
         password=payload.password,
         theme=payload.theme,
+        language=payload.language,
+        currency=payload.currency,
     )
     logger.info(f"Registered {user}")
     _start_session(request=request, response=response, db_session=db_session, user=user, remember_me=True)

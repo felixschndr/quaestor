@@ -18,6 +18,7 @@
     "copySecret": "Copy secret",
     "codeLabel": "Authentication code",
     "verifyAndEnable": "Verify and enable",
+    "skipSetup": "Continue without two-factor",
     "invalidCode": "That code is not correct. Please try again.",
     "setupFailed": "Could not start two-factor setup. Please try again.",
     "backupTitle": "Save your backup codes",
@@ -43,6 +44,7 @@
     "refreshServerOnly": "No bank query — only refreshes data already on the server",
     "copy": "Copy",
     "back": "Back",
+    "continue": "Continue",
     "saved": "Saved",
     "copied": "Copied",
     "delete": "Delete",
@@ -85,7 +87,8 @@
       "4": "Friday",
       "5": "Saturday",
       "6": "Sunday"
-    }
+    },
+    "passwordTooWeak": "Password does not meet all requirements"
   },
   "errors": {
     "serverOffline": {
@@ -259,7 +262,6 @@
     "newPassword": "New password",
     "changePassword": "Change password",
     "passwordChanged": "Password changed",
-    "passwordTooWeak": "Password does not meet all requirements",
     "wrongCurrentPassword": "Current password is incorrect",
     "deleteDescription": "Permanently delete your account and all associated data.",
     "deleteConfirm": "Are you sure? This cannot be undone.",

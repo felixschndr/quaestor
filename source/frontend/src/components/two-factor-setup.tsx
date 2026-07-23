@@ -19,9 +19,10 @@ export interface TwoFactorSetupProps {
   userId: number
   onFinished: () => void
   onCancel?: () => void
+  cancelLabel?: string
 }
 
-export function TwoFactorSetup({ userId, onFinished, onCancel }: TwoFactorSetupProps) {
+export function TwoFactorSetup({ userId, onFinished, onCancel, cancelLabel }: TwoFactorSetupProps) {
   const { t } = useTranslation()
   const start = useStartTwoFactorSetup(userId)
   const enable = useEnableTwoFactor(userId)
@@ -57,7 +58,7 @@ export function TwoFactorSetup({ userId, onFinished, onCancel }: TwoFactorSetupP
         </p>
         {onCancel ? (
           <Button type="button" variant="outline" onClick={onCancel} className="self-start">
-            {t('common.cancel')}
+            {cancelLabel ?? t('common.cancel')}
           </Button>
         ) : null}
       </div>
@@ -151,7 +152,7 @@ export function TwoFactorSetup({ userId, onFinished, onCancel }: TwoFactorSetupP
             disabled={enable.isPending}
             className="w-full"
           >
-            {t('common.cancel')}
+            {cancelLabel ?? t('common.cancel')}
           </Button>
         ) : null}
       </div>

@@ -36,6 +36,8 @@ def create_user(
     display_name: str,
     password: str,
     theme: Theme = Theme.SYSTEM,
+    language: str | None = None,
+    currency: str | None = None,
 ) -> User:
     normalized_user_name = user_name.strip().lower()
     user = User(
@@ -43,8 +45,8 @@ def create_user(
         display_name=display_name,
         password_hash=hash_password(password),
         theme=theme,
-        language=i18n_service.get_default_language(),
-        currency=i18n_service.get_default_currency(),
+        language=language or i18n_service.get_default_language(),
+        currency=currency or i18n_service.get_default_currency(),
     )
     db_session.add(user)
     try:
