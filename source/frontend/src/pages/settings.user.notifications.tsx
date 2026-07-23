@@ -392,6 +392,7 @@ interface RuleFormModel {
   direction: BalanceDirection
   days: number
   period: DigestPeriod
+  weekday: number
 }
 
 interface RuleDefaults {
@@ -429,6 +430,7 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
     direction: 'below',
     days: daysDefault(rule?.trigger ?? defaults.trigger),
     period: 'monthly',
+    weekday: 6,
   }
   if (rule?.trigger === 'transaction') {
     base.other_party_contains = rule.other_party_contains ?? ''
@@ -438,6 +440,7 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
     base.max_amount = rule.max_amount ?? undefined
   } else if (rule?.trigger === 'digest') {
     base.period = rule.period
+    base.weekday = rule.weekday
   } else if (rule && 'days' in rule && rule.days !== null) {
     base.days = rule.days
   } else if (rule?.trigger === 'balance_threshold') {
@@ -466,7 +469,7 @@ function modelToDraft(model: RuleFormModel, allAccountIds: number[]): Notificati
     case 'duplicate_transaction':
       return { ...shared, trigger: 'duplicate_transaction', days: model.days }
     case 'digest':
-      return { ...shared, trigger: 'digest', period: model.period }
+      return { ...shared, trigger: 'digest', period: model.period, weekday: model.weekday }
     case 'upcoming_shortfall':
       return { ...shared, trigger: 'upcoming_shortfall', days: model.days }
     case 'balance_threshold':
@@ -717,6 +720,21 @@ function RuleDialog({
                   label: t(`notifications.period.${period}`),
                 }))}
               />
+              {model.period === 'weekly' ? (
+                <>
+                  <Label htmlFor="rule-weekday">{t('common.weekday')}</Label>
+                  <SingleSelectPopover
+                    id="rule-weekday"
+                    ariaLabel={t('common.weekday')}
+                    value={String(model.weekday)}
+                    onChange={(next) => set('weekday', Number(next))}
+                    options={[0, 1, 2, 3, 4, 5, 6].map((day) => ({
+                      value: String(day),
+                      label: t(`common.weekdays.${day}`),
+                    }))}
+                  />
+                </>
+              ) : null}
             </div>
           ) : null}
 
@@ -822,7 +840,10 @@ function ruleSummaryLines(
   } else if (rule.trigger === 'digest') {
     lines.push({
       label: t('common.period'),
-      value: t(`notifications.period.${rule.period}`),
+      value:
+        rule.period === 'weekly'
+          ? `${t('notifications.period.weekly')} (${t(`common.weekdays.${rule.weekday}`)})`
+          : t(`notifications.period.${rule.period}`),
     })
   } else if ('days' in rule && rule.days !== null) {
     lines.push({

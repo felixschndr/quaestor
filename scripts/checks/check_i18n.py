@@ -25,6 +25,7 @@ ANY_STRING_RE = re.compile(r"""['"`]([a-zA-Z][a-zA-Z0-9_.]*)['"`]""")
 
 KEY_LIKE_RE = re.compile(r"^[a-z0-9_]+(?:\.[a-z0-9_]+)+$")
 BACKEND_CATALOG_FILENAME = "notification_messages.py"
+DUPLICATE_GROUP_MIN_SIZE = 3
 
 
 def template_to_regex(raw: str) -> re.Pattern:
@@ -145,6 +146,30 @@ def report_duplicate_values(
             )
 
 
+def report_duplicate_groups(errors: list[str], messages_by_language: dict[str, dict[str, str]]) -> None:
+    languages = sorted(messages_by_language)
+    shared_keys = set.intersection(*(set(messages_by_language[language]) for language in languages))
+    groups: dict[str, dict[str, tuple[str, ...]]] = {}
+    for key in shared_keys:
+        prefix, _, leaf = key.rpartition(".")
+        if not prefix:
+            continue
+        values = tuple(messages_by_language[language][key] for language in languages)
+        groups.setdefault(prefix, {})[leaf] = values
+    prefixes_by_signature: dict[tuple, list[str]] = {}
+    for prefix, children in groups.items():
+        if len(children) < DUPLICATE_GROUP_MIN_SIZE:
+            continue
+        signature = tuple(sorted(children.items()))
+        prefixes_by_signature.setdefault(signature, []).append(prefix)  # noqa FKA100
+    for _, prefixes in sorted(prefixes_by_signature.items()):
+        if len(prefixes) > 1:
+            errors.append(
+                f"[frontend] duplicate translation group under {', '.join(sorted(prefixes))}"
+                " --> keep one in common.*"
+            )
+
+
 def check_frontend_messages(errors: list[str]) -> None:
     literals, patterns, any_strings = extract_keys(FRONTEND_SOURCE_PATH)
     messages_by_language = {
@@ -155,6 +180,7 @@ def check_frontend_messages(errors: list[str]) -> None:
     report_languages_must_match_supported(errors, languages=set(keys_by_language), label="frontend")
     report_keys_missing_in_some_language(errors, keys_by_language, label="frontend")
     report_duplicate_values(errors, messages_by_language=messages_by_language, patterns=patterns)
+    report_duplicate_groups(errors, messages_by_language=messages_by_language)
 
     for language, keys in keys_by_language.items():
         for literal in sorted(literals):

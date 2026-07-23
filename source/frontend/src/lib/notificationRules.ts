@@ -56,6 +56,7 @@ export interface DuplicateTransactionRule extends RuleBase {
 export interface DigestRule extends RuleBase {
   trigger: 'digest'
   period: DigestPeriod
+  weekday: number
 }
 
 export interface UpcomingShortfallRule extends RuleBase {
@@ -118,7 +119,12 @@ export function ruleSignature(rule: NotificationRule | NotificationRuleDraft): s
     return JSON.stringify({ trigger: rule.trigger, accounts, days: rule.days })
   }
   if (rule.trigger === 'digest') {
-    return JSON.stringify({ trigger: rule.trigger, accounts, period: rule.period })
+    return JSON.stringify({
+      trigger: rule.trigger,
+      accounts,
+      period: rule.period,
+      weekday: rule.period === 'weekly' ? rule.weekday : null,
+    })
   }
   if (rule.trigger === 'balance_threshold') {
     return JSON.stringify({

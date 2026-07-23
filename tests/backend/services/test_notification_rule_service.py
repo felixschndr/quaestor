@@ -5,6 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
 from source.backend.models.notifications.notification_rule import (
+    DEFAULT_DIGEST_WEEKDAY,
     DigestPeriod,
     NotificationTrigger,
 )
@@ -42,6 +43,7 @@ def test_new_user_gets_default_rules(session_factory: sessionmaker):
         assert all(rule.enabled and rule.account_ids == [] for rule in rules)
         digest = next(rule for rule in rules if rule.trigger is NotificationTrigger.DIGEST)
         assert digest.period is DigestPeriod.WEEKLY
+        assert digest.weekday == DEFAULT_DIGEST_WEEKDAY
 
 
 def test_migration_backfills_only_users_without_rules(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):

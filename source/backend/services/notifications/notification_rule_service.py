@@ -7,6 +7,7 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.auth.user import User
 from source.backend.models.base import snapshot_columns
 from source.backend.models.notifications.notification_rule import (
+    DEFAULT_DIGEST_WEEKDAY,
     DigestPeriod,
     NotificationRule,
     NotificationTrigger,
@@ -21,7 +22,7 @@ DEFAULT_RULES: list[dict] = [
     {"trigger": NotificationTrigger.DUPLICATE_TRANSACTION},
     {"trigger": NotificationTrigger.CONTRACT_OVERDUE},
     {"trigger": NotificationTrigger.CONTRACT_AMOUNT_INCREASED},
-    {"trigger": NotificationTrigger.DIGEST, "period": DigestPeriod.WEEKLY},
+    {"trigger": NotificationTrigger.DIGEST, "period": DigestPeriod.WEEKLY, "weekday": DEFAULT_DIGEST_WEEKDAY},
 ]
 
 

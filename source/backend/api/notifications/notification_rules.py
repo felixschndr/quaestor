@@ -13,6 +13,7 @@ from source.backend.models.contracts.contract import (
     SHORTFALL_LOOKAHEAD_DAYS,
 )
 from source.backend.models.notifications.notification_rule import (
+    DEFAULT_DIGEST_WEEKDAY,
     BalanceDirection,
     DigestPeriod,
     NotificationRule,
@@ -49,6 +50,7 @@ class ContractAmountIncreasedRuleIn(_RuleInBase):
 class DigestRuleIn(_RuleInBase):
     trigger: Literal["digest"]
     period: DigestPeriod
+    weekday: int = Field(default=DEFAULT_DIGEST_WEEKDAY, ge=0, le=6)
 
 
 class DuplicateTransactionRuleIn(_RuleInBase):
@@ -110,6 +112,7 @@ class RuleRead(BaseModel):
     direction: BalanceDirection | None = None
     days: int | None = None
     period: DigestPeriod | None = None
+    weekday: int | None = None
 
 
 _RULE_DEFAULTS = {
@@ -122,6 +125,7 @@ _RULE_DEFAULTS = {
     "direction": None,
     "days": None,
     "period": None,
+    "weekday": None,
 }
 
 

@@ -330,18 +330,15 @@ export function ManualTransactionForm({
                 />
               </FormField>
             ) : (
-              <FormField
-                id={`${fieldIdPrefix}-day-of-week`}
-                label={t('credentials.manualTransactions.fieldDayOfWeek')}
-              >
+              <FormField id={`${fieldIdPrefix}-day-of-week`} label={t('common.weekday')}>
                 <SingleSelectPopover
                   id={`${fieldIdPrefix}-day-of-week`}
-                  ariaLabel={t('credentials.manualTransactions.fieldDayOfWeek')}
+                  ariaLabel={t('common.weekday')}
                   value={String(dayOfWeek)}
                   onChange={(next) => setDayOfWeek(Number(next))}
                   options={WEEKDAYS.map((day) => ({
                     value: String(day),
-                    label: t(`credentials.manualTransactions.weekday.${day}`),
+                    label: t(`common.weekdays.${day}`),
                   }))}
                 />
               </FormField>

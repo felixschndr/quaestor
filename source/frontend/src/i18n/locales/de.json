@@ -75,7 +75,17 @@
     "displayName": "Anzeigename",
     "dangerZone": "Gefahrenzone",
     "deleteAccount": "Konto löschen",
-    "surplus": "Überschuss"
+    "surplus": "Überschuss",
+    "weekday": "Wochentag",
+    "weekdays": {
+      "0": "Montag",
+      "1": "Dienstag",
+      "2": "Mittwoch",
+      "3": "Donnerstag",
+      "4": "Freitag",
+      "5": "Samstag",
+      "6": "Sonntag"
+    }
   },
   "errors": {
     "serverOffline": {
@@ -430,7 +440,6 @@
       "fieldRecurring": "Wiederkehrend",
       "fieldFrequency": "Häufigkeit",
       "fieldDayOfMonth": "Tag des Monats",
-      "fieldDayOfWeek": "Wochentag",
       "dayOfMonthHint": "Hat ein Monat diesen Tag nicht (z.B. 30. im Februar), wird die Transaktion am letzten Tag des Monats gebucht.",
       "bookToday": "Erste Buchung heute erstellen",
       "recurringTitle": "Wiederkehrende Transaktionen",
@@ -445,15 +454,6 @@
       "frequency": {
         "MONTHLY": "Monatlich",
         "WEEKLY": "Wöchentlich"
-      },
-      "weekday": {
-        "0": "Montag",
-        "1": "Dienstag",
-        "2": "Mittwoch",
-        "3": "Donnerstag",
-        "4": "Freitag",
-        "5": "Samstag",
-        "6": "Sonntag"
       }
     },
     "enableBanking": {
@@ -765,7 +765,7 @@
     "daysUnit": "in Tagen",
     "windowLabel": "Zeitfenster",
     "period": {
-      "weekly": "Wöchentlich (Montags)",
+      "weekly": "Wöchentlich",
       "monthly": "Monatlich (Am 01.)"
     }
   },

@@ -695,7 +695,7 @@ function RecurringTransactionRow({
       ? t('credentials.manualTransactions.dayOfMonthSummary', {
           day: String(rule.day_of_month).padStart(2, '0'),
         })
-      : t(`credentials.manualTransactions.weekday.${rule.day_of_week}`)
+      : t(`common.weekdays.${rule.day_of_week}`)
 
   const onDelete = async () => {
     try {

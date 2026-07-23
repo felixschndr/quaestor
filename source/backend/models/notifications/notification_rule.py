@@ -28,6 +28,9 @@ class DigestPeriod(str, enum.Enum):
     MONTHLY = "monthly"
 
 
+DEFAULT_DIGEST_WEEKDAY = 6  # 0=Mon..6=Sun
+
+
 class BalanceDirection(str, enum.Enum):
     BELOW = "below"  # from above to below
     ABOVE = "above"
@@ -59,6 +62,7 @@ class NotificationRule(Base):
     days: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     period: Mapped[DigestPeriod | None] = mapped_column(SQLEnum(DigestPeriod), nullable=True)  # for "digest" trigger
+    weekday: Mapped[int | None] = mapped_column(Integer, nullable=True)  # for weekly "digest" trigger
     threshold: Mapped[float | None] = mapped_column(Float, nullable=True)  # for "balance_threshold" trigger
     direction: Mapped[BalanceDirection | None] = mapped_column(SQLEnum(BalanceDirection), nullable=True)
 

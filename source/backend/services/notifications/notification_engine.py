@@ -18,6 +18,7 @@ from source.backend.models.contracts.contract import (
 )
 from source.backend.models.contracts.contract_assignment import ContractAssignment
 from source.backend.models.notifications.notification_rule import (
+    DEFAULT_DIGEST_WEEKDAY,
     BalanceDirection,
     DigestPeriod,
     NotificationRule,
@@ -204,7 +205,7 @@ def evaluate_digests(db_session: Session, today: datetime.date) -> None:
 def _digest_notification(
     db_session: Session, rule: NotificationRule, user: User, today: datetime.date
 ) -> Notification | None:
-    ranges = _digest_ranges(period=rule.period, today=today)
+    ranges = _digest_ranges(period=rule.period, weekday=rule.weekday, today=today)
     if ranges is None:
         return None
     (start, end), (previous_start, previous_end) = ranges
@@ -272,10 +273,12 @@ def _digest_url(start: datetime.date, end: datetime.date) -> str:
 
 
 def _digest_ranges(
-    period: DigestPeriod | None, today: datetime.date
+    period: DigestPeriod | None, weekday: int | None, today: datetime.date
 ) -> tuple[tuple[datetime.date, datetime.date], tuple[datetime.date, datetime.date]] | None:
     end = today - datetime.timedelta(days=1)
-    if period is DigestPeriod.WEEKLY and today.weekday() == 0:
+    if period is DigestPeriod.WEEKLY and today.weekday() == (
+        weekday if weekday is not None else DEFAULT_DIGEST_WEEKDAY
+    ):
         start = end - datetime.timedelta(days=6)
         return (start, end), (start - datetime.timedelta(days=7), start - datetime.timedelta(days=1))
     if period is DigestPeriod.MONTHLY and today.day == 1:

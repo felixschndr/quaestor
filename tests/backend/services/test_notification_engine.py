@@ -78,6 +78,7 @@ def _make_notification_rule(
     direction: BalanceDirection | None = None,
     days: int | None = None,
     period: DigestPeriod | None = None,
+    weekday: int | None = None,
 ) -> NotificationRule:
     rule = NotificationRule(
         user_id=user_id,
@@ -95,6 +96,7 @@ def _make_notification_rule(
         direction=direction,
         days=days,
         period=period,
+        weekday=weekday,
     )
     db_session.add(rule)
     db_session.flush()
@@ -475,7 +477,7 @@ def test_weekly_digest_reports_the_previous_week(
 ):
     sent = _capture_sent(monkeypatch)
     with session_factory() as db_session:
-        user = _user_with_digest_rule(db_session, period=DigestPeriod.WEEKLY)
+        user = _user_with_digest_rule(db_session, period=DigestPeriod.WEEKLY, weekday=_MONDAY.weekday())
         account_id = user.credentials[0].accounts[0].id
         # Last week: 100 € in, 60 € out. The week before: 30 € out.
         make_transaction(db_session, account_id=account_id, amount=100.0, date=_MONDAY - timedelta(days=3))
@@ -497,7 +499,7 @@ def test_weekly_digest_reports_the_previous_week(
 def test_weekly_digest_is_quiet_on_other_weekdays(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     sent = _capture_sent(monkeypatch)
     with session_factory() as db_session:
-        _user_with_digest_rule(db_session, period=DigestPeriod.WEEKLY)
+        _user_with_digest_rule(db_session, period=DigestPeriod.WEEKLY, weekday=_MONDAY.weekday())
         db_session.commit()
 
         notification_engine.evaluate_digests(db_session=db_session, today=_MONDAY + timedelta(days=1))
@@ -526,7 +528,9 @@ def test_monthly_digest_reports_the_previous_month(session_factory: sessionmaker
 def test_digest_without_content_hides_the_amounts(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     sent = _capture_sent(monkeypatch)
     with session_factory() as db_session:
-        user = _user_with_digest_rule(db_session, period=DigestPeriod.WEEKLY, include_content=False)
+        user = _user_with_digest_rule(
+            db_session, period=DigestPeriod.WEEKLY, weekday=_MONDAY.weekday(), include_content=False
+        )
         make_transaction(
             db_session,
             account_id=user.credentials[0].accounts[0].id,
@@ -543,6 +547,26 @@ def test_digest_without_content_hides_the_amounts(session_factory: sessionmaker,
         body="See it in the statistics",
         url="/stats?date_from=2026-07-13&date_to=2026-07-19",
     )
+
+
+def test_weekly_digest_fires_only_on_selected_weekday():
+    wednesday = date(year=2026, month=7, day=22)  # weekday() == 2
+    assert notification_engine._digest_ranges(period=DigestPeriod.WEEKLY, weekday=2, today=wednesday) is not None
+    assert notification_engine._digest_ranges(period=DigestPeriod.WEEKLY, weekday=0, today=wednesday) is None
+
+
+def test_weekly_digest_without_weekday_defaults_to_sunday():
+    sunday = date(year=2026, month=7, day=26)  # weekday() == 6
+    monday = date(year=2026, month=7, day=27)
+    assert notification_engine._digest_ranges(period=DigestPeriod.WEEKLY, weekday=None, today=sunday) is not None
+    assert notification_engine._digest_ranges(period=DigestPeriod.WEEKLY, weekday=None, today=monday) is None
+
+
+def test_weekly_digest_range_is_the_previous_seven_days_regardless_of_weekday():
+    wednesday = date(year=2026, month=7, day=22)
+    (start, end), _ = notification_engine._digest_ranges(period=DigestPeriod.WEEKLY, weekday=2, today=wednesday)
+    assert end == date(year=2026, month=7, day=21)
+    assert start == date(year=2026, month=7, day=15)
 
 
 # --- duplicate transaction trigger -----------------------------------------
