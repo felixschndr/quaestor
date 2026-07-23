@@ -15,7 +15,7 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
-import { formatEuro, formatPercent } from '@/lib/format'
+import { formatMoney, formatPercent } from '@/lib/format'
 import {
   aggregateTopN,
   sliceColor,
@@ -74,7 +74,7 @@ function CategoryTooltip({
     <div style={TOOLTIP_STYLE} className="px-2.5 py-1.5 text-center">
       <div className="text-muted-foreground text-xs">{datum.label}</div>
       <div className="text-foreground text-sm font-semibold">
-        {formatEuro(datum.value)} · {formatPercent(share)}
+        {formatMoney(datum.value)} · {formatPercent(share)}
       </div>
     </div>
   )
@@ -84,11 +84,6 @@ interface PieDatum extends CategoryChartDatum {
   color: string
 }
 
-/**
- * Custom pie legend rendered in share order (recharts otherwise sorts the pie
- * legend alphabetically). Each entry is a toggle: clicking hides/shows that
- * slice while the entry stays put (greyed when hidden) so it can be re-enabled.
- */
 function PieLegend({
   data,
   hidden,
@@ -127,7 +122,6 @@ function PieLegend({
   )
 }
 
-/** Percentage centered inside a pie slice — only when the slice is big enough. */
 function renderPieLabel(props: {
   cx?: number
   cy?: number
@@ -177,9 +171,6 @@ export function CategoryChart({
   )
 
   if (chartType === 'pie') {
-    // Legend membership (top-N + Other) and colors are computed from the full
-    // data so they stay stable as slices are toggled; only `visible` feeds the
-    // pie, and percentages recompute over the visible total.
     const pieData: PieDatum[] = aggregateTopN(data, MAX_PIE_SLICES, t('stats.other')).map(
       (datum, index) => ({ ...datum, color: sliceColor(datum.category, index) }),
     )
@@ -211,10 +202,6 @@ export function CategoryChart({
     )
   }
 
-  // Horizontal bars — long category labels fit on the Y axis and the ranking
-  // reads top-to-bottom. Height grows with the number of bars. Hidden categories
-  // keep their (clickable) axis row but drop their bar (null) so the x-axis
-  // rescales to the visible max; the toggle shares state with the pie legend.
   const chartData = data.map((datum) =>
     hidden.has(datum.category) ? { ...datum, value: null } : datum,
   )
@@ -226,8 +213,6 @@ export function CategoryChart({
     <div className="w-full" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: onDrill ? 0 : 16 }}>
-          {/* domain ending at dataMax (not a rounded "nice" bound) makes the
-              biggest visible bar always reach the right edge. */}
           <XAxis
             type="number"
             domain={[0, 'dataMax']}

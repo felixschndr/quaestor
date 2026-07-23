@@ -14,7 +14,7 @@ import {
   useXAxisScale,
 } from 'recharts'
 
-import { formatEuro } from '@/lib/format'
+import { formatMoney } from '@/lib/format'
 import { AXIS_TICK } from '@/components/stats/chartTheme'
 import type { ContractMemberRead } from '@/lib/contract'
 import { useDateFnsLocale } from '@/components/stats/chartTheme'
@@ -65,7 +65,7 @@ function AmountLabel({ points, x = 0, y = 0, width = 0, index }: AmountLabelProp
   const point = points[index]
   if (!point) return null
 
-  const text = formatEuro(point.mag)
+  const text = formatMoney(point.mag)
   const fill = labelFill(point)
   const textWidth = text.length * CHAR_WIDTH
 
@@ -208,7 +208,7 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
 
   const maxLabelWidth = Math.max(
     0,
-    ...data.map((point) => formatEuro(point.mag).length * CHAR_WIDTH),
+    ...data.map((point) => formatMoney(point.mag).length * CHAR_WIDTH),
   )
   const topMargin = Math.min(88, Math.ceil(maxLabelWidth) + 6)
 
@@ -241,7 +241,7 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
               stroke="var(--color-primary)"
               strokeDasharray="4 3"
               ifOverflow="extendDomain"
-              label={ghost ? undefined : <MedianLabel value={formatEuro(median!)} />}
+              label={ghost ? undefined : <MedianLabel value={formatMoney(median!)} />}
             />
           ) : null}
           <Bar

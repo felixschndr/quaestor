@@ -2,11 +2,11 @@ import { de, enUS, type Locale } from 'date-fns/locale'
 import { format } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 
-import { formatEuro } from '@/lib/format'
+import { formatMoney, wrapWithCurrency } from '@/lib/format'
 
 const LOCALES: Record<string, Locale> = { en: enUS, de }
 
-export const euroFormat = (value: unknown): string => formatEuro(Number(value))
+export const euroFormat = (value: unknown): string => formatMoney(Number(value))
 
 const axisNumber = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 })
 
@@ -14,9 +14,9 @@ export const euroAxisFormat = (value: unknown): string => {
   const amount = Number(value)
   if (!Number.isFinite(amount)) return ''
   const abs = Math.abs(amount)
-  if (abs >= 1_000_000) return `${axisNumber.format(amount / 1_000_000)}M €`
-  if (abs >= 1_000) return `${axisNumber.format(amount / 1_000)}k €`
-  return `${axisNumber.format(amount)} €`
+  if (abs >= 1_000_000) return wrapWithCurrency(`${axisNumber.format(amount / 1_000_000)}M`)
+  if (abs >= 1_000) return wrapWithCurrency(`${axisNumber.format(amount / 1_000)}k`)
+  return wrapWithCurrency(axisNumber.format(amount))
 }
 
 export function useDateFnsLocale(): Locale {

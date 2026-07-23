@@ -14,6 +14,7 @@ function makeUser(): UserRead {
     user_name: 'alice',
     display_name: 'Alice',
     language: 'en',
+    currency: 'EUR',
     theme: 'SYSTEM',
     two_factor_enabled: false,
     balance: 0,

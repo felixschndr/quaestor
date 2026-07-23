@@ -27,6 +27,7 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String)
     password_hash: Mapped[str] = mapped_column(String)
     language: Mapped[str] = mapped_column(String(length=10), default="en", server_default="en")
+    currency: Mapped[str] = mapped_column(String(length=3), default="EUR", server_default="EUR")
     theme: Mapped[Theme] = mapped_column(SQLEnum(Theme), default=Theme.SYSTEM, server_default=Theme.SYSTEM.value)
     # Cannot be hashed because verifying a code requires the original secret.
     two_factor_secret: Mapped[str | None] = mapped_column(String, nullable=True)

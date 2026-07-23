@@ -11,7 +11,7 @@ import { type UserRead } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { SyncButton } from '@/components/sync-button'
 import { SyncStatusIcon, type SyncState } from '@/components/sync-check'
-import { formatEuro, formatFactorMultiplier } from '@/lib/format'
+import { formatMoney, formatFactorMultiplier } from '@/lib/format'
 import { accountDisplayName, displayNameOrUserName } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
 import { useAccountGroupLayout } from '@/lib/accountGroups'
@@ -129,7 +129,9 @@ export function OverviewView({
       </header>
 
       <section className="flex flex-col items-center gap-1">
-        <p className="text-primary text-5xl font-bold tracking-tight">{formatEuro(user.balance)}</p>
+        <p className="text-primary text-5xl font-bold tracking-tight">
+          {formatMoney(user.balance)}
+        </p>
       </section>
 
       {hasAccounts ? (
@@ -185,7 +187,7 @@ function AccountGroupList({
                   {heading}
                 </h2>
                 <span className="text-muted-foreground text-xs font-semibold tabular-nums">
-                  {formatEuro(total)}
+                  {formatMoney(total)}
                 </span>
               </Collapsible.Trigger>
               <Collapsible.Content className="collapsible-content overflow-hidden">
@@ -227,7 +229,7 @@ function AccountRow({ account, syncState }: { account: AccountWithBank; syncStat
               {formatFactorMultiplier(account.balance_factor / 100)} x
             </span>
           ) : null}
-          <span className={cn(negative && 'text-destructive')}>{formatEuro(account.balance)}</span>
+          <span className={cn(negative && 'text-destructive')}>{formatMoney(account.balance)}</span>
         </span>
       </Link>
     </li>

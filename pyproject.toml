@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "Quaestor"
 description = "Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts"
-version = "0.2.8"
+version = "0.3.0"
 authors = ["Felix Schneider <mail@fschneider.me>"]
 repository = "https://github.com/felixschndr/quaestor"
 package-mode = false

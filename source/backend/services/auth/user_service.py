@@ -44,6 +44,7 @@ def create_user(
         password_hash=hash_password(password),
         theme=theme,
         language=i18n_service.get_default_language(),
+        currency=i18n_service.get_default_currency(),
     )
     db_session.add(user)
     try:

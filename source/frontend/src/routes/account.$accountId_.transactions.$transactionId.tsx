@@ -7,7 +7,7 @@ import { z } from 'zod'
 
 import type { TransactionDetailRead, TransactionRead } from '@/lib/accountHistory'
 import { findAccountInUser } from '@/lib/accountHistory'
-import { formatDate, formatEuro } from '@/lib/format'
+import { formatDate, formatMoney } from '@/lib/format'
 import {
   useLinkTransfer,
   useTransaction,
@@ -196,7 +196,7 @@ function LinkConfirmSection({
       <p className="text-sm">
         {t('transaction.linkConfirmPrompt', {
           partner: sourcePartnerLabel,
-          amount: formatEuro(sourceTransaction.amount),
+          amount: formatMoney(sourceTransaction.amount),
           date: formatDate(sourceTransaction.date),
         })}
       </p>
@@ -427,7 +427,7 @@ function ContractSection({ transaction }: { transaction: TransactionRead }) {
             {assigned.frequency
               ? t(`contracts.frequency.${assigned.frequency}`)
               : t('contracts.frequencyUnknown')}
-            {assigned.median_amount !== null ? ` · ${formatEuro(assigned.median_amount)}` : ''}
+            {assigned.median_amount !== null ? ` · ${formatMoney(assigned.median_amount)}` : ''}
           </Link>
         ) : null}
       </div>

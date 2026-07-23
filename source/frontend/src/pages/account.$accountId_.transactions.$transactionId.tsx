@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 
 import type { TransactionRead } from '@/lib/accountHistory'
 import { TRANSACTION_TYPE_ICONS } from '@/lib/transactionTypeIcons'
-import { formatDate, formatEuro, formatIban, isIban } from '@/lib/format'
+import { formatDate, formatMoney, formatIban, isIban } from '@/lib/format'
 import { CategoryAvatar, useCategoryOptions } from '@/lib/categoryIcons'
 import { type TransactionCategory } from '@/lib/transaction'
 import { NoteEditor } from '@/components/note-editor'
@@ -63,7 +63,7 @@ export function TransactionDetailView({
             negative ? 'text-destructive' : 'text-success',
           )}
         >
-          {formatEuro(transaction.amount)}
+          {formatMoney(transaction.amount)}
         </p>
         <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
           <span>{formatDate(transaction.date)}</span>
@@ -180,7 +180,7 @@ function LinkedTransactionSection({
           <span>
             {t('transaction.linkedTransactionValue', {
               partner: partnerLabel,
-              amount: formatEuro(counterpart.amount),
+              amount: formatMoney(counterpart.amount),
               date: formatDate(counterpart.date),
             })}
           </span>

@@ -230,7 +230,7 @@
     "profile": "Profil",
     "profileDescription": "Benutzername und Anzeigename",
     "appearance": "Darstellung",
-    "appearanceDescription": "Sprache und Erscheinungsbild",
+    "appearanceDescription": "Sprache, Währung und Erscheinungsbild",
     "authentication": "Authentifizierung",
     "authenticationDescription": "Passwort und Zwei-Faktor-Authentifizierung",
     "sessions": "Sitzungen",
@@ -240,6 +240,7 @@
     "serverVersionUpdate": "Update verfügbar: {{latest}}",
     "attributionsDescription": "Credits und Lizenzen für externe Inhalte",
     "language": "Sprache",
+    "currency": "Währung",
     "theme": "Erscheinungsbild",
     "themeLight": "Hell",
     "themeDark": "Dunkel",
@@ -258,6 +259,15 @@
   "languages": {
     "en": "Englisch",
     "de": "Deutsch"
+  },
+  "currencies": {
+    "EUR": "Euro (€)",
+    "USD": "US-Dollar ($)",
+    "GBP": "Britisches Pfund (£)",
+    "CHF": "Schweizer Franken (CHF)",
+    "JPY": "Japanischer Yen (¥)",
+    "CAD": "Kanadischer Dollar (C$)",
+    "AUD": "Australischer Dollar (A$)"
   },
   "banks": {
     "fints": {

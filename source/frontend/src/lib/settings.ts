@@ -1,10 +1,11 @@
 import { useQuery, type QueryClient } from '@tanstack/react-query'
 import { api } from './api'
-import { setDisplayTimeZone } from './format'
+import { setDisplayCurrency, setDisplayTimeZone } from './format'
 
 export interface AppSettings {
   allow_new_user_registration: boolean
   default_language: string
+  default_currency: string
   display_timezone: string
   sync_interval_hours: number
   allowed_attachment_extensions: string[]
@@ -25,6 +26,7 @@ export async function ensureAppSettings(queryClient: QueryClient): Promise<void>
       staleTime: Infinity,
     })
     setDisplayTimeZone(settings.display_timezone)
+    setDisplayCurrency(settings.default_currency)
   } catch {
     // Keep the UTC default; the timestamps just won't be zone-shifted.
   }

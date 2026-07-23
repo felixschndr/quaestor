@@ -9,7 +9,7 @@ import {
   YAxis,
 } from 'recharts'
 
-import { formatEuro, formatIban } from '@/lib/format'
+import { formatMoney, formatIban } from '@/lib/format'
 import { paletteColor, type OtherPartySlice } from '@/lib/statistics'
 import { AXIS_TICK, euroFormat, TOOLTIP_STYLE } from './chartTheme'
 import { ArrowTick, DRILL_ARROW_WIDTH, ToggleTick, ValueBarShape } from './chart-parts'
@@ -31,7 +31,6 @@ interface OtherPartyRow extends OtherPartySlice {
   label: string
 }
 
-/** Tooltip with the other party name + amount; drops the default "total :" prefix. */
 function OtherPartyTooltip({
   active,
   payload,
@@ -45,20 +44,17 @@ function OtherPartyTooltip({
   return (
     <div style={TOOLTIP_STYLE} className="px-2.5 py-1.5 text-center">
       <div className="text-muted-foreground text-xs">{row.label}</div>
-      <div className="text-foreground text-sm font-semibold">{formatEuro(row.total)}</div>
+      <div className="text-foreground text-sm font-semibold">{formatMoney(row.total)}</div>
     </div>
   )
 }
 
-/** Horizontal ranked bars of the biggest other parties in the period. */
 export function OtherPartyChart({ data, hidden, onToggleHidden, onDrill }: OtherPartyChartProps) {
   const rows: OtherPartyRow[] = data.map((slice) => ({
     ...slice,
     label: formatIban(slice.other_party),
   }))
   const labelByParty = new Map(rows.map((row) => [row.other_party, row.label]))
-  // Hidden rows keep their axis label but drop their bar (null) so the x-axis
-  // rescales to the visible max.
   const chartRows = rows.map((row) => (hidden.has(row.other_party) ? { ...row, total: null } : row))
   const height = Math.max(rows.length * 30 + 16, 160)
 
@@ -66,7 +62,6 @@ export function OtherPartyChart({ data, hidden, onToggleHidden, onDrill }: Other
     <div className="w-full" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartRows} layout="vertical" margin={{ left: 0, right: onDrill ? 0 : 16 }}>
-          {/* domain ending at dataMax keeps the biggest visible bar at the right edge. */}
           <XAxis
             type="number"
             domain={[0, 'dataMax']}

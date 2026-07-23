@@ -7,6 +7,7 @@ from source.backend.services.auth import session_service
 
 PUBLIC_OPERATIONS = {
     "GET /api/auth/password_requirements",
+    "GET /api/i18n/currencies",
     "GET /api/i18n/languages",
     "GET /api/push/public-key",
     "GET /api/settings",

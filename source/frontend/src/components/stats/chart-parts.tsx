@@ -1,6 +1,6 @@
 import { Rectangle, type RectangleProps } from 'recharts'
 
-import { formatEuro } from '@/lib/format'
+import { formatMoney } from '@/lib/format'
 
 // Roughly the width one character of the label needs, used to decide whether the
 // value fits inside its bar.
@@ -23,7 +23,7 @@ export interface BarValueLabelProps {
 
 export function BarValueLabel({ x = 0, y = 0, width = 0, height = 0, value }: BarValueLabelProps) {
   if (value == null) return null
-  const text = formatEuro(value)
+  const text = formatMoney(value)
   const fitsInside = width >= text.length * APPROX_CHAR_WIDTH + 10
   return (
     <text

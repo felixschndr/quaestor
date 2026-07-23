@@ -88,6 +88,7 @@ def collect_notifications(db_session: Session, credential: Credential, snapshot:
     logger.debug(f"Evaluating {len(rules)} enabled notification rule(s) for {credential.user} after {credential}")
 
     language = credential.user.language
+    currency = credential.user.currency
     notifications: list[Notification] = []
     for account in credential.accounts:
         before = snapshot.accounts.get(account.id)
@@ -123,6 +124,7 @@ def collect_notifications(db_session: Session, credential: Credential, snapshot:
                 booked_expected_transactions=booked_expected_transactions,
                 balance_before=before.balance,
                 language=language,
+                currency=currency,
                 today=datetime.date.today(),
             )
             if rule_notifications:
@@ -218,6 +220,7 @@ def _digest_notification(
 
     keys = _MESSAGE_KEYS[rule.period]
     language = user.language
+    currency = user.currency
     if not rule.include_content:
         return Notification(
             title=rule.name or notification_messages.translate(language, key=keys["title_minimal"]),
@@ -229,16 +232,16 @@ def _digest_notification(
     title = notification_messages.translate(
         language,
         key=keys["title"],
-        net=format_amount(round(number=current.income - current.expenses, ndigits=2)),
+        net=format_amount(round(number=current.income - current.expenses, ndigits=2), currency=currency),
     )
-    comparison = _digest_comparison(current=current, previous=previous, keys=keys, language=language)
+    comparison = _digest_comparison(current=current, previous=previous, keys=keys, language=language, currency=currency)
     return Notification(
         title=rule.name or (f"{title} ({comparison})" if comparison else title),
         body=notification_messages.translate(
             language,
             key="digest.body",
-            expenses=format_amount(current.expenses),
-            income=format_amount(current.income),
+            expenses=format_amount(current.expenses, currency=currency),
+            income=format_amount(current.income, currency=currency),
             count=current.count,
         ),
         url=_digest_url(start=start, end=end),
@@ -251,6 +254,7 @@ def _digest_comparison(
     previous: statistics_service.RangeSummary,
     keys: dict[str, str],
     language: str,
+    currency: str,
 ) -> str | None:
     if previous.expenses <= 0:
         return None  # Nothing to compare against.
@@ -259,7 +263,7 @@ def _digest_comparison(
         language,
         key=keys["more"] if difference > 0 else keys["less"],
         percent=round(number=abs(difference) / previous.expenses * 100),
-        amount=format_amount(abs(difference)),
+        amount=format_amount(abs(difference), currency=currency),
     )
 
 
@@ -320,6 +324,7 @@ def _notifications_for_rule(
     booked_expected_transactions: list[Transaction],
     balance_before: float,
     language: str,
+    currency: str,
     today: datetime.date,
 ) -> list[Notification]:
     if rule.trigger in _MESSAGE_KEYS:
@@ -330,27 +335,33 @@ def _notifications_for_rule(
             candidates=booked_expected_transactions if is_expected else new_transactions,
             match_criteria=not is_expected,
             language=language,
+            currency=currency,
             bookings=new_transactions if is_expected else None,
         )
 
     if rule.trigger is NotificationTrigger.BALANCE_THRESHOLD:
         return _balance_threshold_notifications(
-            rule=rule, account=account, balance_before=balance_before, language=language
+            rule=rule, account=account, balance_before=balance_before, language=language, currency=currency
         )
 
     if rule.trigger is NotificationTrigger.DUPLICATE_TRANSACTION:
         return _duplicate_notifications(
-            rule=rule, account=account, new_transactions=new_transactions, language=language
+            rule=rule, account=account, new_transactions=new_transactions, language=language, currency=currency
         )
 
     if rule.trigger is NotificationTrigger.CONTRACT_AMOUNT_INCREASED:
         return _contract_amount_notifications(
-            rule=rule, account=account, new_transactions=new_transactions, language=language
+            rule=rule, account=account, new_transactions=new_transactions, language=language, currency=currency
         )
 
     if rule.trigger is NotificationTrigger.UPCOMING_SHORTFALL:
         return _upcoming_shortfall_notifications(
-            rule=rule, account=account, balance_before=balance_before, language=language, today=today
+            rule=rule,
+            account=account,
+            balance_before=balance_before,
+            language=language,
+            currency=currency,
+            today=today,
         )
 
     return []
@@ -389,6 +400,7 @@ def _transaction_notifications(
     candidates: list[Transaction],
     match_criteria: bool,
     language: str,
+    currency: str,
     bookings: list[Transaction] | None = None,
 ) -> list[Notification]:
     keys = _MESSAGE_KEYS[rule.trigger]
@@ -401,7 +413,7 @@ def _transaction_notifications(
                 language,
                 key=keys["body"],
                 account=account.display_label,
-                amount=format_amount(transaction.amount),
+                amount=format_amount(transaction.amount, currency=currency),
             )
             if transaction.other_party:
                 body += f" · {transaction.other_party}"
@@ -423,7 +435,7 @@ def _transaction_notifications(
 
 
 def _balance_threshold_notifications(
-    rule: NotificationRule, account: Account, balance_before: float, language: str
+    rule: NotificationRule, account: Account, balance_before: float, language: str, currency: str
 ) -> list[Notification]:
     if rule.threshold is None:
         return []
@@ -445,8 +457,8 @@ def _balance_threshold_notifications(
             language,
             key=body_key,
             account=account.display_label,
-            amount=format_amount(account.balance),
-            threshold=format_amount(rule.threshold),
+            amount=format_amount(account.balance, currency=currency),
+            threshold=format_amount(rule.threshold, currency=currency),
         )
     else:
         body = notification_messages.translate(
@@ -464,7 +476,7 @@ def _balance_threshold_notifications(
 
 
 def _upcoming_shortfall_notifications(
-    rule: NotificationRule, account: Account, balance_before: float, language: str, today: datetime.date
+    rule: NotificationRule, account: Account, balance_before: float, language: str, currency: str, today: datetime.date
 ) -> list[Notification]:
     lookahead = datetime.timedelta(days=rule.days or SHORTFALL_LOOKAHEAD_DAYS)
     due = _upcoming_fixed_costs(account=account, today=today, lookahead=lookahead)
@@ -481,8 +493,8 @@ def _upcoming_shortfall_notifications(
             language,
             key="upcoming_shortfall.body",
             account=account.display_label,
-            amount=format_amount(account.balance),
-            due=format_amount(due),
+            amount=format_amount(account.balance, currency=currency),
+            due=format_amount(due, currency=currency),
             days=lookahead.days,
         )
     else:
@@ -501,7 +513,7 @@ def _upcoming_shortfall_notifications(
 
 
 def _duplicate_notifications(
-    rule: NotificationRule, account: Account, new_transactions: list[Transaction], language: str
+    rule: NotificationRule, account: Account, new_transactions: list[Transaction], language: str, currency: str
 ) -> list[Notification]:
     window = datetime.timedelta(days=rule.days or DUPLICATE_WINDOW_DAYS)
     new = set(new_transactions)
@@ -525,7 +537,7 @@ def _duplicate_notifications(
                 language,
                 key="duplicate_transaction.body",
                 account=account.display_label,
-                amount=format_amount(transaction.amount),
+                amount=format_amount(transaction.amount, currency=currency),
                 other_party=transaction.other_party or "",
                 days=window.days,
             )
@@ -563,7 +575,7 @@ def _is_duplicate(candidate: Transaction, transaction: Transaction, window: date
 
 
 def _contract_amount_notifications(
-    rule: NotificationRule, account: Account, new_transactions: list[Transaction], language: str
+    rule: NotificationRule, account: Account, new_transactions: list[Transaction], language: str, currency: str
 ) -> list[Notification]:
     notifications = []
     for transaction in new_transactions:
@@ -581,8 +593,8 @@ def _contract_amount_notifications(
                 key="contract_amount_increased.body",
                 account=account.display_label,
                 name=contract.name,
-                amount=format_amount(transaction.amount),
-                previous=format_amount(contract.median_amount),
+                amount=format_amount(transaction.amount, currency=currency),
+                previous=format_amount(contract.median_amount, currency=currency),
             )
         else:
             body = notification_messages.translate(

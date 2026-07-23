@@ -2,14 +2,16 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import i18n from '@/i18n'
 import {
   formatAmountForInput,
-  formatEuro,
+  formatMoney,
   formatDate,
   formatDateTime,
   formatIban,
   formatRelativeDateTime,
   relativeDateKey,
+  setDisplayCurrency,
   setDisplayTimeZone,
   todayIso,
+  wrapWithCurrency,
 } from '../format'
 
 describe('formatAmountForInput', () => {
@@ -48,19 +50,40 @@ describe('todayIso', () => {
   })
 })
 
-describe('formatEuro', () => {
+describe('formatMoney', () => {
   it('formats positive amounts in de-DE', () => {
-    expect(formatEuro(1234.56)).toBe('1.234,56 €')
+    expect(formatMoney(1234.56)).toBe('1.234,56 €')
   })
 
   it('formats negative amounts with minus sign', () => {
-    expect(formatEuro(-42)).toBe('-42,00 €')
+    expect(formatMoney(-42)).toBe('-42,00 €')
+  })
+  it('formats the display currency in its own locale (symbol placement, grouping)', () => {
+    setDisplayCurrency('USD')
+    try {
+      expect(formatMoney(1234.56)).toBe('$1,234.56')
+    } finally {
+      setDisplayCurrency('EUR') // module state is global; reset so later tests see the default.
+    }
+  })
+})
+
+describe('wrapWithCurrency', () => {
+  it('suffixes the euro symbol (de-DE convention)', () => {
+    expect(wrapWithCurrency('1,5M')).toBe('1,5M €')
+  })
+
+  it('prefixes the dollar symbol (en-US convention)', () => {
+    setDisplayCurrency('USD')
+    try {
+      expect(wrapWithCurrency('1.5M')).toBe('$1.5M')
+    } finally {
+      setDisplayCurrency('EUR')
+    }
   })
 })
 
 describe('formatDate', () => {
-  // formatDate follows the active i18next language; restore the default
-  // afterwards so language state doesn't leak into other test files.
   afterAll(async () => {
     await i18n.changeLanguage('en')
   })

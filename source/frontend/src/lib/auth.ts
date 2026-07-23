@@ -32,6 +32,7 @@ export interface UserRead {
   user_name: string
   display_name: string
   language: string
+  currency: string
   theme: Theme
   two_factor_enabled: boolean
   balance: number

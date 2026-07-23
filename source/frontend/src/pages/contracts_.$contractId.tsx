@@ -12,7 +12,7 @@ import {
   type ContractFrequency,
   type ContractMemberRead,
 } from '@/lib/contract'
-import { formatDate, formatDateWithoutYear, formatEuro, formatIban } from '@/lib/format'
+import { formatDate, formatDateWithoutYear, formatMoney, formatIban } from '@/lib/format'
 import { type TransactionCategory } from '@/lib/transaction'
 import { ContractTimeline } from '@/components/contract-timeline'
 import { NoteEditor } from '@/components/note-editor'
@@ -101,7 +101,7 @@ export function ContractDetailView({
         )}
         {editingName || contract.median_amount === null ? null : (
           <span className={cn('text-xl font-semibold tabular-nums', medianColor)}>
-            {formatEuro(contract.median_amount)}
+            {formatMoney(contract.median_amount)}
           </span>
         )}
       </section>
@@ -282,7 +282,7 @@ function MemberRow({ member }: { member: ContractMemberRead }) {
           <span className="text-muted-foreground truncate text-xs">{formatDate(member.date)}</span>
         </span>
         <span className={cn('text-sm font-semibold tabular-nums', amountColor)}>
-          {formatEuro(member.amount)}
+          {formatMoney(member.amount)}
         </span>
       </Link>
     </li>
@@ -317,7 +317,7 @@ function ProjectionRow({
           highlight ? highlightColor : 'text-foreground',
         )}
       >
-        {value === null ? <EmptyValue /> : formatEuro(value)}
+        {value === null ? <EmptyValue /> : formatMoney(value)}
       </dd>
     </div>
   )

@@ -41,7 +41,7 @@ import {
 } from '@/components/ui/dialog'
 import { type UserRead } from '@/lib/auth'
 import { accountNamesById } from '@/lib/accounts'
-import { formatEuro } from '@/lib/format'
+import { formatMoney } from '@/lib/format'
 import { readApiErrorMessage } from '@/lib/apiError'
 import { sendTestNotification } from '@/lib/push'
 import { detectPlatform, isStandalone } from '@/lib/platform'
@@ -836,7 +836,7 @@ function ruleSummaryLines(
     })
     lines.push({
       label: t('notifications.thresholdLabel'),
-      value: formatEuro(rule.threshold ?? 0),
+      value: formatMoney(rule.threshold ?? 0),
     })
   }
 
@@ -880,9 +880,12 @@ function describeSelection<T>(
 
 function describeAmountRange(min: number | null, max: number | null, t: TFunction): string {
   if (min !== null && max !== null) {
-    return t('notifications.summary.amountBetween', { from: formatEuro(min), to: formatEuro(max) })
+    return t('notifications.summary.amountBetween', {
+      from: formatMoney(min),
+      to: formatMoney(max),
+    })
   }
-  if (min !== null) return t('notifications.summary.amountFrom', { amount: formatEuro(min) })
-  if (max !== null) return t('notifications.summary.amountTo', { amount: formatEuro(max) })
+  if (min !== null) return t('notifications.summary.amountFrom', { amount: formatMoney(min) })
+  if (max !== null) return t('notifications.summary.amountTo', { amount: formatMoney(max) })
   return t('notifications.anyAmount')
 }

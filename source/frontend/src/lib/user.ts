@@ -8,6 +8,7 @@ export interface UserUpdatePayload {
   user_name?: string
   display_name?: string
   language?: string
+  currency?: string
   theme?: Theme
   current_password?: string
   new_password?: string
@@ -15,16 +16,29 @@ export interface UserUpdatePayload {
 
 export const userQueryKeys = {
   languages: ['i18n', 'languages'] as const,
+  currencies: ['i18n', 'currencies'] as const,
 }
 
 interface SupportedLanguages {
   languages: string[]
 }
 
+interface SupportedCurrencies {
+  currencies: string[]
+}
+
 export function useSupportedLanguages() {
   return useQuery({
     queryKey: userQueryKeys.languages,
     queryFn: () => api<SupportedLanguages>('/i18n/languages'),
+    staleTime: Infinity,
+  })
+}
+
+export function useSupportedCurrencies() {
+  return useQuery({
+    queryKey: userQueryKeys.currencies,
+    queryFn: () => api<SupportedCurrencies>('/i18n/currencies'),
     staleTime: Infinity,
   })
 }
@@ -40,7 +54,6 @@ export function useUpdateUser(userId: number) {
       api<UserRead>(`/users/${userId}`, { method: 'PATCH', body: payload }),
     onSuccess: (user) => {
       queryClient.setQueryData(authQueryKeys.me, user)
-      // A password change revokes the other sessions server-side; refresh the list.
       queryClient.invalidateQueries({ queryKey: sessionQueryKeys.list(userId) })
     },
   })

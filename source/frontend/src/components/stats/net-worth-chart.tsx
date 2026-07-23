@@ -15,7 +15,7 @@ import {
   YAxis,
 } from 'recharts'
 
-import { formatDate, formatEuro } from '@/lib/format'
+import { formatDate, formatMoney } from '@/lib/format'
 import { useHorizontalScrubLock } from '@/lib/use-horizontal-scrub'
 import { readPinnedDate, writePinnedDate } from '@/lib/netWorthPin'
 import type { DailyNetWorth, NetWorthSummary } from '@/lib/statistics'
@@ -141,7 +141,7 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
           {active ? (
             <>
               <span>{formatDate(active.date)}: </span>
-              <span className="font-semibold">{formatEuro(active.value)}</span>
+              <span className="font-semibold">{formatMoney(active.value)}</span>
             </>
           ) : null}
         </span>
@@ -247,7 +247,7 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
           ).map(([key, value]) => (
             <div key={key} className="flex flex-col items-center gap-0.5">
               <dt className="text-muted-foreground">{t(`stats.netWorth.${key}`)}</dt>
-              <dd className="font-semibold">{formatEuro(value)}</dd>
+              <dd className="font-semibold">{formatMoney(value)}</dd>
             </div>
           ))}
         </dl>

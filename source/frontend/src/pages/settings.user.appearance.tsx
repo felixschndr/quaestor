@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import i18n from 'i18next'
@@ -7,7 +8,8 @@ import { Section, SettingsSubPage } from '@/components/settings/settings-section
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { readApiErrorMessage } from '@/lib/apiError'
 import { type Theme, type UserRead } from '@/lib/auth'
-import { useSupportedLanguages, useUpdateUser } from '@/lib/user'
+import { setDisplayCurrency } from '@/lib/format'
+import { useSupportedCurrencies, useSupportedLanguages, useUpdateUser } from '@/lib/user'
 import { applyTheme, THEME_VALUES } from '@/lib/theme'
 
 export function SettingsAppearanceView({ user }: { user: UserRead }) {
@@ -15,6 +17,7 @@ export function SettingsAppearanceView({ user }: { user: UserRead }) {
   return (
     <SettingsSubPage title={t('settings.appearance')}>
       <LanguageSection user={user} />
+      <CurrencySection user={user} />
       <ThemeSection user={user} />
     </SettingsSubPage>
   )
@@ -57,6 +60,49 @@ function LanguageSection({ user }: { user: UserRead }) {
           disabled={pending || !languages}
           onChange={(next) => void change(next)}
           options={sortedLanguages.map(({ code, label }) => ({ value: code, label }))}
+        />
+      </div>
+    </Section>
+  )
+}
+
+function CurrencySection({ user }: { user: UserRead }) {
+  const { t } = useTranslation()
+  const { data: currencies } = useSupportedCurrencies()
+  const update = useUpdateUser(user.id)
+  const queryClient = useQueryClient()
+  const [pending, setPending] = useState(false)
+
+  const change = async (next: string) => {
+    if (next === user.currency) return
+    setPending(true)
+    try {
+      await update.mutateAsync({ currency: next })
+      setDisplayCurrency(next)
+      await queryClient.invalidateQueries()
+      toast.success(t('common.saved'))
+    } catch (err) {
+      toast.error(readApiErrorMessage(err, t))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const options = (currencies?.currencies ?? [user.currency]).map((code) => ({
+    value: code,
+    label: t(`currencies.${code}`, { defaultValue: code }),
+  }))
+
+  return (
+    <Section title={t('settings.currency')}>
+      <div className="flex flex-col gap-2">
+        <SingleSelectPopover
+          id="currency-select"
+          ariaLabel={t('settings.currency')}
+          value={user.currency}
+          disabled={pending || !currencies}
+          onChange={(next) => void change(next)}
+          options={options}
         />
       </div>
     </Section>

@@ -9,13 +9,13 @@ import {
   type ContractCostPeriod,
   type ContractRead,
 } from '@/lib/contract'
-import { formatDate, formatDateWithoutYear, formatEuro } from '@/lib/format'
+import { formatDate, formatDateWithoutYear, formatMoney } from '@/lib/format'
 import { CategoryAvatar } from '@/lib/categoryIcons'
 import { SegmentedToggle } from '@/components/stats/segmented-toggle'
 import { cn } from '@/lib/utils'
 
 function formatAmount(value: number | null): string {
-  return value === null ? '—' : formatEuro(value)
+  return value === null ? '—' : formatMoney(value)
 }
 
 function amountColor(value: number | null): string {
@@ -89,7 +89,7 @@ function BalanceHeader({ total }: { total: number }) {
           surplus ? 'text-success' : 'text-destructive',
         )}
       >
-        {formatEuro(total)}
+        {formatMoney(total)}
       </p>
     </div>
   )
@@ -193,7 +193,7 @@ function ContractCostTable({ contracts }: { contracts: ContractRead[] }) {
                   period === 'MONTHLY' && amountColor(total),
                 )}
               >
-                {formatEuro(total)}
+                {formatMoney(total)}
               </td>
             )
           })}

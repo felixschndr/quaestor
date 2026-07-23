@@ -14,7 +14,7 @@ import { TransactionFilterFields } from '@/components/ui/transaction-filter-fiel
 import type { TransactionRead } from '@/lib/accountHistory'
 import { accountNamesById } from '@/lib/accounts'
 import { type CredentialRead } from '@/lib/auth'
-import { formatDate, formatEuro, formatIban } from '@/lib/format'
+import { formatDate, formatMoney, formatIban } from '@/lib/format'
 import { CategoryAvatar } from '@/lib/categoryIcons'
 import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from '@/lib/transaction'
 import { useSearchTransactions, type TransactionFilters } from '@/lib/transactionSearch'
@@ -348,7 +348,7 @@ function ResultRow({
             negative ? 'text-destructive' : 'text-success',
           )}
         >
-          {formatEuro(transaction.amount)}
+          {formatMoney(transaction.amount)}
         </span>
       </Link>
     </li>

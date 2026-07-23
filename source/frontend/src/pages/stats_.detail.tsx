@@ -19,11 +19,9 @@ import {
 } from '@/lib/statistics'
 import type { TransactionRead } from '@/lib/accountHistory'
 import { accountDisplayName } from '@/lib/accounts'
-import { formatEuro, formatFactorMultiplier, formatIban } from '@/lib/format'
+import { formatMoney, formatFactorMultiplier, formatIban } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-// Access the route's search params without importing the Route object, which
-// would create a route-file ↔ page-file import cycle.
 const detailRoute = getRouteApi('/stats_/detail')
 
 // en-CA locale formats as YYYY-MM-DD
@@ -35,7 +33,7 @@ function shiftIsoDay(iso: string, delta: number): string {
 }
 
 function formatSignedEuro(value: number): string {
-  return value > 0 ? `+${formatEuro(value)}` : formatEuro(value)
+  return value > 0 ? `+${formatMoney(value)}` : formatMoney(value)
 }
 
 export function NetWorthDetailPage() {
@@ -75,8 +73,6 @@ export function NetWorthDetailPage() {
 
   const changeEnd = (next: string | undefined) => {
     if (!next || next === endDate) return
-    // Keep an explicit start only while it still precedes the new end;
-    // otherwise drop it so it falls back to "the day before".
     const keepStart = search.start && search.start <= next ? search.start : undefined
     navigate({
       to: '/stats/detail',
@@ -203,7 +199,7 @@ export function NetWorthDetailPage() {
             <div className="border-border mx-2 flex items-center justify-between border-t pt-3 text-sm font-semibold tabular-nums">
               <span>{t('stats.day.total')}</span>
               <span className="flex items-baseline gap-3">
-                <span>{formatEuro(totalAtEnd)}</span>
+                <span>{formatMoney(totalAtEnd)}</span>
                 <DifferenceAmount value={totalDifference} />
               </span>
             </div>
@@ -252,8 +248,8 @@ function AccountChangeRow({
               ) : null}
             </span>
             <span className="text-muted-foreground truncate text-xs tabular-nums">
-              {formatEuro(change?.balance_at_start ?? 0)} →{' '}
-              {formatEuro(change?.balance_at_end ?? 0)}
+              {formatMoney(change?.balance_at_start ?? 0)} →{' '}
+              {formatMoney(change?.balance_at_end ?? 0)}
             </span>
           </span>
           <DifferenceAmount value={difference} />
@@ -303,7 +299,7 @@ function TransactionLine({ transaction }: { transaction: TransactionRead }) {
             negative ? 'text-destructive' : 'text-success',
           )}
         >
-          {formatEuro(transaction.amount)}
+          {formatMoney(transaction.amount)}
         </span>
       </Link>
     </li>

@@ -2,10 +2,42 @@ import i18n from '@/i18n'
 
 const DISPLAY_LOCALE = 'de-DE'
 
-const eurFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
-  style: 'currency',
-  currency: 'EUR',
-})
+let displayCurrency = 'EUR'
+const moneyFormatters = new Map<string, Intl.NumberFormat>()
+
+const CURRENCY_LOCALES: Record<string, string> = {
+  EUR: 'de-DE',
+  USD: 'en-US',
+  GBP: 'en-GB',
+  CHF: 'de-CH',
+  JPY: 'ja-JP',
+  CAD: 'en-CA',
+  AUD: 'en-AU',
+}
+
+function moneyFormatter(currency: string): Intl.NumberFormat {
+  let formatter = moneyFormatters.get(currency)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(CURRENCY_LOCALES[currency] ?? DISPLAY_LOCALE, {
+      style: 'currency',
+      currency,
+    })
+    moneyFormatters.set(currency, formatter)
+  }
+  return formatter
+}
+
+export function setDisplayCurrency(currency: string): void {
+  displayCurrency = currency
+}
+
+export function wrapWithCurrency(text: string): string {
+  const parts = moneyFormatter(displayCurrency).formatToParts(0)
+  const symbol = parts.find((p) => p.type === 'currency')?.value ?? displayCurrency
+  const currencyIndex = parts.findIndex((p) => p.type === 'currency')
+  const numberIndex = parts.findIndex((p) => p.type === 'integer')
+  return currencyIndex < numberIndex ? `${symbol}${text}` : `${text} ${symbol}`
+}
 
 const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   weekday: 'long',
@@ -38,8 +70,8 @@ function activeLocale(): string {
   return i18n.language || i18n.options.fallbackLng?.toString() || 'en'
 }
 
-export function formatEuro(amount: number): string {
-  return eurFormatter.format(amount)
+export function formatMoney(amount: number): string {
+  return moneyFormatter(displayCurrency).format(amount)
 }
 
 const decimalFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {

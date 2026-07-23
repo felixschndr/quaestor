@@ -23,7 +23,7 @@ import {
   formatDate,
   formatDateWithoutYear,
   formatDecimal,
-  formatEuro,
+  formatMoney,
   formatIban,
   formatRelativeDateTime,
   isIban,
@@ -432,7 +432,7 @@ function BalanceDisplay({
           negative ? 'text-destructive' : 'text-primary',
         )}
       >
-        {formatEuro(account.balance)}
+        {formatMoney(account.balance)}
       </p>
       {isManual ? (
         <Button
@@ -519,8 +519,6 @@ function DateHeader({
   stickyTopOffset: number
 }) {
   const { t } = useTranslation()
-  // ISO yyyy-mm-dd is parsed as UTC by `new Date(...)`; pin to local midnight
-  // so the "Today"/"Yesterday" check matches the user's wall clock.
   const [y, m, d] = date.split('-').map(Number)
   const local = new Date(y, m - 1, d)
   const relKey = relativeDateKey(local, today)
@@ -531,10 +529,6 @@ function DateHeader({
         ? t(`account.${relKey}`)
         : formatDate(local)
   return (
-    // grid (not flex+justify-between) so the columns have fixed positions and
-    // don't reflow as the next sticky header pushes this one out. `top` is the
-    // measured page-header height so the date header parks just beneath it
-    // instead of fighting it at top:0.
     <header
       className="bg-background sticky z-[1] grid grid-cols-[1fr_auto] items-baseline gap-2 py-1"
       style={{ top: `${stickyTopOffset}px` }}
@@ -542,7 +536,7 @@ function DateHeader({
       <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">{label}</h2>
       {endOfDayBalance !== null ? (
         <span className="text-muted-foreground text-xs tabular-nums">
-          {formatEuro(endOfDayBalance)}
+          {formatMoney(endOfDayBalance)}
         </span>
       ) : null}
     </header>
@@ -558,11 +552,7 @@ function TransactionRow({
 }: {
   accountId: number
   transaction: TransactionRead
-  /** Future-dated transactions aren't reflected in account.balance yet — render
-   *  them muted so the user understands they're informational, not booked. */
   isFuture?: boolean
-  /** Manual accounts get inline edit + delete buttons in place of the
-   *  navigate-to-detail link. */
   isManual?: boolean
   highlighted?: boolean
 }) {
@@ -620,8 +610,6 @@ function TransactionRow({
           <span
             className={cn(
               'text-sm font-semibold tabular-nums',
-              // Future/pending transactions get a neutral color: the destructive/success accent
-              // implies "this moved money" which isn't true until it books.
               isFuture || pending
                 ? 'text-muted-foreground'
                 : negative
@@ -629,7 +617,7 @@ function TransactionRow({
                   : 'text-success',
             )}
           >
-            {formatEuro(transaction.amount)}
+            {formatMoney(transaction.amount)}
           </span>
         </Link>
       </li>
@@ -662,7 +650,7 @@ function TransactionRow({
           isFuture ? 'text-muted-foreground' : negative ? 'text-destructive' : 'text-success',
         )}
       >
-        {formatEuro(transaction.amount)}
+        {formatMoney(transaction.amount)}
       </span>
       <RowActions onEdit={() => setEditing(true)} onDelete={onDelete} deleting={remove.isPending} />
     </li>
@@ -754,7 +742,7 @@ function RecurringTransactionRow({
           negative ? 'text-destructive' : 'text-success',
         )}
       >
-        {formatEuro(rule.amount)}
+        {formatMoney(rule.amount)}
       </span>
       <RowActions onEdit={() => setEditing(true)} onDelete={onDelete} deleting={remove.isPending} />
     </li>
@@ -862,7 +850,7 @@ function ExpectedTransactionRow({
           negative ? 'text-destructive' : 'text-success',
         )}
       >
-        {formatEuro(expectation.amount)}
+        {formatMoney(expectation.amount)}
       </span>
       <RowActions onEdit={() => setEditing(true)} onDelete={onDelete} deleting={remove.isPending} />
     </li>

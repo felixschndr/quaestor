@@ -21,7 +21,7 @@ import {
 import { BankLogo } from '@/components/BankLogo'
 import { useDeleteCredential, useUpdateCredential } from '@/lib/credentials'
 import { useAppSettings } from '@/lib/settings'
-import { formatDecimal, formatEuro, formatRelativeDateTime } from '@/lib/format'
+import { formatDecimal, formatMoney, formatRelativeDateTime } from '@/lib/format'
 import type { CredentialDetailViewProps } from '@/routes/settings.credentials.$credentialId'
 import { BackLink } from '@/components/back-link'
 import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
@@ -388,7 +388,7 @@ function AccountRow({ account, isManual }: { account: AccountRead; isManual: boo
           ) : null}
         </div>
         <span className="text-foreground shrink-0 text-base font-semibold tabular-nums">
-          {formatEuro(account.balance)}
+          {formatMoney(account.balance)}
         </span>
       </div>
       <div className="border-border/60 border-t" />
@@ -438,7 +438,7 @@ function AccountRow({ account, isManual }: { account: AccountRead; isManual: boo
             <span className="text-muted-foreground text-sm">%</span>
           </div>
           <span className="text-foreground row-start-2 text-sm font-medium tabular-nums">
-            {formatEuro(effectiveBalance)}
+            {formatMoney(effectiveBalance)}
           </span>
         </div>
 

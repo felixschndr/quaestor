@@ -12,6 +12,7 @@ router = create_router()
 class AppSettings(BaseModel):
     allow_new_user_registration: bool
     default_language: str
+    default_currency: str
     display_timezone: str
     sync_interval_hours: float
     allowed_attachment_extensions: list[str]
@@ -23,6 +24,7 @@ def get_settings() -> AppSettings:
     return AppSettings(
         allow_new_user_registration=user_service.new_user_registration_allowed(),
         default_language=i18n_service.get_default_language(),
+        default_currency=i18n_service.get_default_currency(),
         display_timezone=i18n_service.get_display_timezone(),
         sync_interval_hours=sync_scheduler.sync_interval_hours(),
         allowed_attachment_extensions=sorted(attachment_service.ALLOWED_EXTENSIONS),

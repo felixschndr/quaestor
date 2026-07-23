@@ -62,6 +62,7 @@ class UserRead(BaseModel):
     user_name: str
     display_name: str
     language: str
+    currency: str
     theme: Theme
     two_factor_enabled: bool
     balance: float
@@ -78,6 +79,7 @@ class UserUpdate(BaseModel):
     user_name: UserName | None = None
     display_name: str | None = None
     language: str | None = None
+    currency: str | None = None
     theme: Theme | None = None
     current_password: str | None = None
     new_password: str | None = Field(default=None, min_length=MIN_PASSWORD_LENGTH)
@@ -95,6 +97,16 @@ class UserUpdate(BaseModel):
         if not i18n_service.is_supported(value):
             supported = ", ".join(i18n_service.SUPPORTED_LANGUAGES)
             raise ValueError(f"Language {value!r} is not supported (supported: {supported})")
+        return value
+
+    @field_validator("currency")
+    @classmethod
+    def _check_currency(cls: type["UserUpdate"], value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not i18n_service.is_supported_currency(value):
+            supported = ", ".join(i18n_service.SUPPORTED_CURRENCIES)
+            raise ValueError(f"Currency {value!r} is not supported (supported: {supported})")
         return value
 
     @model_validator(mode="after")

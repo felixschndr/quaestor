@@ -42,6 +42,20 @@ def test_format_amount(amount: float, expected: str):
     assert format_amount(amount) == expected
 
 
+@pytest.mark.parametrize(
+    argnames="currency, expected",
+    argvalues=[
+        ("EUR", "12,50 €"),
+        ("USD", "12,50 $"),
+        ("GBP", "12,50 £"),
+        ("CHF", "12,50 CHF"),
+        ("XYZ", "12,50 XYZ"),  # Unknown code falls back to the code itself.
+    ],
+)
+def test_format_amount_uses_currency_symbol(currency: str, expected: str):
+    assert format_amount(12.5, currency=currency) == expected
+
+
 def test_key_is_identical_for_two_identical_transactions():
     assert get_key_of_transaction(create_fetched_transaction()) == get_key_of_transaction(create_fetched_transaction())
 

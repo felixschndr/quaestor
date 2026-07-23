@@ -10,6 +10,7 @@ from source.backend.services.transactions import attachment_service
 def test_settings_returns_defaults(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv(ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME, raising=False)
     monkeypatch.delenv(i18n_service.DEFAULT_LANGUAGE_ENV_VARIABLE_NAME, raising=False)
+    monkeypatch.delenv(i18n_service.DEFAULT_CURRENCY_ENV_VARIABLE_NAME, raising=False)
     monkeypatch.delenv(i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, raising=False)
     monkeypatch.delenv(SYNC_INTERVAL_HOURS_ENV_VARIABLE_NAME, raising=False)
     monkeypatch.delenv(attachment_service.MAX_ATTACHMENT_SIZE_MB_ENV_VARIABLE_NAME, raising=False)
@@ -20,6 +21,7 @@ def test_settings_returns_defaults(http_client: TestClient, monkeypatch: pytest.
     assert response.json() == {
         "allow_new_user_registration": True,
         "default_language": i18n_service.DEFAULT_LANGUAGE,
+        "default_currency": i18n_service.DEFAULT_CURRENCY,
         "display_timezone": i18n_service.DEFAULT_TIMEZONE,
         "sync_interval_hours": 12.0,
         "allowed_attachment_extensions": sorted(attachment_service.ALLOWED_EXTENSIONS),
@@ -30,6 +32,7 @@ def test_settings_returns_defaults(http_client: TestClient, monkeypatch: pytest.
 def test_settings_reflects_env_variables(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv(name=ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME, value="false")
     monkeypatch.setenv(name=i18n_service.DEFAULT_LANGUAGE_ENV_VARIABLE_NAME, value="de")
+    monkeypatch.setenv(name=i18n_service.DEFAULT_CURRENCY_ENV_VARIABLE_NAME, value="USD")
     monkeypatch.setenv(name=i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, value="Europe/Berlin")
     monkeypatch.setenv(name=SYNC_INTERVAL_HOURS_ENV_VARIABLE_NAME, value="6")
     monkeypatch.setenv(name=attachment_service.MAX_ATTACHMENT_SIZE_MB_ENV_VARIABLE_NAME, value="5")
@@ -40,6 +43,7 @@ def test_settings_reflects_env_variables(http_client: TestClient, monkeypatch: p
     assert response.json() == {
         "allow_new_user_registration": False,
         "default_language": "de",
+        "default_currency": "USD",
         "display_timezone": "Europe/Berlin",
         "sync_interval_hours": 6.0,
         "allowed_attachment_extensions": sorted(attachment_service.ALLOWED_EXTENSIONS),

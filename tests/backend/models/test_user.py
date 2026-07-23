@@ -20,6 +20,7 @@ def test_user_repr_contains_identifying_fields_but_not_password():
         display_name=DISPLAY_NAME,
         password_hash=VALID_PASSWORD_HASH,
         language="en",
+        currency="EUR",
         theme=Theme.SYSTEM,
         two_factor_secret=TWO_FACTOR_SECRET,
         two_factor_enabled=False,
@@ -29,7 +30,7 @@ def test_user_repr_contains_identifying_fields_but_not_password():
 
     assert representation == (
         f"<User(id=1, user_name={USER_NAME}, display_name={DISPLAY_NAME}, "
-        "language=en, theme=SYSTEM, two_factor_enabled=False)>"
+        "language=en, currency=EUR, theme=SYSTEM, two_factor_enabled=False)>"
     )
     assert VALID_PASSWORD_HASH not in representation
     assert TWO_FACTOR_SECRET not in representation

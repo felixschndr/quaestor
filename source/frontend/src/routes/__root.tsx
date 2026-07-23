@@ -7,10 +7,11 @@ import type { QueryClient } from '@tanstack/react-query'
 
 import { Button } from '@/components/ui/button'
 import { NetworkError } from '@/lib/api'
-import { ensureAuthenticated, useAuthMe } from '@/lib/auth'
+import { authQueryKeys, ensureAuthenticated, useAuthMe, type UserRead } from '@/lib/auth'
 import { ensureAppSettings } from '@/lib/settings'
 import { autoSubscribe } from '@/lib/push'
 import { readStoredTheme, useResolvedTheme } from '@/lib/theme'
+import { setDisplayCurrency } from '@/lib/format'
 import { useApplyUserLanguage } from '@/i18n'
 
 export const Route = createRootRouteWithContext<{
@@ -23,6 +24,8 @@ export const Route = createRootRouteWithContext<{
       pathname: location.pathname,
       search: location.searchStr,
     })
+    const user = context.queryClient.getQueryData<UserRead>(authQueryKeys.me)
+    if (user?.currency) setDisplayCurrency(user.currency)
   },
   component: RootComponent,
   pendingComponent: LoadingScreen,
@@ -34,6 +37,7 @@ function RootComponent() {
   const preference = user?.theme ?? readStoredTheme()
   const resolved = useResolvedTheme(preference)
   useApplyUserLanguage(user?.language)
+  if (user?.currency) setDisplayCurrency(user.currency)
   const userId = user?.id
   useEffect(() => {
     if (userId) void autoSubscribe()

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowRight, Repeat } from 'lucide-react'
 
 import { sumContractsForPeriod, useContracts } from '@/lib/contract'
-import { formatEuro } from '@/lib/format'
+import { formatMoney } from '@/lib/format'
 
 export function ContractsSummaryCard({ accountIds }: { accountIds: number[] }) {
   const { t } = useTranslation()
@@ -30,15 +30,15 @@ export function ContractsSummaryCard({ accountIds }: { accountIds: number[] }) {
       <div className="grid grid-cols-3 gap-2">
         <Metric
           label={t('stats.contracts.perDay')}
-          value={formatEuro(sumContractsForPeriod(contracts, 'DAY'))}
+          value={formatMoney(sumContractsForPeriod(contracts, 'DAY'))}
         />
         <Metric
           label={t('stats.contracts.perMonth')}
-          value={formatEuro(sumContractsForPeriod(contracts, 'MONTHLY'))}
+          value={formatMoney(sumContractsForPeriod(contracts, 'MONTHLY'))}
         />
         <Metric
           label={t('stats.contracts.perYear')}
-          value={formatEuro(sumContractsForPeriod(contracts, 'YEARLY'))}
+          value={formatMoney(sumContractsForPeriod(contracts, 'YEARLY'))}
         />
       </div>
     </section>
