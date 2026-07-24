@@ -140,7 +140,14 @@ def _make_two_factor_state_notifier(job: SyncJob) -> "Callable[[bool], None]":
     loop = asyncio.get_running_loop()
 
     def notify(awaiting: bool) -> None:
-        asyncio.run_coroutine_threadsafe(_update_decoupled_state(job=job, awaiting=awaiting), loop)  # noqa FKA100
+        future = asyncio.run_coroutine_threadsafe(coro=_update_decoupled_state(job=job, awaiting=awaiting), loop=loop)
+
+        def log_outcome(finished_future: "asyncio.Future") -> None:
+            exception = finished_future.exception()
+            if exception is not None:
+                logger.error(f"{job} decoupled-state update awaiting={awaiting} raised: {exception!r}")
+
+        future.add_done_callback(log_outcome)
 
     return notify
 

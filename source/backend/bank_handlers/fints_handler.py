@@ -9,6 +9,7 @@ import fints_url
 from fints.camt_parser import camt053_to_dict
 from fints.client import FinTS3PinTanClient, NeedTANResponse
 from fints.exceptions import FinTSClientPINError
+from fints.formals import Balance1, Balance2
 from fints.models import SEPAAccount
 from fints.models import Transaction as FinTSTransaction
 
@@ -27,6 +28,12 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.transactions.transaction_type import TransactionType
 
 logger = get_logger(__name__)
+
+# python-fints marks the balance booking-date required, but DKB omits it (e.g. for zero-balance Tagesgeld accounts),
+# so the whole HISAL segment fails to parse and get_balance raises 'FinTS3Segment' has no 'balance_booked'.
+# The date is informational only --> make it optional so the balance still parses.
+Balance1._fields["date"].required = False
+Balance2._fields["date"].required = False
 
 APPROVAL_TIMEOUT = timedelta(minutes=3)
 APPROVAL_POLL_INTERVAL = timedelta(seconds=2)
@@ -285,6 +292,8 @@ def _resolve_decoupled(
         notify_two_factor_state(True)
     try:
         deadline = time.monotonic() + APPROVAL_TIMEOUT.total_seconds()
+        started = time.monotonic()
+        attempts = 0
         logger.info(f"Waiting for pushTAN app approval (up to {APPROVAL_TIMEOUT})")
         while isinstance(response, NeedTANResponse):
             if time.monotonic() > deadline:
@@ -292,7 +301,12 @@ def _resolve_decoupled(
                 logger.warning(error_message)
                 raise ReauthenticationRequiredError(error_message)
             sleep(APPROVAL_POLL_INTERVAL.total_seconds())
+            attempts += 1
             response = client.send_tan(response, tan="")
+            logger.debug(
+                f"pushTAN poll attempt {attempts} ({time.monotonic() - started:.1f}s elapsed): "
+                f"response is {type(response).__name__}"
+            )
         logger.info("pushTAN approval received")
         return response
     finally:

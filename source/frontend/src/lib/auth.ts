@@ -283,11 +283,15 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
           return next
         })
         if (TWO_FACTOR_STATUSES.has(update.status)) {
-          if (!queueRef.current.includes(update.credential_id)) {
-            setQueue((prev) => [...prev, update.credential_id])
-          }
-        } else if (queueRef.current.includes(update.credential_id)) {
-          setQueue((prev) => prev.filter((id) => id !== update.credential_id))
+          setQueue((prev) =>
+            prev.includes(update.credential_id) ? prev : [...prev, update.credential_id],
+          )
+        } else {
+          setQueue((prev) =>
+            prev.includes(update.credential_id)
+              ? prev.filter((id) => id !== update.credential_id)
+              : prev,
+          )
         }
       }
       sockets.push(socket)
