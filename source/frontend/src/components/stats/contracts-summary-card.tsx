@@ -3,17 +3,20 @@ import { useTranslation } from 'react-i18next'
 import { ArrowRight, Repeat } from 'lucide-react'
 
 import { sumContractsForPeriod, useContracts } from '@/lib/contract'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, formatPercent } from '@/lib/format'
 import { ChartCard } from '@/components/stats/chart-card'
 import { StatMetricGroup } from '@/components/stats/stat-metric'
+import { averageMonthlyIncome, fixedCostRatio, type MonthlyCashflow } from '@/lib/statistics'
 import type { TransactionCategory } from '@/lib/transaction'
 
 export function ContractsSummaryCard({
   accountIds,
   categories,
+  cashflow,
 }: {
   accountIds: number[]
   categories: TransactionCategory[]
+  cashflow: MonthlyCashflow[] | undefined
 }) {
   const { t } = useTranslation()
   const { data } = useContracts()
@@ -22,6 +25,10 @@ export function ContractsSummaryCard({
       accountIds.includes(contract.account_id) &&
       (categories.length === 0 ||
         (contract.category !== null && categories.includes(contract.category))),
+  )
+  const ratio = fixedCostRatio(
+    sumContractsForPeriod(contracts, 'MONTHLY'),
+    averageMonthlyIncome(cashflow ?? []),
   )
 
   return (
@@ -59,6 +66,10 @@ export function ContractsSummaryCard({
           {
             label: t('stats.contracts.perYear'),
             value: formatMoney(sumContractsForPeriod(contracts, 'YEARLY')),
+          },
+          {
+            label: t('stats.contracts.fixedCostRatio'),
+            value: ratio === null ? '–' : formatPercent(ratio),
           },
         ]}
       />

@@ -18,7 +18,10 @@ export function StatMetricGroup({ metrics }: { metrics: { label: string; value: 
           </div>
         ))}
       </dl>
-      <div className="hidden grid-cols-3 gap-2 sm:grid">
+      <div
+        className="hidden gap-2 sm:grid"
+        style={{ gridTemplateColumns: `repeat(${metrics.length}, minmax(0, 1fr))` }}
+      >
         {metrics.map((metric) => (
           <StatMetric key={metric.label} label={metric.label} value={metric.value} />
         ))}

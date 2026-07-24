@@ -55,9 +55,19 @@ export function averageMonthlyExpenses(cashflow: MonthlyCashflow[]): number {
   return cashflow.reduce((sum, month) => sum + month.expenses, 0) / cashflow.length
 }
 
+export function averageMonthlyIncome(cashflow: MonthlyCashflow[]): number {
+  if (cashflow.length === 0) return 0
+  return cashflow.reduce((sum, month) => sum + month.income, 0) / cashflow.length
+}
+
 export function runwayMonths(balance: number, avgMonthlyExpenses: number): number | null {
   if (avgMonthlyExpenses <= 0) return null
   return Math.max(0, balance / avgMonthlyExpenses)
+}
+
+export function fixedCostRatio(monthlyContracts: number, avgMonthlyIncome: number): number | null {
+  if (avgMonthlyIncome <= 0) return null
+  return monthlyContracts / avgMonthlyIncome
 }
 
 export function runwayYearsMonths(totalMonths: number): { years: number; months: number } {

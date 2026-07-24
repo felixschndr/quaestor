@@ -638,6 +638,7 @@
       "perDay": "Per day",
       "perMonth": "Per month",
       "perYear": "Per year",
+      "fixedCostRatio": "Fixed-cost ratio",
       "viewAll": "View all"
     },
     "cashflow": {

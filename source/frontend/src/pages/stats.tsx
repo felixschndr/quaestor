@@ -247,7 +247,11 @@ export function StatsView({
         <p className="text-muted-foreground text-sm">{t('stats.noMatches')}</p>
       ) : (
         <>
-          <ContractsSummaryCard accountIds={accountIds} categories={categoriesParam} />
+          <ContractsSummaryCard
+            accountIds={accountIds}
+            categories={categoriesParam}
+            cashflow={cashflow.data}
+          />
 
           <RunwayCard credentials={credentials} accountIds={accountIds} cashflow={cashflow.data} />
 

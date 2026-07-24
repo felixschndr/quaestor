@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest'
 import {
   aggregateTopN,
   averageMonthlyExpenses,
+  averageMonthlyIncome,
   buildStatsQueryString,
   defaultStatsDateRange,
   fillTransactionCountBuckets,
+  fixedCostRatio,
   runwayMonths,
   runwayYearsMonths,
   sliceColor,
@@ -199,6 +201,28 @@ describe('averageMonthlyExpenses', () => {
 
   it('returns 0 for no months', () => {
     expect(averageMonthlyExpenses([])).toBe(0)
+  })
+})
+
+describe('averageMonthlyIncome', () => {
+  const month = (m: string, income: number): MonthlyCashflow => ({ month: m, income, expenses: 0 })
+
+  it('averages the income across the returned months', () => {
+    expect(averageMonthlyIncome([month('2026-01', 1000), month('2026-02', 3000)])).toBe(2000)
+  })
+
+  it('returns 0 for no months', () => {
+    expect(averageMonthlyIncome([])).toBe(0)
+  })
+})
+
+describe('fixedCostRatio', () => {
+  it('divides monthly contracts by average monthly income', () => {
+    expect(fixedCostRatio(500, 2000)).toBe(0.25)
+  })
+
+  it('returns null without income', () => {
+    expect(fixedCostRatio(500, 0)).toBeNull()
   })
 })
 
