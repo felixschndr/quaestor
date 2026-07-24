@@ -25,7 +25,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
         with:
-          fetch-depth: 20
+          fetch-depth: 100
           fetch-tags: true
 
       - name: Compare current version against the latest release

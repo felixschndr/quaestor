@@ -185,6 +185,7 @@ jobs:
         uses: softprops/action-gh-release@v3.0.2
         with:
           tag_name: ${{ needs.check_version.outputs.current_version }}
+          target_commitish: ${{ needs.check_version.outputs.bump_sha }}
           name: Release ${{ needs.check_version.outputs.current_version }}
           body: |
             ## Commits since the last release
