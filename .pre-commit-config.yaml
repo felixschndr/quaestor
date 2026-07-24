@@ -40,7 +40,6 @@ repos:
           - flake8-force-keyword-arguments
           - flake8-bugbear
           - flake8-comprehensions
-          - flake8-async
           - flake8-timeout
           - flake8-tidy-imports
           - pep8-naming

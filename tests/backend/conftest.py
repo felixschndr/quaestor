@@ -10,7 +10,7 @@ import pyotp
 import pytest
 import requests
 from fastapi.testclient import TestClient
-from httpx import Response  # noqa ASYNC127
+from httpx import Response
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool

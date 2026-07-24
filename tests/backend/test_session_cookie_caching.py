@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import Request
 from fastapi.testclient import TestClient
-from httpx import Response  # noqa ASYNC127
+from httpx import Response
 from starlette.responses import Response as StarletteResponse
 from starlette.types import Scope
 

@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import httpx  # noqa ASYNC127
+import httpx
 import pytest
 import uvicorn
 from cryptography import x509

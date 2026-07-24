@@ -1,4 +1,4 @@
-import httpx  # noqa: ASYNC127
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
