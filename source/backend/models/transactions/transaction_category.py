@@ -91,8 +91,8 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
     TransactionCategory.ALLOWANCE: ["taschengeld", "kindergeld"],
     TransactionCategory.PENSION: ["rente"],
     TransactionCategory.REIMBURSEMENT: ["reisespesen", "korrektur", "erstatt", "ruckzahlung"],
-    TransactionCategory.INTEREST: ["zinsen"],
-    TransactionCategory.INVESTMENT: ["msci", "nasdaq", "(dist)", "(acc)", "trade republic"],
+    TransactionCategory.INTEREST: ["zinsen", "interest applied", "zinsgutschrift"],
+    TransactionCategory.INVESTMENT: ["msci", "nasdaq", "(dist)", "(acc)", "trade republic", "scalable capital"],
     TransactionCategory.SUBSCRIPTIONS: [
         "spotify",
         "ionos",
@@ -107,6 +107,8 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "serverprofis",
         "haufe service center gmbh",
         "hosting vault",
+        "youtube",
+        "patreon",
     ],
     TransactionCategory.RENT: ["miete"],
     TransactionCategory.UTILITIES: ["vattenfall", "vodafone", "rundfunk", "strom"],
@@ -130,8 +132,9 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "airplus",
         "sic rhein",
         "frankf airport",
+        "radisson",
     ],
-    TransactionCategory.FUEL: ["tankstelle", "aral station", "bft", "tanken", "esso", "turmoel"],
+    TransactionCategory.FUEL: ["tankstelle", "aral station", "bft", "tanken", "esso", "turmoel", "ryd"],
     TransactionCategory.FITNESS: ["fit-in", "fitness", "gym"],
     TransactionCategory.SUPERMARKET: [
         "rewe",
@@ -151,6 +154,8 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "kiosk",
         "euroshop",
         "go asia",
+        "knuspr",
+        "picnic",
     ],
     TransactionCategory.DRUGSTORE: ["drogerie", "rossmann", "mueller"],
     TransactionCategory.RESTAURANTS: [
@@ -192,6 +197,11 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "burger",
         "studio 83",
         "neon karls",
+        "allresto",
+        "bier konig",
+        "backhau",
+        "kaffeeroester",
+        "brotha",
     ],
     TransactionCategory.PERSONAL_CARE: ["friseur", "barber", "waxing", "apotheke", "krankenkasse", "zahnarzt"],
     TransactionCategory.CLOTHING: ["new yorker", "bijou brigitte", "deichmann"],
@@ -246,6 +256,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "apple store",
         "ikea",
         "paypal",
+        "koro",
         "studidruck",
     ],
 }
@@ -260,4 +271,5 @@ def normalize_string(input_string: str) -> str:
         .replace("ü", "ue")
         .replace("ß", "ss")
         .replace(".", " ")
+        .replace("/", " ")
     )
