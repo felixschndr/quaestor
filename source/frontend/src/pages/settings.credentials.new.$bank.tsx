@@ -263,7 +263,6 @@ function CredentialForm({
         jobId: activeJob.jobId,
         code,
       })
-      // Wait for the WebSocket to push the terminal state (handled in the effect above).
     } catch {
       toast.error(t('credentials.twoFactor.failed'))
       onSyncFailed()

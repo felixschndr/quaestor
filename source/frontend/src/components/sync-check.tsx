@@ -10,21 +10,33 @@ export const CHECK_HOLD_MS = 1200
 export function useSuccessCheck(succeededAt: number | null): { mounted: boolean; open: boolean } {
   const [mounted, setMounted] = useState(false)
   const [open, setOpen] = useState(false)
+  const shownRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (succeededAt === null) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true)
-    const raf = requestAnimationFrame(() => setOpen(true))
-    const closeTimer = setTimeout(() => setOpen(false), CHECK_ZOOM_MS + CHECK_HOLD_MS)
-    const unmountTimer = setTimeout(
-      () => setMounted(false),
-      CHECK_ZOOM_MS + CHECK_HOLD_MS + CHECK_ZOOM_MS,
-    )
+    let cancelTimers: (() => void) | null = null
+    const play = () => {
+      if (succeededAt === null || succeededAt === shownRef.current) return
+      if (document.visibilityState !== 'visible') return
+      shownRef.current = succeededAt
+      setMounted(true)
+      const raf = requestAnimationFrame(() => setOpen(true))
+      const closeTimer = setTimeout(() => setOpen(false), CHECK_ZOOM_MS + CHECK_HOLD_MS)
+      const unmountTimer = setTimeout(
+        () => setMounted(false),
+        CHECK_ZOOM_MS + CHECK_HOLD_MS + CHECK_ZOOM_MS,
+      )
+      cancelTimers = () => {
+        cancelAnimationFrame(raf)
+        clearTimeout(closeTimer)
+        clearTimeout(unmountTimer)
+      }
+    }
+    play()
+    const onVisible = () => play()
+    document.addEventListener('visibilitychange', onVisible)
     return () => {
-      cancelAnimationFrame(raf)
-      clearTimeout(closeTimer)
-      clearTimeout(unmountTimer)
+      document.removeEventListener('visibilitychange', onVisible)
+      cancelTimers?.()
     }
   }, [succeededAt])
 

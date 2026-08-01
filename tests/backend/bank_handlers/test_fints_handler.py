@@ -13,7 +13,12 @@ from source.backend.bank_handlers.fints_handler import (
     _resolve_decoupled,
     _try_configure_pushtan_mechanism,
 )
-from source.backend.exceptions import InvalidCredentialsError, ReauthenticationRequiredError, UnsupportedBankError
+from source.backend.exceptions import (
+    InvalidCredentialsError,
+    ReauthenticationRequiredError,
+    SyncCancelledError,
+    UnsupportedBankError,
+)
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     BANK_PASSWORD,
@@ -212,6 +217,31 @@ def test_resolve_decoupled_invokes_notifier_on_enter_and_exit(monkeypatch: pytes
 
     _resolve_decoupled(client=client, response=pending, notify_two_factor_state=calls.append)
 
+    assert calls == [True, False]
+
+
+def test_resolve_decoupled_aborts_when_cancelled(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
+
+    pending = MagicMock(spec=module.NeedTANResponse)
+    pending.decoupled = True
+    client = MagicMock()
+    client.send_tan.return_value = pending  # bank never approves
+    calls: list[bool] = []
+    cancelled = {"value": False}
+
+    def is_cancelled() -> bool:
+        # Not cancelled on the first loop check, cancelled from the second on.
+        was = cancelled["value"]
+        cancelled["value"] = True
+        return was
+
+    with pytest.raises(SyncCancelledError):
+        _resolve_decoupled(
+            client=client, response=pending, notify_two_factor_state=calls.append, is_cancelled=is_cancelled
+        )
+
+    assert client.send_tan.call_count == 1
     assert calls == [True, False]
 
 

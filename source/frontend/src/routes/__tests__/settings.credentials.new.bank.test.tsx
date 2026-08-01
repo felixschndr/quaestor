@@ -88,56 +88,38 @@ const DEUTSCHE_BANK: SupportedBank = {
   blzs: ['10070000', '12070000'],
 }
 
-class MockWebSocket {
-  static instances: MockWebSocket[] = []
-  url: string
-  readyState = 0
-  onopen: ((event: unknown) => void) | null = null
-  onmessage: ((event: { data: string }) => void) | null = null
-  onclose: ((event: unknown) => void) | null = null
-  onerror: ((event: unknown) => void) | null = null
+let polledJob: SyncJob | null = null
 
-  constructor(url: string) {
-    this.url = url
-    MockWebSocket.instances.push(this)
-    queueMicrotask(() => {
-      act(() => {
-        this.readyState = 1
-        this.onopen?.({})
-      })
-    })
+function pollBranch(url: string, init?: { method?: string }): Promise<Response> | null {
+  if ((init?.method ?? 'GET') === 'GET' && /\/sync\/[^/?]+$/.test(url)) {
+    return Promise.resolve(jsonResponse({ status: polledJob ? 200 : 404, body: polledJob }))
   }
-
-  send() {}
-
-  close() {
-    act(() => {
-      this.readyState = 3
-      this.onclose?.({})
-    })
-  }
-
-  push(message: Partial<SyncJob> & Pick<SyncJob, 'job_id' | 'credential_id' | 'status'>) {
-    // Mirror the backend payload: expires_at/error/error_code default to null unless set.
-    const full: SyncJob = { expires_at: null, error: null, error_code: null, ...message }
-    act(() => {
-      this.onmessage?.({ data: JSON.stringify(full) })
-    })
-  }
+  return null
 }
 
-async function nextWebSocket(predicate: (ws: MockWebSocket) => boolean): Promise<MockWebSocket> {
-  return waitFor(() => {
-    const ws = MockWebSocket.instances.find(predicate)
-    if (!ws) throw new Error('WebSocket not opened yet')
-    return ws
+async function waitForFirstPoll(): Promise<void> {
+  await waitFor(() =>
+    expect(
+      (globalThis.fetch as Mock).mock.calls.some(
+        ([u, i]) =>
+          typeof u === 'string' && /\/sync\/[^/?]+$/.test(u) && (i?.method ?? 'GET') === 'GET',
+      ),
+    ).toBe(true),
+  )
+}
+
+async function pushJob(
+  message: Partial<SyncJob> & Pick<SyncJob, 'job_id' | 'credential_id' | 'status'>,
+): Promise<void> {
+  polledJob = { expires_at: null, error: null, error_code: null, ...message }
+  await act(async () => {
+    document.dispatchEvent(new Event('visibilitychange'))
   })
 }
 
 beforeEach(() => {
   globalThis.fetch = vi.fn() as unknown as typeof fetch
-  MockWebSocket.instances = []
-  ;(globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket
+  polledJob = null
   document.cookie = ''
 })
 
@@ -267,6 +249,8 @@ describe('NewCredentialFormView', () => {
     const user = userEvent.setup()
     const fetchMock = globalThis.fetch as Mock
     fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      const poll = pollBranch(url, init)
+      if (poll) return poll
       if (url === '/api/credentials' && init?.method === 'POST') {
         return Promise.resolve(
           jsonResponse({
@@ -315,8 +299,8 @@ describe('NewCredentialFormView', () => {
     await user.type(screen.getByLabelText('Password'), 'hunter2')
     await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
-    const ws = await nextWebSocket((s) => s.url.includes('/credentials/42/sync/job-abc/ws'))
-    ws.push({
+    await waitForFirstPoll()
+    await pushJob({
       job_id: 'job-abc',
       credential_id: 42,
       status: 'completed',
@@ -332,6 +316,8 @@ describe('NewCredentialFormView', () => {
     const user = userEvent.setup()
     const fetchMock = globalThis.fetch as Mock
     fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      const poll = pollBranch(url, init)
+      if (poll) return poll
       if (url === '/api/credentials' && init?.method === 'POST') {
         return Promise.resolve(
           jsonResponse({
@@ -381,8 +367,8 @@ describe('NewCredentialFormView', () => {
     await user.type(screen.getByLabelText('Password'), 'hunter2')
     await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
-    const ws = await nextWebSocket((s) => s.url.includes('/credentials/42/sync/job-abc/ws'))
-    ws.push({
+    await waitForFirstPoll()
+    await pushJob({
       job_id: 'job-abc',
       credential_id: 42,
       status: 'awaiting_2fa',
@@ -405,6 +391,8 @@ describe('NewCredentialFormView', () => {
     const user = userEvent.setup()
     const fetchMock = globalThis.fetch as Mock
     fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      const poll = pollBranch(url, init)
+      if (poll) return poll
       if (url === '/api/credentials' && init?.method === 'POST') {
         return Promise.resolve(
           jsonResponse({
@@ -453,8 +441,8 @@ describe('NewCredentialFormView', () => {
     await user.type(screen.getByLabelText('Password'), 'hunter2')
     await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
-    const ws = await nextWebSocket((s) => s.url.includes('/credentials/11/sync/job-x/ws'))
-    ws.push({
+    await waitForFirstPoll()
+    await pushJob({
       job_id: 'job-x',
       credential_id: 11,
       status: 'failed',
@@ -478,6 +466,8 @@ describe('NewCredentialFormView', () => {
     const toastError = vi.spyOn(toast, 'error').mockImplementation(() => 'toast-id' as never)
     const fetchMock = globalThis.fetch as Mock
     fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      const poll = pollBranch(url, init)
+      if (poll) return poll
       if (url === '/api/credentials' && init?.method === 'POST') {
         return Promise.resolve(
           jsonResponse({
@@ -528,8 +518,8 @@ describe('NewCredentialFormView', () => {
     await user.type(screen.getByLabelText('Password'), 'wrong-pin')
     await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
-    const ws = await nextWebSocket((s) => s.url.includes('/credentials/11/sync/job-x/ws'))
-    ws.push({
+    await waitForFirstPoll()
+    await pushJob({
       job_id: 'job-x',
       credential_id: 11,
       status: 'failed',
@@ -537,7 +527,6 @@ describe('NewCredentialFormView', () => {
       error_code: 'invalid_credentials',
     })
 
-    // The just-created credential is useless with wrong creds → it must be deleted.
     await waitFor(() =>
       expect(
         fetchMock.mock.calls.some(
@@ -547,7 +536,6 @@ describe('NewCredentialFormView', () => {
     )
     expect(toastError).toHaveBeenCalledTimes(1)
     expect(toastError.mock.calls[0][0]).toMatch(/check your username and password/i)
-    // We stay on the form so the user can fix the credentials — no navigation away.
     expect(onSyncFailed).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Connect and sync' })).toBeEnabled()
   })
@@ -556,6 +544,8 @@ describe('NewCredentialFormView', () => {
     const user = userEvent.setup()
     const fetchMock = globalThis.fetch as Mock
     fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      const poll = pollBranch(url, init)
+      if (poll) return poll
       if (url === '/api/credentials' && init?.method === 'POST') {
         return Promise.resolve(
           jsonResponse({
@@ -603,6 +593,8 @@ describe('NewCredentialFormView', () => {
     const user = userEvent.setup()
     const fetchMock = globalThis.fetch as Mock
     fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      const poll = pollBranch(url, init)
+      if (poll) return poll
       if (url === '/api/credentials' && init?.method === 'POST') {
         return Promise.resolve(
           jsonResponse({
@@ -691,6 +683,8 @@ describe('NewCredentialFormView', () => {
     const fetchMock = globalThis.fetch as Mock
     let sentCredentials: Record<string, string> | undefined
     fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
+      const poll = pollBranch(url, init)
+      if (poll) return poll
       if (url === '/api/credentials' && init?.method === 'POST') {
         sentCredentials = (
           JSON.parse(init.body as string) as { credentials: Record<string, string> }
@@ -764,6 +758,8 @@ describe('NewCredentialFormView', () => {
   describe('Trade Republic 2FA flow', () => {
     function mockBackend(fetchMock: Mock, credentialId: number, jobId: string) {
       fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
+        const poll = pollBranch(url, init)
+        if (poll) return poll
         if (url === '/api/credentials' && init?.method === 'POST') {
           return Promise.resolve(
             jsonResponse({
@@ -836,10 +832,9 @@ describe('NewCredentialFormView', () => {
       await user.type(screen.getByLabelText('PIN'), '1234')
       await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
-      const ws = await nextWebSocket((s) => s.url.includes('/credentials/7/sync/job-tr/ws'))
+      await waitForFirstPoll()
 
-      // Still no code field — we only got "running".
-      ws.push({
+      await pushJob({
         job_id: 'job-tr',
         credential_id: 7,
         status: 'running',
@@ -848,7 +843,7 @@ describe('NewCredentialFormView', () => {
       })
       expect(screen.queryByLabelText('Code')).not.toBeInTheDocument()
 
-      ws.push({
+      await pushJob({
         job_id: 'job-tr',
         credential_id: 7,
         status: 'awaiting_2fa',
@@ -882,8 +877,8 @@ describe('NewCredentialFormView', () => {
       await user.type(screen.getByLabelText('PIN'), '1234')
       await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
-      const ws = await nextWebSocket((s) => s.url.includes('/credentials/7/sync/job-tr/ws'))
-      ws.push({
+      await waitForFirstPoll()
+      await pushJob({
         job_id: 'job-tr',
         credential_id: 7,
         status: 'awaiting_2fa',
@@ -895,7 +890,7 @@ describe('NewCredentialFormView', () => {
       await user.type(codeInput, '4242')
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
 
-      ws.push({
+      await pushJob({
         job_id: 'job-tr',
         credential_id: 7,
         status: 'completed',
@@ -916,6 +911,8 @@ describe('NewCredentialFormView', () => {
       const user = userEvent.setup()
       const fetchMock = globalThis.fetch as Mock
       ;(fetchMock as Mock).mockImplementation((url: string, init?: { method?: string }) => {
+        const poll = pollBranch(url, init)
+        if (poll) return poll
         if (url === '/api/credentials' && init?.method === 'POST') {
           return Promise.resolve(
             jsonResponse({
@@ -968,8 +965,8 @@ describe('NewCredentialFormView', () => {
       await user.type(screen.getByLabelText('PIN'), '1234')
       await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
-      const ws = await nextWebSocket((s) => s.url.includes('/credentials/7/sync/job-tr/ws'))
-      ws.push({
+      await waitForFirstPoll()
+      await pushJob({
         job_id: 'job-tr',
         credential_id: 7,
         status: 'awaiting_2fa',
@@ -989,6 +986,8 @@ describe('NewCredentialFormView', () => {
   describe('Sparkasse decoupled approval flow', () => {
     function mockBackend(fetchMock: Mock, credentialId: number, jobId: string) {
       fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+        const poll = pollBranch(url, init)
+        if (poll) return poll
         if (url === '/api/credentials' && init?.method === 'POST') {
           return Promise.resolve(
             jsonResponse({
@@ -1042,8 +1041,8 @@ describe('NewCredentialFormView', () => {
       await user.type(screen.getByLabelText('Password'), 'secret-password')
       await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
-      const ws = await nextWebSocket((s) => s.url.includes('/credentials/13/sync/job-spk/ws'))
-      ws.push({
+      await waitForFirstPoll()
+      await pushJob({
         job_id: 'job-spk',
         credential_id: 13,
         status: 'awaiting_decoupled_approval',
@@ -1078,8 +1077,8 @@ describe('NewCredentialFormView', () => {
       await user.type(screen.getByLabelText('Password'), 'secret-password')
       await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
-      const ws = await nextWebSocket((s) => s.url.includes('/credentials/13/sync/job-spk/ws'))
-      ws.push({
+      await waitForFirstPoll()
+      await pushJob({
         job_id: 'job-spk',
         credential_id: 13,
         status: 'awaiting_decoupled_approval',
@@ -1088,14 +1087,14 @@ describe('NewCredentialFormView', () => {
       })
       expect(await screen.findByText(/Please approve in your banking app/)).toBeInTheDocument()
 
-      ws.push({
+      await pushJob({
         job_id: 'job-spk',
         credential_id: 13,
         status: 'running',
         expires_at: null,
         error: null,
       })
-      ws.push({
+      await pushJob({
         job_id: 'job-spk',
         credential_id: 13,
         status: 'completed',
@@ -1112,6 +1111,8 @@ describe('NewCredentialFormView', () => {
     function captureCreate(fetchMock: Mock, credentialId: number) {
       let sentBody: { bank: string; credentials: Record<string, string> } | undefined
       fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
+        const poll = pollBranch(url, init)
+        if (poll) return poll
         if (url === '/api/credentials' && init?.method === 'POST') {
           sentBody = JSON.parse(init.body as string)
           return Promise.resolve(
