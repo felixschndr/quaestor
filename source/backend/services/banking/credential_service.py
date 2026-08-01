@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
-from source.backend.bank_handlers.base import TwoFactorStateCallback
+from source.backend.bank_handlers.base import CancelCheck, TwoFactorStateCallback
 from source.backend.exceptions import (
     CredentialAlreadyExistsError,
     CredentialNotFoundError,
@@ -172,6 +172,7 @@ def sync_credential(
     db_session: Session,
     credential_id: int,
     notify_two_factor_state: TwoFactorStateCallback | None = None,
+    is_cancelled: CancelCheck | None = None,
 ) -> SyncResult:
     logger.debug(f"Sync requested for credential {credential_id}")
     credential = get_credential(db_session=db_session, credential_id=credential_id)
@@ -179,6 +180,7 @@ def sync_credential(
     result = sync_credential_object(
         credential=credential,
         notify_two_factor_state=notify_two_factor_state,
+        is_cancelled=is_cancelled,
         reevaluate_two_factor_requirement=True,
     )
     return _finalize_sync(db_session=db_session, credential=credential, snapshot=snapshot, result=result)
@@ -205,6 +207,7 @@ def _finalize_sync(
 def sync_credential_object(
     credential: Credential,
     notify_two_factor_state: TwoFactorStateCallback | None = None,
+    is_cancelled: CancelCheck | None = None,
     reevaluate_two_factor_requirement: bool = False,
 ) -> SyncResult:
     logger.info(f"Syncing {credential}")
@@ -221,6 +224,7 @@ def sync_credential_object(
             notify_two_factor_state(awaiting)
 
     handler.notify_two_factor_state = track_two_factor_state
+    handler.is_cancelled = is_cancelled
     handler.session_state = credential.session_state
 
     previous_fetching_timestamp = credential.last_fetching_timestamp

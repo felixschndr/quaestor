@@ -18,11 +18,17 @@ from source.backend.bank_handlers.base import (
     BankHandler,
     BankInfo,
     BankSession,
+    CancelCheck,
     FetchedAccount,
     FetchedTransaction,
     TwoFactorStateCallback,
 )
-from source.backend.exceptions import InvalidCredentialsError, ReauthenticationRequiredError, UnsupportedBankError
+from source.backend.exceptions import (
+    InvalidCredentialsError,
+    ReauthenticationRequiredError,
+    SyncCancelledError,
+    UnsupportedBankError,
+)
 from source.backend.helpers import get_key_of_transaction
 from source.backend.logging_utils import get_logger
 from source.backend.models.transactions.transaction_type import TransactionType
@@ -43,9 +49,15 @@ T = TypeVar("T")
 
 
 class _FinTSSession(BankSession):
-    def __init__(self, client: FinTS3PinTanClient, notify_two_factor_state: TwoFactorStateCallback | None = None):
+    def __init__(
+        self,
+        client: FinTS3PinTanClient,
+        notify_two_factor_state: TwoFactorStateCallback | None = None,
+        is_cancelled: CancelCheck | None = None,
+    ):
         self._client = client
         self._notify_two_factor_state = notify_two_factor_state
+        self._is_cancelled = is_cancelled
 
         self._account_mapping: dict[str, SEPAAccount] = {}
         self._balance_observations: dict[str, list[BalanceObservation]] = {}
@@ -129,7 +141,10 @@ class _FinTSSession(BankSession):
 
     def _resolve(self, response: T) -> T:
         return _resolve_decoupled(
-            client=self._client, response=response, notify_two_factor_state=self._notify_two_factor_state
+            client=self._client,
+            response=response,
+            notify_two_factor_state=self._notify_two_factor_state,
+            is_cancelled=self._is_cancelled,
         )
 
 
@@ -213,8 +228,13 @@ class FinTSHandler(BankHandler):
                     client=client,
                     response=client.init_tan_response,
                     notify_two_factor_state=self.notify_two_factor_state,
+                    is_cancelled=self.is_cancelled,
                 )
-            yield _FinTSSession(client=client, notify_two_factor_state=self.notify_two_factor_state)
+            yield _FinTSSession(
+                client=client,
+                notify_two_factor_state=self.notify_two_factor_state,
+                is_cancelled=self.is_cancelled,
+            )
 
 
 @contextmanager
@@ -277,11 +297,8 @@ def _resolve_decoupled(
     client: FinTS3PinTanClient,
     response: T,
     notify_two_factor_state: TwoFactorStateCallback | None = None,
+    is_cancelled: CancelCheck | None = None,
 ) -> T:
-    # Resolve a (possibly pending) NeedTANResponse by polling the bank's pushTAN app.
-    # Returns the resolved (non-NeedTANResponse) value, or the input unchanged when no
-    # TAN was needed. Notifies the caller via the callback when the wait starts/ends so
-    # the UI can show "please confirm in app".
     if not isinstance(response, NeedTANResponse):
         return response
     if not response.decoupled:
@@ -297,6 +314,9 @@ def _resolve_decoupled(
         attempts = 0
         logger.info(f"Waiting for pushTAN app approval (up to {APPROVAL_TIMEOUT})")
         while isinstance(response, NeedTANResponse):
+            if is_cancelled is not None and is_cancelled():
+                logger.info("pushTAN wait cancelled by user; aborting sync")
+                raise SyncCancelledError("Sync cancelled while waiting for pushTAN approval")
             if time.monotonic() > deadline:
                 error_message = f"pushTAN approval did not arrive within {APPROVAL_TIMEOUT}"
                 logger.warning(error_message)

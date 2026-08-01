@@ -8,6 +8,7 @@ from source.backend.bank_handlers.bank_logos import logo_slug
 from source.backend.models.transactions.transaction_type import TransactionType
 
 TwoFactorStateCallback = Callable[[bool], None]
+CancelCheck = Callable[[], bool]
 
 
 @dataclass(frozen=True)
@@ -88,11 +89,10 @@ class BankHandler(ABC):
         self.bank_info = bank_info
         self.credentials = credentials
         self.notify_two_factor_state: TwoFactorStateCallback | None = None
+        self.is_cancelled: CancelCheck | None = None
 
     @classmethod
     def credential_fields(cls: type["BankHandler"], bank_info: "BankInfo") -> tuple[str, ...]:
-        # Override when a handler needs different credentials depending on the BankInfo
-        # (e.g., FinTS asks for a BLZ when the BankInfo doesn't pin one).
         return cls.CREDENTIAL_FIELDS
 
     @abstractmethod

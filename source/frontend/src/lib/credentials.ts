@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
 import { authQueryKeys, type CredentialRead } from './auth'
-import { syncJobWebSocketUrl } from './syncSocket'
+
+export const SYNC_POLL_INTERVAL_MS = 750
 
 export interface CredentialFieldRule {
   name: string
@@ -135,9 +136,7 @@ export function useConfirmTwoFactor() {
 
 export interface UseSyncJobState {
   job: SyncJob | null
-  /** True after the server signalled a terminal state (completed/failed). */
   isFinished: boolean
-  /** True while the WebSocket is still trying to connect or has dropped before terminal. */
   isDisconnected: boolean
 }
 
@@ -149,11 +148,6 @@ interface SubscriptionState {
 
 const IDLE_SUBSCRIPTION: SubscriptionState = { key: null, job: null, isConnected: false }
 
-/**
- * Subscribes to a sync job over WebSocket and exposes the latest server-pushed
- * state. The hook is a no-op (returns nulls) while {@link jobId} is null, which
- * lets callers gate the subscription behind "have I actually started a job yet".
- */
 export function useSyncJob(credentialId: number | null, jobId: string | null): UseSyncJobState {
   const subscriptionKey =
     credentialId !== null && jobId !== null ? `${credentialId}/${jobId}` : null
@@ -162,23 +156,35 @@ export function useSyncJob(credentialId: number | null, jobId: string | null): U
 
   useEffect(() => {
     if (credentialId === null || jobId === null) return
-
-    const socket = new WebSocket(syncJobWebSocketUrl(credentialId, jobId))
-    socket.onopen = () => setState((prev) => ({ ...prev, key: subscriptionKey, isConnected: true }))
-    socket.onmessage = (event) => {
-      const update = JSON.parse(event.data) as SyncJob
-      setState({ key: subscriptionKey, job: update, isConnected: true })
-      if (update.status === 'completed') {
-        queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+    let stopped = false
+    const poll = async () => {
+      try {
+        const update = await api<SyncJob>(`/credentials/${credentialId}/sync/${jobId}`)
+        if (stopped) return
+        setState({ key: subscriptionKey, job: update, isConnected: true })
+        if (update.status === 'completed') {
+          queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+        }
+        if (update.status === 'completed' || update.status === 'failed') {
+          window.clearInterval(interval)
+        }
+      } catch {
+        if (!stopped) setState((prev) => ({ ...prev, isConnected: false }))
       }
     }
-    socket.onclose = () => setState((prev) => ({ ...prev, isConnected: false }))
-
-    return () => socket.close()
+    const interval = window.setInterval(() => void poll(), SYNC_POLL_INTERVAL_MS)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void poll()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    void poll()
+    return () => {
+      stopped = true
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [credentialId, jobId, subscriptionKey, queryClient])
 
-  // Stale state from a previous job is filtered out by matching keys, which
-  // sidesteps having to setState inside the effect just to reset.
   const job = state.key === subscriptionKey ? state.job : null
   const isConnected = state.key === subscriptionKey && state.isConnected
   const isFinished = job?.status === 'completed' || job?.status === 'failed'

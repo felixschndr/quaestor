@@ -1,7 +1,7 @@
 import asyncio
 import secrets
-from collections.abc import AsyncIterator, Callable, Coroutine
-from dataclasses import dataclass, field, fields, replace
+from collections.abc import Callable, Coroutine
+from dataclasses import dataclass, field, fields
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import ClassVar
@@ -66,8 +66,6 @@ class SyncJob:
 
 
 _jobs: dict[str, SyncJob] = {}
-_subscribers: dict[str, set[asyncio.Queue[SyncJob]]] = {}
-_lock = asyncio.Lock()
 _background_tasks: set[asyncio.Task] = set()
 
 
@@ -86,19 +84,10 @@ def _cleanup_old_jobs() -> None:
     stale_jobs = [job_id for job_id, job in _jobs.items() if job.finished_at and job.finished_at < cutoff_time]
     for job_id in stale_jobs:
         _jobs.pop(job_id, None)
-        _subscribers.pop(job_id, None)
 
 
 def get_job_by_id(job_id: str) -> SyncJob | None:
     return _jobs.get(job_id)
-
-
-async def _notify(job: SyncJob) -> None:
-    async with _lock:
-        snapshot = replace(job)
-        queues = list(_subscribers.get(job.job_id, set()))  # noqa FKA100
-    for queue in queues:
-        await queue.put(snapshot)
 
 
 async def start_sync(credential_id: int) -> SyncJob:
@@ -114,7 +103,10 @@ async def start_sync(credential_id: int) -> SyncJob:
 
 async def _run_sync(job: SyncJob) -> None:
     notify_two_factor_state = _make_two_factor_state_notifier(job)
-    coroutine = asyncio.to_thread(_sync_in_thread, job.credential_id, notify_two_factor_state)  # noqa FKA100
+    is_cancelled = lambda: job.finished_at is not None  # noqa: E731
+    coroutine = asyncio.to_thread(  # noqa FKA100
+        _sync_in_thread, job.credential_id, notify_two_factor_state, is_cancelled
+    )
     await _apply_result_handling_errors(job=job, coroutine=coroutine, log_label="failed")
 
 
@@ -129,14 +121,18 @@ async def _apply_result_handling_errors(
         PSD2ApplicationNotActivatedError: JobErrorCode.APPLICATION_NOT_ACTIVATED,
     }
     try:
-        _apply_result(job=job, result=await coroutine)
+        result = await coroutine
     except tuple(error_codes) as e:
-        logger.warning(f"{job} {log_label}: {e}")
-        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=error_codes[type(e)])
+        if job.finished_at is None:
+            logger.warning(f"{job} {log_label}: {e}")
+            _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=error_codes[type(e)])
+        return
     except Exception as e:
-        logger.exception(f"{job} {log_label}")
-        _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.UNKNOWN)
-    await _notify(job)
+        if job.finished_at is None:
+            logger.exception(f"{job} {log_label}")
+            _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.UNKNOWN)
+        return
+    _apply_result(job=job, result=result)
 
 
 def _make_two_factor_state_notifier(job: SyncJob) -> "Callable[[bool], None]":
@@ -160,17 +156,25 @@ async def _update_decoupled_state(job: SyncJob, awaiting: bool) -> None:
     if job.status in TERMINAL_JOB_STATUSSES:
         return
     job.status = JobStatus.AWAITING_DECOUPLED_APPROVAL if awaiting else JobStatus.RUNNING
-    await _notify(job)
 
 
-def _sync_in_thread(credential_id: int, notify_two_factor_state: "Callable[[bool], None] | None" = None) -> SyncResult:
+def _sync_in_thread(
+    credential_id: int,
+    notify_two_factor_state: "Callable[[bool], None] | None" = None,
+    is_cancelled: "Callable[[], bool] | None" = None,
+) -> SyncResult:
     with SessionLocal() as db_session:
         return credential_service.sync_credential(
-            db_session=db_session, credential_id=credential_id, notify_two_factor_state=notify_two_factor_state
+            db_session=db_session,
+            credential_id=credential_id,
+            notify_two_factor_state=notify_two_factor_state,
+            is_cancelled=is_cancelled,
         )
 
 
 def _apply_result(job: SyncJob, result: SyncResult) -> None:
+    if job.finished_at is not None:
+        return  # Canceled (or otherwise terminal) while the sync thread was still finishing up
     if result.status == SyncStatus.TWO_FACTOR_REQUIRED:
         job.status = JobStatus.AWAITING_TWO_FACTOR
         job.challenge_token = result.challenge_token
@@ -211,12 +215,10 @@ async def cancel(job_id: str) -> SyncJob | None:
     _mark_terminal(job=job, status=JobStatus.FAILED, error="Cancelled by user", error_code=JobErrorCode.CANCELLED)
     job.challenge_token = None
     logger.info(f"{job} cancelled")
-    await _notify(job)
     return job
 
 
 async def _run_confirm(job: SyncJob, challenge_token: str, code: str) -> None:
-    await _notify(job)  # broadcast the running state before kicking off the blocking call
     coroutine = asyncio.to_thread(  # noqa FKA100
         _confirm_in_thread, job.credential_id, challenge_token=challenge_token, code=code
     )
@@ -228,29 +230,3 @@ def _confirm_in_thread(credential_id: int, challenge_token: str, code: str) -> S
         return credential_service.confirm_two_factor(
             db_session=db_session, credential_id=credential_id, challenge_token=challenge_token, code=code
         )
-
-
-async def subscribe(job_id: str) -> AsyncIterator[SyncJob]:
-    queue: asyncio.Queue[SyncJob] = asyncio.Queue()
-    async with _lock:
-        job = _jobs.get(job_id)
-        if job is None:
-            return
-        snapshot = replace(job)
-        _subscribers.setdefault(job_id, set()).add(queue)  # noqa FKA100
-    try:
-        yield snapshot
-        if snapshot.finished_at is not None:
-            return
-        while True:
-            update = await queue.get()
-            yield update
-            if update.finished_at is not None:
-                return
-    finally:
-        async with _lock:
-            queues = _subscribers.get(job_id)
-            if queues:
-                queues.discard(queue)
-                if not queues:
-                    _subscribers.pop(job_id, None)

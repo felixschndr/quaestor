@@ -1,6 +1,4 @@
-import asyncio
-
-from fastapi import Depends, WebSocket, WebSocketDisconnect
+from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from source.backend.api.core.create_router import create_router
@@ -13,22 +11,15 @@ from source.backend.api.schemas.banking.credential import (
 )
 from source.backend.db import get_session
 from source.backend.exceptions import (
-    CredentialNotFoundError,
     InvalidTwoFactorError,
     NotFoundError,
 )
-from source.backend.logging_utils import get_logger
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.services.auth import session_service
 from source.backend.services.banking import bank_catalog, credential_service, sync_jobs
 
-logger = get_logger(__name__)
-
 router = create_router()
-
-WS_CODE_CLOSE_UNAUTHENTICATED = 4401
-WS_CODE_CLOSE_NOT_FOUND = 4404
 
 
 @router.get("/supported_banks")
@@ -127,69 +118,3 @@ async def submit_sync_two_factor(
     if job is None:
         raise InvalidTwoFactorError(f"Sync job {job_id} is not awaiting a 2FA code")
     return SyncJobRead.model_validate(job)
-
-
-@router.websocket("/{credential_id}/sync/{job_id}/ws")
-async def sync_job_ws(
-    websocket: WebSocket,
-    credential_id: int,
-    job_id: str,
-    db_session: Session = Depends(get_session),
-) -> None:
-    raw_token = websocket.cookies.get(session_service.COOKIE_NAME)
-    if not raw_token:
-        logger.info(
-            f"WS /credentials/{credential_id}/sync/{job_id}/ws -> {WS_CODE_CLOSE_UNAUTHENTICATED} (no session cookie)"
-        )
-        await websocket.close(code=WS_CODE_CLOSE_UNAUTHENTICATED)
-        return
-    user = session_service.get_user_by_raw_token(db_session=db_session, raw_token=raw_token)
-    if user is None:
-        logger.info(
-            f"WS /credentials/{credential_id}/sync/{job_id}/ws -> {WS_CODE_CLOSE_UNAUTHENTICATED} (invalid session)"
-        )
-        await websocket.close(code=WS_CODE_CLOSE_UNAUTHENTICATED)
-        return
-    try:
-        credential_service.get_credential_for_user(db_session=db_session, credential_id=credential_id, user=user)
-    except CredentialNotFoundError:
-        logger.info(
-            f"WS /credentials/{credential_id}/sync/{job_id}/ws -> {WS_CODE_CLOSE_NOT_FOUND} (credential not found)"
-        )
-        await websocket.close(code=WS_CODE_CLOSE_NOT_FOUND)
-        return
-
-    job = sync_jobs.get_job_by_id(job_id)
-    if job is None or job.credential_id != credential_id:
-        logger.info(f"WS /credentials/{credential_id}/sync/{job_id}/ws -> {WS_CODE_CLOSE_NOT_FOUND} (job not found)")
-        await websocket.close(code=WS_CODE_CLOSE_NOT_FOUND)
-        return
-
-    await websocket.accept()
-    forward_task = asyncio.create_task(_forward_job_updates(websocket=websocket, job_id=job_id))
-    receive_task = asyncio.create_task(websocket.receive())
-    try:
-        done, _ = await asyncio.wait({forward_task, receive_task}, return_when=asyncio.FIRST_COMPLETED)  # noqa FKA100
-    except asyncio.CancelledError:
-        logger.info(f"WS for sync job {job_id} cancelled during server shutdown")
-        forward_task.cancel()
-        receive_task.cancel()
-        raise
-    forward_task.cancel()
-    receive_task.cancel()
-    if forward_task in done:
-        try:
-            forward_task.result()
-        except WebSocketDisconnect:
-            logger.debug(f"WebSocket client disconnected from sync job {job_id}")
-    else:
-        logger.debug(f"WebSocket client disconnected from sync job {job_id}")
-
-
-async def _forward_job_updates(websocket: WebSocket, job_id: str) -> None:
-    async for update in sync_jobs.subscribe(job_id):
-        payload = SyncJobRead.model_validate(update).model_dump(mode="json")
-        logger.debug(f"WS job {job_id} -> {payload}")
-        await websocket.send_json(payload)
-        if update.finished_at is not None:
-            break

@@ -82,6 +82,10 @@ class UnsupportedBankError(Exception):
     pass
 
 
+class SyncCancelledError(Exception):
+    pass
+
+
 class BankRateLimitedError(Exception):
     pass
 

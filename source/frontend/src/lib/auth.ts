@@ -3,8 +3,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { redirect } from '@tanstack/react-router'
 import { api, ApiError } from './api'
 import { accountQueryKeys } from './accountHistory'
-import type { SyncJob, SyncJobStatus } from './credentials'
-import { syncJobWebSocketUrl } from './syncSocket'
+import { SYNC_POLL_INTERVAL_MS, type SyncJob, type SyncJobStatus } from './credentials'
 
 export interface AccountRead {
   id: number
@@ -205,9 +204,6 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
   const queryClient = useQueryClient()
   const [phase, setPhase] = useState<GlobalSyncPhase>('idle')
   const [jobs, setJobs] = useState<Map<number, SyncJob>>(new Map())
-  // `queue[0]` is the credential currently prompting the user for 2FA, the
-  // remaining entries are queued. Shifted by submit2fa/skip2fa, appended by
-  // the WebSocket message handler.
   const [queue, setQueue] = useState<number[]>([])
   const [succeededAt, setSucceededAt] = useState<number | null>(null)
   const [failedAt, setFailedAt] = useState<number | null>(null)
@@ -273,33 +269,51 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
   const jobKeys = useMemo(() => Array.from(jobs.keys()).sort().join(','), [jobs])
   useEffect(() => {
     if (jobs.size === 0) return
-    const sockets: WebSocket[] = []
-    for (const [credentialId, job] of jobs) {
-      if (TERMINAL_STATUSES.has(job.status)) continue
-      const socket = new WebSocket(syncJobWebSocketUrl(credentialId, job.job_id))
-      socket.onmessage = (event) => {
-        const update = JSON.parse(event.data) as SyncJob
-        setJobs((prev) => {
-          const next = new Map(prev)
-          next.set(update.credential_id, update)
-          return next
-        })
-        if (TWO_FACTOR_STATUSES.has(update.status)) {
-          setQueue((prev) =>
-            prev.includes(update.credential_id) ? prev : [...prev, update.credential_id],
-          )
-        } else {
-          setQueue((prev) =>
-            prev.includes(update.credential_id)
-              ? prev.filter((id) => id !== update.credential_id)
-              : prev,
-          )
-        }
+    let stopped = false
+    const applyUpdate = (update: SyncJob) => {
+      setJobs((prev) => {
+        const next = new Map(prev)
+        next.set(update.credential_id, update)
+        return next
+      })
+      if (TWO_FACTOR_STATUSES.has(update.status)) {
+        setQueue((prev) =>
+          prev.includes(update.credential_id) ? prev : [...prev, update.credential_id],
+        )
+      } else {
+        setQueue((prev) =>
+          prev.includes(update.credential_id)
+            ? prev.filter((id) => id !== update.credential_id)
+            : prev,
+        )
       }
-      sockets.push(socket)
     }
+    const poll = async () => {
+      const pending = Array.from(jobsRef.current.entries()).filter(
+        ([, job]) => !TERMINAL_STATUSES.has(job.status),
+      )
+      if (pending.length === 0) return
+      await Promise.all(
+        pending.map(async ([credentialId, job]) => {
+          try {
+            const update = await api<SyncJob>(`/credentials/${credentialId}/sync/${job.job_id}`)
+            if (!stopped) applyUpdate(update)
+          } catch {
+            // Transient failure; the next tick retries.
+          }
+        }),
+      )
+    }
+    const interval = window.setInterval(() => void poll(), SYNC_POLL_INTERVAL_MS)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void poll()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    void poll()
     return () => {
-      for (const socket of sockets) socket.close()
+      stopped = true
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobKeys])

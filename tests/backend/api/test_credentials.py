@@ -1,4 +1,3 @@
-import asyncio
 import time
 from collections.abc import Iterator
 from datetime import datetime
@@ -6,12 +5,9 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from starlette.websockets import WebSocketDisconnect
 
-from source.backend.api.banking import credentials as credentials_api
 from source.backend.services.banking import credential_service, sync_jobs
 from source.backend.services.banking.credential_service import SyncResult, SyncStatus
-from source.backend.services.banking.sync_jobs import JobStatus
 from tests.backend.conftest import (
     BANK_PASSWORD,
     BANK_USERNAME,
@@ -19,7 +15,6 @@ from tests.backend.conftest import (
     PHONE_NUMBER,
     PIN,
     SECOND_USER_NAME,
-    assert_log_contains,
     create_credential,
     register,
     register_and_login,
@@ -29,10 +24,8 @@ from tests.backend.conftest import (
 @pytest.fixture(autouse=True)
 def _reset_sync_jobs() -> Iterator[None]:
     sync_jobs._jobs.clear()
-    sync_jobs._subscribers.clear()
     yield
     sync_jobs._jobs.clear()
-    sync_jobs._subscribers.clear()
 
 
 def _wait_for_status(
@@ -426,7 +419,7 @@ def test_cancel_sync_job_returns_404_for_other_users_credential(
     assert http_client.delete(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
 
 
-def test_sync_job_websocket_streams_terminal_state(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+def test_sync_job_polling_reports_terminal_state(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
     monkeypatch.setattr(
@@ -435,87 +428,13 @@ def test_sync_job_websocket_streams_terminal_state(http_client: TestClient, monk
 
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
 
-    with http_client.websocket_connect(f"/api/credentials/{credential_id}/sync/{job_id}/ws") as ws:
-        last = None
-        while True:
-            message = ws.receive_json()
-            last = message
-            if message["status"] in {JobStatus.COMPLETED.value, JobStatus.FAILED.value}:
-                break
-    assert last is not None
-    assert last["status"] == "completed"
+    last = _wait_for_status(http_client=http_client, credential_id=credential_id, job_id=job_id, expected="completed")
     assert "challenge_token" not in last
     assert last["job_id"] == job_id
     assert last["credential_id"] == credential_id
 
 
-def test_sync_job_websocket_ends_when_client_disconnects_while_job_pending(
-    http_client: TestClient, monkeypatch: pytest.MonkeyPatch
-):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    monkeypatch.setattr(
-        target=credential_service,
-        name="sync_credential",
-        value=lambda **_: SyncResult(
-            status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN, expires_at=datetime.max
-        ),
-    )
-    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
-
-    # Closing the socket while the job is still pending must end the handler (and drop its
-    # subscription) instead of waiting for job updates forever — that hang blocked every
-    # server shutdown/reload with an open sync WebSocket.
-    with http_client.websocket_connect(f"/api/credentials/{credential_id}/sync/{job_id}/ws") as ws:
-        while ws.receive_json()["status"] != JobStatus.AWAITING_TWO_FACTOR.value:
-            pass
-
-    for _ in range(100):
-        if not sync_jobs._subscribers.get(job_id):
-            break
-        time.sleep(0.01)
-    assert not sync_jobs._subscribers.get(job_id)
-
-
-def test_sync_job_websocket_rejects_unauthenticated_clients(
-    http_client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
-    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
-
-    http_client.cookies.delete("session")
-    with pytest.raises(WebSocketDisconnect) as excinfo:
-        with http_client.websocket_connect(f"/api/credentials/{credential_id}/sync/{job_id}/ws"):
-            pass
-    assert excinfo.value.code == 4401
-    assert_log_contains(caplog, message="(no session cookie)")
-
-
-def test_sync_job_websocket_rejects_unknown_session_cookie(
-    http_client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
-    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
-
-    http_client.cookies.set(name="session", value="not-a-real-token")
-    with pytest.raises(WebSocketDisconnect) as excinfo:
-        with http_client.websocket_connect(f"/api/credentials/{credential_id}/sync/{job_id}/ws"):
-            pass
-    assert excinfo.value.code == 4401
-    assert_log_contains(caplog, message="(invalid session)")
-
-
-def test_sync_job_websocket_rejects_credential_of_another_user(
-    http_client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-):
+def test_sync_job_polling_rejects_credential_of_another_user(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
     monkeypatch.setattr(
@@ -524,40 +443,11 @@ def test_sync_job_websocket_rejects_credential_of_another_user(
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
 
     register_and_login(http_client, user_name="intruder")
-    with pytest.raises(WebSocketDisconnect) as excinfo:
-        with http_client.websocket_connect(f"/api/credentials/{credential_id}/sync/{job_id}/ws"):
-            pass
-    assert excinfo.value.code == 4404
-    assert_log_contains(caplog, message="(credential not found)")
+    assert http_client.get(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
 
 
-def test_sync_job_websocket_rejects_unknown_job(http_client: TestClient, caplog: pytest.LogCaptureFixture):
+def test_sync_job_polling_rejects_unknown_job(http_client: TestClient):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
 
-    with pytest.raises(WebSocketDisconnect) as excinfo:
-        with http_client.websocket_connect(f"/api/credentials/{credential_id}/sync/no-such-job/ws"):
-            pass
-    assert excinfo.value.code == 4404
-    assert_log_contains(caplog, message="(job not found)")
-
-
-def test_sync_job_websocket_logs_when_cancelled_during_shutdown(
-    http_client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
-    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
-
-    async def cancelled_wait(*args: Any, **kwargs: Any) -> None:  # noqa: ASYNC124
-        raise asyncio.CancelledError
-
-    monkeypatch.setattr(target=credentials_api.asyncio, name="wait", value=cancelled_wait)
-
-    with pytest.raises(BaseException):  # noqa: B017, PT011
-        with http_client.websocket_connect(f"/api/credentials/{credential_id}/sync/{job_id}/ws"):
-            pass
-    assert_log_contains(caplog, message="cancelled during server shutdown")
+    assert http_client.get(f"/api/credentials/{credential_id}/sync/no-such-job").status_code == 404
