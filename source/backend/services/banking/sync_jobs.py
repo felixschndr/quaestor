@@ -90,8 +90,18 @@ def get_job_by_id(job_id: str) -> SyncJob | None:
     return _jobs.get(job_id)
 
 
+async def _supersede_running_jobs(credential_id: int) -> None:
+    running = [
+        job for job in _jobs.values() if job.credential_id == credential_id and job.status not in TERMINAL_JOB_STATUSSES
+    ]
+    for job in running:
+        logger.info(f"{job} is superseded by a new sync for the credential {credential_id}")
+        await cancel(job_id=job.job_id)
+
+
 async def start_sync(credential_id: int) -> SyncJob:
     _cleanup_old_jobs()
+    await _supersede_running_jobs(credential_id)
     job = SyncJob(job_id=secrets.token_urlsafe(16), credential_id=credential_id)
     _jobs[job.job_id] = job
     logger.info(f"{job} started")
