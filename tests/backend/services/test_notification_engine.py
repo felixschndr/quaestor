@@ -507,6 +507,22 @@ def test_weekly_digest_is_quiet_on_other_weekdays(session_factory: sessionmaker,
     assert sent == []
 
 
+def test_weekly_digest_is_not_resent_on_a_server_restart(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    sent = _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        user = _user_with_digest_rule(db_session, period=DigestPeriod.WEEKLY, weekday=_MONDAY.weekday())
+        account_id = user.credentials[0].accounts[0].id
+        make_transaction(db_session, account_id=account_id, amount=-60.0, date=_MONDAY - timedelta(days=1))
+        db_session.commit()
+
+        notification_engine.evaluate_digests(db_session=db_session, today=_MONDAY)
+        notification_engine.evaluate_digests(db_session=db_session, today=_MONDAY)
+
+    assert len(sent) == 1
+
+
 def test_monthly_digest_reports_the_previous_month(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     sent = _capture_sent(monkeypatch)
     with session_factory() as db_session:

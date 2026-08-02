@@ -1,7 +1,8 @@
+import datetime
 import enum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, Boolean
+from sqlalchemy import JSON, Boolean, Date
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -63,6 +64,8 @@ class NotificationRule(Base):
 
     period: Mapped[DigestPeriod | None] = mapped_column(SQLEnum(DigestPeriod), nullable=True)  # for "digest" trigger
     weekday: Mapped[int | None] = mapped_column(Integer, nullable=True)  # for weekly "digest" trigger
+    # End date of the last digest period this rule was sent for; guards against re-sending on a server restart.
+    digest_last_period_end: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     threshold: Mapped[float | None] = mapped_column(Float, nullable=True)  # for "balance_threshold" trigger
     direction: Mapped[BalanceDirection | None] = mapped_column(SQLEnum(BalanceDirection), nullable=True)
 

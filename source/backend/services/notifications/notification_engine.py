@@ -200,6 +200,7 @@ def evaluate_digests(db_session: Session, today: datetime.date) -> None:
             for rule in digest_rules
             if (notification := _digest_notification(db_session=db_session, rule=rule, user=user, today=today))
         ]
+        db_session.commit()
         dispatch(db_session=db_session, user=user, notifications=notifications)
 
 
@@ -210,6 +211,11 @@ def _digest_notification(
     if ranges is None:
         return None
     (start, end), (previous_start, previous_end) = ranges
+
+    if rule.digest_last_period_end == end:
+        logger.debug(f"{rule}: digest for {start} to {end} already sent; skipping")
+        return None
+    rule.digest_last_period_end = end
 
     account_ids = rule.account_ids or [account.id for credential in user.credentials for account in credential.accounts]
     current = statistics_service.range_summary(
