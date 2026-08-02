@@ -31,6 +31,8 @@ def test_configure_sqlcipher_sets_pragma_key_and_temp_store(monkeypatch: pytest.
     executed_statements = [call.args[0] for call in cursor.execute.call_args_list]
     assert executed_statements[0] == "PRAGMA key = 'abc''def'"
     assert "PRAGMA temp_store = MEMORY" in executed_statements
+    assert "PRAGMA journal_mode = WAL" in executed_statements
+    assert "PRAGMA busy_timeout = 5000" in executed_statements
     cursor.close.assert_called_once()
 
 

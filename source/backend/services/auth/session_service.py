@@ -17,6 +17,7 @@ from source.backend.services.auth import api_key_service
 logger = get_logger(__name__)
 
 SESSION_DURATION = timedelta(days=14)
+SESSION_RENEWAL_THROTTLE = timedelta(minutes=10)
 COOKIE_NAME = "session"
 
 _session_cookie_scheme = APIKeyCookie(name=COOKIE_NAME, scheme_name="Session cookie", auto_error=False)
@@ -69,6 +70,12 @@ def renew_session(db_session: Session, raw_token: str) -> UserSession | None:
     if user_session is None:
         return None
     now = utc_now()
+    # Sliding expiry, but don't write on every request: with HTTP-polled sync status every poll
+    # is an authenticated request, so a write here means a DB write per poll that collides with
+    # concurrent sync writes on SQLite's single writer lock. Refreshing at most every few minutes
+    # keeps the 14-day window effectively sliding while making almost all requests pure reads.
+    if now - user_session.last_used_at < SESSION_RENEWAL_THROTTLE:
+        return user_session
     new_expiry = now + SESSION_DURATION
     logger.debug(f"Renewing session {user_session} expiry: {user_session.expires_at} --> {new_expiry}")
     user_session.expires_at = new_expiry
