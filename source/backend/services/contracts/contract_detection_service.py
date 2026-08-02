@@ -159,8 +159,11 @@ def _get_eligible_transactions(db_session: Session, account: Account) -> list[Tr
 def _group_by_fingerprint(transactions: list[Transaction]) -> dict[tuple[str, str], list[Transaction]]:
     groups: dict[tuple[str, str], list[Transaction]] = defaultdict(list)
     for transaction in transactions:
-        if TransactionCategory.from_transaction(transaction=transaction, log_result=False) in BLACKLISTED_CATEGORIES:
-            logger.debug(f"Skipping blacklisted other party '{transaction.other_party}' for contract detection")
+        contract_category = TransactionCategory.from_transaction(transaction=transaction, log_result=False)
+        if contract_category in BLACKLISTED_CATEGORIES:
+            logger.debug(
+                f"Skipping blacklisted other party '{transaction.other_party}' for contract detection since it is in a blacklisted category ({contract_category})"
+            )
             continue
         fingerprint = compute_fingerprint(transaction)
         if fingerprint is None:

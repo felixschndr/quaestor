@@ -59,6 +59,7 @@ MAX_LOGGED_BODY_BYTES = 4096
 ALLOW_MISSING_FRONTEND_ENV = "ALLOW_MISSING_FRONTEND"
 
 LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(session)s] [%(name)s] %(message)s"
+NOISY_LIBRARY_LOGGERS = ("fints", "mt940")
 
 load_dotenv()
 
@@ -140,6 +141,8 @@ def setup_logging() -> None:
     )
     for handler in logging.root.handlers:
         handler.addFilter(_RenameUvicornError())
+    for name in NOISY_LIBRARY_LOGGERS:
+        logging.getLogger(name).setLevel(logging.INFO)
     logger.debug(f"Logging configured at level {log_level}")
 
 
