@@ -177,6 +177,43 @@ def test_start_sync_runs_to_completion(patch_sync: PatchSync):
     assert asyncio.run(scenario()) == JobStatus.COMPLETED
 
 
+def test_start_sync_supersedes_a_running_job_for_the_same_credential(
+    patch_sync: PatchSync, caplog: pytest.LogCaptureFixture
+):
+    # Issue #119: starting a new sync must stop the still-running one for that credential.
+    patch_sync(SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN))
+
+    async def scenario() -> tuple[SyncJob, SyncJob]:
+        first = await sync_jobs.start_sync(credential_id=42)
+        await _wait_until(lambda: first.status == JobStatus.AWAITING_TWO_FACTOR)
+        second = await sync_jobs.start_sync(credential_id=42)
+        await _wait_until(lambda: second.status == JobStatus.AWAITING_TWO_FACTOR)
+        return first, second
+
+    first, second = asyncio.run(scenario())
+    assert first.status == JobStatus.FAILED
+    assert first.error_code == JobErrorCode.CANCELLED
+    assert second is not first
+    assert second.status == JobStatus.AWAITING_TWO_FACTOR
+    assert sync_jobs.get_job_by_id(second.job_id) is second
+    assert_log_contains(caplog, message="is superseded by a new sync for the credential 42")
+
+
+def test_start_sync_leaves_other_credentials_running(patch_sync: PatchSync):
+    patch_sync(SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN))
+
+    async def scenario() -> tuple[SyncJob, SyncJob]:
+        other = await sync_jobs.start_sync(credential_id=42)
+        await _wait_until(lambda: other.status == JobStatus.AWAITING_TWO_FACTOR)
+        new = await sync_jobs.start_sync(credential_id=43)
+        await _wait_until(lambda: new.status == JobStatus.AWAITING_TWO_FACTOR)
+        return other, new
+
+    other, new = asyncio.run(scenario())
+    assert other.status == JobStatus.AWAITING_TWO_FACTOR  # untouched: different credential
+    assert new.status == JobStatus.AWAITING_TWO_FACTOR
+
+
 def test_cleanup_drops_old_finished_jobs():
     fresh = SyncJob(job_id="fresh", credential_id=1, status=JobStatus.COMPLETED, finished_at=utc_now())
     stale = SyncJob(
