@@ -4,8 +4,10 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager, suppress
+from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncGenerator, Awaitable, Callable
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
@@ -139,7 +141,11 @@ def setup_logging() -> None:
         level=log_level,
         force=True,
     )
+    tz = ZoneInfo(i18n_service.get_display_timezone())
+    formatter = logging.Formatter(LOG_FORMAT)
+    formatter.converter = lambda timestamp: datetime.fromtimestamp(timestamp=timestamp, tz=tz).timetuple()
     for handler in logging.root.handlers:
+        handler.setFormatter(formatter)
         handler.addFilter(_RenameUvicornError())
     for name in NOISY_LIBRARY_LOGGERS:
         logging.getLogger(name).setLevel(logging.INFO)
