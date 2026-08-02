@@ -44,6 +44,10 @@ class Credential(Base):
         return handler_for(provider=self.bank, credentials=self.credentials)
 
     @property
+    def is_syncable(self) -> bool:
+        return self.bank != BankProvider.MANUAL
+
+    @property
     def bank_name(self) -> str | None:
         return self._bank_name_and_icon()[0]
 

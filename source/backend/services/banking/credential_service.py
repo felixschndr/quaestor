@@ -265,7 +265,7 @@ def sync_all_due_credentials(db_session: Session) -> None:
     synced_users: dict[int, User] = {}
     synced_credentials: list[tuple[Credential, notification_engine.SyncSnapshot]] = []
     for credential in credentials:
-        if not credential.sync_enabled or credential.requires_two_factor_authentication:
+        if not credential.sync_enabled or not credential.is_syncable or credential.requires_two_factor_authentication:
             skipped += 1
             continue
 
