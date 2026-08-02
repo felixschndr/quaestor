@@ -70,6 +70,10 @@ def _configure_sqlcipher(dbapi_connection: object, _connection_record: object) -
         cursor.execute(f"PRAGMA key = '{escaped}'")
         # Keep temp files in memory so nothing lands on disk in plaintext
         cursor.execute("PRAGMA temp_store = MEMORY")
+        # SQLite allows only one writer at a time. WAL lets readers run while a writer commits; busy_timeout makes a
+        # contending writer wait for the lock instead of erroring out.
+        cursor.execute("PRAGMA journal_mode = WAL")
+        cursor.execute("PRAGMA busy_timeout = 5000")
     finally:
         cursor.close()
 

@@ -52,9 +52,30 @@ def test_get_current_user_from_request_raises_when_cookie_present_but_unknown(se
             session_service.get_current_user_from_request(request=request, db_session=db_session)
 
 
-def test_renew_session_extends_expiry_and_last_used_for_valid_session(
+def test_renew_session_extends_expiry_and_last_used_once_throttle_window_passed(
     session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
+    user = create_user(session_factory=session_factory)
+    with session_factory() as db_session:
+        raw_token = session_service.create_session(db_session=db_session, user=user)
+        only_session = db_session.scalars(select(UserSession)).one()
+        only_session.last_used_at = utc_now() - session_service.SESSION_RENEWAL_THROTTLE - timedelta(seconds=1)
+        db_session.commit()
+        original_expiry = only_session.expires_at
+        original_last_used = only_session.last_used_at
+
+    with session_factory() as db_session:
+        with caplog.at_level("DEBUG", logger="services.auth.session_service"):
+            renewed = session_service.renew_session(db_session=db_session, raw_token=raw_token)
+
+        assert renewed is not None
+        assert renewed.expires_at > original_expiry
+        assert renewed.last_used_at > original_last_used
+
+    assert_log_contains(caplog, message="Renewing session <UserSession(")
+
+
+def test_renew_session_does_not_write_within_throttle_window(session_factory: sessionmaker):
     user = create_user(session_factory=session_factory)
     with session_factory() as db_session:
         raw_token = session_service.create_session(db_session=db_session, user=user)
@@ -63,11 +84,7 @@ def test_renew_session_extends_expiry_and_last_used_for_valid_session(
         original_last_used = original.last_used_at
 
     with session_factory() as db_session:
-        with caplog.at_level("DEBUG", logger="services.auth.session_service"):
-            renewed = session_service.renew_session(db_session=db_session, raw_token=raw_token)
-
+        renewed = session_service.renew_session(db_session=db_session, raw_token=raw_token)
         assert renewed is not None
-        assert renewed.expires_at >= original_expiry
-        assert renewed.last_used_at >= original_last_used
-
-    assert_log_contains(caplog, message="Created session <UserSession(")
+        assert renewed.expires_at == original_expiry
+        assert renewed.last_used_at == original_last_used
