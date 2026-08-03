@@ -123,8 +123,8 @@ export function ContractDetailView({
         <section className="flex flex-col gap-2">
           <ContractTimeline
             members={contract.members}
-            median={contract.median_amount}
-            expectedNextDate={contract.expected_next_date}
+            median={contract.is_archived ? null : contract.median_amount}
+            expectedNextDate={contract.is_archived ? null : contract.expected_next_date}
           />
           {outlierCount > 0 ? (
             <p className="text-warning flex items-center gap-1.5 text-xs">
