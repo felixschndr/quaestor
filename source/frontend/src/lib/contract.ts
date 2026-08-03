@@ -29,6 +29,7 @@ export interface ContractRead {
   median_amount: number | null
   frequency: ContractFrequency | null
   expected_next_date: string | null
+  end_date: string | null
   is_archived: boolean
   is_overdue: boolean
   amount_per_day: number | null
@@ -153,6 +154,7 @@ export interface ContractUpdatePayload {
   category?: TransactionCategory | null
   note?: string | null
   frequency?: ContractFrequency | null
+  end_date?: string | null
   archived?: boolean
 }
 

@@ -738,6 +738,8 @@
     "trigger": {
       "expected_transaction": "Expected transaction booked",
       "contract_overdue": "Contract overdue",
+      "contract_ending": "Contract ending soon",
+      "contract_charged_after_end": "Charge after contract end",
       "upcoming_shortfall": "Balance below upcoming payments",
       "transaction": "Transaction booked",
       "balance_threshold": "Balance crosses threshold",
@@ -748,6 +750,8 @@
     "triggerHint": {
       "expected_transaction": "Notify me when a transaction I entered manually as expected is booked.",
       "contract_overdue": "Notify me when a contract payment is overdue by more than the grace period.",
+      "contract_ending": "Notify me when a contract's end date comes within the lead time.",
+      "contract_charged_after_end": "Notify me when a transaction is booked for a contract after its end date.",
       "upcoming_shortfall": "Notify me when contract payments due within the chosen period exceed the account balance.",
       "transaction": "Notify me when a booked transaction matches the criteria below.",
       "balance_threshold": "Notify me when an account's balance crosses the threshold in the chosen direction.",
@@ -765,6 +769,7 @@
     "thresholdLabel": "Threshold",
     "lookaheadLabel": "Look ahead",
     "graceLabel": "Grace period",
+    "leadLabel": "Lead time",
     "anyAmount": "any amount",
     "summary": {
       "amountFrom": "From {{amount}}",
@@ -868,6 +873,10 @@
     "outlierNote_one": "{{count}} outlier – excluded from the median",
     "outlierNote_other": "{{count}} outliers – excluded from the median",
     "lastPayment": "Last payment",
+    "endDate": "Contract end",
+    "endDateHint": "Optional, mark when the contract runs out (e.g. after a price increase, so you're reminded in time to cancel or switch).",
+    "endDatePlaceholder": "No end date",
+    "clearEndDate": "Remove end date",
     "rename": "Rename contract",
     "renamed": "Contract renamed",
     "archive": "Archive contract",

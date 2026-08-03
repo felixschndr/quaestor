@@ -19,10 +19,11 @@ class ContractCreate(BaseModel):
 
 
 class ContractUpdate(BaseModel):
-    name: str
+    name: str | None = None
     category: TransactionCategory | None = None
     note: str | None = None
     frequency: ContractFrequency | None = None
+    end_date: datetime.date | None = None
     archived: bool | None = None
 
 
@@ -43,6 +44,7 @@ class ContractRead(BaseModel):
     median_amount: float | None
     frequency: ContractFrequency | None
     expected_next_date: datetime.date | None
+    end_date: datetime.date | None = None
     is_archived: bool = False
     is_overdue: bool = False
     amount_per_day: float | None = None

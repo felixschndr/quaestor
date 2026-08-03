@@ -1,11 +1,7 @@
 import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import (
-    Boolean,
-    Date,
-    DateTime,
-)
+from sqlalchemy import Boolean, Date, DateTime
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Float, ForeignKey, Integer, String, UniqueConstraint, event, update
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -35,6 +31,9 @@ OUTLIER_RELATIVE_FACTOR = 0.25
 # A contract counts as overdue once the expected next payment is more than this many days late.
 OVERDUE_GRACE_DAYS = 5
 
+# Default lead time for the "contract ending soon" notification.
+ENDING_LEAD_DAYS = 14
+
 # How far ahead the "upcoming shortfall" notification adds up due contract payments.
 SHORTFALL_LOOKAHEAD_DAYS = 7
 
@@ -43,7 +42,6 @@ DUPLICATE_WINDOW_DAYS = 3
 
 
 class Contract(Base):
-    # A recurring stream of transactions (subscription, salary, rent, ...)
     __tablename__ = "contracts"
     __table_args__ = (
         UniqueConstraint("account_id", "fingerprint", name="uq_contracts_account_fingerprint"),  # noqa: FKA100
@@ -63,9 +61,11 @@ class Contract(Base):
     frequency: Mapped[ContractFrequency | None] = mapped_column(SQLEnum(ContractFrequency), nullable=True)
     interval_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     expected_next_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)  # user-set
 
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True))
     overdue_notified_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ending_notified_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     account: Mapped["Account"] = relationship(back_populates="contracts")
@@ -86,6 +86,11 @@ class Contract(Base):
         if self.expected_next_date is None:
             return False
         return today > self.expected_next_date + datetime.timedelta(days=grace_days)
+
+    def is_ending_within(self, today: datetime.date, lead_days: int = ENDING_LEAD_DAYS) -> bool:
+        if self.end_date is None:
+            return False
+        return today <= self.end_date <= today + datetime.timedelta(days=lead_days)
 
     def is_outlier(self, transaction: "Transaction") -> bool:
         if self.median_amount is None or self.amount_spread is None:

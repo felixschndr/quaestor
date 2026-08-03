@@ -9,6 +9,7 @@ from source.backend.db import get_session
 from source.backend.models.auth.user import User
 from source.backend.models.contracts.contract import (
     DUPLICATE_WINDOW_DAYS,
+    ENDING_LEAD_DAYS,
     OVERDUE_GRACE_DAYS,
     SHORTFALL_LOOKAHEAD_DAYS,
 )
@@ -41,6 +42,15 @@ class ExpectedRuleIn(_RuleInBase):
 class ContractOverdueRuleIn(_RuleInBase):
     trigger: Literal["contract_overdue"]
     days: int = Field(default=OVERDUE_GRACE_DAYS, ge=0, le=90)
+
+
+class ContractEndingRuleIn(_RuleInBase):
+    trigger: Literal["contract_ending"]
+    days: int = Field(default=ENDING_LEAD_DAYS, ge=1, le=90)
+
+
+class ContractChargedAfterEndRuleIn(_RuleInBase):
+    trigger: Literal["contract_charged_after_end"]
 
 
 class ContractAmountIncreasedRuleIn(_RuleInBase):
@@ -82,6 +92,8 @@ RuleIn = Annotated[
     Union[
         ExpectedRuleIn,
         ContractOverdueRuleIn,
+        ContractEndingRuleIn,
+        ContractChargedAfterEndRuleIn,
         ContractAmountIncreasedRuleIn,
         DuplicateTransactionRuleIn,
         DigestRuleIn,
@@ -133,6 +145,8 @@ def _columns(
     payload: (
         ExpectedRuleIn
         | ContractOverdueRuleIn
+        | ContractEndingRuleIn
+        | ContractChargedAfterEndRuleIn
         | ContractAmountIncreasedRuleIn
         | DuplicateTransactionRuleIn
         | DigestRuleIn

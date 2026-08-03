@@ -77,6 +77,9 @@ def update_contract(db_session: Session, user: User, contract_id: int, fields: d
     if "frequency" in fields:
         contract.frequency = fields["frequency"]
         recompute_contract_stats(contract)
+    if "end_date" in fields:
+        contract.end_date = fields["end_date"]
+        contract.ending_notified_at = None  # re-arm the "ending soon" notification for the new date
     if "archived" in fields:
         contract.is_archived = bool(fields["archived"])
     db_session.commit()

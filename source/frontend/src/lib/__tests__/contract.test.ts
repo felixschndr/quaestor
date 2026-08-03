@@ -21,6 +21,7 @@ function makeContract(overrides: Partial<ContractRead> = {}): ContractRead {
     median_amount: -30,
     frequency: 'MONTHLY',
     expected_next_date: null,
+    end_date: null,
     is_archived: false,
     is_overdue: false,
     amount_per_day: null,

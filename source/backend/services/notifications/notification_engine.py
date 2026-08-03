@@ -12,6 +12,7 @@ from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.contracts.contract import (
     DUPLICATE_WINDOW_DAYS,
+    ENDING_LEAD_DAYS,
     OVERDUE_GRACE_DAYS,
     SHORTFALL_LOOKAHEAD_DAYS,
     Contract,
@@ -184,6 +185,73 @@ def _collect_overdue_notifications(db_session: Session, user: User, today: datet
         logger.info(f"{contract} is overdue (expected {contract.expected_next_date}); queued notification")
 
     return notifications
+
+
+def evaluate_ending_contracts(db_session: Session, today: datetime.date) -> None:
+    users = db_session.scalars(select(User)).all()
+    logger.info(f"Evaluating ending contracts for {len(users)} user(s)")
+    for user in users:
+        notifications = _collect_ending_notifications(db_session=db_session, user=user, today=today)
+        db_session.commit()
+        dispatch(db_session=db_session, user=user, notifications=notifications)
+
+
+def _collect_ending_notifications(db_session: Session, user: User, today: datetime.date) -> list[Notification]:
+    ending_rules = [
+        rule
+        for rule in notification_rule_service.list_rules(db_session=db_session, user=user)
+        if rule.enabled and rule.trigger is NotificationTrigger.CONTRACT_ENDING
+    ]
+    contracts = db_session.scalars(
+        select(Contract)
+        .join(Account, onclause=Contract.account_id == Account.id)
+        .join(Credential, onclause=Account.credential_id == Credential.id)
+        .where(Credential.user_id == user.id)
+        .where(Contract.is_archived.is_(False))
+        .where(Contract.end_date.is_not(None))
+    ).all()
+
+    notifications: list[Notification] = []
+    for contract in contracts:
+        if contract.ending_notified_at is not None:
+            continue
+        rule = next(
+            (rule for rule in ending_rules if _rule_applies_to_account(rule=rule, account_id=contract.account_id)),
+            None,
+        )
+        if rule is None:
+            continue
+        lead_days = rule.days if rule.days is not None else ENDING_LEAD_DAYS
+        if not contract.is_ending_within(today=today, lead_days=lead_days):
+            continue
+
+        notifications.append(_build_ending_notification(rule=rule, contract=contract, language=user.language))
+        contract.ending_notified_at = utc_now()
+        logger.info(f"{contract} ends on {contract.end_date} (within {lead_days}d); queued notification")
+
+    return notifications
+
+
+def _build_ending_notification(rule: NotificationRule, contract: Contract, language: str) -> Notification:
+    account = contract.account
+    if rule.include_content:
+        body = notification_messages.translate(
+            language,
+            key="contract_ending.body",
+            account=account.display_label,
+            name=contract.name,
+            date=contract.end_date.isoformat() if contract.end_date else "",
+        )
+    else:
+        body = notification_messages.translate(
+            language, key="contract_ending.body_minimal", account=account.display_label
+        )
+    return Notification(
+        title=rule.name or notification_messages.translate(language, key="contract_ending.title"),
+        body=body,
+        url=f"/contracts/{contract.id}",
+        tag=f"contract-ending-{contract.id}",
+    )
 
 
 def evaluate_digests(db_session: Session, today: datetime.date) -> None:
@@ -362,6 +430,11 @@ def _notifications_for_rule(
 
     if rule.trigger is NotificationTrigger.CONTRACT_AMOUNT_INCREASED:
         return _contract_amount_notifications(
+            rule=rule, account=account, new_transactions=new_transactions, language=language, currency=currency
+        )
+
+    if rule.trigger is NotificationTrigger.CONTRACT_CHARGED_AFTER_END:
+        return _contract_charged_after_end_notifications(
             rule=rule, account=account, new_transactions=new_transactions, language=language, currency=currency
         )
 
@@ -618,6 +691,46 @@ def _contract_amount_notifications(
                 body=body,
                 url=f"/contracts/{contract.id}",
                 tag=f"contract-amount-{contract.id}",
+            )
+        )
+    return notifications
+
+
+def _contract_charged_after_end_notifications(
+    rule: NotificationRule, account: Account, new_transactions: list[Transaction], language: str, currency: str
+) -> list[Notification]:
+    notifications = []
+    for transaction in new_transactions:
+        contract = transaction.contract
+        if (
+            contract is None
+            or contract.end_date is None
+            or transaction.contract_assignment is ContractAssignment.EXCLUDED
+        ):
+            continue
+        if transaction.date <= contract.end_date:
+            continue
+
+        if rule.include_content:
+            body = notification_messages.translate(
+                language,
+                key="contract_charged_after_end.body",
+                account=account.display_label,
+                name=contract.name,
+                amount=format_amount(transaction.amount, currency=currency),
+                date=contract.end_date.isoformat(),
+            )
+        else:
+            body = notification_messages.translate(
+                language, key="contract_charged_after_end.body_minimal", account=account.display_label
+            )
+        logger.info(f"{transaction} booked after {contract} ended on {contract.end_date}")
+        notifications.append(
+            Notification(
+                title=rule.name or notification_messages.translate(language, key="contract_charged_after_end.title"),
+                body=body,
+                url=f"/contracts/{contract.id}",
+                tag=f"contract-after-end-{contract.id}-{transaction.id}",
             )
         )
     return notifications

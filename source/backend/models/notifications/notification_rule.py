@@ -18,6 +18,8 @@ class NotificationTrigger(str, enum.Enum):
     TRANSACTION = "transaction"
     BALANCE_THRESHOLD = "balance_threshold"
     CONTRACT_OVERDUE = "contract_overdue"
+    CONTRACT_ENDING = "contract_ending"
+    CONTRACT_CHARGED_AFTER_END = "contract_charged_after_end"
     UPCOMING_SHORTFALL = "upcoming_shortfall"
     CONTRACT_AMOUNT_INCREASED = "contract_amount_increased"
     DUPLICATE_TRANSACTION = "duplicate_transaction"
@@ -60,6 +62,7 @@ class NotificationRule(Base):
     # - SHORTFALL_LOOKAHEAD_DAYS for "upcoming_shortfall"
     # - OVERDUE_GRACE_DAYS for "contract_overdue"
     # - DUPLICATE_WINDOW_DAYS for "duplicate_transaction"
+    # - ENDING_LEAD_DAYS for "contract_ending"
     days: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     period: Mapped[DigestPeriod | None] = mapped_column(SQLEnum(DigestPeriod), nullable=True)  # for "digest" trigger

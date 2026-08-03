@@ -738,6 +738,8 @@
     "trigger": {
       "expected_transaction": "Erwartete Transaktion gebucht",
       "contract_overdue": "Vertrag überfällig",
+      "contract_ending": "Vertrag endet bald",
+      "contract_charged_after_end": "Buchung nach Vertragsende",
       "upcoming_shortfall": "Kontostand reicht nicht",
       "transaction": "Transaktion gebucht",
       "balance_threshold": "Kontostand-Schwelle",
@@ -748,6 +750,8 @@
     "triggerHint": {
       "expected_transaction": "Benachrichtige mich, wenn eine von mir manuell eingetragene erwartete Transaktion gebucht wird.",
       "contract_overdue": "Benachrichtige mich, wenn die nächste Zahlung eines Vertrags länger als die Karenzzeit überfällig ist.",
+      "contract_ending": "Benachrichtige mich, wenn das Ende eines Vertrags innerhalb der Vorlaufzeit näher rückt.",
+      "contract_charged_after_end": "Benachrichtige mich, wenn nach dem Enddatum eines Vertrags noch eine Buchung dazu eingeht.",
       "upcoming_shortfall": "Benachrichtige mich, wenn die im gewählten Zeitraum fälligen Vertragszahlungen den Kontostand übersteigen.",
       "transaction": "Benachrichtige mich, wenn eine gebuchte Transaktion die folgenden Kriterien erfüllt.",
       "balance_threshold": "Benachrichtige mich, wenn der Kontostand eines Kontos den Schwellwert in der gewählten Richtung überschreitet.",
@@ -765,6 +769,7 @@
     "thresholdLabel": "Schwellwert",
     "lookaheadLabel": "Vorlauf",
     "graceLabel": "Karenzzeit",
+    "leadLabel": "Vorlaufzeit",
     "anyAmount": "Beliebiger Betrag",
     "summary": {
       "amountFrom": "Ab {{amount}}",
@@ -868,6 +873,10 @@
     "outlierNote_one": "{{count}} Ausreißer – fließt nicht in den Median ein",
     "outlierNote_other": "{{count}} Ausreißer – fließen nicht in den Median ein",
     "lastPayment": "Letzte Zahlung",
+    "endDate": "Vertragsende",
+    "endDateHint": "Optional, markiere, wann der Vertrag ausläuft (z. B. nach einer Preiserhöhung, um rechtzeitig ans Kündigen oder Umstellen erinnert zu werden).",
+    "endDatePlaceholder": "Kein Enddatum",
+    "clearEndDate": "Enddatum entfernen",
     "rename": "Vertrag Umbenennen",
     "renamed": "Vertrag umbenannt",
     "archive": "Vertrag archivieren",

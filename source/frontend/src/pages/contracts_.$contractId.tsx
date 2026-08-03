@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { TriangleAlert } from 'lucide-react'
+import { TriangleAlert, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -22,6 +22,8 @@ import {
   RenameContractButton,
 } from '@/components/contract-actions'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
+import { DatePicker } from '@/components/ui/date-picker'
+import { Button } from '@/components/ui/button'
 import { useCategoryOptions } from '@/lib/categoryIcons'
 import { useFrequencyOptions } from '@/lib/contractFrequencyIcons'
 import { cn } from '@/lib/utils'
@@ -35,6 +37,7 @@ export function ContractDetailView({
   onRename,
   onChangeCategory,
   onChangeFrequency,
+  onChangeEndDate,
   onSaveNote,
   onDelete,
   onSetArchived,
@@ -184,6 +187,12 @@ export function ContractDetailView({
       </section>
 
       <section className="flex flex-col gap-2">
+        <h2 className="text-foreground text-sm font-semibold">{t('contracts.endDate')}</h2>
+        <ContractEndDateEditor endDate={contract.end_date} onChange={onChangeEndDate} />
+        <p className="text-muted-foreground text-xs">{t('contracts.endDateHint')}</p>
+      </section>
+
+      <section className="flex flex-col gap-2">
         <h2 className="text-foreground text-sm font-semibold">{t('common.note')}</h2>
         <NoteEditor remoteNote={contract.note ?? ''} onSave={onSaveNote} />
       </section>
@@ -203,6 +212,51 @@ export function ContractDetailView({
         )}
       </section>
     </main>
+  )
+}
+
+function ContractEndDateEditor({
+  endDate,
+  onChange,
+}: {
+  endDate: string | null
+  onChange: (endDate: string | null) => Promise<unknown>
+}) {
+  const { t } = useTranslation()
+  const [pending, setPending] = useState(false)
+
+  const change = async (next: string | null) => {
+    setPending(true)
+    try {
+      await onChange(next)
+    } catch {
+      toast.error(t('errors.unexpected.title'))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <DatePicker
+        value={endDate ?? ''}
+        placeholder={t('contracts.endDatePlaceholder')}
+        className="flex-1"
+        onChange={(next) => void change(next || null)}
+      />
+      {endDate ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="default"
+          disabled={pending}
+          onClick={() => void change(null)}
+          aria-label={t('contracts.clearEndDate')}
+        >
+          <X className="size-3.5" aria-hidden="true" />
+        </Button>
+      ) : null}
+    </div>
   )
 }
 
@@ -353,7 +407,7 @@ function StripStat({
 
 function OverdueBanner({ contract }: { contract: ContractDetailRead }) {
   const { t } = useTranslation()
-  if (!contract.expected_next_date || !contract.is_overdue) return null
+  if (contract.is_archived || !contract.expected_next_date || !contract.is_overdue) return null
   const { unit, count } = overdueDuration(contract.expected_next_date)
 
   return (

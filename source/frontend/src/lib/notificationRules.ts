@@ -7,6 +7,8 @@ import type { TransactionCategory, TransactionType } from './transaction'
 export const NOTIFICATION_TRIGGERS = [
   'expected_transaction',
   'contract_overdue',
+  'contract_ending',
+  'contract_charged_after_end',
   'contract_amount_increased',
   'duplicate_transaction',
   'digest',
@@ -17,7 +19,9 @@ export const NOTIFICATION_TRIGGERS = [
 export type NotificationTrigger = (typeof NOTIFICATION_TRIGGERS)[number]
 
 export const TRIGGER_DEFAULT_DAYS = {
+  // TODO: Add this to the settings endpoint
   contract_overdue: 5,
+  contract_ending: 14,
   duplicate_transaction: 3,
   upcoming_shortfall: 7,
 } as const
@@ -43,6 +47,15 @@ export interface ExpectedTransactionRule extends RuleBase {
 export interface ContractOverdueRule extends RuleBase {
   trigger: 'contract_overdue'
   days: number
+}
+
+export interface ContractEndingRule extends RuleBase {
+  trigger: 'contract_ending'
+  days: number
+}
+
+export interface ContractChargedAfterEndRule extends RuleBase {
+  trigger: 'contract_charged_after_end'
 }
 
 export interface ContractAmountIncreasedRule extends RuleBase {
@@ -83,6 +96,8 @@ export interface BalanceThresholdRule extends RuleBase {
 export type NotificationRule =
   | ExpectedTransactionRule
   | ContractOverdueRule
+  | ContractEndingRule
+  | ContractChargedAfterEndRule
   | ContractAmountIncreasedRule
   | DuplicateTransactionRule
   | DigestRule
@@ -92,6 +107,8 @@ export type NotificationRule =
 export type NotificationRuleDraft =
   | Omit<ExpectedTransactionRule, 'id'>
   | Omit<ContractOverdueRule, 'id'>
+  | Omit<ContractEndingRule, 'id'>
+  | Omit<ContractChargedAfterEndRule, 'id'>
   | Omit<ContractAmountIncreasedRule, 'id'>
   | Omit<DuplicateTransactionRule, 'id'>
   | Omit<DigestRule, 'id'>
@@ -115,6 +132,7 @@ export function ruleSignature(rule: NotificationRule | NotificationRuleDraft): s
   if (
     rule.trigger === 'upcoming_shortfall' ||
     rule.trigger === 'contract_overdue' ||
+    rule.trigger === 'contract_ending' ||
     rule.trigger === 'duplicate_transaction'
   ) {
     return JSON.stringify({ trigger: rule.trigger, accounts, days: rule.days })

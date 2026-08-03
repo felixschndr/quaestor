@@ -43,6 +43,7 @@ function ContractDetailPage() {
       onChangeFrequency={(frequency) =>
         update.mutateAsync({ name: query.data!.name, category: query.data!.category, frequency })
       }
+      onChangeEndDate={(end_date) => update.mutateAsync({ name: query.data!.name, end_date })}
       onSaveNote={(note) =>
         update.mutateAsync({ name: query.data!.name, category: query.data!.category, note })
       }
@@ -80,6 +81,7 @@ export interface ContractDetailViewProps {
   onRename: (name: string) => Promise<unknown>
   onChangeCategory: (category: TransactionCategory) => Promise<unknown>
   onChangeFrequency: (frequency: ContractFrequency | null) => Promise<unknown>
+  onChangeEndDate: (endDate: string | null) => Promise<unknown>
   onSaveNote: (note: string | null) => Promise<unknown>
   onSetArchived: (archived: boolean) => void
   onDelete: () => void

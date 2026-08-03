@@ -11,7 +11,9 @@ logger = get_logger(__name__)
 
 def _evaluate_overdue_contracts() -> None:
     with SessionLocal() as db_session:
-        notification_engine.evaluate_overdue_contracts(db_session=db_session, today=datetime.now().date())
+        today = datetime.now().date()
+        notification_engine.evaluate_overdue_contracts(db_session=db_session, today=today)
+        notification_engine.evaluate_ending_contracts(db_session=db_session, today=today)
 
 
 async def run_periodic_overdue_check() -> None:

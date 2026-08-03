@@ -4,12 +4,14 @@ import {
   ArrowLeftRight,
   BellRing,
   CalendarClock,
+  CalendarOff,
   CalendarX2,
   Newspaper,
   Copy,
   Pencil,
   Plus,
   Receipt,
+  ReceiptText,
   Smartphone,
   Trash2,
   TrendingDown,
@@ -74,6 +76,8 @@ import { SettingsSubPage } from '@/components/settings/settings-section'
 const TRIGGER_ICONS: Record<NotificationTrigger, LucideIcon> = {
   expected_transaction: CalendarClock,
   contract_overdue: CalendarX2,
+  contract_ending: CalendarOff,
+  contract_charged_after_end: ReceiptText,
   contract_amount_increased: Receipt,
   duplicate_transaction: Copy,
   digest: Newspaper,
@@ -400,6 +404,7 @@ function daysDefault(trigger: NotificationTrigger): number {
 
 function daysLabelKey(trigger: NotificationTrigger): string {
   if (trigger === 'contract_overdue') return 'notifications.graceLabel'
+  if (trigger === 'contract_ending') return 'notifications.leadLabel'
   if (trigger === 'duplicate_transaction') return 'notifications.windowLabel'
   return 'notifications.lookaheadLabel'
 }
@@ -454,6 +459,10 @@ function modelToDraft(model: RuleFormModel, allAccountIds: number[]): Notificati
       return { ...shared, trigger: 'expected_transaction' }
     case 'contract_overdue':
       return { ...shared, trigger: 'contract_overdue', days: model.days }
+    case 'contract_ending':
+      return { ...shared, trigger: 'contract_ending', days: model.days }
+    case 'contract_charged_after_end':
+      return { ...shared, trigger: 'contract_charged_after_end' }
     case 'contract_amount_increased':
       return { ...shared, trigger: 'contract_amount_increased' }
     case 'duplicate_transaction':

@@ -8,6 +8,7 @@ from source.backend.helpers import utc_now
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.contracts.contract import (
+    ENDING_LEAD_DAYS,
     OVERDUE_GRACE_DAYS,
     SHORTFALL_LOOKAHEAD_DAYS,
 )
@@ -1142,6 +1143,123 @@ def test_overdue_flag_resets_once_payment_arrives(session_factory: sessionmaker,
         notification_engine.evaluate_overdue_contracts(db_session=db_session, today=_TODAY)
 
         assert contract.overdue_notified_at is None
+
+
+# --- contract ending trigger -----------------------------------------------
+
+
+def test_ending_contract_notifies_once_within_lead_time(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    sent = _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        user, credential, account = make_user_and_credential_and_account(db_session)
+        _make_notification_rule(
+            db_session,
+            user_id=user.id,
+            trigger=NotificationTrigger.CONTRACT_ENDING,
+            account_ids=[account.id],
+        )
+        end_date = _TODAY + timedelta(days=ENDING_LEAD_DAYS - 1)
+        contract = make_contract(db_session, account_id=account.id, end_date=end_date)
+        db_session.commit()
+
+        notification_engine.evaluate_ending_contracts(db_session=db_session, today=_TODAY)
+        assert_one_notification(
+            notifications=sent,
+            title="Contract ending soon",
+            body=f"{ACCOUNT_IBAN}: Gym ends on {end_date.isoformat()}",
+            url=f"/contracts/{contract.id}",
+        )
+        assert contract.ending_notified_at is not None
+
+        # A second daily run must not notify again for the same end date.
+        notification_engine.evaluate_ending_contracts(db_session=db_session, today=_TODAY)
+        assert len(sent) == 1
+
+
+def test_ending_contract_beyond_lead_time_is_quiet(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    sent = _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        user, credential, account = make_user_and_credential_and_account(db_session)
+        _make_notification_rule(
+            db_session,
+            user_id=user.id,
+            trigger=NotificationTrigger.CONTRACT_ENDING,
+            account_ids=[account.id],
+        )
+        make_contract(db_session, account_id=account.id, end_date=_TODAY + timedelta(days=ENDING_LEAD_DAYS + 1))
+        db_session.commit()
+
+        notification_engine.evaluate_ending_contracts(db_session=db_session, today=_TODAY)
+
+    assert sent == []
+
+
+def test_ending_contract_honours_a_custom_lead_time(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    sent = _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        user, credential, account = make_user_and_credential_and_account(db_session)
+        _make_notification_rule(
+            db_session,
+            user_id=user.id,
+            trigger=NotificationTrigger.CONTRACT_ENDING,
+            account_ids=[account.id],
+            days=3,
+        )
+        make_contract(db_session, account_id=account.id, end_date=_TODAY + timedelta(days=2))
+        db_session.commit()
+
+        notification_engine.evaluate_ending_contracts(db_session=db_session, today=_TODAY)
+
+    # Two days out is within the default lead of 14, but the rule's own lead is three.
+    assert len(sent) == 1
+
+
+# --- charged after contract end trigger ------------------------------------
+
+
+def test_charge_after_contract_end_notifies(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
+    with session_factory() as db_session:
+        credential, account_id = _account_with_notification_rule(
+            db_session, trigger=NotificationTrigger.CONTRACT_CHARGED_AFTER_END
+        )
+        end_date = RECENT_DATE - timedelta(days=10)
+        contract = make_contract(db_session, account_id=account_id, name="Gym", end_date=end_date)
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        transaction = make_transaction(db_session, account_id=account_id, amount=-42.0, date=RECENT_DATE)
+        transaction.contract_id = contract.id
+        db_session.flush()
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+        assert_one_notification(
+            notifications=notifications,
+            title="Charge after contract end",
+            body=f"{ACCOUNT_IBAN}: Gym charged -42,00 € after ending on {end_date.isoformat()}",
+            url=f"/contracts/{contract.id}",
+        )
+        assert_log_contains(caplog, message="booked after")
+
+
+def test_charge_before_contract_end_is_quiet(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential, account_id = _account_with_notification_rule(
+            db_session, trigger=NotificationTrigger.CONTRACT_CHARGED_AFTER_END
+        )
+        contract = make_contract(
+            db_session, account_id=account_id, name="Gym", end_date=RECENT_DATE + timedelta(days=10)
+        )
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        transaction = make_transaction(db_session, account_id=account_id, amount=-42.0, date=RECENT_DATE)
+        transaction.contract_id = contract.id
+        db_session.flush()
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+    assert notifications == []
 
 
 def test_notifications_are_rendered_in_recipient_language(session_factory: sessionmaker):

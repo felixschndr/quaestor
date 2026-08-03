@@ -409,6 +409,8 @@ def make_contract(
     frequency: ContractFrequency | None = None,
     interval_days: int | None = None,
     overdue_notified_at: datetime | None = None,
+    end_date: _date | None = None,
+    ending_notified_at: datetime | None = None,
 ) -> Contract:
     account = db_session.get(entity=Account, ident=account_id)
     contract = Contract(
@@ -423,6 +425,8 @@ def make_contract(
         frequency=frequency,
         interval_days=interval_days,
         overdue_notified_at=overdue_notified_at,
+        end_date=end_date,
+        ending_notified_at=ending_notified_at,
     )
     db_session.add(contract)
     db_session.flush()

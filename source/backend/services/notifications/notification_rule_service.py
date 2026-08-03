@@ -21,6 +21,8 @@ DEFAULT_RULES: list[dict] = [
     {"trigger": NotificationTrigger.UPCOMING_SHORTFALL},
     {"trigger": NotificationTrigger.DUPLICATE_TRANSACTION},
     {"trigger": NotificationTrigger.CONTRACT_OVERDUE},
+    {"trigger": NotificationTrigger.CONTRACT_ENDING},
+    {"trigger": NotificationTrigger.CONTRACT_CHARGED_AFTER_END},
     {"trigger": NotificationTrigger.CONTRACT_AMOUNT_INCREASED},
     {"trigger": NotificationTrigger.DIGEST, "period": DigestPeriod.WEEKLY, "weekday": DEFAULT_DIGEST_WEEKDAY},
 ]
