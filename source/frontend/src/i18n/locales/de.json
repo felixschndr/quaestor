@@ -873,6 +873,7 @@
     "outlierNote_one": "{{count}} Ausreißer – fließt nicht in den Median ein",
     "outlierNote_other": "{{count}} Ausreißer – fließen nicht in den Median ein",
     "lastPayment": "Letzte Zahlung",
+    "archivedOn": "Archiviert am",
     "endDate": "Vertragsende",
     "endDateHint": "Optional, markiere, wann der Vertrag ausläuft (z. B. nach einer Preiserhöhung, um rechtzeitig ans Kündigen oder Umstellen erinnert zu werden).",
     "endDatePlaceholder": "Kein Enddatum",

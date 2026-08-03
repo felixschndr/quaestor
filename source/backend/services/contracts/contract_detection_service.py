@@ -93,6 +93,10 @@ async def run_startup_detection() -> None:
 
 
 def detect_contracts_for_account(db_session: Session, account: Account) -> int:
+    prior_member_ids: dict[int, set[int]] = defaultdict(set)
+    for transaction in account.transactions:
+        if transaction.contract_id is not None and transaction.contract_assignment != ContractAssignment.EXCLUDED:
+            prior_member_ids[transaction.contract_id].add(transaction.id)
     _release_auto_assignments(db_session=db_session, account=account)
     eligible = _get_eligible_transactions(db_session=db_session, account=account)
     groups = _group_by_fingerprint(eligible)
@@ -130,6 +134,11 @@ def detect_contracts_for_account(db_session: Session, account: Account) -> int:
         for transaction in members:
             transaction.contract_id = contract.id
             transaction.contract_assignment = ContractAssignment.AUTO
+
+        prior_ids = prior_member_ids.get(contract.id) or set()
+        if contract.is_archived and any(member.id not in prior_ids for member in members):
+            contract.is_archived = False
+            logger.info(f"Reactivated archived {contract} after new transaction(s) arrived")
 
         detected += 1
         logger.debug(f"Linked {len(members)} transaction(s) to {contract} " f"({frequency.value}, ~{interval_days}d)")
@@ -234,7 +243,6 @@ def _find_or_create_contract(db_session: Session, account: Account, fingerprint:
         select(Contract).where(Contract.account_id == account.id).where(Contract.fingerprint == fingerprint)
     )
     if existing_contract is not None:
-        existing_contract.is_archived = False
         return existing_contract
 
     contract = Contract(

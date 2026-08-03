@@ -873,6 +873,7 @@
     "outlierNote_one": "{{count}} outlier – excluded from the median",
     "outlierNote_other": "{{count}} outliers – excluded from the median",
     "lastPayment": "Last payment",
+    "archivedOn": "Archived on",
     "endDate": "Contract end",
     "endDateHint": "Optional, mark when the contract runs out (e.g. after a price increase, so you're reminded in time to cancel or switch).",
     "endDatePlaceholder": "No end date",

@@ -14,6 +14,7 @@ import {
 import { formatDate, formatDateWithoutYear, formatMoney, formatIban } from '@/lib/format'
 import { type TransactionCategory } from '@/lib/transaction'
 import { ContractTimeline } from '@/components/contract-timeline'
+import { ContractStatusBadge } from '@/components/contract-status-badge'
 import { NoteEditor } from '@/components/note-editor'
 import {
   ArchiveContractButton,
@@ -99,15 +100,7 @@ export function ContractDetailView({
             <h1 className="text-foreground max-w-full truncate text-xl font-semibold">
               {contract.name}
             </h1>
-            {contract.is_archived ? (
-              <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold">
-                {t('common.archived')}
-              </span>
-            ) : contract.is_overdue ? (
-              <span className="bg-warning/10 text-warning shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold">
-                {t('common.overdue')}
-              </span>
-            ) : null}
+            <ContractStatusBadge contract={contract} size="md" />
           </div>
         )}
         {editingName || contract.median_amount === null ? null : (

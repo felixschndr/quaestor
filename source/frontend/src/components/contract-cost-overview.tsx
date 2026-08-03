@@ -12,6 +12,7 @@ import {
 import { formatDate, formatDateWithoutYear, formatMoney } from '@/lib/format'
 import { CategoryAvatar } from '@/lib/categoryIcons'
 import { SegmentedToggle } from '@/components/stats/segmented-toggle'
+import { ContractStatusBadge } from '@/components/contract-status-badge'
 import { cn } from '@/lib/utils'
 
 function formatAmount(value: number | null): string {
@@ -138,7 +139,7 @@ function ContractCostTable({ contracts }: { contracts: ContractRead[] }) {
                 />
                 <span className="col-span-2 row-start-1 flex min-w-0 items-center gap-2 lg:col-span-1 lg:col-start-2">
                   <span className="truncate font-medium">{contract.name}</span>
-                  {contract.is_overdue ? <OverdueBadge label={t('common.overdue')} /> : null}
+                  <ContractStatusBadge contract={contract} />
                 </span>
                 <span className="col-start-2 row-start-2 flex min-w-0 flex-col text-xs text-muted-foreground lg:flex-row lg:gap-1">
                   <span className="truncate">
@@ -146,7 +147,20 @@ function ContractCostTable({ contracts }: { contracts: ContractRead[] }) {
                       ? t(`contracts.frequency.${contract.frequency}`)
                       : t('contracts.frequencyUnknown')}
                   </span>
-                  {contract.expected_next_date ? (
+                  {contract.is_archived ? (
+                    contract.end_date ? (
+                      <span className="truncate">
+                        <span aria-hidden="true" className="hidden lg:inline">
+                          ·{' '}
+                        </span>
+                        {t('contracts.archivedOn')}:{' '}
+                        <span className="lg:hidden">
+                          {formatDateWithoutYear(contract.end_date)}
+                        </span>
+                        <span className="hidden lg:inline">{formatDate(contract.end_date)}</span>
+                      </span>
+                    ) : null
+                  ) : contract.expected_next_date ? (
                     <span className={cn('truncate', contract.is_overdue && 'text-warning')}>
                       <span aria-hidden="true" className="hidden lg:inline">
                         ·{' '}
@@ -228,7 +242,7 @@ function ContractCostList({
             <span className="flex min-w-0 flex-col">
               <span className="flex min-w-0 items-center gap-2">
                 <span className="truncate text-sm font-medium">{contract.name}</span>
-                {contract.is_overdue ? <OverdueBadge label={t('common.overdue')} /> : null}
+                <ContractStatusBadge contract={contract} />
               </span>
               <span className="text-muted-foreground flex flex-col text-xs">
                 <span className="truncate">
@@ -237,7 +251,13 @@ function ContractCostList({
                     ? t(`contracts.frequency.${contract.frequency}`)
                     : t('contracts.frequencyUnknown')}
                 </span>
-                {contract.expected_next_date ? (
+                {contract.is_archived ? (
+                  contract.end_date ? (
+                    <span className="truncate">
+                      {t('contracts.archivedOn')}: {formatDateWithoutYear(contract.end_date)}
+                    </span>
+                  ) : null
+                ) : contract.expected_next_date ? (
                   <span className={cn('truncate', contract.is_overdue && 'text-warning')}>
                     {t('contracts.nextExpected')}:{' '}
                     {formatDateWithoutYear(contract.expected_next_date)}
@@ -257,13 +277,5 @@ function ContractCostList({
         </li>
       ))}
     </ul>
-  )
-}
-
-function OverdueBadge({ label }: { label: string }) {
-  return (
-    <span className="bg-warning/10 text-warning shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold">
-      {label}
-    </span>
   )
 }
