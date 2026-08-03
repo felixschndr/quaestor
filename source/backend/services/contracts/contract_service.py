@@ -82,6 +82,10 @@ def update_contract(db_session: Session, user: User, contract_id: int, fields: d
         contract.ending_notified_at = None  # re-arm the "ending soon" notification for the new date
     if "archived" in fields:
         contract.is_archived = bool(fields["archived"])
+        if contract.is_archived and contract.end_date is None:
+            member_dates = [transaction.date for transaction in contract.members()]
+            if member_dates:
+                contract.end_date = max(member_dates)
     db_session.commit()
     logger.info(f"Updated {contract}")
     return contract
