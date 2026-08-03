@@ -289,20 +289,20 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
       }
     }
     const poll = async () => {
-      const pending = Array.from(jobsRef.current.entries()).filter(
-        ([, job]) => !TERMINAL_STATUSES.has(job.status),
+      const trackedJobIds = new Set(Array.from(jobsRef.current.values()).map((j) => j.job_id))
+      const anyPending = Array.from(jobsRef.current.values()).some(
+        (job) => !TERMINAL_STATUSES.has(job.status),
       )
-      if (pending.length === 0) return
-      await Promise.all(
-        pending.map(async ([credentialId, job]) => {
-          try {
-            const update = await api<SyncJob>(`/credentials/${credentialId}/sync/${job.job_id}`)
-            if (!stopped) applyUpdate(update)
-          } catch {
-            // Transient failure; the next tick retries.
-          }
-        }),
-      )
+      if (!anyPending) return
+      try {
+        const updates = await api<SyncJob[]>('/credentials/sync')
+        if (stopped) return
+        for (const update of updates) {
+          if (trackedJobIds.has(update.job_id)) applyUpdate(update)
+        }
+      } catch {
+        // Transient failure; the next tick retries.
+      }
     }
     const interval = window.setInterval(() => void poll(), SYNC_POLL_INTERVAL_MS)
     const onVisible = () => {

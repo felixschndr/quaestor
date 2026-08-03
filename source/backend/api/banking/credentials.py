@@ -49,6 +49,16 @@ def list_credentials(
     return credential_service.list_credentials(db_session=db_session, user=current_user)
 
 
+@router.get("/sync", response_model=list[SyncJobRead])
+def list_sync_jobs(
+    current_user: User = Depends(session_service.get_current_user_from_request),
+    db_session: Session = Depends(get_session),
+) -> list[SyncJobRead]:
+    credential_ids = {c.id for c in credential_service.list_credentials(db_session=db_session, user=current_user)}
+    jobs = sync_jobs.get_jobs_for_credentials(credential_ids)
+    return [SyncJobRead.model_validate(job) for job in jobs]
+
+
 def owned_credential(
     credential_id: int,
     current_user: User = Depends(session_service.get_current_user_from_request),

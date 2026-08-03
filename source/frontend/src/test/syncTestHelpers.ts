@@ -47,6 +47,9 @@ export function installSyncFetchMock(
       return jsonResponse(store.get(id) ?? null, 202)
     }
     if (method === 'DELETE') return new Response(null, { status: 204 })
+    if (method === 'GET' && /\/credentials\/sync$/.test(url)) {
+      return jsonResponse(Array.from(store.values()), 200)
+    }
     const match = url.match(/credentials\/(\d+)\/sync\//)
     if (match) {
       const job = store.get(Number(match[1]))

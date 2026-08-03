@@ -9,7 +9,7 @@ afterEach(() => {
 })
 
 describe('useGlobalSync', () => {
-  it('starts a job per credential and polls each', async () => {
+  it('starts a job per credential and polls status in one batched request', async () => {
     const { fetchMock } = installSyncFetchMock([
       makeJob({ credential_id: 1, job_id: 'j-1' }),
       makeJob({ credential_id: 2, job_id: 'j-2' }),
@@ -23,12 +23,10 @@ describe('useGlobalSync', () => {
 
     await waitFor(() => expect(result.current.status).toBe('running'))
     await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.some(([u]) => String(u).includes('/credentials/1/sync/j-1')),
-      ).toBe(true),
+      expect(fetchMock.mock.calls.some(([u]) => /\/credentials\/sync$/.test(String(u)))).toBe(true),
     )
-    expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/credentials/2/sync/j-2'))).toBe(
-      true,
+    expect(fetchMock.mock.calls.some(([u]) => /\/credentials\/\d+\/sync\/j-/.test(String(u)))).toBe(
+      false,
     )
   })
 

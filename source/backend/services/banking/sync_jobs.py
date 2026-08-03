@@ -90,6 +90,10 @@ def get_job_by_id(job_id: str) -> SyncJob | None:
     return _jobs.get(job_id)
 
 
+def get_jobs_for_credentials(credential_ids: "frozenset[int] | set[int]") -> list[SyncJob]:
+    return [job for job in _jobs.values() if job.credential_id in credential_ids]
+
+
 async def _supersede_running_jobs(credential_id: int) -> None:
     running = [
         job for job in _jobs.values() if job.credential_id == credential_id and job.status not in TERMINAL_JOB_STATUSSES
