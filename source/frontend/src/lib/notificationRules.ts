@@ -18,13 +18,16 @@ export const NOTIFICATION_TRIGGERS = [
 ] as const
 export type NotificationTrigger = (typeof NOTIFICATION_TRIGGERS)[number]
 
-export const TRIGGER_DEFAULT_DAYS = {
-  // TODO: Add this to the settings endpoint
-  contract_overdue: 5,
-  contract_ending: 14,
-  duplicate_transaction: 3,
-  upcoming_shortfall: 7,
-} as const
+export const DAY_BASED_TRIGGERS = [
+  'contract_overdue',
+  'contract_ending',
+  'duplicate_transaction',
+  'upcoming_shortfall',
+] as const
+
+export function isDayBasedTrigger(trigger: NotificationTrigger): boolean {
+  return (DAY_BASED_TRIGGERS as readonly string[]).includes(trigger)
+}
 
 export const DIGEST_PERIODS = ['weekly', 'monthly'] as const
 export type DigestPeriod = (typeof DIGEST_PERIODS)[number]

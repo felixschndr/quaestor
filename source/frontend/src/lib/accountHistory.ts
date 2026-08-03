@@ -106,15 +106,11 @@ export function groupTransactionsByDate(pages: AccountHistoryPage[]): AccountHis
     .sort((a, b) => b.date.localeCompare(a.date))
 }
 
-const DEFAULT_PAGE_SIZE = 30
-
 export function useAccountHistory(accountId: number) {
   return useInfiniteQuery({
     queryKey: accountQueryKeys.history(accountId),
     queryFn: ({ pageParam }) =>
-      api<AccountHistoryPage>(
-        `/account/${accountId}/history?page=${pageParam}&page_size=${DEFAULT_PAGE_SIZE}`,
-      ),
+      api<AccountHistoryPage>(`/account/${accountId}/history?page=${pageParam}`),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
       const totalPages = Math.max(1, Math.ceil(lastPage.total_days / lastPage.page_size))

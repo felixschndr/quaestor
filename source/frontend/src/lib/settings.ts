@@ -10,6 +10,8 @@ export interface AppSettings {
   sync_interval_hours: number
   allowed_attachment_extensions: string[]
   max_attachment_size_mb: number
+  trigger_default_days: Record<string, number>
+  default_digest_weekday: number
 }
 
 export const settingsQueryKey = ['settings'] as const

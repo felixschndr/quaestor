@@ -43,6 +43,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { type UserRead } from '@/lib/auth'
+import { useAppSettings } from '@/lib/settings'
 import { accountNamesById } from '@/lib/accounts'
 import { formatMoney } from '@/lib/format'
 import { readApiErrorMessage } from '@/lib/apiError'
@@ -58,7 +59,7 @@ import {
   BALANCE_DIRECTIONS,
   DIGEST_PERIODS,
   NOTIFICATION_TRIGGERS,
-  TRIGGER_DEFAULT_DAYS,
+  isDayBasedTrigger,
   filterAndSortRules,
   useCreateNotificationRule,
   useDeleteNotificationRule,
@@ -396,10 +397,8 @@ interface RuleDefaults {
   types: TransactionType[]
 }
 
-function daysDefault(trigger: NotificationTrigger): number {
-  return trigger in TRIGGER_DEFAULT_DAYS
-    ? TRIGGER_DEFAULT_DAYS[trigger as keyof typeof TRIGGER_DEFAULT_DAYS]
-    : 0
+function daysDefault(trigger: NotificationTrigger, defaults: Record<string, number>): number {
+  return defaults[trigger] ?? 0
 }
 
 function daysLabelKey(trigger: NotificationTrigger): string {
@@ -409,7 +408,12 @@ function daysLabelKey(trigger: NotificationTrigger): string {
   return 'notifications.lookaheadLabel'
 }
 
-function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): RuleFormModel {
+function modelFromRule(
+  rule: NotificationRule | null,
+  defaults: RuleDefaults,
+  triggerDefaultDays: Record<string, number>,
+  defaultDigestWeekday: number,
+): RuleFormModel {
   const base: RuleFormModel = {
     trigger: rule?.trigger ?? defaults.trigger,
     enabled: rule?.enabled ?? true,
@@ -423,9 +427,9 @@ function modelFromRule(rule: NotificationRule | null, defaults: RuleDefaults): R
     max_amount: undefined,
     threshold: undefined,
     direction: 'below',
-    days: daysDefault(rule?.trigger ?? defaults.trigger),
+    days: daysDefault(rule?.trigger ?? defaults.trigger, triggerDefaultDays),
     period: 'monthly',
-    weekday: 6,
+    weekday: defaultDigestWeekday,
   }
   if (rule?.trigger === 'transaction') {
     base.other_party_contains = rule.other_party_contains ?? ''
@@ -507,6 +511,9 @@ function RuleDialog({
   const { t, i18n } = useTranslation()
   const create = useCreateNotificationRule()
   const update = useUpdateNotificationRule()
+  const settings = useAppSettings().data
+  const triggerDefaultDays = settings?.trigger_default_days ?? {}
+  const defaultDigestWeekday = settings?.default_digest_weekday ?? 6
   const triggerOptions = useMemo(
     () =>
       NOTIFICATION_TRIGGERS.map((trigger) => ({
@@ -516,12 +523,17 @@ function RuleDialog({
     [t, i18n.language],
   )
   const [model, setModel] = useState<RuleFormModel>(() =>
-    modelFromRule(rule, {
-      trigger: triggerOptions[0].value,
-      accountIds: allAccountIds,
-      categories: [...FILTERABLE_CATEGORIES],
-      types: [...TRANSACTION_TYPES],
-    }),
+    modelFromRule(
+      rule,
+      {
+        trigger: triggerOptions[0].value,
+        accountIds: allAccountIds,
+        categories: [...FILTERABLE_CATEGORIES],
+        types: [...TRANSACTION_TYPES],
+      },
+      triggerDefaultDays,
+      defaultDigestWeekday,
+    ),
   )
   const [accountError, setAccountError] = useState(false)
   const [thresholdError, setThresholdError] = useState(false)
@@ -602,7 +614,11 @@ function RuleDialog({
               ariaLabel={t('notifications.triggerLabel')}
               value={model.trigger}
               onChange={(next) =>
-                setModel((current) => ({ ...current, trigger: next, days: daysDefault(next) }))
+                setModel((current) => ({
+                  ...current,
+                  trigger: next,
+                  days: daysDefault(next, triggerDefaultDays),
+                }))
               }
               options={triggerOptions}
             />
@@ -688,7 +704,7 @@ function RuleDialog({
             </>
           ) : null}
 
-          {model.trigger in TRIGGER_DEFAULT_DAYS ? (
+          {isDayBasedTrigger(model.trigger) ? (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="rule-days">
                 {t(daysLabelKey(model.trigger))} {t('notifications.daysUnit')}
@@ -700,7 +716,10 @@ function RuleDialog({
                 max={90}
                 value={model.days}
                 onChange={(event) =>
-                  set('days', Number(event.target.value) || daysDefault(model.trigger))
+                  set(
+                    'days',
+                    Number(event.target.value) || daysDefault(model.trigger, triggerDefaultDays),
+                  )
                 }
               />
             </div>
