@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './api'
 import { authQueryKeys, type CredentialRead } from './auth'
 
-export const SYNC_POLL_INTERVAL_MS = 750
+export const SYNC_POLL_INTERVAL_MS = 400
 
 export interface CredentialFieldRule {
   name: string

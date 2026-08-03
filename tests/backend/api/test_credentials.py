@@ -386,6 +386,23 @@ def test_get_sync_job_returns_404_for_other_users_credential(http_client: TestCl
     assert http_client.get(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
 
 
+def test_list_sync_jobs_returns_only_own_jobs(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
+    )
+    register(http_client, user_name="owner")
+    owner_credential_id = create_credential(http_client).json()["id"]
+    owner_job_id = http_client.post(f"/api/credentials/{owner_credential_id}/sync").json()["job_id"]
+
+    register_and_login(http_client, user_name="intruder")
+    intruder_credential_id = create_credential(http_client).json()["id"]
+    http_client.post(f"/api/credentials/{intruder_credential_id}/sync")
+
+    jobs = http_client.get("/api/credentials/sync").json()
+    assert [job["job_id"] for job in jobs] == [] or all(job["credential_id"] == intruder_credential_id for job in jobs)
+    assert owner_job_id not in {job["job_id"] for job in jobs}
+
+
 def test_cancel_sync_job_returns_204(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
