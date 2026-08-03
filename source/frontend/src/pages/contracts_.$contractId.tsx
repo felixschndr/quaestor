@@ -6,8 +6,7 @@ import { toast } from 'sonner'
 
 import {
   CONTRACT_FREQUENCIES,
-  OVERDUE_BANNER_MONTHS,
-  monthsOverdue,
+  overdueDuration,
   type ContractDetailRead,
   type ContractFrequency,
   type ContractMemberRead,
@@ -354,9 +353,8 @@ function StripStat({
 
 function OverdueBanner({ contract }: { contract: ContractDetailRead }) {
   const { t } = useTranslation()
-  if (!contract.expected_next_date) return null
-  const months = monthsOverdue(contract.expected_next_date)
-  if (months < OVERDUE_BANNER_MONTHS) return null
+  if (!contract.expected_next_date || !contract.is_overdue) return null
+  const { unit, count } = overdueDuration(contract.expected_next_date)
 
   return (
     <div
@@ -364,7 +362,7 @@ function OverdueBanner({ contract }: { contract: ContractDetailRead }) {
       className="border-warning/30 bg-warning/10 text-warning flex items-start gap-2.5 rounded-lg border p-3 text-sm"
     >
       <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-      <p>{t('contracts.overdueBanner', { count: months })}</p>
+      <p>{t(`contracts.overdueBanner_${unit}`, { count })}</p>
     </div>
   )
 }

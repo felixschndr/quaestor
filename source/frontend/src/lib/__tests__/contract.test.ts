@@ -5,6 +5,7 @@ import {
   filterContracts,
   hasActiveContractFilters,
   monthsOverdue,
+  overdueDuration,
   sumContractsForPeriod,
   type ContractRead,
 } from '@/lib/contract'
@@ -185,6 +186,23 @@ describe('monthsOverdue', () => {
   it('is zero for a future or same-day date', () => {
     expect(monthsOverdue('2026-08-01', now)).toBe(0)
     expect(monthsOverdue('2026-06-28', now)).toBe(0)
+  })
+})
+
+describe('overdueDuration', () => {
+  const now = new Date('2026-06-28T12:00:00')
+
+  it('reports days below two weeks (at least one)', () => {
+    expect(overdueDuration('2026-06-22', now)).toEqual({ unit: 'days', count: 6 })
+    expect(overdueDuration('2026-06-28', now)).toEqual({ unit: 'days', count: 1 })
+  })
+
+  it('reports whole weeks from two weeks up to two months', () => {
+    expect(overdueDuration('2026-06-07', now)).toEqual({ unit: 'weeks', count: 3 })
+  })
+
+  it('reports whole months beyond two months', () => {
+    expect(overdueDuration('2026-02-24', now)).toEqual({ unit: 'months', count: 4 })
   })
 })
 

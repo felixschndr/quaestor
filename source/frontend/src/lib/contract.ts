@@ -107,14 +107,25 @@ export function sumContractsForPeriod(
   }, 0)
 }
 
-export const OVERDUE_BANNER_MONTHS = 2
-
 export function monthsOverdue(expectedNextDate: string, now: Date = new Date()): number {
   const due = new Date(`${expectedNextDate}T00:00:00`)
   if (Number.isNaN(due.getTime())) return 0
   let months = (now.getFullYear() - due.getFullYear()) * 12 + (now.getMonth() - due.getMonth())
   if (now.getDate() < due.getDate()) months -= 1
   return Math.max(0, months)
+}
+
+export type OverdueUnit = 'days' | 'weeks' | 'months'
+
+export function overdueDuration(
+  expectedNextDate: string,
+  now: Date = new Date(),
+): { unit: OverdueUnit; count: number } {
+  const due = new Date(`${expectedNextDate}T00:00:00`)
+  const days = Math.floor((now.getTime() - due.getTime()) / 86_400_000)
+  if (days < 14) return { unit: 'days', count: Math.max(1, days) }
+  if (days < 60) return { unit: 'weeks', count: Math.round(days / 7) }
+  return { unit: 'months', count: monthsOverdue(expectedNextDate, now) }
 }
 
 export function hasActiveContractFilters(filters: ContractFilters): boolean {
