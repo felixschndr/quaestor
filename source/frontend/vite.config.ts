@@ -63,6 +63,16 @@ export default defineConfig({
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/redoc/],
         importScripts: ['push-sw.js'],
+        runtimeCaching: [
+          {
+            urlPattern: /\/static\/banks\/.*\.png$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'bank-logos',
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 }, // 30 days
+            },
+          },
+        ],
       },
       // Register the service worker during `pnpm dev` too, otherwise push notifications
       // (which need an active SW) can't be tested without a production build.
