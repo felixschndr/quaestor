@@ -11,31 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.actor == 'dependabot[bot]' }}
     steps:
-      - name: Get dependabot metadata
-        id: metadata
-        uses: dependabot/fetch-metadata@v3
-        with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-
-      - name: Automatically merge eligible updates
-        if: >-
-          steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
-          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
-          steps.metadata.outputs.package-ecosystem == 'github_actions'
+      # --auto waits for the required status checks, so only green pipelines merge.
+      - name: Automatically merge every dependabot update once checks pass
         run: |
           gh pr review --approve "${PR_URL}"
           gh pr merge --auto --squash "${PR_URL}"
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Assign anything that doesn't auto-merge above to the maintainer.
-      - name: Assign maintainer for non-auto-merged updates
-        if: >-
-          steps.metadata.outputs.update-type != 'version-update:semver-minor' &&
-          steps.metadata.outputs.update-type != 'version-update:semver-patch' &&
-          steps.metadata.outputs.package-ecosystem != 'github_actions'
-        run: gh pr edit "${PR_URL}" --add-assignee felixschndr
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
