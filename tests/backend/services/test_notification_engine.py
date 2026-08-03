@@ -8,9 +8,9 @@ from source.backend.helpers import utc_now
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.contracts.contract import (
-    ENDING_LEAD_DAYS,
-    OVERDUE_GRACE_DAYS,
-    SHORTFALL_LOOKAHEAD_DAYS,
+    ENDING_LEAD,
+    OVERDUE_GRACE,
+    SHORTFALL_LOOKAHEAD,
 )
 from source.backend.models.notifications.notification_rule import (
     BalanceDirection,
@@ -823,7 +823,7 @@ def test_upcoming_shortfall_ignores_payments_beyond_the_lookahead(session_factor
         credential = _account_with_shortfall_rule(
             db_session,
             balance=500.0,
-            due_in_days=SHORTFALL_LOOKAHEAD_DAYS + 1,
+            due_in_days=SHORTFALL_LOOKAHEAD.days + 1,
             median_amount=-300.0,
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
@@ -1048,7 +1048,7 @@ def test_overdue_contract_notifies_once_and_dedups(
         contract = make_contract(
             db_session,
             account_id=account.id,
-            expected_next_date=_TODAY - timedelta(days=OVERDUE_GRACE_DAYS + 1),
+            expected_next_date=_TODAY - timedelta(days=OVERDUE_GRACE.days + 1),
         )
         db_session.commit()
 
@@ -1116,7 +1116,7 @@ def test_overdue_contract_without_covering_rule_is_not_notified(
         contract = make_contract(
             db_session,
             account_id=account.id,
-            expected_next_date=_TODAY - timedelta(days=OVERDUE_GRACE_DAYS + 1),
+            expected_next_date=_TODAY - timedelta(days=OVERDUE_GRACE.days + 1),
         )
         db_session.commit()
 
@@ -1158,7 +1158,7 @@ def test_ending_contract_notifies_once_within_lead_time(session_factory: session
             trigger=NotificationTrigger.CONTRACT_ENDING,
             account_ids=[account.id],
         )
-        end_date = _TODAY + timedelta(days=ENDING_LEAD_DAYS - 1)
+        end_date = _TODAY + timedelta(days=ENDING_LEAD.days - 1)
         contract = make_contract(db_session, account_id=account.id, end_date=end_date)
         db_session.commit()
 
@@ -1186,7 +1186,7 @@ def test_ending_contract_beyond_lead_time_is_quiet(session_factory: sessionmaker
             trigger=NotificationTrigger.CONTRACT_ENDING,
             account_ids=[account.id],
         )
-        make_contract(db_session, account_id=account.id, end_date=_TODAY + timedelta(days=ENDING_LEAD_DAYS + 1))
+        make_contract(db_session, account_id=account.id, end_date=_TODAY + timedelta(days=ENDING_LEAD.days + 1))
         db_session.commit()
 
         notification_engine.evaluate_ending_contracts(db_session=db_session, today=_TODAY)

@@ -59,10 +59,10 @@ class NotificationRule(Base):
     max_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Day count whose meaning depends on the trigger:
-    # - SHORTFALL_LOOKAHEAD_DAYS for "upcoming_shortfall"
-    # - OVERDUE_GRACE_DAYS for "contract_overdue"
-    # - DUPLICATE_WINDOW_DAYS for "duplicate_transaction"
-    # - ENDING_LEAD_DAYS for "contract_ending"
+    # - SHORTFALL_LOOKAHEAD for "upcoming_shortfall"
+    # - OVERDUE_GRACE for "contract_overdue"
+    # - DUPLICATE_WINDOW for "duplicate_transaction"
+    # - ENDING_LEAD for "contract_ending"
     days: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     period: Mapped[DigestPeriod | None] = mapped_column(SQLEnum(DigestPeriod), nullable=True)  # for "digest" trigger

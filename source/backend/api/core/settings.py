@@ -34,10 +34,10 @@ def get_settings() -> AppSettings:
         allowed_attachment_extensions=sorted(attachment_service.ALLOWED_EXTENSIONS),
         max_attachment_size_mb=attachment_service.max_attachment_size_mb(),
         trigger_default_days={
-            "contract_overdue": contract_model.OVERDUE_GRACE_DAYS,
-            "contract_ending": contract_model.ENDING_LEAD_DAYS,
-            "duplicate_transaction": contract_model.DUPLICATE_WINDOW_DAYS,
-            "upcoming_shortfall": contract_model.SHORTFALL_LOOKAHEAD_DAYS,
+            "contract_overdue": contract_model.OVERDUE_GRACE.days,
+            "contract_ending": contract_model.ENDING_LEAD.days,
+            "duplicate_transaction": contract_model.DUPLICATE_WINDOW.days,
+            "upcoming_shortfall": contract_model.SHORTFALL_LOOKAHEAD.days,
         },
         default_digest_weekday=notification_rule_model.DEFAULT_DIGEST_WEEKDAY,
     )

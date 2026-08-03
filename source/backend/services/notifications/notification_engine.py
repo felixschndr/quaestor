@@ -11,10 +11,9 @@ from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.contracts.contract import (
-    DUPLICATE_WINDOW_DAYS,
-    ENDING_LEAD_DAYS,
-    OVERDUE_GRACE_DAYS,
-    SHORTFALL_LOOKAHEAD_DAYS,
+    DUPLICATE_WINDOW,
+    ENDING_LEAD,
+    SHORTFALL_LOOKAHEAD,
     Contract,
 )
 from source.backend.models.contracts.contract_assignment import ContractAssignment
@@ -169,8 +168,8 @@ def _collect_overdue_notifications(db_session: Session, user: User, today: datet
             (rule for rule in overdue_rules if _rule_applies_to_account(rule=rule, account_id=contract.account_id)),
             None,
         )
-        grace_days = rule.days if rule is not None and rule.days is not None else OVERDUE_GRACE_DAYS
-        if not contract.is_overdue_on(today=today, grace_days=grace_days):
+        grace = datetime.timedelta(days=rule.days) if rule is not None and rule.days is not None else None
+        if not contract.is_overdue_on(today=today, grace=grace):
             if contract.overdue_notified_at is not None:
                 # Payment arrived: reset so a future overdue episode notifies again.
                 contract.overdue_notified_at = None
@@ -221,13 +220,13 @@ def _collect_ending_notifications(db_session: Session, user: User, today: dateti
         )
         if rule is None:
             continue
-        lead_days = rule.days if rule.days is not None else ENDING_LEAD_DAYS
-        if not contract.is_ending_within(today=today, lead_days=lead_days):
+        lead = datetime.timedelta(days=rule.days) if rule.days is not None else ENDING_LEAD
+        if not contract.is_ending_within(today=today, lead=lead):
             continue
 
         notifications.append(_build_ending_notification(rule=rule, contract=contract, language=user.language))
         contract.ending_notified_at = utc_now()
-        logger.info(f"{contract} ends on {contract.end_date} (within {lead_days}d); queued notification")
+        logger.info(f"{contract} ends on {contract.end_date} (within {lead.days}d); queued notification")
 
     return notifications
 
@@ -562,7 +561,7 @@ def _balance_threshold_notifications(
 def _upcoming_shortfall_notifications(
     rule: NotificationRule, account: Account, balance_before: float, language: str, currency: str, today: datetime.date
 ) -> list[Notification]:
-    lookahead = datetime.timedelta(days=rule.days or SHORTFALL_LOOKAHEAD_DAYS)
+    lookahead = datetime.timedelta(days=rule.days) if rule.days else SHORTFALL_LOOKAHEAD
     due = _upcoming_fixed_costs(account=account, today=today, lookahead=lookahead)
     crossed = due > 0 and balance_before >= due > account.balance
     logger.debug(
@@ -599,7 +598,7 @@ def _upcoming_shortfall_notifications(
 def _duplicate_notifications(
     rule: NotificationRule, account: Account, new_transactions: list[Transaction], language: str, currency: str
 ) -> list[Notification]:
-    window = datetime.timedelta(days=rule.days or DUPLICATE_WINDOW_DAYS)
+    window = datetime.timedelta(days=rule.days) if rule.days else DUPLICATE_WINDOW
     new = set(new_transactions)
     earlier = [
         transaction

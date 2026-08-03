@@ -3,7 +3,7 @@ from statistics import median
 
 import pytest
 
-from source.backend.models.contracts.contract import OVERDUE_GRACE_DAYS, Contract
+from source.backend.models.contracts.contract import OVERDUE_GRACE, Contract
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import LATEST_DATE
@@ -36,8 +36,8 @@ def test_no_stats_means_no_outlier():
     argvalues=[
         (None, 0, False),
         (LATEST_DATE, 0, False),
-        (LATEST_DATE, OVERDUE_GRACE_DAYS, False),
-        (LATEST_DATE, OVERDUE_GRACE_DAYS + 1, True),
+        (LATEST_DATE, OVERDUE_GRACE.days, False),
+        (LATEST_DATE, OVERDUE_GRACE.days + 1, True),
     ],
 )
 def test_is_overdue_on(expected_next_date: date | None, offset_days: int, expected: bool):

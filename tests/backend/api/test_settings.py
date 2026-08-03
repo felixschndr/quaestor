@@ -1,10 +1,21 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from source.backend.models.contracts import contract as contract_model
+from source.backend.models.notifications.notification_rule import DEFAULT_DIGEST_WEEKDAY
 from source.backend.services.auth.user_service import ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME
 from source.backend.services.banking.sync_scheduler import SYNC_INTERVAL_HOURS_ENV_VARIABLE_NAME
 from source.backend.services.core import i18n_service
 from source.backend.services.transactions import attachment_service
+
+
+def _expected_trigger_default_days() -> dict[str, int]:
+    return {
+        "contract_overdue": contract_model.OVERDUE_GRACE.days,
+        "contract_ending": contract_model.ENDING_LEAD.days,
+        "duplicate_transaction": contract_model.DUPLICATE_WINDOW.days,
+        "upcoming_shortfall": contract_model.SHORTFALL_LOOKAHEAD.days,
+    }
 
 
 def test_settings_returns_defaults(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
@@ -26,6 +37,8 @@ def test_settings_returns_defaults(http_client: TestClient, monkeypatch: pytest.
         "sync_interval_hours": 12.0,
         "allowed_attachment_extensions": sorted(attachment_service.ALLOWED_EXTENSIONS),
         "max_attachment_size_mb": attachment_service.DEFAULT_MAX_ATTACHMENT_SIZE_MB,
+        "trigger_default_days": _expected_trigger_default_days(),
+        "default_digest_weekday": DEFAULT_DIGEST_WEEKDAY,
     }
 
 
@@ -48,4 +61,6 @@ def test_settings_reflects_env_variables(http_client: TestClient, monkeypatch: p
         "sync_interval_hours": 6.0,
         "allowed_attachment_extensions": sorted(attachment_service.ALLOWED_EXTENSIONS),
         "max_attachment_size_mb": 5,
+        "trigger_default_days": _expected_trigger_default_days(),
+        "default_digest_weekday": DEFAULT_DIGEST_WEEKDAY,
     }

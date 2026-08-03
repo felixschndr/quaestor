@@ -8,10 +8,10 @@ from source.backend.api.core.create_router import create_router
 from source.backend.db import get_session
 from source.backend.models.auth.user import User
 from source.backend.models.contracts.contract import (
-    DUPLICATE_WINDOW_DAYS,
-    ENDING_LEAD_DAYS,
-    OVERDUE_GRACE_DAYS,
-    SHORTFALL_LOOKAHEAD_DAYS,
+    DUPLICATE_WINDOW,
+    ENDING_LEAD,
+    OVERDUE_GRACE,
+    SHORTFALL_LOOKAHEAD,
 )
 from source.backend.models.notifications.notification_rule import (
     DEFAULT_DIGEST_WEEKDAY,
@@ -41,12 +41,12 @@ class ExpectedRuleIn(_RuleInBase):
 
 class ContractOverdueRuleIn(_RuleInBase):
     trigger: Literal["contract_overdue"]
-    days: int = Field(default=OVERDUE_GRACE_DAYS, ge=0, le=90)
+    days: int = Field(default=OVERDUE_GRACE.days, ge=0, le=90)
 
 
 class ContractEndingRuleIn(_RuleInBase):
     trigger: Literal["contract_ending"]
-    days: int = Field(default=ENDING_LEAD_DAYS, ge=1, le=90)
+    days: int = Field(default=ENDING_LEAD.days, ge=1, le=90)
 
 
 class ContractChargedAfterEndRuleIn(_RuleInBase):
@@ -65,12 +65,12 @@ class DigestRuleIn(_RuleInBase):
 
 class DuplicateTransactionRuleIn(_RuleInBase):
     trigger: Literal["duplicate_transaction"]
-    days: int = Field(default=DUPLICATE_WINDOW_DAYS, ge=1, le=90)
+    days: int = Field(default=DUPLICATE_WINDOW.days, ge=1, le=90)
 
 
 class UpcomingShortfallRuleIn(_RuleInBase):
     trigger: Literal["upcoming_shortfall"]
-    days: int = Field(default=SHORTFALL_LOOKAHEAD_DAYS, ge=1, le=90)
+    days: int = Field(default=SHORTFALL_LOOKAHEAD.days, ge=1, le=90)
 
 
 class TransactionRuleIn(_RuleInBase):

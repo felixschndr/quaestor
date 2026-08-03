@@ -28,17 +28,17 @@ OUTLIER_SPREAD_FACTOR = 3.0
 OUTLIER_ABSOLUTE_FLOOR = 1.0
 OUTLIER_RELATIVE_FACTOR = 0.25
 
-# A contract counts as overdue once the expected next payment is more than this many days late.
-OVERDUE_GRACE_DAYS = 5
+# A contract counts as overdue once the expected next payment is more than this late.
+OVERDUE_GRACE = datetime.timedelta(days=5)
 
 # Default lead time for the "contract ending soon" notification.
-ENDING_LEAD_DAYS = 14
+ENDING_LEAD = datetime.timedelta(days=14)
 
 # How far ahead the "upcoming shortfall" notification adds up due contract payments.
-SHORTFALL_LOOKAHEAD_DAYS = 7
+SHORTFALL_LOOKAHEAD = datetime.timedelta(days=7)
 
 # How close together two identical bookings must be for the "duplicate transaction" notification.
-DUPLICATE_WINDOW_DAYS = 3
+DUPLICATE_WINDOW = datetime.timedelta(days=3)
 
 
 class Contract(Base):
@@ -82,15 +82,15 @@ class Contract(Base):
             if transaction.contract_assignment != ContractAssignment.EXCLUDED
         ]
 
-    def is_overdue_on(self, today: datetime.date, grace_days: int = OVERDUE_GRACE_DAYS) -> bool:
+    def is_overdue_on(self, today: datetime.date, grace: datetime.timedelta | None = None) -> bool:
         if self.expected_next_date is None:
             return False
-        return today > self.expected_next_date + datetime.timedelta(days=grace_days)
+        return today > self.expected_next_date + (OVERDUE_GRACE if grace is None else grace)
 
-    def is_ending_within(self, today: datetime.date, lead_days: int = ENDING_LEAD_DAYS) -> bool:
+    def is_ending_within(self, today: datetime.date, lead: datetime.timedelta) -> bool:
         if self.end_date is None:
             return False
-        return today <= self.end_date <= today + datetime.timedelta(days=lead_days)
+        return today <= self.end_date <= today + lead
 
     def is_outlier(self, transaction: "Transaction") -> bool:
         if self.median_amount is None or self.amount_spread is None:
