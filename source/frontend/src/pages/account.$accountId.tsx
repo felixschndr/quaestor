@@ -328,6 +328,7 @@ export function AccountDetailView({
             today={today}
             stickyTopOffset={stickyHeaderHeight}
             isManual={isManual}
+            isMarketValued={account.is_market_valued}
             highlightId={highlightId}
           />
         ) : (
@@ -462,6 +463,7 @@ function TransactionGroupList({
   today,
   stickyTopOffset = 0,
   isManual = false,
+  isMarketValued = false,
   highlightId,
 }: {
   accountId: number
@@ -470,6 +472,7 @@ function TransactionGroupList({
   /** Pixel offset where date headers should park (height of the page header). */
   stickyTopOffset?: number
   isManual?: boolean
+  isMarketValued?: boolean
   highlightId?: number | null
 }) {
   return (
@@ -483,6 +486,7 @@ function TransactionGroupList({
               endOfDayBalance={group.endOfDayBalance}
               today={today}
               stickyTopOffset={stickyTopOffset}
+              isMarketValued={isMarketValued}
             />
             <ul className="flex flex-col">
               {group.transactions.map((transaction) => (
@@ -515,11 +519,13 @@ function DateHeader({
   endOfDayBalance,
   today,
   stickyTopOffset,
+  isMarketValued = false,
 }: {
   date: string
   endOfDayBalance: number | null
   today?: Date
   stickyTopOffset: number
+  isMarketValued?: boolean
 }) {
   const { t } = useTranslation()
   const [y, m, d] = date.split('-').map(Number)
@@ -539,6 +545,7 @@ function DateHeader({
       <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">{label}</h2>
       {endOfDayBalance !== null ? (
         <span className="text-muted-foreground text-xs tabular-nums">
+          {isMarketValued ? <span className="mr-1">{t('account.marketValue')}</span> : null}
           {formatMoney(endOfDayBalance)}
         </span>
       ) : null}

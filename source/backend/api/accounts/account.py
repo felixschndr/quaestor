@@ -40,6 +40,14 @@ from source.backend.services.transactions import attachment_service, recurring_t
 router = create_router()
 
 
+def _detail_read(db_session: Session, transaction: Transaction) -> TransactionDetailRead:
+    # Serialize a single transaction and flip buy/sell signs if it lives on a depot (see flip_depot_signs).
+    read = TransactionDetailRead.model_validate(transaction)
+    market_valued = account_service.market_valued_ids(db_session=db_session, account_ids=[transaction.account_id])
+    TransactionRead.flip_depot_signs(reads=[read], market_valued_account_ids=market_valued)
+    return read
+
+
 def owned_account(
     account_id: int,
     current_user: User = Depends(session_service.get_current_user_from_request),
@@ -116,7 +124,7 @@ def link_transactions(
     account: Account = Depends(owned_account),
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
-) -> Transaction:
+) -> TransactionDetailRead:
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
@@ -127,7 +135,7 @@ def link_transactions(
         db_session=db_session, account=counterpart_account, transaction_id=payload.counterpart_transaction_id
     )
     account_service.link_transactions(db_session=db_session, transaction=transaction, counterpart=counterpart)
-    return transaction
+    return _detail_read(db_session=db_session, transaction=transaction)
 
 
 @router.delete("/{account_id}/transactions/{transaction_id}/transfer-link", status_code=204)
@@ -147,10 +155,11 @@ def get_transaction(
     transaction_id: int,
     account: Account = Depends(owned_account),
     db_session: Session = Depends(get_session),
-) -> Transaction:
-    return account_service.get_transaction_for_account(
+) -> TransactionDetailRead:
+    transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
+    return _detail_read(db_session=db_session, transaction=transaction)
 
 
 @router.patch("/{account_id}/transactions/{transaction_id}", response_model=TransactionDetailRead)
@@ -159,16 +168,17 @@ def update_transaction(
     payload: TransactionUpdate,
     account: Account = Depends(owned_account),
     db_session: Session = Depends(get_session),
-) -> Transaction:
+) -> TransactionDetailRead:
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
-    return account_service.update_transaction(
+    updated = account_service.update_transaction(
         db_session=db_session,
         account=account,
         transaction=transaction,
         fields=payload.model_dump(exclude_unset=True),
     )
+    return _detail_read(db_session=db_session, transaction=updated)
 
 
 @router.get(
@@ -357,8 +367,11 @@ def get_account_history(
     transactions, balance_at_date, total_days = account_service.get_history_page(
         db_session=db_session, account=account, page=page, page_size=page_size
     )
+    reads = [TransactionRead.model_validate(transaction) for transaction in transactions]
+    market_valued = account_service.market_valued_ids(db_session=db_session, account_ids=[account.id])
+    TransactionRead.flip_depot_signs(reads=reads, market_valued_account_ids=market_valued)
     return AccountHistory(
-        transactions=[TransactionRead.model_validate(transaction) for transaction in transactions],
+        transactions=reads,
         balance_at_date=balance_at_date,
         page=page,
         page_size=page_size,

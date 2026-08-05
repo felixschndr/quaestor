@@ -139,6 +139,7 @@
     "dayAfterTomorrow": "Scheduled for the day after tomorrow",
     "future": "Scheduled for {{date}}",
     "unknownParty": "Unknown",
+    "marketValue": "Market value",
     "empty": "No transactions yet.",
     "notFound": "Account not found.",
     "loadingMore": "Loading more transactions…",

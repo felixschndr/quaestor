@@ -25,6 +25,18 @@ class TransactionRead(BaseModel):
     pending: bool
     contract_id: int | None = None
 
+    @staticmethod
+    def flip_depot_signs(reads: "list[TransactionRead]", market_valued_account_ids: set[int]) -> None:
+        # On a depot the balance is the market value of holdings, so a trade reads by how it moves holdings: a buy
+        # raises them (+), a sell lowers them (−). Bank data stores the cash convention (buy −, sell +), so present
+        # those two flipped for market-valued accounts. Amounts stay stored raw; this is display-only.
+        for read in reads:
+            if read.account_id in market_valued_account_ids and read.transaction_type in (
+                TransactionType.BUY,
+                TransactionType.SELL,
+            ):
+                read.amount = -read.amount
+
 
 class TransactionDetailRead(TransactionRead):
     transfer_counterpart: TransactionRead | None = None

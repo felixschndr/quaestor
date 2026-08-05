@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import false, func, select
+from sqlalchemy import Select, false, func, select
 from sqlalchemy.orm import Session
 
 from source.backend.bank_handlers import BankProvider
@@ -15,7 +15,7 @@ from source.backend.exceptions import (
 from source.backend.helpers import apply_fields
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
-from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot
+from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot, BalanceSnapshotSource
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.base import snapshot_columns
@@ -25,6 +25,21 @@ from source.backend.models.transactions.transaction_category import TransactionC
 from source.backend.models.transactions.transaction_type import TransactionType
 
 logger = get_logger(__name__)
+
+
+def market_valued_account_ids_select() -> Select[tuple[int]]:
+    return (
+        select(AccountBalanceSnapshot.account_id)
+        .where(AccountBalanceSnapshot.source == BalanceSnapshotSource.MARKET_VALUED)
+        .distinct()
+    )
+
+
+def market_valued_ids(db_session: Session, account_ids: list[int]) -> set[int]:
+    if not account_ids:
+        return set()
+    scoped = market_valued_account_ids_select().where(AccountBalanceSnapshot.account_id.in_(account_ids))
+    return set(db_session.scalars(scoped))
 
 
 def _is_manual_account(account: Account) -> bool:

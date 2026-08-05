@@ -24,7 +24,7 @@ from source.backend.api.schemas.transactions.statistics import (
 from source.backend.api.schemas.transactions.transaction import TransactionRead
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
-from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot, BalanceSnapshotSource
+from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot
 from source.backend.models.auth.user import User
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
@@ -55,14 +55,9 @@ def _base_conditions(
 ) -> list[ColumnElement[bool]]:
     # Depot/fund accounts carry the asset side of every buy as a mirror booking (e.g. Trade Republic books a
     # purchase on both the cash account AND the position), so counting them would double every investment.
-    market_valued = (
-        select(AccountBalanceSnapshot.account_id)
-        .where(AccountBalanceSnapshot.source == BalanceSnapshotSource.MARKET_VALUED)
-        .distinct()
-    )
     conditions: list[ColumnElement[bool]] = [
         Transaction.account_id.in_(account_ids),
-        Transaction.account_id.notin_(market_valued),
+        Transaction.account_id.notin_(account_service.market_valued_account_ids_select()),
         Transaction.pending.is_(False),
         Transaction.expected.is_(False),
     ]
@@ -494,6 +489,7 @@ def get_net_worth_of_range(
         account.id: account
         for account in db_session.scalars(select(Account).where(Account.id.in_(owned_account_ids)))  # noqa: FKA100
     }
+    market_valued = account_service.market_valued_ids(db_session=db_session, account_ids=owned_account_ids)
     changes: list[AccountRangeChange] = []
     total_at_start = 0.0
     total_at_end = 0.0
@@ -513,13 +509,15 @@ def get_net_worth_of_range(
                 .order_by(Transaction.id.desc())
             )
         )
+        reads = [TransactionRead.model_validate(transaction) for transaction in transactions]
+        TransactionRead.flip_depot_signs(reads=reads, market_valued_account_ids=market_valued)
         changes.append(
             AccountRangeChange(
                 account_id=account_id,
                 balance_at_start=before,
                 balance_at_end=after,
                 difference=round(number=(after or 0.0) - (before or 0.0), ndigits=2),
-                transactions=[TransactionRead.model_validate(transaction) for transaction in transactions],
+                transactions=reads,
             )
         )
         factor = account.balance_factor / 100

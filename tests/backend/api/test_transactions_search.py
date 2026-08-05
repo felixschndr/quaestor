@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
+from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot, BalanceSnapshotSource
 from source.backend.models.transactions.transaction_attachment import TransactionAttachment
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
@@ -127,6 +128,35 @@ def test_search_spans_multiple_accounts(http_client: TestClient, session_factory
 
     assert response.status_code == 200
     assert _ids_in_response(response.json()) == {on_giro, on_spar}
+
+
+def test_search_flips_buy_sign_only_on_depot_accounts(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    cash_id = persist_account(session_factory=session_factory, credential_id=credential_id, name="Cash")
+    depot_id = persist_account(session_factory=session_factory, credential_id=credential_id, name="Depot")
+    persist_transaction(
+        session_factory=session_factory, account_id=cash_id, amount=-3500.0, transaction_type=TransactionType.BUY
+    )
+    persist_transaction(
+        session_factory=session_factory, account_id=depot_id, amount=-3500.0, transaction_type=TransactionType.BUY
+    )
+    with session_factory() as session:
+        session.add(
+            AccountBalanceSnapshot(
+                account_id=depot_id,
+                date=date(year=2026, month=1, day=15),
+                balance=3500.0,
+                source=BalanceSnapshotSource.MARKET_VALUED,
+            )
+        )
+        session.commit()
+
+    response = http_client.get("/api/transactions/search", params=[("account_ids", cash_id), ("account_ids", depot_id)])
+
+    amounts = {row["account_id"]: row["amount"] for row in response.json()}
+    assert amounts[cash_id] == -3500.0
+    assert amounts[depot_id] == 3500.0
 
 
 def test_search_only_returns_selected_accounts(http_client: TestClient, session_factory: sessionmaker):

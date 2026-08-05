@@ -139,6 +139,7 @@
     "dayAfterTomorrow": "Geplant für übermorgen",
     "future": "Geplant für {{date}}",
     "unknownParty": "Unbekannt",
+    "marketValue": "Marktwert",
     "empty": "Noch keine Transaktionen.",
     "notFound": "Konto nicht gefunden.",
     "loadingMore": "Weitere Transaktionen werden geladen …",
