@@ -67,11 +67,20 @@ def _patch_pytr(monkeypatch: pytest.MonkeyPatch, rows: list[dict], captured: dic
     monkeypatch.setattr(target=trade_republic, name="TransactionExporter", value=_FakeExporter)
 
 
+class _FakeClient:
+    def settings(self) -> dict:
+        return {"securitiesAccountNumber": "SEC-ACC-1"}
+
+    async def close(self) -> None:  # noqa: ASYNC124
+        pass
+
+
 def _session() -> _TradeRepublicSession:
-    session = _TradeRepublicSession(trade_republic_client=object())
+    session = _TradeRepublicSession(trade_republic_client=_FakeClient())
     session._cash_account_name = ACCOUNT_IBAN
     session._account(ACCOUNT_IBAN)
     session._account(ETF_NAME)["isin"] = ISIN
+    session._savings_plans = []  # avoid the live savingsPlans fetch; savings-plan projection is tested separately
     return session
 
 
@@ -311,13 +320,6 @@ def test_session_without_resumable_websession_requires_reauthentication(
 
 
 def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.MonkeyPatch):
-    class _FakeClient:
-        def settings(self) -> dict:
-            return {"securitiesAccountNumber": "SEC-ACC-1"}
-
-        async def close(self):  # noqa: ASYNC124
-            pass
-
     session = _TradeRepublicSession(trade_republic_client=_FakeClient())
 
     async def fake_subscribe_once(payload: dict, expected_type: str):  # noqa: ASYNC124
@@ -359,3 +361,28 @@ def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.M
     assert session._account(ETF_NAME)["isin"] == ISIN
     assert session._account("Some Bond 2030")["balance"] == 985.0  # price is per 100 of face value -> 98.5 / 100 * 1000
     assert session._account("Some Bond 2030")["isin"] == SECOND_ISIN
+
+
+def test_project_savings_plans_next_buy():
+    plans = [
+        {"instrumentId": ISIN, "amount": 50.0, "nextExecutionDate": "2026-09-15"},
+        {"instrumentId": ISIN, "amount": 99.0, "nextExecutionDate": "2026-09-15", "paused": True},  # skipped
+        {"instrumentId": SECOND_ISIN, "amount": 10.0, "nextExecutionDate": "2026-09-15"},  # other instrument
+    ]
+
+    projected = trade_republic._project_savings_plans(plans=plans, isin=ISIN)
+
+    assert [(t.amount, t.date) for t in projected] == [(-50.0, date(year=2026, month=9, day=15))]
+    assert all(t.pending and t.transaction_type == TransactionType.BUY for t in projected)
+
+
+def test_get_transactions_appends_savings_plan_buys_only_to_the_position_account(monkeypatch: pytest.MonkeyPatch):
+    _patch_pytr(monkeypatch=monkeypatch, rows=[], captured={})
+    session = _session()
+    session._savings_plans = [{"instrumentId": ISIN, "amount": 50.0, "nextExecutionDate": "2026-09-15"}]
+
+    cash = session.get_transactions(FetchedAccount(name=ACCOUNT_IBAN), start_date=date(year=2025, month=1, day=1))
+    position = session.get_transactions(FetchedAccount(name=ETF_NAME), start_date=date(year=2025, month=1, day=1))
+
+    assert cash == []
+    assert [(t.amount, t.pending, t.date) for t in position] == [(-50.0, True, date(year=2026, month=9, day=15))]

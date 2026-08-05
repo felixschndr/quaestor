@@ -1,10 +1,10 @@
 import asyncio
 import tempfile
 from collections import defaultdict
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Iterator, TypedDict
+from typing import AsyncIterator, Iterator, TypedDict
 
 from pytr.api import TradeRepublicApi
 from pytr.event import Event
@@ -61,6 +61,35 @@ _LABEL_TO_TRANSACTION_TYPE: dict[str, TransactionType] = {
 }
 
 
+def _savings_plan_next_date(plan: dict) -> date | None:
+    raw = plan.get("nextExecutionDate")
+    return date.fromisoformat(raw) if raw else None
+
+
+def _project_savings_plans(plans: list[dict], isin: str) -> list[FetchedTransaction]:
+    # One pending buy (a "Vormerkung") per active plan on this instrument, at its next execution date.
+    projected_transactions: list[FetchedTransaction] = []
+    for plan in plans:
+        if plan.get("instrumentId") != isin or plan.get("paused"):
+            continue
+
+        amount = plan.get("amount")
+        next_date = _savings_plan_next_date(plan)
+        if amount is None or next_date is None:
+            continue
+        projected_transactions.append(
+            FetchedTransaction(
+                amount=-abs(float(amount)),
+                purpose="Sparplan",
+                date=next_date,
+                other_party=None,
+                transaction_type=TransactionType.BUY,
+                pending=True,
+            )
+        )
+    return projected_transactions
+
+
 class _AccountState(TypedDict):
     balance: float
     transactions: list[FetchedTransaction]
@@ -76,6 +105,7 @@ class _TradeRepublicSession(BankSession):
 
         self._transactions_loaded = False
         self._value_history: dict[str, list[BalanceObservation]] | None = None
+        self._savings_plans: list[dict] | None = None
 
     def _account(self, name: str) -> _AccountState:
         if name not in self._accounts:
@@ -99,11 +129,19 @@ class _TradeRepublicSession(BankSession):
         if not self._transactions_loaded:
             asyncio.run(self._fetch_transactions(start_date))
             self._transactions_loaded = True
-        transactions = self._account(account.name)["transactions"]
+        transactions = self._account(account.name)["transactions"] + self._projected_savings_plan_buys(account)
         logger.debug(
             f"Trade Republic returned {len(transactions)} transaction(s) for {account.name} since {start_date}"
         )
         return transactions
+
+    def _projected_savings_plan_buys(self, account: FetchedAccount) -> list[FetchedTransaction]:
+        isin = self._account(account.name)["isin"]
+        if isin is None:  # = cash account
+            return []
+        if self._savings_plans is None:
+            self._savings_plans = asyncio.run(self._fetch_savings_plans())
+        return _project_savings_plans(plans=self._savings_plans, isin=isin)
 
     def get_market_value_history(self, account: FetchedAccount) -> list[BalanceObservation]:
         if self._account(account.name)["isin"] is None:  # cash account -> transaction-driven balance
@@ -112,6 +150,20 @@ class _TradeRepublicSession(BankSession):
             self._value_history = asyncio.run(self._fetch_value_history())
         return self._value_history.get(account.name) or []
 
+    @asynccontextmanager
+    async def _connection(self) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            await self._trade_republic_client.close()
+
+    async def _fetch_savings_plans(self) -> list[dict]:
+        async with self._connection():
+            response = await self._subscribe_once(payload={"type": "savingsPlans"}, expected_type="savingsPlans")
+        plans = response.get("savingsPlans") or []
+        logger.debug(f"Trade Republic returned {len(plans)} savings plan(s)")
+        return plans
+
     async def _fetch(self) -> None:
         # We bypass pytr's Portfolio.portfolio_loop() because it subscribes to the
         # retired `compactPortfolio` topic, which Trade Republic now rejects with
@@ -119,14 +171,12 @@ class _TradeRepublicSession(BankSession):
         # `portfolio` topic is gone too. `compactPortfolioByType` is the live
         # replacement, but it carries no market value, so (like portfolio_loop did
         # internally) we value each position ourselves from a live ticker quote.
-        try:
+        async with self._connection():
             cash_accounts = await self._subscribe_once(payload={"type": "cash"}, expected_type="cash")
             positions = await self._fetch_positions()
             valued_positions: list[tuple[dict, float]] = []
             for position in positions:
                 valued_positions.append((position, await self._position_net_value(position)))
-        finally:
-            await self._trade_republic_client.close()
 
         cash = cash_accounts[0]
         cash_account_name: str = cash["accountNumber"]
@@ -171,16 +221,17 @@ class _TradeRepublicSession(BankSession):
         # Mirrors `pytr export_transactions`: pull the timeline, then convert each
         # event into one or more FetchedTransaction objects
         not_before = datetime.combine(date=start_date, time=datetime.min.time()).astimezone().timestamp()
-        with tempfile.TemporaryDirectory() as output_dir:
-            timeline = Timeline(
-                tr=self._trade_republic_client,
-                output_path=Path(output_dir),
-                not_before=not_before,
-                store_event_database=False,
-                scan_for_duplicates=False,
-                dump_raw_data=False,
-            )
-            await timeline.tl_loop()
+        async with self._connection():
+            with tempfile.TemporaryDirectory() as output_dir:
+                timeline = Timeline(
+                    tr=self._trade_republic_client,
+                    output_path=Path(output_dir),
+                    not_before=not_before,
+                    store_event_database=False,
+                    scan_for_duplicates=False,
+                    dump_raw_data=False,
+                )
+                await timeline.tl_loop()
 
         exporter = TransactionExporter(lang="en", date_with_time=False, decimal_localization=False)
         date_field, type_field, value_field, note_field, isin_field = exporter.fields()[0:5]
@@ -219,8 +270,8 @@ class _TradeRepublicSession(BankSession):
         if not positions:
             return {}
 
-        share_moves = self._share_moves_by_isin(await self._load_full_events())
-        try:
+        async with self._connection():
+            share_moves = self._share_moves_by_isin(await self._load_full_events())
             history: dict[str, list[BalanceObservation]] = {}
             for name, isin in positions.items():
                 moves = sorted(share_moves.get(isin) or [])
@@ -231,8 +282,6 @@ class _TradeRepublicSession(BankSession):
                 prices = await self._price_history(isin=isin, exchange=exchange)
                 history[name] = self._market_value_series(name=name, isin=isin, moves=moves, prices=prices)
             return history
-        finally:
-            await self._trade_republic_client.close()
 
     async def _load_full_events(self) -> list[dict]:
         # Value history needs every buy/sell ever, so we ignore the incremental window here.
