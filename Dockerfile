@@ -1,6 +1,6 @@
-FROM node:22-alpine AS frontend-builder
+FROM node:26-alpine AS frontend-builder
 
-RUN corepack enable
+RUN npm install -g pnpm
 
 WORKDIR /build/source/frontend
 

@@ -27,10 +27,6 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [22, 24, 26]
     steps:
       - uses: actions/checkout@v7.0.1
 
@@ -40,7 +36,7 @@ jobs:
 
       - uses: actions/setup-node@v7.0.0
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 26
           cache: pnpm
           cache-dependency-path: source/frontend/pnpm-lock.yaml
 
