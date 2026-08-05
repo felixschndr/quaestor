@@ -14,7 +14,13 @@ import { Label } from '@/components/ui/label'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { TransactionFilterFields } from '@/components/ui/transaction-filter-fields'
 import type { TransactionRead } from '@/lib/accountHistory'
-import { accountNamesById, defaultAccountIds } from '@/lib/accounts'
+import {
+  accountNamesById,
+  bankByAccountId,
+  defaultAccountIds,
+  type AccountBank,
+} from '@/lib/accounts'
+import { BankLogo } from '@/components/BankLogo'
 import { type CredentialRead } from '@/lib/auth'
 import { formatDate, formatMoney, formatIban } from '@/lib/format'
 import { CategoryAvatar } from '@/lib/categoryIcons'
@@ -258,6 +264,7 @@ function SearchResults({
   const [sort, setSort] = useState<SortKey>('date_desc')
   const showAccountLabel = accountIds.length > 1
   const accountNameById = useMemo(() => accountNamesById(credentials), [credentials])
+  const bankById = useMemo(() => bankByAccountId(credentials), [credentials])
   const results = useMemo(() => {
     const sorted = [...(query.data ?? [])].sort(SORT_COMPARATORS[sort])
     if (!linkSource) return sorted
@@ -304,6 +311,7 @@ function SearchResults({
               accountName={
                 showAccountLabel ? accountNameById.get(transaction.account_id) : undefined
               }
+              bank={showAccountLabel ? bankById.get(transaction.account_id) : undefined}
               linkSource={linkSource}
             />
           ))}
@@ -316,10 +324,12 @@ function SearchResults({
 function ResultRow({
   transaction,
   accountName,
+  bank,
   linkSource,
 }: {
   transaction: TransactionRead
   accountName: string | undefined
+  bank: AccountBank | undefined
   linkSource: { accountId: number; transactionId: number } | null
 }) {
   const { t } = useTranslation()
@@ -346,9 +356,20 @@ function ResultRow({
         <CategoryAvatar category={transaction.category} className="size-8" iconClassName="size-4" />
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-sm font-medium">{otherParty}</span>
-          <span className="text-muted-foreground truncate text-xs">
-            {formatDate(transaction.date)}
-            {accountName ? ` · ${accountName}` : ''}
+          <span className="text-muted-foreground flex items-center gap-1 text-xs">
+            <span className="truncate">{formatDate(transaction.date)}</span>
+            {accountName ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <BankLogo
+                  icon={bank?.icon ?? null}
+                  name={bank?.name ?? accountName}
+                  seed={bank?.name ?? accountName}
+                  className="size-3.5 shrink-0"
+                />
+                <span className="truncate">{accountName}</span>
+              </>
+            ) : null}
           </span>
         </span>
         <span

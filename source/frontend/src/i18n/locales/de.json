@@ -572,7 +572,6 @@
     "pendingHint": "Vorgemerkt — noch nicht endgültig gebucht und kann sich noch ändern",
     "notFound": "Transaktion nicht gefunden.",
     "linkedTransaction": "Verknüpfte Transaktion",
-    "linkedTransactionValue": "{{partner}} · {{amount}} · {{date}}",
     "unlink": "Verbindung lösen",
     "unlinkFailed": "Verbindung konnte nicht gelöst werden",
     "categoryUpdateFailed": "Kategorie konnte nicht gespeichert werden",

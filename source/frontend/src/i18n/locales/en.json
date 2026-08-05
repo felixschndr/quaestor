@@ -572,7 +572,6 @@
     "pendingHint": "Pending — not finally booked yet and may still change",
     "notFound": "Transaction not found.",
     "linkedTransaction": "Linked transaction",
-    "linkedTransactionValue": "{{partner}} · {{amount}} · {{date}}",
     "unlink": "Remove link",
     "unlinkFailed": "Could not remove the link",
     "categoryUpdateFailed": "Could not update the category",

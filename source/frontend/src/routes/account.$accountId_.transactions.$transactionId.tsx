@@ -58,14 +58,14 @@ function TransactionDetailPage() {
   if (!query.data) return <TransactionNotFoundView accountId={accountId} />
 
   const counterpart = query.data.transfer_counterpart
-  const counterpartAccount = counterpart
-    ? findAccountInUser(user, counterpart.account_id)?.account
-    : null
+  const counterpartFound = counterpart ? findAccountInUser(user, counterpart.account_id) : null
+  const counterpartAccount = counterpartFound?.account ?? null
   const counterpartAccountName = counterpartAccount
     ? counterpartAccount.display_name?.trim() || counterpartAccount.name
     : null
 
-  const account = findAccountInUser(user, accountId)?.account
+  const found = findAccountInUser(user, accountId)
+  const account = found?.account
   const accountName = account ? account.display_name?.trim() || account.name : null
 
   const linkSource =
@@ -84,7 +84,11 @@ function TransactionDetailPage() {
       accountId={accountId}
       transaction={query.data}
       accountName={accountName}
+      bankName={found?.bankName ?? null}
+      bankIcon={found?.bankIcon ?? null}
       counterpartAccountName={counterpartAccountName}
+      counterpartBankName={counterpartFound?.bankName ?? null}
+      counterpartBankIcon={counterpartFound?.bankIcon ?? null}
       onSaveNote={(note) => update.mutateAsync({ note })}
       onChangeCategory={(category) => update.mutateAsync({ category })}
       onUnlink={() => unlink.mutateAsync()}
@@ -271,10 +275,25 @@ function AttachmentSection({
     })
   }
 
+  const addButton = (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="self-start"
+      disabled={upload.isPending}
+      onClick={() => inputRef.current?.click()}
+    >
+      <Plus className="size-4" aria-hidden="true" />
+      {t('attachments.add')}
+    </Button>
+  )
+  const hasAttachments = attachments && attachments.length > 0
+
   return (
     <DetailRow label={t('attachments.label')} align="start">
       <div className="flex w-full flex-col gap-2">
-        {attachments && attachments.length > 0 ? (
+        {hasAttachments ? (
           <ul className="flex flex-col gap-1">
             {attachments.map((attachment) => (
               <li key={attachment.id} className="flex items-center gap-2">
@@ -305,7 +324,10 @@ function AttachmentSection({
             ))}
           </ul>
         ) : (
-          <span className="text-muted-foreground text-sm">{t('attachments.none')}</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground text-sm">{t('attachments.none')}</span>
+            {addButton}
+          </div>
         )}
         <input
           ref={inputRef}
@@ -315,17 +337,7 @@ function AttachmentSection({
           className="hidden"
           onChange={(event) => onPick(event.target.files)}
         />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="self-start"
-          disabled={upload.isPending}
-          onClick={() => inputRef.current?.click()}
-        >
-          <Plus className="size-4" aria-hidden="true" />
-          {t('attachments.add')}
-        </Button>
+        {hasAttachments ? addButton : null}
       </div>
     </DetailRow>
   )
@@ -345,7 +357,11 @@ export interface TransactionDetailViewProps {
   accountId: number
   transaction: TransactionDetailRead
   accountName?: string | null
+  bankName?: string | null
+  bankIcon?: string | null
   counterpartAccountName?: string | null
+  counterpartBankName?: string | null
+  counterpartBankIcon?: string | null
   onSaveNote: (note: string | null) => Promise<unknown>
   onChangeCategory: (category: TransactionCategory) => Promise<unknown>
   onUnlink: () => Promise<unknown>

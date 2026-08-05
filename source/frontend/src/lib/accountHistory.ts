@@ -33,6 +33,8 @@ export interface AccountHistoryPage {
 export interface FoundAccount {
   account: AccountRead
   bank: string
+  bankName: string | null
+  bankIcon: string | null
   credentialId: number
   lastFetchingTimestamp: string | null
 }
@@ -53,6 +55,8 @@ export function findAccountInUser(
         return {
           account,
           bank: credential.bank,
+          bankName: credential.bank_name,
+          bankIcon: credential.bank_icon,
           credentialId: credential.id,
           lastFetchingTimestamp: credential.last_fetching_timestamp,
         }

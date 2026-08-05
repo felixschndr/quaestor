@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeftRight, CircleHelp } from 'lucide-react'
+import { CircleHelp } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { TransactionRead } from '@/lib/accountHistory'
@@ -10,6 +10,7 @@ import { formatDate, formatMoney, formatIban, isIban } from '@/lib/format'
 import { CategoryAvatar, useCategoryOptions } from '@/lib/categoryIcons'
 import { type TransactionCategory } from '@/lib/transaction'
 import { NoteEditor } from '@/components/note-editor'
+import { BankLogo } from '@/components/BankLogo'
 import { Button } from '@/components/ui/button'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { cn } from '@/lib/utils'
@@ -37,7 +38,11 @@ export function TransactionDetailView({
   accountId,
   transaction,
   accountName,
+  bankName,
+  bankIcon,
   counterpartAccountName,
+  counterpartBankName,
+  counterpartBankIcon,
   onSaveNote,
   onChangeCategory,
   onUnlink,
@@ -111,6 +116,10 @@ export function TransactionDetailView({
           <LinkedTransactionSection
             counterpart={transaction.transfer_counterpart}
             counterpartAccountName={counterpartAccountName}
+            counterpartBankName={counterpartBankName}
+            counterpartBankIcon={counterpartBankIcon}
+            selfAmount={transaction.amount}
+            selfDate={transaction.date}
             onUnlink={onUnlink}
           />
         ) : (
@@ -118,13 +127,21 @@ export function TransactionDetailView({
         )}
         <DetailRow label={t('common.account')}>
           {accountName?.trim() ? (
-            <Link
-              to="/account/$accountId"
-              params={{ accountId: String(accountId) }}
-              className="text-primary hover:text-primary/80 transition-colors"
-            >
-              {isIban(accountName) ? formatIban(accountName) : accountName}
-            </Link>
+            <span className="flex items-center gap-2">
+              <BankLogo
+                icon={bankIcon ?? null}
+                name={bankName ?? accountName}
+                seed={bankName ?? accountName}
+                className="size-5 shrink-0"
+              />
+              <Link
+                to="/account/$accountId"
+                params={{ accountId: String(accountId) }}
+                className="text-primary hover:text-primary/80 transition-colors"
+              >
+                {isIban(accountName) ? formatIban(accountName) : accountName}
+              </Link>
+            </span>
           ) : (
             <EmptyValue />
           )}
@@ -144,17 +161,31 @@ export function TransactionDetailView({
 function LinkedTransactionSection({
   counterpart,
   counterpartAccountName,
+  counterpartBankName,
+  counterpartBankIcon,
+  selfAmount,
+  selfDate,
   onUnlink,
 }: {
   counterpart: TransactionRead
   counterpartAccountName?: string | null
+  counterpartBankName?: string | null
+  counterpartBankIcon?: string | null
+  selfAmount: number
+  selfDate: string
   onUnlink: () => Promise<unknown>
 }) {
   const { t } = useTranslation()
   const [pending, setPending] = useState(false)
   const partnerLabel =
-    transferPartnerLabel(counterpart.other_party, counterpartAccountName) ??
+    counterpartAccountName?.trim() ||
+    transferPartnerLabel(counterpart.other_party, null) ||
     t('transaction.linkedAccountUnknown')
+  const parts = [partnerLabel]
+  if (Math.abs(counterpart.amount) !== Math.abs(selfAmount))
+    parts.push(formatMoney(counterpart.amount))
+  if (counterpart.date !== selfDate) parts.push(formatDate(counterpart.date))
+  const linkedLabel = parts.join(' · ')
 
   const handleUnlink = async () => {
     setPending(true)
@@ -169,21 +200,20 @@ function LinkedTransactionSection({
 
   return (
     <DetailRow label={t('transaction.linkedTransaction')} align="start">
-      <div className="flex flex-col items-start gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
           to="/account/$accountId"
           params={{ accountId: String(counterpart.account_id) }}
           search={{ focus: counterpart.id }}
           className="text-primary hover:text-primary/80 inline-flex items-center gap-2 transition-colors"
         >
-          <ArrowLeftRight className="size-4" aria-hidden="true" />
-          <span>
-            {t('transaction.linkedTransactionValue', {
-              partner: partnerLabel,
-              amount: formatMoney(counterpart.amount),
-              date: formatDate(counterpart.date),
-            })}
-          </span>
+          <BankLogo
+            icon={counterpartBankIcon ?? null}
+            name={counterpartBankName ?? partnerLabel}
+            seed={counterpartBankName ?? partnerLabel}
+            className="size-5 shrink-0"
+          />
+          <span>{linkedLabel}</span>
         </Link>
         <Button type="button" variant="outline" size="sm" onClick={handleUnlink} disabled={pending}>
           {t('transaction.unlink')}
