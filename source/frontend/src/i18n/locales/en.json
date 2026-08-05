@@ -151,6 +151,7 @@
     "accountsCount_other": "{{count}} accounts",
     "selectAll": "All",
     "selectNone": "None",
+    "selectDefault": "Default",
     "filterPlaceholder": "Search…",
     "text": "Search text",
     "textPlaceholder": "Other party, purpose, note or attachment",

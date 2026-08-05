@@ -3,6 +3,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { useAccountGroupLayout } from '@/lib/accountGroups'
+import { defaultAccountIds } from '@/lib/accounts'
 import type { CredentialRead } from '@/lib/auth'
 import { Checkbox } from '@/components/ui/checkbox'
 import { SelectAllHeader } from '@/components/ui/select-all-header'
@@ -28,6 +29,8 @@ function AccountMultiSelect({
   const layout = useAccountGroupLayout()
   const groups = groupAccounts(credentials, layout.data)
   const allIds = groups.flatMap((group) => group.accounts.map((account) => account.id))
+  const defaultIds = defaultAccountIds(credentials)
+  const hasNonDefaultAccount = defaultIds.length < allIds.length
   const selectedSet = new Set(selectedIds)
   const selectedCount = selectedIds.length
   const allSelected = allIds.length > 0 && selectedCount === allIds.length
@@ -60,6 +63,8 @@ function AccountMultiSelect({
           noneLabel={t('search.selectNone')}
           onAll={() => onChange(allIds)}
           onNone={() => onChange([])}
+          defaultLabel={hasNonDefaultAccount ? t('search.selectDefault') : undefined}
+          onDefault={hasNonDefaultAccount ? () => onChange(defaultIds) : undefined}
         />
       }
       renderHeading={(group, heading) => {

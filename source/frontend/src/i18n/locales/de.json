@@ -151,6 +151,7 @@
     "accountsCount_other": "{{count}} Konten",
     "selectAll": "Alle",
     "selectNone": "Keine",
+    "selectDefault": "Standard",
     "filterPlaceholder": "Suchen…",
     "text": "Suchtext",
     "textPlaceholder": "Empfänger / Absender / Zweck / Notiz / Anhang",
