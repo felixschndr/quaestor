@@ -5,6 +5,7 @@ from unittest.mock import Mock
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
+from source.backend.bank_handlers import BankProvider
 from source.backend.models.contracts.contract import Contract
 from source.backend.models.contracts.contract_assignment import ContractAssignment
 from source.backend.models.contracts.contract_frequency import ContractFrequency
@@ -25,8 +26,10 @@ from tests.backend.conftest import (
     SECOND_USER_NAME,
     USER_NAME,
     assert_log_contains,
+    make_account,
     make_account_with_new_user,
     make_contract,
+    make_credential,
     make_transaction,
 )
 
@@ -96,6 +99,68 @@ def test_backfill_detects_contracts_for_every_user(
     assert_log_contains(caplog, message="Running contract detection for 2 user(s)")
     with session_factory() as session:
         assert session.query(Contract).count() == len(user_names)
+
+
+_APPLE_PAYPAL_PURPOSE = "1049068044726/PP.1922.PP/. Apple Services, Ihr Einkauf bei Apple Services"
+
+
+def test_paypal_routed_subscription_only_forms_a_contract_on_the_paypal_account(session_factory: sessionmaker):
+    with session_factory() as session:
+        bank_account = make_account_with_new_user(session, bank=BankProvider.FINTS)
+        paypal_credential = make_credential(
+            session,
+            user_id=bank_account.credential.user_id,
+            bank=BankProvider.ENABLE_BANKING,
+            credentials={"aspsp_name": "PayPal"},
+        )
+        paypal_account = make_account(session, credential_id=paypal_credential.id, name="PayPal")
+        for offset in [0, 30, 60, 90]:
+            make_transaction(
+                session,
+                account_id=bank_account.id,
+                amount=-0.99,
+                other_party="PayPal Europe S.a.r.l. et Cie S.C.A",
+                purpose=_APPLE_PAYPAL_PURPOSE,
+                date=OLDER_DATE + timedelta(days=offset),
+                transaction_type=TransactionType.OUTGOING,
+            )
+            make_transaction(
+                session,
+                account_id=paypal_account.id,
+                amount=-0.99,
+                other_party="Apple Services",
+                date=OLDER_DATE + timedelta(days=offset - 3),
+                transaction_type=TransactionType.OUTGOING,
+            )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=bank_account)
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=paypal_account)
+
+        contract = session.query(Contract).one()
+        assert contract.account_id == paypal_account.id
+        assert contract.fingerprint == "party:apple services:out"
+
+
+def test_paypal_routed_subscription_forms_a_bank_contract_without_a_paypal_account(session_factory: sessionmaker):
+    with session_factory() as session:
+        bank_account = make_account_with_new_user(session, bank=BankProvider.FINTS)
+        for offset in [0, 30, 60, 90]:
+            make_transaction(
+                session,
+                account_id=bank_account.id,
+                amount=-0.99,
+                other_party="PayPal Europe S.a.r.l. et Cie S.C.A",
+                purpose=_APPLE_PAYPAL_PURPOSE,
+                date=OLDER_DATE + timedelta(days=offset),
+                transaction_type=TransactionType.OUTGOING,
+            )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=bank_account)
+
+        contract = session.query(Contract).one()
+        assert contract.fingerprint == "paypal:apple services:out"
 
 
 def test_blacklisted_other_party_does_not_form_a_contract(session_factory: sessionmaker):

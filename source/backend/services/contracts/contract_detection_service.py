@@ -17,9 +17,9 @@ from source.backend.models.contracts.contract_assignment import ContractAssignme
 from source.backend.models.contracts.contract_frequency import ContractFrequency
 from source.backend.models.contracts.contract_source import ContractSource
 from source.backend.models.transactions.transaction import Transaction
-from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.transaction_category import TransactionCategory, normalize_string
 from source.backend.models.transactions.transaction_type import TransactionType
-from source.backend.services.contracts.contract_aggregators import compute_fingerprint
+from source.backend.services.contracts.contract_aggregators import INTERMEDIARIES, compute_fingerprint
 
 logger = get_logger(__name__)
 
@@ -101,7 +101,9 @@ def detect_contracts_for_account(db_session: Session, account: Account) -> int:
             prior_member_ids[transaction.contract_id].add(transaction.id)
     _release_auto_assignments(db_session=db_session, account=account)
     eligible = _get_eligible_transactions(db_session=db_session, account=account)
-    groups = _group_by_fingerprint(eligible)
+    groups = _group_by_fingerprint(
+        eligible, suppressed_intermediaries=_get_connected_intermediaries(db_session=db_session, account=account)
+    )
     logger.debug(
         f"Contract detection on {account}: {len(eligible)} eligible transaction(s) in {len(groups)} fingerprint group(s)"
     )
@@ -167,7 +169,20 @@ def _get_eligible_transactions(db_session: Session, account: Account) -> list[Tr
     )
 
 
-def _group_by_fingerprint(transactions: list[Transaction]) -> dict[tuple[str, str], list[Transaction]]:
+def _get_connected_intermediaries(db_session: Session, account: Account) -> set[str]:
+    credentials = db_session.scalars(select(Credential).where(Credential.user_id == account.credential.user_id)).all()
+    intermediaries = set()
+    for credential in credentials:
+        aspsp_name = normalize_string(credential.credentials.get("aspsp_name") or "")
+        for name, _ in INTERMEDIARIES:
+            if name in aspsp_name:
+                intermediaries.add(name)
+    return intermediaries
+
+
+def _group_by_fingerprint(
+    transactions: list[Transaction], suppressed_intermediaries: set[str]
+) -> dict[tuple[str, str], list[Transaction]]:
     groups: dict[tuple[str, str], list[Transaction]] = defaultdict(list)
     for transaction in transactions:
         contract_category = TransactionCategory.from_transaction(transaction=transaction, log_result=False)
@@ -178,6 +193,12 @@ def _group_by_fingerprint(transactions: list[Transaction]) -> dict[tuple[str, st
             continue
         fingerprint = compute_fingerprint(transaction)
         if fingerprint is None:
+            continue
+        if fingerprint.key.split(sep=":", maxsplit=1)[0] in suppressed_intermediaries:
+            logger.debug(
+                f"Skipping intermediary-routed '{transaction.other_party}' ({fingerprint.key}); the connected "
+                "intermediary account owns this contract"
+            )
             continue
 
         direction = "in" if transaction.amount >= 0 else "out"
