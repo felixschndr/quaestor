@@ -146,6 +146,29 @@ def test_amount_outlier_stays_in_series_and_is_flagged(session_factory: sessionm
         assert outliers[0].amount == 3000.0
 
 
+def test_utility_bill_that_more_than_doubles_stays_a_flagged_member(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        for offset, amount in [(0, -91.0), (30, -91.0), (60, -91.0), (90, -91.0), (120, -193.87)]:
+            make_transaction(
+                session,
+                account_id=account.id,
+                amount=amount,
+                other_party="Vattenfall Europe Sales",
+                date=OLDER_DATE + timedelta(days=offset),
+                transaction_type=TransactionType.OUTGOING,
+            )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        contract = session.query(Contract).one()
+        assert len(contract.members()) == 5
+        outliers = [transaction for transaction in contract.members() if contract.is_outlier(transaction)]
+        assert len(outliers) == 1
+        assert outliers[0].amount == -193.87
+
+
 def test_amount_far_from_median_is_not_assigned_to_the_contract(session_factory: sessionmaker):
     with session_factory() as session:
         account = make_account_with_new_user(session)

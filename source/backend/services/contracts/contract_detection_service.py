@@ -33,11 +33,13 @@ MAX_INTERVAL_DEVIATION_FRACTION = 0.25
 MIN_MATCHING_GAP_FRACTION = 0.6
 # Reject groups whose amounts scatter too far around their median, measured as Median Absolute Deviation / |median|.
 MAX_AMOUNT_DEVIATION_FRACTION = 0.5
-# A transaction only joins a contract when its amount stays within this fraction of the group median. Guards against
-# unrelated payments that merely share a counterparty (e.g. a one-off reimbursement or bonus landing in a salary series)
-# being swept into the contract. Must stay above the largest legitimate single-payment swing we still want to keep, so a
-# genuine outlier survives as a flagged member while gross mismatches are dropped entirely.
-MEMBER_AMOUNT_MAX_RELATIVE_DEVIATION = 0.6
+# A transaction only joins a contract when its amount is within this ratio of the group median (--> between median/K and
+# median*K). Guards against unrelated payments that merely share a counterparty (e.g. a one-off reimbursement or bonus
+# landing in a salary series) being swept into the contract: those are a small *fraction* of the recurring amount and
+# fall below median/K. A genuine spike (e.g. a yearly utility Nachzahlung that more than doubles a monthly bill) is a
+# *multiple* of the norm, stays within median*K, and so survives as a flagged outlier instead of being ejected and
+# silently escaping anomaly detection.
+MEMBER_AMOUNT_MAX_RATIO = 3.0
 # Amount statistics (median/spread, and therefore outlier detection) are computed over only the most recent members, so
 # a sustained price change becomes the new normal instead of being flagged as an outlier forever.
 RECENT_AMOUNT_WINDOW = 6
@@ -232,10 +234,12 @@ def _members_within_amount_band(transactions: list[Transaction]) -> list[Transac
 
 def _amount_belongs_to_contract(amount: float, center: float) -> bool:
     # The median is robust to the very outliers we want to drop, so it stays a reliable reference even when the group
-    # still contains them.
+    # still contains them. Grouping already splits by direction, so amount and center share a sign; a symmetric ratio
+    # band keeps genuine spikes (a multiple of the norm) while dropping unrelated small payments (a fraction of it).
     if center == 0:
         return abs(amount) <= OUTLIER_ABSOLUTE_FLOOR
-    return abs(amount - center) <= MEMBER_AMOUNT_MAX_RELATIVE_DEVIATION * abs(center)
+    ratio = amount / center
+    return 1 / MEMBER_AMOUNT_MAX_RATIO <= ratio <= MEMBER_AMOUNT_MAX_RATIO
 
 
 def _find_or_create_contract(db_session: Session, account: Account, fingerprint: str, display_name: str) -> Contract:
