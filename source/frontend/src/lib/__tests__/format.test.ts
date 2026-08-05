@@ -6,6 +6,7 @@ import {
   formatDate,
   formatDateTime,
   formatIban,
+  transactionPartyName,
   formatRelativeDateTime,
   relativeDateKey,
   setDisplayCurrency,
@@ -180,6 +181,27 @@ describe('formatIban', () => {
     ['de89370400440532013000', 'de89370400440532013000'],
   ])('formatIban(%j) → %j', (input, expected) => {
     expect(formatIban(input)).toBe(expected)
+  })
+})
+
+describe('transactionPartyName', () => {
+  it('uses the other party when present', () => {
+    expect(transactionPartyName({ other_party: 'Alice', purpose: 'rent' })).toBe('Alice')
+  })
+
+  it('formats an IBAN other party', () => {
+    expect(transactionPartyName({ other_party: 'DE89370400440532013000' })).toBe(
+      'DE89 3704 0044 0532 0130 00',
+    )
+  })
+
+  it('falls back to the purpose when the other party is missing (e.g. savings plans)', () => {
+    expect(transactionPartyName({ other_party: null, purpose: 'Sparplan' })).toBe('Sparplan')
+    expect(transactionPartyName({ other_party: '  ', purpose: 'Sparplan' })).toBe('Sparplan')
+  })
+
+  it('returns an empty string when neither is set, leaving the fallback to the caller', () => {
+    expect(transactionPartyName({ other_party: null, purpose: null })).toBe('')
   })
 })
 

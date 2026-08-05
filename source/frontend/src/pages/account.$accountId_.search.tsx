@@ -18,7 +18,7 @@ import { accountDisplayName, defaultAccountIds } from '@/lib/accounts'
 import { buildAccountLookup, type AccountWithBank } from '@/lib/accountDisplayGroups'
 import { AccountLabel } from '@/components/AccountLabel'
 import { type CredentialRead } from '@/lib/auth'
-import { formatDate, formatMoney, formatIban } from '@/lib/format'
+import { formatDate, formatMoney, transactionPartyName } from '@/lib/format'
 import { CategoryAvatar } from '@/lib/categoryIcons'
 import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from '@/lib/transaction'
 import { useSearchTransactions, type TransactionFilters } from '@/lib/transactionSearch'
@@ -324,7 +324,7 @@ function ResultRow({
 }) {
   const { t } = useTranslation()
   const negative = transaction.amount < 0
-  const otherParty = formatIban(transaction.other_party?.trim() || '') || t('account.unknownParty')
+  const otherParty = transactionPartyName(transaction) || t('account.unknownParty')
   return (
     <li>
       <Link

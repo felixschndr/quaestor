@@ -29,6 +29,7 @@ import {
   formatRelativeDateTime,
   isIban,
   relativeDateKey,
+  transactionPartyName,
 } from '@/lib/format'
 import { copyText } from '@/lib/clipboard'
 import { EXPECTED_TRANSACTIONS_KEY, useCollapsedGroups } from '@/lib/collapsedGroups'
@@ -572,7 +573,7 @@ function TransactionRow({
 
   const negative = transaction.amount < 0
   const pending = transaction.pending ?? false
-  const otherParty = formatIban(transaction.other_party?.trim() || '') || t('account.unknownParty')
+  const otherParty = transactionPartyName(transaction) || t('account.unknownParty')
 
   if (editing) {
     return (

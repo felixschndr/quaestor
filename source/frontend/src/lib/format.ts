@@ -158,6 +158,13 @@ export function formatIban(value: string): string {
   return compact.match(/.{1,4}/g)!.join(' ')
 }
 
+export function transactionPartyName(transaction: {
+  other_party?: string | null
+  purpose?: string | null
+}): string {
+  return formatIban(transaction.other_party?.trim() || '') || transaction.purpose?.trim() || ''
+}
+
 export function isIban(value: string): boolean {
   return IBAN_PATTERN.test(value.replace(/\s+/g, ''))
 }

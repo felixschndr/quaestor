@@ -11,7 +11,7 @@ import {
   type ContractFrequency,
   type ContractMemberRead,
 } from '@/lib/contract'
-import { formatDate, formatDateWithoutYear, formatMoney, formatIban } from '@/lib/format'
+import { formatDate, formatDateWithoutYear, formatMoney, transactionPartyName } from '@/lib/format'
 import { type TransactionCategory } from '@/lib/transaction'
 import { ContractTimeline } from '@/components/contract-timeline'
 import { ContractStatusBadge } from '@/components/contract-status-badge'
@@ -321,7 +321,7 @@ function ContractCategorySelect({
 
 function MemberRow({ member }: { member: ContractMemberRead }) {
   const { t } = useTranslation()
-  const otherParty = formatIban(member.other_party?.trim() || '') || t('account.unknownParty')
+  const otherParty = transactionPartyName(member) || t('account.unknownParty')
   const amountColor = member.is_outlier
     ? 'text-warning'
     : member.amount < 0
