@@ -10,7 +10,7 @@ import { formatDate, formatMoney, formatIban, isIban } from '@/lib/format'
 import { CategoryAvatar, useCategoryOptions } from '@/lib/categoryIcons'
 import { type TransactionCategory } from '@/lib/transaction'
 import { NoteEditor } from '@/components/note-editor'
-import { BankLogo } from '@/components/BankLogo'
+import { AccountLabel } from '@/components/AccountLabel'
 import { Button } from '@/components/ui/button'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { cn } from '@/lib/utils'
@@ -127,21 +127,22 @@ export function TransactionDetailView({
         )}
         <DetailRow label={t('common.account')}>
           {accountName?.trim() ? (
-            <span className="flex items-center gap-2">
-              <BankLogo
-                icon={bankIcon ?? null}
-                name={bankName ?? accountName}
-                seed={bankName ?? accountName}
-                className="size-5 shrink-0"
-              />
-              <Link
-                to="/account/$accountId"
-                params={{ accountId: String(accountId) }}
-                className="text-primary hover:text-primary/80 transition-colors"
-              >
-                {isIban(accountName) ? formatIban(accountName) : accountName}
-              </Link>
-            </span>
+            <AccountLabel
+              icon={bankIcon ?? null}
+              bankName={bankName}
+              accountName={accountName}
+              iconClassName="size-5 rounded-[5px]"
+              nameClassName="text-sm break-words"
+              label={
+                <Link
+                  to="/account/$accountId"
+                  params={{ accountId: String(accountId) }}
+                  className="text-primary hover:text-primary/80 transition-colors"
+                >
+                  {isIban(accountName) ? formatIban(accountName) : accountName}
+                </Link>
+              }
+            />
           ) : (
             <EmptyValue />
           )}
@@ -205,15 +206,16 @@ function LinkedTransactionSection({
           to="/account/$accountId"
           params={{ accountId: String(counterpart.account_id) }}
           search={{ focus: counterpart.id }}
-          className="text-primary hover:text-primary/80 inline-flex items-center gap-2 transition-colors"
+          className="text-primary hover:text-primary/80 transition-colors"
         >
-          <BankLogo
+          <AccountLabel
             icon={counterpartBankIcon ?? null}
-            name={counterpartBankName ?? partnerLabel}
-            seed={counterpartBankName ?? partnerLabel}
-            className="size-5 shrink-0"
+            bankName={counterpartBankName}
+            accountName={partnerLabel}
+            label={linkedLabel}
+            iconClassName="size-5 rounded-[5px]"
+            nameClassName="text-sm"
           />
-          <span>{linkedLabel}</span>
         </Link>
         <Button type="button" variant="outline" size="sm" onClick={handleUnlink} disabled={pending}>
           {t('transaction.unlink')}

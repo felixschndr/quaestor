@@ -56,7 +56,7 @@ const groupIdFromSortableId = (sortableId: string): number =>
 type AccountLookup = Map<number, AccountWithBank>
 
 export function buildAccountLookup(user: UserRead | undefined): AccountLookup {
-  return user ? buildLibAccountLookup(user) : new Map()
+  return user ? buildLibAccountLookup(user.credentials) : new Map()
 }
 
 export interface GroupsEditorViewProps {
@@ -66,22 +66,15 @@ export interface GroupsEditorViewProps {
 
 export function GroupsEditorView({ layout, accountLookup }: GroupsEditorViewProps) {
   const { t } = useTranslation()
-  // The local copy lets us reorder optimistically during drag without waiting
-  // for the server round-trip; once a PUT lands and updates the cached prop,
-  // we adopt the new server truth (including assigned ids for new groups).
   const [localLayout, setLocalLayout] = useState<AccountGroupLayout>(layout)
   const [lastServerLayout, setLastServerLayout] = useState<AccountGroupLayout>(layout)
   if (layout !== lastServerLayout) {
-    // Prop changed — drop any in-flight local-only edits and re-sync.
-    // (Storing-previous-render pattern: setState during render is the
-    // recommended way to keep state in sync with props.)
     setLastServerLayout(layout)
     setLocalLayout(layout)
   }
 
   const { mutateAsync, isPending } = usePutAccountGroupLayout()
 
-  // Debounced auto-save on layout changes (drag, rename, delete, create).
   useEffect(() => {
     if (sameLayout(localLayout, lastServerLayout)) return
     const payload = toWritePayload(localLayout)
@@ -105,12 +98,6 @@ export function GroupsEditorView({ layout, accountLookup }: GroupsEditorViewProp
     setActiveId(String(event.active.id))
   }, [])
 
-  // Cross-container moves for accounts must happen on dragOver, not just dragEnd
-  // — otherwise dnd-kit can't animate space being made in the target container,
-  // so the hovered group looks unchanged until release. Within the same
-  // container we leave the layout alone and let SortableContext handle the
-  // visual swap via transforms. Group reordering is handled in dragEnd via
-  // arrayMove, which already matches what SortableContext renders during drag.
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event
     if (!over) return
@@ -149,10 +136,6 @@ export function GroupsEditorView({ layout, accountLookup }: GroupsEditorViewProp
     setActiveId(null)
   }, [])
 
-  // Filter droppables by drag kind so account drags only see account drop zones
-  // and group drags only see other groups. Without this, closestCenter could
-  // match a group section while dragging an account (the section is droppable
-  // because it's sortable), breaking parseTargetContainer.
   const collisionDetection = useCallback<CollisionDetection>((args) => {
     const isGroupDrag = String(args.active.id).startsWith('group-')
     const droppableContainers = args.droppableContainers.filter((container) => {
@@ -171,12 +154,7 @@ export function GroupsEditorView({ layout, accountLookup }: GroupsEditorViewProp
     const name = t('credentials.groups.newGroupName')
     setLocalLayout((current) => ({
       ...current,
-      groups: [
-        ...current.groups,
-        // Placeholder negative id so the editor can show + reorder it before
-        // the server assigns a real id. The PUT payload omits these ids.
-        { id: -Date.now(), name, accounts: [] },
-      ],
+      groups: [...current.groups, { id: -Date.now(), name, accounts: [] }],
     }))
   }
 
@@ -363,8 +341,6 @@ function DroppableArea({
   emptyHint: string
 }) {
   const items = accountIds.map(accountItemId)
-  // Empty SortableContexts don't register a drop target on their own — without
-  // this useDroppable, you couldn't drop an account into a fresh empty group.
   const { setNodeRef, isOver } = useDroppable({ id: containerId })
   return (
     <SortableContext id={containerId} items={items} strategy={verticalListSortingStrategy}>
@@ -400,8 +376,6 @@ function DraggableAccountItem({ account }: { account: AccountWithBank }) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    // Hide the source item completely while it's mirrored by DragOverlay — a
-    // dim opacity would just leave a ghost behind the floating preview.
     opacity: isDragging ? 0 : 1,
   }
 
@@ -435,7 +409,6 @@ function DraggableAccountItem({ account }: { account: AccountWithBank }) {
         account={account}
         ref={setNodeRef}
         style={style}
-        // No drag listeners while editing — the user is focused on text input.
         body={
           <Input
             autoFocus
@@ -451,9 +424,6 @@ function DraggableAccountItem({ account }: { account: AccountWithBank }) {
                 cancel()
               }
             }}
-            // Blur fires after the click on cancel/commit buttons has been
-            // processed, so the explicit buttons still work. Plain blur (e.g.
-            // tapping outside the row) commits.
             onBlur={() => void commit()}
             aria-label={t('credentials.groups.editAccountName')}
             placeholder={account.name}

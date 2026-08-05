@@ -14,16 +14,17 @@ import {
   PopoverTrigger,
   popoverTriggerClassName,
 } from '@/components/ui/popover'
-import type { AccountGroup, AccountOption } from '@/components/ui/account-select-utils'
+import type { AccountGroup } from '@/components/ui/account-select-utils'
+import type { AccountWithBank } from '@/lib/accountDisplayGroups'
 import { handleSelectListArrowKeys } from '@/components/ui/select-list-keyboard'
 
-export function AccountOptionContent({ account }: { account: AccountOption }) {
+export function AccountOptionContent({ account }: { account: AccountWithBank }) {
   return (
     <>
       <BankLogo
         icon={account.bankIcon}
-        name={account.bankName}
-        seed={account.bankName}
+        name={account.bankName ?? account.bank}
+        seed={account.bankName ?? account.bank}
         className="size-5 shrink-0"
       />
       <span className="flex-1 truncate">{accountDisplayName(account)}</span>
@@ -41,7 +42,7 @@ export interface AccountSelectPopoverProps {
   emptyVariant?: 'destructive' | 'default'
   header?: ReactNode
   groups: AccountGroup[]
-  renderAccount: (account: AccountOption, group: AccountGroup) => ReactNode
+  renderAccount: (account: AccountWithBank, group: AccountGroup) => ReactNode
   renderHeading?: (group: AccountGroup, heading: string) => ReactNode
 }
 

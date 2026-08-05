@@ -191,7 +191,7 @@ describe('TransactionDetailView', () => {
     expect(onUnlink).toHaveBeenCalledTimes(1)
   })
 
-  it('labels the linked transaction with the counterpart other party when present', () => {
+  it('labels the linked transaction with the counterpart account name (where it goes to)', () => {
     const counterpart: TransactionRead = {
       id: 99,
       account_id: 55,
@@ -204,8 +204,8 @@ describe('TransactionDetailView', () => {
       note: null,
     }
     renderView({ transfer_counterpart: counterpart })
-    expect(screen.getByRole('link', { name: /ACME Corp/ })).toBeInTheDocument()
-    expect(screen.queryByText(/Sparkonto/)).toBeNull()
+    expect(screen.getByRole('link', { name: /Sparkonto/ })).toBeInTheDocument()
+    expect(screen.queryByText(/ACME Corp/)).toBeNull()
   })
 
   it('renders the linkSection slot when there is no counterpart', () => {

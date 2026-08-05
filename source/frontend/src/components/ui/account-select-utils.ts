@@ -1,36 +1,18 @@
 import type { AccountGroupAccountRef, AccountGroupLayout } from '@/lib/accountGroups'
-import type { AccountRead, CredentialRead } from '@/lib/auth'
-
-export interface AccountOption extends AccountRead {
-  bankName: string
-  bankIcon: string | null
-}
+import type { CredentialRead } from '@/lib/auth'
+import { buildAccountLookup, type AccountWithBank } from '@/lib/accountDisplayGroups'
 
 export interface AccountGroup {
   key: string
   heading: string | null
-  accounts: AccountOption[]
-}
-
-function buildOptionLookup(credentials: CredentialRead[]): Map<number, AccountOption> {
-  const lookup = new Map<number, AccountOption>()
-  for (const credential of credentials) {
-    for (const account of credential.accounts) {
-      lookup.set(account.id, {
-        ...account,
-        bankName: credential.bank_name ?? credential.bank,
-        bankIcon: credential.bank_icon,
-      })
-    }
-  }
-  return lookup
+  accounts: AccountWithBank[]
 }
 
 export function groupAccounts(
   credentials: CredentialRead[],
   layout?: AccountGroupLayout,
 ): AccountGroup[] {
-  const lookup = buildOptionLookup(credentials)
+  const lookup = buildAccountLookup(credentials)
 
   if (!layout?.groups?.length) {
     return [...credentials]
@@ -46,7 +28,7 @@ export function groupAccounts(
   }
 
   const resolve = (refs: AccountGroupAccountRef[]) =>
-    refs.map((ref) => lookup.get(ref.id)).filter((account): account is AccountOption => !!account)
+    refs.map((ref) => lookup.get(ref.id)).filter((account): account is AccountWithBank => !!account)
 
   const groups: AccountGroup[] = layout.groups.map((group) => ({
     key: `group-${group.id}`,

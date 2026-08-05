@@ -13,7 +13,7 @@ import { SyncButton } from '@/components/sync-button'
 import { SyncStatusIcon, type SyncState } from '@/components/sync-check'
 import { formatMoney, formatFactorMultiplier } from '@/lib/format'
 import { accountDisplayName, displayNameOrUserName } from '@/lib/accounts'
-import { BankLogo } from '@/components/BankLogo'
+import { AccountLabel } from '@/components/AccountLabel'
 import { useAccountGroupLayout } from '@/lib/accountGroups'
 import {
   buildDisplayGroups,
@@ -213,15 +213,15 @@ function AccountRow({ account, syncState }: { account: AccountWithBank; syncStat
         params={{ accountId: String(account.id) }}
         className="hover:bg-muted/60 flex items-center gap-3 rounded-md px-2 py-3 transition-colors"
       >
-        <BankLogo
+        <AccountLabel
           icon={account.bankIcon}
-          name={account.bankName ?? account.bank}
-          seed={account.bankName ?? account.bank}
+          bankName={account.bankName ?? account.bank}
+          accountName={accountDisplayName(account)}
+          iconClassName="size-8"
+          nameClassName="truncate text-sm font-medium"
+          trailing={<SyncStatusIcon state={syncState} />}
+          className="flex-1"
         />
-        <span className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="truncate text-sm font-medium">{accountDisplayName(account)}</span>
-          <SyncStatusIcon state={syncState} />
-        </span>
         <span className="text-sm font-semibold tabular-nums">
           {hasFactor ? (
             <span className="text-muted-foreground mr-1.5 font-normal">

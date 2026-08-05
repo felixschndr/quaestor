@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { initials, monogramColor } from '@/lib/bankIdentity'
+import { cn } from '@/lib/utils'
 
 const pinned = new Map<string, HTMLImageElement>()
 function preloadIcon(url: string): void {
@@ -32,7 +33,7 @@ export function BankLogo({ icon, name, seed, className = 'size-8' }: BankLogoPro
         loading="lazy"
         decoding="async"
         aria-hidden="true"
-        className={`${className} rounded-md object-cover`}
+        className={cn('rounded-[18%] object-cover', className)}
         onError={() => setFailedIcon(icon)}
       />
     )
@@ -40,7 +41,10 @@ export function BankLogo({ icon, name, seed, className = 'size-8' }: BankLogoPro
   return (
     <span
       aria-hidden="true"
-      className={`${className} flex items-center justify-center rounded-md text-xs font-semibold text-white`}
+      className={cn(
+        'flex items-center justify-center rounded-[18%] text-xs font-semibold text-white',
+        className,
+      )}
       style={{ backgroundColor: monogramColor(seed) }}
     >
       {initials(name)}

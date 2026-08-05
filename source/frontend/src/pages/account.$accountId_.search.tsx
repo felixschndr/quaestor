@@ -14,13 +14,9 @@ import { Label } from '@/components/ui/label'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { TransactionFilterFields } from '@/components/ui/transaction-filter-fields'
 import type { TransactionRead } from '@/lib/accountHistory'
-import {
-  accountNamesById,
-  bankByAccountId,
-  defaultAccountIds,
-  type AccountBank,
-} from '@/lib/accounts'
-import { BankLogo } from '@/components/BankLogo'
+import { accountDisplayName, defaultAccountIds } from '@/lib/accounts'
+import { buildAccountLookup, type AccountWithBank } from '@/lib/accountDisplayGroups'
+import { AccountLabel } from '@/components/AccountLabel'
 import { type CredentialRead } from '@/lib/auth'
 import { formatDate, formatMoney, formatIban } from '@/lib/format'
 import { CategoryAvatar } from '@/lib/categoryIcons'
@@ -263,8 +259,7 @@ function SearchResults({
   const query = useSearchTransactions(accountIds, filters)
   const [sort, setSort] = useState<SortKey>('date_desc')
   const showAccountLabel = accountIds.length > 1
-  const accountNameById = useMemo(() => accountNamesById(credentials), [credentials])
-  const bankById = useMemo(() => bankByAccountId(credentials), [credentials])
+  const accountById = useMemo(() => buildAccountLookup(credentials), [credentials])
   const results = useMemo(() => {
     const sorted = [...(query.data ?? [])].sort(SORT_COMPARATORS[sort])
     if (!linkSource) return sorted
@@ -308,10 +303,7 @@ function SearchResults({
             <ResultRow
               key={`${transaction.account_id}-${transaction.id}`}
               transaction={transaction}
-              accountName={
-                showAccountLabel ? accountNameById.get(transaction.account_id) : undefined
-              }
-              bank={showAccountLabel ? bankById.get(transaction.account_id) : undefined}
+              account={showAccountLabel ? accountById.get(transaction.account_id) : undefined}
               linkSource={linkSource}
             />
           ))}
@@ -323,13 +315,11 @@ function SearchResults({
 
 function ResultRow({
   transaction,
-  accountName,
-  bank,
+  account,
   linkSource,
 }: {
   transaction: TransactionRead
-  accountName: string | undefined
-  bank: AccountBank | undefined
+  account: AccountWithBank | undefined
   linkSource: { accountId: number; transactionId: number } | null
 }) {
   const { t } = useTranslation()
@@ -358,16 +348,17 @@ function ResultRow({
           <span className="truncate text-sm font-medium">{otherParty}</span>
           <span className="text-muted-foreground flex items-center gap-1 text-xs">
             <span className="truncate">{formatDate(transaction.date)}</span>
-            {accountName ? (
+            {account ? (
               <>
                 <span aria-hidden="true">·</span>
-                <BankLogo
-                  icon={bank?.icon ?? null}
-                  name={bank?.name ?? accountName}
-                  seed={bank?.name ?? accountName}
-                  className="size-3.5 shrink-0"
+                <AccountLabel
+                  icon={account.bankIcon}
+                  bankName={account.bankName ?? account.bank}
+                  accountName={accountDisplayName(account)}
+                  iconClassName="size-3.5 rounded"
+                  nameClassName="truncate"
+                  className="gap-1"
                 />
-                <span className="truncate">{accountName}</span>
               </>
             ) : null}
           </span>

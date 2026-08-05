@@ -1,4 +1,4 @@
-import type { AccountRead, UserRead } from './auth'
+import type { AccountRead, CredentialRead, UserRead } from './auth'
 import type { AccountGroupAccountRef, AccountGroupLayout } from './accountGroups'
 
 export interface AccountWithBank extends AccountRead {
@@ -13,9 +13,9 @@ export interface DisplayGroup {
   accounts: AccountWithBank[]
 }
 
-export function buildAccountLookup(user: UserRead): Map<number, AccountWithBank> {
+export function buildAccountLookup(credentials: CredentialRead[]): Map<number, AccountWithBank> {
   const map = new Map<number, AccountWithBank>()
-  for (const credential of user.credentials) {
+  for (const credential of credentials) {
     for (const account of credential.accounts) {
       map.set(account.id, {
         ...account,
@@ -51,7 +51,7 @@ export function buildDisplayGroups(
       }))
       .filter((group) => group.accounts.length > 0)
   }
-  const lookup = buildAccountLookup(user)
+  const lookup = buildAccountLookup(user.credentials)
   const resolveAccounts = (refs: AccountGroupAccountRef[]) =>
     refs
       .map((ref) => lookup.get(ref.id))

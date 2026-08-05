@@ -92,17 +92,3 @@ export function accountNamesById(credentials: CredentialRead[]): Map<number, str
   }
   return map
 }
-
-export interface AccountBank {
-  name: string | null
-  icon: string | null
-}
-
-export function bankByAccountId(credentials: CredentialRead[]): Map<number, AccountBank> {
-  const map = new Map<number, AccountBank>()
-  for (const credential of credentials) {
-    const bank = { name: credential.bank_name, icon: credential.bank_icon }
-    for (const account of credential.accounts) map.set(account.id, bank)
-  }
-  return map
-}
