@@ -182,9 +182,17 @@ export function StatsView({
     selectedTypes.length > 0 &&
     linked !== 'none'
 
+  const marketValued = new Set(
+    credentials
+      .flatMap((credential) => credential.accounts)
+      .filter((account) => account.is_market_valued)
+      .map((account) => account.id),
+  )
+  const cashAccountIds = accountIds.filter((id) => !marketValued.has(id))
+
   const openSearch = (extra: { categories?: TransactionCategory[]; text?: string }) =>
     onOpenSearch({
-      accountIds,
+      accountIds: cashAccountIds,
       dateFrom: filters.date_from,
       dateTo: filters.date_to,
       direction,
@@ -201,7 +209,7 @@ export function StatsView({
       trendPeriods,
     )
     onOpenSearch({
-      accountIds,
+      accountIds: cashAccountIds,
       dateFrom: range.from,
       dateTo: range.to,
       direction,

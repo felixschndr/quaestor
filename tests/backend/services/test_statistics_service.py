@@ -4,16 +4,52 @@ import inspect
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
+from source.backend.models.accounts.account_balance_snapshot import (
+    AccountBalanceSnapshot,
+    BalanceSnapshotSource,
+)
 from source.backend.models.auth.user import User
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.services.transactions import statistics_service
 from tests.backend.conftest import (
     LATEST_DATE,
+    make_account,
     make_transaction,
     make_user,
     make_user_and_credential_and_account,
     seed_snapshot,
 )
+
+
+def test_category_breakdown_excludes_market_valued_accounts(session_factory: sessionmaker):
+    with session_factory() as session:
+        user, credential, cash = make_user_and_credential_and_account(session, name="Cash")
+        depot = make_account(session, credential_id=credential.id, name="Core MSCI World")
+        session.add(
+            AccountBalanceSnapshot(
+                account_id=depot.id,
+                date=LATEST_DATE,
+                balance=3500.0,
+                source=BalanceSnapshotSource.MARKET_VALUED,
+            )
+        )
+        make_transaction(session, account_id=cash.id, amount=-3500.0, category=TransactionCategory.INVESTMENT)
+        make_transaction(session, account_id=depot.id, amount=-3500.0, category=TransactionCategory.INVESTMENT)
+        session.commit()
+        user_id, cash_id, depot_id = user.id, cash.id, depot.id
+
+    with session_factory() as session:
+        result = statistics_service.category_breakdown(
+            db_session=session,
+            user=session.get(entity=User, ident=user_id),
+            account_ids=[cash_id, depot_id],
+            date_from=None,
+            date_to=None,
+            direction="OUTGOING",
+            categories=[],
+        )
+
+    assert [(slice_.category, slice_.total) for slice_ in result] == [(TransactionCategory.INVESTMENT, 3500.0)]
 
 
 @pytest.mark.parametrize(

@@ -33,6 +33,7 @@ function makeUser(): UserRead {
             balance_factor: 100,
             is_hidden: false,
             include_by_default: true,
+            is_market_valued: false,
           },
           {
             id: 2,
@@ -42,6 +43,7 @@ function makeUser(): UserRead {
             balance_factor: 100,
             is_hidden: false,
             include_by_default: true,
+            is_market_valued: false,
           },
         ],
         last_fetching_timestamp: '2026-06-15T08:30:00Z',
@@ -62,6 +64,7 @@ function makeUser(): UserRead {
             balance_factor: 100,
             is_hidden: false,
             include_by_default: true,
+            is_market_valued: false,
           },
         ],
         last_fetching_timestamp: null,

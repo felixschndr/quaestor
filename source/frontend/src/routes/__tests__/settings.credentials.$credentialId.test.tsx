@@ -24,6 +24,7 @@ function buildAccount(overrides: Partial<AccountRead> = {}): AccountRead {
     balance_factor: 100,
     is_hidden: false,
     include_by_default: true,
+    is_market_valued: false,
     ...overrides,
   }
 }

@@ -6,6 +6,10 @@ from sqlalchemy.orm import sessionmaker
 
 from source.backend.api.schemas.transactions.transaction import TransactionDetailRead
 from source.backend.models.accounts.account import Account
+from source.backend.models.accounts.account_balance_snapshot import (
+    AccountBalanceSnapshot,
+    BalanceSnapshotSource,
+)
 from source.backend.models.banking.credential import Credential
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
@@ -53,6 +57,28 @@ def test_update_account_persists_balance_factor(http_client: TestClient, session
         stored = session.get(entity=Account, ident=account_id)
         assert stored is not None
         assert stored.balance_factor == 25
+
+
+def test_market_valued_flag_reflects_snapshot_source(http_client: TestClient, session_factory: sessionmaker):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    depot_id = persist_account(session_factory=session_factory, credential_id=credential_id, name="Depot")
+    plain_id = persist_account(session_factory=session_factory, credential_id=credential_id, name="Giro")
+    with session_factory() as session:
+        session.add(
+            AccountBalanceSnapshot(
+                account_id=depot_id, date=date.today(), balance=100.0, source=BalanceSnapshotSource.MARKET_VALUED
+            )
+        )
+        session.commit()
+
+    accounts = [
+        account for credential in http_client.get("/api/credentials").json() for account in credential["accounts"]
+    ]
+    flags = {account["id"]: account["is_market_valued"] for account in accounts}
+
+    assert flags[depot_id] is True
+    assert flags[plain_id] is False
 
 
 def test_account_defaults_to_included_by_default(http_client: TestClient, session_factory: sessionmaker):

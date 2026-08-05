@@ -65,6 +65,17 @@ const credentials: CredentialRead[] = [
         display_name: null,
         is_hidden: false,
         include_by_default: true,
+        is_market_valued: false,
+      },
+      {
+        id: 99,
+        name: 'Depot',
+        balance: 0,
+        balance_factor: 100,
+        display_name: null,
+        is_hidden: false,
+        include_by_default: true,
+        is_market_valued: true,
       },
     ],
     last_fetching_timestamp: null,
@@ -141,6 +152,14 @@ describe('StatsView drill-in carries the active filters', () => {
     fireEvent.click(arrows[1])
 
     expect(onOpenSearch.mock.calls.at(-1)?.[0].categories).toEqual([])
+  })
+
+  it('drops market-valued depot accounts from the drill so its list sums to the stat', async () => {
+    const { onOpenSearch, arrows } = await renderAndGetArrows({ account_ids: [42, 99] })
+
+    fireEvent.click(arrows[0]) // the "By category" bar
+
+    expect(onOpenSearch.mock.calls.at(-1)?.[0].accountIds).toEqual([42])
   })
 
   it('defaults the transfer drill to "unlinked" (Keine Umbuchung) with no URL filter', async () => {

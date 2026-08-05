@@ -24,7 +24,7 @@ from source.backend.api.schemas.transactions.statistics import (
 from source.backend.api.schemas.transactions.transaction import TransactionRead
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
-from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot
+from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot, BalanceSnapshotSource
 from source.backend.models.auth.user import User
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
@@ -53,8 +53,16 @@ def _base_conditions(
     transaction_types: list[TransactionType] | None = None,
     linked: StatisticsLinked | None = None,
 ) -> list[ColumnElement[bool]]:
+    # Depot/fund accounts carry the asset side of every buy as a mirror booking (e.g. Trade Republic books a
+    # purchase on both the cash account AND the position), so counting them would double every investment.
+    market_valued = (
+        select(AccountBalanceSnapshot.account_id)
+        .where(AccountBalanceSnapshot.source == BalanceSnapshotSource.MARKET_VALUED)
+        .distinct()
+    )
     conditions: list[ColumnElement[bool]] = [
         Transaction.account_id.in_(account_ids),
+        Transaction.account_id.notin_(market_valued),
         Transaction.pending.is_(False),
         Transaction.expected.is_(False),
     ]

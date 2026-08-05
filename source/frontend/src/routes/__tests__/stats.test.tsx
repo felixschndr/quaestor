@@ -56,6 +56,7 @@ const credentials: CredentialRead[] = [
         display_name: null,
         is_hidden: false,
         include_by_default: true,
+        is_market_valued: false,
       },
     ],
     last_fetching_timestamp: null,
