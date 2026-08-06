@@ -53,6 +53,21 @@ describe('TwoFactorModal', () => {
     expect(onSubmit).toHaveBeenCalledWith('123456')
   })
 
+  it('describes an authenticator code (not a sent code) for Trade Republic', () => {
+    renderModal({
+      current2fa: {
+        credentialId: 1,
+        jobId: 'j',
+        bank: 'trade_republic',
+        bankName: null,
+        bankIcon: null,
+        kind: 'awaiting_2fa',
+      },
+    })
+    expect(screen.getByText(/from your authenticator app/i)).toBeVisible()
+    expect(screen.queryByText(/sent a confirmation code/i)).toBeNull()
+  })
+
   it('renders spinner without submit for awaiting_decoupled_approval', () => {
     renderModal({
       current2fa: {

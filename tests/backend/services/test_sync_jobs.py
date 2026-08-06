@@ -51,7 +51,12 @@ def patch_sync(monkeypatch: pytest.MonkeyPatch) -> PatchSync:
 @pytest.fixture
 def patch_confirm(monkeypatch: pytest.MonkeyPatch) -> PatchConfirm:
     def patch(outcome: SyncOutcome) -> None:
-        def _runner(credential_id: int, challenge_token: str, code: str) -> SyncResult:
+        def _runner(
+            credential_id: int,
+            challenge_token: str,
+            code: str,
+            notify_two_factor_state: "Callable[[bool], None] | None" = None,
+        ) -> SyncResult:
             if isinstance(outcome, Exception):
                 raise outcome
             return outcome

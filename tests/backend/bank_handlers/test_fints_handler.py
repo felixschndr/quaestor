@@ -28,6 +28,7 @@ from tests.backend.conftest import (
     PIN,
     RECENT_DATE,
     SECOND_ACCOUNT_IBAN,
+    TWO_FACTOR_CODE,
     assert_log_contains,
 )
 
@@ -415,7 +416,9 @@ def test_fints_handler_offers_no_out_of_band_two_factor_challenge():
 
 def test_fints_handler_complete_two_factor_challenge_is_not_supported():
     with pytest.raises(NotImplementedError):
-        _fints_handler().complete_two_factor_challenge(challenge_token=CHALLENGE_TOKEN, credential_id=1, code="0000")
+        _fints_handler().complete_two_factor_challenge(
+            challenge_token=CHALLENGE_TOKEN, credential_id=1, code=TWO_FACTOR_CODE
+        )
 
 
 @dataclass

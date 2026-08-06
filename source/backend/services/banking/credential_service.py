@@ -303,10 +303,18 @@ def sync_all_due_credentials(db_session: Session) -> None:
     )
 
 
-def confirm_two_factor(db_session: Session, credential_id: int, challenge_token: str, code: str) -> SyncResult:
+def confirm_two_factor(
+    db_session: Session,
+    credential_id: int,
+    challenge_token: str,
+    code: str,
+    notify_two_factor_state: TwoFactorStateCallback | None = None,
+) -> SyncResult:
     credential = get_credential(db_session=db_session, credential_id=credential_id)
     logger.info(f"Confirming 2FA for {credential}")
-    credential.session_state = credential.handler.complete_two_factor_challenge(
+    handler = credential.handler
+    handler.notify_two_factor_state = notify_two_factor_state
+    credential.session_state = handler.complete_two_factor_challenge(
         challenge_token=challenge_token, credential_id=credential_id, code=code
     )
     snapshot = notification_engine.capture_sync_snapshot(credential)

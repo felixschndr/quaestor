@@ -389,7 +389,14 @@ class TradeRepublicHandler(BankHandler):
         return TwoFactorChallenge(challenge_token=token, expires_at=expires_at)
 
     def complete_two_factor_challenge(self, challenge_token: str, credential_id: int, code: str) -> dict:
-        cookies = trade_republic_login.complete(challenge_token=challenge_token, credential_id=credential_id, code=code)
+        cookies = trade_republic_login.complete(
+            challenge_token=challenge_token,
+            credential_id=credential_id,
+            code=code,
+            # Authenticator accounts still need an app tap after the code; surface that wait as the
+            # decoupled "approve in the app" state, same as a pushTAN confirmation.
+            notify_two_factor_state=self.notify_two_factor_state,
+        )
         return {"cookies": cookies}
 
     @contextmanager
@@ -400,23 +407,28 @@ class TradeRepublicHandler(BankHandler):
             if stored:
                 temp_file.write(stored)
         try:
-            trade_republic_client = TradeRepublicApi(
-                phone_no=self.credentials["phone"],
-                pin=self.credentials["pin"],
-                save_cookies=True,
-                cookies_file=str(cookies_path),
+            trade_republic_client = trade_republic_login.build_client(
+                phone_no=self.credentials["phone"], pin=self.credentials["pin"], cookies_path=cookies_path
             )
             try:
                 resumed = bool(stored) and trade_republic_client.resume_websession()
             except Exception:
                 resumed = False
             if not resumed:
-                logger.info("Trade Republic websession could not be resumed; 2FA re-authentication required")
-                raise ReauthenticationRequiredError(
-                    "Trade Republic websession expired; 2FA re-authentication required."
+                trade_republic_client.initiate_weblogin()
+                if trade_republic_client.weblogin_needs_authenticator:
+                    # When user set up 2FA (with TOTP apps like Google Authenticator)
+                    logger.info("Trade Republic websession expired; authenticator code required")
+                    raise ReauthenticationRequiredError(
+                        "Trade Republic websession expired; 2FA re-authentication required."
+                    )
+                logger.info("Trade Republic websession expired; waiting for in-app confirmation")
+                trade_republic_login.await_app_confirmation(
+                    client=trade_republic_client, notify_two_factor_state=self.notify_two_factor_state
                 )
+            else:
+                logger.debug("Trade Republic websession resumed")
 
-            logger.debug("Trade Republic websession resumed")
             yield _TradeRepublicSession(trade_republic_client)
 
             self.session_state = {"cookies": cookies_path.read_text()}

@@ -233,14 +233,28 @@ async def cancel(job_id: str) -> SyncJob | None:
 
 
 async def _run_confirm(job: SyncJob, challenge_token: str, code: str) -> None:
+    notify_two_factor_state = _make_two_factor_state_notifier(job)
     coroutine = asyncio.to_thread(  # noqa FKA100
-        _confirm_in_thread, job.credential_id, challenge_token=challenge_token, code=code
+        _confirm_in_thread,
+        job.credential_id,
+        challenge_token=challenge_token,
+        code=code,
+        notify_two_factor_state=notify_two_factor_state,
     )
     await _apply_result_handling_errors(job=job, coroutine=coroutine, log_label="2FA confirmation failed")
 
 
-def _confirm_in_thread(credential_id: int, challenge_token: str, code: str) -> SyncResult:
+def _confirm_in_thread(
+    credential_id: int,
+    challenge_token: str,
+    code: str,
+    notify_two_factor_state: "Callable[[bool], None] | None" = None,
+) -> SyncResult:
     with SessionLocal() as db_session:
         return credential_service.confirm_two_factor(
-            db_session=db_session, credential_id=credential_id, challenge_token=challenge_token, code=code
+            db_session=db_session,
+            credential_id=credential_id,
+            challenge_token=challenge_token,
+            code=code,
+            notify_two_factor_state=notify_two_factor_state,
         )

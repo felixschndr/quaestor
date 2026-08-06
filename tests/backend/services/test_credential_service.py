@@ -24,6 +24,7 @@ from tests.backend.conftest import (
     PHONE_NUMBER,
     PIN,
     SECOND_USER_NAME,
+    TWO_FACTOR_CODE,
     VALID_PASSWORD,
     assert_log_contains,
     create_user,
@@ -364,11 +365,13 @@ def test_confirm_two_factor_completes_login_and_syncs_credential(
 
     with session_factory() as session:
         result = credential_service.confirm_two_factor(
-            db_session=session, credential_id=credential_id, challenge_token=CHALLENGE_TOKEN, code="0000"
+            db_session=session, credential_id=credential_id, challenge_token=CHALLENGE_TOKEN, code=TWO_FACTOR_CODE
         )
 
     assert result.status == credential_service.SyncStatus.COMPLETED
-    complete_login.assert_called_once_with(challenge_token=CHALLENGE_TOKEN, credential_id=credential_id, code="0000")
+    complete_login.assert_called_once_with(
+        challenge_token=CHALLENGE_TOKEN, credential_id=credential_id, code=TWO_FACTOR_CODE, notify_two_factor_state=None
+    )
     with session_factory() as session:
         assert session.get(entity=Credential, ident=credential_id).session_state == {"cookies": "cookies-from-2fa"}
     assert_log_contains(caplog, message="Confirming 2FA for")

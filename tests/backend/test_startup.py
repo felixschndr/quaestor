@@ -43,30 +43,11 @@ def _inject_skipped_startup_updates(tmp_path: Path) -> str:
     return str(site_dir)
 
 
-def _fake_chromium(env: dict) -> None:
-    # Pre-create the chromium executable the startup looks for, so it skips the real download
-    code = (
-        "import asyncio; "
-        "from source.backend.services.banking.playwright_browser import _chromium_executable_path; "
-        "path = asyncio.run(_chromium_executable_path()); "
-        "path.parent.mkdir(parents=True, exist_ok=True); path.touch()"
-    )
-    subprocess.run(  # nosec B603
-        [sys.executable, "-c", code],  # noqa FKA100
-        cwd=get_root_path_of_repository(),
-        env=env,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-
 def test_fresh_startup_runs_migrations_and_listens(tmp_path: Path):
     env = _ENV_FOR_FRESH_DATA_DIR | {
         "DATA_DIR": str(tmp_path / "data"),
         "PYTHONPATH": _inject_skipped_startup_updates(tmp_path),
     }
-    _fake_chromium(env)
 
     server = subprocess.Popen(  # nosec B603
         [sys.executable, "-m", "source.backend.server"],  # noqa FKA100

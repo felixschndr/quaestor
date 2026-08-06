@@ -1,5 +1,6 @@
 import secrets
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -14,6 +15,35 @@ from source.backend.logging_utils import get_logger
 logger = get_logger(__name__)
 
 DURATION_FOR_VALID_2FA_CODE = timedelta(minutes=5)
+
+_RATE_LIMIT_HINTS = ("too many", "rate")
+
+
+def build_client(phone_no: str, pin: str, cookies_path: Path) -> TradeRepublicApi:
+    return TradeRepublicApi(
+        phone_no=phone_no, pin=pin, save_cookies=True, cookies_file=str(cookies_path), use_v2_login=True
+    )
+
+
+def await_app_confirmation(client: TradeRepublicApi, notify_two_factor_state: Callable[[bool], None] | None) -> None:
+    """Block until the user approves the login in the Trade Republic app, then persist the session.
+
+    Used in two places, both of which leave the login process PENDING until the app tap flips it
+    to CONFIRMED: app-confirmation-only accounts (straight after initiate) and authenticator
+    accounts (after the code, which TR still gates behind an app tap). pytr's public
+    complete_weblogin() only auto-waits for the non-code case, so we drive its poll ourselves.
+    """
+    # ponytail: `_await_weblogin_confirmation` is private, but it is exactly complete_weblogin()'s
+    # non-authenticator body (poll the process, then save). Reimplementing the poll would just
+    # duplicate it; revisit if pytr renames it.
+    if notify_two_factor_state is not None:
+        notify_two_factor_state(True)
+    try:
+        client._await_weblogin_confirmation()  # poll the login process until CONFIRMED / times out
+        client.save_websession()
+    finally:
+        if notify_two_factor_state is not None:
+            notify_two_factor_state(False)
 
 
 @dataclass
@@ -57,9 +87,7 @@ def start(credential_id: int, phone_no: str, pin: str) -> tuple[str, datetime]:
     temp_file.close()
     logger.debug(f"Created temporary cookie file for credential {credential_id}: {cookies_path}")
 
-    trade_republic_client = TradeRepublicApi(
-        phone_no=phone_no, pin=pin, save_cookies=True, cookies_file=str(cookies_path)
-    )
+    trade_republic_client = build_client(phone_no=phone_no, pin=pin, cookies_path=cookies_path)
     try:
         trade_republic_client.initiate_weblogin()
     except ValueError as e:
@@ -90,7 +118,12 @@ def start(credential_id: int, phone_no: str, pin: str) -> tuple[str, datetime]:
     return token, expires_at
 
 
-def complete(challenge_token: str, credential_id: int, code: str) -> str:
+def complete(
+    challenge_token: str,
+    credential_id: int,
+    code: str,
+    notify_two_factor_state: Callable[[bool], None] | None = None,
+) -> str:
     _cleanup_expired_pending_logins()
 
     pending_login = _pending_logins.pop(challenge_token, None)
@@ -101,12 +134,24 @@ def complete(challenge_token: str, credential_id: int, code: str) -> str:
 
     logger.debug(f"Matched pending 2FA login for credential {credential_id}, completing web login")
     try:
-        pending_login.trade_republic_client.complete_weblogin(code)  # writes cookies via save_websession()
+        client = pending_login.trade_republic_client
+        client.complete_weblogin(code)  # posts the authenticator code; login stays PENDING until the app tap
+        # TR gates authenticator logins behind an app confirmation too, so wait for that (showing the
+        # "approve in the app" state) before the session is actually usable and its cookies can resume.
+        await_app_confirmation(client=client, notify_two_factor_state=notify_two_factor_state)
         cookies = pending_login.cookies_path.read_text()
         logger.info(f"2FA login completed for credential {credential_id}")
         return cookies
     except requests.exceptions.HTTPError as exc:
         _raise_if_rate_limited(exc=exc, credential_id=credential_id)
+        error_message = f"Invalid 2FA code for credential {credential_id}: {exc}"
+        logger.warning(error_message)
+        raise InvalidTwoFactorError(error_message) from exc
+    except ValueError as exc:
+        if any(hint in str(exc).lower() for hint in _RATE_LIMIT_HINTS):
+            error_message = f"Trade Republic rate limited the login for credential {credential_id}"
+            logger.warning(error_message)
+            raise BankRateLimitedError(error_message) from exc
         error_message = f"Invalid 2FA code for credential {credential_id}: {exc}"
         logger.warning(error_message)
         raise InvalidTwoFactorError(error_message) from exc

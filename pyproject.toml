@@ -22,7 +22,7 @@ fints-url = "^0.7"
 # counterparty IBAN to other_party. That breaks transaction dedup (key includes other_party) and creates
 # duplicate bookings. fints declares mt-940 unpinned, so we cap it here until the regression is fixed upstream.
 mt-940 = "4.30.0"
-pytr = "^0.4.9"
+pytr = "^0.4.10"
 argon2-cffi = "^25.1.0"
 pyotp = "^2.10.0"
 segno = "^1.6.6"
@@ -50,7 +50,6 @@ env = [
     "R:ALLOW_MISSING_FRONTEND=true", # R = don't override pre-existing env
     "R:LOG_LEVEL=WARNING",
 ]
-markers = ["real_playwright_browser: exercise the real Playwright browser provisioning logic"]
 
 [tool.alembic]
 script_location = "source/backend/alembic"

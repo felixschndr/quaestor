@@ -93,6 +93,12 @@ def _patch_successful_client(
                 raise complete_side_effect
             self._cookies_file.write_text("cookie-jar")
 
+        def _await_weblogin_confirmation(self) -> None:  # app tap after the code
+            pass
+
+        def save_websession(self) -> None:
+            pass
+
     monkeypatch.setattr(target=module, name="TradeRepublicApi", value=_FakeApi)
     return cookie_paths
 
@@ -143,6 +149,56 @@ def test_complete_translates_http_error_into_invalid_two_factor(
     assert module._pending_logins == {}
     assert not cookie_paths[0].exists()
     assert_log_contains(caplog, message="Invalid 2FA code for credential 1")
+
+
+@pytest.mark.parametrize(
+    argnames=("message", "expected_exception"),
+    argvalues=[
+        ("That authenticator code is not correct.", InvalidTwoFactorError),
+        ("Too many attempts. Please wait before trying again.", BankRateLimitedError),
+    ],
+)
+def test_complete_maps_value_errors(monkeypatch: pytest.MonkeyPatch, message: str, expected_exception: type[Exception]):
+    cookie_paths = _patch_successful_client(monkeypatch, complete_side_effect=ValueError(message))
+    token, _ = module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
+
+    with pytest.raises(expected_exception):
+        module.complete(challenge_token=token, credential_id=1, code=TWO_FACTOR_CODE)
+
+    assert module._pending_logins == {}
+    assert not cookie_paths[0].exists()
+
+
+def test_await_app_confirmation_brackets_the_wait_with_two_factor_state():
+    calls: list[object] = []
+
+    class _FakeApi:
+        def _await_weblogin_confirmation(self) -> None:
+            calls.append("wait")
+
+        def save_websession(self) -> None:
+            calls.append("save")
+
+    module.await_app_confirmation(client=_FakeApi(), notify_two_factor_state=calls.append)
+
+    # True (spinner on) -> poll for the app tap -> persist -> False (spinner off)
+    assert calls == [True, "wait", "save", False]
+
+
+def test_await_app_confirmation_clears_state_even_when_wait_fails():
+    calls: list[object] = []
+
+    class _FakeApi:
+        def _await_weblogin_confirmation(self) -> None:
+            raise RuntimeError("boom")
+
+        def save_websession(self) -> None:
+            calls.append("save")
+
+    with pytest.raises(RuntimeError):
+        module.await_app_confirmation(client=_FakeApi(), notify_two_factor_state=calls.append)
+
+    assert calls == [True, False]
 
 
 def test_expired_challenge_is_cleaned_up_and_rejected(monkeypatch: pytest.MonkeyPatch):
