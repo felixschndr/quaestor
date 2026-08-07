@@ -176,11 +176,11 @@ export function OverviewView({
       </header>
 
       {hasAccounts ? (
-        <section className="flex flex-col items-center gap-1">
+        <section className="mx-auto flex w-fit max-w-full flex-col items-center gap-1">
           <p
             key={settleKey}
             className={cn(
-              'private-amount text-primary text-5xl font-bold tracking-tight tabular-nums',
+              'private-amount text-primary px-5 text-5xl font-bold tracking-tight tabular-nums',
               settleKey !== null && 'balance-settle',
             )}
           >
@@ -247,7 +247,7 @@ function NetWorthTrend({ accountIds }: { accountIds: number[] }) {
   return (
     <Link
       to="/stats"
-      className="focus-visible:ring-ring flex w-full max-w-xs flex-col items-center gap-0.5 rounded-md focus-visible:ring-2 focus-visible:outline-none"
+      className="focus-visible:ring-ring flex w-full min-w-[min(20rem,calc(100dvw-2rem))] flex-col items-center gap-0.5 rounded-md focus-visible:ring-2 focus-visible:outline-none"
     >
       <Sparkline
         values={series.map((point) => point.value)}

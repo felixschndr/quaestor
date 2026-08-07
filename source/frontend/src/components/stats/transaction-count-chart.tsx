@@ -18,7 +18,13 @@ import {
   type TransactionCountBucket,
   type TransactionCountsGroupBy,
 } from '@/lib/statistics'
-import { AXIS_TICK, TOOLTIP_STYLE, useDateFnsLocale, useMonthLabel } from './chartTheme'
+import {
+  AXIS_TICK,
+  BAR_RADIUS_TOP,
+  TOOLTIP_STYLE,
+  useDateFnsLocale,
+  useMonthLabel,
+} from './chartTheme'
 
 export interface TransactionCountChartProps {
   data: TransactionCountBucket[]
@@ -38,9 +44,6 @@ export function TransactionCountChart({
   const monthLabel = useMonthLabel()
   const locale = useDateFnsLocale()
   const dayFormat = new Intl.DateTimeFormat(i18n.language, { day: 'numeric', month: 'short' })
-  // A weekday bucket is a %w day number ('0' = Sunday … '6' = Saturday) — the
-  // same indexing date-fns' localize.day uses. Habitual form: "Samstags" /
-  // "Saturdays" — appending "s" works for both supported languages (de, en).
   const weekdayLabel = (bucket: string): string =>
     `${locale.localize.day(Number(bucket) as Day, { width: 'wide' })}s`
 
@@ -109,7 +112,7 @@ export function TransactionCountChart({
             dataKey="count"
             name={t('stats.transactionCounts.count')}
             fill="var(--color-primary)"
-            radius={[4, 4, 0, 0]}
+            radius={BAR_RADIUS_TOP}
           />
         </BarChart>
       </ResponsiveContainer>

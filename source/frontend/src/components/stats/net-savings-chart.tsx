@@ -17,6 +17,7 @@ import type { MonthlyNetSavings } from '@/lib/statistics'
 import { useHorizontalScrubLock } from '@/lib/use-horizontal-scrub'
 import {
   AXIS_TICK,
+  BAR_RADIUS_TOP,
   euroAxisFormat,
   euroFormat,
   LEGEND_STYLE,
@@ -85,7 +86,7 @@ export function NetSavingsChart({ data }: NetSavingsChartProps) {
             dataKey="net"
             name={netLabel}
             fill="var(--color-primary)"
-            radius={[4, 4, 0, 0]}
+            radius={BAR_RADIUS_TOP}
           />
           <Line
             yAxisId="rate"

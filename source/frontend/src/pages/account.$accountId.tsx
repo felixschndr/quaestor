@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronRight, Copy, Pencil, Plus, Search, X } from 'lucide-react'
@@ -51,6 +51,19 @@ import { RowActions } from '@/components/row-actions'
 
 const AMOUNT_DOCKED_SCALE = 0.5
 
+function SparklineAxis({ dates }: { dates: string[] }) {
+  return (
+    <div className="private-chart text-muted-foreground mt-1 flex items-center gap-2 text-[11px]">
+      {dates.map((date, index) => (
+        <Fragment key={date}>
+          {index > 0 ? <span className="bg-foreground/20 h-px flex-1" aria-hidden="true" /> : null}
+          <span className="whitespace-nowrap">{formatDateWithoutYear(date)}</span>
+        </Fragment>
+      ))}
+    </div>
+  )
+}
+
 function AccountSparkline({ accountId }: { accountId: number }) {
   const { t } = useTranslation()
   const accountIds = useMemo(() => [accountId], [accountId])
@@ -61,6 +74,13 @@ function AccountSparkline({ accountId }: { accountId: number }) {
 
   const delta = series[series.length - 1].value - series[0].value
   const tone = delta > 0 ? 'text-success' : delta < 0 ? 'text-destructive' : 'text-muted-foreground'
+  const axisDates = [
+    ...new Set([
+      series[0].date,
+      series[Math.floor(series.length / 2)].date,
+      series[series.length - 1].date,
+    ]),
+  ]
   return (
     <Link
       to="/stats"
@@ -72,6 +92,7 @@ function AccountSparkline({ accountId }: { accountId: number }) {
         values={series.map((point) => point.value)}
         className={cn('private-chart h-10 w-full', tone)}
       />
+      <SparklineAxis dates={axisDates} />
     </Link>
   )
 }
@@ -535,7 +556,7 @@ function TransactionGroupList({
         return (
           <li
             key={group.date}
-            className="flex flex-col gap-2"
+            className="-mx-3 flex flex-col gap-2 px-3"
             style={{
               contentVisibility: 'auto',
               containIntrinsicSize: `auto ${32 + group.transactions.length * 56}px`,
@@ -659,7 +680,7 @@ function TransactionRow({
           to="/account/$accountId/transactions/$transactionId"
           params={{ accountId: String(accountId), transactionId: String(transaction.id) }}
           className={cn(
-            'hover:bg-muted/60 flex items-center gap-3 rounded-md px-2 py-3 transition-colors',
+            'hover:bg-muted/60 flex items-center gap-3 rounded-md py-3 pl-2 transition-colors',
             (isFuture || pending) && 'opacity-60',
           )}
         >
@@ -711,7 +732,7 @@ function TransactionRow({
     <li
       id={`transaction-${transaction.id}`}
       className={cn(
-        'flex items-center gap-3 rounded-md px-2 py-3 transition-colors',
+        'flex items-center gap-3 rounded-md py-3 pl-2 transition-colors',
         isFuture && 'opacity-60',
         highlighted && 'bg-primary/20',
       )}
@@ -729,7 +750,12 @@ function TransactionRow({
       >
         {formatMoney(transaction.amount)}
       </span>
-      <RowActions onEdit={() => setEditing(true)} onDelete={onDelete} deleting={remove.isPending} />
+      <RowActions
+        className="-mr-2.5"
+        onEdit={() => setEditing(true)}
+        onDelete={onDelete}
+        deleting={remove.isPending}
+      />
     </li>
   )
 }

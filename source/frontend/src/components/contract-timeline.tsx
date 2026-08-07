@@ -15,7 +15,7 @@ import {
 } from 'recharts'
 
 import { formatMoney } from '@/lib/format'
-import { AXIS_TICK } from '@/components/stats/chartTheme'
+import { AXIS_TICK, BAR_RADIUS_TOP } from '@/components/stats/chartTheme'
 import type { ContractMemberRead } from '@/lib/contract'
 import { useDateFnsLocale } from '@/components/stats/chartTheme'
 
@@ -246,7 +246,7 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
           ) : null}
           <Bar
             dataKey="mag"
-            radius={[3, 3, 0, 0]}
+            radius={BAR_RADIUS_TOP}
             isAnimationActive={false}
             onClick={(entry: { payload?: TimelinePoint }) =>
               entry.payload && goToTransaction(entry.payload)

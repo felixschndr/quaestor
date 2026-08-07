@@ -14,6 +14,7 @@ import type { MonthlyCashflow } from '@/lib/statistics'
 import { useHorizontalScrubLock } from '@/lib/use-horizontal-scrub'
 import {
   AXIS_TICK,
+  BAR_RADIUS_TOP,
   euroAxisFormat,
   euroFormat,
   LEGEND_STYLE,
@@ -53,13 +54,13 @@ export function CashflowChart({ data }: CashflowChartProps) {
             dataKey="expenses"
             name={t('common.expenses')}
             fill="var(--color-destructive)"
-            radius={[4, 4, 0, 0]}
+            radius={BAR_RADIUS_TOP}
           />
           <Bar
             dataKey="income"
             name={t('common.income')}
             fill="var(--color-success)"
-            radius={[4, 4, 0, 0]}
+            radius={BAR_RADIUS_TOP}
           />
         </BarChart>
       </ResponsiveContainer>

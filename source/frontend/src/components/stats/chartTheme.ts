@@ -33,10 +33,16 @@ export function useMonthLabel(): (month: string) => string {
   }
 }
 
+const BAR_RADIUS = 12
+
+export const BAR_RADIUS_TOP: [number, number, number, number] = [BAR_RADIUS, BAR_RADIUS, 0, 0]
+
+export const BAR_RADIUS_RIGHT: [number, number, number, number] = [0, BAR_RADIUS, BAR_RADIUS, 0]
+
 export const TOOLTIP_STYLE = {
   background: 'var(--color-popover)',
   border: '1px solid var(--color-border)',
-  borderRadius: 8,
+  borderRadius: 'var(--radius)',
   color: 'var(--color-popover-foreground)',
   fontSize: 12,
 } as const

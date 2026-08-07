@@ -10,7 +10,7 @@ import {
   YAxis,
 } from 'recharts'
 
-import { AXIS_TICK, euroFormat } from './chartTheme'
+import { AXIS_TICK, BAR_RADIUS_RIGHT, euroFormat } from './chartTheme'
 import { ArrowTick, DRILL_ARROW_WIDTH, ToggleTick, ValueBarShape } from './chart-parts'
 
 export interface DrillBarRow {
@@ -85,7 +85,7 @@ export function HorizontalDrillBarChart({
           <Tooltip cursor={{ fill: 'var(--color-muted)' }} content={tooltip} />
           <Bar
             dataKey="value"
-            radius={[0, 4, 4, 0]}
+            radius={BAR_RADIUS_RIGHT}
             animationMatchBy={matchByDataKey('key')}
             shape={<ValueBarShape labelHidden={(row) => hidden.has((row as DrillBarRow).key)} />}
           >
