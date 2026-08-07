@@ -32,6 +32,8 @@ import {
   transactionPartyName,
 } from '@/lib/format'
 import { isManualBank } from '@/lib/credentials'
+import { presetDateRange, useNetWorthStats } from '@/lib/statistics'
+import { Sparkline } from '@/components/sparkline'
 import { copyText } from '@/lib/clipboard'
 import { EXPECTED_TRANSACTIONS_KEY, useCollapsedGroups } from '@/lib/collapsedGroups'
 import { cn } from '@/lib/utils'
@@ -47,27 +49,30 @@ import type { AccountDetailViewProps } from '@/routes/account.$accountId'
 import { BackLink } from '@/components/back-link'
 import { RowActions } from '@/components/row-actions'
 
-function IbanRow({
-  value,
-  id,
-  lastUpdated,
-  today,
-}: {
-  value: string
-  id?: string
-  lastUpdated?: string | null
-  today?: Date
-}) {
+const AMOUNT_DOCKED_SCALE = 0.5
+
+function AccountSparkline({ accountId }: { accountId: number }) {
   const { t } = useTranslation()
+  const accountIds = useMemo(() => [accountId], [accountId])
+  const range = useMemo(() => presetDateRange('1m'), [])
+  const { data } = useNetWorthStats(accountIds, range)
+  const series = data?.series ?? []
+  if (series.length < 2) return null
+
+  const delta = series[series.length - 1].value - series[0].value
+  const tone = delta > 0 ? 'text-success' : delta < 0 ? 'text-destructive' : 'text-muted-foreground'
   return (
-    <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-      <IbanLabel id={id} value={value} />
-      {lastUpdated ? (
-        <p className="text-muted-foreground shrink-0 text-sm sm:text-right">
-          {t('account.lastUpdated')}: {formatRelativeDateTime(lastUpdated, t, today)}
-        </p>
-      ) : null}
-    </div>
+    <Link
+      to="/stats"
+      search={{ account_ids: [accountId] }}
+      aria-label={t('account.statistics')}
+      className="focus-visible:ring-ring block rounded-md focus-visible:ring-2 focus-visible:outline-none"
+    >
+      <Sparkline
+        values={series.map((point) => point.value)}
+        className={cn('private-chart h-10 w-full', tone)}
+      />
+    </Link>
   )
 }
 
@@ -189,32 +194,77 @@ export function AccountDetailView({
   const [addingExpected, setAddingExpected] = useState(false)
 
   const stickyHeaderRef = useRef<HTMLDivElement>(null)
-  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0)
+  const nameRowRef = useRef<HTMLDivElement>(null)
+  const amountSlotRef = useRef<HTMLDivElement>(null)
+  const amountRef = useRef<HTMLDivElement>(null)
+  const mainRef = useRef<HTMLElement>(null)
+  const amountStart = useRef<{ right: number; bottom: number } | null>(null)
+  const amountTarget = useRef<{ right: number; bottom: number } | null>(null)
   useLayoutEffect(() => {
-    const node = stickyHeaderRef.current
-    if (!node) return
-    setStickyHeaderHeight(node.getBoundingClientRect().height)
-  }, [])
-  useEffect(() => {
-    const node = stickyHeaderRef.current
-    if (!node) return
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setStickyHeaderHeight(entry.contentRect.height)
-    })
-    observer.observe(node)
-    return () => observer.disconnect()
+    const bar = stickyHeaderRef.current
+    const nameRow = nameRowRef.current
+    const slot = amountSlotRef.current
+    const amount = amountRef.current
+    if (!bar || !nameRow || !slot || !amount) return
+
+    const apply = () => {
+      const start = amountStart.current
+      const target = amountTarget.current
+      if (!start || !target) return
+      const distance = start.bottom - target.bottom
+      const progress = distance > 0 ? Math.min(Math.max(window.scrollY / distance, 0), 1) : 1
+      const back = 1 - progress
+      const x = back * (start.right - target.right)
+      const y = back * (start.bottom - window.scrollY - target.bottom)
+      const scale = 1 - progress * (1 - AMOUNT_DOCKED_SCALE)
+      amount.style.transform = `translate(${x}px, ${y}px) scale(${scale})`
+    }
+
+    const measure = () => {
+      mainRef.current?.style.setProperty(
+        '--account-header-height',
+        `${bar.getBoundingClientRect().height}px`,
+      )
+      amount.style.cssText = ''
+      slot.style.height = ''
+      const flow = amount.getBoundingClientRect()
+      slot.style.height = `${flow.height}px`
+      const target = nameRow.getBoundingClientRect()
+      amountTarget.current = { right: target.right, bottom: target.bottom }
+      let right = document.documentElement.clientWidth - target.right
+      let bottom = document.documentElement.clientHeight - target.bottom
+      amount.style.position = 'fixed'
+      amount.style.right = `${right}px`
+      amount.style.bottom = `${bottom}px`
+      const landed = amount.getBoundingClientRect()
+      right += landed.right - target.right
+      bottom += landed.bottom - target.bottom
+      amount.style.right = `${right}px`
+      amount.style.bottom = `${bottom}px`
+      amountStart.current = {
+        right: flow.left + landed.width,
+        bottom: flow.bottom + window.scrollY,
+      }
+      apply()
+    }
+
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(bar)
+    observer.observe(amount)
+    window.addEventListener('scroll', apply, { passive: true })
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('scroll', apply)
+      window.removeEventListener('resize', measure)
+    }
   }, [])
 
   return (
-    // The header is `position: fixed` (not sticky) so it's permanently on its
-    // own compositor layer pinned to the viewport. Sticky elements jitter
-    // sub-pixel during slow scrolls because the browser repositions them per
-    // frame relative to the scroll offset; fixed elements just stay put.
-    // Trade-off: the header is out of normal flow, so the content below gets
-    // an explicit padding-top equal to the measured header height.
-    <main className="flex min-h-full flex-col">
+    <main ref={mainRef} className="flex min-h-full flex-col">
       <div ref={stickyHeaderRef} className="bg-background fixed top-0 right-0 left-0 z-20">
-        <div className="mx-auto flex w-full max-w-page flex-col gap-4 px-4 pt-4 pb-3">
+        <div className="mx-auto flex w-full max-w-page flex-col px-4 pt-4 pb-3">
           <header className="flex items-center justify-between gap-2">
             <BackLink to="/" label={t('account.back')} />
             <div className="flex translate-y-[6px] items-center gap-1">
@@ -258,47 +308,53 @@ export function AccountDetailView({
             </div>
           </header>
 
-          <section aria-labelledby="account-balance-label" className="flex flex-col gap-2">
-            {personalisedName ? (
-              <p className="text-foreground text-xl font-semibold leading-tight">
-                {personalisedName}
-              </p>
-            ) : null}
-            <IbanRow
-              id="account-balance-label"
-              value={account.name}
-              lastUpdated={lastUpdated}
-              today={today}
-            />
-            <BalanceDisplay account={account} isManual={isManual} negative={negative} />
-            {isManual ? (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setAddingTxn((prev) => !prev)}
-                >
-                  <Plus className="size-3.5" aria-hidden="true" />
-                  {t('credentials.manualTransactions.add')}
-                </Button>
-              </div>
-            ) : (
-              <ExpectedAddHeaderButton
-                accountId={account.id}
-                onToggle={() => setAddingExpected((prev) => !prev)}
-              />
-            )}
-          </section>
+          <div ref={nameRowRef} className="mt-2 flex min-h-7 items-end">
+            <p className="text-foreground max-w-[55%] truncate text-xl leading-tight font-semibold">
+              {personalisedName ?? formatIban(account.name)}
+            </p>
+          </div>
         </div>
       </div>
 
       <div
         className="mx-auto flex w-full max-w-page flex-col gap-6 px-4 pb-4"
-        // pt = measured header height + the visual gap (~0.5rem) the old
-        // `pt-2` provided between header and first transaction group.
-        style={{ paddingTop: `${stickyHeaderHeight + 8}px` }}
+        style={{ paddingTop: 'calc(var(--account-header-height, 0px) + 8px)' }}
       >
+        <section aria-labelledby="account-balance-label" className="flex flex-col gap-2">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+            <IbanLabel id="account-balance-label" value={account.name} />
+            {lastUpdated ? (
+              <p className="text-muted-foreground shrink-0 text-sm sm:text-right">
+                {t('account.lastUpdated')}: {formatRelativeDateTime(lastUpdated, t, today)}
+              </p>
+            ) : null}
+          </div>
+          <div ref={amountSlotRef}>
+            <div ref={amountRef} className="z-30 w-fit origin-bottom-right will-change-transform">
+              <BalanceDisplay account={account} isManual={isManual} negative={negative} />
+            </div>
+          </div>
+          <AccountSparkline accountId={account.id} />
+          {isManual ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setAddingTxn((prev) => !prev)}
+              >
+                <Plus className="size-3.5" aria-hidden="true" />
+                {t('credentials.manualTransactions.add')}
+              </Button>
+            </div>
+          ) : (
+            <ExpectedAddHeaderButton
+              accountId={account.id}
+              onToggle={() => setAddingExpected((prev) => !prev)}
+            />
+          )}
+        </section>
+
         {isManual && addingTxn ? (
           <ManualTransactionForm
             accountId={account.id}
@@ -325,7 +381,6 @@ export function AccountDetailView({
             accountId={account.id}
             groups={groups}
             today={today}
-            stickyTopOffset={stickyHeaderHeight}
             isManual={isManual}
             isMarketValued={account.is_market_valued}
             highlightId={highlightId}
@@ -462,7 +517,6 @@ function TransactionGroupList({
   accountId,
   groups,
   today,
-  stickyTopOffset = 0,
   isManual = false,
   isMarketValued = false,
   highlightId,
@@ -470,8 +524,6 @@ function TransactionGroupList({
   accountId: number
   groups: ReturnType<typeof groupTransactionsByDate>
   today?: Date
-  /** Pixel offset where date headers should park (height of the page header). */
-  stickyTopOffset?: number
   isManual?: boolean
   isMarketValued?: boolean
   highlightId?: number | null
@@ -481,12 +533,18 @@ function TransactionGroupList({
       {groups.map((group) => {
         const isFuture = isFutureDateString(group.date, today)
         return (
-          <li key={group.date} className="flex flex-col gap-2">
+          <li
+            key={group.date}
+            className="flex flex-col gap-2"
+            style={{
+              contentVisibility: 'auto',
+              containIntrinsicSize: `auto ${32 + group.transactions.length * 56}px`,
+            }}
+          >
             <DateHeader
               date={group.date}
               endOfDayBalance={group.endOfDayBalance}
               today={today}
-              stickyTopOffset={stickyTopOffset}
               isMarketValued={isMarketValued}
             />
             <ul className="flex flex-col">
@@ -519,13 +577,11 @@ function DateHeader({
   date,
   endOfDayBalance,
   today,
-  stickyTopOffset,
   isMarketValued = false,
 }: {
   date: string
   endOfDayBalance: number | null
   today?: Date
-  stickyTopOffset: number
   isMarketValued?: boolean
 }) {
   const { t } = useTranslation()
@@ -541,7 +597,7 @@ function DateHeader({
   return (
     <header
       className="bg-background sticky z-[1] grid grid-cols-[1fr_auto] items-baseline gap-2 py-1"
-      style={{ top: `${stickyTopOffset}px` }}
+      style={{ top: 'var(--account-header-height, 0px)' }}
     >
       <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">{label}</h2>
       {endOfDayBalance !== null ? (
@@ -574,6 +630,8 @@ function TransactionRow({
   const negative = transaction.amount < 0
   const pending = transaction.pending ?? false
   const otherParty = transactionPartyName(transaction) || t('account.unknownParty')
+  const purpose = transaction.purpose?.trim()
+  const subline = purpose && purpose !== otherParty ? purpose : null
 
   if (editing) {
     return (
@@ -610,12 +668,17 @@ function TransactionRow({
             className="size-8"
             iconClassName="size-4"
           />
-          <span className="flex-1 truncate text-sm font-medium">
-            {otherParty}
-            {pending ? (
-              <span className="bg-muted text-muted-foreground ml-2 rounded-full px-1.5 py-0.5 align-middle text-[10px] font-medium">
-                {t('transaction.pendingBadge')}
-              </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-medium">{otherParty}</span>
+              {pending ? (
+                <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium">
+                  {t('transaction.pendingBadge')}
+                </span>
+              ) : null}
+            </span>
+            {subline ? (
+              <span className="text-muted-foreground truncate text-xs">{subline}</span>
             ) : null}
           </span>
           <span
@@ -654,7 +717,10 @@ function TransactionRow({
       )}
     >
       <CategoryAvatar category={transaction.category} className="size-8" iconClassName="size-4" />
-      <span className="flex-1 truncate text-sm font-medium">{otherParty}</span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-medium">{otherParty}</span>
+        {subline ? <span className="text-muted-foreground truncate text-xs">{subline}</span> : null}
+      </span>
       <span
         className={cn(
           'text-sm font-semibold tabular-nums',

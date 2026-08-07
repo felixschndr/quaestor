@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -33,8 +33,14 @@ beforeAll(() => {
   }
 })
 
+function scrollTo(y: number) {
+  Object.defineProperty(window, 'scrollY', { value: y, writable: true, configurable: true })
+  fireEvent.scroll(window)
+}
+
 beforeEach(() => {
   mockUseExpectedTransactions.mockReturnValue({ data: undefined })
+  scrollTo(0)
 })
 
 const account: AccountRead = {
@@ -106,7 +112,7 @@ function renderView(
 describe('AccountDetailView', () => {
   it('renders the account name and current balance', () => {
     renderView([])
-    expect(screen.getByText('Girokonto')).toBeInTheDocument()
+    expect(screen.getAllByText('Girokonto')).toHaveLength(2)
     expect(screen.getByText('1.234,50 €')).toBeInTheDocument()
   })
 
@@ -125,6 +131,19 @@ describe('AccountDetailView', () => {
     )
     const amount = screen.getByText('-200,00 €')
     expect(amount.className).toMatch(/text-destructive/)
+  })
+
+  it('moves the one balance towards the header instead of duplicating it', () => {
+    renderView([])
+    const moved = () => screen.getByText('1.234,50 €').closest('[style]') as HTMLElement | null
+
+    expect(screen.getAllByText('1.234,50 €')).toHaveLength(1)
+    expect(moved()?.style.transform).toMatch(/^translate\(/)
+
+    scrollTo(400)
+    expect(screen.getAllByText('1.234,50 €')).toHaveLength(1)
+    expect(moved()?.style.transform).toMatch(/^translate\(/)
+    expect(screen.getAllByText('Girokonto').length).toBeGreaterThan(0)
   })
 
   it('offers the privacy toggle, hiding the balances but not the transactions', async () => {
@@ -188,8 +207,6 @@ describe('AccountDetailView', () => {
         />,
       ),
     )
-    // Both labels visible; the personalised name dominates visually, the IBAN
-    // sits below as the muted secondary label.
     expect(screen.getByText('Gehaltskonto')).toBeInTheDocument()
     expect(screen.getByText('DE12 3456 7890 0001')).toBeInTheDocument()
   })
@@ -216,7 +233,7 @@ describe('AccountDetailView', () => {
     expect(screen.queryByText(/^Last updated:/)).not.toBeInTheDocument()
   })
 
-  it('shows only the IBAN when no personalised name is set', () => {
+  it('falls back to the IBAN as the header title when no personalised name is set', () => {
     render(
       withClient(
         <AccountDetailView
@@ -229,7 +246,7 @@ describe('AccountDetailView', () => {
         />,
       ),
     )
-    expect(screen.getByText('DE12 3456 7890 0001')).toBeInTheDocument()
+    expect(screen.getAllByText('DE12 3456 7890 0001')).toHaveLength(2)
   })
 
   it('copies the compact IBAN to the clipboard via the copy button', async () => {
@@ -312,6 +329,29 @@ describe('AccountDetailView', () => {
     expect(screen.getByText('REWE')).toBeInTheDocument()
     expect(screen.getByText('Aldi')).toBeInTheDocument()
     expect(screen.getByText('Employer')).toBeInTheDocument()
+  })
+
+  it('puts the purpose on a second line, but not when it is already the name', () => {
+    renderView([
+      buildPage({
+        total_days: 1,
+        transactions: [
+          buildTransaction({
+            id: 1,
+            date: '2026-05-22',
+            amount: -9,
+            other_party: 'PayPal',
+            purpose: 'Steam Games',
+          }),
+          buildTransaction({ id: 2, date: '2026-05-22', amount: -8, purpose: 'Miete Mai' }),
+        ],
+        balance_at_date: { '2026-05-22': 0 },
+      }),
+    ])
+
+    expect(screen.getByText('PayPal')).toBeInTheDocument()
+    expect(screen.getByText('Steam Games')).toBeInTheDocument()
+    expect(screen.getAllByText('Miete Mai')).toHaveLength(1)
   })
 
   it('falls back to "Unknown" when other_party is null or blank', () => {
