@@ -121,6 +121,11 @@
     "syncing": "Wird synchronisiert",
     "synced": "Synchronisiert",
     "syncFailed": "Synchronisierung fehlgeschlagen",
+    "syncProgress": "{{done}} von {{total}} Banken synchronisiert",
+    "privacy": {
+      "hide": "Beträge ausblenden",
+      "show": "Beträge einblenden"
+    },
     "search": "Transaktionen durchsuchen",
     "upcoming": "Demnächst fällig",
     "trendRange": "im letzten Monat",

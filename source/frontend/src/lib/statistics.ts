@@ -319,6 +319,13 @@ function useStats<T>(args: {
   })
 }
 
+export function showsStaleData(query: {
+  isFetching: boolean
+  isPlaceholderData: boolean
+}): boolean {
+  return query.isFetching && query.isPlaceholderData
+}
+
 export function useCategoryStats(
   accountIds: number[],
   filters: StatsFilters,

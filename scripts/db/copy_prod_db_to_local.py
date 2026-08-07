@@ -28,9 +28,12 @@ REMOTE_ENV = "server/Quaestor/.env"
 
 def _copy_database() -> None:
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    command = ["/usr/bin/scp", f"{REMOTE_HOST}:{REMOTE_DB}", str(DATABASE_PATH)]
-    print(f"Running: {' '.join(command)}")
-    subprocess.run(command, check=True)  # nosec B603
+    for suffix in ("-wal", "-shm"):
+        DATABASE_PATH.with_name(DATABASE_PATH.name + suffix).unlink(missing_ok=True)
+    dest = DATABASE_PATH.parent
+    subprocess.run(["/usr/bin/scp", f"{REMOTE_HOST}:{REMOTE_DB}", str(DATABASE_PATH)], check=True)  # nosec B603
+    for suffix in ("-wal", "-shm"):
+        subprocess.run(["/usr/bin/scp", f"{REMOTE_HOST}:{REMOTE_DB}{suffix}", str(dest)], check=False)  # nosec B603
 
 
 def _get_remote_encryption_key() -> str:

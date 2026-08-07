@@ -42,6 +42,7 @@ import { ExpectedTransactionForm } from '@/components/expected-transaction-form'
 import { ContractIcon } from '@/components/contract-icon'
 import { StatsIcon } from '@/components/stats-icon'
 import { SyncButton } from '@/components/sync-button'
+import { PrivacyToggle } from '@/components/privacy-toggle'
 import type { AccountDetailViewProps } from '@/routes/account.$accountId'
 import { BackLink } from '@/components/back-link'
 import { RowActions } from '@/components/row-actions'
@@ -216,9 +217,8 @@ export function AccountDetailView({
         <div className="mx-auto flex w-full max-w-page flex-col gap-4 px-4 pt-4 pb-3">
           <header className="flex items-center justify-between gap-2">
             <BackLink to="/" label={t('account.back')} />
-            {/* translate-y nudge matches the magnifier below: optical alignment
-                with the chevron-shaped back arrow. */}
             <div className="flex translate-y-[6px] items-center gap-1">
+              <PrivacyToggle />
               {onSyncClick ? (
                 <SyncButton
                   onClick={onSyncClick}
@@ -433,7 +433,7 @@ function BalanceDisplay({
     <div className="flex items-center gap-2">
       <p
         className={cn(
-          'text-4xl font-bold tracking-tight tabular-nums',
+          'private-amount text-4xl font-bold tracking-tight tabular-nums',
           negative ? 'text-destructive' : 'text-primary',
         )}
       >
@@ -545,7 +545,7 @@ function DateHeader({
     >
       <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">{label}</h2>
       {endOfDayBalance !== null ? (
-        <span className="text-muted-foreground text-xs tabular-nums">
+        <span className="private-amount text-muted-foreground text-xs tabular-nums">
           {isMarketValued ? <span className="mr-1">{t('account.marketValue')}</span> : null}
           {formatMoney(endOfDayBalance)}
         </span>

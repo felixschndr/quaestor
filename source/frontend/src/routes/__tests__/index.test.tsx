@@ -911,6 +911,94 @@ describe('OverviewView overdue badge', () => {
   })
 })
 
+describe('OverviewView privacy mode', () => {
+  afterEach(() => {
+    delete document.documentElement.dataset.privacy
+  })
+
+  it('blurs the amounts, remembers the choice and flips the label back', async () => {
+    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+
+    expect(document.documentElement).not.toHaveAttribute('data-privacy')
+    await userEvent.click(screen.getByRole('button', { name: 'Hide amounts' }))
+
+    expect(document.documentElement).toHaveAttribute('data-privacy', 'on')
+    expect(window.localStorage.getItem('privacyMode')).toBe('on')
+    for (const amount of screen.getAllByText('10,00 €')) {
+      expect(amount.closest('.private-amount')).not.toBeNull()
+    }
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show amounts' }))
+    expect(document.documentElement).not.toHaveAttribute('data-privacy')
+    expect(window.localStorage.getItem('privacyMode')).toBeNull()
+  })
+
+  it('starts hidden when the last session left it that way', () => {
+    window.localStorage.setItem('privacyMode', 'on')
+    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+
+    expect(document.documentElement).toHaveAttribute('data-privacy', 'on')
+    expect(screen.getByRole('button', { name: 'Show amounts' })).toBeInTheDocument()
+  })
+})
+
+describe('OverviewView sync progress', () => {
+  const job = (credentialId: number, status: SyncJob['status']): SyncJob => ({
+    job_id: `j${credentialId}`,
+    credential_id: credentialId,
+    status,
+    expires_at: null,
+    error: null,
+    error_code: null,
+  })
+
+  function renderWithJobs(jobs: Map<number, SyncJob>) {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <OverviewView
+          user={buildUser({ balance: 10, credentials: [buildCredential()] })}
+          onSyncClick={() => {}}
+          syncDisabled={false}
+          syncSpinning={true}
+          syncJobs={jobs}
+        />
+      </QueryClientProvider>,
+    )
+  }
+
+  it('counts the finished banks while at least one is still running', () => {
+    renderWithJobs(
+      new Map([
+        [1, job(1, 'completed')],
+        [2, job(2, 'failed')],
+        [3, job(3, 'running')],
+      ]),
+    )
+    expect(screen.getByText('2 of 3 banks synced')).toBeInTheDocument()
+  })
+
+  it('drops the line once every bank is done', () => {
+    renderWithJobs(new Map([[1, job(1, 'completed')]]))
+    expect(screen.queryByText(/banks synced/)).not.toBeInTheDocument()
+  })
+
+  it('keeps a spinner on the group header of a collapsed group', async () => {
+    mockApi({
+      layout: { groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }] }], ungrouped: [] },
+    })
+    renderWithJobs(new Map([[1, job(1, 'running')]]))
+
+    const trigger = await screen.findByRole('button', { name: /Spar/ })
+    await userEvent.click(trigger)
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByLabelText('Syncing')).toBeInTheDocument()
+  })
+})
+
 describe('OverviewView upcoming contracts visibility', () => {
   const contract = {
     id: 1,

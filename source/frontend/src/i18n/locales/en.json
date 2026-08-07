@@ -121,6 +121,11 @@
     "syncing": "Syncing",
     "synced": "Synced",
     "syncFailed": "Sync failed",
+    "syncProgress": "{{done}} of {{total}} banks synced",
+    "privacy": {
+      "hide": "Hide amounts",
+      "show": "Show amounts"
+    },
     "search": "Search transactions",
     "upcoming": "Due soon",
     "trendRange": "in the past month",

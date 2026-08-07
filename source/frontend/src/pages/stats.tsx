@@ -34,6 +34,7 @@ import {
   DEFAULT_TREND_PERIODS,
   matchingPreset,
   presetDateRange,
+  showsStaleData,
   TRANSACTION_COUNT_GROUPINGS,
   TREND_PERIOD_OPTIONS,
   useCashflowStats,
@@ -337,6 +338,7 @@ export function StatsView({
             title={t('stats.netWorth.title')}
             icon={<LineChart className="size-4" aria-hidden="true" />}
             isLoading={netWorth.isLoading}
+            isStale={showsStaleData(netWorth)}
             isError={netWorth.isError}
             isEmpty={(netWorth.data?.series.length ?? 0) === 0}
             action={
@@ -364,6 +366,7 @@ export function StatsView({
             title={t('stats.categories.title')}
             icon={<PieChart className="size-4" aria-hidden="true" />}
             isLoading={categoryQuery.isLoading}
+            isStale={showsStaleData(categoryQuery)}
             isError={categoryQuery.isError}
             isEmpty={(categoryQuery.data?.length ?? 0) === 0}
             action={
@@ -426,6 +429,7 @@ export function StatsView({
             title={t('stats.cashflow.title')}
             icon={<ArrowLeftRight className="size-4" aria-hidden="true" />}
             isLoading={cashflow.isLoading}
+            isStale={showsStaleData(cashflow)}
             isError={cashflow.isError}
             isEmpty={(cashflow.data?.length ?? 0) === 0}
           >
@@ -436,6 +440,7 @@ export function StatsView({
             title={t('stats.transactionCounts.title')}
             icon={<BarChart3 className="size-4" aria-hidden="true" />}
             isLoading={transactionCounts.isLoading}
+            isStale={showsStaleData(transactionCounts)}
             isError={transactionCounts.isError}
             isEmpty={(transactionCounts.data?.length ?? 0) === 0}
             action={
@@ -462,6 +467,7 @@ export function StatsView({
             title={t('stats.netSavings.title')}
             icon={<PiggyBank className="size-4" aria-hidden="true" />}
             isLoading={netSavings.isLoading}
+            isStale={showsStaleData(netSavings)}
             isError={netSavings.isError}
             isEmpty={(netSavings.data?.length ?? 0) === 0}
           >
@@ -476,6 +482,7 @@ export function StatsView({
             }
             icon={<Users className="size-4" aria-hidden="true" />}
             isLoading={otherParties.isLoading}
+            isStale={showsStaleData(otherParties)}
             isError={otherParties.isError}
             isEmpty={(otherParties.data?.length ?? 0) === 0}
           >

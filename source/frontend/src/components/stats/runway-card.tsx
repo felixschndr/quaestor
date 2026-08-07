@@ -12,6 +12,7 @@ import {
   runwayMonths,
   runwayYearsMonths,
   RUNWAY_EXCLUDED_CATEGORIES,
+  showsStaleData,
   useCashflowStats,
   type StatsFilters,
   type StatsTypeFilters,
@@ -85,6 +86,7 @@ export function RunwayCard({
       isLoading={!noCategories && cashflow.isLoading}
       isError={!noCategories && cashflow.isError}
       isEmpty={!noCategories && cashflow.data?.length === 0}
+      isStale={!noCategories && showsStaleData(cashflow)}
     >
       <StatMetricGroup metrics={metrics} />
     </ChartCard>

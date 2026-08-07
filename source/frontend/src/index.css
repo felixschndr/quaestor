@@ -210,6 +210,37 @@
   animation: balance-settle 600ms ease-out;
 }
 
+.private-amount,
+.private-chart {
+  transition: filter 500ms ease-in-out;
+}
+
+[data-privacy='on'] .private-amount {
+  filter: blur(0.3em);
+}
+
+[data-privacy='on'] .private-chart {
+  filter: blur(3px);
+}
+
+.privacy-slash {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 300ms ease-in-out;
+}
+
+[data-privacy='on'] .privacy-slash {
+  stroke-dashoffset: 0;
+}
+
+.group:hover .privacy-slash {
+  stroke-dashoffset: 0;
+}
+
+[data-privacy='on'] .group:hover .privacy-slash {
+  stroke-dashoffset: 1;
+}
+
 @keyframes search-zoom {
   0% {
     transform: scale(1);

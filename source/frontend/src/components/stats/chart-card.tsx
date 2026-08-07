@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { cn } from '@/lib/utils'
+
 export interface ChartCardProps {
   title: string
   icon?: ReactNode
@@ -8,6 +10,7 @@ export interface ChartCardProps {
   isLoading: boolean
   isError: boolean
   isEmpty: boolean
+  isStale?: boolean
   emptyLabel?: string
   action?: ReactNode
   children: ReactNode
@@ -20,6 +23,7 @@ export function ChartCard({
   isLoading,
   isError,
   isEmpty,
+  isStale = false,
   emptyLabel,
   action,
   children,
@@ -27,7 +31,13 @@ export function ChartCard({
   const { t } = useTranslation()
 
   return (
-    <section className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4">
+    <section
+      aria-busy={isStale || undefined}
+      className={cn(
+        'border-border bg-card flex flex-col gap-3 rounded-lg border p-4 transition-opacity',
+        isStale && 'opacity-50',
+      )}
+    >
       <header className="flex items-center justify-between gap-2">
         <h2 className="text-primary inline-flex items-center gap-2 text-sm font-semibold">
           {icon}

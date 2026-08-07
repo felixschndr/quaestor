@@ -127,6 +127,25 @@ describe('AccountDetailView', () => {
     expect(amount.className).toMatch(/text-destructive/)
   })
 
+  it('offers the privacy toggle, hiding the balances but not the transactions', async () => {
+    renderView([
+      buildPage({
+        total_days: 1,
+        transactions: [buildTransaction({ id: 1, date: '2026-05-22', amount: -12.5 })],
+        balance_at_date: { '2026-05-22': 500 },
+      }),
+    ])
+
+    await userEvent.click(screen.getByRole('button', { name: 'Hide amounts' }))
+    expect(document.documentElement).toHaveAttribute('data-privacy', 'on')
+    expect(screen.getByText('1.234,50 €').className).toMatch(/private-amount/)
+    expect(screen.getByText('500,00 €').className).toMatch(/private-amount/)
+    expect(screen.getByText('-12,50 €').className).not.toMatch(/private-amount/)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show amounts' }))
+    expect(document.documentElement).not.toHaveAttribute('data-privacy')
+  })
+
   it('renders the back link to "/"', () => {
     renderView([])
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/')

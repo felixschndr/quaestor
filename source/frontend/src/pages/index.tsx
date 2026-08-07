@@ -13,6 +13,7 @@ import { SyncButton } from '@/components/sync-button'
 import { Sparkline } from '@/components/sparkline'
 import { UpcomingContracts } from '@/components/upcoming-contracts'
 import { WarningDot } from '@/components/warning-dot'
+import { PrivacyToggle } from '@/components/privacy-toggle'
 import { SyncStatusIcon, type SyncState } from '@/components/sync-check'
 import { presetDateRange, useNetWorthStats } from '@/lib/statistics'
 import {
@@ -86,6 +87,12 @@ export function OverviewView({
     }
     return states
   }, [user, syncJobs])
+  const syncProgress = useMemo(() => {
+    if (!syncJobs || syncJobs.size === 0) return null
+    const jobs = [...syncJobs.values()]
+    const done = jobs.filter((job) => job.status === 'completed' || job.status === 'failed').length
+    return done < jobs.length ? { done, total: jobs.length } : null
+  }, [syncJobs])
   const { data: contracts } = useContracts()
   const overdueCount = (contracts ?? []).filter(
     (contract) => contract.is_overdue && visibleAccountIds.includes(contract.account_id),
@@ -110,6 +117,7 @@ export function OverviewView({
           />
         </h1>
         <div className="-mr-2.5 flex items-center gap-1">
+          {hasAccounts ? <PrivacyToggle className="p-2.5" /> : null}
           {hasAccounts ? (
             <SyncButton
               onClick={onSyncClick}
@@ -172,12 +180,17 @@ export function OverviewView({
           <p
             key={settleKey}
             className={cn(
-              'text-primary text-4xl font-bold tracking-tight tabular-nums',
+              'private-amount text-primary text-5xl font-bold tracking-tight tabular-nums',
               settleKey !== null && 'balance-settle',
             )}
           >
             {formatMoney(user.balance)}
           </p>
+          {syncProgress ? (
+            <p className="text-muted-foreground text-xs" aria-live="polite">
+              {t('overview.syncProgress', syncProgress)}
+            </p>
+          ) : null}
           {staleSince ? <LastSyncedLine timestamp={staleSince} /> : null}
           <NetWorthTrend accountIds={visibleAccountIds} />
         </section>
@@ -236,8 +249,11 @@ function NetWorthTrend({ accountIds }: { accountIds: number[] }) {
       to="/stats"
       className="focus-visible:ring-ring flex w-full max-w-xs flex-col items-center gap-0.5 rounded-md focus-visible:ring-2 focus-visible:outline-none"
     >
-      <Sparkline values={series.map((point) => point.value)} className={cn('h-9 w-full', tone)} />
-      <span className={cn('text-xs font-medium tabular-nums', tone)}>
+      <Sparkline
+        values={series.map((point) => point.value)}
+        className={cn('private-chart h-9 w-full', tone)}
+      />
+      <span className={cn('private-amount text-xs font-medium tabular-nums', tone)}>
         {formatSignedMoney(delta)}
         {ratio === null ? '' : ` (${formatPercent(ratio)})`} {t('overview.trendRange')}
       </span>
@@ -289,9 +305,10 @@ function AccountGroupList({
                   <span className="text-muted-foreground flex-1 text-xs font-semibold tracking-wide uppercase">
                     {heading}
                   </span>
+                  <SyncStatusIcon state={groupSyncState(group, syncStates)} />
                   <span
                     className={cn(
-                      'text-xs font-semibold tabular-nums',
+                      'private-amount text-xs font-semibold tabular-nums',
                       total < 0 ? 'text-destructive' : 'text-muted-foreground',
                     )}
                   >
@@ -308,6 +325,13 @@ function AccountGroupList({
       })}
     </ul>
   )
+}
+
+function groupSyncState(group: DisplayGroup, syncStates: Map<number, SyncState>): SyncState {
+  const states = group.accounts.map((account) => syncStates.get(account.id))
+  if (states.includes('running')) return 'running'
+  if (states.includes('failed')) return 'failed'
+  return states.includes('completed') ? 'completed' : undefined
 }
 
 function AccountRow({ account, syncState }: { account: AccountWithBank; syncState: SyncState }) {
@@ -329,7 +353,7 @@ function AccountRow({ account, syncState }: { account: AccountWithBank; syncStat
           trailing={<SyncStatusIcon state={syncState} />}
           className="flex-1"
         />
-        <span className="text-sm font-semibold tabular-nums">
+        <span className="private-amount text-sm font-semibold tabular-nums">
           {hasFactor ? (
             <span className="text-muted-foreground mr-1.5 font-normal">
               {formatFactorMultiplier(account.balance_factor / 100)} x
