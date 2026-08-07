@@ -15,6 +15,7 @@ from tests.backend.conftest import (
     PHONE_NUMBER,
     PIN,
     SECOND_USER_NAME,
+    TWO_FACTOR_CODE,
     create_credential,
     register,
     register_and_login,
@@ -340,10 +341,10 @@ def test_submit_two_factor_completes_the_sync(http_client: TestClient, monkeypat
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
     _wait_for_status(http_client=http_client, credential_id=credential_id, job_id=job_id, expected="awaiting_2fa")
 
-    response = http_client.post(f"/api/credentials/{credential_id}/sync/{job_id}/2fa", json={"code": "1234"})
+    response = http_client.post(f"/api/credentials/{credential_id}/sync/{job_id}/2fa", json={"code": TWO_FACTOR_CODE})
 
     assert response.status_code == 202
-    assert response.json()["status"] in {"running", "completed"}
+    assert response.json()["status"] in {"confirming_2fa", "running", "completed"}
     _wait_for_status(http_client=http_client, credential_id=credential_id, job_id=job_id, expected="completed")
 
 
@@ -351,7 +352,9 @@ def test_submit_two_factor_returns_404_for_unknown_job(http_client: TestClient):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
 
-    response = http_client.post(f"/api/credentials/{credential_id}/sync/nonexistent/2fa", json={"code": "1234"})
+    response = http_client.post(
+        f"/api/credentials/{credential_id}/sync/nonexistent/2fa", json={"code": TWO_FACTOR_CODE}
+    )
 
     assert response.status_code == 404
 
@@ -368,7 +371,7 @@ def test_submit_two_factor_returns_422_when_job_not_awaiting_two_factor(
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
     _wait_for_status(http_client=http_client, credential_id=credential_id, job_id=job_id, expected="completed")
 
-    response = http_client.post(f"/api/credentials/{credential_id}/sync/{job_id}/2fa", json={"code": "1234"})
+    response = http_client.post(f"/api/credentials/{credential_id}/sync/{job_id}/2fa", json={"code": TWO_FACTOR_CODE})
 
     assert response.status_code == 422
 

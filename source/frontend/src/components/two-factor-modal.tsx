@@ -57,7 +57,7 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? null : onSkip())}>
       <DialogContent>
-        {current2fa?.kind === 'awaiting_decoupled_approval' ? (
+        {current2fa?.kind === 'awaiting_decoupled_approval' || current2fa?.kind === 'confirming' ? (
           <>
             <DialogHeader>
               <BankLogo
@@ -66,9 +66,15 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
                 seed={current2fa.bankName ?? current2fa.bank}
                 className="mx-auto size-12"
               />
-              <DialogTitle>{t('sync.twoFactor.decoupledTitle', { bank: bankTitle })}</DialogTitle>
+              <DialogTitle>
+                {current2fa.kind === 'confirming'
+                  ? t('common.confirming')
+                  : t('sync.twoFactor.decoupledTitle', { bank: bankTitle })}
+              </DialogTitle>
               <DialogDescription>
-                {t('sync.twoFactor.decoupledDescription', { bank: bankTitle })}
+                {current2fa.kind === 'confirming'
+                  ? t('sync.twoFactor.confirmingDescription')
+                  : t('sync.twoFactor.decoupledDescription', { bank: bankTitle })}
               </DialogDescription>
             </DialogHeader>
             <div className="flex justify-center py-4">

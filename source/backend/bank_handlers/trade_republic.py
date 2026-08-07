@@ -415,7 +415,7 @@ class TradeRepublicHandler(BankHandler):
             except Exception:
                 resumed = False
             if not resumed:
-                trade_republic_client.initiate_weblogin()
+                trade_republic_login.initiate_weblogin(client=trade_republic_client)
                 if trade_republic_client.weblogin_needs_authenticator:
                     # When user set up 2FA (with TOTP apps like Google Authenticator)
                     logger.info("Trade Republic websession expired; authenticator code required")

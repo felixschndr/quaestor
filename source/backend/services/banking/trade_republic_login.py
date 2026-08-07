@@ -78,6 +78,23 @@ def _raise_if_rate_limited(exc: requests.exceptions.HTTPError, credential_id: in
     raise BankRateLimitedError(error_message) from exc
 
 
+def initiate_weblogin(client: TradeRepublicApi, credential_id: int | None = None) -> None:
+    try:
+        client.initiate_weblogin()
+    except ValueError as e:
+        error_message = f"Trade Republic rejected the login for credential {credential_id}: {e}"
+        logger.warning(error_message)
+        raise InvalidCredentialsError(error_message) from e
+    except requests.exceptions.HTTPError as e:
+        _raise_if_rate_limited(exc=e, credential_id=credential_id)
+        status = e.response.status_code if e.response is not None else None
+        if status is None or not (400 <= status < 500):
+            raise
+        error_message = f"Trade Republic rejected the login for credential {credential_id}: {e}"
+        logger.warning(error_message)
+        raise InvalidCredentialsError(error_message) from e
+
+
 def start(credential_id: int, phone_no: str, pin: str) -> tuple[str, datetime]:
     logger.info(f"Initiating Trade Republic web login for credential {credential_id}")
     _cleanup_expired_pending_logins()
@@ -89,22 +106,10 @@ def start(credential_id: int, phone_no: str, pin: str) -> tuple[str, datetime]:
 
     trade_republic_client = build_client(phone_no=phone_no, pin=pin, cookies_path=cookies_path)
     try:
-        trade_republic_client.initiate_weblogin()
-    except ValueError as e:
+        initiate_weblogin(client=trade_republic_client, credential_id=credential_id)
+    except Exception:
         cookies_path.unlink(missing_ok=True)
-        error_message = f"Trade Republic rejected the login for credential {credential_id}: {e}"
-        logger.warning(error_message)
-        raise InvalidCredentialsError(error_message) from e
-    except requests.exceptions.HTTPError as e:
-        cookies_path.unlink(missing_ok=True)
-        # TR answers with a 4xx when the phone number / PIN is wrong.
-        _raise_if_rate_limited(exc=e, credential_id=credential_id)
-        status = e.response.status_code if e.response is not None else None
-        if status is None or not (400 <= status < 500):
-            raise
-        error_message = f"Trade Republic rejected the login for credential {credential_id}: {e}"
-        logger.warning(error_message)
-        raise InvalidCredentialsError(error_message) from e
+        raise
 
     token = secrets.token_urlsafe(24)
     expires_at = utc_now() + DURATION_FOR_VALID_2FA_CODE

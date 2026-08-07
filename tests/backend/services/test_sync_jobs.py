@@ -11,7 +11,7 @@ from source.backend.helpers import utc_now
 from source.backend.services.banking import sync_jobs
 from source.backend.services.banking.credential_service import SyncResult, SyncStatus
 from source.backend.services.banking.sync_jobs import JobErrorCode, JobStatus, SyncJob
-from tests.backend.conftest import CHALLENGE_TOKEN, assert_log_contains
+from tests.backend.conftest import CHALLENGE_TOKEN, TWO_FACTOR_CODE, assert_log_contains
 
 SyncOutcome = Union[SyncResult, Exception]
 PatchSync = Callable[[SyncOutcome], None]
@@ -150,9 +150,9 @@ def test_submit_two_factor_advances_the_job(patch_sync: PatchSync, patch_confirm
         job = await sync_jobs.start_sync(credential_id=42)
         await _wait_until(lambda: job.status == JobStatus.AWAITING_TWO_FACTOR)
 
-        result = await sync_jobs.submit_two_factor(job_id=job.job_id, code="1234")
+        result = await sync_jobs.submit_two_factor(job_id=job.job_id, code=TWO_FACTOR_CODE)
         assert result is job
-        assert job.status == JobStatus.RUNNING
+        assert job.status == JobStatus.CONFIRMING_TWO_FACTOR
         assert job.challenge_token is None  # consumed
 
         await _wait_until(lambda: job.finished_at is not None)

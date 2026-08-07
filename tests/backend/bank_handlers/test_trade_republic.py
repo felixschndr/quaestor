@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
+import requests
 
 from source.backend.bank_handlers import BANKS_BY_NAME, trade_republic
 from source.backend.bank_handlers.base import (
@@ -16,7 +17,7 @@ from source.backend.bank_handlers.trade_republic import (
     TradeRepublicHandler,
     _TradeRepublicSession,
 )
-from source.backend.exceptions import ReauthenticationRequiredError
+from source.backend.exceptions import BankRateLimitedError, ReauthenticationRequiredError
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.banking import trade_republic_login
 from tests.backend.conftest import (
@@ -343,6 +344,27 @@ def test_session_with_authenticator_account_requires_reauthentication(
 
     assert client.initiated
     assert_log_contains(caplog, message="authenticator code required")
+
+
+def test_session_translates_a_rate_limited_initiate(monkeypatch: pytest.MonkeyPatch):
+    class _RateLimitedApi:
+        weblogin_needs_authenticator = False
+
+        def resume_websession(self) -> bool:
+            return False
+
+        def initiate_weblogin(self) -> None:
+            response = requests.Response()
+            response.status_code = 429
+            raise requests.exceptions.HTTPError("429 Too Many Requests", response=response)
+
+    _patch_build_client(monkeypatch=monkeypatch, client=_RateLimitedApi())
+    handler = _handler()
+    handler.session_state = {"cookies": "stale-cookie"}
+
+    with pytest.raises(BankRateLimitedError):
+        with handler.session():
+            pass
 
 
 def test_session_with_app_confirmation_completes_inline(

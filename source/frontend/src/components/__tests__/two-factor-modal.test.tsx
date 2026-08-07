@@ -68,6 +68,22 @@ describe('TwoFactorModal', () => {
     expect(screen.queryByText(/sent a confirmation code/i)).toBeNull()
   })
 
+  it('renders a neutral spinner without submit while confirming', () => {
+    renderModal({
+      current2fa: {
+        credentialId: 1,
+        jobId: 'j',
+        bank: 'trade_republic',
+        bankName: null,
+        bankIcon: null,
+        kind: 'confirming',
+      },
+    })
+    expect(screen.getByText(/finishing the sign-in/i)).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+    expect(document.querySelector('.animate-spin')).not.toBeNull()
+  })
+
   it('renders spinner without submit for awaiting_decoupled_approval', () => {
     renderModal({
       current2fa: {

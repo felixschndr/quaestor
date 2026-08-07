@@ -28,6 +28,7 @@ JOB_RETENTION_DURATION = timedelta(hours=1)
 class JobStatus(str, Enum):
     RUNNING = "running"
     AWAITING_TWO_FACTOR = "awaiting_2fa"
+    CONFIRMING_TWO_FACTOR = "confirming_2fa"
     AWAITING_DECOUPLED_APPROVAL = "awaiting_decoupled_approval"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -214,7 +215,7 @@ async def submit_two_factor(job_id: str, code: str) -> SyncJob | None:
     if job is None or job.status != JobStatus.AWAITING_TWO_FACTOR or job.challenge_token is None:
         return None
     challenge_token = job.challenge_token
-    job.status = JobStatus.RUNNING
+    job.status = JobStatus.CONFIRMING_TWO_FACTOR
     job.challenge_token = None
     _spawn(_run_confirm(job, challenge_token=challenge_token, code=code))
     # Yield once so the background task gets a chance to start before we return.

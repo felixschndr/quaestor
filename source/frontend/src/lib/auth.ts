@@ -181,7 +181,7 @@ export interface Current2FA {
   bank: string
   bankName: string | null
   bankIcon: string | null
-  kind: 'awaiting_2fa' | 'awaiting_decoupled_approval'
+  kind: 'awaiting_2fa' | 'confirming' | 'awaiting_decoupled_approval'
   authorizationUrl?: string | null
 }
 
@@ -196,7 +196,11 @@ export interface UseGlobalSyncResult {
   failedAt: number | null
 }
 
-const TWO_FACTOR_STATUSES = new Set<SyncJobStatus>(['awaiting_2fa', 'awaiting_decoupled_approval'])
+const TWO_FACTOR_STATUSES = new Set<SyncJobStatus>([
+  'awaiting_2fa',
+  'confirming_2fa',
+  'awaiting_decoupled_approval',
+])
 const TERMINAL_STATUSES = new Set<SyncJobStatus>(['completed', 'failed'])
 
 type GlobalSyncPhase = 'idle' | 'starting' | 'active' | 'done' | 'finishing'
@@ -357,7 +361,9 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
       kind:
         job.status === 'awaiting_decoupled_approval'
           ? 'awaiting_decoupled_approval'
-          : 'awaiting_2fa',
+          : job.status === 'confirming_2fa'
+            ? 'confirming'
+            : 'awaiting_2fa',
       authorizationUrl: job.authorization_url ?? null,
     }
   }, [current2faId, jobs, credentialDisplay])
@@ -368,11 +374,11 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
       if (activeId === undefined) return
       const job = jobs.get(activeId)
       if (!job) return
-      await api<SyncJob>(`/credentials/${activeId}/sync/${job.job_id}/2fa`, {
+      const updated = await api<SyncJob>(`/credentials/${activeId}/sync/${job.job_id}/2fa`, {
         method: 'POST',
         body: { code },
       })
-      setQueue((prev) => prev.filter((id) => id !== activeId))
+      setJobs((prev) => new Map(prev).set(updated.credential_id, updated))
     },
     [queue, jobs],
   )

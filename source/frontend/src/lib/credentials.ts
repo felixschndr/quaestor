@@ -88,6 +88,7 @@ export function useDeleteCredential() {
 export type SyncJobStatus =
   | 'running'
   | 'awaiting_2fa'
+  | 'confirming_2fa'
   | 'awaiting_decoupled_approval'
   | 'completed'
   | 'failed'

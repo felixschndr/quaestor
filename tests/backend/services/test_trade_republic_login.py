@@ -169,6 +169,15 @@ def test_complete_maps_value_errors(monkeypatch: pytest.MonkeyPatch, message: st
     assert not cookie_paths[0].exists()
 
 
+def test_initiate_weblogin_translates_rate_limit_on_the_session_path():
+    class _FakeApi:
+        def initiate_weblogin(self) -> None:
+            raise _http_error(429)
+
+    with pytest.raises(BankRateLimitedError):
+        module.initiate_weblogin(client=_FakeApi())
+
+
 def test_await_app_confirmation_brackets_the_wait_with_two_factor_state():
     calls: list[object] = []
 
