@@ -366,7 +366,7 @@ describe('OverviewView', () => {
     const spans = ungroupedHeading.querySelectorAll('span')
     const total = spans[spans.length - 1]
     expect(total).toHaveTextContent('-50,00 €')
-    expect(total?.className).toMatch(/text-muted-foreground/)
+    expect(total?.className).toMatch(/text-destructive/)
   })
 
   it('renders the "without group" heading when the layout has ungrouped accounts', async () => {

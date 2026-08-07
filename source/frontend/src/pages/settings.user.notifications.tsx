@@ -578,7 +578,7 @@ function RuleDialog({
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent
-        className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[calc(var(--container-page)-2rem)] overflow-y-auto"
+        className="max-w-[calc(var(--container-page)-2rem)]"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <DialogHeader>

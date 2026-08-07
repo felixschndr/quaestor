@@ -94,7 +94,7 @@ export function OverviewView({
             components={{ name: <span className="text-primary" /> }}
           />
         </h1>
-        <div className="-mr-1.5 flex items-center gap-1">
+        <div className="-mr-2.5 flex items-center gap-1">
           {hasAccounts ? (
             <SyncButton
               onClick={onSyncClick}
@@ -102,6 +102,7 @@ export function OverviewView({
               disabled={syncDisabled}
               succeededAt={syncSucceededAt}
               ariaLabel={t('overview.syncAll.aria')}
+              className="p-2.5"
             />
           ) : null}
           {hasAccounts ? (
@@ -110,7 +111,7 @@ export function OverviewView({
                 to="/stats"
                 aria-label={t('stats.title')}
                 title={t('stats.title')}
-                className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
+                className="text-primary hover:text-primary/80 focus-visible:ring-ring group rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
               >
                 <StatsIcon className="size-5" />
               </Link>
@@ -118,7 +119,7 @@ export function OverviewView({
                 to="/contracts"
                 aria-label={t('contracts.title')}
                 title={t('contracts.title')}
-                className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
+                className="text-primary hover:text-primary/80 focus-visible:ring-ring group rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
               >
                 <ContractIcon className="size-5" />
               </Link>
@@ -129,7 +130,7 @@ export function OverviewView({
               to="/search"
               aria-label={t('overview.search')}
               title={t('overview.search')}
-              className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
+              className="text-primary hover:text-primary/80 focus-visible:ring-ring group rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
             >
               <Search className="search-icon-zoom size-5" />
             </Link>
@@ -138,7 +139,7 @@ export function OverviewView({
             to="/settings"
             aria-label={t('settings.title')}
             title={t('settings.title')}
-            className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
+            className="text-primary hover:text-primary/80 focus-visible:ring-ring group rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             <Settings className="size-5 transition-transform duration-300 ease-in-out group-hover:rotate-90" />
           </Link>
@@ -204,7 +205,7 @@ function AccountGroupList({
           <li key={group.key}>
             <Collapsible.Root open={!isCollapsed(group.key)} onOpenChange={() => toggle(group.key)}>
               <h2>
-                <Collapsible.Trigger className="group/collapsible focus-visible:ring-ring flex w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left focus-visible:ring-2 focus-visible:outline-none">
+                <Collapsible.Trigger className="group/collapsible focus-visible:ring-ring flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left focus-visible:ring-2 focus-visible:outline-none">
                   <ChevronRight
                     aria-hidden="true"
                     className="text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 ease-in-out group-data-[state=open]/collapsible:rotate-90"
@@ -212,7 +213,12 @@ function AccountGroupList({
                   <span className="text-muted-foreground flex-1 text-xs font-semibold tracking-wide uppercase">
                     {heading}
                   </span>
-                  <span className="text-muted-foreground text-xs font-semibold tabular-nums">
+                  <span
+                    className={cn(
+                      'text-xs font-semibold tabular-nums',
+                      total < 0 ? 'text-destructive' : 'text-muted-foreground',
+                    )}
+                  >
                     {formatMoney(total)}
                   </span>
                 </Collapsible.Trigger>
@@ -236,7 +242,7 @@ function AccountRow({ account, syncState }: { account: AccountWithBank; syncStat
       <Link
         to="/account/$accountId"
         params={{ accountId: String(account.id) }}
-        className="hover:bg-muted/60 flex items-center gap-3 rounded-md px-2 py-3 transition-colors"
+        className="hover:bg-muted/60 focus-visible:ring-ring flex items-center gap-3 rounded-md px-2 py-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
       >
         <AccountLabel
           icon={account.bankIcon}
