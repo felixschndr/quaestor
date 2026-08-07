@@ -81,7 +81,7 @@ function CreateKeyForm({ onCreated }: { onCreated: (apiKey: ApiKeyCreated) => vo
 
   return (
     <section className="border-border bg-card flex flex-col gap-4 rounded-lg border p-4">
-      <h2 className="text-foreground text-lg font-semibold">{t('apiKeys.createTitle')}</h2>
+      <h2 className="text-foreground text-base font-semibold">{t('apiKeys.createTitle')}</h2>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="api-key-name">{t('common.name')}</Label>
@@ -123,7 +123,7 @@ function CreatedKeyReveal({ apiKey, onDone }: { apiKey: ApiKeyCreated; onDone: (
   return (
     <section className="border-border bg-card flex flex-col gap-4 rounded-lg border p-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-foreground text-lg font-semibold">{t('apiKeys.createdTitle')}</h2>
+        <h2 className="text-foreground text-base font-semibold">{t('apiKeys.createdTitle')}</h2>
         <p className="text-muted-foreground text-sm">{t('apiKeys.createdHint')}</p>
       </div>
       <code className="border-border bg-muted/40 break-all rounded-md border p-3 font-mono text-sm">

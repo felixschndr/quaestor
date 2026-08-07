@@ -64,7 +64,7 @@ export function TransactionDetailView({
         <CategoryAvatar category={transaction.category} />
         <p
           className={cn(
-            'text-5xl font-bold tracking-tight tabular-nums',
+            'text-4xl font-bold tracking-tight tabular-nums',
             negative ? 'text-destructive' : 'text-success',
           )}
         >

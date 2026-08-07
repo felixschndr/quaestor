@@ -160,7 +160,7 @@ export function CategoryChart({
 
   if (chartType === 'pie') {
     const pieData: PieDatum[] = aggregateTopN(data, MAX_PIE_SLICES, t('stats.other')).map(
-      (datum, index) => ({ ...datum, color: sliceColor(datum.category, index) }),
+      (datum) => ({ ...datum, color: sliceColor(datum.category) }),
     )
     const visible = pieData.filter((datum) => !hidden.has(datum.category))
     const total = visible.reduce((sum, datum) => sum + datum.value, 0)
@@ -203,7 +203,7 @@ export function CategoryChart({
       rows={rows}
       hidden={hidden}
       labelOf={(category) => t(`category.${category}`)}
-      colorOf={(key, index) => sliceColor(key as TransactionCategory, index)}
+      colorOf={(key) => sliceColor(key as TransactionCategory)}
       maxChars={18}
       axisWidth={130}
       tooltip={<CategoryTooltip total={total} />}

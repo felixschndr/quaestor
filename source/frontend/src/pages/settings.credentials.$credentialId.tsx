@@ -83,7 +83,7 @@ function BankHeader({ credential, bankTitle }: { credential: CredentialRead; ban
         seed={credential.bank_name ?? credential.bank}
         className="size-16"
       />
-      <h1 className="text-foreground text-2xl font-semibold">{bankTitle}</h1>
+      <h1 className="text-foreground text-lg font-semibold">{bankTitle}</h1>
       <p className="text-muted-foreground text-sm">{lastSyncedLabel}</p>
       <AutoSyncStatus credential={credential} />
     </section>

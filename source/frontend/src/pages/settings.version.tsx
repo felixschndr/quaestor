@@ -11,7 +11,7 @@ export function SettingsVersionView({ versionInfo, isLoading }: SettingsVersionV
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
         <BackLink to="/settings" />
-        <h1 className="text-foreground text-2xl font-semibold">{t('version.title')}</h1>
+        <h1 className="text-foreground text-lg font-semibold">{t('version.title')}</h1>
       </header>
 
       <ul className="border-border bg-card flex flex-col rounded-lg border">

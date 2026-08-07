@@ -509,27 +509,44 @@ export function aggregateTopN(
   ]
 }
 
-const CHART_PALETTE = [
-  'oklch(0.66 0.16 250)', // blue
-  'oklch(0.73 0.17 60)', // orange
-  'oklch(0.72 0.17 150)', // green
-  'oklch(0.66 0.20 330)', // magenta
-  'oklch(0.75 0.13 195)', // teal
-  'oklch(0.66 0.20 25)', // red
-  'oklch(0.64 0.17 285)', // purple
-  'oklch(0.80 0.16 100)', // yellow
-  'oklch(0.70 0.18 355)', // pink
-  'oklch(0.71 0.13 220)', // sky
-  'oklch(0.74 0.16 120)', // lime
-  'oklch(0.70 0.13 40)', // amber
-]
+const CHART_PALETTE = Array.from({ length: 12 }, (_, i) => `var(--chart-${i + 1})`)
 
-const OTHER_COLOR = 'oklch(0.6 0 0)'
+const OTHER_COLOR = 'var(--chart-other)'
 
 export function paletteColor(index: number): string {
   return CHART_PALETTE[index % CHART_PALETTE.length]
 }
 
-export function sliceColor(category: TransactionCategory | 'OTHER', index: number): string {
-  return category === 'OTHER' ? OTHER_COLOR : paletteColor(index)
+const CATEGORY_COLORS: Record<TransactionCategory, string> = {
+  SALARY: CHART_PALETTE[2],
+  ALLOWANCE: CHART_PALETTE[10],
+  PENSION: CHART_PALETTE[4],
+  SIDE_INCOME: CHART_PALETTE[9],
+  REIMBURSEMENT: CHART_PALETTE[0],
+  INTEREST: CHART_PALETTE[6],
+  INVESTMENT: CHART_PALETTE[3],
+  RENT: CHART_PALETTE[0],
+  UTILITIES: CHART_PALETTE[9],
+  SUPERMARKET: CHART_PALETTE[2],
+  ONLINE_SHOPPING: CHART_PALETTE[1],
+  RESTAURANTS: CHART_PALETTE[11],
+  FUEL: CHART_PALETTE[5],
+  SUBSCRIPTIONS: CHART_PALETTE[6],
+  ENTERTAINMENT: CHART_PALETTE[3],
+  TRAVEL: CHART_PALETTE[4],
+  FITNESS: CHART_PALETTE[10],
+  CLOTHING: CHART_PALETTE[8],
+  DRUGSTORE: CHART_PALETTE[7],
+  PERSONAL_CARE: CHART_PALETTE[3],
+  GIFTS: CHART_PALETTE[8],
+  FEES: CHART_PALETTE[5],
+  SAVINGS: CHART_PALETTE[4],
+  WITHDRAWAL: CHART_PALETTE[11],
+  DEPOSIT: CHART_PALETTE[10],
+  TRANSFER: CHART_PALETTE[0],
+  UNKNOWN: OTHER_COLOR,
+}
+
+export function sliceColor(category: TransactionCategory | 'OTHER'): string {
+  return category === 'OTHER' ? OTHER_COLOR : CATEGORY_COLORS[category]
 }

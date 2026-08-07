@@ -25,7 +25,7 @@ function BankingCallbackPage() {
     <main className="mx-auto flex min-h-dvh max-w-page flex-col items-center justify-center gap-4 p-4 text-center">
       {code ? (
         <>
-          <h1 className="text-foreground text-2xl font-semibold">
+          <h1 className="text-foreground text-lg font-semibold">
             {t('credentials.enableBanking.callbackTitle')}
           </h1>
           <p className="text-muted-foreground text-sm">
@@ -45,7 +45,7 @@ function BankingCallbackPage() {
         </>
       ) : (
         <>
-          <h1 className="text-foreground text-2xl font-semibold">
+          <h1 className="text-foreground text-lg font-semibold">
             {t('credentials.enableBanking.callbackErrorTitle')}
           </h1>
           <p className="text-muted-foreground text-sm">

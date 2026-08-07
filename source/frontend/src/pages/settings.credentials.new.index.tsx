@@ -57,7 +57,7 @@ export function BankPickerView({
       <div className="bg-background sticky top-0 z-10 -mx-4 -mt-4 -mb-3 flex flex-col gap-6 px-4 pt-4 pb-3">
         <header className="flex items-center gap-2">
           <BackLink to="/settings/credentials" />
-          <h1 className="text-foreground text-2xl font-semibold">{t('credentials.pickerTitle')}</h1>
+          <h1 className="text-foreground text-lg font-semibold">{t('credentials.pickerTitle')}</h1>
           <Button asChild variant="primary" size="sm" className="ml-auto">
             <a href={BANK_HANDLERS_DOCS_URL} target="_blank" rel="noopener noreferrer">
               <BookOpen className="size-4" aria-hidden="true" />

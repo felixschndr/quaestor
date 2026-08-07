@@ -110,6 +110,7 @@
   "overview": {
     "hello": "Hallo <name>{{name}}</name>",
     "emptyTitle": "Noch keine Konten",
+    "emptyLead": "Verbinde deine Banken und sieh alle Salden an einem Ort.",
     "emptyCta": "Erste Bank verbinden",
     "syncAll": {
       "aria": "Alle Konten synchronisieren"

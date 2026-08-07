@@ -35,6 +35,20 @@
 
   --warning: oklch(0.82 0.16 85);
   --warning-foreground: #1e1e1e;
+
+  --chart-1: oklch(0.66 0.16 250);
+  --chart-2: oklch(0.73 0.17 60);
+  --chart-3: oklch(0.72 0.17 150);
+  --chart-4: oklch(0.66 0.2 330);
+  --chart-5: oklch(0.75 0.13 195);
+  --chart-6: oklch(0.66 0.2 25);
+  --chart-7: oklch(0.64 0.17 285);
+  --chart-8: oklch(0.8 0.16 100);
+  --chart-9: oklch(0.7 0.18 355);
+  --chart-10: oklch(0.71 0.13 220);
+  --chart-11: oklch(0.74 0.16 120);
+  --chart-12: oklch(0.7 0.13 40);
+  --chart-other: oklch(0.6 0 0);
 }
 
 .light {
@@ -64,6 +78,20 @@
 
   --warning: oklch(0.68 0.16 75);
   --warning-foreground: #ffffff;
+
+  --chart-1: oklch(0.52 0.19 250);
+  --chart-2: oklch(0.58 0.18 60);
+  --chart-3: oklch(0.55 0.16 150);
+  --chart-4: oklch(0.53 0.22 330);
+  --chart-5: oklch(0.57 0.13 195);
+  --chart-6: oklch(0.55 0.22 25);
+  --chart-7: oklch(0.51 0.2 285);
+  --chart-8: oklch(0.62 0.15 100);
+  --chart-9: oklch(0.57 0.2 355);
+  --chart-10: oklch(0.55 0.14 220);
+  --chart-11: oklch(0.57 0.15 120);
+  --chart-12: oklch(0.56 0.14 40);
+  --chart-other: oklch(0.55 0 0);
 }
 
 @theme {
@@ -173,6 +201,25 @@
   }
 }
 
+@keyframes balance-settle {
+  0% {
+    color: var(--color-success);
+  }
+  100% {
+    color: var(--color-primary);
+  }
+}
+
+.balance-settle {
+  animation: balance-settle 600ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balance-settle {
+    animation: none;
+  }
+}
+
 @keyframes search-zoom {
   0% {
     transform: scale(1);
@@ -250,7 +297,6 @@
     @apply bg-background text-foreground antialiased;
     margin: 0;
     font-family:
-      Inter,
       ui-sans-serif,
       system-ui,
       -apple-system,

@@ -15,7 +15,7 @@ export function SettingsSubPage({
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-8 p-4">
       <header className="flex items-center gap-2">
         <BackLink to="/settings/user" />
-        <h1 className="text-foreground flex-1 text-2xl font-semibold">{title}</h1>
+        <h1 className="text-foreground flex-1 text-lg font-semibold">{title}</h1>
         {headerExtra}
       </header>
       {children}
@@ -35,7 +35,7 @@ export function Section({
   return (
     <section className="border-border bg-card flex flex-col gap-4 rounded-lg border p-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-foreground text-lg font-semibold">{title}</h2>
+        <h2 className="text-foreground text-base font-semibold">{title}</h2>
         {description ? (
           <p className="text-muted-foreground text-sm select-none">{description}</p>
         ) : null}

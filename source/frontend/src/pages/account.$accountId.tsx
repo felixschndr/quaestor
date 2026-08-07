@@ -802,15 +802,17 @@ function ExpectedTransactionsList({ accountId, onAdd }: { accountId: number; onA
       className="flex flex-col gap-2"
     >
       <div className="flex items-center justify-between gap-2">
-        <Collapsible.Trigger className="group/collapsible flex flex-1 cursor-pointer items-center gap-2">
-          <ChevronRight
-            aria-hidden="true"
-            className="text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 ease-in-out group-data-[state=open]/collapsible:rotate-90"
-          />
-          <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-            {t('expectedTransactions.title')}
-          </h2>
-        </Collapsible.Trigger>
+        <h2 className="flex-1">
+          <Collapsible.Trigger className="group/collapsible flex w-full cursor-pointer items-center gap-2">
+            <ChevronRight
+              aria-hidden="true"
+              className="text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 ease-in-out group-data-[state=open]/collapsible:rotate-90"
+            />
+            <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+              {t('expectedTransactions.title')}
+            </span>
+          </Collapsible.Trigger>
+        </h2>
         <Button type="button" size="sm" variant="outline" onClick={onAdd}>
           <Plus className="size-3.5" aria-hidden="true" />
           {t('expectedTransactions.addShort')}

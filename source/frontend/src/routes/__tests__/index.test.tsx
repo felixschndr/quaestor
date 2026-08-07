@@ -13,6 +13,30 @@ import { OverviewView } from '@/pages'
 import { sumFactoredBalance } from '@/lib/accountDisplayGroups'
 import { buildUser } from './-settingsUserTestHelpers'
 
+function buildCredential(): UserRead['credentials'][number] {
+  return {
+    id: 1,
+    bank: 'ing',
+    bank_name: null,
+    bank_icon: null,
+    accounts: [
+      {
+        id: 8,
+        name: 'DE12345678900001',
+        display_name: null,
+        balance: 10,
+        balance_factor: 100,
+        is_hidden: false,
+        include_by_default: true,
+        is_market_valued: false,
+      },
+    ],
+    last_fetching_timestamp: null,
+    requires_two_factor_authentication: false,
+    sync_enabled: true,
+  }
+}
+
 function render_(user: UserRead) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
@@ -25,11 +49,7 @@ function render_(user: UserRead) {
 }
 
 beforeEach(() => {
-  // Collapsed-group state is persisted to localStorage; clear it so each test
-  // starts with every group expanded.
   window.localStorage.clear()
-  // Stub the /account_groups/layout fetch; the default (no custom groups)
-  // returns an empty layout so the overview falls back to "by bank".
   globalThis.fetch = vi.fn().mockResolvedValue(
     new Response(JSON.stringify({ groups: [], ungrouped: [] }), {
       status: 200,
@@ -54,8 +74,17 @@ describe('OverviewView', () => {
   })
 
   it('renders the total balance formatted as EUR (de-DE locale)', () => {
-    render_(buildUser({ balance: 1234.5 }))
+    render_(buildUser({ balance: 1234.5, credentials: [buildCredential()] }))
     expect(screen.getByText('1.234,50 €')).toBeInTheDocument()
+  })
+
+  it('hides the balance and the account-only actions until a bank is connected', () => {
+    render_(buildUser({ balance: 0 }))
+    expect(screen.queryByText('0,00 €')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sync all accounts' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Statistics' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Connect your first bank' })).toBeInTheDocument()
   })
 
   it('shows the empty state and a CTA linking to /settings/credentials when there are no accounts', () => {
@@ -265,7 +294,7 @@ describe('OverviewView', () => {
     })
     render_(user)
 
-    const heading = await screen.findByRole('heading', { level: 2, name: 'Spar' })
+    const heading = await screen.findByRole('heading', { level: 2, name: /Spar/ })
     expect(heading).toBeInTheDocument()
   })
 
@@ -330,14 +359,13 @@ describe('OverviewView', () => {
     })
     render_(user)
 
-    const sparHeading = await screen.findByRole('heading', { level: 2, name: 'Spar' })
-    expect(sparHeading.parentElement).toHaveTextContent('200,00 €')
+    const sparHeading = await screen.findByRole('heading', { level: 2, name: /Spar/ })
+    expect(sparHeading).toHaveTextContent('200,00 €')
 
-    const ungroupedHeading = await screen.findByRole('heading', { level: 2, name: 'Without group' })
-    const total = ungroupedHeading.parentElement?.querySelector('span')
+    const ungroupedHeading = await screen.findByRole('heading', { level: 2, name: /Without group/ })
+    const spans = ungroupedHeading.querySelectorAll('span')
+    const total = spans[spans.length - 1]
     expect(total).toHaveTextContent('-50,00 €')
-    // Group totals share the muted heading color regardless of sign — they're a
-    // subtle subtotal, not a primary number.
     expect(total?.className).toMatch(/text-muted-foreground/)
   })
 
@@ -380,7 +408,7 @@ describe('OverviewView', () => {
     render_(user)
 
     expect(
-      await screen.findByRole('heading', { level: 2, name: 'Without group' }),
+      await screen.findByRole('heading', { level: 2, name: /Without group/ }),
     ).toBeInTheDocument()
   })
 
@@ -432,7 +460,7 @@ describe('OverviewView', () => {
     })
     render_(user)
 
-    const heading = await screen.findByRole('heading', { level: 2, name: 'Spar' })
+    const heading = await screen.findByRole('heading', { level: 2, name: /Spar/ })
     // Group total = 100 only (hidden 9999 doesn't count).
     expect(heading.parentElement).toHaveTextContent('100,00 €')
     expect(screen.getByText('Visible')).toBeInTheDocument()

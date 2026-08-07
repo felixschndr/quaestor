@@ -1,8 +1,8 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { Collapsible } from 'radix-ui'
-import { ChevronRight, Search, Settings } from 'lucide-react'
+import { ChevronRight, Landmark, Search, Settings } from 'lucide-react'
 
 import { ContractIcon } from '@/components/contract-icon'
 import { StatsIcon } from '@/components/stats-icon'
@@ -81,6 +81,14 @@ export function OverviewView({
   )
   const searchAnchorId = allAccountIds[0]
 
+  const [settleKey, setSettleKey] = useState<number | null>(null)
+  const lastBalance = useRef(user.balance)
+  useEffect(() => {
+    if (lastBalance.current === user.balance) return
+    lastBalance.current = user.balance
+    setSettleKey(Date.now())
+  }, [user.balance])
+
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-start justify-between px-2">
@@ -92,29 +100,35 @@ export function OverviewView({
           />
         </h1>
         <div className="-mr-1.5 flex items-center gap-1">
-          <SyncButton
-            onClick={onSyncClick}
-            spinning={syncSpinning}
-            disabled={syncDisabled}
-            succeededAt={syncSucceededAt}
-            ariaLabel={t('overview.syncAll.aria')}
-          />
-          <Link
-            to="/stats"
-            aria-label={t('stats.title')}
-            title={t('stats.title')}
-            className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
-          >
-            <StatsIcon className="size-5" />
-          </Link>
-          <Link
-            to="/contracts"
-            aria-label={t('contracts.title')}
-            title={t('contracts.title')}
-            className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
-          >
-            <ContractIcon className="size-5" />
-          </Link>
+          {hasAccounts ? (
+            <SyncButton
+              onClick={onSyncClick}
+              spinning={syncSpinning}
+              disabled={syncDisabled}
+              succeededAt={syncSucceededAt}
+              ariaLabel={t('overview.syncAll.aria')}
+            />
+          ) : null}
+          {hasAccounts ? (
+            <>
+              <Link
+                to="/stats"
+                aria-label={t('stats.title')}
+                title={t('stats.title')}
+                className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
+              >
+                <StatsIcon className="size-5" />
+              </Link>
+              <Link
+                to="/contracts"
+                aria-label={t('contracts.title')}
+                title={t('contracts.title')}
+                className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
+              >
+                <ContractIcon className="size-5" />
+              </Link>
+            </>
+          ) : null}
           {searchAnchorId !== undefined ? (
             <Link
               to="/account/$accountId/search"
@@ -137,11 +151,19 @@ export function OverviewView({
         </div>
       </header>
 
-      <section className="flex flex-col items-center gap-1">
-        <p className="text-primary text-5xl font-bold tracking-tight">
-          {formatMoney(user.balance)}
-        </p>
-      </section>
+      {hasAccounts ? (
+        <section className="flex flex-col items-center gap-1">
+          <p
+            key={settleKey}
+            className={cn(
+              'text-primary text-4xl font-bold tracking-tight tabular-nums',
+              settleKey !== null && 'balance-settle',
+            )}
+          >
+            {formatMoney(user.balance)}
+          </p>
+        </section>
+      ) : null}
 
       {hasAccounts ? (
         <AccountGroupList groups={displayGroups} syncStates={accountSyncStates} />
@@ -187,18 +209,20 @@ function AccountGroupList({
         return (
           <li key={group.key}>
             <Collapsible.Root open={!isCollapsed(group.key)} onOpenChange={() => toggle(group.key)}>
-              <Collapsible.Trigger className="group/collapsible focus-visible:ring-ring flex w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left focus-visible:ring-2 focus-visible:outline-none">
-                <ChevronRight
-                  aria-hidden="true"
-                  className="text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 ease-in-out group-data-[state=open]/collapsible:rotate-90"
-                />
-                <h2 className="text-muted-foreground flex-1 text-xs font-semibold tracking-wide uppercase">
-                  {heading}
-                </h2>
-                <span className="text-muted-foreground text-xs font-semibold tabular-nums">
-                  {formatMoney(total)}
-                </span>
-              </Collapsible.Trigger>
+              <h2>
+                <Collapsible.Trigger className="group/collapsible focus-visible:ring-ring flex w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left focus-visible:ring-2 focus-visible:outline-none">
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 ease-in-out group-data-[state=open]/collapsible:rotate-90"
+                  />
+                  <span className="text-muted-foreground flex-1 text-xs font-semibold tracking-wide uppercase">
+                    {heading}
+                  </span>
+                  <span className="text-muted-foreground text-xs font-semibold tabular-nums">
+                    {formatMoney(total)}
+                  </span>
+                </Collapsible.Trigger>
+              </h2>
               <Collapsible.Content className="collapsible-content overflow-hidden">
                 <ul className="flex flex-col pt-2">{accountRows}</ul>
               </Collapsible.Content>
@@ -212,9 +236,6 @@ function AccountGroupList({
 
 function AccountRow({ account, syncState }: { account: AccountWithBank; syncState: SyncState }) {
   const negative = account.balance < 0
-  // Surface a non-100 balance_factor so the user can see why their group total
-  // doesn't equal a naive sum of account balances. Rendered in the muted
-  // heading color so the actual balance still pops.
   const hasFactor = account.balance_factor !== 100
   return (
     <li>
@@ -248,9 +269,13 @@ function AccountRow({ account, syncState }: { account: AccountWithBank; syncStat
 function EmptyState() {
   const { t } = useTranslation()
   return (
-    <section className="border-border bg-card flex flex-col items-center gap-4 rounded-lg border border-dashed p-8 text-center">
-      <p className="text-muted-foreground text-sm">{t('overview.emptyTitle')}</p>
-      <Button asChild>
+    <section className="border-border bg-card flex flex-col items-center gap-3 rounded-lg border border-dashed p-8 text-center">
+      <Landmark className="text-primary size-8" aria-hidden="true" />
+      <div className="flex flex-col gap-1">
+        <p className="text-foreground text-base font-semibold">{t('overview.emptyTitle')}</p>
+        <p className="text-muted-foreground max-w-sm text-sm">{t('overview.emptyLead')}</p>
+      </div>
+      <Button asChild className="mt-1">
         <Link to="/settings/credentials/new">{t('overview.emptyCta')}</Link>
       </Button>
     </section>

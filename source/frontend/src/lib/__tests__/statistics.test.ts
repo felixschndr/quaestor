@@ -16,6 +16,7 @@ import {
   type CategoryChartDatum,
   type MonthlyCashflow,
 } from '@/lib/statistics'
+import { TRANSACTION_CATEGORIES } from '@/lib/transaction'
 
 describe('buildStatsQueryString', () => {
   it('emits one account_ids entry per id', () => {
@@ -158,16 +159,36 @@ describe('aggregateTopN', () => {
 })
 
 describe('sliceColor', () => {
-  it('is positional — same rank yields the same color regardless of category', () => {
-    expect(sliceColor('SALARY', 0)).toBe(sliceColor('FUEL', 0))
-  })
-
-  it('gives the first ranks distinct colors', () => {
-    expect(sliceColor('SALARY', 0)).not.toBe(sliceColor('FUEL', 1))
+  it('keys the color on the category, not on its rank', () => {
+    expect(sliceColor('SUPERMARKET')).not.toBe(sliceColor('RENT'))
   })
 
   it('uses a neutral gray for the OTHER bucket', () => {
-    expect(sliceColor('OTHER', 3)).toBe('oklch(0.6 0 0)')
+    expect(sliceColor('OTHER')).toBe('var(--chart-other)')
+  })
+
+  it('gives every category a color', () => {
+    for (const category of TRANSACTION_CATEGORIES) {
+      expect(sliceColor(category)).toMatch(/^var\(--chart-/)
+    }
+  })
+
+  it('keeps the twelve most common expense categories visually distinct', () => {
+    const common = [
+      'RENT',
+      'UTILITIES',
+      'SUPERMARKET',
+      'ONLINE_SHOPPING',
+      'RESTAURANTS',
+      'FUEL',
+      'SUBSCRIPTIONS',
+      'ENTERTAINMENT',
+      'TRAVEL',
+      'FITNESS',
+      'CLOTHING',
+      'DRUGSTORE',
+    ] as const
+    expect(new Set(common.map((category) => sliceColor(category))).size).toBe(common.length)
   })
 })
 

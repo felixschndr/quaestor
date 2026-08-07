@@ -64,7 +64,7 @@ export function NewCredentialFormView({
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
         <BackLink to="/settings/credentials/new" />
-        <h1 className="text-foreground text-2xl font-semibold">
+        <h1 className="text-foreground text-lg font-semibold">
           {bankKey === 'manual'
             ? t('credentials.formTitleManual')
             : t('credentials.formTitle', { bank: bankTitle })}
