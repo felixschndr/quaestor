@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { SyncButton } from '@/components/sync-button'
 import { Sparkline } from '@/components/sparkline'
 import { UpcomingContracts } from '@/components/upcoming-contracts'
+import { WarningDot } from '@/components/warning-dot'
 import { SyncStatusIcon, type SyncState } from '@/components/sync-check'
 import { presetDateRange, useNetWorthStats } from '@/lib/statistics'
 import {
@@ -32,6 +33,7 @@ import {
   type DisplayGroup,
 } from '@/lib/accountDisplayGroups'
 import { useCollapsedGroups } from '@/lib/collapsedGroups'
+import { useContracts } from '@/lib/contract'
 import type { SyncJob } from '@/lib/credentials'
 import { cn } from '@/lib/utils'
 
@@ -40,12 +42,7 @@ interface OverviewViewProps {
   onSyncClick: () => void
   syncDisabled: boolean
   syncSpinning: boolean
-  /** Passed straight to the {@link SyncButton}; a fresh Date.now() value
-   *  triggers the green-check zoom animation. Defaults to null for tests
-   *  that don't care about the success path. */
   syncSucceededAt?: number | null
-  /** Live sync jobs keyed by credential id, so each account row can show
-   *  whether its own bank is still syncing. */
   syncJobs?: Map<number, SyncJob>
 }
 
@@ -89,6 +86,11 @@ export function OverviewView({
     }
     return states
   }, [user, syncJobs])
+  const { data: contracts } = useContracts()
+  const overdueCount = (contracts ?? []).filter(
+    (contract) => contract.is_overdue && visibleAccountIds.includes(contract.account_id),
+  ).length
+  const staleSince = staleSyncTimestamp(user.credentials)
   const [settleKey, setSettleKey] = useState<number | null>(null)
   const lastBalance = useRef(user.balance)
   useEffect(() => {
@@ -116,6 +118,7 @@ export function OverviewView({
               succeededAt={syncSucceededAt}
               ariaLabel={t('overview.syncAll.aria')}
               className="p-2.5"
+              warn={staleSince !== null}
             />
           ) : null}
           {hasAccounts ? (
@@ -130,11 +133,16 @@ export function OverviewView({
               </Link>
               <Link
                 to="/contracts"
-                aria-label={t('contracts.title')}
+                aria-label={
+                  overdueCount > 0
+                    ? t('overview.contractsOverdue', { count: overdueCount })
+                    : t('contracts.title')
+                }
                 title={t('contracts.title')}
-                className="text-primary hover:text-primary/80 focus-visible:ring-ring group rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                className="text-primary hover:text-primary/80 focus-visible:ring-ring group relative rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
               >
                 <ContractIcon className="size-5" />
+                {overdueCount > 0 ? <WarningDot /> : null}
               </Link>
             </>
           ) : null}
@@ -170,7 +178,7 @@ export function OverviewView({
           >
             {formatMoney(user.balance)}
           </p>
-          <LastSyncedLine credentials={user.credentials} />
+          {staleSince ? <LastSyncedLine timestamp={staleSince} /> : null}
           <NetWorthTrend accountIds={visibleAccountIds} />
         </section>
       ) : null}
@@ -191,22 +199,21 @@ export function OverviewView({
 
 const STALE_AFTER_MS = 5 * 24 * 60 * 60 * 1000
 
-function isStale(timestamp: string): boolean {
-  return Date.now() - parseTimestamp(timestamp).getTime() > STALE_AFTER_MS
-}
-
-function LastSyncedLine({ credentials }: { credentials: CredentialRead[] }) {
-  const { t } = useTranslation()
+function staleSyncTimestamp(credentials: CredentialRead[]): string | null {
   const timestamps = credentials
     .filter((credential) => credential.sync_enabled)
     .map((credential) => credential.last_fetching_timestamp)
     .filter((timestamp): timestamp is string => timestamp !== null)
   if (timestamps.length === 0) return null
   const oldest = timestamps.reduce((a, b) => (parseTimestamp(a) <= parseTimestamp(b) ? a : b))
-  if (!isStale(oldest)) return null
+  return Date.now() - parseTimestamp(oldest).getTime() > STALE_AFTER_MS ? oldest : null
+}
+
+function LastSyncedLine({ timestamp }: { timestamp: string }) {
+  const { t } = useTranslation()
   return (
     <p className="text-warning text-xs">
-      {t('credentials.lastSynced')}: {formatRelativeDateTime(oldest, t)}
+      {t('credentials.lastSynced')}: {formatRelativeDateTime(timestamp, t)}
     </p>
   )
 }

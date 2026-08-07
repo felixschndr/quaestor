@@ -123,7 +123,9 @@
     "syncFailed": "Synchronisierung fehlgeschlagen",
     "search": "Transaktionen durchsuchen",
     "upcoming": "Demnächst fällig",
-    "trendRange": "im letzten Monat"
+    "trendRange": "im letzten Monat",
+    "contractsOverdue_one": "Verträge – {{count}} überfällig",
+    "contractsOverdue_other": "Verträge – {{count}} überfällig"
   },
   "account": {
     "back": "Zurück",

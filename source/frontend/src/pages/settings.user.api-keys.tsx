@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { RowActions } from '@/components/row-actions'
+import { ListSkeleton } from '@/components/list-skeleton'
 import { QueryStates } from '@/components/query-states'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -45,6 +46,7 @@ export function SettingsApiKeysView() {
       <QueryStates
         query={keys}
         loadingText={t('common.loading')}
+        loadingSkeleton={<ListSkeleton rows={2} />}
         errorText={t('apiKeys.loadError')}
         isEmpty={sortedList.length === 0}
         emptyText={t('apiKeys.empty')}

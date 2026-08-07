@@ -870,6 +870,47 @@ describe('OverviewView upcoming contracts', () => {
   })
 })
 
+describe('OverviewView overdue badge', () => {
+  const overdue = {
+    id: 1,
+    account_id: 8,
+    name: 'Rent',
+    note: null,
+    category: 'RENT',
+    source: 'DETECTED',
+    median_amount: -800,
+    frequency: 'MONTHLY',
+    expected_next_date: '2020-01-01',
+    end_date: null,
+    is_archived: false,
+    is_overdue: true,
+    amount_per_day: -26,
+    amount_per_frequency: null,
+  } satisfies ContractRead
+
+  it('counts overdue contracts into the contracts icon label', async () => {
+    mockApi({ contracts: [overdue, { ...overdue, id: 2, name: 'Gym' }] })
+    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+
+    expect(await screen.findByRole('link', { name: 'Contracts – 2 overdue' })).toBeInTheDocument()
+  })
+
+  it('leaves the plain label when nothing is overdue', async () => {
+    mockApi({ contracts: [{ ...overdue, is_overdue: false, expected_next_date: '2099-01-15' }] })
+    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+
+    await screen.findByRole('link', { name: 'Contracts' })
+    expect(screen.queryByRole('link', { name: /overdue/ })).not.toBeInTheDocument()
+  })
+
+  it('ignores contracts of accounts that are not on the overview', async () => {
+    mockApi({ contracts: [{ ...overdue, account_id: 999 }] })
+    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+
+    await screen.findByRole('link', { name: 'Contracts' })
+  })
+})
+
 describe('OverviewView upcoming contracts visibility', () => {
   const contract = {
     id: 1,

@@ -123,7 +123,9 @@
     "syncFailed": "Sync failed",
     "search": "Search transactions",
     "upcoming": "Due soon",
-    "trendRange": "in the past month"
+    "trendRange": "in the past month",
+    "contractsOverdue_one": "Contracts – {{count}} overdue",
+    "contractsOverdue_other": "Contracts – {{count}} overdue"
   },
   "account": {
     "back": "Back",

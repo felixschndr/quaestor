@@ -65,6 +65,48 @@ export const CATEGORY_ICONS: Record<TransactionCategory, LucideIcon> = {
   UNKNOWN: CircleHelp,
 }
 
+const TONES = {
+  income: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  finance: 'bg-teal-500/15 text-teal-600 dark:text-teal-400',
+  home: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  mobility: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+  shopping: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+  body: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+  leisure: 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400',
+  cash: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  none: 'bg-muted text-muted-foreground',
+} as const
+
+export const CATEGORY_TONES: Record<TransactionCategory, keyof typeof TONES> = {
+  SALARY: 'income',
+  ALLOWANCE: 'income',
+  PENSION: 'income',
+  SIDE_INCOME: 'income',
+  REIMBURSEMENT: 'income',
+  INTEREST: 'finance',
+  INVESTMENT: 'finance',
+  SAVINGS: 'finance',
+  RENT: 'home',
+  UTILITIES: 'home',
+  SUBSCRIPTIONS: 'home',
+  FEES: 'home',
+  TRAVEL: 'mobility',
+  FUEL: 'mobility',
+  ONLINE_SHOPPING: 'shopping',
+  SUPERMARKET: 'shopping',
+  DRUGSTORE: 'shopping',
+  CLOTHING: 'shopping',
+  FITNESS: 'body',
+  PERSONAL_CARE: 'body',
+  RESTAURANTS: 'leisure',
+  ENTERTAINMENT: 'leisure',
+  GIFTS: 'leisure',
+  WITHDRAWAL: 'cash',
+  DEPOSIT: 'cash',
+  TRANSFER: 'cash',
+  UNKNOWN: 'none',
+}
+
 export function useCategoryOptions(): SingleSelectOption<TransactionCategory>[] {
   const { t, i18n } = useTranslation()
   return useMemo(() => {
@@ -97,10 +139,12 @@ export function CategoryAvatar({
   iconClassName?: string
 }) {
   const Icon = CATEGORY_ICONS[category as keyof typeof CATEGORY_ICONS] ?? CircleHelp
+  const tone = TONES[CATEGORY_TONES[category as TransactionCategory] ?? 'none']
   return (
     <span
       className={cn(
-        'bg-muted text-muted-foreground flex size-14 shrink-0 items-center justify-center rounded-full',
+        'flex size-14 shrink-0 items-center justify-center rounded-full',
+        tone,
         className,
       )}
     >

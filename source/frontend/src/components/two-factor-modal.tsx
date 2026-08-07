@@ -120,7 +120,7 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
                 onChange={(event) => setCode(event.target.value)}
               />
             </div>
-            <Button type="submit" disabled={submitting || code.length === 0}>
+            <Button type="submit" pending={submitting} disabled={code.length === 0}>
               {submitting ? t('common.confirming') : t('common.confirm')}
             </Button>
           </form>

@@ -199,7 +199,7 @@ export function LoginForm({
 
       {topLevelError ? <FormErrorBanner message={topLevelError} /> : null}
 
-      <Button type="submit" disabled={login.isPending}>
+      <Button type="submit" pending={login.isPending}>
         {t('login.loginTab')}
       </Button>
     </form>
@@ -281,7 +281,7 @@ function TwoFactorLoginStep({
         ) : null}
       </div>
       <p className="text-muted-foreground text-xs">{t('twoFactor.backupLoginHint')}</p>
-      <Button type="submit" disabled={verify.isPending || code.trim().length === 0}>
+      <Button type="submit" pending={verify.isPending} disabled={code.trim().length === 0}>
         {t('twoFactor.verifyLogin')}
       </Button>
       <Button type="button" variant="outline" onClick={onBack} disabled={verify.isPending}>
@@ -495,7 +495,7 @@ export function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
             >
               {t('common.back')}
             </Button>
-            <Button type="submit" className="flex-1" disabled={register.isPending}>
+            <Button type="submit" className="flex-1" pending={register.isPending}>
               {t('login.submitRegister')}
             </Button>
           </div>

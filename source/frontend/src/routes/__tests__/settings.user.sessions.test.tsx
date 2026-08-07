@@ -224,3 +224,12 @@ describe('SettingsSessionsView', () => {
     expect(await screen.findByText('Could not load sessions.')).toBeInTheDocument()
   })
 })
+
+describe('SettingsSessionsView loading', () => {
+  it('shows skeleton rows while still announcing the loading state', () => {
+    ;(globalThis.fetch as Mock).mockImplementation(() => new Promise(() => {}))
+    renderWithQuery(<SettingsSessionsView user={buildUser()} />)
+    expect(screen.getByText('Loading…')).toHaveClass('sr-only')
+    expect(document.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
+  })
+})
