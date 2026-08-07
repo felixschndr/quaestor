@@ -648,4 +648,59 @@ describe('OverviewView', () => {
     await waitFor(() => expect(screen.getByLabelText('Synced')).toBeInTheDocument())
     expect(screen.getAllByLabelText('Syncing')).toHaveLength(1)
   })
+
+  it('marks a failed account, but not one the user cancelled', () => {
+    const credential = (id: number, accountId: number, name: string) => ({
+      id,
+      bank: 'ing',
+      bank_name: null,
+      bank_icon: null,
+      accounts: [
+        {
+          id: accountId,
+          name,
+          display_name: null,
+          balance: 0,
+          balance_factor: 100,
+          is_hidden: false,
+          include_by_default: true,
+          is_market_valued: false,
+        },
+      ],
+      last_fetching_timestamp: null,
+      requires_two_factor_authentication: false,
+      sync_enabled: true,
+    })
+    const user = buildUser({
+      credentials: [credential(1, 11, 'Broken'), credential(2, 22, 'Skipped')],
+    })
+    const job = (credentialId: number, errorCode: SyncJob['error_code']): SyncJob => ({
+      job_id: `j${credentialId}`,
+      credential_id: credentialId,
+      status: 'failed',
+      expires_at: null,
+      error: null,
+      error_code: errorCode,
+    })
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <OverviewView
+          user={user}
+          onSyncClick={() => {}}
+          syncDisabled={false}
+          syncSpinning={false}
+          syncJobs={
+            new Map([
+              [1, job(1, 'unknown')],
+              [2, job(2, 'cancelled')],
+            ])
+          }
+        />
+      </QueryClientProvider>,
+    )
+    expect(screen.getAllByLabelText('Sync failed')).toHaveLength(1)
+  })
 })

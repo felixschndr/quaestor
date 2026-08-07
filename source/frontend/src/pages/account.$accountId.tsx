@@ -122,6 +122,7 @@ export function AccountDetailView({
   bank,
   lastUpdated,
   pages,
+  isLoading = false,
   isFetchingNextPage,
   hasNextPage,
   onLoadMore,
@@ -236,6 +237,7 @@ export function AccountDetailView({
                 to="/stats"
                 search={{ account_ids: [account.id] }}
                 aria-label={t('account.statistics')}
+                title={t('account.statistics')}
                 className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
               >
                 <StatsIcon className="size-5" />
@@ -244,6 +246,7 @@ export function AccountDetailView({
                 to="/contracts"
                 search={{ account_ids: [account.id] }}
                 aria-label={t('contracts.title')}
+                title={t('contracts.title')}
                 className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
               >
                 <ContractIcon className="size-5" />
@@ -253,6 +256,7 @@ export function AccountDetailView({
                 params={{ accountId: String(account.id) }}
                 search={{ account_ids: [account.id] }}
                 aria-label={t('account.search')}
+                title={t('account.search')}
                 className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
               >
                 <Search className="search-icon-zoom size-5" />
@@ -332,6 +336,8 @@ export function AccountDetailView({
             isMarketValued={account.is_market_valued}
             highlightId={highlightId}
           />
+        ) : isLoading ? (
+          <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
         ) : (
           <p className="text-muted-foreground text-sm">{t('account.empty')}</p>
         )}

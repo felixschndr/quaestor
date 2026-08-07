@@ -252,6 +252,24 @@ describe('AccountDetailView', () => {
     expect(screen.getByText('No transactions yet.')).toBeInTheDocument()
   })
 
+  it('shows a loading line instead of the empty state while the first page loads', () => {
+    render(
+      withClient(
+        <AccountDetailView
+          account={account}
+          pages={[]}
+          isLoading
+          isFetchingNextPage={false}
+          hasNextPage={false}
+          onLoadMore={vi.fn()}
+          today={new Date(2026, 4, 22)}
+        />,
+      ),
+    )
+    expect(screen.queryByText('No transactions yet.')).not.toBeInTheDocument()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+  })
+
   it('groups transactions by date with day-end balance and relative labels', () => {
     renderView([
       buildPage({

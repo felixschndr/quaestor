@@ -28,6 +28,7 @@ export function SyncButton({
       onClick={onClick}
       disabled={disabled || checkMounted}
       aria-label={ariaLabel}
+      title={ariaLabel}
       className={cn(
         'group cursor-pointer rounded-md p-1.5 transition-colors disabled:cursor-default disabled:opacity-50',
         checkMounted ? 'text-success disabled:opacity-100' : 'text-primary hover:text-primary/80',

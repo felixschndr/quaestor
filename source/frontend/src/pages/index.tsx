@@ -65,7 +65,13 @@ export function OverviewView({
       const job = syncJobs.get(credential.id)
       if (!job) continue
       const state: SyncState =
-        job.status === 'completed' ? 'completed' : job.status === 'failed' ? undefined : 'running'
+        job.status === 'completed'
+          ? 'completed'
+          : job.status === 'failed'
+            ? job.error_code === 'cancelled'
+              ? undefined
+              : 'failed'
+            : 'running'
       for (const account of credential.accounts) states.set(account.id, state)
     }
     return states
@@ -96,6 +102,7 @@ export function OverviewView({
           <Link
             to="/stats"
             aria-label={t('stats.title')}
+            title={t('stats.title')}
             className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
           >
             <StatsIcon className="size-5" />
@@ -103,6 +110,7 @@ export function OverviewView({
           <Link
             to="/contracts"
             aria-label={t('contracts.title')}
+            title={t('contracts.title')}
             className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
           >
             <ContractIcon className="size-5" />
@@ -112,6 +120,7 @@ export function OverviewView({
               to="/account/$accountId/search"
               params={{ accountId: String(searchAnchorId) }}
               aria-label={t('overview.search')}
+              title={t('overview.search')}
               className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
             >
               <Search className="search-icon-zoom size-5" />
@@ -120,6 +129,7 @@ export function OverviewView({
           <Link
             to="/settings"
             aria-label={t('settings.title')}
+            title={t('settings.title')}
             className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
           >
             <Settings className="size-5 transition-transform duration-300 ease-in-out group-hover:rotate-90" />

@@ -160,6 +160,7 @@ function SearchForm({
           id="search-text"
           type="search"
           inputMode="search"
+          autoFocus
           value={draft.text ?? ''}
           onChange={(event) => onUpdate('text', event.target.value)}
           placeholder={t('search.textPlaceholder')}

@@ -12,7 +12,10 @@ function isSupportedLanguage(value: string | undefined): value is SupportedLangu
   return SUPPORTED_LANGUAGES.includes(value as SupportedLanguage)
 }
 
-i18n.on('languageChanged', (lng) => localStorage.setItem('i18nextLng', lng))
+i18n.on('languageChanged', (lng) => {
+  localStorage.setItem('i18nextLng', lng)
+  document.documentElement.lang = lng
+})
 
 void i18n.use(initReactI18next).init({
   resources: {

@@ -40,9 +40,9 @@
 .light {
   --background: #ffffff;
   --foreground: #1e1e1e;
-  --primary: #009eff;
+  --primary: #0072d6;
   --primary-foreground: #ffffff;
-  --ring: #009eff;
+  --ring: #0072d6;
 
   --card: #f8f8f8;
   --card-foreground: var(--foreground);

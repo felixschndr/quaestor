@@ -53,7 +53,9 @@ function OverviewPage() {
             : job.error_code === 'unsupported_bank'
               ? 'sync.unsupportedBank'
               : 'sync.failed'
-        toast.error(t(key, { bank: bankTitle }))
+        toast.error(t(key, { bank: bankTitle }), {
+          action: { label: t('common.retry'), onClick: () => sync.start() },
+        })
       }
     }
   }, [sync.jobs, sync.status, user, t])

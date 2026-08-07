@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Loader2 } from 'lucide-react'
+import { Check, Loader2, TriangleAlert } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -61,7 +61,7 @@ export function SuccessCheck({
   )
 }
 
-export type SyncState = 'running' | 'completed' | undefined
+export type SyncState = 'running' | 'completed' | 'failed' | undefined
 
 export function SyncStatusIcon({ state }: { state: SyncState }) {
   const { t } = useTranslation()
@@ -85,6 +85,15 @@ export function SyncStatusIcon({ state }: { state: SyncState }) {
       <Loader2
         className="text-success size-4 shrink-0 animate-spin"
         aria-label={t('overview.syncing')}
+        role="status"
+      />
+    )
+  }
+  if (state === 'failed') {
+    return (
+      <TriangleAlert
+        className="text-warning size-4 shrink-0"
+        aria-label={t('overview.syncFailed')}
         role="status"
       />
     )

@@ -116,6 +116,7 @@
     },
     "syncing": "Wird synchronisiert",
     "synced": "Synchronisiert",
+    "syncFailed": "Synchronisierung fehlgeschlagen",
     "search": "Transaktionen durchsuchen"
   },
   "account": {

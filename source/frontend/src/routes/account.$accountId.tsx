@@ -76,6 +76,7 @@ function AccountDetailPage() {
           bank={accountInfo.bank}
           lastUpdated={accountInfo.lastFetchingTimestamp}
           pages={history.data?.pages ?? []}
+          isLoading={history.isLoading}
           isFetchingNextPage={history.isFetchingNextPage}
           hasNextPage={!!history.hasNextPage}
           onLoadMore={() => {
@@ -132,6 +133,7 @@ export interface AccountDetailViewProps {
   bank?: string
   lastUpdated?: string | null
   pages: AccountHistoryPage[]
+  isLoading?: boolean
   isFetchingNextPage: boolean
   hasNextPage: boolean
   onLoadMore: () => void
