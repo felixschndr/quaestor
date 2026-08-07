@@ -83,6 +83,14 @@ describe('CredentialDetailView', () => {
     expect(screen.getByText('Never synced')).toBeInTheDocument()
   })
 
+  it('drops the sync caption entirely on a manual credential', () => {
+    renderWithQuery(
+      <CredentialDetailView credential={buildCredential({ bank: 'manual' })} onDeleted={vi.fn()} />,
+    )
+    expect(screen.queryByText('Never synced')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Last synced/)).not.toBeInTheDocument()
+  })
+
   it('renders an empty-accounts hint when there are no accounts', () => {
     renderWithQuery(<CredentialDetailView credential={buildCredential()} onDeleted={vi.fn()} />)
     expect(

@@ -7,11 +7,21 @@ import { ChevronRight, Landmark, Search, Settings } from 'lucide-react'
 import { ContractIcon } from '@/components/contract-icon'
 import { StatsIcon } from '@/components/stats-icon'
 
-import { type UserRead } from '@/lib/auth'
+import { type CredentialRead, type UserRead } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { SyncButton } from '@/components/sync-button'
+import { Sparkline } from '@/components/sparkline'
+import { UpcomingContracts } from '@/components/upcoming-contracts'
 import { SyncStatusIcon, type SyncState } from '@/components/sync-check'
-import { formatMoney, formatFactorMultiplier } from '@/lib/format'
+import { presetDateRange, useNetWorthStats } from '@/lib/statistics'
+import {
+  formatMoney,
+  formatFactorMultiplier,
+  formatPercent,
+  formatRelativeDateTime,
+  formatSignedMoney,
+  parseTimestamp,
+} from '@/lib/format'
 import { accountDisplayName, displayNameOrUserName } from '@/lib/accounts'
 import { AccountLabel } from '@/components/AccountLabel'
 import { useAccountGroupLayout } from '@/lib/accountGroups'
@@ -48,16 +58,19 @@ export function OverviewView({
   syncJobs,
 }: OverviewViewProps) {
   const { t } = useTranslation()
-  // When the user has defined custom groups, render by those. Otherwise fall
-  // back to the original "by bank" layout (with no group headings).
   const customLayout = useAccountGroupLayout()
   const displayGroups = useMemo(
     () => buildDisplayGroups(user, customLayout.data),
     [user, customLayout.data],
   )
   const hasAccounts = displayGroups.some((group) => group.accounts.length > 0)
-  // A job belongs to a credential; every account behind that credential shares
-  // its state, so the map is flattened down to account ids once here.
+  const visibleAccountIds = useMemo(
+    () =>
+      user.credentials.flatMap((credential) =>
+        credential.accounts.filter((account) => !account.is_hidden).map((account) => account.id),
+      ),
+    [user],
+  )
   const accountSyncStates = useMemo(() => {
     const states = new Map<number, SyncState>()
     if (!syncJobs) return states
@@ -157,15 +170,71 @@ export function OverviewView({
           >
             {formatMoney(user.balance)}
           </p>
+          <LastSyncedLine credentials={user.credentials} />
+          <NetWorthTrend accountIds={visibleAccountIds} />
         </section>
       ) : null}
 
       {hasAccounts ? (
-        <AccountGroupList groups={displayGroups} syncStates={accountSyncStates} />
+        <>
+          {user.show_upcoming_contracts ? (
+            <UpcomingContracts accountIds={visibleAccountIds} />
+          ) : null}
+          <AccountGroupList groups={displayGroups} syncStates={accountSyncStates} />
+        </>
       ) : (
         <EmptyState />
       )}
     </main>
+  )
+}
+
+const STALE_AFTER_MS = 5 * 24 * 60 * 60 * 1000
+
+function isStale(timestamp: string): boolean {
+  return Date.now() - parseTimestamp(timestamp).getTime() > STALE_AFTER_MS
+}
+
+function LastSyncedLine({ credentials }: { credentials: CredentialRead[] }) {
+  const { t } = useTranslation()
+  const timestamps = credentials
+    .filter((credential) => credential.sync_enabled)
+    .map((credential) => credential.last_fetching_timestamp)
+    .filter((timestamp): timestamp is string => timestamp !== null)
+  if (timestamps.length === 0) return null
+  const oldest = timestamps.reduce((a, b) => (parseTimestamp(a) <= parseTimestamp(b) ? a : b))
+  if (!isStale(oldest)) return null
+  return (
+    <p className="text-warning text-xs">
+      {t('credentials.lastSynced')}: {formatRelativeDateTime(oldest, t)}
+    </p>
+  )
+}
+
+function NetWorthTrend({ accountIds }: { accountIds: number[] }) {
+  const { t } = useTranslation()
+  const range = useMemo(() => presetDateRange('1m'), [])
+  const { data, isPending } = useNetWorthStats(accountIds, range, accountIds.length > 0)
+  if (accountIds.length === 0) return null
+  if (isPending) return <div className="h-14" aria-hidden="true" />
+  const series = data?.series ?? []
+  if (series.length < 2) return null
+
+  const first = series[0].value
+  const delta = series[series.length - 1].value - first
+  const ratio = first === 0 ? null : delta / Math.abs(first)
+  const tone = delta > 0 ? 'text-success' : delta < 0 ? 'text-destructive' : 'text-muted-foreground'
+  return (
+    <Link
+      to="/stats"
+      className="focus-visible:ring-ring flex w-full max-w-xs flex-col items-center gap-0.5 rounded-md focus-visible:ring-2 focus-visible:outline-none"
+    >
+      <Sparkline values={series.map((point) => point.value)} className={cn('h-9 w-full', tone)} />
+      <span className={cn('text-xs font-medium tabular-nums', tone)}>
+        {formatSignedMoney(delta)}
+        {ratio === null ? '' : ` (${formatPercent(ratio)})`} {t('overview.trendRange')}
+      </span>
+    </Link>
   )
 }
 

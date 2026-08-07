@@ -19,15 +19,18 @@ import {
   type AccountUpdatePayload,
 } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
-import { useDeleteCredential, useUpdateCredential } from '@/lib/credentials'
+import {
+  isManualBank,
+  lastSyncedLabel,
+  useDeleteCredential,
+  useUpdateCredential,
+} from '@/lib/credentials'
 import { useAppSettings } from '@/lib/settings'
-import { formatDecimal, formatMoney, formatRelativeDateTime } from '@/lib/format'
+import { formatDecimal, formatMoney } from '@/lib/format'
 import type { CredentialDetailViewProps } from '@/routes/settings.credentials.$credentialId'
 import { BackLink } from '@/components/back-link'
 import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
 import { RowActions } from '@/components/row-actions'
-
-const MANUAL_BANK = 'manual'
 
 const AUTOSAVE_DEBOUNCE_MS = 600
 
@@ -72,9 +75,7 @@ function NotFoundFallback() {
 
 function BankHeader({ credential, bankTitle }: { credential: CredentialRead; bankTitle: string }) {
   const { t } = useTranslation()
-  const lastSyncedLabel = credential.last_fetching_timestamp
-    ? `${t('credentials.lastSynced')}: ${formatRelativeDateTime(credential.last_fetching_timestamp, t)}`
-    : t('credentials.neverSynced')
+  const syncedLabel = lastSyncedLabel(t, credential)
   return (
     <section className="flex flex-col items-center gap-2 text-center">
       <BankLogo
@@ -84,7 +85,7 @@ function BankHeader({ credential, bankTitle }: { credential: CredentialRead; ban
         className="size-16"
       />
       <h1 className="text-foreground text-lg font-semibold">{bankTitle}</h1>
-      <p className="text-muted-foreground text-sm">{lastSyncedLabel}</p>
+      {syncedLabel ? <p className="text-muted-foreground text-sm">{syncedLabel}</p> : null}
       <AutoSyncStatus credential={credential} />
     </section>
   )
@@ -92,7 +93,7 @@ function BankHeader({ credential, bankTitle }: { credential: CredentialRead; ban
 
 function AutoSyncStatus({ credential }: { credential: CredentialRead }) {
   const { t } = useTranslation()
-  if (credential.bank === MANUAL_BANK) return null
+  if (isManualBank(credential.bank)) return null
 
   const accountCount = credential.accounts.length
 
@@ -131,7 +132,7 @@ function SyncSettingsSection({ credential }: { credential: CredentialRead }) {
     setEnabled(credential.sync_enabled)
   }
 
-  if (credential.bank === MANUAL_BANK) return null
+  if (isManualBank(credential.bank)) return null
 
   const inputId = `credential-${credential.id}-sync-enabled`
   const onChange = async (next: boolean) => {
@@ -165,7 +166,7 @@ function SyncSettingsSection({ credential }: { credential: CredentialRead }) {
 
 function AccountsSection({ credential }: { credential: CredentialRead }) {
   const { t } = useTranslation()
-  const isManual = credential.bank === MANUAL_BANK
+  const isManual = isManualBank(credential.bank)
   const accounts = credential.accounts
   return (
     <section className="flex flex-col gap-3">

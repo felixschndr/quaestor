@@ -96,7 +96,9 @@
     "archived": "Archiviert",
     "expenses": "Ausgaben",
     "income": "Einnahmen",
-    "resetFilters": "Filter zurücksetzen"
+    "resetFilters": "Filter zurücksetzen",
+    "tomorrow": "Morgen",
+    "onDate": "am {{date}}"
   },
   "errors": {
     "serverOffline": {
@@ -119,7 +121,9 @@
     "syncing": "Wird synchronisiert",
     "synced": "Synchronisiert",
     "syncFailed": "Synchronisierung fehlgeschlagen",
-    "search": "Transaktionen durchsuchen"
+    "search": "Transaktionen durchsuchen",
+    "upcoming": "Demnächst fällig",
+    "trendRange": "im letzten Monat"
   },
   "account": {
     "back": "Zurück",
@@ -253,7 +257,7 @@
     "profile": "Profil",
     "profileDescription": "Benutzername und Anzeigename",
     "appearance": "Darstellung",
-    "appearanceDescription": "Sprache, Währung und Erscheinungsbild",
+    "appearanceDescription": "Sprache, Währung, Erscheinungsbild und Übersicht",
     "authentication": "Authentifizierung",
     "authenticationDescription": "Passwort und Zwei-Faktor-Authentifizierung",
     "sessions": "Sitzungen",
@@ -276,7 +280,9 @@
     "deleteDescription": "Lösche dein Konto und alle zugehörigen Daten unwiderruflich.",
     "deleteConfirm": "Bist du sicher? Das kann nicht rückgängig gemacht werden.",
     "deleteAccountConfirm": "Ja, mein Konto löschen",
-    "logoutFailed": "Abmelden fehlgeschlagen. Bitte erneut versuchen."
+    "logoutFailed": "Abmelden fehlgeschlagen. Bitte erneut versuchen.",
+    "overview": "Übersicht",
+    "showUpcomingContracts": "Überfällige Verträge und die nächsten Zahlungen in der Übersicht über den Konten anzeigen"
   },
   "languages": {
     "en": "Englisch",

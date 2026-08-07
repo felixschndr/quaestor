@@ -15,14 +15,16 @@ const CURRENCY_LOCALES: Record<string, string> = {
   AUD: 'en-AU',
 }
 
-function moneyFormatter(currency: string): Intl.NumberFormat {
-  let formatter = moneyFormatters.get(currency)
+function moneyFormatter(currency: string, signed = false): Intl.NumberFormat {
+  const cacheKey = signed ? `${currency}+` : currency
+  let formatter = moneyFormatters.get(cacheKey)
   if (!formatter) {
     formatter = new Intl.NumberFormat(CURRENCY_LOCALES[currency] ?? DISPLAY_LOCALE, {
       style: 'currency',
       currency,
+      ...(signed ? { signDisplay: 'exceptZero' as const } : {}),
     })
-    moneyFormatters.set(currency, formatter)
+    moneyFormatters.set(cacheKey, formatter)
   }
   return formatter
 }
@@ -60,7 +62,7 @@ export function setDisplayTimeZone(timeZone: string): void {
 
 const HAS_TIMEZONE_DESIGNATOR = /[zZ]|[+-]\d{2}:?\d{2}$/
 
-function parseTimestamp(d: Date | string): Date {
+export function parseTimestamp(d: Date | string): Date {
   if (typeof d !== 'string') return d
   if (d.includes('T') && !HAS_TIMEZONE_DESIGNATOR.test(d)) return new Date(`${d}Z`)
   return new Date(d)
@@ -72,6 +74,10 @@ function activeLocale(): string {
 
 export function formatMoney(amount: number): string {
   return moneyFormatter(displayCurrency).format(amount)
+}
+
+export function formatSignedMoney(amount: number): string {
+  return moneyFormatter(displayCurrency, true).format(amount)
 }
 
 const decimalFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {

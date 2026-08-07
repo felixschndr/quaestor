@@ -86,11 +86,23 @@ describe('SettingsCredentialsIndexView', () => {
     render(
       <SettingsCredentialsIndexView
         user={buildUser({
-          credentials: [buildCredential({ id: 7, bank: 'manual', last_fetching_timestamp: null })],
+          credentials: [buildCredential({ id: 7, bank: 'fints', last_fetching_timestamp: null })],
         })}
       />,
     )
     expect(screen.getByText('Never synced')).toBeInTheDocument()
+  })
+
+  it('says nothing about syncing on a manual credential — it never syncs', () => {
+    render(
+      <SettingsCredentialsIndexView
+        user={buildUser({
+          credentials: [buildCredential({ id: 7, bank: 'manual', last_fetching_timestamp: null })],
+        })}
+      />,
+    )
+    expect(screen.queryByText('Never synced')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Last synced/)).not.toBeInTheDocument()
   })
 
   it('includes a back link to /settings', () => {

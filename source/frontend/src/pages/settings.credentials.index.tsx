@@ -6,7 +6,7 @@ import type { TFunction } from 'i18next'
 import { Button } from '@/components/ui/button'
 import { BankLogo } from '@/components/BankLogo'
 import type { CredentialRead } from '@/lib/auth'
-import { formatRelativeDateTime } from '@/lib/format'
+import { lastSyncedLabel } from '@/lib/credentials'
 import type { SettingsCredentialsIndexViewProps } from '@/routes/settings.credentials.index'
 import { BackLink } from '@/components/back-link'
 
@@ -77,9 +77,7 @@ function ManageGroupsRow() {
 function CredentialRow({ credential }: { credential: CredentialRead }) {
   const { t } = useTranslation()
   const title = bankTitle(t, credential)
-  const lastSyncedLabel = credential.last_fetching_timestamp
-    ? `${t('credentials.lastSynced')}: ${formatRelativeDateTime(credential.last_fetching_timestamp, t)}`
-    : t('credentials.neverSynced')
+  const syncedLabel = lastSyncedLabel(t, credential)
   return (
     <li className="border-border/40 border-t first:border-t-0">
       <Link
@@ -94,7 +92,9 @@ function CredentialRow({ credential }: { credential: CredentialRead }) {
         />
         <span className="flex flex-1 flex-col">
           <span className="text-sm font-medium">{title}</span>
-          <span className="text-muted-foreground text-xs">{lastSyncedLabel}</span>
+          {syncedLabel ? (
+            <span className="text-muted-foreground text-xs">{syncedLabel}</span>
+          ) : null}
         </span>
         <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />
       </Link>

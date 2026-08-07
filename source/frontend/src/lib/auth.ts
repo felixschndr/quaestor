@@ -37,6 +37,7 @@ export interface UserRead {
   currency: string
   theme: Theme
   two_factor_enabled: boolean
+  show_upcoming_contracts: boolean
   balance: number
   credentials: CredentialRead[]
 }

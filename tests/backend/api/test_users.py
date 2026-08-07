@@ -110,6 +110,22 @@ def test_update_user_rejects_unsupported_language(http_client: TestClient):
     assert http_client.get("/api/auth/me").json()["language"] == "en"
 
 
+def test_new_user_starts_with_the_upcoming_contracts_section_on(http_client: TestClient):
+    register_and_get_id(http_client)
+
+    assert http_client.get("/api/auth/me").json()["show_upcoming_contracts"] is True
+
+
+def test_update_user_hides_the_upcoming_contracts_section(http_client: TestClient):
+    user_id = register_and_get_id(http_client)
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"show_upcoming_contracts": False})
+
+    assert response.status_code == 200
+    assert response.json()["show_upcoming_contracts"] is False
+    assert http_client.get("/api/auth/me").json()["show_upcoming_contracts"] is False
+
+
 def test_update_user_changes_theme(http_client: TestClient):
     user_id = register_and_get_id(http_client)
 

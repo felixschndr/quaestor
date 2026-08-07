@@ -10,10 +10,7 @@ from source.backend.api.schemas.banking.credential import (
     TwoFactorCode,
 )
 from source.backend.db import get_session
-from source.backend.exceptions import (
-    InvalidTwoFactorError,
-    NotFoundError,
-)
+from source.backend.exceptions import InvalidTwoFactorError, NotFoundError, PermissionDeniedError
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.services.auth import session_service
@@ -95,6 +92,8 @@ def delete_credential(
 
 @router.post("/{credential_id}/sync", response_model=SyncJobRead, status_code=202)
 async def start_sync(credential: Credential = Depends(owned_credential)) -> SyncJobRead:
+    if not credential.is_syncable:
+        raise PermissionDeniedError(f"{credential} cannot be synced; it is a manual credential")
     job = await sync_jobs.start_sync(credential_id=credential.id)
     return SyncJobRead.model_validate(job)
 

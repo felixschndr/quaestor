@@ -5,13 +5,12 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { authQueryKeys, useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
+import { isManualBank } from '@/lib/credentials'
 import { findAccountInUser, useAccountHistory, type AccountHistoryPage } from '@/lib/accountHistory'
 import { PullToRefresh } from '@/components/pull-to-refresh'
 import { TwoFactorModal } from '@/components/two-factor-modal'
 import { AccountDetailView } from '@/pages/account.$accountId'
 import { BackLink } from '@/components/back-link'
-
-const MANUAL_BANK = 'manual'
 
 export const Route = createFileRoute('/account/$accountId')({
   component: AccountDetailPage,
@@ -64,7 +63,7 @@ function AccountDetailPage() {
     return <AccountNotFoundView />
   }
 
-  const isManual = accountInfo.bank === MANUAL_BANK
+  const isManual = isManualBank(accountInfo.bank)
   const isSyncBusy =
     sync.status === 'starting' || sync.status === 'running' || sync.status === 'awaiting_2fa'
 

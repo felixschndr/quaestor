@@ -96,7 +96,9 @@
     "archived": "Archived",
     "expenses": "Expenses",
     "income": "Income",
-    "resetFilters": "Reset filters"
+    "resetFilters": "Reset filters",
+    "tomorrow": "Tomorrow",
+    "onDate": "on {{date}}"
   },
   "errors": {
     "serverOffline": {
@@ -119,7 +121,9 @@
     "syncing": "Syncing",
     "synced": "Synced",
     "syncFailed": "Sync failed",
-    "search": "Search transactions"
+    "search": "Search transactions",
+    "upcoming": "Due soon",
+    "trendRange": "in the past month"
   },
   "account": {
     "back": "Back",
@@ -253,7 +257,7 @@
     "profile": "Profile",
     "profileDescription": "Username and display name",
     "appearance": "Appearance",
-    "appearanceDescription": "Language, currency and theme",
+    "appearanceDescription": "Language, currency, theme and overview",
     "authentication": "Authentication",
     "authenticationDescription": "Password and two-factor authentication",
     "sessions": "Sessions",
@@ -276,7 +280,9 @@
     "deleteDescription": "Permanently delete your account and all associated data.",
     "deleteConfirm": "Are you sure? This cannot be undone.",
     "deleteAccountConfirm": "Yes, delete my account",
-    "logoutFailed": "Logout failed. Please try again."
+    "logoutFailed": "Logout failed. Please try again.",
+    "overview": "Overview",
+    "showUpcomingContracts": "Show overdue contracts and the next payments in the overview, above the accounts"
   },
   "languages": {
     "en": "English",

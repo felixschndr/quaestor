@@ -95,6 +95,7 @@ class UserRead(BaseModel):
     currency: str
     theme: Theme
     two_factor_enabled: bool
+    show_upcoming_contracts: bool
     balance: float
     credentials: list[CredentialRead] = []
 
@@ -111,6 +112,7 @@ class UserUpdate(BaseModel):
     language: str | None = None
     currency: str | None = None
     theme: Theme | None = None
+    show_upcoming_contracts: bool | None = None
     current_password: str | None = None
     new_password: str | None = Field(default=None, min_length=MIN_PASSWORD_LENGTH)
 

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
 import { authQueryKeys, type CredentialRead } from './auth'
+import { formatRelativeDateTime } from './format'
 
 export const SYNC_POLL_INTERVAL_MS = 400
 
@@ -190,6 +191,19 @@ export function useSyncJob(credentialId: number | null, jobId: string | null): U
   const isConnected = state.key === subscriptionKey && state.isConnected
   const isFinished = job?.status === 'completed' || job?.status === 'failed'
   return { job, isFinished, isDisconnected: !isConnected }
+}
+
+const MANUAL_BANK = 'manual'
+
+export function isManualBank(bank: string | undefined): boolean {
+  return bank === MANUAL_BANK
+}
+
+export function lastSyncedLabel(t: TFunction, credential: CredentialRead): string | null {
+  if (isManualBank(credential.bank)) return null
+  return credential.last_fetching_timestamp
+    ? `${t('credentials.lastSynced')}: ${formatRelativeDateTime(credential.last_fetching_timestamp, t)}`
+    : t('credentials.neverSynced')
 }
 
 export function bankDisplayName(t: TFunction, bank: SupportedBank): string {

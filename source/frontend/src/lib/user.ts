@@ -10,6 +10,7 @@ export interface UserUpdatePayload {
   language?: string
   currency?: string
   theme?: Theme
+  show_upcoming_contracts?: boolean
   current_password?: string
   new_password?: string
 }

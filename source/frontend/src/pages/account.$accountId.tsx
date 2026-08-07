@@ -31,6 +31,7 @@ import {
   relativeDateKey,
   transactionPartyName,
 } from '@/lib/format'
+import { isManualBank } from '@/lib/credentials'
 import { copyText } from '@/lib/clipboard'
 import { EXPECTED_TRANSACTIONS_KEY, useCollapsedGroups } from '@/lib/collapsedGroups'
 import { cn } from '@/lib/utils'
@@ -44,8 +45,6 @@ import { SyncButton } from '@/components/sync-button'
 import type { AccountDetailViewProps } from '@/routes/account.$accountId'
 import { BackLink } from '@/components/back-link'
 import { RowActions } from '@/components/row-actions'
-
-const MANUAL_BANK = 'manual'
 
 function IbanRow({
   value,
@@ -184,14 +183,10 @@ export function AccountDetailView({
   }, [highlightId])
   const negative = account.balance < 0
   const personalisedName = account.display_name?.trim() || null
-  const isManual = bank === MANUAL_BANK
+  const isManual = isManualBank(bank)
   const [addingTxn, setAddingTxn] = useState(false)
   const [addingExpected, setAddingExpected] = useState(false)
 
-  // The date headers below are sticky too — they need to stop at the bottom
-  // edge of this header, not at the viewport top. Measure synchronously
-  // before paint so date headers get the right offset on the very first
-  // render; ResizeObserver then keeps it in sync if the header reflows.
   const stickyHeaderRef = useRef<HTMLDivElement>(null)
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0)
   useLayoutEffect(() => {

@@ -17,6 +17,7 @@ from tests.backend.conftest import (
     SECOND_USER_NAME,
     TWO_FACTOR_CODE,
     create_credential,
+    create_manual_credential,
     register,
     register_and_login,
 )
@@ -311,6 +312,17 @@ def test_sync_job_transitions_to_awaiting_two_factor(http_client: TestClient, mo
     assert body["expires_at"] is not None
     assert "challenge_token" not in body  # internal — must not leak to the client
     assert body["authorization_url"] == "https://tilisy.enablebanking.com/ais/start?sessionid=abc"
+
+
+def test_start_sync_is_refused_for_a_manual_credential(http_client: TestClient):
+    register(http_client)
+    credential_id = create_manual_credential(http_client)
+
+    response = http_client.post(f"/api/credentials/{credential_id}/sync")
+
+    assert response.status_code == 403
+    credential = next(c for c in http_client.get("/api/auth/me").json()["credentials"] if c["id"] == credential_id)
+    assert credential["last_fetching_timestamp"] is None
 
 
 def test_start_sync_returns_404_for_other_users_credential(http_client: TestClient):

@@ -91,4 +91,36 @@ describe('SettingsAppearanceView', () => {
       expect(JSON.parse(patch![1].body)).toEqual({ theme: 'DARK' })
     })
   })
+  it('PATCHes the "due soon" toggle', async () => {
+    const user = userEvent.setup()
+    const fetchMock = globalThis.fetch as Mock
+    fetchMock.mockImplementation((url: string) => {
+      if (url === '/api/i18n/languages') {
+        return Promise.resolve(jsonResponse({ status: 200, body: { languages: ['en'] } }))
+      }
+      if (url === '/api/users/1') {
+        return Promise.resolve(
+          jsonResponse({ status: 200, body: buildUser({ show_upcoming_contracts: false }) }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`))
+    })
+
+    renderWithQuery(<SettingsAppearanceView user={buildUser()} />)
+
+    const toggle = screen.getByRole('checkbox', {
+      name: 'Show overdue contracts and the next payments in the overview, above the accounts',
+    })
+    expect(toggle).toBeChecked()
+    await user.click(toggle)
+
+    await waitFor(() => {
+      const patch = fetchMock.mock.calls.find(
+        ([url, init]) => url === '/api/users/1' && init?.method === 'PATCH',
+      )
+      expect(patch).toBeTruthy()
+      expect(JSON.parse(patch![1].body)).toEqual({ show_upcoming_contracts: false })
+    })
+    expect(toggle).not.toBeChecked()
+  })
 })

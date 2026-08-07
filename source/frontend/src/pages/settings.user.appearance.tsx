@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import i18n from 'i18next'
 
+import { Checkbox } from '@/components/ui/checkbox'
 import { Section, SettingsSubPage } from '@/components/settings/settings-section'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { readApiErrorMessage } from '@/lib/apiError'
@@ -19,7 +20,41 @@ export function SettingsAppearanceView({ user }: { user: UserRead }) {
       <LanguageSection user={user} />
       <CurrencySection user={user} />
       <ThemeSection user={user} />
+      <OverviewSection user={user} />
     </SettingsSubPage>
+  )
+}
+
+function OverviewSection({ user }: { user: UserRead }) {
+  const { t } = useTranslation()
+  const update = useUpdateUser(user.id)
+  const [checked, setChecked] = useState(user.show_upcoming_contracts)
+
+  const change = async (next: boolean) => {
+    setChecked(next)
+    try {
+      await update.mutateAsync({ show_upcoming_contracts: next })
+      toast.success(t('common.saved'))
+    } catch (err) {
+      setChecked(user.show_upcoming_contracts)
+      toast.error(readApiErrorMessage(err, t))
+    }
+  }
+
+  return (
+    <Section title={t('settings.overview')}>
+      <label
+        htmlFor="show-upcoming-contracts"
+        className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+      >
+        <Checkbox
+          id="show-upcoming-contracts"
+          checked={checked}
+          onCheckedChange={(next) => void change(next === true)}
+        />
+        <span>{t('settings.showUpcomingContracts')}</span>
+      </label>
+    </Section>
   )
 }
 

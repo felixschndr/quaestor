@@ -24,6 +24,7 @@ export function buildUser(overrides: Partial<UserRead> = {}): UserRead {
     currency: 'EUR',
     theme: 'SYSTEM',
     two_factor_enabled: false,
+    show_upcoming_contracts: true,
     balance: 0,
     credentials: [],
     ...overrides,

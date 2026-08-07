@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/i18n'
 import type { UserRead } from '@/lib/auth'
 import type { SyncJob } from '@/lib/credentials'
+import type { ContractRead } from '@/lib/contract'
 
 vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
@@ -48,14 +49,26 @@ function render_(user: UserRead) {
   )
 }
 
+function mockApi(bodies: { contracts?: unknown; netWorth?: unknown; layout?: unknown } = {}) {
+  globalThis.fetch = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+    const url = String(input)
+    const body = url.includes('/contracts')
+      ? (bodies.contracts ?? [])
+      : url.includes('/net-worth')
+        ? (bodies.netWorth ?? { series: [], summary: null })
+        : (bodies.layout ?? { groups: [], ungrouped: [] })
+    return Promise.resolve(
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+  }) as unknown as typeof fetch
+}
+
 beforeEach(() => {
   window.localStorage.clear()
-  globalThis.fetch = vi.fn().mockResolvedValue(
-    new Response(JSON.stringify({ groups: [], ungrouped: [] }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    }),
-  ) as unknown as typeof fetch
+  mockApi()
 })
 
 afterEach(() => {
@@ -257,15 +270,12 @@ describe('OverviewView', () => {
   })
 
   it('renders custom group headings when the user has defined account groups', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }] }],
-          ungrouped: [],
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
-    ) as unknown as typeof fetch
+    mockApi({
+      layout: {
+        groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }] }],
+        ungrouped: [],
+      },
+    })
 
     const user = buildUser({
       credentials: [
@@ -299,15 +309,12 @@ describe('OverviewView', () => {
   })
 
   it('shows a factored total next to each custom group heading', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }, { id: 9 }] }],
-          ungrouped: [{ id: 10 }],
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
-    ) as unknown as typeof fetch
+    mockApi({
+      layout: {
+        groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }, { id: 9 }] }],
+        ungrouped: [{ id: 10 }],
+      },
+    })
 
     const user = buildUser({
       credentials: [
@@ -370,15 +377,12 @@ describe('OverviewView', () => {
   })
 
   it('renders the "without group" heading when the layout has ungrouped accounts', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          groups: [{ id: 100, name: 'Spar', accounts: [] }],
-          ungrouped: [{ id: 8 }],
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
-    ) as unknown as typeof fetch
+    mockApi({
+      layout: {
+        groups: [{ id: 100, name: 'Spar', accounts: [] }],
+        ungrouped: [{ id: 8 }],
+      },
+    })
 
     const user = buildUser({
       credentials: [
@@ -413,15 +417,12 @@ describe('OverviewView', () => {
   })
 
   it('omits hidden accounts from the list and from group totals', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          groups: [{ id: 1, name: 'Spar', accounts: [{ id: 11 }, { id: 12 }] }],
-          ungrouped: [],
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
-    ) as unknown as typeof fetch
+    mockApi({
+      layout: {
+        groups: [{ id: 1, name: 'Spar', accounts: [{ id: 11 }, { id: 12 }] }],
+        ungrouped: [],
+      },
+    })
 
     const user = buildUser({
       credentials: [
@@ -480,15 +481,12 @@ describe('OverviewView', () => {
   })
 
   function buildGroupedUser() {
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }] }],
-          ungrouped: [],
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
-    ) as unknown as typeof fetch
+    mockApi({
+      layout: {
+        groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }] }],
+        ungrouped: [],
+      },
+    })
 
     return buildUser({
       credentials: [
@@ -730,5 +728,192 @@ describe('OverviewView', () => {
       </QueryClientProvider>,
     )
     expect(screen.getAllByLabelText('Sync failed')).toHaveLength(1)
+  })
+})
+
+describe('OverviewView hero extras', () => {
+  function series(...values: number[]) {
+    return {
+      series: values.map((value, index) => ({ date: `2026-07-${10 + index}`, value })),
+      summary: null,
+    }
+  }
+
+  it('shows the one-month delta with its sign and percentage, linking to the stats', async () => {
+    mockApi({ netWorth: series(1000, 1100, 1200) })
+    render_(buildUser({ balance: 1200, credentials: [buildCredential()] }))
+
+    const trend = await screen.findByRole('link', { name: /past month/ })
+    expect(trend).toHaveAttribute('href', '/stats')
+    expect(trend).toHaveTextContent('+200,00 €')
+    expect(trend).toHaveTextContent('20,0 %')
+  })
+
+  it('colours a shrinking net worth as a loss', async () => {
+    mockApi({ netWorth: series(1000, 400) })
+    render_(buildUser({ balance: 400, credentials: [buildCredential()] }))
+
+    const trend = await screen.findByRole('link', { name: /past month/ })
+    expect(trend).toHaveTextContent('-600,00 €')
+    expect(trend.querySelector('span')?.className).toMatch(/text-destructive/)
+  })
+
+  it('omits the trend when the series has fewer than two points', async () => {
+    mockApi({ netWorth: series(1000) })
+    render_(buildUser({ balance: 1000, credentials: [buildCredential()] }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('link', { name: /past month/ })).not.toBeInTheDocument(),
+    )
+  })
+
+  it('warns when the least fresh bank is more than a day old', () => {
+    const stale = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()
+    const fresh = new Date(Date.now() - 60 * 1000).toISOString()
+    const credential = (id: number, accountId: number, timestamp: string) => ({
+      ...buildCredential(),
+      id,
+      accounts: [{ ...buildCredential().accounts[0], id: accountId }],
+      last_fetching_timestamp: timestamp,
+    })
+    render_(
+      buildUser({
+        balance: 10,
+        credentials: [credential(1, 8, fresh), credential(2, 9, stale)],
+      }),
+    )
+    // The oldest one wins, so a single lagging bank still marks the total stale.
+    expect(screen.getByText(/Last synced/).className).toMatch(/text-warning/)
+  })
+
+  it('stays silent about syncing while every bank is current', () => {
+    const fresh = new Date(Date.now() - 60 * 1000).toISOString()
+    render_(
+      buildUser({
+        balance: 10,
+        credentials: [{ ...buildCredential(), last_fetching_timestamp: fresh }],
+      }),
+    )
+    expect(screen.queryByText(/Last synced/)).not.toBeInTheDocument()
+  })
+
+  it('leaves banks with syncing switched off out of the staleness check', () => {
+    const long_ago = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+    const fresh = new Date(Date.now() - 60 * 1000).toISOString()
+    render_(
+      buildUser({
+        balance: 10,
+        credentials: [
+          { ...buildCredential(), id: 1, last_fetching_timestamp: fresh },
+          {
+            ...buildCredential(),
+            id: 2,
+            accounts: [{ ...buildCredential().accounts[0], id: 9 }],
+            last_fetching_timestamp: long_ago,
+            sync_enabled: false,
+          },
+        ],
+      }),
+    )
+    expect(screen.queryByText(/Last synced/)).not.toBeInTheDocument()
+  })
+})
+
+describe('OverviewView upcoming contracts', () => {
+  function contract(overrides: Partial<ContractRead>): ContractRead {
+    return {
+      id: 1,
+      account_id: 8,
+      name: 'Netflix',
+      note: null,
+      category: 'ENTERTAINMENT',
+      source: 'DETECTED',
+      median_amount: -12.99,
+      frequency: 'MONTHLY',
+      expected_next_date: '2099-01-15',
+      end_date: null,
+      is_archived: false,
+      is_overdue: false,
+      amount_per_day: -0.43,
+      amount_per_frequency: null,
+      ...overrides,
+    }
+  }
+
+  it('lists every overdue contract first, then only the next three payments', async () => {
+    mockApi({
+      contracts: [
+        contract({ id: 1, name: 'Spotify', expected_next_date: '2099-01-04' }),
+        contract({ id: 2, name: 'Netflix', expected_next_date: '2099-01-02' }),
+        contract({ id: 3, name: 'Gym', expected_next_date: '2099-01-03' }),
+        contract({ id: 4, name: 'Newspaper', expected_next_date: '2099-01-05' }),
+        contract({ id: 5, name: 'Rent', expected_next_date: '2020-01-01', is_overdue: true }),
+      ],
+    })
+    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+
+    await screen.findByText('Rent')
+    const names = screen
+      .getAllByRole('link')
+      .map((link) => link.getAttribute('href'))
+      .filter((href) => href?.startsWith('/contracts/'))
+    expect(names).toEqual(['/contracts/5', '/contracts/2', '/contracts/3', '/contracts/1'])
+    expect(screen.queryByText('Newspaper')).not.toBeInTheDocument()
+    expect(screen.getByText('Overdue').className).toMatch(/text-warning/)
+  })
+
+  it('ignores contracts of accounts that are not on the overview', async () => {
+    mockApi({ contracts: [contract({ account_id: 999 })] })
+    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+
+    await waitFor(() => expect(screen.queryByText('Due soon')).not.toBeInTheDocument())
+  })
+})
+
+describe('OverviewView upcoming contracts visibility', () => {
+  const contract = {
+    id: 1,
+    account_id: 8,
+    name: 'Netflix',
+    note: null,
+    category: 'ENTERTAINMENT',
+    source: 'DETECTED',
+    median_amount: -12.99,
+    frequency: 'MONTHLY',
+    expected_next_date: '2099-01-15',
+    end_date: null,
+    is_archived: false,
+    is_overdue: false,
+    amount_per_day: -0.43,
+    amount_per_frequency: null,
+  } satisfies ContractRead
+
+  it('hides the section when the user switched it off', async () => {
+    mockApi({ contracts: [contract] })
+    render_(
+      buildUser({ balance: 10, credentials: [buildCredential()], show_upcoming_contracts: false }),
+    )
+    await waitFor(() => expect(screen.queryByText('Netflix')).not.toBeInTheDocument())
+  })
+
+  it('collapses the section and remembers it, like an account group', async () => {
+    mockApi({ contracts: [contract] })
+    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+
+    const trigger = await screen.findByRole('button', { name: /Due soon/ })
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('link', { name: 'View all' })).toBeInTheDocument()
+
+    await userEvent.click(trigger)
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await waitFor(() =>
+      expect(screen.queryByRole('link', { name: /Netflix/ })).not.toBeInTheDocument(),
+    )
+    // Collapsed, the header carries the most urgent payment instead of the link.
+    expect(screen.queryByRole('link', { name: 'View all' })).not.toBeInTheDocument()
+    expect(trigger).toHaveTextContent('Netflix')
+    expect(trigger).toHaveTextContent('-12,99 €')
+    expect(window.localStorage.getItem('collapsedGroups')).toContain('upcomingContracts')
   })
 })
