@@ -56,7 +56,10 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? null : onSkip())}>
-      <DialogContent>
+      <DialogContent
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
         {current2fa?.kind === 'awaiting_decoupled_approval' || current2fa?.kind === 'confirming' ? (
           <>
             <DialogHeader>

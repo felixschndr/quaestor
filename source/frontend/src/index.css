@@ -49,6 +49,7 @@
   --chart-11: oklch(0.74 0.16 120);
   --chart-12: oklch(0.7 0.13 40);
   --chart-other: oklch(0.6 0 0);
+  --chart-label: oklch(0.22 0 0);
 }
 
 .light {
@@ -80,18 +81,19 @@
   --warning-foreground: #ffffff;
 
   --chart-1: oklch(0.52 0.19 250);
-  --chart-2: oklch(0.58 0.18 60);
+  --chart-2: oklch(0.57 0.18 60);
   --chart-3: oklch(0.55 0.16 150);
   --chart-4: oklch(0.53 0.22 330);
   --chart-5: oklch(0.57 0.13 195);
   --chart-6: oklch(0.55 0.22 25);
   --chart-7: oklch(0.51 0.2 285);
-  --chart-8: oklch(0.62 0.15 100);
+  --chart-8: oklch(0.57 0.15 100);
   --chart-9: oklch(0.57 0.2 355);
   --chart-10: oklch(0.55 0.14 220);
   --chart-11: oklch(0.57 0.15 120);
   --chart-12: oklch(0.56 0.14 40);
   --chart-other: oklch(0.55 0 0);
+  --chart-label: oklch(0.99 0 0);
 }
 
 @theme {
@@ -195,12 +197,6 @@
   animation-delay: 320ms;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .group:hover .stats-icon-bar {
-    animation: none;
-  }
-}
-
 @keyframes balance-settle {
   0% {
     color: var(--color-success);
@@ -212,12 +208,6 @@
 
 .balance-settle {
   animation: balance-settle 600ms ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .balance-settle {
-    animation: none;
-  }
 }
 
 @keyframes search-zoom {
@@ -237,12 +227,6 @@
 
 .group:hover .search-icon-zoom {
   animation: search-zoom 500ms ease-in-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .group:hover .search-icon-zoom {
-    animation: none;
-  }
 }
 
 @media (min-width: 601px) {
@@ -336,5 +320,16 @@
       center / contain no-repeat;
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z'/%3E%3C/svg%3E")
       center / contain no-repeat;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *:not(.animate-spin)::before,
+  *:not(.animate-spin)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

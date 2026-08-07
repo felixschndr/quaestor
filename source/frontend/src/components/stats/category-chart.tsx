@@ -25,10 +25,6 @@ const MIN_PIE_LABEL_SHARE = 0.1
 // Snappier than the recharts default (1500ms) so the pie doesn't crawl in.
 const PIE_ANIMATION_MS = 350
 
-// Pie-slice percentages use the foreground color (white in dark mode), matching
-// the in-bar value labels.
-const PIE_LABEL_FILL = 'var(--color-foreground)'
-
 const RADIAN = Math.PI / 180
 
 export interface CategoryChartProps {
@@ -127,7 +123,7 @@ function renderPieLabel(props: {
     <text
       x={x}
       y={y}
-      fill={PIE_LABEL_FILL}
+      fill="var(--chart-label)"
       fontSize={11}
       fontWeight={600}
       textAnchor="middle"

@@ -119,6 +119,24 @@ describe('TwoFactorModal', () => {
     expect(onSkip).toHaveBeenCalled()
   })
 
+  it('ignores Escape — cancelling kills the sync job, so it needs the X', async () => {
+    const onSkip = vi.fn()
+    renderModal({
+      current2fa: {
+        credentialId: 1,
+        jobId: 'j',
+        bank: 'trade_republic',
+        bankName: null,
+        bankIcon: null,
+        kind: 'awaiting_decoupled_approval',
+      },
+      onSkip,
+    })
+    await userEvent.keyboard('{Escape}')
+    expect(onSkip).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
   it('clears typed code when the active credential changes (skip-then-next)', async () => {
     const { rerender } = renderModal({
       current2fa: {
