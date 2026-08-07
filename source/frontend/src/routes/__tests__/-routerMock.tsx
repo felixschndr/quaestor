@@ -39,6 +39,8 @@ export function routerMocks(overrides: Record<string, unknown> = {}) {
   return {
     Link: LinkMock,
     createFileRoute: () => () => ({}),
+    useCanGoBack: () => false,
+    useRouter: () => ({ history: { back: () => {}, push: () => {} } }),
     ...overrides,
   }
 }

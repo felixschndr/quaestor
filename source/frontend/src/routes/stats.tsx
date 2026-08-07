@@ -89,13 +89,8 @@ function StatsPage() {
         })
       }
       onOpenSearch={(drill) => {
-        const anchor = drill.accountIds[0]
-        if (anchor == null) return
-        // Map the stats "direction" (sign of amount) to the search's amount
-        // range so the user lands on exactly the transactions the bar summed.
         navigate({
-          to: '/account/$accountId/search',
-          params: { accountId: String(anchor) },
+          to: '/search',
           search: {
             account_ids: drill.accountIds,
             date_from: drill.dateFrom,

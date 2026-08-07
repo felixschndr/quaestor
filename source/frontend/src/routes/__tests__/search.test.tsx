@@ -19,8 +19,8 @@ vi.mock('@/lib/accountGroups', () => ({
   useAccountGroupLayout: () => ({ data: undefined }),
 }))
 
-import { type TransactionSearchParams } from '@/routes/account.$accountId_.search'
-import { TransactionSearchView } from '@/pages/account.$accountId_.search'
+import { type TransactionSearchParams } from '@/lib/transactionSearchParams'
+import { TransactionSearchView } from '@/pages/search'
 
 const credentials: CredentialRead[] = [
   {
@@ -98,7 +98,6 @@ function renderView(opts: { search?: Partial<TransactionSearchParams> } = {}) {
   const onChange = vi.fn()
   renderWithClient(
     <TransactionSearchView
-      anchorAccountId={42}
       credentials={credentials}
       search={(opts.search ?? {}) as TransactionSearchParams}
       onChange={onChange}
@@ -202,9 +201,9 @@ describe('TransactionSearchView — form', () => {
     expect(screen.getAllByRole('button', { name: 'Pick a date' })).toHaveLength(2)
   })
 
-  it('back button links to the account detail page (anchor account)', () => {
+  it('back button falls back to the overview when there is no history', () => {
     renderView()
-    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/account/42')
+    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/')
   })
 
   it('emits only the filters the user filled in, plus the selected account ids', async () => {
@@ -405,7 +404,7 @@ describe('TransactionSearchView — results', () => {
     mockFetchOnce([
       {
         id: 7,
-        account_id: 99, // belongs to TR, while anchorAccountId is 42
+        account_id: 99, // belongs to TR, not to the ING credential above
         amount: 5,
         purpose: 'x',
         date: '2026-05-20',

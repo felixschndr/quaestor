@@ -57,7 +57,9 @@ export function TransactionDetailView({
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-8 p-4">
       <header className="flex items-center">
-        <BackLink to="/account/$accountId" params={{ accountId: String(accountId) }} />
+        <BackLink to="/account/$accountId" params={{ accountId: String(accountId) }}>
+          {accountName ?? t('common.back')}
+        </BackLink>
       </header>
 
       <section className="flex min-h-[18vh] flex-col items-center justify-center gap-4">

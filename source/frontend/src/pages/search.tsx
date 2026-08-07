@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useCanGoBack, useRouter } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeftRight } from 'lucide-react'
 
@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { TransactionFilterFields } from '@/components/ui/transaction-filter-fields'
 import type { TransactionRead } from '@/lib/accountHistory'
-import { accountDisplayName, defaultAccountIds } from '@/lib/accounts'
+import { accountDisplayName, defaultAccountIds, sameAccountSelection } from '@/lib/accounts'
 import { buildAccountLookup, type AccountWithBank } from '@/lib/accountDisplayGroups'
 import { AccountLabel } from '@/components/AccountLabel'
 import { type CredentialRead } from '@/lib/auth'
@@ -22,16 +22,32 @@ import { formatDate, formatMoney, transactionPartyName } from '@/lib/format'
 import { CategoryAvatar } from '@/lib/categoryIcons'
 import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from '@/lib/transaction'
 import { useSearchTransactions, type TransactionFilters } from '@/lib/transactionSearch'
+import type { TransactionSearchParams } from '@/lib/transactionSearchParams'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { cn } from '@/lib/utils'
-import type {
-  TransactionSearchParams,
-  TransactionSearchViewProps,
-} from '@/routes/account.$accountId_.search'
 import { BackLink } from '@/components/back-link'
 
+export interface TransactionSearchViewProps {
+  credentials: CredentialRead[]
+  search: TransactionSearchParams
+  onChange: (payload: { accountIds: number[]; filters: TransactionFilters }) => void
+}
+
+export function nextSearchParams(
+  { accountIds, filters }: { accountIds: number[]; filters: TransactionFilters },
+  search: TransactionSearchParams,
+  credentials: CredentialRead[],
+): TransactionSearchParams {
+  const isDefault = sameAccountSelection(accountIds, defaultAccountIds(credentials))
+  return {
+    ...filters,
+    account_ids: isDefault ? undefined : accountIds,
+    link_account_id: search.link_account_id,
+    link_transaction_id: search.link_transaction_id,
+  }
+}
+
 export function TransactionSearchView({
-  anchorAccountId,
   credentials,
   search,
   onChange,
@@ -78,7 +94,7 @@ export function TransactionSearchView({
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
-        <HistoryBackLink accountId={anchorAccountId} />
+        <BackLink to="/" />
         <h1 className="text-foreground text-lg font-semibold">{t('search.title')}</h1>
       </header>
 
@@ -109,23 +125,6 @@ export function TransactionSearchView({
         <p className="text-muted-foreground text-sm">{t('common.noMatchingTransactions')}</p>
       )}
     </main>
-  )
-}
-
-function HistoryBackLink({ accountId }: { accountId: number }) {
-  const router = useRouter()
-  const canGoBack = useCanGoBack()
-  return (
-    <BackLink
-      to="/account/$accountId"
-      params={{ accountId: String(accountId) }}
-      onClick={(event) => {
-        if (canGoBack) {
-          event.preventDefault()
-          router.history.back()
-        }
-      }}
-    />
   )
 }
 

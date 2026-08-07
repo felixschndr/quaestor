@@ -252,8 +252,7 @@ export function AccountDetailView({
                 <ContractIcon className="size-5" />
               </Link>
               <Link
-                to="/account/$accountId/search"
-                params={{ accountId: String(account.id) }}
+                to="/search"
                 search={{ account_ids: [account.id] }}
                 aria-label={t('account.search')}
                 title={t('account.search')}

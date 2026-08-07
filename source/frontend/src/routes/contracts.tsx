@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
+import { BackLink } from '@/components/back-link'
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
 import { defaultAccountIds } from '@/lib/accounts'
 import {
@@ -124,13 +125,7 @@ function ContractsPage() {
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
-        <Link
-          to="/"
-          aria-label={t('account.back')}
-          className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-        >
-          <ChevronLeft className="size-5" />
-        </Link>
+        <BackLink to="/" />
         <h1 className="text-foreground text-lg font-semibold">{t('contracts.title')}</h1>
         <div className="ml-auto">
           <CreateContractDialog credentials={credentials} />

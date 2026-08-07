@@ -14,7 +14,7 @@ export function SettingsSubPage({
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-8 p-4">
       <header className="flex items-center gap-2">
-        <BackLink to="/settings/user" />
+        <BackLink to="/settings" />
         <h1 className="text-foreground flex-1 text-lg font-semibold">{title}</h1>
         {headerExtra}
       </header>

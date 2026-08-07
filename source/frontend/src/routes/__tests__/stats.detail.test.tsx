@@ -126,7 +126,7 @@ describe('NetWorthDetailPage', () => {
   it('returns through history so the stats filters are restored', async () => {
     render(<NetWorthDetailPage />)
 
-    await userEvent.click(screen.getByRole('link', { name: 'Back to statistics' }))
+    await userEvent.click(screen.getByRole('link', { name: 'Statistics' }))
     expect(routerState.back).toHaveBeenCalledTimes(1)
   })
 
@@ -134,7 +134,7 @@ describe('NetWorthDetailPage', () => {
     routerState.canGoBack = false
     render(<NetWorthDetailPage />)
 
-    const back = screen.getByRole('link', { name: 'Back to statistics' })
+    const back = screen.getByRole('link', { name: 'Statistics' })
     expect(back).toHaveAttribute('href', '/stats')
     await userEvent.click(back)
     expect(routerState.back).not.toHaveBeenCalled()

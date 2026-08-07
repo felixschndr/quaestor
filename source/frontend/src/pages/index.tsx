@@ -76,11 +76,6 @@ export function OverviewView({
     }
     return states
   }, [user, syncJobs])
-  const allAccountIds = user.credentials.flatMap((credential) =>
-    credential.accounts.map((account) => account.id),
-  )
-  const searchAnchorId = allAccountIds[0]
-
   const [settleKey, setSettleKey] = useState<number | null>(null)
   const lastBalance = useRef(user.balance)
   useEffect(() => {
@@ -129,10 +124,9 @@ export function OverviewView({
               </Link>
             </>
           ) : null}
-          {searchAnchorId !== undefined ? (
+          {hasAccounts ? (
             <Link
-              to="/account/$accountId/search"
-              params={{ accountId: String(searchAnchorId) }}
+              to="/search"
               aria-label={t('overview.search')}
               title={t('overview.search')}
               className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"

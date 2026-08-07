@@ -23,10 +23,16 @@ describe('SettingsIndexView', () => {
       .getAllByRole('link')
       .filter((link) => link.getAttribute('href')?.startsWith('/settings/'))
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
-      '/settings/user',
       '/settings/credentials',
+      '/settings/user/profile',
+      '/settings/user/appearance',
+      '/settings/user/authentication',
+      '/settings/user/notifications',
+      '/settings/user/api-keys',
+      '/settings/user/sessions',
       '/settings/version',
       '/settings/attributions',
+      '/settings/user/delete',
     ])
   })
 

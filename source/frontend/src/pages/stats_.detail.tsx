@@ -1,8 +1,9 @@
-import { Link, getRouteApi, useCanGoBack, useNavigate, useRouter } from '@tanstack/react-router'
+import { Link, getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Collapsible } from 'radix-ui'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 
+import { BackLink } from '@/components/back-link'
 import { BankLogo } from '@/components/BankLogo'
 import { QueryStates } from '@/components/query-states'
 import { DateRangeFields } from '@/components/ui/date-range-fields'
@@ -41,20 +42,15 @@ export function NetWorthDetailPage() {
   const search = detailRoute.useSearch()
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const router = useRouter()
-  const canGoBack = useCanGoBack()
   const { data: user } = useAuthMe()
   const layout = useAccountGroupLayout()
   const accountIds = search.account_ids ?? []
-  // `end` is the closing day (defaults to today); the start defaults to the
-  // day before, which reproduces the original single-day comparison.
   const endDate = search.end ?? toIsoDate(new Date())
   const startDate = search.start ?? shiftIsoDay(endDate, -1)
   const range = useNetWorthRange(startDate, endDate, accountIds)
 
   const changeStart = (next: string | undefined) => {
     if (!next) return
-    // The start can never sit after the end; clamp it to the end date.
     const clamped = next > endDate ? endDate : next
     navigate({
       to: '/stats/detail',
@@ -113,19 +109,7 @@ export function NetWorthDetailPage() {
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
-        <Link
-          to="/stats"
-          onClick={(event) => {
-            if (canGoBack) {
-              event.preventDefault()
-              router.history.back()
-            }
-          }}
-          aria-label={t('stats.day.back')}
-          className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-        >
-          <ChevronLeft className="size-5" />
-        </Link>
+        <BackLink to="/stats">{t('stats.title')}</BackLink>
         <h1 className="text-foreground flex-1 text-lg font-semibold">{t('stats.day.title')}</h1>
       </header>
 

@@ -249,8 +249,6 @@
   },
   "settings": {
     "title": "Settings",
-    "user": "User settings",
-    "userDescription": "Display name, password, language, appearance",
     "profile": "Profile",
     "profileDescription": "Username and display name",
     "appearance": "Appearance",
@@ -259,7 +257,7 @@
     "authenticationDescription": "Password and two-factor authentication",
     "sessions": "Sessions",
     "sessionsDescription": "Devices that are signed in",
-    "credentialsDescription": "Add or remove banks, sync now",
+    "credentialsDescription": "Add, edit or remove banks",
     "serverVersionDescription": "Current and latest available version",
     "serverVersionUpdate": "Update available: {{latest}}",
     "attributionsDescription": "Credits and licences for third-party assets",
@@ -690,7 +688,6 @@
     },
     "day": {
       "title": "Net worth change",
-      "back": "Back to statistics",
       "range": {
         "1d": "1D",
         "3d": "3D",

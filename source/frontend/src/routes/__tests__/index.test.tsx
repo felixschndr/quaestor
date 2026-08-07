@@ -99,7 +99,7 @@ describe('OverviewView', () => {
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings')
   })
 
-  it('renders the search link anchored on the first account, searching all accounts', () => {
+  it('renders the search link pointing at the global search route', () => {
     const user = buildUser({
       credentials: [
         {
@@ -137,7 +137,7 @@ describe('OverviewView', () => {
     })
     render_(user)
     const search = screen.getByRole('link', { name: 'Search transactions' })
-    expect(search).toHaveAttribute('href', '/account/5/search')
+    expect(search).toHaveAttribute('href', '/search')
     const settings = screen.getByRole('link', { name: 'Settings' })
     expect(search.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })

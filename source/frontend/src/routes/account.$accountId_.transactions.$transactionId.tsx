@@ -132,8 +132,7 @@ function LinkStartSection({
     <DetailRow label={t('transaction.linkedTransaction')}>
       <Button asChild variant="outline" size="sm">
         <Link
-          to="/account/$accountId/search"
-          params={{ accountId: String(accountId) }}
+          to="/search"
           search={{
             account_ids: allAccountIds,
             link_account_id: accountId,

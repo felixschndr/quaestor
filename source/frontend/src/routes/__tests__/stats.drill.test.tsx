@@ -41,6 +41,8 @@ vi.mock('@tanstack/react-router', () => ({
       {children}
     </a>
   ),
+  useCanGoBack: () => false,
+  useRouter: () => ({ history: { back: () => {}, push: () => {} } }),
   createFileRoute: () => () => ({}),
   useNavigate: () => vi.fn(),
 }))

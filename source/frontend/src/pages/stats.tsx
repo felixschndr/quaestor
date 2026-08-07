@@ -1,15 +1,7 @@
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import {
-  ArrowLeftRight,
-  BarChart3,
-  ChevronLeft,
-  LineChart,
-  PieChart,
-  PiggyBank,
-  Users,
-} from 'lucide-react'
+import { ArrowLeftRight, BarChart3, LineChart, PieChart, PiggyBank, Users } from 'lucide-react'
 
+import { BackLink } from '@/components/back-link'
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
 import { AdvancedFilters } from '@/components/ui/advanced-filters'
 import { FilterHeading } from '@/components/ui/filter-heading'
@@ -270,13 +262,7 @@ export function StatsView({
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2">
-        <Link
-          to="/"
-          aria-label={t('common.back')}
-          className="text-primary hover:text-primary/80 -ml-1.5 rounded-md p-1.5 transition-colors"
-        >
-          <ChevronLeft className="size-5" />
-        </Link>
+        <BackLink to="/" />
         <h1 className="text-foreground text-lg font-semibold">{t('stats.title')}</h1>
       </header>
 

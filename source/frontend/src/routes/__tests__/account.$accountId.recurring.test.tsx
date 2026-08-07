@@ -10,6 +10,8 @@ import type { RecurringTransactionRead } from '@/lib/recurringTransaction'
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, ...rest }: { children: React.ReactNode }) => <a {...rest}>{children}</a>,
+  useCanGoBack: () => false,
+  useRouter: () => ({ history: { back: () => {}, push: () => {} } }),
   createFileRoute: () => () => ({}),
 }))
 
