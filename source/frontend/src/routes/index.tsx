@@ -1,13 +1,10 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { authQueryKeys, useAuthMe, useGlobalSync } from '@/lib/auth'
-import { PullToRefresh } from '@/components/pull-to-refresh'
+import { useAuthMe, useGlobalSync } from '@/lib/auth'
 import { TwoFactorModal } from '@/components/two-factor-modal'
-import { accountGroupQueryKeys } from '@/lib/accountGroups'
 import { OverviewView } from '@/pages'
 
 export const Route = createFileRoute('/')({
@@ -18,16 +15,6 @@ function OverviewPage() {
   const { data: user } = useAuthMe()
   const sync = useGlobalSync()
   const { t } = useTranslation()
-  const queryClient = useQueryClient()
-
-  const handleRefresh = useCallback(
-    () =>
-      Promise.all([
-        queryClient.refetchQueries({ queryKey: authQueryKeys.me }),
-        queryClient.refetchQueries({ queryKey: accountGroupQueryKeys.layout }),
-      ]),
-    [queryClient],
-  )
 
   // Surface failed jobs as toasts once each, by tracking the set of credential
   // ids we've already toasted on. Cleared at the start of each new sync run so
@@ -67,16 +54,14 @@ function OverviewPage() {
 
   return (
     <>
-      <PullToRefresh onRefresh={handleRefresh}>
-        <OverviewView
-          user={user}
-          onSyncClick={sync.start}
-          syncDisabled={isBusy}
-          syncSpinning={isBusy}
-          syncSucceededAt={sync.succeededAt}
-          syncJobs={sync.jobs}
-        />
-      </PullToRefresh>
+      <OverviewView
+        user={user}
+        onSyncClick={sync.start}
+        syncDisabled={isBusy}
+        syncSpinning={isBusy}
+        syncSucceededAt={sync.succeededAt}
+        syncJobs={sync.jobs}
+      />
       <TwoFactorModal
         current2fa={sync.current2fa}
         onSubmit={async (code) => {

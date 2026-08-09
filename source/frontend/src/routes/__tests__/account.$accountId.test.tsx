@@ -133,19 +133,9 @@ describe('AccountDetailView', () => {
     expect(amount.className).toMatch(/text-destructive/)
   })
 
-  it('docks the one balance towards the header instead of duplicating it', () => {
-    vi.spyOn(CSS, 'supports').mockReturnValue(true)
+  it('renders the balance exactly once', () => {
     renderView([])
-
     expect(screen.getAllByText('1.234,50 €')).toHaveLength(1)
-    const dock = document.querySelector('.account-balance-dock') as HTMLElement | null
-    expect(dock).not.toBeNull()
-    expect(dock).toContainElement(screen.getByText('1.234,50 €'))
-    expect(dock!.style.getPropertyValue('--dock-distance')).not.toBe('')
-
-    scrollTo(400)
-    expect(screen.getAllByText('1.234,50 €')).toHaveLength(1)
-    expect(screen.getAllByText('Girokonto').length).toBeGreaterThan(0)
   })
 
   it('offers the privacy toggle, hiding the balances but not the transactions', async () => {

@@ -197,27 +197,6 @@
   animation-delay: 320ms;
 }
 
-@keyframes account-balance-dock {
-  from {
-    transform: translateX(0px) scale(1);
-  }
-  to {
-    transform: translateX(var(--dock-tx, 0px)) scale(0.5);
-  }
-}
-
-@supports (animation-timeline: scroll()) {
-  .account-balance-dock {
-    position: sticky;
-    top: var(--dock-top);
-    transform-origin: bottom right;
-    will-change: transform;
-    animation: account-balance-dock linear both;
-    animation-timeline: scroll(root);
-    animation-range: 0 var(--dock-distance, 100px);
-  }
-}
-
 @keyframes balance-settle {
   0% {
     color: var(--color-success);

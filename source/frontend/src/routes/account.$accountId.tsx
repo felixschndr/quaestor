@@ -1,13 +1,11 @@
-import { useCallback, useEffect } from 'react'
+import { useEffect } from 'react'
 import { createFileRoute, useLocation } from '@tanstack/react-router'
-import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { authQueryKeys, useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
+import { useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
 import { isManualBank } from '@/lib/credentials'
 import { findAccountInUser, useAccountHistory, type AccountHistoryPage } from '@/lib/accountHistory'
-import { PullToRefresh } from '@/components/pull-to-refresh'
 import { TwoFactorModal } from '@/components/two-factor-modal'
 import { AccountDetailView } from '@/pages/account.$accountId'
 import { BackLink } from '@/components/back-link'
@@ -27,20 +25,8 @@ function AccountDetailPage() {
   const accountInfo = findAccountInUser(user, accountId)
 
   const history = useAccountHistory(accountId)
-  // Hook is unconditional (rules of hooks) — when no credential is in scope yet
-  // we pass a sentinel id and skip rendering the button below.
   const sync = useCredentialSync(accountInfo?.credentialId ?? -1)
   const { t } = useTranslation()
-  const queryClient = useQueryClient()
-
-  const handleRefresh = useCallback(
-    () =>
-      Promise.all([
-        queryClient.refetchQueries({ queryKey: authQueryKeys.me }),
-        queryClient.refetchQueries({ queryKey: ['account', accountId] }),
-      ]),
-    [queryClient, accountId],
-  )
   const { focus } = Route.useSearch()
   const focusNavKey = useLocation({ select: (location) => location.state.__TSR_key })
 
@@ -69,30 +55,26 @@ function AccountDetailPage() {
 
   return (
     <>
-      <PullToRefresh onRefresh={handleRefresh}>
-        <AccountDetailView
-          account={accountInfo.account}
-          bank={accountInfo.bank}
-          lastUpdated={accountInfo.lastFetchingTimestamp}
-          pages={history.data?.pages ?? []}
-          isLoading={history.isLoading}
-          isFetchingNextPage={history.isFetchingNextPage}
-          hasNextPage={!!history.hasNextPage}
-          onLoadMore={() => {
-            if (history.hasNextPage && !history.isFetchingNextPage) {
-              void history.fetchNextPage()
-            }
-          }}
-          focusTransactionId={focus}
-          focusNavKey={focusNavKey}
-          // Manual accounts have no remote sync, so the button is suppressed
-          // by leaving onSyncClick undefined.
-          onSyncClick={isManual ? undefined : sync.start}
-          syncDisabled={isSyncBusy}
-          syncSpinning={isSyncBusy}
-          syncSucceededAt={sync.succeededAt}
-        />
-      </PullToRefresh>
+      <AccountDetailView
+        account={accountInfo.account}
+        bank={accountInfo.bank}
+        lastUpdated={accountInfo.lastFetchingTimestamp}
+        pages={history.data?.pages ?? []}
+        isLoading={history.isLoading}
+        isFetchingNextPage={history.isFetchingNextPage}
+        hasNextPage={!!history.hasNextPage}
+        onLoadMore={() => {
+          if (history.hasNextPage && !history.isFetchingNextPage) {
+            void history.fetchNextPage()
+          }
+        }}
+        focusTransactionId={focus}
+        focusNavKey={focusNavKey}
+        onSyncClick={isManual ? undefined : sync.start}
+        syncDisabled={isSyncBusy}
+        syncSpinning={isSyncBusy}
+        syncSucceededAt={sync.succeededAt}
+      />
       <TwoFactorModal
         current2fa={sync.current2fa}
         onSubmit={async (code) => {

@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronRight, Copy, Pencil, Plus, Search, X } from 'lucide-react'
@@ -306,53 +306,9 @@ export function AccountDetailView({
   const [addingExpected, setAddingExpected] = useState(false)
   const [sparklineValue, setSparklineValue] = useState<number | null>(null)
 
-  const stickyHeaderRef = useRef<HTMLDivElement>(null)
-  const nameRowRef = useRef<HTMLDivElement>(null)
-  const amountRef = useRef<HTMLDivElement>(null)
-  const mainRef = useRef<HTMLElement>(null)
-  useLayoutEffect(() => {
-    if (!CSS.supports('animation-timeline: scroll()')) return
-    const bar = stickyHeaderRef.current
-    const nameRow = nameRowRef.current
-    const amount = amountRef.current
-    if (!bar || !nameRow || !amount) return
-
-    const measure = () => {
-      mainRef.current?.style.setProperty(
-        '--account-header-height',
-        `${bar.getBoundingClientRect().height}px`,
-      )
-      amount.classList.remove('account-balance-dock')
-      const flow = amount.getBoundingClientRect()
-      const name = nameRow.getBoundingClientRect()
-      amount.style.setProperty('--dock-top', `${name.bottom - flow.height}px`)
-      amount.style.setProperty('--dock-tx', `${name.right - flow.right}px`)
-      const distance = Math.max(flow.bottom + window.scrollY - name.bottom, 1)
-      amount.style.setProperty('--dock-distance', `${distance}px`)
-      amount.classList.add('account-balance-dock')
-    }
-
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(bar)
-    observer.observe(nameRow)
-    let width = window.innerWidth
-    const onResize = () => {
-      if (window.innerWidth === width) return
-      width = window.innerWidth
-      measure()
-    }
-    window.addEventListener('resize', onResize)
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', onResize)
-      amount.classList.remove('account-balance-dock')
-    }
-  }, [])
-
   return (
-    <main ref={mainRef} className="flex min-h-full flex-col">
-      <div ref={stickyHeaderRef} className="bg-background fixed top-0 right-0 left-0 z-20">
+    <main className="flex min-h-full flex-col">
+      <div className="bg-background">
         <div className="mx-auto flex w-full max-w-page flex-col px-4 pt-4 pb-3">
           <header className="flex items-center justify-between gap-2">
             <BackLink to="/" label={t('account.back')} />
@@ -397,7 +353,7 @@ export function AccountDetailView({
             </div>
           </header>
 
-          <div ref={nameRowRef} className="mt-2 flex min-h-7 items-end">
+          <div className="mt-2 flex min-h-7 items-end">
             <p className="text-foreground max-w-[55%] truncate text-xl leading-tight font-semibold">
               {personalisedName ?? formatIban(account.name)}
             </p>
@@ -405,10 +361,7 @@ export function AccountDetailView({
         </div>
       </div>
 
-      <div
-        className="mx-auto flex w-full max-w-page flex-col gap-2 px-4 pb-4"
-        style={{ paddingTop: 'calc(var(--account-header-height, 0px) + 8px)' }}
-      >
+      <div className="mx-auto flex w-full max-w-page flex-col gap-2 px-4 pb-4">
         <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
           <IbanLabel id="account-balance-label" value={account.name} />
           {lastUpdated ? (
@@ -417,12 +370,7 @@ export function AccountDetailView({
             </p>
           ) : null}
         </div>
-        <div
-          ref={amountRef}
-          role="group"
-          aria-labelledby="account-balance-label"
-          className="z-30 w-fit"
-        >
+        <div role="group" aria-labelledby="account-balance-label" className="w-fit">
           <BalanceDisplay account={account} isManual={isManual} overrideValue={sparklineValue} />
         </div>
         <AccountSparkline accountId={account.id} onActiveDayChange={setSparklineValue} />
@@ -691,10 +639,7 @@ function DateHeader({
         ? t(`account.${relKey}`)
         : formatDate(local)
   return (
-    <header
-      className="bg-background sticky z-[1] grid grid-cols-[1fr_auto] items-baseline gap-2 py-1"
-      style={{ top: 'var(--account-header-height, 0px)' }}
-    >
+    <header className="bg-background sticky top-0 z-[1] grid grid-cols-[1fr_auto] items-baseline gap-2 py-1">
       <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">{label}</h2>
       {endOfDayBalance !== null ? (
         <span className="private-amount text-muted-foreground text-xs tabular-nums">
