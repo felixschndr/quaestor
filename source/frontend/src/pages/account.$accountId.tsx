@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronRight, Copy, Pencil, Plus, Search, X } from 'lucide-react'
@@ -50,49 +50,149 @@ import { BackLink } from '@/components/back-link'
 import { RowActions } from '@/components/row-actions'
 
 const AMOUNT_DOCKED_SCALE = 0.5
+const SPARKLINE_FLAT_RATIO = 0.05
 
-function SparklineAxis({ dates }: { dates: string[] }) {
+function SparklineAxis({ dates, activeSlot }: { dates: string[]; activeSlot?: number }) {
+  const active = activeSlot != null
   return (
     <div className="private-chart text-muted-foreground mt-1 flex items-center gap-2 text-[11px]">
       {dates.map((date, index) => (
-        <Fragment key={date}>
-          {index > 0 ? <span className="bg-foreground/20 h-px flex-1" aria-hidden="true" /> : null}
-          <span className="whitespace-nowrap">{formatDateWithoutYear(date)}</span>
+        <Fragment key={index}>
+          {index > 0 ? (
+            <span
+              className={cn(
+                'bg-foreground/20 h-px flex-1 transition-opacity',
+                active && 'opacity-40',
+              )}
+              aria-hidden="true"
+            />
+          ) : null}
+          <span
+            className={cn(
+              'whitespace-nowrap transition-opacity',
+              index === activeSlot ? 'text-foreground font-medium' : active && 'opacity-40', // dim the flanking start/end dates while scrubbing
+            )}
+          >
+            {formatDateWithoutYear(date)}
+          </span>
         </Fragment>
       ))}
     </div>
   )
 }
 
-function AccountSparkline({ accountId }: { accountId: number }) {
+function AccountSparkline({
+  accountId,
+  onActiveDayChange,
+}: {
+  accountId: number
+  onActiveDayChange: (value: number | null) => void
+}) {
   const { t } = useTranslation()
   const accountIds = useMemo(() => [accountId], [accountId])
   const range = useMemo(() => presetDateRange('1m'), [])
   const { data } = useNetWorthStats(accountIds, range)
   const series = data?.series ?? []
+
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const startX = useRef<number | null>(null)
+  const scrubbed = useRef(false)
+  const detachTouchGuard = useRef<(() => void) | undefined>(undefined)
+  const setChartRef = useCallback((node: HTMLDivElement | null) => {
+    detachTouchGuard.current?.()
+    detachTouchGuard.current = undefined
+    containerRef.current = node
+    if (!node) return
+    const onTouchStart = (event: TouchEvent) => event.stopPropagation()
+    const onTouchMove = (event: TouchEvent) => {
+      event.stopPropagation()
+      if (event.cancelable) event.preventDefault()
+    }
+    node.addEventListener('touchstart', onTouchStart, { passive: true })
+    node.addEventListener('touchmove', onTouchMove, { passive: false })
+    detachTouchGuard.current = () => {
+      node.removeEventListener('touchstart', onTouchStart)
+      node.removeEventListener('touchmove', onTouchMove)
+    }
+  }, [])
+
+  const indexAt = (clientX: number): number | null => {
+    const node = containerRef.current
+    if (!node || series.length < 2) return null
+    const rect = node.getBoundingClientRect()
+    if (rect.width === 0) return null
+    const ratio = (clientX - rect.left) / rect.width
+    const index = Math.round(ratio * (series.length - 1))
+    return Math.min(Math.max(index, 0), series.length - 1)
+  }
+  // Drive both the local dot and the parent balance/date override from one place.
+  const applyIndex = (index: number | null) => {
+    setActiveIndex(index)
+    onActiveDayChange(index != null && index < series.length ? series[index].value : null)
+  }
+  const clear = () => {
+    applyIndex(null)
+    startX.current = null
+  }
+  // Reset the parent override if this chart unmounts mid-scrub.
+  useEffect(() => () => onActiveDayChange(null), [onActiveDayChange])
+
   if (series.length < 2) return null
 
-  const delta = series[series.length - 1].value - series[0].value
-  const tone = delta > 0 ? 'text-success' : delta < 0 ? 'text-destructive' : 'text-muted-foreground'
-  const axisDates = [
-    ...new Set([
-      series[0].date,
-      series[Math.floor(series.length / 2)].date,
-      series[series.length - 1].date,
-    ]),
-  ]
+  const start = series[0].value
+  const delta = series[series.length - 1].value - start
+  const flat = Math.abs(delta) <= Math.abs(start) * SPARKLINE_FLAT_RATIO
+  const tone = flat ? 'text-muted-foreground' : delta > 0 ? 'text-success' : 'text-destructive'
+  const active = activeIndex != null && activeIndex < series.length ? series[activeIndex] : null
+  // While scrubbing, the middle axis label shows the day under the finger; otherwise the mid date.
+  const axisDates = active
+    ? [series[0].date, active.date, series[series.length - 1].date]
+    : [
+        ...new Set([
+          series[0].date,
+          series[Math.floor(series.length / 2)].date,
+          series[series.length - 1].date,
+        ]),
+      ]
   return (
     <Link
       to="/stats"
       search={{ account_ids: [accountId] }}
       aria-label={t('account.statistics')}
+      onClick={(event) => {
+        if (scrubbed.current) {
+          event.preventDefault()
+          scrubbed.current = false
+        }
+      }}
       className="focus-visible:ring-ring block rounded-md focus-visible:ring-2 focus-visible:outline-none"
     >
-      <Sparkline
-        values={series.map((point) => point.value)}
-        className={cn('private-chart h-10 w-full', tone)}
-      />
-      <SparklineAxis dates={axisDates} />
+      <div
+        ref={setChartRef}
+        style={{ touchAction: 'none' }}
+        onPointerDown={(event) => {
+          startX.current = event.clientX
+          scrubbed.current = false
+          applyIndex(indexAt(event.clientX))
+        }}
+        onPointerMove={(event) => {
+          if (startX.current != null && Math.abs(event.clientX - startX.current) > 6) {
+            scrubbed.current = true
+          }
+          applyIndex(indexAt(event.clientX))
+        }}
+        onPointerUp={clear}
+        onPointerLeave={clear}
+        onPointerCancel={clear}
+      >
+        <Sparkline
+          values={series.map((point) => point.value)}
+          activeIndex={activeIndex}
+          className={cn('private-chart h-10 w-full', tone)}
+        />
+      </div>
+      <SparklineAxis dates={axisDates} activeSlot={active ? 1 : undefined} />
     </Link>
   )
 }
@@ -193,26 +293,19 @@ export function AccountDetailView({
     if (!element) return
     scrolledForRef.current = guardKey
     element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    // Set the highlight synchronously rather than via a 0ms timer: a quick
-    // re-render right after the guard is armed (common with cached data) would
-    // otherwise run this effect's cleanup, cancel the pending timer, and then
-    // early-return on the guard — so the highlight was lost on every navigation
-    // after the first. The one-shot guard above keeps this from looping.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHighlightId(focusTransactionId)
   }, [focusTransactionId, focusNavKey, groups, hasNextPage, isFetchingNextPage])
-  // Clear the highlight ~4s after it appears. Keyed only on highlightId so
-  // unrelated re-renders (e.g. pages loading) can't cancel the timer.
   useEffect(() => {
     if (highlightId === null) return
     const timer = setTimeout(() => setHighlightId(null), 4000)
     return () => clearTimeout(timer)
   }, [highlightId])
-  const negative = account.balance < 0
   const personalisedName = account.display_name?.trim() || null
   const isManual = isManualBank(bank)
   const [addingTxn, setAddingTxn] = useState(false)
   const [addingExpected, setAddingExpected] = useState(false)
+  const [sparklineValue, setSparklineValue] = useState<number | null>(null)
 
   const stickyHeaderRef = useRef<HTMLDivElement>(null)
   const nameRowRef = useRef<HTMLDivElement>(null)
@@ -352,10 +445,14 @@ export function AccountDetailView({
           </div>
           <div ref={amountSlotRef}>
             <div ref={amountRef} className="z-30 w-fit origin-bottom-right will-change-transform">
-              <BalanceDisplay account={account} isManual={isManual} negative={negative} />
+              <BalanceDisplay
+                account={account}
+                isManual={isManual}
+                overrideValue={sparklineValue}
+              />
             </div>
           </div>
-          <AccountSparkline accountId={account.id} />
+          <AccountSparkline accountId={account.id} onActiveDayChange={setSparklineValue} />
           {isManual ? (
             <div className="flex flex-wrap gap-2">
               <Button
@@ -423,11 +520,11 @@ export function AccountDetailView({
 function BalanceDisplay({
   account,
   isManual,
-  negative,
+  overrideValue,
 }: {
   account: AccountRead
   isManual: boolean
-  negative: boolean
+  overrideValue?: number | null
 }) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
@@ -505,15 +602,16 @@ function BalanceDisplay({
     )
   }
 
+  const displayValue = overrideValue ?? account.balance
   return (
     <div className="flex items-center gap-2">
       <p
         className={cn(
           'private-amount text-4xl font-bold tracking-tight tabular-nums',
-          negative ? 'text-destructive' : 'text-primary',
+          displayValue < 0 ? 'text-destructive' : 'text-primary',
         )}
       >
-        {formatMoney(account.balance)}
+        {formatMoney(displayValue)}
       </p>
       {isManual ? (
         <Button
