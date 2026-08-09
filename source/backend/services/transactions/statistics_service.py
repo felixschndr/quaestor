@@ -37,6 +37,8 @@ DEFAULT_TOP_OTHER_PARTIES_LIMIT = 15
 
 DEFAULT_TREND_BASELINE_PERIOD_COUNT = 6
 
+RUNWAY_EXCLUDED_CATEGORIES = [TransactionCategory.INVESTMENT, TransactionCategory.SAVINGS]
+
 
 @dataclass
 class RangeSummary:
@@ -52,6 +54,7 @@ def _base_conditions(
     categories: list[TransactionCategory],
     transaction_types: list[TransactionType] | None = None,
     linked: StatisticsLinked | None = None,
+    exclude_categories: list[TransactionCategory] | None = None,
 ) -> list[ColumnElement[bool]]:
     # Depot/fund accounts carry the asset side of every buy as a mirror booking (e.g. Trade Republic books a
     # purchase on both the cash account AND the position), so counting them would double every investment.
@@ -67,6 +70,8 @@ def _base_conditions(
         conditions.append(Transaction.date <= date_to)
     if categories:
         conditions.append(Transaction.category.in_(categories))
+    if exclude_categories:
+        conditions.append(Transaction.category.notin_(exclude_categories))
     if transaction_types:
         conditions.append(Transaction.transaction_type.in_(transaction_types))
     if linked is not None:
@@ -107,6 +112,7 @@ def range_summary(
                 date_from=date_from,
                 date_to=date_to,
                 categories=[],
+                exclude_categories=RUNWAY_EXCLUDED_CATEGORIES,
             )
         )
     ).one()

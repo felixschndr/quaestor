@@ -49,7 +49,7 @@ import { formatMoney } from '@/lib/format'
 import { readApiErrorMessage } from '@/lib/apiError'
 import { sendTestNotification } from '@/lib/push'
 import { detectPlatform, isStandalone } from '@/lib/platform'
-import { FILTERABLE_CATEGORIES } from '@/lib/statistics'
+import { FILTERABLE_CATEGORIES, RUNWAY_EXCLUDED_CATEGORIES } from '@/lib/statistics'
 import {
   TRANSACTION_TYPES,
   type TransactionCategory,
@@ -624,6 +624,16 @@ function RuleDialog({
             />
             <DialogDescription className="text-xs">
               {t(`notifications.triggerHint.${model.trigger}`)}
+              {model.trigger === 'digest'
+                ? ` ${t('stats.runway.info', {
+                    categories: new Intl.ListFormat(i18n.language, {
+                      style: 'long',
+                      type: 'conjunction',
+                    }).format(
+                      RUNWAY_EXCLUDED_CATEGORIES.map((category) => t(`category.${category}`)),
+                    ),
+                  })}`
+                : ''}
             </DialogDescription>
           </div>
 

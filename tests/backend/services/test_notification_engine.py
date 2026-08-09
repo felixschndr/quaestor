@@ -497,6 +497,44 @@ def test_weekly_digest_reports_the_previous_week(
     assert_log_contains(caplog, messages=["Evaluating digest rules for", "digest for 2026-07-13..2026-07-19"])
 
 
+def test_weekly_digest_excludes_investing_and_saving(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    sent = _capture_sent(monkeypatch)
+    with session_factory() as db_session:
+        user = _user_with_digest_rule(db_session, period=DigestPeriod.WEEKLY, weekday=_MONDAY.weekday())
+        account_id = user.credentials[0].accounts[0].id
+        make_transaction(
+            db_session,
+            account_id=account_id,
+            amount=-60.0,
+            date=_MONDAY - timedelta(days=1),
+            category=TransactionCategory.SUPERMARKET,
+        )
+        make_transaction(
+            db_session,
+            account_id=account_id,
+            amount=-500.0,
+            date=_MONDAY - timedelta(days=2),
+            category=TransactionCategory.INVESTMENT,
+        )
+        make_transaction(
+            db_session,
+            account_id=account_id,
+            amount=-200.0,
+            date=_MONDAY - timedelta(days=3),
+            category=TransactionCategory.SAVINGS,
+        )
+        db_session.commit()
+
+        notification_engine.evaluate_digests(db_session=db_session, today=_MONDAY)
+
+    assert_one_notification(
+        notifications=sent,
+        title="Weekly review: -60,00 €",
+        body="Spent 60,00 € · Received 0,00 € · 1 transactions",
+        url="/stats?date_from=2026-07-13&date_to=2026-07-19",
+    )
+
+
 def test_weekly_digest_is_quiet_on_other_weekdays(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     sent = _capture_sent(monkeypatch)
     with session_factory() as db_session:
