@@ -97,9 +97,7 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
               <DialogDescription>
                 {current2fa.authorizationUrl
                   ? t('sync.twoFactor.authorizeDescription', { bank: bankTitle })
-                  : current2fa.bank === 'trade_republic'
-                    ? t('sync.twoFactor.authenticatorDescription')
-                    : t('sync.twoFactor.codeDescription')}
+                  : t('sync.twoFactor.codeDescription')}
               </DialogDescription>
             </DialogHeader>
             {current2fa.authorizationUrl ? (

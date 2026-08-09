@@ -53,7 +53,7 @@ describe('TwoFactorModal', () => {
     expect(onSubmit).toHaveBeenCalledWith('123456')
   })
 
-  it('describes an authenticator code (not a sent code) for Trade Republic', () => {
+  it('describes the sent confirmation code for Trade Republic', () => {
     renderModal({
       current2fa: {
         credentialId: 1,
@@ -64,8 +64,7 @@ describe('TwoFactorModal', () => {
         kind: 'awaiting_2fa',
       },
     })
-    expect(screen.getByText(/from your authenticator app/i)).toBeVisible()
-    expect(screen.queryByText(/sent a confirmation code/i)).toBeNull()
+    expect(screen.getByText(/sent a confirmation code/i)).toBeVisible()
   })
 
   it('renders a neutral spinner without submit while confirming', () => {

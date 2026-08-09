@@ -568,7 +568,6 @@
     "twoFactor": {
       "codeTitle": "Enter code for {{bank}}",
       "codeDescription": "We sent a confirmation code to your phone. Enter it to continue the sync.",
-      "authenticatorDescription": "Enter the code from your authenticator app. Afterwards you can confirm the login in the Trade Republic app.",
       "confirmingDescription": "We're finishing the sign-in. One moment.",
       "decoupledTitle": "Approve in {{bank}}",
       "decoupledDescription": "Please open your {{bank}} app and approve the request. We're waiting for your confirmation.",

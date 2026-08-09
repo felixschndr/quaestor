@@ -44,7 +44,12 @@ from source.backend.security.csp import csp_middleware
 from source.backend.security.csrf import csrf_middleware
 from source.backend.security.rate_limit import rate_limit_middleware
 from source.backend.services.auth import api_key_service, session_service
-from source.backend.services.banking import enable_banking_catalog, fints_db_updater, sync_scheduler
+from source.backend.services.banking import (
+    enable_banking_catalog,
+    fints_db_updater,
+    playwright_browser,
+    sync_scheduler,
+)
 from source.backend.services.contracts import contract_detection_service, contract_overdue_scheduler
 from source.backend.services.core import i18n_service, migrations
 from source.backend.services.notifications import digest_scheduler
@@ -84,6 +89,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator:
     i18n_service.validate_display_timezone()
     log_database_location()
     migrations.upgrade_to_head()
+
+    await playwright_browser.ensure_chromium_installed()
 
     background_tasks = [
         asyncio.create_task(_run_as_system_task(module=module, name=name)) for module, name in STARTUP_BACKGROUND_TASKS

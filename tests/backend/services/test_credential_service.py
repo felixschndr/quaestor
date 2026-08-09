@@ -370,7 +370,7 @@ def test_confirm_two_factor_completes_login_and_syncs_credential(
 
     assert result.status == credential_service.SyncStatus.COMPLETED
     complete_login.assert_called_once_with(
-        challenge_token=CHALLENGE_TOKEN, credential_id=credential_id, code=TWO_FACTOR_CODE, notify_two_factor_state=None
+        challenge_token=CHALLENGE_TOKEN, credential_id=credential_id, code=TWO_FACTOR_CODE
     )
     with session_factory() as session:
         assert session.get(entity=Credential, ident=credential_id).session_state == {"cookies": "cookies-from-2fa"}

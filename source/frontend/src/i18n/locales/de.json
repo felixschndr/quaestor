@@ -568,7 +568,6 @@
     "twoFactor": {
       "codeTitle": "Code für {{bank}} eingeben",
       "codeDescription": "Wir haben einen Bestätigungscode an dein Handy gesendet. Gib ihn ein, um die Synchronisierung fortzusetzen.",
-      "authenticatorDescription": "Gib den Code aus deiner Authenticator-App ein. Danach kannst du die Anmeldung noch in der Trade Republic App bestätigen.",
       "confirmingDescription": "Wir schließen die Anmeldung ab. Einen Moment bitte.",
       "decoupledTitle": "{{bank}} bestätigen",
       "decoupledDescription": "Bitte öffne deine {{bank}}-App und bestätige die Anfrage. Wir warten auf die Freigabe.",
