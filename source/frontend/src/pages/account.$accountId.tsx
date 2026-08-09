@@ -49,7 +49,6 @@ import type { AccountDetailViewProps } from '@/routes/account.$accountId'
 import { BackLink } from '@/components/back-link'
 import { RowActions } from '@/components/row-actions'
 
-const AMOUNT_DOCKED_SCALE = 0.5
 const SPARKLINE_FLAT_RATIO = 0.05
 
 function SparklineAxis({ dates, activeSlot }: { dates: string[]; activeSlot?: number }) {
@@ -309,69 +308,45 @@ export function AccountDetailView({
 
   const stickyHeaderRef = useRef<HTMLDivElement>(null)
   const nameRowRef = useRef<HTMLDivElement>(null)
-  const amountSlotRef = useRef<HTMLDivElement>(null)
   const amountRef = useRef<HTMLDivElement>(null)
   const mainRef = useRef<HTMLElement>(null)
-  const amountStart = useRef<{ right: number; bottom: number } | null>(null)
-  const amountTarget = useRef<{ right: number; bottom: number } | null>(null)
   useLayoutEffect(() => {
+    if (!CSS.supports('animation-timeline: scroll()')) return
     const bar = stickyHeaderRef.current
     const nameRow = nameRowRef.current
-    const slot = amountSlotRef.current
     const amount = amountRef.current
-    if (!bar || !nameRow || !slot || !amount) return
-
-    const apply = () => {
-      const start = amountStart.current
-      const target = amountTarget.current
-      if (!start || !target) return
-      const distance = start.bottom - target.bottom
-      const progress = distance > 0 ? Math.min(Math.max(window.scrollY / distance, 0), 1) : 1
-      const back = 1 - progress
-      const x = back * (start.right - target.right)
-      const y = back * (start.bottom - window.scrollY - target.bottom)
-      const scale = 1 - progress * (1 - AMOUNT_DOCKED_SCALE)
-      amount.style.transform = `translate(${x}px, ${y}px) scale(${scale})`
-    }
+    if (!bar || !nameRow || !amount) return
 
     const measure = () => {
       mainRef.current?.style.setProperty(
         '--account-header-height',
         `${bar.getBoundingClientRect().height}px`,
       )
-      amount.style.cssText = ''
-      slot.style.height = ''
+      amount.classList.remove('account-balance-dock')
       const flow = amount.getBoundingClientRect()
-      slot.style.height = `${flow.height}px`
-      const target = nameRow.getBoundingClientRect()
-      amountTarget.current = { right: target.right, bottom: target.bottom }
-      let right = document.documentElement.clientWidth - target.right
-      let bottom = document.documentElement.clientHeight - target.bottom
-      amount.style.position = 'fixed'
-      amount.style.right = `${right}px`
-      amount.style.bottom = `${bottom}px`
-      const landed = amount.getBoundingClientRect()
-      right += landed.right - target.right
-      bottom += landed.bottom - target.bottom
-      amount.style.right = `${right}px`
-      amount.style.bottom = `${bottom}px`
-      amountStart.current = {
-        right: flow.left + landed.width,
-        bottom: flow.bottom + window.scrollY,
-      }
-      apply()
+      const name = nameRow.getBoundingClientRect()
+      amount.style.setProperty('--dock-top', `${name.bottom - flow.height}px`)
+      amount.style.setProperty('--dock-tx', `${name.right - flow.right}px`)
+      const distance = Math.max(flow.bottom + window.scrollY - name.bottom, 1)
+      amount.style.setProperty('--dock-distance', `${distance}px`)
+      amount.classList.add('account-balance-dock')
     }
 
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(bar)
-    observer.observe(amount)
-    window.addEventListener('scroll', apply, { passive: true })
-    window.addEventListener('resize', measure)
+    observer.observe(nameRow)
+    let width = window.innerWidth
+    const onResize = () => {
+      if (window.innerWidth === width) return
+      width = window.innerWidth
+      measure()
+    }
+    window.addEventListener('resize', onResize)
     return () => {
       observer.disconnect()
-      window.removeEventListener('scroll', apply)
-      window.removeEventListener('resize', measure)
+      window.removeEventListener('resize', onResize)
+      amount.classList.remove('account-balance-dock')
     }
   }, [])
 
@@ -431,87 +406,89 @@ export function AccountDetailView({
       </div>
 
       <div
-        className="mx-auto flex w-full max-w-page flex-col gap-6 px-4 pb-4"
+        className="mx-auto flex w-full max-w-page flex-col gap-2 px-4 pb-4"
         style={{ paddingTop: 'calc(var(--account-header-height, 0px) + 8px)' }}
       >
-        <section aria-labelledby="account-balance-label" className="flex flex-col gap-2">
-          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-            <IbanLabel id="account-balance-label" value={account.name} />
-            {lastUpdated ? (
-              <p className="text-muted-foreground shrink-0 text-sm sm:text-right">
-                {t('account.lastUpdated')}: {formatRelativeDateTime(lastUpdated, t, today)}
-              </p>
-            ) : null}
+        <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+          <IbanLabel id="account-balance-label" value={account.name} />
+          {lastUpdated ? (
+            <p className="text-muted-foreground shrink-0 text-sm sm:text-right">
+              {t('account.lastUpdated')}: {formatRelativeDateTime(lastUpdated, t, today)}
+            </p>
+          ) : null}
+        </div>
+        <div
+          ref={amountRef}
+          role="group"
+          aria-labelledby="account-balance-label"
+          className="z-30 w-fit"
+        >
+          <BalanceDisplay account={account} isManual={isManual} overrideValue={sparklineValue} />
+        </div>
+        <AccountSparkline accountId={account.id} onActiveDayChange={setSparklineValue} />
+        {isManual ? (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setAddingTxn((prev) => !prev)}
+            >
+              <Plus className="size-3.5" aria-hidden="true" />
+              {t('credentials.manualTransactions.add')}
+            </Button>
           </div>
-          <div ref={amountSlotRef}>
-            <div ref={amountRef} className="z-30 w-fit origin-bottom-right will-change-transform">
-              <BalanceDisplay
-                account={account}
-                isManual={isManual}
-                overrideValue={sparklineValue}
-              />
-            </div>
-          </div>
-          <AccountSparkline accountId={account.id} onActiveDayChange={setSparklineValue} />
-          {isManual ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setAddingTxn((prev) => !prev)}
-              >
-                <Plus className="size-3.5" aria-hidden="true" />
-                {t('credentials.manualTransactions.add')}
-              </Button>
-            </div>
-          ) : (
-            <ExpectedAddHeaderButton
-              accountId={account.id}
-              onToggle={() => setAddingExpected((prev) => !prev)}
-            />
-          )}
-        </section>
-
-        {isManual && addingTxn ? (
-          <ManualTransactionForm
-            accountId={account.id}
-            mode="create"
-            onDone={() => setAddingTxn(false)}
-          />
-        ) : null}
-
-        {!isManual && addingExpected ? (
-          <ExpectedTransactionForm accountId={account.id} onDone={() => setAddingExpected(false)} />
-        ) : null}
-
-        {isManual ? <RecurringTransactionsList accountId={account.id} /> : null}
-
-        {!isManual ? (
-          <ExpectedTransactionsList
-            accountId={account.id}
-            onAdd={() => setAddingExpected((prev) => !prev)}
-          />
-        ) : null}
-
-        {hasAnyTransactions ? (
-          <TransactionGroupList
-            accountId={account.id}
-            groups={groups}
-            today={today}
-            isManual={isManual}
-            isMarketValued={account.is_market_valued}
-            highlightId={highlightId}
-          />
-        ) : isLoading ? (
-          <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
         ) : (
-          <p className="text-muted-foreground text-sm">{t('account.empty')}</p>
+          <ExpectedAddHeaderButton
+            accountId={account.id}
+            onToggle={() => setAddingExpected((prev) => !prev)}
+          />
         )}
 
-        {hasNextPage ? (
-          <InfiniteScrollSentinel onIntersect={onLoadMore} isFetching={isFetchingNextPage} />
-        ) : null}
+        <div className="mt-4 flex flex-col gap-6">
+          {isManual && addingTxn ? (
+            <ManualTransactionForm
+              accountId={account.id}
+              mode="create"
+              onDone={() => setAddingTxn(false)}
+            />
+          ) : null}
+
+          {!isManual && addingExpected ? (
+            <ExpectedTransactionForm
+              accountId={account.id}
+              onDone={() => setAddingExpected(false)}
+            />
+          ) : null}
+
+          {isManual ? <RecurringTransactionsList accountId={account.id} /> : null}
+
+          {!isManual ? (
+            <ExpectedTransactionsList
+              accountId={account.id}
+              onAdd={() => setAddingExpected((prev) => !prev)}
+            />
+          ) : null}
+
+          {hasAnyTransactions ? (
+            <TransactionGroupList
+              accountId={account.id}
+              groups={groups}
+              today={today}
+              isManual={isManual}
+              isMarketValued={account.is_market_valued}
+              highlightId={highlightId}
+            />
+          ) : isLoading ? (
+            <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
+          ) : (
+            <p className="text-muted-foreground text-sm">{t('account.empty')}</p>
+          )}
+
+          {hasNextPage ? (
+            <InfiniteScrollSentinel onIntersect={onLoadMore} isFetching={isFetchingNextPage} />
+          ) : null}
+        </div>
       </div>
     </main>
   )

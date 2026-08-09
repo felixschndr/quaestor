@@ -108,7 +108,7 @@ export function OverviewView({
 
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
-      <header className="flex items-start justify-between px-2">
+      <header className="flex items-center justify-between px-2">
         <h1 className="text-foreground text-2xl font-semibold">
           <Trans
             i18nKey="overview.hello"

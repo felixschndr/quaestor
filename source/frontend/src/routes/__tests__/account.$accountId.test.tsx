@@ -133,16 +133,18 @@ describe('AccountDetailView', () => {
     expect(amount.className).toMatch(/text-destructive/)
   })
 
-  it('moves the one balance towards the header instead of duplicating it', () => {
+  it('docks the one balance towards the header instead of duplicating it', () => {
+    vi.spyOn(CSS, 'supports').mockReturnValue(true)
     renderView([])
-    const moved = () => screen.getByText('1.234,50 €').closest('[style]') as HTMLElement | null
 
     expect(screen.getAllByText('1.234,50 €')).toHaveLength(1)
-    expect(moved()?.style.transform).toMatch(/^translate\(/)
+    const dock = document.querySelector('.account-balance-dock') as HTMLElement | null
+    expect(dock).not.toBeNull()
+    expect(dock).toContainElement(screen.getByText('1.234,50 €'))
+    expect(dock!.style.getPropertyValue('--dock-distance')).not.toBe('')
 
     scrollTo(400)
     expect(screen.getAllByText('1.234,50 €')).toHaveLength(1)
-    expect(moved()?.style.transform).toMatch(/^translate\(/)
     expect(screen.getAllByText('Girokonto').length).toBeGreaterThan(0)
   })
 
