@@ -32,6 +32,7 @@
   },
   "common": {
     "searchAndFilters": "Search & filters",
+    "total": "Total",
     "loading": "Loading…",
     "save": "Save",
     "cancel": "Cancel",
@@ -704,10 +705,13 @@
         "2w": "2W",
         "1m": "1M"
       },
-      "total": "Total",
       "noTransactions": "No transactions in this period",
       "error": "Could not load the breakdown.",
       "empty": "No data for this period."
+    },
+    "balance": {
+      "title": "Current balances",
+      "empty": "No accounts selected."
     },
     "otherParties": {
       "titleOutgoing": "Top recipients",
@@ -716,6 +720,7 @@
     "runway": {
       "title": "Runway",
       "info": "The categories {{categories}} aren't included.",
+      "viewTransactions": "Expenses in this period",
       "remaining": "Remaining",
       "monthsUnit": "months",
       "infinite": "∞",

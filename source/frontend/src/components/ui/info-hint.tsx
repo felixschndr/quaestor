@@ -18,7 +18,7 @@ export function InfoHint({ children }: { children: ReactNode }) {
       >
         <Info className="size-3.5" aria-hidden="true" />
       </PopoverTrigger>
-      <PopoverContent side="top" align="end" className="p-3 text-xs whitespace-nowrap">
+      <PopoverContent side="top" align="end" className="max-w-xs p-3 text-xs">
         {children}
       </PopoverContent>
     </Popover>

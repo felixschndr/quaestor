@@ -97,6 +97,7 @@ async function renderAndGetArrows(search: Partial<StatsSearchParams>) {
         onChange={vi.fn()}
         onOpenSearch={onOpenSearch}
         onOpenDay={vi.fn()}
+        onOpenBalance={vi.fn()}
       />
     </QueryClientProvider>,
   )

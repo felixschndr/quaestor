@@ -8,8 +8,12 @@ import { BankLogo } from '@/components/BankLogo'
 import { QueryStates } from '@/components/query-states'
 import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { useAuthMe } from '@/lib/auth'
-import { useAccountGroupLayout } from '@/lib/accountGroups'
-import { buildDisplayGroups, type AccountWithBank } from '@/lib/accountDisplayGroups'
+import type { AccountWithBank } from '@/lib/accountDisplayGroups'
+import {
+  AccountGroupList,
+  AccountLabel,
+  useDisplayGroups,
+} from '@/components/stats/account-group-list'
 import { SegmentedToggle } from '@/components/stats/segmented-toggle'
 import {
   DETAIL_RANGE_PRESETS,
@@ -20,8 +24,7 @@ import {
   type DetailRangePreset,
 } from '@/lib/statistics'
 import type { TransactionRead } from '@/lib/accountHistory'
-import { accountDisplayName } from '@/lib/accounts'
-import { formatMoney, formatFactorMultiplier, formatIban } from '@/lib/format'
+import { formatMoney, formatIban } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const detailRoute = getRouteApi('/stats_/detail')
@@ -43,11 +46,11 @@ export function NetWorthDetailPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { data: user } = useAuthMe()
-  const layout = useAccountGroupLayout()
   const accountIds = search.account_ids ?? []
   const endDate = search.end ?? toIsoDate(new Date())
   const startDate = search.start ?? shiftIsoDay(endDate, -1)
   const range = useNetWorthRange(startDate, endDate, accountIds)
+  const groups = useDisplayGroups(accountIds)
 
   const changeStart = (next: string | undefined) => {
     if (!next) return
@@ -90,18 +93,11 @@ export function NetWorthDetailPage() {
     })
   }
 
-  if (!user) return null // root guard already redirected on 401
+  if (!user || !groups) return null // root guard already redirected on 401
 
-  const selectedIds = new Set(accountIds)
   const changeByAccount = new Map<number, AccountRangeChange>(
     (range.data?.accounts ?? []).map((change) => [change.account_id, change]),
   )
-  const groups = buildDisplayGroups(user, layout.data)
-    .map((group) => ({
-      ...group,
-      accounts: group.accounts.filter((account) => selectedIds.has(account.id)),
-    }))
-    .filter((group) => group.accounts.length > 0)
 
   const totalAtEnd = range.data?.total_at_end ?? 0
   const totalDifference = range.data?.total_difference ?? 0
@@ -141,38 +137,21 @@ export function NetWorthDetailPage() {
         emptyText={t('stats.day.empty')}
         emptyClassName="border-border bg-card rounded-lg border border-dashed p-8 text-center"
       >
-        <ul className="flex flex-col gap-6">
-          {groups.map((group) => {
-            const heading =
-              group.heading === '__ungrouped__'
-                ? t('credentials.groups.ungroupedHeading')
-                : group.heading
-            return (
-              <li key={group.key} className="flex flex-col gap-1">
-                {heading ? (
-                  <h2 className="text-muted-foreground px-2 text-xs font-semibold tracking-wide uppercase">
-                    {heading}
-                  </h2>
-                ) : null}
-                <ul className="flex flex-col">
-                  {group.accounts.map((account) => (
-                    <AccountChangeRow
-                      key={account.id}
-                      account={account}
-                      change={changeByAccount.get(account.id)}
-                      open={expandedIds.has(account.id)}
-                      onOpenChange={(next) => setExpanded(account.id, next)}
-                    />
-                  ))}
-                </ul>
-              </li>
-            )
-          })}
-        </ul>
+        <AccountGroupList
+          groups={groups}
+          renderAccount={(account) => (
+            <AccountChangeRow
+              account={account}
+              change={changeByAccount.get(account.id)}
+              open={expandedIds.has(account.id)}
+              onOpenChange={(next) => setExpanded(account.id, next)}
+            />
+          )}
+        />
 
         {range.data ? (
           <div className="border-border mx-2 flex items-center justify-between border-t pt-3 text-sm font-semibold tabular-nums">
-            <span>{t('stats.day.total')}</span>
+            <span>{t('common.total')}</span>
             <span className="flex items-baseline gap-3">
               <span>{formatMoney(totalAtEnd)}</span>
               <DifferenceAmount value={totalDifference} />
@@ -200,50 +179,40 @@ function AccountChangeRow({
   const transactions = change?.transactions ?? []
 
   return (
-    <li>
-      <Collapsible.Root open={open} onOpenChange={onOpenChange}>
-        <Collapsible.Trigger className="group/row hover:bg-muted/60 focus-visible:ring-ring flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none">
-          <ChevronRight
-            aria-hidden="true"
-            className="text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 ease-in-out group-data-[state=open]/row:rotate-90"
-          />
-          <BankLogo
-            icon={account.bankIcon}
-            name={account.bankName ?? account.bank}
-            seed={account.bankName ?? account.bank}
-          />
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="flex items-baseline gap-1.5">
-              <span className="truncate text-sm font-medium">{accountDisplayName(account)}</span>
-              {account.balance_factor !== 100 ? (
-                <span className="text-muted-foreground shrink-0 text-xs font-normal tabular-nums">
-                  x {formatFactorMultiplier(account.balance_factor / 100)}
-                </span>
-              ) : null}
-            </span>
-            <span className="text-muted-foreground truncate text-xs tabular-nums">
-              {formatMoney(change?.balance_at_start ?? 0)} →{' '}
-              {formatMoney(change?.balance_at_end ?? 0)}
-            </span>
+    <Collapsible.Root open={open} onOpenChange={onOpenChange}>
+      <Collapsible.Trigger className="group/row hover:bg-muted/60 focus-visible:ring-ring flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none">
+        <ChevronRight
+          aria-hidden="true"
+          className="text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 ease-in-out group-data-[state=open]/row:rotate-90"
+        />
+        <BankLogo
+          icon={account.bankIcon}
+          name={account.bankName ?? account.bank}
+          seed={account.bankName ?? account.bank}
+        />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <AccountLabel account={account} />
+          <span className="text-muted-foreground truncate text-xs tabular-nums">
+            {formatMoney(change?.balance_at_start ?? 0)} →{' '}
+            {formatMoney(change?.balance_at_end ?? 0)}
           </span>
-          <DifferenceAmount value={difference} />
-        </Collapsible.Trigger>
-        <Collapsible.Content className="collapsible-content overflow-hidden">
-          {transactions.length === 0 ? (
-            // Indent to line up with the account name above (chevron + logo + gaps).
-            <p className="text-muted-foreground py-2 pr-2 pl-[4.875rem] text-xs">
-              {t('stats.day.noTransactions')}
-            </p>
-          ) : (
-            <ul className="flex flex-col pb-1">
-              {transactions.map((transaction) => (
-                <TransactionLine key={transaction.id} transaction={transaction} />
-              ))}
-            </ul>
-          )}
-        </Collapsible.Content>
-      </Collapsible.Root>
-    </li>
+        </span>
+        <DifferenceAmount value={difference} />
+      </Collapsible.Trigger>
+      <Collapsible.Content className="collapsible-content overflow-hidden">
+        {transactions.length === 0 ? (
+          <p className="text-muted-foreground py-2 pr-2 pl-[4.875rem] text-xs">
+            {t('stats.day.noTransactions')}
+          </p>
+        ) : (
+          <ul className="flex flex-col pb-1">
+            {transactions.map((transaction) => (
+              <TransactionLine key={transaction.id} transaction={transaction} />
+            ))}
+          </ul>
+        )}
+      </Collapsible.Content>
+    </Collapsible.Root>
   )
 }
 

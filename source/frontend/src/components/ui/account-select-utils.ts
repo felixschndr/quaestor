@@ -51,4 +51,4 @@ export function groupAccounts(
 }
 
 export const accountOptionRowClass =
-  'hover:bg-muted/60 focus-visible:bg-muted/60 has-focus-visible:bg-muted/60 flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm outline-none'
+  'hover:bg-muted/60 focus-visible:bg-muted/60 has-focus-visible:bg-muted/60 flex cursor-pointer items-center gap-3 rounded-md px-2 py-3 text-sm outline-none'

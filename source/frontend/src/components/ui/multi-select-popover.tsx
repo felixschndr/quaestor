@@ -117,7 +117,7 @@ export function MultiSelectPopover<T extends string>({
               <li key={option.value}>
                 <label
                   htmlFor={checkboxId}
-                  className="hover:bg-muted/60 has-focus-visible:bg-muted/60 flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm"
+                  className="hover:bg-muted/60 has-focus-visible:bg-muted/60 flex cursor-pointer items-center gap-3 rounded-md px-2 py-3 text-sm"
                 >
                   {option.leading}
                   <span className="flex-1 truncate">{option.label}</span>

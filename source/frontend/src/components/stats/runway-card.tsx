@@ -35,6 +35,8 @@ export function RunwayCard({
   categories,
   typeFilters,
   enabled,
+  onViewTransactions,
+  onViewBalance,
 }: {
   credentials: CredentialRead[]
   accountIds: number[]
@@ -42,6 +44,8 @@ export function RunwayCard({
   categories: TransactionCategory[]
   typeFilters: StatsTypeFilters
   enabled: boolean
+  onViewTransactions?: (categories: TransactionCategory[]) => void
+  onViewBalance?: () => void
 }) {
   const { t, i18n } = useTranslation()
 
@@ -73,8 +77,21 @@ export function RunwayCard({
   const months = runwayMonths(balance, avgExpenses)
 
   const metrics = [
-    { label: t('stats.runway.balance'), value: formatMoney(balance) },
-    { label: t('stats.runway.avgExpenses'), value: formatMoney(avgExpenses) },
+    {
+      label: t('stats.runway.balance'),
+      value: formatMoney(balance),
+      onDrill: onViewBalance,
+      drillLabel: t('stats.balance.title'),
+    },
+    {
+      label: t('stats.runway.avgExpenses'),
+      value: formatMoney(avgExpenses),
+      onDrill:
+        onViewTransactions && !noCategories
+          ? () => onViewTransactions(runwayCategories)
+          : undefined,
+      drillLabel: t('stats.runway.viewTransactions'),
+    },
     { label: t('stats.runway.remaining'), value: formatRunway(months, t) },
   ]
 

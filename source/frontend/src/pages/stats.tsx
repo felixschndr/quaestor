@@ -62,6 +62,7 @@ export function StatsView({
   onChange,
   onOpenSearch,
   onOpenDay,
+  onOpenBalance,
 }: StatsViewProps) {
   const { t } = useTranslation()
   useScrollRestoration('stats')
@@ -215,6 +216,17 @@ export function StatsView({
   const openNetWorthSearch = () =>
     onOpenSearch({ accountIds, dateFrom: filters.date_from, dateTo: filters.date_to })
 
+  const openRunwaySearch = (runwayCategories: TransactionCategory[]) =>
+    onOpenSearch({
+      accountIds,
+      dateFrom: filters.date_from,
+      dateTo: filters.date_to,
+      direction: 'OUTGOING',
+      transactionTypes: typesParam,
+      linked,
+      categories: runwayCategories,
+    })
+
   const trendMode = chartType === 'trend'
   const categories = useCategoryStats(
     accountIds,
@@ -332,6 +344,8 @@ export function StatsView({
             categories={selectedCategories}
             typeFilters={typeFilters}
             enabled={hasSelection}
+            onViewTransactions={openRunwaySearch}
+            onViewBalance={() => onOpenBalance(accountIds)}
           />
 
           <ChartCard

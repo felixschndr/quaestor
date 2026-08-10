@@ -213,7 +213,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "rituals",
     ],
     TransactionCategory.CLOTHING: ["new yorker", "bijou brigitte", "deichmann"],
-    TransactionCategory.GIFTS: ["blume 2000", "geburtstag", "schenkung"],
+    TransactionCategory.GIFTS: ["blume 2000", "geburtstag", "schenkung", "geschenk"],
     TransactionCategory.ENTERTAINMENT: [
         "steam games",
         "steampowered",

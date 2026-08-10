@@ -32,6 +32,7 @@
   },
   "common": {
     "searchAndFilters": "Suche & Filter",
+    "total": "Gesamt",
     "loading": "Lädt …",
     "save": "Speichern",
     "cancel": "Abbrechen",
@@ -704,10 +705,13 @@
         "2w": "2 W",
         "1m": "1 M"
       },
-      "total": "Gesamt",
       "noTransactions": "Keine Transaktionen in diesem Zeitraum",
       "error": "Die Übersicht konnte nicht geladen werden.",
       "empty": "Für diesen Zeitraum gibt es keine Daten."
+    },
+    "balance": {
+      "title": "Jetzige Kontostände",
+      "empty": "Keine Konten ausgewählt."
     },
     "otherParties": {
       "titleOutgoing": "Top-Empfänger",
@@ -716,6 +720,7 @@
     "runway": {
       "title": "Finanzieller Puffer",
       "info": "Die Kategorien {{categories}} werden nicht mitgerechnet.",
+      "viewTransactions": "Ausgaben in diesem Zeitraum",
       "remaining": "Verbleibend",
       "monthsUnit": "Monate",
       "infinite": "∞",

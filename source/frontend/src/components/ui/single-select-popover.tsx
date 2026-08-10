@@ -86,7 +86,7 @@ export function SingleSelectPopover<T extends string>({
                   onChange(option.value)
                   setOpen(false)
                 }}
-                className="hover:bg-muted/60 focus-visible:bg-muted/60 flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-left text-sm outline-none"
+                className="hover:bg-muted/60 focus-visible:bg-muted/60 flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-3 text-left text-sm outline-none"
               >
                 {option.leading}
                 <span className="flex-1 truncate">{option.label}</span>
