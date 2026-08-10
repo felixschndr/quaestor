@@ -18,6 +18,7 @@ import {
   type TransactionCountsGroupBy,
 } from '@/lib/statistics'
 import { StatsView } from '@/pages/stats'
+import type { TransactionSortKey } from '@/lib/transactionSearchParams'
 import { oneOrMany } from '@/lib/searchParams'
 
 const hiddenCategorySchema = z.enum([...TRANSACTION_CATEGORIES, 'OTHER'] as const)
@@ -101,6 +102,7 @@ function StatsPage() {
             linked: drill.linked,
             amount_from: drill.direction === 'INCOMING' ? 0 : undefined,
             amount_to: drill.direction === 'OUTGOING' ? 0 : undefined,
+            sort: drill.sort,
           },
         })
       }}
@@ -140,6 +142,7 @@ export interface StatsDrilldown {
   text?: string
   transactionTypes?: TransactionType[]
   linked?: StatsLinked
+  sort?: TransactionSortKey
 }
 
 export interface StatsViewProps {

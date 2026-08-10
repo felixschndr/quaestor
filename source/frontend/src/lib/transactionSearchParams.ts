@@ -3,12 +3,17 @@ import { z } from 'zod'
 import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from './transaction'
 import { oneOrMany } from './searchParams'
 
-// Lives in its own module rather than in transactionSearch.ts: that file is
-// imported by transaction.ts, so pulling the category/type constants back in
-// there would form a cycle and leave the enums undefined at schema-build time.
-//
-// Shared by both entry points into the search view — the global /search route
-// and the account-scoped /account/$accountId/search one.
+export const TRANSACTION_SORT_KEYS = [
+  'date_desc',
+  'date_asc',
+  'amount_desc',
+  'amount_asc',
+  'amount_abs_desc',
+  'amount_abs_asc',
+] as const
+
+export type TransactionSortKey = (typeof TRANSACTION_SORT_KEYS)[number]
+
 export const transactionSearchParamsSchema = z.object({
   text: z.string().optional(),
   amount_from: z.coerce.number().optional(),
@@ -22,6 +27,7 @@ export const transactionSearchParamsSchema = z.object({
   account_ids: oneOrMany(z.coerce.number()).optional(),
   link_account_id: z.coerce.number().optional(),
   link_transaction_id: z.coerce.number().optional(),
+  sort: z.enum(TRANSACTION_SORT_KEYS).optional(),
 })
 
 export type TransactionSearchParams = z.infer<typeof transactionSearchParamsSchema>

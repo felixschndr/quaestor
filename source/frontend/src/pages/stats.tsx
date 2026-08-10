@@ -54,6 +54,7 @@ import {
 } from '@/lib/statistics'
 import { defaultAccountIds } from '@/lib/accounts'
 import { useScrollRestoration } from '@/lib/useScrollRestoration'
+import type { TransactionSortKey } from '@/lib/transactionSearchParams'
 import type { StatsViewProps, StatsViewState } from '@/routes/stats'
 
 export function StatsView({
@@ -184,6 +185,8 @@ export function StatsView({
   )
   const cashAccountIds = accountIds.filter((id) => !marketValued.has(id))
 
+  const drillSort: TransactionSortKey = direction === 'INCOMING' ? 'amount_desc' : 'amount_asc'
+
   const openSearch = (extra: { categories?: TransactionCategory[]; text?: string }) =>
     onOpenSearch({
       accountIds: cashAccountIds,
@@ -193,6 +196,7 @@ export function StatsView({
       transactionTypes: typesParam,
       linked,
       categories: categoriesParam,
+      sort: drillSort,
       ...extra,
     })
 
@@ -210,6 +214,7 @@ export function StatsView({
       transactionTypes: typesParam,
       linked,
       categories: [category],
+      sort: drillSort,
     })
   }
 
@@ -225,6 +230,7 @@ export function StatsView({
       transactionTypes: typesParam,
       linked,
       categories: runwayCategories,
+      sort: 'amount_asc',
     })
 
   const trendMode = chartType === 'trend'

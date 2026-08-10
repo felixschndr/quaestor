@@ -11,7 +11,7 @@ import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { FilterHeading } from '@/components/ui/filter-heading'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { SingleSelectPopover } from '@/components/ui/single-select-popover'
+import { SortSelect } from '@/components/ui/sort-select'
 import { TransactionFilterFields } from '@/components/ui/transaction-filter-fields'
 import type { TransactionRead } from '@/lib/accountHistory'
 import { accountDisplayName, defaultAccountIds, sameAccountSelection } from '@/lib/accounts'
@@ -22,7 +22,7 @@ import { formatDate, formatMoney, transactionPartyName } from '@/lib/format'
 import { CategoryAvatar } from '@/lib/categoryIcons'
 import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from '@/lib/transaction'
 import { useSearchTransactions, type TransactionFilters } from '@/lib/transactionSearch'
-import type { TransactionSearchParams } from '@/lib/transactionSearchParams'
+import type { TransactionSearchParams, TransactionSortKey } from '@/lib/transactionSearchParams'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { cn } from '@/lib/utils'
 import { BackLink } from '@/components/back-link'
@@ -31,6 +31,7 @@ export interface TransactionSearchViewProps {
   credentials: CredentialRead[]
   search: TransactionSearchParams
   onChange: (payload: { accountIds: number[]; filters: TransactionFilters }) => void
+  onSortChange: (sort: TransactionSortKey) => void
 }
 
 export function nextSearchParams(
@@ -44,6 +45,7 @@ export function nextSearchParams(
     account_ids: isDefault ? undefined : accountIds,
     link_account_id: search.link_account_id,
     link_transaction_id: search.link_transaction_id,
+    sort: search.sort,
   }
 }
 
@@ -51,6 +53,7 @@ export function TransactionSearchView({
   credentials,
   search,
   onChange,
+  onSortChange,
 }: TransactionSearchViewProps) {
   const { t } = useTranslation()
   const defaultIds = useMemo(() => defaultAccountIds(credentials), [credentials])
@@ -120,6 +123,8 @@ export function TransactionSearchView({
           credentials={credentials}
           filters={debouncedDraft}
           linkSource={linkSource}
+          sort={search.sort ?? 'date_desc'}
+          onSortChange={onSortChange}
         />
       ) : (
         <p className="text-muted-foreground text-sm">{t('common.noMatchingTransactions')}</p>
@@ -227,15 +232,10 @@ function Field({ id, label, children }: { id: string; label: string; children: R
   )
 }
 
-type SortKey =
-  | 'date_desc'
-  | 'date_asc'
-  | 'amount_desc'
-  | 'amount_asc'
-  | 'amount_abs_desc'
-  | 'amount_abs_asc'
-
-const SORT_COMPARATORS: Record<SortKey, (a: TransactionRead, b: TransactionRead) => number> = {
+const SORT_COMPARATORS: Record<
+  TransactionSortKey,
+  (a: TransactionRead, b: TransactionRead) => number
+> = {
   date_desc: (a, b) => b.date.localeCompare(a.date) || b.id - a.id,
   date_asc: (a, b) => a.date.localeCompare(b.date) || a.id - b.id,
   amount_desc: (a, b) => b.amount - a.amount || b.id - a.id,
@@ -249,15 +249,18 @@ function SearchResults({
   credentials,
   filters,
   linkSource,
+  sort,
+  onSortChange,
 }: {
   accountIds: number[]
   credentials: CredentialRead[]
   filters: TransactionFilters
   linkSource: { accountId: number; transactionId: number } | null
+  sort: TransactionSortKey
+  onSortChange: (sort: TransactionSortKey) => void
 }) {
   const { t } = useTranslation()
   const query = useSearchTransactions(accountIds, filters)
-  const [sort, setSort] = useState<SortKey>('date_desc')
   const showAccountLabel = accountIds.length > 1
   const accountById = useMemo(() => buildAccountLookup(credentials), [credentials])
   const results = useMemo(() => {
@@ -283,11 +286,10 @@ function SearchResults({
           <h2 className="text-primary text-sm font-semibold">
             {t('search.resultsCount', { count: results.length })}
           </h2>
-          <SingleSelectPopover
+          <SortSelect
             ariaLabel={t('search.sortLabel')}
             value={sort}
-            onChange={setSort}
-            className="w-auto"
+            onChange={onSortChange}
             options={[
               { value: 'date_desc', label: t('search.sortDateDesc') },
               { value: 'date_asc', label: t('search.sortDateAsc') },

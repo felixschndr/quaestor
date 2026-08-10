@@ -96,14 +96,16 @@ type TransactionFiltersLike = Record<string, unknown>
 
 function renderView(opts: { search?: Partial<TransactionSearchParams> } = {}) {
   const onChange = vi.fn()
+  const onSortChange = vi.fn()
   renderWithClient(
     <TransactionSearchView
       credentials={credentials}
       search={(opts.search ?? {}) as TransactionSearchParams}
       onChange={onChange}
+      onSortChange={onSortChange}
     />,
   )
-  return { onChange }
+  return { onChange, onSortChange }
 }
 
 function lastPayload(onChange: ReturnType<typeof vi.fn>): ChangePayload | undefined {

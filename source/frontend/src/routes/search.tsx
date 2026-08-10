@@ -3,7 +3,10 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { useAuthMe } from '@/lib/auth'
 import { type TransactionFilters } from '@/lib/transactionSearch'
-import { transactionSearchParamsSchema } from '@/lib/transactionSearchParams'
+import {
+  transactionSearchParamsSchema,
+  type TransactionSortKey,
+} from '@/lib/transactionSearchParams'
 import { TransactionSearchView, nextSearchParams } from '@/pages/search'
 
 export const Route = createFileRoute('/search')({
@@ -26,9 +29,24 @@ function GlobalTransactionSearchPage() {
     [navigate, user, search],
   )
 
+  const onSortChange = useCallback(
+    (sort: TransactionSortKey) => {
+      navigate({
+        search: { ...search, sort: sort === 'date_desc' ? undefined : sort },
+        replace: true,
+      })
+    },
+    [navigate, search],
+  )
+
   if (!user) return null
 
   return (
-    <TransactionSearchView credentials={user.credentials} search={search} onChange={onChange} />
+    <TransactionSearchView
+      credentials={user.credentials}
+      search={search}
+      onChange={onChange}
+      onSortChange={onSortChange}
+    />
   )
 }

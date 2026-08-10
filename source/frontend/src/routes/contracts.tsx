@@ -28,6 +28,7 @@ import { ContractFilterBar } from '@/components/ui/contract-filter-bar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
+import { SortSelect } from '@/components/ui/sort-select'
 import { AccountSingleSelect } from '@/components/ui/account-single-select'
 import {
   Dialog,
@@ -103,7 +104,8 @@ function byString(a: string | null, b: string | null): number {
 
 function ContractsPage() {
   const { t } = useTranslation()
-  const { sort = 'amount_asc', ...filters } = Route.useSearch()
+  const { sort: sortParam, ...filters } = Route.useSearch()
+  const sort = sortParam ?? 'amount_asc'
   const { data: contracts } = useContracts(true)
   const { data: user } = useAuthMe()
   const navigate = useNavigate({ from: Route.fullPath })
@@ -118,9 +120,12 @@ function ContractsPage() {
   )
 
   const setFilters = (next: ContractFilters) =>
-    navigate({ search: { ...next, sort }, replace: true })
+    navigate({ search: { ...next, sort: sortParam }, replace: true })
   const setSort = (next: SortOption) =>
-    navigate({ search: { ...filters, sort: next }, replace: true })
+    navigate({
+      search: { ...filters, sort: next === 'amount_asc' ? undefined : next },
+      replace: true,
+    })
 
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
@@ -142,18 +147,16 @@ function ContractsPage() {
             <h2 className="text-primary text-sm font-semibold">
               {t('contracts.count', { count: visible.length })}
             </h2>
-            <div className="w-48">
-              <SingleSelectPopover
-                id="contract-sort"
-                ariaLabel={t('contracts.sortLabel')}
-                value={sort}
-                onChange={setSort}
-                options={SORT_OPTIONS.map((option) => ({
-                  value: option,
-                  label: t(`contracts.sort.${option}`),
-                }))}
-              />
-            </div>
+            <SortSelect
+              id="contract-sort"
+              ariaLabel={t('contracts.sortLabel')}
+              value={sort}
+              onChange={setSort}
+              options={SORT_OPTIONS.map((option) => ({
+                value: option,
+                label: t(`contracts.sort.${option}`),
+              }))}
+            />
           </div>
           <ContractCostOverview contracts={visible} />
         </section>
