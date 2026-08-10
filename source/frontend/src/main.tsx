@@ -10,12 +10,17 @@ import { queryClient } from './lib/queryClient'
 import { routeTree } from './routeTree.gen'
 import { applyTheme, readStoredTheme } from './lib/theme'
 
-// Apply the stored theme before the first paint so the user doesn't see a
-// flash of the wrong colours while /auth/me is in flight.
 applyTheme(readStoredTheme())
 
-// reload the page once the new service worker has activated, so users pick up a fresh deployment automatically
-registerSW({ immediate: true })
+registerSW({
+  immediate: true,
+  onRegisteredSW(_swUrl, registration) {
+    if (!registration) return
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') registration.update()
+    })
+  },
+})
 
 const router = createRouter({
   routeTree,
