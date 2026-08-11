@@ -355,10 +355,10 @@ export function AccountDetailView({
     <main ref={mainRef} className="flex min-h-full flex-col">
       <div ref={stickyHeaderRef} className="bg-background fixed top-0 right-0 left-0 z-20">
         <div className="mx-auto flex w-full max-w-page flex-col px-4 pt-4 pb-3">
-          <header className="flex items-center justify-between gap-2">
+          <header className="flex items-center justify-between gap-2 pr-2">
             <BackLink to="/" label={t('account.back')} />
-            <div className="flex translate-y-[6px] items-center gap-1">
-              <PrivacyToggle />
+            <div className="-mr-2.5 flex items-center gap-1">
+              <PrivacyToggle className="p-2.5" />
               {onSyncClick ? (
                 <SyncButton
                   onClick={onSyncClick}
@@ -366,6 +366,7 @@ export function AccountDetailView({
                   disabled={syncDisabled}
                   succeededAt={syncSucceededAt}
                   ariaLabel={t('account.sync.aria')}
+                  className="p-2.5"
                 />
               ) : null}
               <Link
@@ -373,7 +374,7 @@ export function AccountDetailView({
                 search={{ account_ids: [account.id] }}
                 aria-label={t('account.statistics')}
                 title={t('account.statistics')}
-                className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
+                className="text-primary hover:text-primary/80 group rounded-md p-2.5 transition-colors max-sm:hidden"
               >
                 <StatsIcon className="size-5" />
               </Link>
@@ -382,7 +383,7 @@ export function AccountDetailView({
                 search={{ account_ids: [account.id] }}
                 aria-label={t('contracts.title')}
                 title={t('contracts.title')}
-                className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
+                className="text-primary hover:text-primary/80 group rounded-md p-2.5 transition-colors max-sm:hidden"
               >
                 <ContractIcon className="size-5" />
               </Link>
@@ -391,7 +392,7 @@ export function AccountDetailView({
                 search={{ account_ids: [account.id] }}
                 aria-label={t('account.search')}
                 title={t('account.search')}
-                className="text-primary hover:text-primary/80 group rounded-md p-1.5 transition-colors"
+                className="text-primary hover:text-primary/80 group rounded-md p-2.5 transition-colors max-sm:hidden"
               >
                 <Search className="search-icon-zoom size-5" />
               </Link>

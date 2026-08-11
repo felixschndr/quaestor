@@ -42,7 +42,7 @@ function OverviewSection({ user }: { user: UserRead }) {
   }
 
   return (
-    <Section title={t('settings.overview')}>
+    <Section title={t('common.overview')}>
       <label
         htmlFor="show-upcoming-contracts"
         className="flex cursor-pointer items-center gap-2 text-sm font-medium"

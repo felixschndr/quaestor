@@ -117,6 +117,14 @@ export function OverviewView({
           />
         </h1>
         <div className="-mr-2.5 flex items-center gap-1">
+          <Link
+            to="/settings"
+            aria-label={t('settings.title')}
+            title={t('settings.title')}
+            className="text-primary hover:text-primary/80 focus-visible:ring-ring group rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          >
+            <Settings className="size-5 transition-transform duration-300 ease-in-out group-hover:rotate-90" />
+          </Link>
           {hasAccounts ? <PrivacyToggle className="p-2.5" /> : null}
           {hasAccounts ? (
             <SyncButton
@@ -135,7 +143,7 @@ export function OverviewView({
                 to="/stats"
                 aria-label={t('stats.title')}
                 title={t('stats.title')}
-                className="text-primary hover:text-primary/80 focus-visible:ring-ring group rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                className="text-primary hover:text-primary/80 focus-visible:ring-ring group rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none max-sm:hidden"
               >
                 <StatsIcon className="size-5" />
               </Link>
@@ -147,7 +155,7 @@ export function OverviewView({
                     : t('contracts.title')
                 }
                 title={t('contracts.title')}
-                className="text-primary hover:text-primary/80 focus-visible:ring-ring group relative rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                className="text-primary hover:text-primary/80 focus-visible:ring-ring group relative rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none max-sm:hidden"
               >
                 <ContractIcon className="size-5" />
                 {overdueCount > 0 ? <WarningDot /> : null}
@@ -159,19 +167,11 @@ export function OverviewView({
               to="/search"
               aria-label={t('overview.search')}
               title={t('overview.search')}
-              className="text-primary hover:text-primary/80 focus-visible:ring-ring group rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              className="text-primary hover:text-primary/80 focus-visible:ring-ring group rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none max-sm:hidden"
             >
               <Search className="search-icon-zoom size-5" />
             </Link>
           ) : null}
-          <Link
-            to="/settings"
-            aria-label={t('settings.title')}
-            title={t('settings.title')}
-            className="text-primary hover:text-primary/80 focus-visible:ring-ring group rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
-          >
-            <Settings className="size-5 transition-transform duration-300 ease-in-out group-hover:rotate-90" />
-          </Link>
         </div>
       </header>
 

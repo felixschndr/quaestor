@@ -1,10 +1,16 @@
 import { useEffect } from 'react'
-import { Outlet, createRootRouteWithContext, useRouter } from '@tanstack/react-router'
+import {
+  Outlet,
+  createRootRouteWithContext,
+  useRouter,
+  useRouterState,
+} from '@tanstack/react-router'
 import { Toaster } from 'sonner'
 import { Loader2, CloudOff, AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { QueryClient } from '@tanstack/react-query'
 
+import { BottomTabBar } from '@/components/bottom-tab-bar'
 import { Button } from '@/components/ui/button'
 import { NetworkError } from '@/lib/api'
 import { authQueryKeys, ensureAuthenticated, useAuthMe, type UserRead } from '@/lib/auth'
@@ -13,6 +19,8 @@ import { autoSubscribe } from '@/lib/push'
 import { readStoredTheme, useResolvedTheme } from '@/lib/theme'
 import { setDisplayCurrency } from '@/lib/format'
 import { useApplyUserLanguage } from '@/i18n'
+
+const NO_TAB_BAR_PREFIXES = ['/login', '/banking']
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
@@ -42,9 +50,14 @@ function RootComponent() {
   useEffect(() => {
     if (userId) void autoSubscribe()
   }, [userId])
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const showTabBar = !NO_TAB_BAR_PREFIXES.some((p) => pathname.startsWith(p))
   return (
     <>
-      <Outlet />
+      <div className={showTabBar ? 'pb-16 sm:pb-0' : undefined}>
+        <Outlet />
+      </div>
+      {showTabBar ? <BottomTabBar /> : null}
       <Toaster position="bottom-center" theme={resolved === 'DARK' ? 'dark' : 'light'} richColors />
     </>
   )

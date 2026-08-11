@@ -31,6 +31,8 @@
     "verifyLogin": "Bestätigen"
   },
   "common": {
+    "overview": "Übersicht",
+    "search": "Suche",
     "searchAndFilters": "Suche & Filter",
     "total": "Gesamt",
     "loading": "Lädt …",
@@ -286,7 +288,6 @@
     "deleteConfirm": "Bist du sicher? Das kann nicht rückgängig gemacht werden.",
     "deleteAccountConfirm": "Ja, mein Konto löschen",
     "logoutFailed": "Abmelden fehlgeschlagen. Bitte erneut versuchen.",
-    "overview": "Übersicht",
     "showUpcomingContracts": "Überfällige Verträge und die nächsten Zahlungen in der Übersicht über den Konten anzeigen"
   },
   "languages": {

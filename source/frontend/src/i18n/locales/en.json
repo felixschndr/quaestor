@@ -31,6 +31,8 @@
     "verifyLogin": "Verify"
   },
   "common": {
+    "overview": "Overview",
+    "search": "Search",
     "searchAndFilters": "Search & filters",
     "total": "Total",
     "loading": "Loading…",
@@ -286,7 +288,6 @@
     "deleteConfirm": "Are you sure? This cannot be undone.",
     "deleteAccountConfirm": "Yes, delete my account",
     "logoutFailed": "Logout failed. Please try again.",
-    "overview": "Overview",
     "showUpcomingContracts": "Show overdue contracts and the next payments in the overview, above the accounts"
   },
   "languages": {

@@ -152,7 +152,7 @@ describe('OverviewView', () => {
     const search = screen.getByRole('link', { name: 'Search transactions' })
     expect(search).toHaveAttribute('href', '/search')
     const settings = screen.getByRole('link', { name: 'Settings' })
-    expect(search.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(search.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
   })
 
   it('omits the search link when there are no accounts', () => {
