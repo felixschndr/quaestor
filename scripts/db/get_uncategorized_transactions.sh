@@ -31,4 +31,8 @@ SELECT ${COLUMNS}
   JOIN accounts ON accounts.id = transactions.account_id
  WHERE transactions.category = 'UNKNOWN'
  ORDER BY transactions.date DESC;
+
+SELECT COUNT(*) AS uncategorized_count
+  FROM transactions
+ WHERE category = 'UNKNOWN';
 "

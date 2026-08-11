@@ -18,9 +18,13 @@ from source.backend.models.transactions.transaction_category import (
 
 def main() -> int:
     not_normalized: list[tuple[str, str, str]] = []
+    unsorted_categories: dict[str, list[list[str]]] = defaultdict(list)
     seen: dict[str, list[str]] = defaultdict(list)
     for category, matchers in TRANSACTION_CATEGORY_MAPPING.items():
         for matcher in matchers:
+            matchers_sorted = sorted(matchers)
+            if matchers != matchers_sorted:
+                unsorted_categories[category] = [matchers, matchers_sorted]
             normalized = normalize_string(matcher)
             if normalized != matcher:
                 not_normalized.append((category.name, matcher, normalized))
@@ -28,7 +32,7 @@ def main() -> int:
 
     duplicates = {matcher: categories for matcher, categories in seen.items() if len(categories) > 1}
 
-    if not not_normalized and not duplicates:
+    if not not_normalized and not duplicates and not unsorted_categories:
         return 0
 
     if not_normalized:
@@ -40,6 +44,11 @@ def main() -> int:
         print("TRANSACTION_TYPE_MAPPING entries must be unique across categories:")
         for matcher, categories in sorted(duplicates.items()):
             print(f"  {matcher!r} appears in: {', '.join(categories)}")
+
+    if unsorted_categories:
+        print("TRANSACTION_TYPE_MAPPING entries must be sorted across categories:")
+        for category, values in unsorted_categories.items():
+            print(f"The category {category} is not sorted\n\tCurrent:\t{values[0]}\n\tShould be:\t{values[1]}")
 
     return 1
 
