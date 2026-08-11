@@ -33,6 +33,7 @@ import {
   FILTERABLE_CATEGORIES,
   DEFAULT_TREND_PERIODS,
   matchingPreset,
+  monthDateRange,
   presetDateRange,
   showsStaleData,
   TRANSACTION_COUNT_GROUPINGS,
@@ -185,7 +186,13 @@ export function StatsView({
 
   const drillSort: TransactionSortKey = direction === 'INCOMING' ? 'amount_desc' : 'amount_asc'
 
-  const openSearch = (extra: { categories?: TransactionCategory[]; text?: string }) =>
+  const openSearch = (extra: {
+    categories?: TransactionCategory[]
+    text?: string
+    dateFrom?: string
+    dateTo?: string
+    direction?: StatsDirection
+  }) =>
     onOpenSearch({
       accountIds: cashAccountIds,
       dateFrom: filters.date_from,
@@ -197,6 +204,11 @@ export function StatsView({
       sort: drillSort,
       ...extra,
     })
+
+  const openMonthSearch = (month: string, monthDirection: StatsDirection) => {
+    const { from, to } = monthDateRange(month)
+    openSearch({ dateFrom: from, dateTo: to, direction: monthDirection })
+  }
 
   const openBaselineSearch = (category: TransactionCategory) => {
     const range = baselineDateRange(
@@ -437,7 +449,7 @@ export function StatsView({
                 chartType={chartType}
                 hidden={new Set(hiddenCategories)}
                 onToggleHidden={toggleHiddenCategory}
-                onDrill={(category) => openSearch({ categories: [category] })}
+                onDrill={(categories) => openSearch({ categories })}
               />
             )}
           </ChartCard>
@@ -450,7 +462,7 @@ export function StatsView({
             isError={cashflow.isError}
             isEmpty={(cashflow.data?.length ?? 0) === 0}
           >
-            <CashflowChart data={cashflow.data ?? []} />
+            <CashflowChart data={cashflow.data ?? []} onSelectMonth={openMonthSearch} />
           </ChartCard>
 
           <ChartCard

@@ -32,15 +32,9 @@ export interface CategoryChartProps {
   chartType: ChartType
   hidden: ReadonlySet<string>
   onToggleHidden: (category: TransactionCategory | 'OTHER') => void
-  onDrill?: (category: TransactionCategory) => void
+  onDrill?: (categories: TransactionCategory[]) => void
 }
 
-/**
- * Tooltip showing the category, its amount and its share of the period total.
- * Custom (not the default Tooltip) so the value is always rendered in the accent
- * color — the default colors it with the series/slice color, which is
- * unreadable on the dark popover — and drops the "value :" prefix.
- */
 function CategoryTooltip({
   active,
   payload,
@@ -160,6 +154,10 @@ export function CategoryChart({
     )
     const visible = pieData.filter((datum) => !hidden.has(datum.category))
     const total = visible.reduce((sum, datum) => sum + datum.value, 0)
+    const shown = new Set(pieData.map((datum) => datum.category))
+    const otherCategories = data
+      .filter((datum) => !shown.has(datum.category))
+      .map((datum) => datum.category as TransactionCategory)
     return (
       <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
@@ -173,6 +171,20 @@ export function CategoryChart({
               labelLine={false}
               label={renderPieLabel}
               animationDuration={PIE_ANIMATION_MS}
+              className={cn(onDrill && 'cursor-pointer')}
+              onClick={
+                onDrill
+                  ? (_, index) => {
+                      const datum = visible[index]
+                      if (!datum) return
+                      onDrill(
+                        datum.category === 'OTHER'
+                          ? otherCategories
+                          : [datum.category as TransactionCategory],
+                      )
+                    }
+                  : undefined
+              }
             >
               {visible.map((datum) => (
                 <Cell key={datum.category} fill={datum.color} />
@@ -204,7 +216,7 @@ export function CategoryChart({
       axisWidth={130}
       tooltip={<CategoryTooltip total={total} />}
       onToggleHidden={toggle}
-      onDrill={onDrill ? (key) => onDrill(key as TransactionCategory) : undefined}
+      onDrill={onDrill ? (key) => onDrill([key as TransactionCategory]) : undefined}
     />
   )
 }

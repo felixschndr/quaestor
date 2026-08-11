@@ -5,6 +5,7 @@ import {
   eachDayOfInterval,
   eachMonthOfInterval,
   eachWeekOfInterval,
+  endOfMonth,
   format,
   parseISO,
   subDays,
@@ -242,6 +243,11 @@ export function baselineRangeDescriptor(
     return { unit: 'weeks', len: days / 7, periods, totalDays: 0 }
   }
   return { unit: 'days', len: days, periods, totalDays: days * periods }
+}
+
+export function monthDateRange(month: string): { from: string; to: string } {
+  const start = parseISO(`${month}-01`)
+  return { from: formatDay(start), to: formatDay(endOfMonth(start)) }
 }
 
 export function detailPresetRange(

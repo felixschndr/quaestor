@@ -549,7 +549,7 @@ function BalanceDisplay({
               cancel()
             }
           }}
-          aria-label={t('credentials.detail.balance')}
+          aria-label={t('common.balance')}
           placeholder={formatDecimal(0)}
           inputClassName="h-10 max-w-[10rem] text-xl font-semibold tabular-nums"
           aria-invalid={!valid || undefined}
@@ -600,7 +600,7 @@ function BalanceDisplay({
             setDraft(account.balance)
             setEditing(true)
           }}
-          aria-label={t('credentials.detail.balance')}
+          aria-label={t('common.balance')}
           className="text-muted-foreground hover:text-foreground"
         >
           <Pencil className="size-4" aria-hidden="true" />
