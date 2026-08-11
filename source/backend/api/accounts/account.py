@@ -40,7 +40,7 @@ from source.backend.services.transactions import attachment_service, recurring_t
 router = create_router()
 
 
-def _detail_read(db_session: Session, transaction: Transaction) -> TransactionDetailRead:
+def detail_read(db_session: Session, transaction: Transaction) -> TransactionDetailRead:
     # Serialize a single transaction and flip buy/sell signs if it lives on a depot (see flip_depot_signs).
     read = TransactionDetailRead.model_validate(transaction)
     members = []
@@ -144,7 +144,7 @@ def add_to_flow(
         db_session=db_session, account=counterpart_account, transaction_id=payload.counterpart_transaction_id
     )
     account_service.add_to_flow(db_session=db_session, transaction=transaction, counterpart=counterpart)
-    return _detail_read(db_session=db_session, transaction=transaction)
+    return detail_read(db_session=db_session, transaction=transaction)
 
 
 @router.delete("/{account_id}/transactions/{transaction_id}/transfer-link", status_code=204)
@@ -168,7 +168,7 @@ def get_transaction(
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
-    return _detail_read(db_session=db_session, transaction=transaction)
+    return detail_read(db_session=db_session, transaction=transaction)
 
 
 @router.patch("/{account_id}/transactions/{transaction_id}", response_model=TransactionDetailRead)
@@ -187,7 +187,7 @@ def update_transaction(
         transaction=transaction,
         fields=payload.model_dump(exclude_unset=True),
     )
-    return _detail_read(db_session=db_session, transaction=updated)
+    return detail_read(db_session=db_session, transaction=updated)
 
 
 @router.get(

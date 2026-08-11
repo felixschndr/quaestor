@@ -11,6 +11,7 @@ import { formatDate, formatMoney } from '@/lib/format'
 import {
   useLinkTransfer,
   useTransaction,
+  useTransactionById,
   useUpdateTransaction,
   useUnlinkTransfer,
   type TransactionCategory,
@@ -31,7 +32,7 @@ import {
   DetailRow,
   TransactionDetailView,
   transferPartnerLabel,
-} from '@/pages/account.$accountId_.transactions.$transactionId'
+} from '@/pages/transactions.$transactionId'
 import { BackLink } from '@/components/back-link'
 
 const searchParamsSchema = z.object({
@@ -39,23 +40,23 @@ const searchParamsSchema = z.object({
   link_transaction_id: z.coerce.number().optional(),
 })
 
-export const Route = createFileRoute('/account/$accountId_/transactions/$transactionId')({
+export const Route = createFileRoute('/transactions/$transactionId')({
   component: TransactionDetailPage,
   validateSearch: (search) => searchParamsSchema.parse(search),
 })
 
 function TransactionDetailPage() {
-  const { accountId: rawAccountId, transactionId: rawTransactionId } = Route.useParams()
-  const accountId = Number(rawAccountId)
+  const { transactionId: rawTransactionId } = Route.useParams()
   const transactionId = Number(rawTransactionId)
   const search = Route.useSearch()
-  const query = useTransaction(accountId, transactionId)
+  const query = useTransactionById(transactionId)
+  const accountId = query.data?.account_id ?? 0
   const update = useUpdateTransaction(accountId, transactionId)
   const unlink = useUnlinkTransfer()
   const { data: user } = useAuthMe()
 
   if (query.isLoading) return null
-  if (!query.data) return <TransactionNotFoundView accountId={accountId} />
+  if (!query.data) return <TransactionNotFoundView />
 
   const found = findAccountInUser(user, accountId)
   const account = found?.account
@@ -206,11 +207,8 @@ function LinkConfirmSection({
         })
         .then(() =>
           navigate({
-            to: '/account/$accountId/transactions/$transactionId',
-            params: {
-              accountId: String(source.accountId),
-              transactionId: String(source.transactionId),
-            },
+            to: '/transactions/$transactionId',
+            params: { transactionId: String(source.transactionId) },
           }),
         ),
       {
@@ -365,11 +363,11 @@ function AttachmentSection({
   )
 }
 
-function TransactionNotFoundView({ accountId }: { accountId: number }) {
+function TransactionNotFoundView() {
   const { t } = useTranslation()
   return (
     <main className="mx-auto max-w-page p-4">
-      <BackLink to="/account/$accountId" params={{ accountId: String(accountId) }} />
+      <BackLink to="/" />
       <p className="text-muted-foreground mt-6 text-sm">{t('transaction.notFound')}</p>
     </main>
   )

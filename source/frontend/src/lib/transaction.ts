@@ -37,8 +37,10 @@ import { TRANSACTION_CATEGORIES, type TransactionCategory } from './transactionC
 export { TRANSACTION_CATEGORIES, type TransactionCategory }
 
 export const transactionQueryKeys = {
+  all: ['transaction'] as const,
   detail: (accountId: number, transactionId: number) =>
     ['account', accountId, 'transaction', transactionId] as const,
+  byId: (transactionId: number) => ['transaction', transactionId] as const,
 }
 
 export function useTransaction(
@@ -51,6 +53,13 @@ export function useTransaction(
     queryFn: () =>
       api<TransactionDetailRead>(`/account/${accountId}/transactions/${transactionId}`),
     enabled: options?.enabled ?? true,
+  })
+}
+
+export function useTransactionById(transactionId: number) {
+  return useQuery({
+    queryKey: transactionQueryKeys.byId(transactionId),
+    queryFn: () => api<TransactionDetailRead>(`/transactions/${transactionId}`),
   })
 }
 
@@ -75,12 +84,8 @@ export function useUpdateTransaction(accountId: number, transactionId: number) {
       }),
     onSuccess: (updated) => {
       queryClient.setQueryData(transactionQueryKeys.detail(accountId, transactionId), updated)
-      // The account-history pages embed the transaction (other_party, amount,
-      // note, category). Invalidate so the next visit re-pulls the row with
-      // the new value — cheap because react-query only refetches what's mounted.
+      queryClient.setQueryData(transactionQueryKeys.byId(transactionId), updated)
       queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(accountId) })
-      // Editing the amount of a manual txn shifts account.balance on the
-      // server (which lives in the `me` query); refresh so headlines update.
       queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     },
   })
@@ -145,6 +150,7 @@ export function useLinkTransfer(accountId: number, transactionId: number) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
       queryClient.invalidateQueries({ queryKey: transactionSearchQueryKeys.all })
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.all })
       queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     },
   })
@@ -161,6 +167,7 @@ export function useUnlinkTransfer() {
       queryClient.invalidateQueries({
         queryKey: transactionQueryKeys.detail(accountId, transactionId),
       })
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.all })
       queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
       queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     },

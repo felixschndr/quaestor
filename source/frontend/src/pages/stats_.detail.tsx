@@ -223,11 +223,8 @@ function TransactionLine({ transaction }: { transaction: TransactionRead }) {
   return (
     <li>
       <Link
-        to="/account/$accountId/transactions/$transactionId"
-        params={{
-          accountId: String(transaction.account_id),
-          transactionId: String(transaction.id),
-        }}
+        to="/transactions/$transactionId"
+        params={{ transactionId: String(transaction.id) }}
         className="hover:bg-muted/60 ml-[4.375rem] grid grid-cols-[1fr_auto] items-baseline gap-3 rounded-md px-2 py-2 transition-colors"
       >
         <span className="flex min-w-0 flex-col">

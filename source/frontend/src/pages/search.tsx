@@ -339,11 +339,8 @@ function ResultRow({
   return (
     <li>
       <Link
-        to="/account/$accountId/transactions/$transactionId"
-        params={{
-          accountId: String(transaction.account_id),
-          transactionId: String(transaction.id),
-        }}
+        to="/transactions/$transactionId"
+        params={{ transactionId: String(transaction.id) }}
         search={
           linkSource
             ? {

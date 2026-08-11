@@ -403,3 +403,24 @@ def test_search_text_matches_attachment_filename(http_client: TestClient, sessio
 
     assert response.status_code == 200
     assert _ids_in_response(response.json()) == {ids["with"]}
+
+
+def test_get_by_id_resolves_transaction_and_returns_account(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.get(f"/api/transactions/{ids['salary']}")
+
+    assert response.status_code == 200
+    assert response.json()["id"] == ids["salary"]
+    assert response.json()["account_id"] == account_id
+
+
+def test_get_by_id_hides_foreign_transaction(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
+
+    register_and_login(http_client, user_name="intruder")
+    response = http_client.get(f"/api/transactions/{ids['salary']}")
+
+    assert response.status_code == 404

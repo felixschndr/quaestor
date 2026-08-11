@@ -330,8 +330,8 @@ function MemberRow({ member }: { member: ContractMemberRead }) {
   return (
     <li>
       <Link
-        to="/account/$accountId/transactions/$transactionId"
-        params={{ accountId: String(member.account_id), transactionId: String(member.id) }}
+        to="/transactions/$transactionId"
+        params={{ transactionId: String(member.id) }}
         className="hover:bg-muted/60 flex items-center gap-3 rounded-md py-3 pl-3 transition-colors"
       >
         <span className="flex min-w-0 flex-1 flex-col">

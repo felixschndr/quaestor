@@ -110,6 +110,19 @@ def get_transaction_for_account(db_session: Session, account: Account, transacti
     return transaction
 
 
+def get_transaction_for_user(db_session: Session, transaction_id: int, user: User) -> Transaction:
+    transaction = db_session.get(entity=Transaction, ident=transaction_id)
+    not_found_error = TransactionNotFoundError(f"Transaction with the ID {transaction_id} not found")
+    if transaction is None:
+        logger.warning(f"Transaction with the ID {transaction_id} not found")
+        raise not_found_error
+    if transaction.account.credential.user_id != user.id:
+        logger.warning(f"{user} attempted to access {transaction} owned by another user")
+        raise not_found_error
+    logger.debug(f"{user} accessed {transaction}")
+    return transaction
+
+
 def update_transaction(db_session: Session, account: Account, transaction: Transaction, fields: dict) -> Transaction:
     if transaction.pending:
         # Pending entries are provisional previews

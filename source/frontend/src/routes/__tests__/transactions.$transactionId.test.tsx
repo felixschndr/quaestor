@@ -12,7 +12,7 @@ import {
   TransactionDetailView,
   otherPartyLabelKey,
   transferPartnerLabel,
-} from '@/pages/account.$accountId_.transactions.$transactionId'
+} from '@/pages/transactions.$transactionId'
 
 function buildTransaction(overrides: Partial<TransactionDetailRead> = {}): TransactionDetailRead {
   return {

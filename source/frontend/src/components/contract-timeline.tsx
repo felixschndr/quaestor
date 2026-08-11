@@ -161,8 +161,8 @@ export function ContractTimeline({ members, median, expectedNextDate }: Contract
   const goToTransaction = (point: TimelinePoint) => {
     if (point.isGhost || point.accountId === null) return
     void navigate({
-      to: '/account/$accountId/transactions/$transactionId',
-      params: { accountId: String(point.accountId), transactionId: point.key },
+      to: '/transactions/$transactionId',
+      params: { transactionId: point.key },
     })
   }
 

@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'
 import type {
   FlowMemberView,
   TransactionDetailViewProps,
-} from '@/routes/account.$accountId_.transactions.$transactionId'
+} from '@/routes/transactions.$transactionId'
 import { BackLink } from '@/components/back-link'
 import { EmptyValue } from '@/components/empty-value'
 

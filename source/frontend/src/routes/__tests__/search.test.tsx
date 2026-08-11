@@ -364,10 +364,7 @@ describe('TransactionSearchView — results', () => {
     expect(screen.getByText('ACME')).toBeInTheDocument()
     expect(screen.getByText('-42,50 €').className).toMatch(/text-destructive/)
     expect(screen.getByText('2.500,00 €').className).toMatch(/text-success/)
-    expect(screen.getByText('Rewe').closest('a')).toHaveAttribute(
-      'href',
-      '/account/42/transactions/1',
-    )
+    expect(screen.getByText('Rewe').closest('a')).toHaveAttribute('href', '/transactions/1')
   })
 
   it('shows the per-row account name only when more than one account is selected', async () => {
@@ -419,7 +416,7 @@ describe('TransactionSearchView — results', () => {
     renderView({ search: { account_ids: [42, 99] } })
 
     const link = await screen.findByText('Other')
-    expect(link.closest('a')).toHaveAttribute('href', '/account/99/transactions/7')
+    expect(link.closest('a')).toHaveAttribute('href', '/transactions/7')
   })
 })
 
@@ -566,7 +563,7 @@ describe('TransactionSearchView — link mode', () => {
     const row = await screen.findByText('Candidate Party')
     expect(row.closest('a')).toHaveAttribute(
       'href',
-      '/account/43/transactions/8?link_account_id=42&link_transaction_id=7',
+      '/transactions/8?link_account_id=42&link_transaction_id=7',
     )
   })
 

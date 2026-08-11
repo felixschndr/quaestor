@@ -753,8 +753,8 @@ function TransactionRow({
         className={cn(highlighted && 'bg-primary/20 rounded-md transition-colors')}
       >
         <Link
-          to="/account/$accountId/transactions/$transactionId"
-          params={{ accountId: String(accountId), transactionId: String(transaction.id) }}
+          to="/transactions/$transactionId"
+          params={{ transactionId: String(transaction.id) }}
           className={cn(
             'hover:bg-muted/60 flex items-center gap-3 rounded-md py-3 pl-2 transition-colors',
             (isFuture || pending) && 'opacity-60',

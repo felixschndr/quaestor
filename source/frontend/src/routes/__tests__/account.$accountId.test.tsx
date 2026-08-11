@@ -384,7 +384,7 @@ describe('AccountDetailView', () => {
       }),
     ])
     const row = screen.getByText('X').closest('a')
-    expect(row).toHaveAttribute('href', '/account/42/transactions/7')
+    expect(row).toHaveAttribute('href', '/transactions/7')
   })
 
   it('renders the older-date format when the date is neither today nor yesterday', () => {
