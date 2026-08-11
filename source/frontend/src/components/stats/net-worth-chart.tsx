@@ -6,6 +6,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceArea,
   ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
@@ -14,6 +15,7 @@ import {
   YAxis,
 } from 'recharts'
 
+import { cn } from '@/lib/utils'
 import { formatDate, formatMoney } from '@/lib/format'
 import { readPinnedDate, writePinnedDate } from '@/lib/netWorthPin'
 import type { DailyNetWorth, NetWorthSummary } from '@/lib/statistics'
@@ -25,6 +27,7 @@ export interface NetWorthChartProps {
   data: DailyNetWorth[]
   summary: NetWorthSummary | null
   onOpenDay?: (date: string) => void
+  onOpenRange?: (start: string, end: string) => void
 }
 
 interface ChartMouseState {
@@ -32,7 +35,7 @@ interface ChartMouseState {
   activeLabel?: string | number | null
 }
 
-export function NetWorthChart({ data, summary, onOpenDay }: NetWorthChartProps) {
+export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWorthChartProps) {
   const { t } = useTranslation()
   const locale = useDateFnsLocale()
 
@@ -66,11 +69,45 @@ export function NetWorthChart({ data, summary, onOpenDay }: NetWorthChartProps) 
     return null
   }
 
+  const [dragStart, setDragStart] = useState<string | null>(null)
+  const [dragEnd, setDragEnd] = useState<string | null>(null)
+  const draggedRef = useRef(false)
+  const labelOf = (state: ChartMouseState): string | null =>
+    typeof state?.activeLabel === 'string' ? state.activeLabel : null
+
+  const handleDown = (state: ChartMouseState) => {
+    if (!onOpenRange) return
+    const label = labelOf(state)
+    if (label != null) {
+      setDragStart(label)
+      setDragEnd(null)
+      draggedRef.current = false
+    }
+  }
   const handleMove = (state: ChartMouseState) => {
     const index = indexOf(state)
     if (index != null) setHoverIndex(index)
+    if (dragStart != null) {
+      const label = labelOf(state)
+      if (label != null && label !== dragStart) {
+        setDragEnd(label)
+        draggedRef.current = true
+      }
+    }
+  }
+  const handleUp = () => {
+    if (onOpenRange && dragStart != null && dragEnd != null && dragStart !== dragEnd) {
+      const [start, end] = dragStart <= dragEnd ? [dragStart, dragEnd] : [dragEnd, dragStart]
+      onOpenRange(start, end)
+    }
+    setDragStart(null)
+    setDragEnd(null)
   }
   const handlePick = (state: ChartMouseState) => {
+    if (draggedRef.current) {
+      draggedRef.current = false
+      return
+    }
     const index = indexOf(state)
     if (index != null) {
       setPinnedDate(data[index].date)
@@ -81,6 +118,30 @@ export function NetWorthChart({ data, summary, onOpenDay }: NetWorthChartProps) 
   const handleLeave = () => {
     setHoverIndex(null)
   }
+
+  const dragRange =
+    dragStart != null && dragEnd != null
+      ? (() => {
+          const [start, end] = dragStart <= dragEnd ? [dragStart, dragEnd] : [dragEnd, dragStart]
+          const startValue = data.find((point) => point.date === start)?.value
+          const endValue = data.find((point) => point.date === end)?.value
+          const diff = startValue != null && endValue != null ? endValue - startValue : null
+          return { start, end, diff }
+        })()
+      : null
+
+  useEffect(() => {
+    if (dragStart == null) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setDragStart(null)
+        setDragEnd(null)
+        draggedRef.current = true // swallow the trailing click so it doesn't pin a day
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [dragStart])
 
   useEffect(() => {
     if (!hasSelection) return
@@ -111,14 +172,31 @@ export function NetWorthChart({ data, summary, onOpenDay }: NetWorthChartProps) 
     >
       <div className="text-foreground flex items-center justify-between gap-2 pb-2 text-sm tabular-nums">
         <span className="min-w-0 truncate">
-          {active ? (
+          {dragRange ? (
+            <>
+              <span>
+                {formatDate(dragRange.start)} – {formatDate(dragRange.end)}:{' '}
+              </span>
+              {dragRange.diff != null ? (
+                <span
+                  className={cn(
+                    'font-semibold',
+                    dragRange.diff < 0 ? 'text-destructive' : 'text-success',
+                  )}
+                >
+                  {dragRange.diff > 0 ? '+' : ''}
+                  {formatMoney(dragRange.diff)}
+                </span>
+              ) : null}
+            </>
+          ) : active ? (
             <>
               <span>{formatDate(active.date)}: </span>
               <span className="font-semibold">{formatMoney(active.value)}</span>
             </>
           ) : null}
         </span>
-        {onOpenDay && active ? (
+        {onOpenDay && active && !dragRange ? (
           <button
             type="button"
             onClick={() => onOpenDay(active.date)}
@@ -136,7 +214,9 @@ export function NetWorthChart({ data, summary, onOpenDay }: NetWorthChartProps) 
             data={data}
             margin={{ left: 0, right: 8, top: 4, bottom: 0 }}
             onClick={handlePick}
+            onMouseDown={handleDown}
             onMouseMove={handleMove}
+            onMouseUp={handleUp}
             onMouseLeave={handleLeave}
             onTouchStart={handleMove}
             onTouchMove={handleMove}
@@ -157,6 +237,17 @@ export function NetWorthChart({ data, summary, onOpenDay }: NetWorthChartProps) 
               ]}
             />
             <Tooltip content={() => null} cursor={false} />
+            {dragStart != null && dragEnd != null ? (
+              <ReferenceArea
+                x1={dragStart}
+                x2={dragEnd}
+                fill="var(--color-primary)"
+                fillOpacity={0.12}
+                stroke="var(--color-primary)"
+                strokeOpacity={0.4}
+                ifOverflow="visible"
+              />
+            ) : null}
             {hasSelection && active ? (
               <ReferenceLine
                 x={active.date}

@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next'
 import { Hourglass } from 'lucide-react'
 
 import type { CredentialRead } from '@/lib/auth'
-import { sumFactoredBalance } from '@/lib/accountDisplayGroups'
 import { formatMoney, formatMonths } from '@/lib/format'
 import { ChartCard } from '@/components/stats/chart-card'
 import { InfoHint } from '@/components/ui/info-hint'
@@ -69,7 +68,7 @@ export function RunwayCard({
   const accounts = credentials
     .flatMap((credential) => credential.accounts)
     .filter((account) => accountIds.includes(account.id))
-  const balance = sumFactoredBalance(accounts)
+  const balance = accounts.reduce((sum, account) => sum + account.balance, 0)
 
   const avgExpenses = noCategories
     ? 0

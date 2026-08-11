@@ -22,7 +22,11 @@ import { formatDate, formatMoney, transactionPartyName } from '@/lib/format'
 import { CategoryAvatar } from '@/lib/categoryIcons'
 import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES, useTransaction } from '@/lib/transaction'
 import { useSearchTransactions, type TransactionFilters } from '@/lib/transactionSearch'
-import type { TransactionSearchParams, TransactionSortKey } from '@/lib/transactionSearchParams'
+import {
+  SORT_COMPARATORS,
+  type TransactionSearchParams,
+  type TransactionSortKey,
+} from '@/lib/transactionSearchParams'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { cn } from '@/lib/utils'
 import { BackLink } from '@/components/back-link'
@@ -230,18 +234,6 @@ function Field({ id, label, children }: { id: string; label: string; children: R
       {children}
     </div>
   )
-}
-
-const SORT_COMPARATORS: Record<
-  TransactionSortKey,
-  (a: TransactionRead, b: TransactionRead) => number
-> = {
-  date_desc: (a, b) => b.date.localeCompare(a.date) || b.id - a.id,
-  date_asc: (a, b) => a.date.localeCompare(b.date) || a.id - b.id,
-  amount_desc: (a, b) => b.amount - a.amount || b.id - a.id,
-  amount_asc: (a, b) => a.amount - b.amount || a.id - b.id,
-  amount_abs_desc: (a, b) => Math.abs(b.amount) - Math.abs(a.amount) || b.id - a.id,
-  amount_abs_asc: (a, b) => Math.abs(a.amount) - Math.abs(b.amount) || a.id - b.id,
 }
 
 function SearchResults({

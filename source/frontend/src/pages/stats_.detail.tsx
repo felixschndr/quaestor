@@ -7,6 +7,13 @@ import { BackLink } from '@/components/back-link'
 import { BankLogo } from '@/components/BankLogo'
 import { QueryStates } from '@/components/query-states'
 import { DateRangeFields } from '@/components/ui/date-range-fields'
+import { SortSelect } from '@/components/ui/sort-select'
+import { CategoryAvatar } from '@/lib/categoryIcons'
+import {
+  SORT_COMPARATORS,
+  TRANSACTION_SORT_KEYS,
+  type TransactionSortKey,
+} from '@/lib/transactionSearchParams'
 import { useAuthMe } from '@/lib/auth'
 import type { AccountWithBank } from '@/lib/accountDisplayGroups'
 import {
@@ -41,6 +48,13 @@ function formatSignedEuro(value: number): string {
   return value > 0 ? `+${formatMoney(value)}` : formatMoney(value)
 }
 
+function sortLabelKey(key: TransactionSortKey): string {
+  return key
+    .split('_')
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join('')
+}
+
 export function NetWorthDetailPage() {
   const search = detailRoute.useSearch()
   const { t } = useTranslation()
@@ -51,6 +65,15 @@ export function NetWorthDetailPage() {
   const startDate = search.start ?? shiftIsoDay(endDate, -1)
   const range = useNetWorthRange(startDate, endDate, accountIds)
   const groups = useDisplayGroups(accountIds)
+  const sort = search.sort ?? 'date_desc'
+
+  const changeSort = (next: TransactionSortKey) => {
+    navigate({
+      to: '/stats/detail',
+      search: { ...search, sort: next === 'date_desc' ? undefined : next },
+      replace: true,
+    })
+  }
 
   const changeStart = (next: string | undefined) => {
     if (!next) return
@@ -104,9 +127,19 @@ export function NetWorthDetailPage() {
 
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
-      <header className="flex items-center gap-2">
+      <header className="flex items-center gap-2 pr-2">
         <BackLink to="/stats">{t('stats.title')}</BackLink>
         <h1 className="text-foreground flex-1 text-lg font-semibold">{t('stats.day.title')}</h1>
+        <SortSelect
+          id="detail-sort"
+          ariaLabel={t('search.sortLabel')}
+          value={sort}
+          onChange={changeSort}
+          options={TRANSACTION_SORT_KEYS.map((key) => ({
+            value: key,
+            label: t(`search.sort${sortLabelKey(key)}`),
+          }))}
+        />
       </header>
 
       <div className="flex flex-col gap-3 px-2">
@@ -145,6 +178,7 @@ export function NetWorthDetailPage() {
               change={changeByAccount.get(account.id)}
               open={expandedIds.has(account.id)}
               onOpenChange={(next) => setExpanded(account.id, next)}
+              sort={sort}
             />
           )}
         />
@@ -168,15 +202,17 @@ function AccountChangeRow({
   change,
   open,
   onOpenChange,
+  sort,
 }: {
   account: AccountWithBank
   change: AccountRangeChange | undefined
   open: boolean
   onOpenChange: (open: boolean) => void
+  sort: TransactionSortKey
 }) {
   const { t } = useTranslation()
   const difference = change?.difference ?? 0
-  const transactions = change?.transactions ?? []
+  const transactions = [...(change?.transactions ?? [])].sort(SORT_COMPARATORS[sort])
 
   return (
     <Collapsible.Root open={open} onOpenChange={onOpenChange}>
@@ -225,8 +261,9 @@ function TransactionLine({ transaction }: { transaction: TransactionRead }) {
       <Link
         to="/transactions/$transactionId"
         params={{ transactionId: String(transaction.id) }}
-        className="hover:bg-muted/60 ml-[4.375rem] grid grid-cols-[1fr_auto] items-baseline gap-3 rounded-md px-2 py-2 transition-colors"
+        className="hover:bg-muted/60 ml-[1.625rem] grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md px-2 py-2 transition-colors"
       >
+        <CategoryAvatar category={transaction.category} className="size-8" iconClassName="size-4" />
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-sm">{otherParty}</span>
           {transaction.purpose ? (

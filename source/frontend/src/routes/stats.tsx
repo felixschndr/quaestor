@@ -112,6 +112,12 @@ function StatsPage() {
           search: { end: date, account_ids: accountIds },
         })
       }
+      onOpenRange={(start, end, accountIds) =>
+        navigate({
+          to: '/stats/detail',
+          search: { start, end, account_ids: accountIds },
+        })
+      }
       onOpenBalance={(accountIds) =>
         navigate({ to: '/stats/balance', search: { account_ids: accountIds } })
       }
@@ -151,5 +157,6 @@ export interface StatsViewProps {
   onChange: (next: StatsViewState) => void
   onOpenSearch: (drill: StatsDrilldown) => void
   onOpenDay: (date: string, accountIds: number[]) => void
+  onOpenRange: (start: string, end: string, accountIds: number[]) => void
   onOpenBalance: (accountIds: number[]) => void
 }

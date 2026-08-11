@@ -100,6 +100,7 @@ function renderView(initialSearch: Partial<StatsSearchParams> = {}) {
         }}
         onOpenSearch={onOpenSearch}
         onOpenDay={onOpenDay}
+        onOpenRange={vi.fn()}
         onOpenBalance={vi.fn()}
       />
     )

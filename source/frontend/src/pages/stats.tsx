@@ -64,6 +64,7 @@ export function StatsView({
   onChange,
   onOpenSearch,
   onOpenDay,
+  onOpenRange,
   onOpenBalance,
 }: StatsViewProps) {
   const { t } = useTranslation()
@@ -388,6 +389,7 @@ export function StatsView({
               data={netWorth.data?.series ?? []}
               summary={netWorth.data?.summary ?? null}
               onOpenDay={(date) => onOpenDay(date, accountIds)}
+              onOpenRange={(start, end) => onOpenRange(start, end, accountIds)}
             />
           </ChartCard>
 
