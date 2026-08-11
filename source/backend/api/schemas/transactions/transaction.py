@@ -39,7 +39,7 @@ class TransactionRead(BaseModel):
 
 
 class TransactionDetailRead(TransactionRead):
-    transfer_counterpart: TransactionRead | None = None
+    flow_members: list[TransactionRead] = Field(default_factory=list)
 
 
 class TransactionUpdate(BaseModel):

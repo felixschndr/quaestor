@@ -43,8 +43,17 @@ router = create_router()
 def _detail_read(db_session: Session, transaction: Transaction) -> TransactionDetailRead:
     # Serialize a single transaction and flip buy/sell signs if it lives on a depot (see flip_depot_signs).
     read = TransactionDetailRead.model_validate(transaction)
-    market_valued = account_service.market_valued_ids(db_session=db_session, account_ids=[transaction.account_id])
-    TransactionRead.flip_depot_signs(reads=[read], market_valued_account_ids=market_valued)
+    members = []
+    if transaction.flow is not None:
+        members = [
+            TransactionRead.model_validate(member)
+            for member in transaction.flow.transactions
+            if member.id != transaction.id
+        ]
+    read.flow_members = members
+    account_ids = [transaction.account_id, *(member.account_id for member in members)]
+    market_valued = account_service.market_valued_ids(db_session=db_session, account_ids=account_ids)
+    TransactionRead.flip_depot_signs(reads=[read, *members], market_valued_account_ids=market_valued)
     return read
 
 
@@ -118,7 +127,7 @@ def delete_transaction(
 
 
 @router.put("/{account_id}/transactions/{transaction_id}/transfer-link", response_model=TransactionDetailRead)
-def link_transactions(
+def add_to_flow(
     transaction_id: int,
     payload: TransferLinkCreate,
     account: Account = Depends(owned_account),
@@ -134,12 +143,12 @@ def link_transactions(
     counterpart = account_service.get_transaction_for_account(
         db_session=db_session, account=counterpart_account, transaction_id=payload.counterpart_transaction_id
     )
-    account_service.link_transactions(db_session=db_session, transaction=transaction, counterpart=counterpart)
+    account_service.add_to_flow(db_session=db_session, transaction=transaction, counterpart=counterpart)
     return _detail_read(db_session=db_session, transaction=transaction)
 
 
 @router.delete("/{account_id}/transactions/{transaction_id}/transfer-link", status_code=204)
-def unlink_transactions(
+def remove_from_flow(
     transaction_id: int,
     account: Account = Depends(owned_account),
     db_session: Session = Depends(get_session),
@@ -147,7 +156,7 @@ def unlink_transactions(
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
-    account_service.unlink_transactions(db_session=db_session, transaction=transaction)
+    account_service.remove_from_flow(db_session=db_session, transaction=transaction)
 
 
 @router.get("/{account_id}/transactions/{transaction_id}", response_model=TransactionDetailRead)

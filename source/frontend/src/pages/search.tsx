@@ -20,7 +20,7 @@ import { AccountLabel } from '@/components/AccountLabel'
 import { type CredentialRead } from '@/lib/auth'
 import { formatDate, formatMoney, transactionPartyName } from '@/lib/format'
 import { CategoryAvatar } from '@/lib/categoryIcons'
-import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from '@/lib/transaction'
+import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES, useTransaction } from '@/lib/transaction'
 import { useSearchTransactions, type TransactionFilters } from '@/lib/transactionSearch'
 import type { TransactionSearchParams, TransactionSortKey } from '@/lib/transactionSearchParams'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
@@ -263,15 +263,24 @@ function SearchResults({
   const query = useSearchTransactions(accountIds, filters)
   const showAccountLabel = accountIds.length > 1
   const accountById = useMemo(() => buildAccountLookup(credentials), [credentials])
+  const source = useTransaction(linkSource?.accountId ?? 0, linkSource?.transactionId ?? 0, {
+    enabled: linkSource !== null,
+  })
+  const excludedKeys = useMemo(() => {
+    const keys = new Set<string>()
+    if (linkSource) keys.add(`${linkSource.accountId}-${linkSource.transactionId}`)
+    for (const member of source.data?.flow_members ?? [])
+      keys.add(`${member.account_id}-${member.id}`)
+    return keys
+  }, [linkSource, source.data])
   const results = useMemo(() => {
     const sorted = [...(query.data ?? [])].sort(SORT_COMPARATORS[sort])
     if (!linkSource) return sorted
     return sorted.filter(
       (transaction) =>
-        transaction.account_id !== linkSource.accountId ||
-        transaction.id !== linkSource.transactionId,
+        !transaction.pending && !excludedKeys.has(`${transaction.account_id}-${transaction.id}`),
     )
-  }, [query.data, sort, linkSource])
+  }, [query.data, sort, linkSource, excludedKeys])
 
   return (
     <QueryStates

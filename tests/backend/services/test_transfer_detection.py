@@ -22,6 +22,12 @@ from tests.backend.conftest import (
 )
 
 
+def _assert_linked(transactions: list[Transaction]) -> None:
+    flow_ids = {transaction.flow_id for transaction in transactions}
+    assert None not in flow_ids, "every transaction should belong to a flow"
+    assert len(flow_ids) == 1, "all transactions should share the same flow"
+
+
 def _create_two_accounts(session: Session, user_id: int) -> tuple[Account, Account]:
     credential_a = make_credential(session, user_id=user_id, bank=BankProvider.FINTS)
     credential_b = make_credential(session, user_id=user_id, bank=BankProvider.FINTS)
@@ -53,8 +59,7 @@ def test_detects_a_simple_transfer_and_links_them(session_factory: sessionmaker,
         assert_log_contains(caplog, message="Transfer detection for")
         assert out_transaction.transaction_type == TransactionType.TRANSFER_OUT
         assert in_transaction.transaction_type == TransactionType.TRANSFER_IN
-        assert out_transaction.transfer_counterpart_id == in_transaction.id
-        assert in_transaction.transfer_counterpart_id == out_transaction.id
+        _assert_linked([out_transaction, in_transaction])
 
 
 def test_requires_an_exact_amount_match(session_factory: sessionmaker):
@@ -110,8 +115,7 @@ def test_same_account_pair_is_linked_as_reimbursement(session_factory: sessionma
         session.flush()
 
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
-        assert out_transaction.transfer_counterpart_id == in_transaction.id
-        assert in_transaction.transfer_counterpart_id == out_transaction.id
+        _assert_linked([out_transaction, in_transaction])
         assert out_transaction.category != TransactionCategory.REIMBURSEMENT
         assert in_transaction.category == TransactionCategory.REIMBURSEMENT
 
@@ -132,8 +136,8 @@ def test_prefers_a_different_account_over_the_same_account(session_factory: sess
         session.flush()
 
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
-        assert out_transaction.transfer_counterpart_id == other_account.id
-        assert same_account.transfer_counterpart_id is None
+        _assert_linked([out_transaction, other_account])
+        assert same_account.flow_id is None
 
 
 def test_does_not_match_across_different_users(session_factory: sessionmaker):
@@ -214,10 +218,10 @@ def test_pairs_one_to_one_when_multiple_inflows_match(session_factory: sessionma
         unpaired = [t for t in (first, second) if t.transaction_type == TransactionType.INCOMING]
         assert len(paired) == 1
         assert len(unpaired) == 1
-        assert unpaired[0].transfer_counterpart_id is None
+        assert unpaired[0].flow_id is None
 
 
-def test_deleting_one_leg_clears_the_counterpart_link(session_factory: sessionmaker):
+def test_deleting_one_leg_dissolves_a_two_member_flow(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
@@ -235,7 +239,8 @@ def test_deleting_one_leg_clears_the_counterpart_link(session_factory: sessionma
         session.flush()
 
         session.refresh(in_transaction)
-        assert in_transaction.transfer_counterpart_id is None
+        assert in_transaction.flow_id is None
+        assert in_transaction.transaction_type == TransactionType.INCOMING
 
 
 def test_prefers_the_candidate_with_matching_purpose(session_factory: sessionmaker):
@@ -305,7 +310,7 @@ def test_never_pairs_relink_blocked_transactions(session_factory: sessionmaker):
         session.flush()
 
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 0
-        assert blocked.transfer_counterpart_id is None
+        assert blocked.flow_id is None
 
 
 def test_deleting_a_user_with_a_linked_transfer_pair_does_not_deadlock(session_factory: sessionmaker):
@@ -369,8 +374,7 @@ def test_links_same_signed_mirror_booking_on_an_intermediary_account(session_fac
         assert funding.transaction_type == TransactionType.TRANSFER_OUT
         assert funding.transfer_original_type == TransactionType.OUTGOING
         assert mirror.transaction_type == TransactionType.OUTGOING
-        assert funding.transfer_counterpart_id == mirror.id
-        assert mirror.transfer_counterpart_id == funding.id
+        _assert_linked([funding, mirror])
 
 
 def test_mirror_matching_prefers_the_funding_leg_naming_the_same_merchant(session_factory: sessionmaker):
@@ -406,8 +410,8 @@ def test_mirror_matching_prefers_the_funding_leg_naming_the_same_merchant(sessio
         session.flush()
 
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
-        assert mirror.transfer_counterpart_id == matching_purchase.id
-        assert other_purchase.transfer_counterpart_id is None
+        _assert_linked([mirror, matching_purchase])
+        assert other_purchase.flow_id is None
         assert other_purchase.transaction_type == TransactionType.OUTGOING
 
 
@@ -434,8 +438,8 @@ def test_never_links_mirror_bookings_without_an_intermediary_counterparty(sessio
         session.flush()
 
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 0
-        assert unrelated.transfer_counterpart_id is None
-        assert mirror.transfer_counterpart_id is None
+        assert unrelated.flow_id is None
+        assert mirror.flow_id is None
 
 
 def test_opposite_signed_intermediary_pairs_stay_regular_transfers(session_factory: sessionmaker):

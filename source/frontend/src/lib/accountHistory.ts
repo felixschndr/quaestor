@@ -18,12 +18,11 @@ export interface TransactionRead {
 }
 
 export interface TransactionDetailRead extends TransactionRead {
-  transfer_counterpart: TransactionRead | null
+  flow_members: TransactionRead[]
 }
 
 export interface AccountHistoryPage {
   transactions: TransactionRead[]
-  // Backend serializes the dict keys as ISO yyyy-mm-dd strings.
   balance_at_date: Record<string, number>
   page: number
   page_size: number
@@ -72,13 +71,6 @@ interface AccountHistoryGroup {
   transactions: TransactionRead[]
 }
 
-/**
- * Bucket the flat transaction list into one group per day (already sorted
- * most-recent-first by the backend). The end-of-day balance for each group is
- * looked up in `balance_at_date`; if the backend has no snapshot for a date
- * (rare but possible on the very first day of an account), the field stays
- * null and the UI omits the number.
- */
 export function groupTransactionsByDate(pages: AccountHistoryPage[]): AccountHistoryGroup[] {
   const groups = new Map<string, AccountHistoryGroup>()
   const balanceByDate = new Map<string, number>()
@@ -99,9 +91,6 @@ export function groupTransactionsByDate(pages: AccountHistoryPage[]): AccountHis
       group.transactions.push(transaction)
     }
   }
-  // The backend already returns transactions in date-desc order, but pages
-  // arrive over time and a single group may straddle two fetched pages — sort
-  // by date desc to keep the rendered order stable regardless of page arrival.
   return Array.from(groups.values())
     .map((group) => ({
       ...group,

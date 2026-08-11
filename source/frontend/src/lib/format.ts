@@ -144,16 +144,24 @@ function formatWith(d: Date | string, overrides?: Intl.DateTimeFormatOptions): s
   )
 }
 
+// e.g. "Wednesday, May 20, 2026"
 export function formatDate(d: Date | string): string {
   return formatWith(d)
 }
 
+// e.g. "Wed, May 20, 2026"
 export function formatDateShortWeekday(d: Date | string): string {
   return formatWith(d, { weekday: 'short' })
 }
 
+// e.g. "Wednesday, May 20"
 export function formatDateWithoutYear(d: Date | string): string {
   return formatWith(d, { year: undefined })
+}
+
+// e.g. "May 20"
+export function formatDateCompact(d: Date | string): string {
+  return formatWith(d, { weekday: undefined, month: 'short', year: undefined })
 }
 
 const IBAN_PATTERN = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/

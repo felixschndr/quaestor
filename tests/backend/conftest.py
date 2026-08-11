@@ -36,6 +36,7 @@ from source.backend.models.contracts.contract_source import ContractSource
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
+from source.backend.models.transactions.transfer_flow import TransferFlow
 from source.backend.security import csrf, rate_limit
 from source.backend.services.banking import bank_catalog, enable_banking_catalog
 from source.backend.services.core import i18n_service
@@ -395,6 +396,16 @@ def make_transaction(
     db_session.add(transaction)
     db_session.flush()
     return transaction
+
+
+def link_transactions_as_flow(db_session: Session, transactions: list[Transaction]) -> TransferFlow:
+    flow = TransferFlow()
+    db_session.add(flow)
+    db_session.flush()
+    for transaction in transactions:
+        transaction.flow_id = flow.id
+    db_session.flush()
+    return flow
 
 
 def make_contract(

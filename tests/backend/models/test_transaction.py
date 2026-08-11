@@ -21,7 +21,7 @@ def test_transaction_repr_contains_identifying_fields():
         "<Transaction(id=99, account_id=42, amount=-19.99, purpose=Coffee, "
         "date=2026-04-29, other_party=Café, transaction_type=OUTGOING, "
         "category=UNKNOWN, note=Birthday gift, pending=None, bank_reference=None, expected=None, "
-        "match_tolerance_percent=None, transfer_counterpart_id=None, "
+        "match_tolerance_percent=None, flow_id=None, "
         "transfer_original_type=None, transfer_relink_blocked=None, recurring_transaction_id=None, "
         "contract_id=None, contract_assignment=None)>"
     )

@@ -25,9 +25,17 @@ function buildTransaction(overrides: Partial<TransactionDetailRead> = {}): Trans
     transaction_type: 'OUTGOING',
     category: 'SUPERMARKET',
     note: null,
-    transfer_counterpart: null,
+    flow_members: [],
     ...overrides,
   }
+}
+
+function flowMemberOf(
+  transaction: TransactionRead,
+  accountName: string | null = 'Sparkonto',
+  isCurrent = false,
+) {
+  return { transaction, accountName, bankName: null, bankIcon: null, isCurrent }
 }
 
 function renderView(
@@ -37,11 +45,19 @@ function renderView(
   const onSaveNote = vi.fn().mockResolvedValue(undefined)
   const onChangeCategory = vi.fn().mockResolvedValue(undefined)
   const onUnlink = vi.fn().mockResolvedValue(undefined)
+  const transaction = buildTransaction(overrides)
+  const flowMembers =
+    transaction.flow_members.length > 0
+      ? [
+          flowMemberOf(transaction, 'Girokonto', true),
+          ...transaction.flow_members.map((m) => flowMemberOf(m)),
+        ]
+      : []
   render(
     <TransactionDetailView
       accountId={42}
-      transaction={buildTransaction(overrides)}
-      counterpartAccountName="Sparkonto"
+      transaction={transaction}
+      flowMembers={flowMembers}
       onSaveNote={onSaveNote}
       onChangeCategory={onChangeCategory}
       onUnlink={onUnlink}
@@ -148,86 +164,105 @@ describe('TransactionDetailView', () => {
     expect(onChangeCategory).toHaveBeenCalledWith('RESTAURANTS')
   })
 
-  it('does not render the linked-transaction field when there is no counterpart', () => {
-    renderView({ transfer_counterpart: null })
-    expect(screen.queryByText('Linked transaction')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Remove link' })).not.toBeInTheDocument()
+  const memberTransaction: TransactionRead = {
+    id: 99,
+    account_id: 55,
+    amount: 42.5,
+    purpose: null,
+    date: '2026-05-20',
+    other_party: null,
+    transaction_type: 'TRANSFER_IN',
+    category: 'TRANSFER',
+    note: null,
+  }
+
+  it('does not render the money-flow field when the flow is empty', () => {
+    renderView({ flow_members: [] })
+    expect(screen.queryByText('Money flow')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove from money flow' })).not.toBeInTheDocument()
   })
 
-  it('renders the linked-transaction field linking to the counterpart account with a focus param', () => {
-    const counterpart: TransactionRead = {
-      id: 99,
-      account_id: 55,
-      amount: 42.5,
-      purpose: null,
-      date: '2026-05-20',
-      other_party: null,
-      transaction_type: 'TRANSFER_IN',
-      category: 'TRANSFER',
-      note: null,
-    }
-    renderView({ transfer_counterpart: counterpart })
+  it('renders each flow member linking to its account with a focus param', () => {
+    renderView({ flow_members: [memberTransaction] })
     const link = screen.getByRole('link', { name: /Sparkonto/ })
     expect(link).toHaveAttribute('href', '/account/55?focus=99')
   })
 
-  it('calls onUnlink when the user clicks "Remove link"', async () => {
+  it('offers an unlink control next to every flow member', () => {
+    renderView({ flow_members: [memberTransaction] })
+    expect(screen.getAllByRole('button', { name: 'Remove from money flow' })).toHaveLength(2)
+  })
+
+  it('asks for confirmation and removes the addressed member from the flow', async () => {
     const user = userEvent.setup()
-    const counterpart: TransactionRead = {
-      id: 99,
-      account_id: 55,
-      amount: 42.5,
-      purpose: null,
-      date: '2026-05-20',
-      other_party: null,
-      transaction_type: 'TRANSFER_IN',
-      category: 'TRANSFER',
-      note: null,
-    }
-    const { onUnlink } = renderView({
-      transfer_counterpart: counterpart,
+    const { onUnlink } = renderView({ flow_members: [memberTransaction] })
+    const row = screen.getByRole('link', { name: /Sparkonto/ }).closest('li')!
+    await user.click(within(row).getByRole('button', { name: 'Remove from money flow' }))
+    expect(onUnlink).not.toHaveBeenCalled()
+    await user.click(within(row).getByRole('button', { name: 'Remove from money flow' }))
+    expect(onUnlink).toHaveBeenCalledWith(memberTransaction)
+  })
+
+  it('does not remove when the confirmation is cancelled', async () => {
+    const user = userEvent.setup()
+    const { onUnlink } = renderView({ flow_members: [memberTransaction] })
+    const row = screen.getByRole('link', { name: /Sparkonto/ }).closest('li')!
+    await user.click(within(row).getByRole('button', { name: 'Remove from money flow' }))
+    await user.click(within(row).getByRole('button', { name: 'Cancel' }))
+    expect(onUnlink).not.toHaveBeenCalled()
+  })
+
+  it('hides the remove control while a link flow is in progress', () => {
+    renderView({ flow_members: [memberTransaction] }, { linking: true })
+    expect(screen.queryByRole('button', { name: 'Remove from money flow' })).toBeNull()
+    expect(screen.getByText('Money flow')).toBeInTheDocument()
+  })
+
+  it('labels a flow member with its account name and shows the other party / purpose below', () => {
+    renderView({
+      flow_members: [{ ...memberTransaction, other_party: 'ACME Corp', purpose: 'Invoice 42' }],
     })
-    await user.click(screen.getByRole('button', { name: 'Remove link' }))
-    expect(onUnlink).toHaveBeenCalledTimes(1)
-  })
-
-  it('labels the linked transaction with the counterpart account name (where it goes to)', () => {
-    const counterpart: TransactionRead = {
-      id: 99,
-      account_id: 55,
-      amount: 42.5,
-      purpose: null,
-      date: '2026-05-20',
-      other_party: 'ACME Corp',
-      transaction_type: 'TRANSFER_IN',
-      category: 'TRANSFER',
-      note: null,
-    }
-    renderView({ transfer_counterpart: counterpart })
     expect(screen.getByRole('link', { name: /Sparkonto/ })).toBeInTheDocument()
-    expect(screen.queryByText(/ACME Corp/)).toBeNull()
+    expect(screen.getByText('ACME Corp · Invoice 42')).toBeInTheDocument()
   })
 
-  it('renders the linkSection slot when there is no counterpart', () => {
-    renderView({ transfer_counterpart: null }, { linkSection: <div>start-link-slot</div> })
+  it('omits the details line when a member has no other party or purpose', () => {
+    renderView({ flow_members: [{ ...memberTransaction, other_party: null, purpose: null }] })
+    const row = screen.getByRole('link', { name: /Sparkonto/ }).closest('li')!
+    expect(within(row).queryByText(/·/)).toBeNull()
+  })
+
+  it('renders all flow members when there are more than one', () => {
+    const second: TransactionRead = { ...memberTransaction, id: 100, account_id: 56 }
+    renderView({ flow_members: [memberTransaction, second] })
+    const links = screen.getAllByRole('link', { name: /Sparkonto/ })
+    expect(links).toHaveLength(2)
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/account/55?focus=99',
+      '/account/56?focus=100',
+    ])
+  })
+
+  it('shows the current transaction in the flow highlighted and without a link', () => {
+    const current: TransactionRead = { ...memberTransaction, id: 7, account_id: 42 }
+    renderView(
+      { flow_members: [memberTransaction] },
+      { flowMembers: [flowMemberOf(current, 'Girokonto', true), flowMemberOf(memberTransaction)] },
+    )
+    expect(screen.queryByRole('link', { name: /Girokonto/ })).toBeNull()
+    expect(screen.getByText('Girokonto')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Sparkonto/ })).toBeInTheDocument()
+  })
+
+  it('renders the linkSection slot when the flow is empty', () => {
+    renderView({ flow_members: [] }, { linkSection: <div>start-link-slot</div> })
     expect(screen.getByText('start-link-slot')).toBeInTheDocument()
   })
 
-  it('does not render the linkSection when a counterpart exists', () => {
-    const counterpart: TransactionRead = {
-      id: 99,
-      account_id: 55,
-      amount: 42.5,
-      purpose: null,
-      date: '2026-05-20',
-      other_party: null,
-      transaction_type: 'TRANSFER_IN',
-      category: 'TRANSFER',
-      note: null,
-    }
-    renderView({ transfer_counterpart: counterpart }, { linkSection: <div>start-link-slot</div> })
-    expect(screen.queryByText('start-link-slot')).not.toBeInTheDocument()
-    expect(screen.getByText('Linked transaction')).toBeInTheDocument()
+  it('still renders the linkSection alongside an existing flow (so more can be added)', () => {
+    renderView({ flow_members: [memberTransaction] }, { linkSection: <div>start-link-slot</div> })
+    expect(screen.getByText('start-link-slot')).toBeInTheDocument()
+    expect(screen.getByText('Money flow')).toBeInTheDocument()
   })
 
   it('renders the linkConfirmSection slot', () => {
@@ -235,25 +270,14 @@ describe('TransactionDetailView', () => {
     expect(screen.getByText('confirm-link-slot')).toBeInTheDocument()
   })
 
-  it('renders the linked-transaction field above the note', () => {
-    const counterpart: TransactionRead = {
-      id: 99,
-      account_id: 55,
-      amount: 42.5,
-      purpose: null,
-      date: '2026-05-20',
-      other_party: null,
-      transaction_type: 'TRANSFER_IN',
-      category: 'TRANSFER',
-      note: null,
-    }
-    renderView({ transfer_counterpart: counterpart })
+  it('renders the money-flow field above the note', () => {
+    renderView({ flow_members: [memberTransaction] })
     const terms = screen.getAllByRole('term').map((node) => node.textContent)
     expect(terms).toEqual([
       'Recipient',
       'PurposePurpose',
       'Category',
-      'Linked transaction',
+      'Money flow',
       'Account',
       'Note',
     ])

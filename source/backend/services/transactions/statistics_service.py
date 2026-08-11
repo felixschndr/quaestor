@@ -76,9 +76,9 @@ def _base_conditions(
         conditions.append(Transaction.transaction_type.in_(transaction_types))
     if linked is not None:
         if linked == "linked":
-            conditions.append(Transaction.transfer_counterpart_id.isnot(None))
+            conditions.append(Transaction.flow_id.isnot(None))
         elif linked == "unlinked":
-            conditions.append(Transaction.transfer_counterpart_id.is_(None))
+            conditions.append(Transaction.flow_id.is_(None))
         else:
             conditions.append(false())
     return conditions

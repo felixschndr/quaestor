@@ -51,22 +51,46 @@ function TransactionDetailPage() {
   const search = Route.useSearch()
   const query = useTransaction(accountId, transactionId)
   const update = useUpdateTransaction(accountId, transactionId)
-  const unlink = useUnlinkTransfer(accountId, transactionId)
+  const unlink = useUnlinkTransfer()
   const { data: user } = useAuthMe()
 
   if (query.isLoading) return null
   if (!query.data) return <TransactionNotFoundView accountId={accountId} />
 
-  const counterpart = query.data.transfer_counterpart
-  const counterpartFound = counterpart ? findAccountInUser(user, counterpart.account_id) : null
-  const counterpartAccount = counterpartFound?.account ?? null
-  const counterpartAccountName = counterpartAccount
-    ? counterpartAccount.display_name?.trim() || counterpartAccount.name
-    : null
-
   const found = findAccountInUser(user, accountId)
   const account = found?.account
   const accountName = account ? account.display_name?.trim() || account.name : null
+
+  const toFlowMember = (
+    transaction: TransactionRead,
+    resolved: ReturnType<typeof findAccountInUser>,
+    isCurrent: boolean,
+  ): FlowMemberView => {
+    const resolvedAccount = resolved?.account ?? null
+    return {
+      transaction,
+      accountName: resolvedAccount
+        ? resolvedAccount.display_name?.trim() || resolvedAccount.name
+        : null,
+      bankName: resolved?.bankName ?? null,
+      bankIcon: resolved?.bankIcon ?? null,
+      isCurrent,
+    }
+  }
+
+  const flowMembers: FlowMemberView[] =
+    query.data.flow_members.length > 0
+      ? [
+          toFlowMember(query.data, found, true),
+          ...query.data.flow_members.map((member) =>
+            toFlowMember(member, findAccountInUser(user, member.account_id), false),
+          ),
+        ].sort(
+          (a, b) =>
+            a.transaction.date.localeCompare(b.transaction.date) ||
+            a.transaction.amount - b.transaction.amount,
+        )
+      : []
 
   const linkSource =
     search.link_account_id !== undefined && search.link_transaction_id !== undefined
@@ -86,12 +110,13 @@ function TransactionDetailPage() {
       accountName={accountName}
       bankName={found?.bankName ?? null}
       bankIcon={found?.bankIcon ?? null}
-      counterpartAccountName={counterpartAccountName}
-      counterpartBankName={counterpartFound?.bankName ?? null}
-      counterpartBankIcon={counterpartFound?.bankIcon ?? null}
+      flowMembers={flowMembers}
+      linking={linkSource !== null}
       onSaveNote={(note) => update.mutateAsync({ note })}
       onChangeCategory={(category) => update.mutateAsync({ category })}
-      onUnlink={() => unlink.mutateAsync()}
+      onUnlink={(transaction) =>
+        unlink.mutateAsync({ accountId: transaction.account_id, transactionId: transaction.id })
+      }
       contractSection={
         query.data.pending ? undefined : <ContractSection transaction={query.data} />
       }
@@ -110,7 +135,7 @@ function TransactionDetailPage() {
         ) : undefined
       }
       linkConfirmSection={
-        linkSource && !viewingLinkSourceItself && !counterpart && !query.data.pending ? (
+        linkSource && !viewingLinkSourceItself && !query.data.pending ? (
           <LinkConfirmSection source={linkSource} targetAccountId={accountId} target={query.data} />
         ) : undefined
       }
@@ -129,21 +154,19 @@ function LinkStartSection({
 }) {
   const { t } = useTranslation()
   return (
-    <DetailRow label={t('transaction.linkedTransaction')}>
-      <Button asChild variant="outline" size="sm">
-        <Link
-          to="/search"
-          search={{
-            account_ids: allAccountIds,
-            link_account_id: accountId,
-            link_transaction_id: transactionId,
-          }}
-        >
-          <ArrowLeftRight className="size-4" aria-hidden="true" />
-          {t('transaction.linkStart')}
-        </Link>
-      </Button>
-    </DetailRow>
+    <Button asChild variant="outline" size="sm" className="self-start">
+      <Link
+        to="/search"
+        search={{
+          account_ids: allAccountIds,
+          link_account_id: accountId,
+          link_transaction_id: transactionId,
+        }}
+      >
+        <ArrowLeftRight className="size-4" aria-hidden="true" />
+        {t('transaction.linkStart')}
+      </Link>
+    </Button>
   )
 }
 
@@ -164,7 +187,7 @@ function LinkConfirmSection({
 
   const sourceTransaction = sourceQuery.data
   if (!sourceTransaction) return null
-  if (sourceTransaction.transfer_counterpart || sourceTransaction.pending) return null
+  if (sourceTransaction.pending) return null
 
   const sourceAccount = findAccountInUser(user, source.accountId)?.account
   const sourceAccountName = sourceAccount
@@ -352,18 +375,25 @@ function TransactionNotFoundView({ accountId }: { accountId: number }) {
   )
 }
 
+export interface FlowMemberView {
+  transaction: TransactionRead
+  accountName: string | null
+  bankName: string | null
+  bankIcon: string | null
+  isCurrent: boolean
+}
+
 export interface TransactionDetailViewProps {
   accountId: number
   transaction: TransactionDetailRead
   accountName?: string | null
   bankName?: string | null
   bankIcon?: string | null
-  counterpartAccountName?: string | null
-  counterpartBankName?: string | null
-  counterpartBankIcon?: string | null
+  flowMembers: FlowMemberView[]
+  linking?: boolean
   onSaveNote: (note: string | null) => Promise<unknown>
   onChangeCategory: (category: TransactionCategory) => Promise<unknown>
-  onUnlink: () => Promise<unknown>
+  onUnlink: (transaction: TransactionRead) => Promise<unknown>
   contractSection?: ReactNode
   attachmentsSection?: ReactNode
   linkSection?: ReactNode
@@ -389,7 +419,6 @@ function ContractSection({ transaction }: { transaction: TransactionRead }) {
     )
   }
 
-  // Nothing to pick and not assigned: point the user at contract creation.
   if (candidates.length === 0 && currentId === null) {
     return (
       <DetailRow label={t('contracts.contract')}>

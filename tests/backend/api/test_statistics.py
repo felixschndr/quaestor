@@ -10,6 +10,7 @@ from source.backend.models.transactions.transaction_category import TransactionC
 from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
     create_credential,
+    link_transactions_as_flow,
     make_transaction,
     persist_account,
     persist_transaction,
@@ -111,8 +112,7 @@ def test_categories_include_transfers(http_client: TestClient, session_factory: 
         out = make_transaction(session, account_id=account_id, amount=-100.0, category=TransactionCategory.SAVINGS)
         back = make_transaction(session, account_id=account_id, amount=100.0, category=TransactionCategory.SAVINGS)
         session.flush()
-        out.transfer_counterpart_id = back.id
-        back.transfer_counterpart_id = out.id
+        link_transactions_as_flow(db_session=session, transactions=[out, back])
         make_transaction(
             session,
             account_id=account_id,
@@ -197,9 +197,9 @@ def test_categories_filter_by_linked_transfers_only(http_client: TestClient, ses
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     with session_factory() as session:
         out = make_transaction(session, account_id=account_id, amount=-100.0, category=TransactionCategory.SAVINGS)
-        back = make_transaction(session, account_id=account_id, amount=-100.0, category=TransactionCategory.RENT)
+        make_transaction(session, account_id=account_id, amount=-100.0, category=TransactionCategory.RENT)
         session.flush()
-        out.transfer_counterpart_id = back.id
+        link_transactions_as_flow(db_session=session, transactions=[out])
         session.commit()
 
     linked = http_client.get(

@@ -1,20 +1,24 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { CircleHelp } from 'lucide-react'
+import { CircleHelp, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { TransactionRead } from '@/lib/accountHistory'
 import { TRANSACTION_TYPE_ICONS } from '@/lib/transactionTypeIcons'
-import { formatDate, formatMoney, formatIban, isIban } from '@/lib/format'
+import { formatDate, formatDateCompact, formatMoney, formatIban, isIban } from '@/lib/format'
 import { CategoryAvatar, useCategoryOptions } from '@/lib/categoryIcons'
 import { type TransactionCategory } from '@/lib/transaction'
 import { NoteEditor } from '@/components/note-editor'
 import { AccountLabel } from '@/components/AccountLabel'
+import { RowActions } from '@/components/row-actions'
 import { Button } from '@/components/ui/button'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { cn } from '@/lib/utils'
-import type { TransactionDetailViewProps } from '@/routes/account.$accountId_.transactions.$transactionId'
+import type {
+  FlowMemberView,
+  TransactionDetailViewProps,
+} from '@/routes/account.$accountId_.transactions.$transactionId'
 import { BackLink } from '@/components/back-link'
 import { EmptyValue } from '@/components/empty-value'
 
@@ -40,9 +44,8 @@ export function TransactionDetailView({
   accountName,
   bankName,
   bankIcon,
-  counterpartAccountName,
-  counterpartBankName,
-  counterpartBankIcon,
+  flowMembers,
+  linking,
   onSaveNote,
   onChangeCategory,
   onUnlink,
@@ -114,19 +117,14 @@ export function TransactionDetailView({
             />
           )}
         </DetailRow>
-        {transaction.transfer_counterpart ? (
-          <LinkedTransactionSection
-            counterpart={transaction.transfer_counterpart}
-            counterpartAccountName={counterpartAccountName}
-            counterpartBankName={counterpartBankName}
-            counterpartBankIcon={counterpartBankIcon}
-            selfAmount={transaction.amount}
-            selfDate={transaction.date}
+        {flowMembers.length > 0 || linkSection ? (
+          <FlowSection
+            members={flowMembers}
             onUnlink={onUnlink}
+            linkAction={linkSection}
+            canUnlink={!linking}
           />
-        ) : (
-          (linkSection ?? null)
-        )}
+        ) : null}
         <DetailRow label={t('common.account')}>
           {accountName?.trim() ? (
             <AccountLabel
@@ -161,39 +159,60 @@ export function TransactionDetailView({
   )
 }
 
-function LinkedTransactionSection({
-  counterpart,
-  counterpartAccountName,
-  counterpartBankName,
-  counterpartBankIcon,
-  selfAmount,
-  selfDate,
+function FlowSection({
+  members,
   onUnlink,
+  linkAction,
+  canUnlink = true,
 }: {
-  counterpart: TransactionRead
-  counterpartAccountName?: string | null
-  counterpartBankName?: string | null
-  counterpartBankIcon?: string | null
-  selfAmount: number
-  selfDate: string
-  onUnlink: () => Promise<unknown>
+  members: FlowMemberView[]
+  onUnlink: (transaction: TransactionRead) => Promise<unknown>
+  linkAction?: React.ReactNode
+  canUnlink?: boolean
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <DetailRow label={t('transaction.flow')} align="start">
+      <div className="flex w-full flex-col gap-3">
+        {members.length > 0 ? (
+          <ol className="flex flex-col">
+            {members.map((member, index) => (
+              <FlowTimelineRow
+                key={member.transaction.id}
+                member={member}
+                isFirst={index === 0}
+                isLast={index === members.length - 1}
+                onRemove={canUnlink ? () => onUnlink(member.transaction) : undefined}
+              />
+            ))}
+          </ol>
+        ) : null}
+        {linkAction}
+      </div>
+    </DetailRow>
+  )
+}
+
+function FlowTimelineRow({
+  member,
+  isFirst,
+  isLast,
+  onRemove,
+}: {
+  member: FlowMemberView
+  isFirst: boolean
+  isLast: boolean
+  onRemove?: () => Promise<unknown>
 }) {
   const { t } = useTranslation()
   const [pending, setPending] = useState(false)
-  const partnerLabel =
-    counterpartAccountName?.trim() ||
-    transferPartnerLabel(counterpart.other_party, null) ||
-    t('transaction.linkedAccountUnknown')
-  const parts = [partnerLabel]
-  if (Math.abs(counterpart.amount) !== Math.abs(selfAmount))
-    parts.push(formatMoney(counterpart.amount))
-  if (counterpart.date !== selfDate) parts.push(formatDate(counterpart.date))
-  const linkedLabel = parts.join(' · ')
+  const { transaction, accountName, bankName, bankIcon, isCurrent } = member
 
-  const handleUnlink = async () => {
+  const handleRemove = async () => {
     setPending(true)
     try {
-      await onUnlink()
+      await onRemove?.()
     } catch {
       toast.error(t('transaction.unlinkFailed'))
     } finally {
@@ -201,29 +220,92 @@ function LinkedTransactionSection({
     }
   }
 
-  return (
-    <DetailRow label={t('transaction.linkedTransaction')} align="start">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link
-          to="/account/$accountId"
-          params={{ accountId: String(counterpart.account_id) }}
-          search={{ focus: counterpart.id }}
-          className="text-primary hover:text-primary/80 transition-colors"
+  const removeButton = onRemove ? (
+    <RowActions
+      onDelete={handleRemove}
+      deleting={pending}
+      confirmLabel={t('transaction.removeFromFlow')}
+      renderTrigger={(confirm) => (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="text-muted-foreground hover:text-destructive shrink-0"
+          onClick={confirm}
+          aria-label={t('transaction.removeFromFlow')}
         >
-          <AccountLabel
-            icon={counterpartBankIcon ?? null}
-            bankName={counterpartBankName}
-            accountName={partnerLabel}
-            label={linkedLabel}
-            iconClassName="size-5 rounded-[5px]"
-            nameClassName="text-sm"
-          />
-        </Link>
-        <Button type="button" variant="outline" size="sm" onClick={handleUnlink} disabled={pending}>
-          {t('transaction.unlink')}
+          <Unlink className="size-4" aria-hidden="true" />
         </Button>
+      )}
+    />
+  ) : null
+  const partnerLabel =
+    accountName?.trim() ||
+    transferPartnerLabel(transaction.other_party, null) ||
+    t('transaction.linkedAccountUnknown')
+
+  const otherParty = transaction.other_party?.trim()
+  const purpose = transaction.purpose?.trim()
+  const details = [
+    otherParty && formatIban(otherParty) !== partnerLabel ? formatIban(otherParty) : null,
+    purpose || null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  const account = (
+    <AccountLabel
+      icon={bankIcon ?? null}
+      bankName={bankName}
+      accountName={partnerLabel}
+      iconClassName="size-5 rounded-[5px]"
+      nameClassName={cn('truncate text-sm', isCurrent && 'font-medium')}
+    />
+  )
+
+  return (
+    <li className="flex gap-3">
+      <div className="relative w-3 shrink-0 self-stretch" aria-hidden="true">
+        <span
+          className={cn(
+            'bg-border absolute left-1/2 w-px -translate-x-1/2',
+            isFirst ? 'top-1/2' : 'top-0',
+            isLast ? 'bottom-1/2' : 'bottom-0',
+          )}
+        />
+        <span
+          className={cn(
+            'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full',
+            isCurrent
+              ? 'bg-primary ring-primary ring-offset-background size-2 ring-2 ring-offset-1'
+              : 'border-muted-foreground/40 bg-background size-2.5 border-2',
+          )}
+        />
       </div>
-    </DetailRow>
+      <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5">
+        <span className="text-muted-foreground w-14 shrink-0 text-xs tabular-nums">
+          {formatDateCompact(transaction.date)}
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          {isCurrent ? (
+            account
+          ) : (
+            <Link
+              to="/account/$accountId"
+              params={{ accountId: String(transaction.account_id) }}
+              search={{ focus: transaction.id }}
+              className="text-primary hover:text-primary/80 min-w-0 transition-colors"
+            >
+              {account}
+            </Link>
+          )}
+          {details ? (
+            <span className="text-muted-foreground truncate text-xs">{details}</span>
+          ) : null}
+        </div>
+        {removeButton ? <span className="ml-auto shrink-0">{removeButton}</span> : null}
+      </div>
+    </li>
   )
 }
 

@@ -33,7 +33,6 @@ export const TRANSACTION_TYPES = [
 
 export type TransactionType = (typeof TRANSACTION_TYPES)[number]
 
-// Imported (not just re-exported) so the type is in local scope for the payloads below.
 import { TRANSACTION_CATEGORIES, type TransactionCategory } from './transactionCategories.gen'
 export { TRANSACTION_CATEGORIES, type TransactionCategory }
 
@@ -42,19 +41,23 @@ export const transactionQueryKeys = {
     ['account', accountId, 'transaction', transactionId] as const,
 }
 
-export function useTransaction(accountId: number, transactionId: number) {
+export function useTransaction(
+  accountId: number,
+  transactionId: number,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: transactionQueryKeys.detail(accountId, transactionId),
     queryFn: () =>
       api<TransactionDetailRead>(`/account/${accountId}/transactions/${transactionId}`),
+    enabled: options?.enabled ?? true,
   })
 }
 
 export interface TransactionPatch {
   note?: string | null
   category?: TransactionCategory
-  // Manual-account-only fields. The backend rejects (403) if sent for synced
-  // accounts.
+  // Manual-account-only fields
   amount?: number
   date?: string // ISO yyyy-mm-dd
   purpose?: string | null
@@ -147,14 +150,14 @@ export function useLinkTransfer(accountId: number, transactionId: number) {
   })
 }
 
-export function useUnlinkTransfer(accountId: number, transactionId: number) {
+export function useUnlinkTransfer() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: () =>
+    mutationFn: ({ accountId, transactionId }: { accountId: number; transactionId: number }) =>
       api<void>(`/account/${accountId}/transactions/${transactionId}/transfer-link`, {
         method: 'DELETE',
       }),
-    onSuccess: () => {
+    onSuccess: (_data, { accountId, transactionId }) => {
       queryClient.invalidateQueries({
         queryKey: transactionQueryKeys.detail(accountId, transactionId),
       })

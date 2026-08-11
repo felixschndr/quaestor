@@ -23,6 +23,7 @@ from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_attachment import TransactionAttachment
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
+from source.backend.models.transactions.transfer_flow import TransferFlow
 
 logger = get_logger(__name__)
 
@@ -315,40 +316,77 @@ def delete_expected_transaction(db_session: Session, account: Account, expected_
     logger.info(f"Deleted expected transaction {expected_transaction_id} from {account}")
 
 
-def link_transactions(db_session: Session, transaction: Transaction, counterpart: Transaction) -> None:
+def add_to_flow(db_session: Session, transaction: Transaction, counterpart: Transaction) -> None:
     if transaction.id == counterpart.id:
         raise ValidationError("A transaction cannot be linked to itself")
     if transaction.pending or counterpart.pending:
         raise ValidationError("Pending transactions cannot be linked as transfers")
-    if transaction.transfer_counterpart_id is not None or counterpart.transfer_counterpart_id is not None:
-        raise ConflictError("Both transactions must be unlinked before they can be linked")
+    if transaction.flow_id is not None and transaction.flow_id == counterpart.flow_id:
+        raise ConflictError("Both transactions are already in the same flow")
 
+    flow = _resolve_target_flow(db_session=db_session, transaction=transaction, counterpart=counterpart)
     for leg in (transaction, counterpart):
-        leg.transfer_original_type = leg.transaction_type
-        leg.transaction_type = TransactionType.TRANSFER_OUT if leg.amount < 0 else TransactionType.TRANSFER_IN
-    transaction.transfer_counterpart_id = counterpart.id
-    counterpart.transfer_counterpart_id = transaction.id
+        _add_to_flow(leg=leg, flow=flow)
 
     db_session.commit()
-    logger.info(f"Linked {transaction} to {counterpart}")
+    logger.info(f"Linked {transaction} and {counterpart} into flow {flow}")
 
 
-def unlink_transactions(db_session: Session, transaction: Transaction) -> None:
-    counterpart = None
-    if transaction.transfer_counterpart_id is not None:
-        counterpart = db_session.get(entity=Transaction, ident=transaction.transfer_counterpart_id)
+def remove_from_flow(db_session: Session, transaction: Transaction) -> None:
+    flow_id = transaction.flow_id
+    if flow_id is None:
+        return
+    _detach_from_flow(leg=transaction)
 
-    for leg in (transaction, counterpart):
-        if leg is None:
-            continue
-        if leg.transfer_original_type is not None:
-            leg.transaction_type = leg.transfer_original_type
-        leg.transfer_original_type = None
-        leg.transfer_counterpart_id = None
-        leg.transfer_relink_blocked = True
+    remaining = list(db_session.scalars(select(Transaction).where(Transaction.flow_id == flow_id)))
+    if len(remaining) < 2:
+        for member in remaining:
+            _detach_from_flow(leg=member)
+        flow = db_session.get(entity=TransferFlow, ident=flow_id)
+        if flow is not None:
+            db_session.delete(flow)
 
     db_session.commit()
-    logger.info(f"Unlinked Transaction {transaction} from {counterpart}")
+    logger.info(f"Unlinked {transaction} from flow {flow_id}")
+
+
+def _resolve_target_flow(db_session: Session, transaction: Transaction, counterpart: Transaction) -> TransferFlow:
+    existing_ids = [leg.flow_id for leg in (transaction, counterpart) if leg.flow_id is not None]
+    if not existing_ids:
+        flow = TransferFlow()
+        db_session.add(flow)
+        db_session.flush()
+        return flow
+    target = db_session.get(entity=TransferFlow, ident=existing_ids[0])
+    for other_id in existing_ids[1:]:
+        if other_id != target.id:
+            _merge_flow(
+                db_session=db_session, source=db_session.get(entity=TransferFlow, ident=other_id), target=target
+            )
+    return target
+
+
+def _merge_flow(db_session: Session, source: TransferFlow, target: TransferFlow) -> None:
+    for member in list(source.transactions):
+        member.flow = target
+    db_session.flush()
+    db_session.delete(source)
+
+
+def _add_to_flow(leg: Transaction, flow: TransferFlow) -> None:
+    if leg.flow_id == flow.id:
+        return
+    leg.transfer_original_type = leg.transaction_type
+    leg.transaction_type = TransactionType.TRANSFER_OUT if leg.amount < 0 else TransactionType.TRANSFER_IN
+    leg.flow = flow
+
+
+def _detach_from_flow(leg: Transaction) -> None:
+    if leg.transfer_original_type is not None:
+        leg.transaction_type = leg.transfer_original_type
+    leg.transfer_original_type = None
+    leg.flow_id = None
+    leg.transfer_relink_blocked = True
 
 
 def get_history_page(
@@ -466,9 +504,9 @@ def get_filtered_transactions_for_user(
 
     if (linked := filter_parameters.get("linked")) is not None:
         if linked == "linked":
-            query = query.where(Transaction.transfer_counterpart_id.isnot(None))
+            query = query.where(Transaction.flow_id.isnot(None))
         elif linked == "unlinked":
-            query = query.where(Transaction.transfer_counterpart_id.is_(None))
+            query = query.where(Transaction.flow_id.is_(None))
         else:
             query = query.where(false())
 

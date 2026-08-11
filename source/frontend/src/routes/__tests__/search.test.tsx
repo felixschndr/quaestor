@@ -476,6 +476,75 @@ describe('TransactionSearchView — link mode', () => {
     expect(screen.queryByText('Source Party')).toBeNull()
   })
 
+  it('excludes pending transactions from the results (they cannot be linked)', async () => {
+    mockFetchOnce([
+      {
+        id: 8,
+        account_id: 42,
+        amount: 10,
+        purpose: 'booked',
+        date: '2026-05-20',
+        other_party: 'Booked Party',
+        transaction_type: null,
+        category: 'UNKNOWN',
+        note: null,
+        pending: false,
+      },
+      {
+        id: 9,
+        account_id: 42,
+        amount: 10,
+        purpose: 'pending',
+        date: '2026-05-20',
+        other_party: 'Pending Party',
+        transaction_type: null,
+        category: 'UNKNOWN',
+        note: null,
+        pending: true,
+      },
+    ])
+    renderView({
+      search: { account_ids: [42], link_account_id: 42, link_transaction_id: 7 },
+    })
+
+    expect(await screen.findByText('Booked Party')).toBeInTheDocument()
+    expect(screen.queryByText('Pending Party')).toBeNull()
+  })
+
+  it('excludes transactions already in the source flow (linking them again would conflict)', async () => {
+    const inFlow = {
+      id: 8,
+      account_id: 42,
+      amount: 10,
+      purpose: null,
+      date: '2026-05-20',
+      other_party: 'In-Flow Party',
+      transaction_type: null,
+      category: 'UNKNOWN',
+      note: null,
+    }
+    const free = { ...inFlow, id: 9, other_party: 'Free Party' }
+    globalThis.fetch = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const body = url.includes('/transactions/search')
+        ? [inFlow, free]
+        : { id: 7, account_id: 42, flow_members: [inFlow] }
+      return Promise.resolve(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+    }) as unknown as typeof fetch
+
+    renderView({
+      search: { account_ids: [42], link_account_id: 42, link_transaction_id: 7 },
+    })
+
+    expect(await screen.findByText('Free Party')).toBeInTheDocument()
+    expect(screen.queryByText('In-Flow Party')).toBeNull()
+  })
+
   it('propagates the link params on each result row link', async () => {
     mockFetchOnce([
       {

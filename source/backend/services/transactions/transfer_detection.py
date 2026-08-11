@@ -11,6 +11,7 @@ from source.backend.models.banking.credential import Credential
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory, normalize_string
 from source.backend.models.transactions.transaction_type import TransactionType
+from source.backend.models.transactions.transfer_flow import TransferFlow
 from source.backend.services.contracts.contract_aggregators import INTERMEDIARIES
 
 logger = get_logger(__name__)
@@ -52,21 +53,28 @@ def detect_transfers_for_user(db_session: Session, user: User) -> int:
             .join(Account, onclause=Transaction.account_id == Account.id)
             .join(Credential, onclause=Account.credential_id == Credential.id)
             .where(Credential.user_id == user.id)
-            .where(Transaction.transfer_counterpart_id.is_(None))
+            .where(Transaction.flow_id.is_(None))
             .where(Transaction.transaction_type.in_(ELIGIBLE_TYPES))
             .where(Transaction.transfer_relink_blocked.is_(False))
             .where(Transaction.pending.is_(False))  # Pending entries are ephemeral; never link them as transfers.
         )
     )
-    created_transfers = _link_transfer_pairs(transactions=unpaired_transactions)
-    mirrored = _link_mirror_bookings(transactions=unpaired_transactions)
+    created_transfers = _link_transfer_pairs(db_session=db_session, transactions=unpaired_transactions)
+    mirrored = _link_mirror_bookings(db_session=db_session, transactions=unpaired_transactions)
     logger.info(
         f"Transfer detection for {user}: {created_transfers} new transfer pair(s), {mirrored} new mirror pair(s)"
     )
     return created_transfers + mirrored
 
 
-def _link_transfer_pairs(transactions: list[Transaction]) -> int:
+def _new_flow(db_session: Session) -> TransferFlow:
+    flow = TransferFlow()
+    db_session.add(flow)
+    db_session.flush()
+    return flow
+
+
+def _link_transfer_pairs(db_session: Session, transactions: list[Transaction]) -> int:
     outflows = sorted((t for t in transactions if t.amount < 0), key=lambda t: (t.date, t.id))
     inflows = [t for t in transactions if t.amount > 0]
     logger.debug(
@@ -86,12 +94,13 @@ def _link_transfer_pairs(transactions: list[Transaction]) -> int:
             logger.debug(f"No transfer match for outflow {outflow}")
             continue
         best = min(candidates, key=lambda inflow: _candidate_rank(outflow=outflow, inflow=inflow))
+        flow = _new_flow(db_session=db_session)
         outflow.transfer_original_type = outflow.transaction_type
         best.transfer_original_type = best.transaction_type
         outflow.transaction_type = TransactionType.TRANSFER_OUT
         best.transaction_type = TransactionType.TRANSFER_IN
-        outflow.transfer_counterpart_id = best.id
-        best.transfer_counterpart_id = outflow.id
+        outflow.flow_id = flow.id
+        best.flow_id = flow.id
         if best.account_id == outflow.account_id:
             best.category = TransactionCategory.REIMBURSEMENT
         consumed_inflow_ids.add(best.id)
@@ -134,13 +143,13 @@ def _mirror_rank(
     )
 
 
-def _link_mirror_bookings(transactions: list[Transaction]) -> int:
+def _link_mirror_bookings(db_session: Session, transactions: list[Transaction]) -> int:
     # Pair intermediary-account bookings (e.g. PayPal) with their same-signed funding leg.
     intermediaries = _intermediary_accounts(transactions=transactions)
     if not intermediaries:
         return 0
 
-    pool = [t for t in transactions if t.transfer_counterpart_id is None]
+    pool = [t for t in transactions if t.flow_id is None]
     intermediary_legs = sorted((t for t in pool if t.account_id in intermediaries), key=lambda t: (t.date, t.id))
     funding_legs = [t for t in pool if t.account_id not in intermediaries]
 
@@ -162,10 +171,11 @@ def _link_mirror_bookings(transactions: list[Transaction]) -> int:
                 intermediary_leg=intermediary_leg, funding_leg=funding_leg, extract_merchant=extract_merchant
             ),
         )
+        flow = _new_flow(db_session=db_session)
         best.transfer_original_type = best.transaction_type
         best.transaction_type = TransactionType.TRANSFER_OUT if best.amount < 0 else TransactionType.TRANSFER_IN
-        best.transfer_counterpart_id = intermediary_leg.id
-        intermediary_leg.transfer_counterpart_id = best.id
+        best.flow_id = flow.id
+        intermediary_leg.flow_id = flow.id
         consumed_funding_ids.add(best.id)
         created += 1
         logger.debug(

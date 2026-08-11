@@ -10,6 +10,7 @@ from source.backend.models.transactions.transaction_category import TransactionC
 from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
     create_credential,
+    link_transactions_as_flow,
     make_transaction,
     persist_account,
     persist_transaction,
@@ -63,8 +64,7 @@ def _seed_linked_pair_and_single(session_factory: sessionmaker, account_id: int)
         out = make_transaction(session, account_id=account_id, amount=-100.0, purpose="transfer out")
         back = make_transaction(session, account_id=account_id, amount=100.0, purpose="transfer in")
         session.flush()
-        out.transfer_counterpart_id = back.id
-        back.transfer_counterpart_id = out.id
+        link_transactions_as_flow(db_session=session, transactions=[out, back])
         single = make_transaction(session, account_id=account_id, amount=-5.0, purpose="standalone")
         session.commit()
         return {"out": out.id, "back": back.id, "single": single.id}
