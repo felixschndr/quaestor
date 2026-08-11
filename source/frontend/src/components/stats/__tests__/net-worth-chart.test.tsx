@@ -9,29 +9,13 @@ vi.mock('recharts', () => {
   const LineChart = ({
     children,
     onClick,
-    onMouseDown,
-    onMouseMove,
-    onMouseUp,
     onMouseLeave,
   }: {
     children?: React.ReactNode
     onClick?: (state: unknown) => void
-    onMouseDown?: (state: unknown) => void
-    onMouseMove?: (state: unknown) => void
-    onMouseUp?: () => void
     onMouseLeave?: () => void
   }) => (
     <div>
-      <button data-testid="down" onClick={() => onMouseDown?.({ activeLabel: '2026-01-05' })} />
-      <button
-        data-testid="move-late"
-        onClick={() => onMouseMove?.({ activeLabel: '2026-01-10', activeTooltipIndex: 2 })}
-      />
-      <button
-        data-testid="move-early"
-        onClick={() => onMouseMove?.({ activeLabel: '2026-01-02', activeTooltipIndex: 0 })}
-      />
-      <button data-testid="up" onClick={() => onMouseUp?.()} />
       <button
         data-testid="pick-early"
         onClick={() => onClick?.({ activeLabel: '2026-01-02', activeTooltipIndex: 0 })}
@@ -66,43 +50,6 @@ const data = [
 // independent.
 beforeEach(() => {
   sessionStorage.clear()
-})
-
-describe('NetWorthChart drag-to-select', () => {
-  it('commits the dragged range as the date filter', async () => {
-    const user = userEvent.setup()
-    const onSelectRange = vi.fn()
-    render(<NetWorthChart data={data} summary={null} onSelectRange={onSelectRange} />)
-
-    await user.click(screen.getByTestId('down')) // start at 2026-01-05
-    await user.click(screen.getByTestId('move-late')) // drag to 2026-01-10
-    await user.click(screen.getByTestId('up'))
-
-    expect(onSelectRange).toHaveBeenCalledWith('2026-01-05', '2026-01-10')
-  })
-
-  it('orders the endpoints when dragging right-to-left', async () => {
-    const user = userEvent.setup()
-    const onSelectRange = vi.fn()
-    render(<NetWorthChart data={data} summary={null} onSelectRange={onSelectRange} />)
-
-    await user.click(screen.getByTestId('down')) // 2026-01-05
-    await user.click(screen.getByTestId('move-early')) // 2026-01-02 (earlier)
-    await user.click(screen.getByTestId('up'))
-
-    expect(onSelectRange).toHaveBeenCalledWith('2026-01-02', '2026-01-05')
-  })
-
-  it('does not commit a plain click (no drag)', async () => {
-    const user = userEvent.setup()
-    const onSelectRange = vi.fn()
-    render(<NetWorthChart data={data} summary={null} onSelectRange={onSelectRange} />)
-
-    await user.click(screen.getByTestId('down'))
-    await user.click(screen.getByTestId('up'))
-
-    expect(onSelectRange).not.toHaveBeenCalled()
-  })
 })
 
 describe('NetWorthChart view day', () => {

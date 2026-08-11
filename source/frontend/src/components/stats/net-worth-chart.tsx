@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
@@ -6,7 +6,6 @@ import {
   CartesianGrid,
   Line,
   LineChart,
-  ReferenceArea,
   ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
@@ -16,7 +15,6 @@ import {
 } from 'recharts'
 
 import { formatDate, formatMoney } from '@/lib/format'
-import { useHorizontalScrubLock } from '@/lib/use-horizontal-scrub'
 import { readPinnedDate, writePinnedDate } from '@/lib/netWorthPin'
 import type { DailyNetWorth, NetWorthSummary } from '@/lib/statistics'
 import { AXIS_TICK, euroAxisFormat } from './chartTheme'
@@ -26,7 +24,6 @@ import { useDateFnsLocale } from '@/components/stats/chartTheme'
 export interface NetWorthChartProps {
   data: DailyNetWorth[]
   summary: NetWorthSummary | null
-  onSelectRange?: (from: string, to: string) => void
   onOpenDay?: (date: string) => void
 }
 
@@ -35,7 +32,7 @@ interface ChartMouseState {
   activeLabel?: string | number | null
 }
 
-export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWorthChartProps) {
+export function NetWorthChart({ data, summary, onOpenDay }: NetWorthChartProps) {
   const { t } = useTranslation()
   const locale = useDateFnsLocale()
 
@@ -48,13 +45,17 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
   const hasSelection = hoverIndex != null || pinnedIndex >= 0
 
   const containerRef = useRef<HTMLDivElement>(null)
-  const scrubLockRef = useHorizontalScrubLock<HTMLDivElement>()
-
-  const [selectStart, setSelectStart] = useState<string | null>(null)
-  const [selectEnd, setSelectEnd] = useState<string | null>(null)
-
-  const labelOf = (state: ChartMouseState): string | null =>
-    typeof state?.activeLabel === 'string' ? state.activeLabel : null
+  const detachTouchGuard = useRef<(() => void) | undefined>(undefined)
+  const setScrubRef = useCallback((node: HTMLDivElement | null) => {
+    detachTouchGuard.current?.()
+    detachTouchGuard.current = undefined
+    if (!node) return
+    const onTouchMove = (event: TouchEvent) => {
+      if (event.cancelable) event.preventDefault()
+    }
+    node.addEventListener('touchmove', onTouchMove, { passive: false })
+    detachTouchGuard.current = () => node.removeEventListener('touchmove', onTouchMove)
+  }, [])
 
   const indexOf = (state: ChartMouseState): number | null => {
     const raw = state?.activeTooltipIndex
@@ -68,12 +69,7 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
   const handleMove = (state: ChartMouseState) => {
     const index = indexOf(state)
     if (index != null) setHoverIndex(index)
-    if (selectStart != null) {
-      const label = labelOf(state)
-      if (label != null) setSelectEnd(label)
-    }
   }
-  // Click (or tap) pins the day so it persists once the cursor leaves the chart.
   const handlePick = (state: ChartMouseState) => {
     const index = indexOf(state)
     if (index != null) {
@@ -82,27 +78,8 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
       writePinnedDate(data[index].date)
     }
   }
-  const handleDown = (state: ChartMouseState) => {
-    if (!onSelectRange) return
-    const label = labelOf(state)
-    if (label != null) {
-      setSelectStart(label)
-      setSelectEnd(label)
-    }
-  }
-  const handleUp = () => {
-    if (onSelectRange && selectStart != null && selectEnd != null && selectStart !== selectEnd) {
-      const [from, to] =
-        selectStart <= selectEnd ? [selectStart, selectEnd] : [selectEnd, selectStart]
-      onSelectRange(from, to)
-    }
-    setSelectStart(null)
-    setSelectEnd(null)
-  }
   const handleLeave = () => {
     setHoverIndex(null)
-    setSelectStart(null)
-    setSelectEnd(null)
   }
 
   useEffect(() => {
@@ -127,10 +104,6 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
       ref={containerRef}
       className="w-full select-none"
       style={{
-        // Keep page-scroll responsive (vertical drags pan the page) while
-        // claiming horizontal touch for the chart. WebkitTouchCallout disables
-        // the iOS long-press preview/context menu over the chart.
-        touchAction: 'pan-y',
         WebkitTouchCallout: 'none',
         WebkitUserSelect: 'none',
         userSelect: 'none',
@@ -157,19 +130,14 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
           </button>
         ) : null}
       </div>
-      <div ref={scrubLockRef} className="h-72 w-full">
+      <div ref={setScrubRef} className="h-72 w-full" style={{ touchAction: 'none' }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}
             margin={{ left: 0, right: 8, top: 4, bottom: 0 }}
             onClick={handlePick}
-            onMouseDown={handleDown}
             onMouseMove={handleMove}
-            onMouseUp={handleUp}
             onMouseLeave={handleLeave}
-            // onTouchStart fires on a tap without movement; onTouchMove handles
-            // the scrub. We deliberately do not reset on touchend so the picked
-            // value stays on screen until the next tap (TR-style).
             onTouchStart={handleMove}
             onTouchMove={handleMove}
           >
@@ -221,16 +189,6 @@ export function NetWorthChart({ data, summary, onSelectRange, onOpenDay }: NetWo
                 stroke="var(--color-background)"
                 strokeWidth={2}
                 ifOverflow="visible"
-              />
-            ) : null}
-            {selectStart != null && selectEnd != null && selectStart !== selectEnd ? (
-              <ReferenceArea
-                x1={selectStart}
-                x2={selectEnd}
-                fill="var(--color-primary)"
-                fillOpacity={0.12}
-                stroke="var(--color-primary)"
-                strokeOpacity={0.3}
               />
             ) : null}
           </LineChart>

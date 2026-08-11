@@ -143,8 +143,6 @@ export function StatsView({
   const updateAccounts = (next: number[]) => sync({ accountIds: next })
   const updateFilter = (key: keyof StatsFilters, value: string | undefined) =>
     sync({ filters: { ...filters, [key]: value } })
-  const applyDateRange = (from: string, to: string) =>
-    sync({ filters: { date_from: from, date_to: to } })
   const applyPreset = (preset: DateRangePreset) => sync({ filters: presetDateRange(preset) })
   const updateChartType = (next: ChartType) => sync({ chartType: next })
   const updateTrendPeriods = (next: number) => sync({ trendPeriods: next })
@@ -377,7 +375,6 @@ export function StatsView({
             <NetWorthChart
               data={netWorth.data?.series ?? []}
               summary={netWorth.data?.summary ?? null}
-              onSelectRange={applyDateRange}
               onOpenDay={(date) => onOpenDay(date, accountIds)}
             />
           </ChartCard>
