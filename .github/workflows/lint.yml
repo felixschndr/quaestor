@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: "3.14"
 
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@v6.0.10
         with:
           version: 11.11.0 # 11.12.0's self-installer is broken ("Cannot use 'in' operator ...")
 
