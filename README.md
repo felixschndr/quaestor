@@ -188,6 +188,10 @@ mkdir -p ${data_dir} && sudo chown 1000:1000 ${data_dir}
 
 As an alternative, you can use a named volume instead. A commented out volume mount is already present in the `docker-compose.yaml`.
 
+### As a Home Assistant Add-On
+
+See https://github.com/danielpotthast/quaestor-ha-addon
+
 ### Native
 
 #### Requirements
