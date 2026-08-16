@@ -80,6 +80,26 @@ def test_sync_creates_new_account_with_balance_and_transactions(
         assert credential.last_fetching_timestamp is not None
 
 
+def test_sync_persists_system_id_reported_by_the_bank_session(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    fake_session = FakeBankSession(
+        accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
+        balances={ACCOUNT_IBAN: 0.0},
+        transactions={},
+    )
+    fake_session.system_id = "1234567890"
+    handler = build_handler(fake_session)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.sync(handler)
+        session.commit()
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        assert credential.credentials["system_id"] == "1234567890"
+
+
 def test_sync_matches_existing_account_by_name_and_adds_missing_ones(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
     with session_factory() as session:

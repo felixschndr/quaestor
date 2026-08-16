@@ -8,6 +8,35 @@ This app is heavily inspired by [Finanzguru](https://finanzguru.de/), with the k
 
 The tool is strictly read-only: it only ever *reads* your data and can **never** make changes to your accounts or move money.
 
+**Table of contents**
+
+<!--TOC-->
+
+- [Screenshots](#screenshots)
+- [Features](#features)
+  - [Accounts & banks](#accounts--banks)
+  - [Transactions](#transactions)
+  - [Insights](#insights)
+  - [Notifications](#notifications)
+  - [Security & access](#security--access)
+  - [App](#app)
+- [Supported banks](#supported-banks)
+- [Security](#security)
+- [Deployment](#deployment)
+  - [Container image](#container-image)
+  - [As a Home Assistant Add-On](#as-a-home-assistant-add-on)
+  - [Native](#native)
+    - [Requirements](#requirements)
+    - [Running](#running)
+  - [Access the DB](#access-the-db)
+- [Environment Variables](#environment-variables)
+- [Troubleshooting](#troubleshooting)
+  - [General](#general)
+  - [Notifications](#notifications-1)
+  - [Database](#database)
+
+<!--TOC-->
+
 ## Screenshots
 
 <details>
@@ -254,9 +283,6 @@ To reset the password of a user and disable his/her two-factor authentication us
 | `MAX_ATTACHMENT_SIZE_MB`      | Maximum size (in MB) of a single file attached to a transaction. Larger uploads are rejected.                                                                                                                                                                                                                      | `20`                                                            |
 | `FORWARDED_ALLOW_IPS`         | Comma-separated list of reverse-proxy IPs whose `X-Forwarded-For` / `X-Forwarded-Proto` headers the server trusts. Use `*` if the proxy IP is unpredictable (e.g. in container networks).                                                                                                                          | `127.0.0.1`                                                     |
 
-## Future changes
-
-Ideas I might want to implement in the future are tracked as [`enhancement` issues](https://github.com/felixschndr/quaestor/issues?q=is%3Aissue+state%3Aopen+label%3Aenhancement). If you think anything is missing, feel free to open an issue/PR.
 
 ## Troubleshooting
 
