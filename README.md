@@ -8,6 +8,11 @@ This app is heavily inspired by [Finanzguru](https://finanzguru.de/), with the k
 
 The tool is strictly read-only: it only ever *reads* your data and can **never** make changes to your accounts or move money.
 
+## Table of contents
+
+<!--ts-->
+<!--te-->
+
 ## Screenshots
 
 <details>
