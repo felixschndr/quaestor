@@ -37,7 +37,7 @@ def test_dissolves_only_flows_within_the_one_euro_tolerance(
         )
         monkeypatch.setattr(target=migration.op, name="get_bind", value=lambda: conn)
 
-        migration._dissolve_near_amount_flows()
+        migration.upgrade()
 
         rows = {
             r[0]: r

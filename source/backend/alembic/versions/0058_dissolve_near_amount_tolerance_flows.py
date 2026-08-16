@@ -25,15 +25,6 @@ MAX_TOLERANCE_SPREAD = 1.0
 
 
 def upgrade() -> None:
-    _dissolve_near_amount_flows()
-
-
-def downgrade() -> None:
-    # Lossy: the dissolved links are gone. Detection re-forms the exact-amount ones, so this is a no-op.
-    pass
-
-
-def _dissolve_near_amount_flows() -> None:
     connection = op.get_bind()
     members: dict[int, list[int]] = defaultdict(list)
     amounts: dict[int, list[float]] = defaultdict(list)
@@ -55,3 +46,8 @@ def _dissolve_near_amount_flows() -> None:
                     {"id": transaction_id},
                 )
             connection.execute(sa.text("DELETE FROM transfer_flows WHERE id = :flow_id"), {"flow_id": flow_id})
+
+
+def downgrade() -> None:
+    # Lossy: the dissolved links are gone. Detection re-forms the exact-amount ones, so this is a no-op.
+    pass

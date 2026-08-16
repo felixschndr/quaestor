@@ -121,6 +121,9 @@ def _dissolve_flow_if_too_small(_mapper: "Mapper", connection: "Connection", tar
 
 @event.listens_for(target=TransferFlow, identifier="before_delete")
 def _detach_flow_members(_mapper: "Mapper", connection: "Connection", target: TransferFlow) -> None:
+    restored_type = func.coalesce(Transaction.transfer_original_type, Transaction.transaction_type)  # noqa: FKA100
     connection.execute(
-        update(Transaction).where(Transaction.flow_id == target.id).values(flow_id=None, flow_link_source=None)
+        update(Transaction)
+        .where(Transaction.flow_id == target.id)
+        .values(transaction_type=restored_type, transfer_original_type=None, flow_id=None, flow_link_source=None)
     )

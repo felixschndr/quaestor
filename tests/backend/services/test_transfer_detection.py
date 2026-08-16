@@ -248,6 +248,33 @@ def test_deleting_one_leg_dissolves_a_two_member_flow(session_factory: sessionma
         assert in_transaction.transaction_type == TransactionType.INCOMING
 
 
+def test_deleting_a_flow_restores_member_types(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, account_b = _create_two_accounts(session, user_id=user.id)
+        out_transaction = make_transaction(
+            session, account_id=account_a.id, amount=-50.0, transaction_type=TransactionType.TRANSFER_OUT
+        )
+        in_transaction = make_transaction(
+            session, account_id=account_b.id, amount=50.0, transaction_type=TransactionType.TRANSFER_IN
+        )
+        out_transaction.transfer_original_type = TransactionType.REMOVAL
+        in_transaction.transfer_original_type = TransactionType.INCOMING
+        flow = link_transactions_as_flow(db_session=session, transactions=[out_transaction, in_transaction])
+        session.flush()
+
+        session.delete(flow)
+        session.flush()
+
+        for transaction in (out_transaction, in_transaction):
+            session.refresh(transaction)
+            assert transaction.flow_id is None
+            assert transaction.flow_link_source is None
+            assert transaction.transfer_original_type is None
+        assert out_transaction.transaction_type == TransactionType.REMOVAL
+        assert in_transaction.transaction_type == TransactionType.INCOMING
+
+
 def test_prefers_the_candidate_with_matching_purpose(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
