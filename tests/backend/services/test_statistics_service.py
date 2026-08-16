@@ -343,6 +343,24 @@ def test_transaction_counts_grouping(session_factory: sessionmaker, group_by: st
     assert [(bucket.bucket, bucket.count) for bucket in result] == expected
 
 
+def test_transaction_counts_sums_absolute_amount(session_factory: sessionmaker):
+    with session_factory() as session:
+        user, _, account = make_user_and_credential_and_account(session)
+        make_transaction(session, account_id=account.id, amount=-30.0, date=LATEST_DATE)
+        make_transaction(session, account_id=account.id, amount=20.0, date=LATEST_DATE)
+        result = statistics_service.transaction_counts(
+            db_session=session,
+            user=user,
+            account_ids=[account.id],
+            date_from=None,
+            date_to=None,
+            categories=[],
+            group_by="month",
+        )
+
+    assert [(bucket.bucket, bucket.count, bucket.amount) for bucket in result] == [("2026-06", 2, 50.0)]
+
+
 def test_transaction_counts_respects_date_range(session_factory: sessionmaker):
     with session_factory() as session:
         user, _, account = make_user_and_credential_and_account(session)

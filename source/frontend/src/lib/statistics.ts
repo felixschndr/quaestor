@@ -122,7 +122,10 @@ export const TRANSACTION_COUNT_GROUPINGS: readonly TransactionCountsGroupBy[] = 
 export interface TransactionCountBucket {
   bucket: string
   count: number
+  amount: number
 }
+
+export type TransactionCountMetric = 'count' | 'amount'
 
 export interface DailyNetWorth {
   date: string // ISO yyyy-mm-dd
@@ -157,7 +160,6 @@ export interface NetWorthRangeResponse {
   total_difference: number
 }
 
-/** Identifier for the shortcut buttons of the date-range picker. */
 export type DateRangePreset = '2w' | '1m' | '3m' | '6m' | '1y' | '3y'
 
 export const DATE_RANGE_PRESETS: readonly DateRangePreset[] = ['2w', '1m', '3m', '6m', '1y', '3y']
@@ -190,11 +192,6 @@ function matchPreset<P extends DateRangePreset | DetailRangePreset>(
   return presets.find((preset) => formatDay(PRESET_START[preset](today)) === from) ?? null
 }
 
-/**
- * The date range a shortcut button represents: a span ending today.
- * `today` is injectable so tests can pin a date instead of depending on the
- * wall clock.
- */
 export function presetDateRange(
   preset: DateRangePreset,
   today: Date = new Date(),
@@ -479,9 +476,11 @@ export function fillTransactionCountBuckets(
   dateFrom?: string,
   dateTo?: string,
 ): TransactionCountBucket[] {
-  const counts = new Map(data.map((entry) => [entry.bucket, entry.count]))
+  const byBucket = new Map(data.map((entry) => [entry.bucket, entry]))
+  const at = (bucket: string): TransactionCountBucket =>
+    byBucket.get(bucket) ?? { bucket, count: 0, amount: 0 }
   if (groupBy === 'weekday') {
-    return WEEKDAY_BUCKETS.map((bucket) => ({ bucket, count: counts.get(bucket) ?? 0 }))
+    return WEEKDAY_BUCKETS.map(at)
   }
   // The backend returns buckets sorted ascending, so the extent is first/last.
   const start = dateFrom ?? data[0]?.bucket
@@ -495,7 +494,7 @@ export function fillTransactionCountBuckets(
       : groupBy === 'week'
         ? eachWeekOfInterval(interval, { weekStartsOn: 1 }).map((day) => format(day, 'yyyy-MM-dd'))
         : eachMonthOfInterval(interval).map((day) => format(day, 'yyyy-MM'))
-  return buckets.map((bucket) => ({ bucket, count: counts.get(bucket) ?? 0 }))
+  return buckets.map(at)
 }
 
 // One datum of the category chart. `category` is the enum value, or the

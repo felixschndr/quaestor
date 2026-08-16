@@ -662,6 +662,11 @@
     "transactionCounts": {
       "title": "Transactions per period",
       "groupLabel": "Grouping",
+      "metricLabel": "Metric",
+      "metric": {
+        "count": "Count",
+        "amount": "$t(common.amount)"
+      },
       "weekLabel": "Week {{week}}",
       "group": {
         "day": "$t(contracts.period.DAY)",

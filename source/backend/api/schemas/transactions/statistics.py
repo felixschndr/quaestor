@@ -81,6 +81,7 @@ class TransactionCountBucket(BaseModel):
     # "weekday" → SQLite %w day number ("0" = Sunday, "6" = Saturday)
     bucket: str
     count: int
+    amount: float
 
 
 class DailyNetWorth(BaseModel):

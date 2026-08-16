@@ -318,7 +318,7 @@ def transaction_counts(
 
     bucket = _count_bucket_expression(group_by)
     rows = db_session.execute(
-        select(bucket, func.count())  # noqa: FKA100
+        select(bucket, func.count(), func.sum(func.abs(Transaction.amount)))  # noqa: FKA100
         .where(
             *_base_conditions(
                 account_ids=owned_account_ids,
@@ -332,7 +332,10 @@ def transaction_counts(
         .group_by(bucket)
         .order_by(bucket)
     ).all()
-    buckets = [TransactionCountBucket(bucket=bucket_value, count=count) for bucket_value, count in rows]
+    buckets = [
+        TransactionCountBucket(bucket=bucket_value, count=count, amount=float(amount or 0))
+        for bucket_value, count, amount in rows
+    ]
     logger.debug(f"Computed {len(buckets)} transaction count buckets per {group_by} for {user}")
     return buckets
 

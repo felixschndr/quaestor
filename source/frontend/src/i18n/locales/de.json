@@ -662,6 +662,11 @@
     "transactionCounts": {
       "title": "Transaktionen pro Zeitraum",
       "groupLabel": "Gruppierung",
+      "metricLabel": "Kennzahl",
+      "metric": {
+        "count": "Anzahl",
+        "amount": "$t(common.amount)"
+      },
       "weekLabel": "KW {{week}}",
       "group": {
         "day": "$t(contracts.period.DAY)",

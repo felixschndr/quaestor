@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeftRight, BarChart3, LineChart, PieChart, PiggyBank, Users } from 'lucide-react'
 
@@ -51,6 +52,7 @@ import {
   type StatsFilters,
   type StatsLinked,
   type StatsTypeFilters,
+  type TransactionCountMetric,
   type TransactionCountsGroupBy,
 } from '@/lib/statistics'
 import { defaultAccountIds } from '@/lib/accounts'
@@ -79,6 +81,7 @@ export function StatsView({
   }
   const chartType: ChartType = search.chart_type ?? 'bar'
   const countGroup: TransactionCountsGroupBy = search.count_group ?? 'day'
+  const [countMetric, setCountMetric] = useState<TransactionCountMetric>('count')
   const trendPeriods = search.trend_periods ?? DEFAULT_TREND_PERIODS
   const trendRange = baselineRangeDescriptor(
     filters.date_from ?? defaults.date_from,
@@ -475,20 +478,32 @@ export function StatsView({
             isError={transactionCounts.isError}
             isEmpty={(transactionCounts.data?.length ?? 0) === 0}
             action={
-              <SegmentedToggle
-                ariaLabel={t('stats.transactionCounts.groupLabel')}
-                value={countGroup}
-                onChange={updateCountGroup}
-                options={TRANSACTION_COUNT_GROUPINGS.map((grouping) => ({
-                  value: grouping,
-                  label: t(`stats.transactionCounts.group.${grouping}`),
-                }))}
-              />
+              <div className="flex flex-wrap gap-2">
+                <SegmentedToggle
+                  ariaLabel={t('stats.transactionCounts.metricLabel')}
+                  value={countMetric}
+                  onChange={setCountMetric}
+                  options={(['count', 'amount'] as const).map((metric) => ({
+                    value: metric,
+                    label: t(`stats.transactionCounts.metric.${metric}`),
+                  }))}
+                />
+                <SegmentedToggle
+                  ariaLabel={t('stats.transactionCounts.groupLabel')}
+                  value={countGroup}
+                  onChange={updateCountGroup}
+                  options={TRANSACTION_COUNT_GROUPINGS.map((grouping) => ({
+                    value: grouping,
+                    label: t(`stats.transactionCounts.group.${grouping}`),
+                  }))}
+                />
+              </div>
             }
           >
             <TransactionCountChart
               data={transactionCounts.data ?? []}
               groupBy={countGroup}
+              metric={countMetric}
               dateFrom={filters.date_from}
               dateTo={filters.date_to}
             />

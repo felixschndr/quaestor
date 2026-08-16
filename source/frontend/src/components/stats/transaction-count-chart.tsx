@@ -11,24 +11,28 @@ import {
   type TooltipContentProps,
 } from 'recharts'
 
-import { formatDate } from '@/lib/format'
+import { formatDate, formatMoney } from '@/lib/format'
 import { useHorizontalScrubLock } from '@/lib/use-horizontal-scrub'
 import {
   fillTransactionCountBuckets,
   type TransactionCountBucket,
+  type TransactionCountMetric,
   type TransactionCountsGroupBy,
 } from '@/lib/statistics'
 import {
   AXIS_TICK,
   BAR_RADIUS_TOP,
   TOOLTIP_STYLE,
+  euroAxisFormat,
   useDateFnsLocale,
   useMonthLabel,
 } from './chartTheme'
+import { AxisValueTick } from './chart-parts'
 
 export interface TransactionCountChartProps {
   data: TransactionCountBucket[]
   groupBy: TransactionCountsGroupBy
+  metric: TransactionCountMetric
   dateFrom?: string
   dateTo?: string
 }
@@ -36,6 +40,7 @@ export interface TransactionCountChartProps {
 export function TransactionCountChart({
   data,
   groupBy,
+  metric,
   dateFrom,
   dateTo,
 }: TransactionCountChartProps) {
@@ -74,10 +79,18 @@ export function TransactionCountChart({
     return formatDate(bucket)
   }
 
+  const isAmount = metric === 'amount'
+  const valueLabel = isAmount
+    ? t('stats.transactionCounts.metric.amount')
+    : t('common.transactions')
+  const formatValue = (value: number): string => (isAmount ? formatMoney(value) : String(value))
+
   const renderTooltip = ({ active, payload, label }: TooltipContentProps) => {
     if (!active || !payload?.length) return null
     const bucket = String(label)
-    const count = <span style={{ color: 'var(--color-primary)' }}>{payload[0].value}</span>
+    const count = (
+      <span style={{ color: 'var(--color-primary)' }}>{formatValue(Number(payload[0].value))}</span>
+    )
     if (groupBy === 'week') {
       return (
         <div style={{ ...TOOLTIP_STYLE, padding: '6px 10px' }}>
@@ -85,7 +98,7 @@ export function TransactionCountChart({
             {weekLabel(bucket)} ({weekRange(bucket)})
           </div>
           <div>
-            {t('common.transactions')}: {count}
+            {valueLabel}: {count}
           </div>
         </div>
       )
@@ -98,7 +111,10 @@ export function TransactionCountChart({
     )
   }
 
-  const chartData = fillTransactionCountBuckets(data, groupBy, dateFrom, dateTo)
+  const chartData = fillTransactionCountBuckets(data, groupBy, dateFrom, dateTo).map((bucket) => ({
+    ...bucket,
+    value: isAmount ? bucket.amount : bucket.count,
+  }))
 
   return (
     <div ref={scrubLockRef} className="h-72 w-full touch-pan-y">
@@ -106,11 +122,15 @@ export function TransactionCountChart({
         <BarChart data={chartData} margin={{ left: 0, right: 0 }}>
           <CartesianGrid stroke="var(--color-border)" vertical={false} />
           <XAxis dataKey="bucket" tick={AXIS_TICK} tickFormatter={tickLabel} />
-          <YAxis tick={AXIS_TICK} allowDecimals={false} width={40} />
+          <YAxis
+            tick={isAmount ? <AxisValueTick format={euroAxisFormat} /> : AXIS_TICK}
+            allowDecimals={false}
+            width={isAmount ? 60 : 40}
+          />
           <Tooltip cursor={{ fill: 'var(--color-muted)' }} content={renderTooltip} />
           <Bar
-            dataKey="count"
-            name={t('common.transactions')}
+            dataKey="value"
+            name={valueLabel}
             fill="var(--color-primary)"
             radius={BAR_RADIUS_TOP}
           />

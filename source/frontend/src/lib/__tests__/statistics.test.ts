@@ -195,57 +195,57 @@ describe('sliceColor', () => {
 describe('fillTransactionCountBuckets', () => {
   it('fills missing days with zero across the selected range', () => {
     const filled = fillTransactionCountBuckets(
-      [{ bucket: '2026-06-02', count: 3 }],
+      [{ bucket: '2026-06-02', count: 3, amount: 30 }],
       'day',
       '2026-06-01',
       '2026-06-03',
     )
     expect(filled).toEqual([
-      { bucket: '2026-06-01', count: 0 },
-      { bucket: '2026-06-02', count: 3 },
-      { bucket: '2026-06-03', count: 0 },
+      { bucket: '2026-06-01', count: 0, amount: 0 },
+      { bucket: '2026-06-02', count: 3, amount: 30 },
+      { bucket: '2026-06-03', count: 0, amount: 0 },
     ])
   })
 
   it('keys weeks by their Monday, starting at the week containing the range start', () => {
     const filled = fillTransactionCountBuckets(
-      [{ bucket: '2026-06-08', count: 2 }],
+      [{ bucket: '2026-06-08', count: 2, amount: 20 }],
       'week',
       '2026-06-03',
       '2026-06-10',
     )
     expect(filled).toEqual([
-      { bucket: '2026-06-01', count: 0 },
-      { bucket: '2026-06-08', count: 2 },
+      { bucket: '2026-06-01', count: 0, amount: 0 },
+      { bucket: '2026-06-08', count: 2, amount: 20 },
     ])
   })
 
   it('fills months and falls back to the data extent without an explicit range', () => {
     const filled = fillTransactionCountBuckets(
       [
-        { bucket: '2026-04', count: 1 },
-        { bucket: '2026-06', count: 2 },
+        { bucket: '2026-04', count: 1, amount: 10 },
+        { bucket: '2026-06', count: 2, amount: 20 },
       ],
       'month',
     )
     expect(filled).toEqual([
-      { bucket: '2026-04', count: 1 },
-      { bucket: '2026-05', count: 0 },
-      { bucket: '2026-06', count: 2 },
+      { bucket: '2026-04', count: 1, amount: 10 },
+      { bucket: '2026-05', count: 0, amount: 0 },
+      { bucket: '2026-06', count: 2, amount: 20 },
     ])
   })
 
   it('always returns all seven weekdays, Monday first', () => {
     const filled = fillTransactionCountBuckets(
       [
-        { bucket: '0', count: 4 },
-        { bucket: '3', count: 1 },
+        { bucket: '0', count: 4, amount: 40 },
+        { bucket: '3', count: 1, amount: 10 },
       ],
       'weekday',
     )
     expect(filled.map((entry) => entry.bucket)).toEqual(['1', '2', '3', '4', '5', '6', '0'])
-    expect(filled[2]).toEqual({ bucket: '3', count: 1 })
-    expect(filled[6]).toEqual({ bucket: '0', count: 4 })
+    expect(filled[2]).toEqual({ bucket: '3', count: 1, amount: 10 })
+    expect(filled[6]).toEqual({ bucket: '0', count: 4, amount: 40 })
   })
 
   it('returns empty for time groupings without data or range', () => {
