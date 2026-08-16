@@ -81,6 +81,9 @@ class Credential(Base):
                 transactions_since=transactions_since,
             )
         self.last_fetching_timestamp = utc_now()
+        system_id = getattr(bank, "system_id", None)
+        if system_id:
+            self.credentials = {**self.credentials, "system_id": system_id}
         logger.info(
             f"Credential {self.id}: {created_accounts} account(s) created, "
             f"{updated_accounts} account(s) updated, {created_transactions} transaction(s) created"

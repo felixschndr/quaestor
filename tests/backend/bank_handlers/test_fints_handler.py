@@ -354,6 +354,32 @@ def test_session_uses_camt_xml_for_banks_without_mt940(monkeypatch: pytest.Monke
     assert not transactions[0].pending
 
 
+def test_session_captures_system_id_after_successful_use(monkeypatch: pytest.MonkeyPatch):
+    client = MagicMock()
+    client.get_tan_mechanisms.return_value = {}
+    client.init_tan_response = "no-tan-needed"
+    client.system_id = "1234567890"
+    monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
+
+    with _fints_handler().session() as bank:
+        assert bank.system_id is None  # not yet captured while the session is in use
+
+    assert bank.system_id == "1234567890"
+
+
+def test_session_does_not_capture_placeholder_system_id(monkeypatch: pytest.MonkeyPatch):
+    client = MagicMock()
+    client.get_tan_mechanisms.return_value = {}
+    client.init_tan_response = "no-tan-needed"
+    client.system_id = "0"  # placeholder used before the bank assigns a real one
+    monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
+
+    with _fints_handler().session() as bank:
+        pass
+
+    assert bank.system_id is None
+
+
 def test_session_translates_missing_system_id_into_invalid_credentials(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
