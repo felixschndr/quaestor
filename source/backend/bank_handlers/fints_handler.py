@@ -58,9 +58,9 @@ class _FinTSSession(BankSession):
         self._client = client
         self._notify_two_factor_state = notify_two_factor_state
         self._is_cancelled = is_cancelled
-
         self._account_mapping: dict[str, SEPAAccount] = {}
         self._balance_observations: dict[str, list[BalanceObservation]] = {}
+        self.system_id: str | None = None
 
     def get_accounts(self) -> list[FetchedAccount]:
         accounts = self._resolve(self._client.get_sepa_accounts())
@@ -213,6 +213,7 @@ class FinTSHandler(BankHandler):
             pin=pin,
             server=server,
             product_id=self.FINTS_PRODUCT_ID,
+            system_id=self.credentials.get("system_id"),
         )
 
     @contextmanager
@@ -230,11 +231,15 @@ class FinTSHandler(BankHandler):
                     notify_two_factor_state=self.notify_two_factor_state,
                     is_cancelled=self.is_cancelled,
                 )
-            yield _FinTSSession(
+            bank_session = _FinTSSession(
                 client=client,
                 notify_two_factor_state=self.notify_two_factor_state,
                 is_cancelled=self.is_cancelled,
             )
+            yield bank_session
+            # Persist the system_id after a successful session (it's None if the session failed).
+            if client.system_id and client.system_id != "0":
+                bank_session.system_id = client.system_id
 
 
 @contextmanager
