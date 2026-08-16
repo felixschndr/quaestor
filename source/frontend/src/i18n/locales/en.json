@@ -98,7 +98,68 @@
     "income": "Income",
     "resetFilters": "Reset filters",
     "tomorrow": "Tomorrow",
-    "onDate": "on {{date}}"
+    "onDate": "on {{date}}",
+    "searchTransactions": "Search transactions",
+    "transactions": "Transactions",
+    "unknown": "Unknown",
+    "transactionLabel": {
+      "SALARY": "Salary",
+      "ALLOWANCE": "Allowance",
+      "PENSION": "Pension",
+      "SIDE_INCOME": "Side income",
+      "REIMBURSEMENT": "Reimbursement",
+      "INTEREST": "Interest",
+      "INVESTMENT": "Investment",
+      "SUBSCRIPTIONS": "Subscriptions",
+      "RENT": "Rent",
+      "UTILITIES": "Utilities",
+      "TRAVEL": "Travel",
+      "FUEL": "Fuel",
+      "FITNESS": "Fitness",
+      "ONLINE_SHOPPING": "Online shopping",
+      "SUPERMARKET": "Supermarket",
+      "DRUGSTORE": "Drugstore",
+      "RESTAURANTS": "Restaurants",
+      "PERSONAL_CARE": "Personal care",
+      "CLOTHING": "Clothing",
+      "GIFTS": "Gifts",
+      "ENTERTAINMENT": "Entertainment",
+      "FEES": "Fees",
+      "SAVINGS": "Savings",
+      "WITHDRAWAL": "Withdrawal",
+      "DEPOSIT": "Deposit",
+      "TRANSFER": "Transfer",
+      "UNKNOWN": "$t(common.unknown)",
+      "INCOMING": "Incoming",
+      "OUTGOING": "Outgoing",
+      "BUY": "Buy",
+      "SELL": "Sell",
+      "REMOVAL": "Removal",
+      "DIVIDEND": "Dividend",
+      "INTEREST_CHARGE": "Interest charge",
+      "TAXES": "Taxes",
+      "TAX_REFUND": "Tax refund",
+      "FEES_REFUND": "Fees refund",
+      "SPINOFF": "Spin-off",
+      "SPLIT": "Split",
+      "SWAP": "Swap",
+      "TRANSFER_IN": "Transfer in",
+      "TRANSFER_OUT": "Transfer out",
+      "ZERO": "Zero transaction"
+    },
+    "range": {
+      "1d": "1D",
+      "3d": "3D",
+      "1w": "1W",
+      "2w": "2W",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Y",
+      "3y": "3Y"
+    },
+    "lastUpdated": "Last updated",
+    "lastUsed": "Last used"
   },
   "errors": {
     "serverOffline": {
@@ -126,16 +187,12 @@
       "hide": "Hide amounts",
       "show": "Show amounts"
     },
-    "search": "Search transactions",
     "upcoming": "Due soon",
     "trendRange": "in the past month",
     "contractsOverdue_one": "Contracts – {{count}} overdue",
     "contractsOverdue_other": "Contracts – {{count}} overdue"
   },
   "account": {
-    "back": "Back",
-    "search": "Search transactions",
-    "lastUpdated": "Last updated",
     "sync": {
       "aria": "Sync account"
     },
@@ -152,12 +209,10 @@
     "tomorrow": "Scheduled for tomorrow",
     "dayAfterTomorrow": "Scheduled for the day after tomorrow",
     "future": "Scheduled for {{date}}",
-    "unknownParty": "Unknown",
     "marketValue": "Market value",
     "empty": "No transactions yet.",
     "notFound": "Account not found.",
-    "loadingMore": "Loading more transactions…",
-    "statistics": "Statistics"
+    "loadingMore": "Loading more transactions…"
   },
   "search": {
     "title": "Search transactions",
@@ -187,27 +242,6 @@
     "sortAmountAbsAsc": "Magnitude: low to high",
     "linkModeHint": "Pick the transaction to link with."
   },
-  "transactionType": {
-    "INCOMING": "Incoming",
-    "OUTGOING": "Outgoing",
-    "BUY": "Buy",
-    "SELL": "Sell",
-    "DEPOSIT": "Deposit",
-    "REMOVAL": "Removal",
-    "DIVIDEND": "Dividend",
-    "INTEREST": "Interest",
-    "INTEREST_CHARGE": "Interest charge",
-    "TAXES": "Taxes",
-    "TAX_REFUND": "Tax refund",
-    "FEES": "Fees",
-    "FEES_REFUND": "Fees refund",
-    "SPINOFF": "Spin-off",
-    "SPLIT": "Split",
-    "SWAP": "Swap",
-    "TRANSFER_IN": "Transfer in",
-    "TRANSFER_OUT": "Transfer out",
-    "ZERO": "Zero transaction"
-  },
   "login": {
     "loginTab": "Log in",
     "registerTab": "Register",
@@ -229,35 +263,6 @@
       "symbol": "a special character"
     },
     "genericError": "Something went wrong. Please try again."
-  },
-  "category": {
-    "SALARY": "Salary",
-    "ALLOWANCE": "Allowance",
-    "PENSION": "Pension",
-    "SIDE_INCOME": "Side income",
-    "REIMBURSEMENT": "Reimbursement",
-    "INTEREST": "Interest",
-    "INVESTMENT": "Investment",
-    "SUBSCRIPTIONS": "Subscriptions",
-    "RENT": "Rent",
-    "UTILITIES": "Utilities",
-    "TRAVEL": "Travel",
-    "FUEL": "Fuel",
-    "FITNESS": "Fitness",
-    "ONLINE_SHOPPING": "Online shopping",
-    "SUPERMARKET": "Supermarket",
-    "DRUGSTORE": "Drugstore",
-    "RESTAURANTS": "Restaurants",
-    "PERSONAL_CARE": "Personal care",
-    "CLOTHING": "Clothing",
-    "GIFTS": "Gifts",
-    "ENTERTAINMENT": "Entertainment",
-    "FEES": "Fees",
-    "SAVINGS": "Savings",
-    "WITHDRAWAL": "Withdrawal",
-    "DEPOSIT": "Deposit",
-    "TRANSFER": "Transfer",
-    "UNKNOWN": "Unknown"
   },
   "settings": {
     "title": "Settings",
@@ -324,8 +329,8 @@
     },
     "field": {
       "blz": "Bank code (BLZ)",
-      "username": "Username",
-      "password": "Password",
+      "username": "$t(common.username)",
+      "password": "$t(common.password)",
       "phone": "Phone number",
       "pin": "PIN",
       "private_key": "Private key (.pem)"
@@ -390,7 +395,6 @@
       "title": "Please approve in your banking app",
       "description": "We're waiting for you to approve the request in your banking app. Open the app and confirm to let the sync continue."
     },
-    "lastSynced": "Last synced",
     "neverSynced": "Never synced",
     "autoSync": {
       "enabled_one": "This account is synced automatically on a {{hours}}-hour schedule.",
@@ -473,11 +477,7 @@
       "recurringUpdateFailed": "Could not save recurring transaction.",
       "recurringDeleted": "Recurring transaction deleted",
       "recurringDeleteFailed": "Could not delete recurring transaction.",
-      "dayOfMonthSummary": "Day {{day}} of the month",
-      "frequency": {
-        "MONTHLY": "Monthly",
-        "WEEKLY": "Weekly"
-      }
+      "dayOfMonthSummary": "Day {{day}} of the month"
     },
     "enableBanking": {
       "guideTitle": "One-time Enable Banking setup",
@@ -533,10 +533,8 @@
     "checkFailed": "Couldn't check for updates"
   },
   "sessions": {
-    "lastUsed": "Last used",
     "ip": "IP",
     "unknownUserAgent": "Unknown device",
-    "unknownIp": "Unknown",
     "endSession": "End session",
     "signOutEverywhere": "Sign out elsewhere",
     "signOutEverywhereConfirm": "Yes, sign out everywhere else",
@@ -558,7 +556,6 @@
     "createdHint": "This is the only time the key is shown. Store it somewhere safe — you can't see it again.",
     "createdDone": "I've saved my key",
     "prefix": "Key",
-    "lastUsed": "Last used",
     "neverUsed": "Never used",
     "deleted": "API key deleted"
   },
@@ -632,14 +629,6 @@
   "stats": {
     "title": "Statistics",
     "rangeLabel": "Range",
-    "range": {
-      "2w": "2W",
-      "1m": "1M",
-      "3m": "3M",
-      "6m": "6M",
-      "1y": "1Y",
-      "3y": "3Y"
-    },
     "error": "Could not load.",
     "noMatches": "No data matches your filters.",
     "other": "Other",
@@ -672,14 +661,13 @@
     },
     "transactionCounts": {
       "title": "Transactions per period",
-      "count": "Transactions",
       "groupLabel": "Grouping",
       "weekLabel": "Week {{week}}",
       "group": {
-        "day": "Day",
-        "week": "Week",
-        "month": "Month",
-        "weekday": "Weekday"
+        "day": "$t(contracts.period.DAY)",
+        "week": "$t(contracts.period.WEEKLY)",
+        "month": "$t(contracts.period.MONTHLY)",
+        "weekday": "$t(common.weekday)"
       }
     },
     "netSavings": {
@@ -689,7 +677,6 @@
     "netWorth": {
       "title": "Net worth over time",
       "viewTransactions": "Transactions in this period",
-      "viewTransactionsShort": "Transactions",
       "viewDay": "Break down this day",
       "viewDayShort": "Details",
       "value": "Net worth",
@@ -699,13 +686,6 @@
     },
     "day": {
       "title": "Net worth change",
-      "range": {
-        "1d": "1D",
-        "3d": "3D",
-        "1w": "1W",
-        "2w": "2W",
-        "1m": "1M"
-      },
       "noTransactions": "No transactions in this period",
       "error": "Could not load the breakdown.",
       "empty": "No data for this period."
@@ -815,7 +795,7 @@
     "daysUnit": "in days",
     "windowLabel": "Time window",
     "period": {
-      "weekly": "Weekly",
+      "weekly": "$t(contracts.frequency.WEEKLY)",
       "monthly": "Monthly (on the 1st)"
     }
   },
@@ -877,7 +857,7 @@
     },
     "sortLabel": "Sort by",
     "sort": {
-      "name": "Name",
+      "name": "$t(common.name)",
       "amount_asc": "Amount ascending",
       "amount_desc": "Amount descending",
       "per_day_in": "Income per day",

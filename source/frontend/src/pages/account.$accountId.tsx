@@ -158,7 +158,7 @@ function AccountSparkline({
     <Link
       to="/stats"
       search={{ account_ids: [accountId] }}
-      aria-label={t('account.statistics')}
+      aria-label={t('stats.title')}
       onClick={(event) => {
         if (scrubbed.current) {
           event.preventDefault()
@@ -356,7 +356,7 @@ export function AccountDetailView({
       <div ref={stickyHeaderRef} className="bg-background fixed top-0 right-0 left-0 z-20">
         <div className="mx-auto flex w-full max-w-page flex-col px-4 pt-4 pb-3">
           <header className="flex items-center justify-between gap-2 pr-2">
-            <BackLink to="/" label={t('account.back')} />
+            <BackLink to="/" label={t('common.back')} />
             <div className="-mr-2.5 flex items-center gap-1">
               <PrivacyToggle className="p-2.5" />
               {onSyncClick ? (
@@ -372,8 +372,8 @@ export function AccountDetailView({
               <Link
                 to="/stats"
                 search={{ account_ids: [account.id] }}
-                aria-label={t('account.statistics')}
-                title={t('account.statistics')}
+                aria-label={t('stats.title')}
+                title={t('stats.title')}
                 className="text-primary hover:text-primary/80 group rounded-md p-2.5 transition-colors max-sm:hidden"
               >
                 <StatsIcon className="size-5" />
@@ -390,8 +390,8 @@ export function AccountDetailView({
               <Link
                 to="/search"
                 search={{ account_ids: [account.id] }}
-                aria-label={t('account.search')}
-                title={t('account.search')}
+                aria-label={t('common.searchTransactions')}
+                title={t('common.searchTransactions')}
                 className="text-primary hover:text-primary/80 group rounded-md p-2.5 transition-colors max-sm:hidden"
               >
                 <Search className="search-icon-zoom size-5" />
@@ -415,7 +415,7 @@ export function AccountDetailView({
           <IbanLabel id="account-balance-label" value={account.name} />
           {lastUpdated ? (
             <p className="text-muted-foreground shrink-0 text-sm sm:text-right">
-              {t('account.lastUpdated')}: {formatRelativeDateTime(lastUpdated, t, today)}
+              {t('common.lastUpdated')}: {formatRelativeDateTime(lastUpdated, t, today)}
             </p>
           ) : null}
         </div>
@@ -727,7 +727,7 @@ function TransactionRow({
 
   const negative = transaction.amount < 0
   const pending = transaction.pending ?? false
-  const otherParty = transactionPartyName(transaction) || t('account.unknownParty')
+  const otherParty = transactionPartyName(transaction) || t('common.unknown')
   const purpose = transaction.purpose?.trim()
   const subline = purpose && purpose !== otherParty ? purpose : null
 
@@ -869,7 +869,7 @@ function RecurringTransactionRow({
   const remove = useDeleteRecurringTransaction(accountId)
   const negative = rule.amount < 0
 
-  const frequencyLabel = t(`credentials.manualTransactions.frequency.${rule.frequency}`)
+  const frequencyLabel = t(`contracts.frequency.${rule.frequency}`)
   const scheduleSummary =
     rule.frequency === 'MONTHLY'
       ? t('credentials.manualTransactions.dayOfMonthSummary', {

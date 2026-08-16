@@ -327,7 +327,7 @@ function ResultRow({
 }) {
   const { t } = useTranslation()
   const negative = transaction.amount < 0
-  const otherParty = transactionPartyName(transaction) || t('account.unknownParty')
+  const otherParty = transactionPartyName(transaction) || t('common.unknown')
   return (
     <li>
       <Link

@@ -321,7 +321,7 @@ function ContractCategorySelect({
 
 function MemberRow({ member }: { member: ContractMemberRead }) {
   const { t } = useTranslation()
-  const otherParty = transactionPartyName(member) || t('account.unknownParty')
+  const otherParty = transactionPartyName(member) || t('common.unknown')
   const amountColor = member.is_outlier
     ? 'text-warning'
     : member.amount < 0

@@ -137,10 +137,10 @@ function SessionRow({
         <dl className="text-muted-foreground grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
           <dt>{t('common.created')}</dt>
           <dd>{formatDateTime(session.created_at)}</dd>
-          <dt>{t('sessions.lastUsed')}</dt>
+          <dt>{t('common.lastUsed')}</dt>
           <dd>{formatDateTime(session.last_used_at)}</dd>
           <dt>{t('sessions.ip')}</dt>
-          <dd>{session.ip ?? t('sessions.unknownIp')}</dd>
+          <dd>{session.ip ?? t('common.unknown')}</dd>
         </dl>
       </div>
       <div className="sm:w-40 sm:self-center">

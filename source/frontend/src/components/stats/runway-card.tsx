@@ -51,7 +51,7 @@ export function RunwayCard({
   const excludedCategories = new Intl.ListFormat(i18n.language, {
     style: 'long',
     type: 'conjunction',
-  }).format(RUNWAY_EXCLUDED_CATEGORIES.map((category) => t(`category.${category}`)))
+  }).format(RUNWAY_EXCLUDED_CATEGORIES.map((category) => t(`common.transactionLabel.${category}`)))
 
   const runwayCategories = categories.filter(
     (category) => !RUNWAY_EXCLUDED_CATEGORIES.includes(category),

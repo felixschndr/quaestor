@@ -142,7 +142,7 @@ export function CategoryChart({
     () =>
       slices.map((slice) => ({
         category: slice.category,
-        label: t(`category.${slice.category}`),
+        label: t(`common.transactionLabel.${slice.category}`),
         value: slice.total,
       })),
     [slices, t],
@@ -210,7 +210,7 @@ export function CategoryChart({
     <HorizontalDrillBarChart
       rows={rows}
       hidden={hidden}
-      labelOf={(category) => t(`category.${category}`)}
+      labelOf={(category) => t(`common.transactionLabel.${category}`)}
       colorOf={(key) => sliceColor(key as TransactionCategory)}
       maxChars={18}
       axisWidth={130}

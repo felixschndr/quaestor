@@ -630,7 +630,9 @@ function RuleDialog({
                       style: 'long',
                       type: 'conjunction',
                     }).format(
-                      RUNWAY_EXCLUDED_CATEGORIES.map((category) => t(`category.${category}`)),
+                      RUNWAY_EXCLUDED_CATEGORIES.map((category) =>
+                        t(`common.transactionLabel.${category}`),
+                      ),
                     ),
                   })}`
                 : ''}
@@ -848,7 +850,7 @@ function ruleSummaryLines(
       value: describeSelection(
         rule.categories,
         FILTERABLE_CATEGORIES.length,
-        (category) => t(`category.${category}`),
+        (category) => t(`common.transactionLabel.${category}`),
         t('common.allCategories'),
       ),
     })
@@ -857,7 +859,7 @@ function ruleSummaryLines(
       value: describeSelection(
         rule.types,
         TRANSACTION_TYPES.length,
-        (type) => t(`transactionType.${type}`),
+        (type) => t(`common.transactionLabel.${type}`),
         t('common.allTypes'),
       ),
     })

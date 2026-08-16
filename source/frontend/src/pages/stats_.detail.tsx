@@ -157,7 +157,7 @@ export function NetWorthDetailPage() {
           onChange={applyPreset}
           options={DETAIL_RANGE_PRESETS.map((preset) => ({
             value: preset,
-            label: t(`stats.day.range.${preset}`),
+            label: t(`common.range.${preset}`),
           }))}
         />
       </div>
@@ -255,7 +255,7 @@ function AccountChangeRow({
 function TransactionLine({ transaction }: { transaction: TransactionRead }) {
   const { t } = useTranslation()
   const negative = transaction.amount < 0
-  const otherParty = formatIban(transaction.other_party?.trim() || '') || t('account.unknownParty')
+  const otherParty = formatIban(transaction.other_party?.trim() || '') || t('common.unknown')
   return (
     <li>
       <Link

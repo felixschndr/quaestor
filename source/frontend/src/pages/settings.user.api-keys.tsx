@@ -168,7 +168,7 @@ function ApiKeyRow({ apiKey }: { apiKey: ApiKeyRead }) {
           <dd className="font-mono">{apiKey.prefix}…</dd>
           <dt>{t('common.created')}</dt>
           <dd>{formatDateTime(apiKey.created_at)}</dd>
-          <dt>{t('apiKeys.lastUsed')}</dt>
+          <dt>{t('common.lastUsed')}</dt>
           <dd>
             {apiKey.last_used_at ? formatDateTime(apiKey.last_used_at) : t('apiKeys.neverUsed')}
           </dd>

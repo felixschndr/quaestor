@@ -79,7 +79,7 @@ describe('SettingsCredentialsIndexView', () => {
     expect(link).toHaveAttribute('href', '/settings/credentials/42')
     expect(link.querySelector('img')).toHaveAttribute('src', '/static/banks/ing-diba.png')
     // The row's secondary line carries the last-synced caption.
-    expect(screen.getByText(/Last synced:/)).toBeInTheDocument()
+    expect(screen.getByText(/Last updated:/)).toBeInTheDocument()
   })
 
   it('shows a "never synced" hint when there is no last_fetching_timestamp', () => {
@@ -102,7 +102,7 @@ describe('SettingsCredentialsIndexView', () => {
       />,
     )
     expect(screen.queryByText('Never synced')).not.toBeInTheDocument()
-    expect(screen.queryByText(/Last synced/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Last updated/)).not.toBeInTheDocument()
   })
 
   it('includes a back link to /settings', () => {

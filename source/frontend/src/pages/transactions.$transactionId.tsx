@@ -109,7 +109,7 @@ export function TransactionDetailView({
         </DetailRow>
         <DetailRow label={t('common.category')}>
           {transaction.pending ? (
-            <span className="text-sm">{t(`category.${transaction.category}`)}</span>
+            <span className="text-sm">{t(`common.transactionLabel.${transaction.category}`)}</span>
           ) : (
             <CategorySelect
               value={transaction.category as TransactionCategory}
@@ -338,7 +338,7 @@ function TypeBadge({ transactionType }: { transactionType: string }) {
   return (
     <span className="inline-flex items-center gap-2">
       <Icon className="text-muted-foreground size-4" aria-hidden="true" />
-      <span className="text-sm">{t(`transactionType.${transactionType}`)}</span>
+      <span className="text-sm">{t(`common.transactionLabel.${transactionType}`)}</span>
     </span>
   )
 }

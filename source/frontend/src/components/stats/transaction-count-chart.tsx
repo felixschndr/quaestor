@@ -85,7 +85,7 @@ export function TransactionCountChart({
             {weekLabel(bucket)} ({weekRange(bucket)})
           </div>
           <div>
-            {t('stats.transactionCounts.count')}: {count}
+            {t('common.transactions')}: {count}
           </div>
         </div>
       )
@@ -110,7 +110,7 @@ export function TransactionCountChart({
           <Tooltip cursor={{ fill: 'var(--color-muted)' }} content={renderTooltip} />
           <Bar
             dataKey="count"
-            name={t('stats.transactionCounts.count')}
+            name={t('common.transactions')}
             fill="var(--color-primary)"
             radius={BAR_RADIUS_TOP}
           />

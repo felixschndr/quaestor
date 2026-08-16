@@ -202,7 +202,7 @@ export function isManualBank(bank: string | undefined): boolean {
 export function lastSyncedLabel(t: TFunction, credential: CredentialRead): string | null {
   if (isManualBank(credential.bank)) return null
   return credential.last_fetching_timestamp
-    ? `${t('credentials.lastSynced')}: ${formatRelativeDateTime(credential.last_fetching_timestamp, t)}`
+    ? `${t('common.lastUpdated')}: ${formatRelativeDateTime(credential.last_fetching_timestamp, t)}`
     : t('credentials.neverSynced')
 }
 

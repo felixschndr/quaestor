@@ -165,8 +165,8 @@ export function OverviewView({
           {hasAccounts ? (
             <Link
               to="/search"
-              aria-label={t('overview.search')}
-              title={t('overview.search')}
+              aria-label={t('common.searchTransactions')}
+              title={t('common.searchTransactions')}
               className="text-primary hover:text-primary/80 focus-visible:ring-ring group rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none max-sm:hidden"
             >
               <Search className="search-icon-zoom size-5" />
@@ -225,8 +225,8 @@ function staleSyncTimestamp(credentials: CredentialRead[]): string | null {
 function LastSyncedLine({ timestamp }: { timestamp: string }) {
   const { t } = useTranslation()
   return (
-    <p className="text-warning text-xs">
-      {t('credentials.lastSynced')}: {formatRelativeDateTime(timestamp, t)}
+    <p className="private-amount text-warning text-xs">
+      {t('common.lastUpdated')}: {formatRelativeDateTime(timestamp, t)}
     </p>
   )
 }

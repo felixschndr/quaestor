@@ -783,7 +783,7 @@ describe('OverviewView hero extras', () => {
       }),
     )
     // The oldest one wins, so a single lagging bank still marks the total stale.
-    expect(screen.getByText(/Last synced/).className).toMatch(/text-warning/)
+    expect(screen.getByText(/Last updated/).className).toMatch(/text-warning/)
   })
 
   it('stays silent about syncing while every bank is current', () => {
@@ -794,7 +794,7 @@ describe('OverviewView hero extras', () => {
         credentials: [{ ...buildCredential(), last_fetching_timestamp: fresh }],
       }),
     )
-    expect(screen.queryByText(/Last synced/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Last updated/)).not.toBeInTheDocument()
   })
 
   it('leaves banks with syncing switched off out of the staleness check', () => {
@@ -815,7 +815,7 @@ describe('OverviewView hero extras', () => {
         ],
       }),
     )
-    expect(screen.queryByText(/Last synced/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Last updated/)).not.toBeInTheDocument()
   })
 })
 

@@ -9,7 +9,13 @@ describe('category presentation covers the generated list', () => {
   it.each(TRANSACTION_CATEGORIES)('%s has an icon, a tone and de/en labels', (category) => {
     expect(CATEGORY_ICONS[category], `missing icon for ${category}`).toBeDefined()
     expect(CATEGORY_TONES[category], `missing tone for ${category}`).toBeDefined()
-    expect(de.category[category as keyof typeof de.category], `missing de label`).toBeTruthy()
-    expect(en.category[category as keyof typeof en.category], `missing en label`).toBeTruthy()
+    expect(
+      de.common.transactionLabel[category as keyof typeof de.common.transactionLabel],
+      `missing de label`,
+    ).toBeTruthy()
+    expect(
+      en.common.transactionLabel[category as keyof typeof en.common.transactionLabel],
+      `missing en label`,
+    ).toBeTruthy()
   })
 })

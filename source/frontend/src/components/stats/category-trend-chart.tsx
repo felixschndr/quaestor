@@ -59,7 +59,7 @@ export function CategoryTrendChart({
                 className={cn(onDrill && 'group cursor-pointer')}
               >
                 <td className={cn(cell, hover, 'text-foreground rounded-l-md pr-2 pl-2')}>
-                  {t(`category.${slice.category}`)}
+                  {t(`common.transactionLabel.${slice.category}`)}
                 </td>
                 <td
                   className={cn(

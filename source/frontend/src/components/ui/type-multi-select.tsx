@@ -21,13 +21,16 @@ export function TypeMultiSelect({ id, selected, onChange, className }: TypeMulti
     .sort((a, b) => {
       if (a === 'ZERO') return 1
       if (b === 'ZERO') return -1
-      return t(`transactionType.${a}`).localeCompare(t(`transactionType.${b}`), i18n.language)
+      return t(`common.transactionLabel.${a}`).localeCompare(
+        t(`common.transactionLabel.${b}`),
+        i18n.language,
+      )
     })
     .map((type) => {
       const Icon = TRANSACTION_TYPE_ICONS[type] ?? CircleHelp
       return {
         value: type,
-        label: t(`transactionType.${type}`),
+        label: t(`common.transactionLabel.${type}`),
         leading: <Icon className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />,
       }
     })

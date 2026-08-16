@@ -75,7 +75,7 @@ describe('CredentialDetailView', () => {
     )
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Trade Republic')
     expect(document.querySelector('img[src="/static/banks/trade-republic.png"]')).not.toBeNull()
-    expect(screen.getByText(/Last synced:/)).toBeInTheDocument()
+    expect(screen.getByText(/Last updated:/)).toBeInTheDocument()
   })
 
   it('says "never synced" when last_fetching_timestamp is null', () => {
@@ -88,7 +88,7 @@ describe('CredentialDetailView', () => {
       <CredentialDetailView credential={buildCredential({ bank: 'manual' })} onDeleted={vi.fn()} />,
     )
     expect(screen.queryByText('Never synced')).not.toBeInTheDocument()
-    expect(screen.queryByText(/Last synced/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Last updated/)).not.toBeInTheDocument()
   })
 
   it('renders an empty-accounts hint when there are no accounts', () => {

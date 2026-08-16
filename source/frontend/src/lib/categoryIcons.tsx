@@ -113,7 +113,7 @@ export function useCategoryOptions(): SingleSelectOption<TransactionCategory>[] 
     const localised = TRANSACTION_CATEGORIES.filter((option) => option !== 'UNKNOWN').map(
       (option) => ({
         value: option,
-        label: t(`category.${option}`),
+        label: t(`common.transactionLabel.${option}`),
         leading: <CategoryAvatar category={option} className="size-5" iconClassName="size-3" />,
       }),
     )
@@ -122,7 +122,7 @@ export function useCategoryOptions(): SingleSelectOption<TransactionCategory>[] 
       ...localised,
       {
         value: 'UNKNOWN' as TransactionCategory,
-        label: t('category.UNKNOWN'),
+        label: t('common.transactionLabel.UNKNOWN'),
         leading: <CategoryAvatar category="UNKNOWN" className="size-5" iconClassName="size-3" />,
       },
     ]

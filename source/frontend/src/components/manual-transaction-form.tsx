@@ -266,7 +266,7 @@ export function ManualTransactionForm({
               { value: '', label: t('common.any') },
               ...TRANSACTION_TYPES.map((type) => ({
                 value: type,
-                label: t(`transactionType.${type}`),
+                label: t(`common.transactionLabel.${type}`),
               })),
             ]}
           />
@@ -281,7 +281,7 @@ export function ManualTransactionForm({
               { value: '', label: t('common.any') },
               ...TRANSACTION_CATEGORIES.map((cat) => ({
                 value: cat,
-                label: t(`category.${cat}`),
+                label: t(`common.transactionLabel.${cat}`),
               })),
             ]}
           />
@@ -308,7 +308,7 @@ export function ManualTransactionForm({
                 onChange={setFrequency}
                 options={RECURRENCE_FREQUENCIES.map((freq) => ({
                   value: freq,
-                  label: t(`credentials.manualTransactions.frequency.${freq}`),
+                  label: t(`contracts.frequency.${freq}`),
                 }))}
               />
             </FormField>

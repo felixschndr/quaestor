@@ -103,7 +103,7 @@ function AccountNotFoundView() {
   const { t } = useTranslation()
   return (
     <main className="mx-auto max-w-page p-4">
-      <BackLink to="/" label={t('account.back')} />
+      <BackLink to="/" label={t('common.back')} />
       <p className="text-muted-foreground mt-6 text-sm">{t('account.notFound')}</p>
     </main>
   )

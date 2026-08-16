@@ -305,7 +305,7 @@ export function StatsView({
           onChange={applyPreset}
           options={DATE_RANGE_PRESETS.map((preset) => ({
             value: preset,
-            label: t(`stats.range.${preset}`),
+            label: t(`common.range.${preset}`),
           }))}
         />
         <SegmentedToggle
@@ -379,7 +379,7 @@ export function StatsView({
                 aria-label={t('stats.netWorth.viewTransactions')}
                 className="stats-drill-arrow -m-1 inline-flex items-center gap-1 rounded-md p-1 text-xs font-medium"
               >
-                <span className="sm:hidden">{t('stats.netWorth.viewTransactionsShort')}</span>
+                <span className="sm:hidden">{t('common.transactions')}</span>
                 <span className="hidden sm:inline">{t('stats.netWorth.viewTransactions')}</span>
                 <DrillArrowIcon />
               </button>
