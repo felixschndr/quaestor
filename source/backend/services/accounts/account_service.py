@@ -19,6 +19,7 @@ from source.backend.models.accounts.account_balance_snapshot import AccountBalan
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.base import snapshot_columns
+from source.backend.models.transactions.flow_link_source import FlowLinkSource
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_attachment import TransactionAttachment
 from source.backend.models.transactions.transaction_category import TransactionCategory
@@ -392,6 +393,8 @@ def _add_to_flow(leg: Transaction, flow: TransferFlow) -> None:
     leg.transfer_original_type = leg.transaction_type
     leg.transaction_type = TransactionType.TRANSFER_OUT if leg.amount < 0 else TransactionType.TRANSFER_IN
     leg.flow = flow
+    leg.flow_link_source = FlowLinkSource.MANUAL
+    leg.transfer_relink_blocked = False
 
 
 def _detach_from_flow(leg: Transaction) -> None:
@@ -399,6 +402,7 @@ def _detach_from_flow(leg: Transaction) -> None:
         leg.transaction_type = leg.transfer_original_type
     leg.transfer_original_type = None
     leg.flow_id = None
+    leg.flow_link_source = None
     leg.transfer_relink_blocked = True
 
 

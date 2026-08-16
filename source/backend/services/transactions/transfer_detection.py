@@ -8,6 +8,7 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
+from source.backend.models.transactions.flow_link_source import FlowLinkSource
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory, normalize_string
 from source.backend.models.transactions.transaction_type import TransactionType
@@ -25,7 +26,7 @@ ELIGIBLE_TYPES = frozenset(
     }
 )
 
-MAX_DISTANCE = timedelta(days=5)
+MAX_DISTANCE = timedelta(days=3)
 
 
 def _is_match(outflow: Transaction, inflow: Transaction) -> bool:
@@ -101,6 +102,8 @@ def _link_transfer_pairs(db_session: Session, transactions: list[Transaction]) -
         best.transaction_type = TransactionType.TRANSFER_IN
         outflow.flow_id = flow.id
         best.flow_id = flow.id
+        outflow.flow_link_source = FlowLinkSource.DETECTED
+        best.flow_link_source = FlowLinkSource.DETECTED
         if best.account_id == outflow.account_id:
             best.category = TransactionCategory.REIMBURSEMENT
         consumed_inflow_ids.add(best.id)
@@ -176,6 +179,8 @@ def _link_mirror_bookings(db_session: Session, transactions: list[Transaction]) 
         best.transaction_type = TransactionType.TRANSFER_OUT if best.amount < 0 else TransactionType.TRANSFER_IN
         best.flow_id = flow.id
         intermediary_leg.flow_id = flow.id
+        best.flow_link_source = FlowLinkSource.DETECTED
+        intermediary_leg.flow_link_source = FlowLinkSource.DETECTED
         consumed_funding_ids.add(best.id)
         created += 1
         logger.debug(

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from source.backend.bank_handlers import BankProvider
 from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
+from source.backend.models.transactions.flow_link_source import FlowLinkSource
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
@@ -26,6 +27,7 @@ def _assert_linked(transactions: list[Transaction]) -> None:
     flow_ids = {transaction.flow_id for transaction in transactions}
     assert None not in flow_ids, "every transaction should belong to a flow"
     assert len(flow_ids) == 1, "all transactions should share the same flow"
+    assert all(t.flow_link_source == FlowLinkSource.DETECTED for t in transactions), "auto-links are DETECTED"
 
 
 def _create_two_accounts(session: Session, user_id: int) -> tuple[Account, Account]:
@@ -94,7 +96,7 @@ def test_no_match_when_time_difference_is_too_big(session_factory: sessionmaker)
             session,
             account_id=account_b.id,
             amount=50.0,
-            date=RECENT_DATE + timedelta(days=6),
+            date=RECENT_DATE + timedelta(days=4),
             transaction_type=TransactionType.INCOMING,
         )
         session.flush()

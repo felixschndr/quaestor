@@ -22,6 +22,6 @@ def test_transaction_repr_contains_identifying_fields():
         "date=2026-04-29, other_party=Café, transaction_type=OUTGOING, "
         "category=UNKNOWN, note=Birthday gift, pending=None, bank_reference=None, expected=None, "
         "match_tolerance_percent=None, flow_id=None, "
-        "transfer_original_type=None, transfer_relink_blocked=None, recurring_transaction_id=None, "
+        "transfer_original_type=None, transfer_relink_blocked=None, flow_link_source=None, recurring_transaction_id=None, "
         "contract_id=None, contract_assignment=None)>"
     )

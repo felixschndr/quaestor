@@ -13,6 +13,7 @@ from source.backend.exceptions import (
 from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
+from source.backend.models.transactions.flow_link_source import FlowLinkSource
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
@@ -471,6 +472,8 @@ def test_remove_from_flow_clears_both_sides_and_restores_types(
         assert in_transaction.flow_id is None
         assert out_transaction.transfer_relink_blocked is True
         assert in_transaction.transfer_relink_blocked is True
+        assert out_transaction.flow_link_source is None
+        assert in_transaction.flow_link_source is None
         assert out_transaction.transaction_type == TransactionType.OUTGOING
         assert in_transaction.transaction_type == TransactionType.DEPOSIT
         assert out_transaction.transfer_original_type is None
@@ -534,6 +537,29 @@ def test_add_to_flow_links_both_legs(session_factory: sessionmaker, caplog: pyte
         assert out_transaction.flow_id == in_transaction.flow_id
         assert out_transaction.transaction_type == TransactionType.TRANSFER_OUT
         assert in_transaction.transaction_type == TransactionType.TRANSFER_IN
+        assert out_transaction.flow_link_source == FlowLinkSource.MANUAL
+        assert in_transaction.flow_link_source == FlowLinkSource.MANUAL
+
+
+def test_manual_link_reauthorises_auto_detection_on_a_previously_unlinked_leg(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
+        account_a = make_account(session, credential_id=credential.id, name=ACCOUNT_IBAN)
+        account_b = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN)
+        out_transaction = make_transaction(
+            session, account_id=account_a.id, amount=AMOUNT * -1, transaction_type=TransactionType.OUTGOING
+        )
+        in_transaction = make_transaction(
+            session, account_id=account_b.id, amount=AMOUNT, transaction_type=TransactionType.DEPOSIT
+        )
+        out_transaction.transfer_relink_blocked = True
+        session.flush()
+
+        account_service.add_to_flow(db_session=session, transaction=out_transaction, counterpart=in_transaction)
+
+        assert out_transaction.transfer_relink_blocked is False
+        assert out_transaction.flow_link_source == FlowLinkSource.MANUAL
 
 
 def _create_n_accounts(db_session: Session, user: User, count: int) -> list[Account]:

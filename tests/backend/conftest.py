@@ -33,6 +33,7 @@ from source.backend.models.base import Base
 from source.backend.models.contracts.contract import Contract
 from source.backend.models.contracts.contract_frequency import ContractFrequency
 from source.backend.models.contracts.contract_source import ContractSource
+from source.backend.models.transactions.flow_link_source import FlowLinkSource
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
@@ -404,6 +405,7 @@ def link_transactions_as_flow(db_session: Session, transactions: list[Transactio
     db_session.flush()
     for transaction in transactions:
         transaction.flow_id = flow.id
+        transaction.flow_link_source = FlowLinkSource.DETECTED
     db_session.flush()
     return flow
 
