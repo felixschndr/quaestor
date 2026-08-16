@@ -75,6 +75,7 @@ function TransactionDetailPage() {
         : null,
       bankName: resolved?.bankName ?? null,
       bankIcon: resolved?.bankIcon ?? null,
+      isMarketValued: resolvedAccount?.is_market_valued ?? false,
       isCurrent,
     }
   }
@@ -86,11 +87,7 @@ function TransactionDetailPage() {
           ...query.data.flow_members.map((member) =>
             toFlowMember(member, findAccountInUser(user, member.account_id), false),
           ),
-        ].sort(
-          (a, b) =>
-            a.transaction.date.localeCompare(b.transaction.date) ||
-            a.transaction.amount - b.transaction.amount,
-        )
+        ].sort(compareFlowMembers)
       : []
 
   const linkSource =
@@ -378,7 +375,23 @@ export interface FlowMemberView {
   accountName: string | null
   bankName: string | null
   bankIcon: string | null
+  isMarketValued: boolean
   isCurrent: boolean
+}
+
+// Order a flow the way the money travels: by date, then non-depot accounts before the market-valued depot
+// (the terminal asset side), then inflows before outflows within an account, then a stable tiebreak. So a
+// broker buy reads deposit-in -> cash-out -> depot-in instead of raw (date, amount).
+// ponytail: heuristic, not a topological sort — a sell (money leaving the depot) may order loosely.
+export function compareFlowMembers(a: FlowMemberView, b: FlowMemberView): number {
+  const outLast = (m: FlowMemberView) => (m.transaction.amount < 0 ? 1 : 0)
+  return (
+    a.transaction.date.localeCompare(b.transaction.date) ||
+    Number(a.isMarketValued) - Number(b.isMarketValued) ||
+    outLast(a) - outLast(b) ||
+    a.transaction.amount - b.transaction.amount ||
+    a.transaction.id - b.transaction.id
+  )
 }
 
 export interface TransactionDetailViewProps {

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from source.backend.bank_handlers import BankProvider
 from source.backend.models.accounts.account import Account
+from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot, BalanceSnapshotSource
 from source.backend.models.auth.user import User
 from source.backend.models.transactions.flow_link_source import FlowLinkSource
 from source.backend.models.transactions.transaction import Transaction
@@ -13,9 +14,11 @@ from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.transactions import transfer_detection
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
+    ETF_NAME,
     RECENT_DATE,
     SECOND_ACCOUNT_IBAN,
     assert_log_contains,
+    link_transactions_as_flow,
     make_account,
     make_credential,
     make_transaction,
@@ -468,3 +471,246 @@ def test_opposite_signed_intermediary_pairs_stay_regular_transfers(session_facto
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
         assert withdrawal.transaction_type == TransactionType.TRANSFER_OUT
         assert deposit.transaction_type == TransactionType.TRANSFER_IN
+
+
+def _existing_flow_leaving(session: Session, account: Account, amount: float) -> None:
+    # A two-member DETECTED flow whose open end is a `-amount` outflow leaving `account`.
+    incoming = make_transaction(
+        session, account_id=account.id, amount=amount, date=RECENT_DATE, transaction_type=TransactionType.TRANSFER_IN
+    )
+    outgoing = make_transaction(
+        session, account_id=account.id, amount=-amount, date=RECENT_DATE, transaction_type=TransactionType.TRANSFER_OUT
+    )
+    link_transactions_as_flow(db_session=session, transactions=[incoming, outgoing])
+
+
+def test_chains_a_new_leg_onto_an_existing_flows_open_end(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, account_b = _create_two_accounts(session, user_id=user.id)
+        _existing_flow_leaving(session, account=account_a, amount=50.0)
+        arrival = make_transaction(
+            session,
+            account_id=account_b.id,
+            amount=50.0,
+            date=RECENT_DATE + timedelta(days=1),
+            transaction_type=TransactionType.INCOMING,
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert_log_contains(caplog, message="chained into existing flows")
+        assert arrival.flow_id is not None
+        assert arrival.transaction_type == TransactionType.TRANSFER_IN
+        assert arrival.transfer_original_type == TransactionType.INCOMING
+        assert arrival.flow_link_source == FlowLinkSource.DETECTED
+
+
+def test_does_not_chain_when_two_flows_are_in_reach(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, account_b = _create_two_accounts(session, user_id=user.id)
+        credential_c = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
+        account_c = make_account(session, credential_id=credential_c.id, name="Third IBAN")
+        _existing_flow_leaving(session, account=account_a, amount=50.0)
+        _existing_flow_leaving(session, account=account_c, amount=50.0)
+        arrival = make_transaction(
+            session, account_id=account_b.id, amount=50.0, date=RECENT_DATE, transaction_type=TransactionType.INCOMING
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert arrival.flow_id is None
+
+
+def test_never_chains_onto_a_manual_flow(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, account_b = _create_two_accounts(session, user_id=user.id)
+        incoming = make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=50.0,
+            date=RECENT_DATE,
+            transaction_type=TransactionType.TRANSFER_IN,
+        )
+        outgoing = make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=-50.0,
+            date=RECENT_DATE,
+            transaction_type=TransactionType.TRANSFER_OUT,
+        )
+        link_transactions_as_flow(db_session=session, transactions=[incoming, outgoing])
+        incoming.flow_link_source = FlowLinkSource.MANUAL
+        outgoing.flow_link_source = FlowLinkSource.MANUAL
+        arrival = make_transaction(
+            session, account_id=account_b.id, amount=50.0, date=RECENT_DATE, transaction_type=TransactionType.INCOMING
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert arrival.flow_id is None
+
+
+def test_does_not_chain_a_same_account_leg(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, _ = _create_two_accounts(session, user_id=user.id)
+        _existing_flow_leaving(session, account=account_a, amount=50.0)
+        refund = make_transaction(
+            session, account_id=account_a.id, amount=50.0, date=RECENT_DATE, transaction_type=TransactionType.INCOMING
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert refund.flow_id is None
+
+
+def _make_broker_setup(session: Session, user: User) -> tuple[object, Account, Account, object]:
+    # A Trade-Republic-style broker credential with a cash account and a market-valued depot account, plus an
+    # existing DETECTED flow that already holds the +5000 cash deposit (as after Phase 2 chained it).
+    broker = make_credential(session, user_id=user.id, bank=BankProvider.TRADE_REPUBLIC)
+    cash = make_account(session, credential_id=broker.id, name="Cash")
+    depot = make_account(session, credential_id=broker.id, name=ETF_NAME)
+    session.add(
+        AccountBalanceSnapshot(
+            account_id=depot.id, date=RECENT_DATE, balance=1.0, source=BalanceSnapshotSource.MARKET_VALUED
+        )
+    )
+    personal = make_account(
+        session, credential_id=make_credential(session, user_id=user.id, bank=BankProvider.FINTS).id
+    )
+    outgoing = make_transaction(
+        session, account_id=personal.id, amount=-5000.0, date=RECENT_DATE, transaction_type=TransactionType.TRANSFER_OUT
+    )
+    deposit = make_transaction(
+        session, account_id=cash.id, amount=5000.0, date=RECENT_DATE, transaction_type=TransactionType.TRANSFER_IN
+    )
+    flow = link_transactions_as_flow(db_session=session, transactions=[outgoing, deposit])
+    return broker, cash, depot, flow
+
+
+def test_chains_a_depot_buy_into_the_flow_keeping_its_buy_type(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        _, _, depot, flow = _make_broker_setup(session=session, user=user)
+        depot_buy = make_transaction(
+            session,
+            account_id=depot.id,
+            amount=-5000.0,
+            date=RECENT_DATE + timedelta(days=6),
+            transaction_type=TransactionType.BUY,
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert depot_buy.flow_id == flow.id
+        assert depot_buy.flow_link_source == FlowLinkSource.DETECTED
+        assert depot_buy.transaction_type == TransactionType.BUY
+        assert depot_buy.transfer_original_type is None
+
+
+def test_chains_the_whole_broker_purchase_depot_and_cash_side(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        _, cash, depot, flow = _make_broker_setup(session=session, user=user)
+        depot_buy = make_transaction(
+            session,
+            account_id=depot.id,
+            amount=-5000.0,
+            date=RECENT_DATE + timedelta(days=6),
+            transaction_type=TransactionType.BUY,
+        )
+        cash_buy = make_transaction(
+            session,
+            account_id=cash.id,
+            amount=-5000.0,
+            date=RECENT_DATE + timedelta(days=7),
+            transaction_type=TransactionType.BUY,
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert depot_buy.flow_id == flow.id
+        assert depot_buy.transaction_type == TransactionType.BUY
+        assert cash_buy.flow_id == flow.id
+        assert cash_buy.transaction_type == TransactionType.TRANSFER_OUT
+        assert cash_buy.transfer_original_type == TransactionType.BUY
+
+
+def test_never_chains_a_lone_cash_leg_without_a_depot_mirror(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        _, cash, _, _ = _make_broker_setup(session=session, user=user)
+        lone_cash = make_transaction(
+            session,
+            account_id=cash.id,
+            amount=-5000.0,
+            date=RECENT_DATE + timedelta(days=2),
+            transaction_type=TransactionType.BUY,
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert lone_cash.flow_id is None
+
+
+def test_never_chains_a_pending_broker_leg(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        _, _, depot, _ = _make_broker_setup(session=session, user=user)
+        pending_buy = make_transaction(
+            session, account_id=depot.id, amount=-5000.0, date=RECENT_DATE, transaction_type=TransactionType.BUY
+        )
+        pending_buy.pending = True
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert pending_buy.flow_id is None
+
+
+def test_does_not_chain_a_broker_leg_of_a_different_amount(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        _, _, depot, _ = _make_broker_setup(session=session, user=user)
+        other_buy = make_transaction(
+            session, account_id=depot.id, amount=-3500.0, date=RECENT_DATE, transaction_type=TransactionType.BUY
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert other_buy.flow_id is None
+
+
+def test_startup_detection_links_across_all_users(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    # The startup backfill opens its own session per SessionLocal, iterates every user, and commits.
+    monkeypatch.setattr(target=transfer_detection, name="SessionLocal", value=session_factory)
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, account_b = _create_two_accounts(session, user_id=user.id)
+        out_id = make_transaction(
+            session, account_id=account_a.id, amount=-50.0, date=RECENT_DATE, transaction_type=TransactionType.OUTGOING
+        ).id
+        in_id = make_transaction(
+            session, account_id=account_b.id, amount=50.0, date=RECENT_DATE, transaction_type=TransactionType.INCOMING
+        ).id
+        session.commit()
+
+    transfer_detection.detect_transfers_for_all_users()
+
+    with session_factory() as session:
+        out_flow = session.get(entity=Transaction, ident=out_id).flow_id
+        assert out_flow is not None
+        assert out_flow == session.get(entity=Transaction, ident=in_id).flow_id

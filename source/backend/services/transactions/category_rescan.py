@@ -45,5 +45,5 @@ def _rescan(db_session: Session) -> None:
 async def run_startup_rescan() -> None:
     try:
         await asyncio.to_thread(rescan_unknown_categories_sync)
-    except Exception as e:
-        logger.exception(message="Startup category re-scan crashed", exc_info=e)
+    except Exception:
+        logger.exception(message="Startup category re-scan crashed")

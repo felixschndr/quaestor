@@ -13,6 +13,7 @@ import {
   otherPartyLabelKey,
   transferPartnerLabel,
 } from '@/pages/transactions.$transactionId'
+import { compareFlowMembers, type FlowMemberView } from '@/routes/transactions.$transactionId'
 
 function buildTransaction(overrides: Partial<TransactionDetailRead> = {}): TransactionDetailRead {
   return {
@@ -35,7 +36,14 @@ function flowMemberOf(
   accountName: string | null = 'Sparkonto',
   isCurrent = false,
 ) {
-  return { transaction, accountName, bankName: null, bankIcon: null, isCurrent }
+  return {
+    transaction,
+    accountName,
+    bankName: null,
+    bankIcon: null,
+    isMarketValued: false,
+    isCurrent,
+  }
 }
 
 function renderView(
@@ -371,5 +379,32 @@ describe('TransactionDetailView — note auto-save', () => {
     const textarea = screen.getByRole('textbox')
     await user.type(textarea, 'x')
     expect(await screen.findByText('Saved')).toBeInTheDocument()
+  })
+})
+
+describe('compareFlowMembers', () => {
+  const flowMember = (over: {
+    id: number
+    date: string
+    amount: number
+    isMarketValued?: boolean
+  }): FlowMemberView => ({
+    transaction: buildTransaction({ id: over.id, date: over.date, amount: over.amount }),
+    accountName: null,
+    bankName: null,
+    bankIcon: null,
+    isMarketValued: over.isMarketValued ?? false,
+    isCurrent: false,
+  })
+
+  it('orders a broker purchase the way the money travels', () => {
+    const personalOut = flowMember({ id: 4750, date: '2026-07-14', amount: -2100 })
+    const cashIn = flowMember({ id: 5145, date: '2026-07-16', amount: 2100 })
+    const cashOut = flowMember({ id: 5146, date: '2026-07-16', amount: -2100 })
+    const depotIn = flowMember({ id: 5147, date: '2026-07-16', amount: 2100, isMarketValued: true })
+
+    const ordered = [depotIn, cashOut, personalOut, cashIn].sort(compareFlowMembers)
+
+    expect(ordered.map((m) => m.transaction.id)).toEqual([4750, 5145, 5146, 5147])
   })
 })

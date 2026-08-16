@@ -583,6 +583,8 @@
     "pendingHint": "Vorgemerkt — noch nicht endgültig gebucht und kann sich noch ändern",
     "notFound": "Transaktion nicht gefunden.",
     "flow": "Geldfluss",
+    "incoming": "Eingehend",
+    "outgoing": "Ausgehend",
     "removeFromFlow": "Aus Geldfluss entfernen",
     "unlinkFailed": "Verbindung konnte nicht gelöst werden",
     "categoryUpdateFailed": "Kategorie konnte nicht gespeichert werden",

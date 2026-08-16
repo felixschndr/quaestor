@@ -583,6 +583,8 @@
     "pendingHint": "Pending — not finally booked yet and may still change",
     "notFound": "Transaction not found.",
     "flow": "Money flow",
+    "incoming": "Incoming",
+    "outgoing": "Outgoing",
     "removeFromFlow": "Remove from money flow",
     "unlinkFailed": "Could not remove the link",
     "categoryUpdateFailed": "Could not update the category",

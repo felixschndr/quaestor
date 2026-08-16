@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { CircleHelp, Unlink } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, CircleHelp, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { TransactionRead } from '@/lib/accountHistory'
@@ -172,6 +172,8 @@ function FlowSection({
 }) {
   const { t } = useTranslation()
 
+  const showAmount = new Set(members.map((member) => Math.abs(member.transaction.amount))).size > 1
+
   return (
     <DetailRow label={t('transaction.flow')} align="start">
       <div className="flex w-full flex-col gap-3">
@@ -183,6 +185,7 @@ function FlowSection({
                 member={member}
                 isFirst={index === 0}
                 isLast={index === members.length - 1}
+                showAmount={showAmount}
                 onRemove={canUnlink ? () => onUnlink(member.transaction) : undefined}
               />
             ))}
@@ -198,16 +201,20 @@ function FlowTimelineRow({
   member,
   isFirst,
   isLast,
+  showAmount,
   onRemove,
 }: {
   member: FlowMemberView
   isFirst: boolean
   isLast: boolean
+  showAmount: boolean
   onRemove?: () => Promise<unknown>
 }) {
   const { t } = useTranslation()
   const [pending, setPending] = useState(false)
   const { transaction, accountName, bankName, bankIcon, isCurrent } = member
+  const incoming = transaction.amount > 0
+  const DirectionIcon = incoming ? ArrowDownLeft : ArrowUpRight
 
   const handleRemove = async () => {
     setPending(true)
@@ -286,6 +293,10 @@ function FlowTimelineRow({
         <span className="text-muted-foreground w-14 shrink-0 text-xs tabular-nums">
           {formatDateCompact(transaction.date)}
         </span>
+        <DirectionIcon
+          className={cn('size-4 shrink-0', incoming ? 'text-success' : 'text-destructive')}
+          aria-label={t(incoming ? 'transaction.incoming' : 'transaction.outgoing')}
+        />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {isCurrent ? (
             account
@@ -299,8 +310,18 @@ function FlowTimelineRow({
               {account}
             </Link>
           )}
-          {details ? (
-            <span className="text-muted-foreground truncate text-xs">{details}</span>
+          {showAmount || details ? (
+            <span className="text-muted-foreground truncate text-xs">
+              {showAmount ? (
+                <span
+                  className={cn('tabular-nums', incoming ? 'text-success' : 'text-destructive')}
+                >
+                  {formatMoney(transaction.amount)}
+                </span>
+              ) : null}
+              {showAmount && details ? ' · ' : null}
+              {details}
+            </span>
           ) : null}
         </div>
         {removeButton ? <span className="ml-auto shrink-0">{removeButton}</span> : null}

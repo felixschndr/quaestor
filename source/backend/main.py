@@ -53,7 +53,7 @@ from source.backend.services.banking import (
 from source.backend.services.contracts import contract_detection_service, contract_overdue_scheduler
 from source.backend.services.core import i18n_service, migrations
 from source.backend.services.notifications import digest_scheduler
-from source.backend.services.transactions import category_rescan, recurring_transaction_scheduler
+from source.backend.services.transactions import category_rescan, recurring_transaction_scheduler, transfer_detection
 
 logger = get_logger(__name__)
 
@@ -71,6 +71,7 @@ STARTUP_BACKGROUND_TASKS = (
     (enable_banking_catalog, "run_startup_update"),
     (category_rescan, "run_startup_rescan"),
     (contract_detection_service, "run_startup_detection"),
+    (transfer_detection, "run_startup_detection"),
     (sync_scheduler, "run_periodic_sync"),
     (recurring_transaction_scheduler, "run_periodic_recurring"),
     (contract_overdue_scheduler, "run_periodic_overdue_check"),

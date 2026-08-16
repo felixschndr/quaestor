@@ -90,8 +90,8 @@ def detect_contracts_for_all_users() -> None:
 async def run_startup_detection() -> None:
     try:
         await asyncio.to_thread(detect_contracts_for_all_users)
-    except Exception as e:
-        logger.exception(message="Startup contract detection backfill crashed", exc_info=e)
+    except Exception:
+        logger.exception(message="Startup contract detection backfill crashed")
 
 
 def detect_contracts_for_account(db_session: Session, account: Account) -> int:

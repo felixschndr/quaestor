@@ -223,7 +223,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "waxing",
         "zahnarzt",
     ],
-    TransactionCategory.CLOTHING: ["bijou brigitte", "deichmann", "new yorker"],
+    TransactionCategory.CLOTHING: ["bijou brigitte", "deichmann", "jack jones", "new yorker"],
     TransactionCategory.GIFTS: ["blume 2000", "geburtstag", "geschenk", "schenkung"],
     TransactionCategory.ENTERTAINMENT: [
         "ausgehen",

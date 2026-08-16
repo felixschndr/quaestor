@@ -77,8 +77,8 @@ def _update_raw_db_file() -> None:
 async def run_startup_update() -> None:
     try:
         await asyncio.to_thread(_update_raw_db_file)
-    except Exception as e:
-        logger.exception(message="Startup FinTS bank DB update failed; keeping existing DB", exc_info=e)
+    except Exception:
+        logger.exception(message="Startup FinTS bank DB update failed; keeping existing DB")
     bank_catalog.invalidate_catalog_cache()
 
 
