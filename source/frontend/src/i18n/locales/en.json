@@ -683,6 +683,7 @@
       "title": "Net worth over time",
       "viewTransactions": "Transactions in this period",
       "viewDay": "Break down this day",
+      "viewRange": "Break down this range",
       "viewDayShort": "Details",
       "value": "Net worth",
       "min": "Minimum",

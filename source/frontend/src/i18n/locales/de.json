@@ -683,6 +683,7 @@
       "title": "Vermögensverlauf",
       "viewTransactions": "Transaktionen in diesem Zeitraum",
       "viewDay": "Tag aufschlüsseln",
+      "viewRange": "Zeitraum aufschlüsseln",
       "viewDayShort": "Details",
       "value": "Vermögen",
       "min": "Minimum",

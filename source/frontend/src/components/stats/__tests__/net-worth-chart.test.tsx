@@ -67,14 +67,18 @@ describe('NetWorthChart view day', () => {
     expect(onOpenDay).toHaveBeenCalledWith('2026-01-02')
   })
 
-  it('defaults to the last day when nothing was picked', async () => {
+  it('breaks down the whole shown range when nothing was picked', async () => {
     const user = userEvent.setup()
     const onOpenDay = vi.fn()
-    render(<NetWorthChart data={data} summary={null} onOpenDay={onOpenDay} />)
+    const onOpenRange = vi.fn()
+    render(
+      <NetWorthChart data={data} summary={null} onOpenDay={onOpenDay} onOpenRange={onOpenRange} />,
+    )
 
     await user.click(viewDayButton())
 
-    expect(onOpenDay).toHaveBeenCalledWith('2026-01-10')
+    expect(onOpenRange).toHaveBeenCalledWith('2026-01-02', '2026-01-10')
+    expect(onOpenDay).not.toHaveBeenCalled()
   })
 
   it('restores the pinned day after remounting (e.g. navigating back)', async () => {

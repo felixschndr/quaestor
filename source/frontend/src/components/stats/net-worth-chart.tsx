@@ -35,6 +35,9 @@ interface ChartMouseState {
   activeLabel?: string | number | null
 }
 
+const Y_AXIS_WIDTH = 60
+const RIGHT_MARGIN = 8
+
 export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWorthChartProps) {
   const { t } = useTranslation()
   const locale = useDateFnsLocale()
@@ -46,6 +49,7 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
   const effectiveIndex = Math.min(Math.max(rawIndex, 0), data.length - 1)
   const active = data[effectiveIndex]
   const hasSelection = hoverIndex != null || pinnedIndex >= 0
+  const pinnedPoint = pinnedIndex >= 0 ? data[pinnedIndex] : null
 
   const containerRef = useRef<HTMLDivElement>(null)
   const detachTouchGuard = useRef<(() => void) | undefined>(undefined)
@@ -95,14 +99,6 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
       }
     }
   }
-  const handleUp = () => {
-    if (onOpenRange && dragStart != null && dragEnd != null && dragStart !== dragEnd) {
-      const [start, end] = dragStart <= dragEnd ? [dragStart, dragEnd] : [dragEnd, dragStart]
-      onOpenRange(start, end)
-    }
-    setDragStart(null)
-    setDragEnd(null)
-  }
   const handlePick = (state: ChartMouseState) => {
     if (draggedRef.current) {
       draggedRef.current = false
@@ -132,6 +128,14 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
 
   useEffect(() => {
     if (dragStart == null) return
+    const finish = () => {
+      if (onOpenRange && dragEnd != null && dragStart !== dragEnd) {
+        const [start, end] = dragStart <= dragEnd ? [dragStart, dragEnd] : [dragEnd, dragStart]
+        onOpenRange(start, end)
+      }
+      setDragStart(null)
+      setDragEnd(null)
+    }
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setDragStart(null)
@@ -139,9 +143,26 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
         draggedRef.current = true // swallow the trailing click so it doesn't pin a day
       }
     }
+    const onMove = (event: MouseEvent) => {
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      if (event.clientX <= rect.left + Y_AXIS_WIDTH) {
+        setDragEnd(data[0].date)
+        draggedRef.current = true
+      } else if (event.clientX >= rect.right - RIGHT_MARGIN) {
+        setDragEnd(data[data.length - 1].date)
+        draggedRef.current = true
+      }
+    }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [dragStart])
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', finish)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', finish)
+    }
+  }, [dragStart, dragEnd, onOpenRange, data])
 
   useEffect(() => {
     if (!hasSelection) return
@@ -196,14 +217,20 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
             </>
           ) : null}
         </span>
-        {onOpenDay && active && !dragRange ? (
+        {!dragRange && (pinnedPoint ? onOpenDay : onOpenRange) ? (
           <button
             type="button"
-            onClick={() => onOpenDay(active.date)}
+            onClick={() =>
+              pinnedPoint
+                ? onOpenDay?.(pinnedPoint.date)
+                : onOpenRange?.(data[0].date, data[data.length - 1].date)
+            }
             className="text-primary hover:text-primary/80 inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md text-xs font-medium transition-colors"
           >
             <span className="sm:hidden">{t('stats.netWorth.viewDayShort')}</span>
-            <span className="hidden sm:inline">{t('stats.netWorth.viewDay')}</span>
+            <span className="hidden sm:inline">
+              {t(pinnedPoint ? 'stats.netWorth.viewDay' : 'stats.netWorth.viewRange')}
+            </span>
             <ChevronRight className="size-3.5" />
           </button>
         ) : null}
@@ -212,11 +239,10 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}
-            margin={{ left: 0, right: 8, top: 4, bottom: 0 }}
+            margin={{ left: 0, right: RIGHT_MARGIN, top: 4, bottom: 0 }}
             onClick={handlePick}
             onMouseDown={handleDown}
             onMouseMove={handleMove}
-            onMouseUp={handleUp}
             onMouseLeave={handleLeave}
             onTouchStart={handleMove}
             onTouchMove={handleMove}
@@ -230,7 +256,7 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
             />
             <YAxis
               tick={<AxisValueTick format={euroAxisFormat} />}
-              width={60}
+              width={Y_AXIS_WIDTH}
               domain={[
                 (dataMin: number) => dataMin - Math.abs(dataMin) * 0.02,
                 (dataMax: number) => dataMax + Math.abs(dataMax) * 0.02,
@@ -271,6 +297,28 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
               }}
               isAnimationActive={false}
             />
+            {pinnedPoint && pinnedPoint.date !== active?.date ? (
+              <ReferenceDot
+                x={pinnedPoint.date}
+                y={pinnedPoint.value}
+                r={7}
+                fill="var(--color-primary)"
+                stroke="var(--color-background)"
+                strokeWidth={2}
+                ifOverflow="visible"
+              />
+            ) : null}
+            {pinnedPoint && pinnedPoint.date !== active?.date ? (
+              <ReferenceDot
+                x={pinnedPoint.date}
+                y={pinnedPoint.value}
+                r={4}
+                fill="var(--color-primary)"
+                stroke="var(--color-background)"
+                strokeWidth={2}
+                ifOverflow="visible"
+              />
+            ) : null}
             {hasSelection && active ? (
               <ReferenceDot
                 x={active.date}
