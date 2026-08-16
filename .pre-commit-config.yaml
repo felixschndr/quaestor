@@ -56,6 +56,13 @@ repos:
     hooks:
       - id: gitleaks
 
+  - repo: https://github.com/frnmst/md-toc
+    rev: 9.0.0
+    hooks:
+      - id: md-toc
+        args: [-p, -s, '1', github]
+        files: '^README\.md$'
+
   - repo: local
     hooks:
       - id: frontend-eslint
