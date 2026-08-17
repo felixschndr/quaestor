@@ -448,8 +448,15 @@ export function useNetWorthStats(
   accountIds: number[],
   filters: StatsFilters,
   enabled: boolean = true,
+  applyFactor: boolean = true,
 ) {
-  return useStats<NetWorthResponse>({ path: 'net-worth', accountIds, filters, enabled })
+  return useStats<NetWorthResponse>({
+    path: 'net-worth',
+    accountIds,
+    filters,
+    extra: applyFactor ? {} : { apply_factor: 'false' },
+    enabled,
+  })
 }
 
 export function useNetWorthRange(start: string, end: string, accountIds: number[]) {

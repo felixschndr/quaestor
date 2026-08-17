@@ -9,7 +9,10 @@ import '@/i18n'
 
 vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
-vi.mock('@/lib/clipboard', () => ({ copyText: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('@/lib/clipboard', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/clipboard')>()),
+  copyText: vi.fn().mockResolvedValue(undefined),
+}))
 
 import { SettingsApiKeysView } from '@/pages/settings.user.api-keys'
 import type { ApiKeyRead } from '@/lib/apiKeys'

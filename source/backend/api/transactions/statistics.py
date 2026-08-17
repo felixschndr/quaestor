@@ -8,10 +8,10 @@ from source.backend.api.schemas.transactions.statistics import (
     CategorySlice,
     CategoryTrendQuery,
     CategoryTrendSlice,
+    DailyNetWorthQuery,
     DirectionalStatisticsQuery,
     MonthlyCashflow,
     MonthlyNetSavings,
-    NetWorthQuery,
     NetWorthRangeQuery,
     NetWorthRangeResponse,
     NetWorthResponse,
@@ -84,7 +84,7 @@ def other_party_statistics(
 
 @router.get("/net-worth", response_model=NetWorthResponse)
 def net_worth_statistics(
-    query: Annotated[NetWorthQuery, Query()],
+    query: Annotated[DailyNetWorthQuery, Query()],
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> NetWorthResponse:

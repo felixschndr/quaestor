@@ -21,6 +21,10 @@ class NetWorthQuery(BaseModel):
     date_to: date | None = None
 
 
+class DailyNetWorthQuery(NetWorthQuery):
+    apply_factor: bool = True
+
+
 class StatisticsQuery(NetWorthQuery):
     categories: list[TransactionCategory] = Field(default_factory=list)
     transaction_types: list[TransactionType] = Field(default_factory=list)

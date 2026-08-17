@@ -1,8 +1,7 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, Copy, Download } from 'lucide-react'
 
-import { copyText } from '@/lib/clipboard'
+import { useCopyFeedback } from '@/lib/clipboard'
 import { Button } from '@/components/ui/button'
 
 export interface BackupCodesProps {
@@ -12,20 +11,9 @@ export interface BackupCodesProps {
 
 export function BackupCodes({ codes, onDone }: BackupCodesProps) {
   const { t } = useTranslation()
-  const [copied, setCopied] = useState(false)
+  const { copied, copy } = useCopyFeedback()
 
   const asText = codes.join('\n')
-
-  const copy = async () => {
-    try {
-      await copyText(asText)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // Clipboard can be unavailable (insecure context / denied permission); the download
-      // button and the on-screen codes remain as fallbacks.
-    }
-  }
 
   const download = () => {
     const blob = new Blob([asText + '\n'], { type: 'text/plain' })
@@ -56,7 +44,13 @@ export function BackupCodes({ codes, onDone }: BackupCodesProps) {
       </ul>
 
       <div className="flex gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={copy} className="flex-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void copy(asText)}
+          className="flex-1"
+        >
           {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
           {copied ? t('common.copied') : t('common.copy')}
         </Button>

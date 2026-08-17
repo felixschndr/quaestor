@@ -1,26 +1,32 @@
-import { useEffect, useRef, useState } from 'react'
 import { Check, Copy } from 'lucide-react'
+import { toast } from 'sonner'
 
-import { copyText } from '@/lib/clipboard'
+import { COPY_FEEDBACK_MS, useCopyFeedback } from '@/lib/clipboard'
 import { cn } from '@/lib/utils'
 
 export interface CopyButtonProps {
   value: string
   label: string
   className?: string
+  successMessage?: string
+  errorMessage?: string
 }
 
-export function CopyButton({ value, label, className }: CopyButtonProps) {
-  const [copied, setCopied] = useState(false)
-  const resetTimeout = useRef<ReturnType<typeof setTimeout>>(undefined)
-
-  useEffect(() => () => clearTimeout(resetTimeout.current), [])
+export function CopyButton({
+  value,
+  label,
+  className,
+  successMessage,
+  errorMessage,
+}: CopyButtonProps) {
+  const { copied, copy } = useCopyFeedback()
 
   const handleCopy = async () => {
-    await copyText(value)
-    setCopied(true)
-    clearTimeout(resetTimeout.current)
-    resetTimeout.current = setTimeout(() => setCopied(false), 2000)
+    if (await copy(value)) {
+      if (successMessage) toast.success(successMessage, { duration: COPY_FEEDBACK_MS })
+    } else if (errorMessage) {
+      toast.error(errorMessage)
+    }
   }
 
   return (
@@ -33,11 +39,22 @@ export function CopyButton({ value, label, className }: CopyButtonProps) {
         className,
       )}
     >
-      {copied ? (
-        <Check className="text-success size-3.5" aria-hidden="true" />
-      ) : (
-        <Copy className="size-3.5" aria-hidden="true" />
-      )}
+      <span className="relative inline-flex size-3.5 items-center justify-center">
+        <Copy
+          className={cn(
+            'absolute size-3.5 transition-all duration-200',
+            copied ? 'rotate-90 scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100',
+          )}
+          aria-hidden="true"
+        />
+        <Check
+          className={cn(
+            'text-success absolute size-3.5 transition-all duration-200',
+            copied ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-0 opacity-0',
+          )}
+          aria-hidden="true"
+        />
+      </span>
     </button>
   )
 }

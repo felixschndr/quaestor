@@ -246,10 +246,10 @@ export function formatRelativeDateTime(
     relativeKey === 'today' || relativeKey === 'yesterday' || relativeKey === 'dayBeforeYesterday'
       ? t(`account.${relativeKey}`)
       : new Intl.DateTimeFormat(activeLocale(), {
-          ...DATE_OPTIONS,
+          weekday: 'long',
+          day: '2-digit',
+          month: 'long',
           timeZone: displayTimeZone,
         }).format(date)
-  // The day/time connector is locale-specific ("um … Uhr" in German, "at …" in
-  // English), so it lives in a translation template rather than a literal join.
   return t('account.dateTimeAt', { day: dayLabel, time: formatTime(date) })
 }

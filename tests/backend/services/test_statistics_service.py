@@ -124,6 +124,28 @@ def test_daily_net_worth_uses_live_balance_for_todays_point(session_factory: ses
     assert result.series[0].value == 123.0
 
 
+def test_daily_net_worth_apply_factor_false_ignores_balance_factor(session_factory: sessionmaker):
+    day = datetime.date.today() - datetime.timedelta(days=2)
+    with session_factory() as session:
+        user, _, account = make_user_and_credential_and_account(session)
+        account.balance_factor = 50
+        session.commit()
+        user_id, account_id = user.id, account.id
+    seed_snapshot(session_factory, account_id=account_id, day=day, balance=100.0)
+
+    with session_factory() as session:
+        user = session.get(entity=User, ident=user_id)
+        factored = statistics_service.daily_net_worth(
+            db_session=session, user=user, account_ids=[account_id], date_from=day, date_to=day
+        )
+        raw = statistics_service.daily_net_worth(
+            db_session=session, user=user, account_ids=[account_id], date_from=day, date_to=day, apply_factor=False
+        )
+
+    assert factored.series[0].value == 50.0
+    assert raw.series[0].value == 100.0
+
+
 def test_daily_net_worth_returns_empty_when_range_is_inverted(session_factory: sessionmaker):
     # date_from in the future while date_to defaults to today → end_date < date_from.
     future = datetime.date(year=2999, month=1, day=1)

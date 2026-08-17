@@ -125,21 +125,26 @@ export function NetWorthDetailPage() {
   const totalAtEnd = range.data?.total_at_end ?? 0
   const totalDifference = range.data?.total_difference ?? 0
 
+  const sortSelect = (id: string, width: 'full' | 'content' = 'content') => (
+    <SortSelect
+      id={id}
+      ariaLabel={t('search.sortLabel')}
+      value={sort}
+      onChange={changeSort}
+      width={width}
+      options={TRANSACTION_SORT_KEYS.map((key) => ({
+        value: key,
+        label: t(`search.sort${sortLabelKey(key)}`),
+      }))}
+    />
+  )
+
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <header className="flex items-center gap-2 pr-2">
-        <BackLink to="/stats">{t('stats.title')}</BackLink>
+        <BackLink to="/stats" />
         <h1 className="text-foreground flex-1 text-lg font-semibold">{t('stats.day.title')}</h1>
-        <SortSelect
-          id="detail-sort"
-          ariaLabel={t('search.sortLabel')}
-          value={sort}
-          onChange={changeSort}
-          options={TRANSACTION_SORT_KEYS.map((key) => ({
-            value: key,
-            label: t(`search.sort${sortLabelKey(key)}`),
-          }))}
-        />
+        <div className="hidden sm:block">{sortSelect('detail-sort')}</div>
       </header>
 
       <div className="flex flex-col gap-3 px-2">
@@ -160,6 +165,7 @@ export function NetWorthDetailPage() {
             label: t(`common.range.${preset}`),
           }))}
         />
+        <div className="sm:hidden">{sortSelect('detail-sort-mobile', 'full')}</div>
       </div>
 
       <QueryStates
