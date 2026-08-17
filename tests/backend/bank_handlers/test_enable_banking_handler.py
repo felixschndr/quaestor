@@ -169,6 +169,43 @@ def test_transaction_mapping_signs_and_dates():
     assert credit.transaction_type == TransactionType.INCOMING
 
 
+def test_paypal_balance_payout_is_typed_as_removal():
+    raw = {
+        "status": "BOOK",
+        "entry_reference": "ABCDE12345",
+        "transaction_amount": {"currency": "EUR", "amount": "10.00"},
+        "credit_debit_indicator": "DBIT",
+        "transaction_date": "2026-08-11",
+        "remittance_information": [],
+        "creditor": {"name": None},
+        "debtor": {"name": None},
+    }
+    assert _to_fetched_transaction(raw).transaction_type == TransactionType.OUTGOING
+    payout = _to_fetched_transaction(raw, is_paypal=True)
+    assert payout is not None
+    assert payout.amount == -10.0
+    assert payout.other_party is None
+    assert payout.transaction_type == TransactionType.REMOVAL
+
+
+def test_paypal_payment_with_a_creditor_stays_outgoing():
+    payment = _to_fetched_transaction(
+        {
+            "status": "BOOK",
+            "entry_reference": "ABCDE12345",
+            "transaction_amount": {"currency": "EUR", "amount": "10.00"},
+            "credit_debit_indicator": "DBIT",
+            "transaction_date": "2026-08-17",
+            "remittance_information": [],
+            "creditor": {"name": "Another human"},
+        },
+        is_paypal=True,
+    )
+    assert payment is not None
+    assert payment.other_party == "Another human"
+    assert payment.transaction_type == TransactionType.OUTGOING
+
+
 def test_transaction_mapping_skips_undateable_and_info_entries():
     assert _to_fetched_transaction({"status": "RJCT"}) is None
     assert (

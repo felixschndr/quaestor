@@ -79,10 +79,10 @@ class _EnableBankingApi(RestAPIClient):
 
 
 class _EnableBankingSession(BankSession):
-    def __init__(self, api: _EnableBankingApi, accounts: list[dict], transaction_history_incomplete: bool):
+    def __init__(self, api: _EnableBankingApi, accounts: list[dict], is_paypal: bool = False):
         self._api = api
         self._accounts = accounts
-        self._transaction_history_incomplete = transaction_history_incomplete
+        self._is_paypal = is_paypal
         self._balance_by_uid: dict[str, float] = {}
 
     def get_accounts(self) -> list[FetchedAccount]:
@@ -91,7 +91,7 @@ class _EnableBankingSession(BankSession):
             FetchedAccount(
                 name=self._account_name(account),
                 external_id=account["uid"],  # Enable Banking provides an actual uid (not like FinTS)
-                transaction_history_incomplete=self._transaction_history_incomplete,
+                transaction_history_incomplete=self._is_paypal,
             )
             for account in self._accounts
         ]
@@ -139,7 +139,7 @@ class _EnableBankingSession(BankSession):
                 params["continuation_key"] = continuation_key
             page = self._api.get(f"/accounts/{uid}/transactions", params=params)
             for raw_transaction in page.get("transactions") or []:
-                fetched = _to_fetched_transaction(raw_transaction)
+                fetched = _to_fetched_transaction(raw_transaction, is_paypal=self._is_paypal)
                 if fetched is not None:
                     transactions.append(fetched)
             continuation_key = page.get("continuation_key")
@@ -149,7 +149,7 @@ class _EnableBankingSession(BankSession):
         return transactions
 
 
-def _to_fetched_transaction(raw: dict) -> FetchedTransaction | None:
+def _to_fetched_transaction(raw: dict, is_paypal: bool = False) -> FetchedTransaction | None:
     status = raw.get("status")
     if status not in ("BOOK", "PDNG"):  # ignore informational/rejected entries
         return None
@@ -164,12 +164,18 @@ def _to_fetched_transaction(raw: dict) -> FetchedTransaction | None:
     remittance = raw.get("remittance_information") or []
     purpose = " ".join(remittance) if isinstance(remittance, list) else str(remittance)
     counterparty = (raw.get("creditor") if amount < 0 else raw.get("debtor")) or {}
+    other_party = counterparty.get("name")
+
+    transaction_type = TransactionType.from_amount(amount=amount)
+    if is_paypal and amount < 0 and not other_party and not purpose:
+        transaction_type = TransactionType.REMOVAL
+
     return FetchedTransaction(
         amount=amount,
         purpose=purpose or None,
         date=date.fromisoformat(transaction_date),
-        other_party=counterparty.get("name"),
-        transaction_type=TransactionType.from_amount(amount=amount),
+        other_party=other_party,
+        transaction_type=transaction_type,
         pending=status == "PDNG",
         bank_reference=raw.get("entry_reference") or None,
     )
@@ -263,10 +269,8 @@ class EnableBankingHandler(BankHandler):
         ]
         accounts = [self._with_details(api=api, account=account) for account in accounts]
 
-        transaction_history_incomplete = self.credentials.get("aspsp_name") == "PayPal"
-        yield _EnableBankingSession(
-            api=api, accounts=accounts, transaction_history_incomplete=transaction_history_incomplete
-        )
+        is_paypal = self.credentials.get("aspsp_name") == "PayPal"
+        yield _EnableBankingSession(api=api, accounts=accounts, is_paypal=is_paypal)
 
     @staticmethod
     def _with_details(api: _EnableBankingApi, account: dict) -> dict:
