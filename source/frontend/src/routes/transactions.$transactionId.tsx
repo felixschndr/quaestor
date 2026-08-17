@@ -128,6 +128,7 @@ function TransactionDetailPage() {
           <LinkStartSection
             accountId={accountId}
             transactionId={transactionId}
+            amount={query.data.amount}
             allAccountIds={allAccountIds}
           />
         ) : undefined
@@ -144,13 +145,16 @@ function TransactionDetailPage() {
 function LinkStartSection({
   accountId,
   transactionId,
+  amount,
   allAccountIds,
 }: {
   accountId: number
   transactionId: number
+  amount: number
   allAccountIds: number[]
 }) {
   const { t } = useTranslation()
+  const counterpartAmount = -amount
   return (
     <Button asChild variant="outline" size="sm" className="self-start">
       <Link
@@ -159,6 +163,8 @@ function LinkStartSection({
           account_ids: allAccountIds,
           link_account_id: accountId,
           link_transaction_id: transactionId,
+          amount_from: counterpartAmount,
+          amount_to: counterpartAmount,
         }}
       >
         <ArrowLeftRight className="size-4" aria-hidden="true" />
