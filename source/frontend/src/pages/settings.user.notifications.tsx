@@ -6,6 +6,7 @@ import {
   CalendarClock,
   CalendarOff,
   CalendarX2,
+  FileSearch,
   Newspaper,
   Copy,
   Pencil,
@@ -79,6 +80,7 @@ const TRIGGER_ICONS: Record<NotificationTrigger, LucideIcon> = {
   contract_overdue: CalendarX2,
   contract_ending: CalendarOff,
   contract_charged_after_end: ReceiptText,
+  contract_detected: FileSearch,
   contract_amount_increased: Receipt,
   duplicate_transaction: Copy,
   digest: Newspaper,
@@ -467,6 +469,8 @@ function modelToDraft(model: RuleFormModel, allAccountIds: number[]): Notificati
       return { ...shared, trigger: 'contract_ending', days: model.days }
     case 'contract_charged_after_end':
       return { ...shared, trigger: 'contract_charged_after_end' }
+    case 'contract_detected':
+      return { ...shared, trigger: 'contract_detected' }
     case 'contract_amount_increased':
       return { ...shared, trigger: 'contract_amount_increased' }
     case 'duplicate_transaction':

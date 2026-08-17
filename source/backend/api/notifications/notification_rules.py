@@ -53,6 +53,10 @@ class ContractChargedAfterEndRuleIn(_RuleInBase):
     trigger: Literal["contract_charged_after_end"]
 
 
+class ContractDetectedRuleIn(_RuleInBase):
+    trigger: Literal["contract_detected"]
+
+
 class ContractAmountIncreasedRuleIn(_RuleInBase):
     trigger: Literal["contract_amount_increased"]
 
@@ -94,6 +98,7 @@ RuleIn = Annotated[
         ContractOverdueRuleIn,
         ContractEndingRuleIn,
         ContractChargedAfterEndRuleIn,
+        ContractDetectedRuleIn,
         ContractAmountIncreasedRuleIn,
         DuplicateTransactionRuleIn,
         DigestRuleIn,
@@ -147,6 +152,7 @@ def _columns(
         | ContractOverdueRuleIn
         | ContractEndingRuleIn
         | ContractChargedAfterEndRuleIn
+        | ContractDetectedRuleIn
         | ContractAmountIncreasedRuleIn
         | DuplicateTransactionRuleIn
         | DigestRuleIn

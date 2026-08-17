@@ -803,6 +803,41 @@ def test_incoming_contract_reports_a_bigger_payout(session_factory: sessionmaker
         )
 
 
+# --- contract detected trigger ---------------------------------------------
+
+
+def test_detected_contract_notifies(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
+    with session_factory() as db_session:
+        credential, account_id = _account_with_notification_rule(
+            db_session, trigger=NotificationTrigger.CONTRACT_DETECTED
+        )
+        contract = make_contract(db_session, account_id=account_id, name="Gym")
+
+        notifications = notification_engine.collect_detected_contract_notifications(
+            db_session=db_session, user=credential.user, contracts=[contract]
+        )
+
+        assert_one_notification(
+            notifications=notifications,
+            title="New contract detected",
+            body=f"{ACCOUNT_IBAN}: Gym",
+            url=f"/contracts/{contract.id}",
+        )
+    assert_log_contains(caplog, message="queued notification")
+
+
+def test_detected_contract_without_a_rule_is_quiet(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        user, credential, account = make_user_and_credential_and_account(db_session)
+        contract = make_contract(db_session, account_id=account.id, name="Gym")
+
+        notifications = notification_engine.collect_detected_contract_notifications(
+            db_session=db_session, user=user, contracts=[contract]
+        )
+
+    assert notifications == []
+
+
 # --- upcoming shortfall trigger --------------------------------------------
 
 

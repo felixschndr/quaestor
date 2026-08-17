@@ -67,15 +67,17 @@ BLACKLISTED_CATEGORIES = frozenset(
 )
 
 
-def detect_contracts_for_user(db_session: Session, user: User) -> None:
+def detect_contracts_for_user(db_session: Session, user: User) -> list[Contract]:
     accounts = db_session.scalars(
         select(Account)
         .join(Credential, onclause=Account.credential_id == Credential.id)
         .where(Credential.user_id == user.id)
     ).all()
     logger.debug(f"Running contract detection for {user} across {len(accounts)} account(s)")
+    new_contracts = []
     for account in accounts:
-        detect_contracts_for_account(db_session=db_session, account=account)
+        new_contracts.extend(detect_contracts_for_account(db_session=db_session, account=account))
+    return new_contracts
 
 
 def detect_contracts_for_all_users() -> None:
@@ -94,7 +96,7 @@ async def run_startup_detection() -> None:
         logger.exception(message="Startup contract detection backfill crashed")
 
 
-def detect_contracts_for_account(db_session: Session, account: Account) -> int:
+def detect_contracts_for_account(db_session: Session, account: Account) -> list[Contract]:
     prior_member_ids: dict[int, set[int]] = defaultdict(set)
     for transaction in account.transactions:
         if transaction.contract_id is not None and transaction.contract_assignment != ContractAssignment.EXCLUDED:
@@ -109,6 +111,7 @@ def detect_contracts_for_account(db_session: Session, account: Account) -> int:
     )
 
     detected = 0
+    new_contracts = []
     for (fingerprint, display_name), transactions in groups.items():
         members = _members_within_amount_band(transactions)
         dropped = len(transactions) - len(members)
@@ -132,9 +135,11 @@ def detect_contracts_for_account(db_session: Session, account: Account) -> int:
             )
             continue
 
-        contract = _find_or_create_contract(
+        contract, created = _find_or_create_contract(
             db_session=db_session, account=account, fingerprint=fingerprint, display_name=display_name
         )
+        if created:
+            new_contracts.append(contract)
         for transaction in members:
             transaction.contract_id = contract.id
             transaction.contract_assignment = ContractAssignment.AUTO
@@ -153,8 +158,11 @@ def detect_contracts_for_account(db_session: Session, account: Account) -> int:
     _delete_empty_detected_contracts(db_session=db_session, account=account)
     db_session.flush()
 
-    logger.info(f"Contract detection on {account}: {detected} recurring contract(s) detected")
-    return detected
+    logger.info(
+        f"Contract detection on {account}: {detected} recurring and {len(new_contracts)} newly created contract(s) "
+        "detected"
+    )
+    return new_contracts
 
 
 def _get_eligible_transactions(db_session: Session, account: Account) -> list[Transaction]:
@@ -263,12 +271,14 @@ def _amount_belongs_to_contract(amount: float, center: float) -> bool:
     return 1 / MEMBER_AMOUNT_MAX_RATIO <= ratio <= MEMBER_AMOUNT_MAX_RATIO
 
 
-def _find_or_create_contract(db_session: Session, account: Account, fingerprint: str, display_name: str) -> Contract:
+def _find_or_create_contract(
+    db_session: Session, account: Account, fingerprint: str, display_name: str
+) -> tuple[Contract, bool]:
     existing_contract = db_session.scalar(
         select(Contract).where(Contract.account_id == account.id).where(Contract.fingerprint == fingerprint)
     )
     if existing_contract is not None:
-        return existing_contract
+        return existing_contract, False
 
     contract = Contract(
         account=account,
@@ -280,7 +290,7 @@ def _find_or_create_contract(db_session: Session, account: Account, fingerprint:
     db_session.add(contract)
     db_session.flush()
     logger.info(f"Detected new {contract} on {account}")
-    return contract
+    return contract, True
 
 
 def recompute_contract_stats(contract: Contract) -> None:

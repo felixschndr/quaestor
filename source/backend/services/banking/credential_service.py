@@ -195,9 +195,14 @@ def _finalize_sync(
     notifications: list[Notification] = []
     if result.status == SyncStatus.COMPLETED:
         transfer_detection.detect_transfers_for_user(db_session=db_session, user=credential.user)
-        contract_detection_service.detect_contracts_for_user(db_session=db_session, user=credential.user)
+        new_contracts = contract_detection_service.detect_contracts_for_user(
+            db_session=db_session, user=credential.user
+        )
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
+        )
+        notifications += notification_engine.collect_detected_contract_notifications(
+            db_session=db_session, user=credential.user, contracts=new_contracts
         )
     db_session.commit()
     notification_engine.dispatch(db_session=db_session, user=credential.user, notifications=notifications)

@@ -22,6 +22,9 @@ from tests.backend.conftest import (
 
 _MIGRATION = importlib.import_module("source.backend.alembic.versions.0044_default_notification_rules")
 _END_MIGRATION = importlib.import_module("source.backend.alembic.versions.0052_default_contract_end_notification_rules")
+_DETECTED_MIGRATION = importlib.import_module(
+    "source.backend.alembic.versions.0060_default_contract_detected_notification_rules"
+)
 
 _DEFAULT_TRIGGERS = {
     NotificationTrigger.EXPECTED_TRANSACTION,
@@ -30,6 +33,7 @@ _DEFAULT_TRIGGERS = {
     NotificationTrigger.CONTRACT_OVERDUE,
     NotificationTrigger.CONTRACT_ENDING,
     NotificationTrigger.CONTRACT_CHARGED_AFTER_END,
+    NotificationTrigger.CONTRACT_DETECTED,
     NotificationTrigger.CONTRACT_AMOUNT_INCREASED,
     NotificationTrigger.DIGEST,
 }
@@ -115,3 +119,21 @@ def test_contract_end_migration_backfills_missing_triggers(
         assert len(notification_rule_service.list_rules(db_session=db_session, user=with_defaults)) == len(
             _DEFAULT_TRIGGERS
         )
+
+
+def test_contract_detected_migration_backfills_all_users(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    statements = _capture_statements(migration=_DETECTED_MIGRATION, monkeypatch=monkeypatch)
+
+    with session_factory() as db_session:
+        first = make_user(db_session, user_name=USER_NAME)
+        second = make_user(db_session, user_name=SECOND_USER_NAME)
+
+        for statement in statements:
+            db_session.execute(text(statement))
+        db_session.commit()
+
+        for user in (first, second):
+            triggers = [rule.trigger for rule in notification_rule_service.list_rules(db_session=db_session, user=user)]
+            assert triggers == [NotificationTrigger.CONTRACT_DETECTED]
