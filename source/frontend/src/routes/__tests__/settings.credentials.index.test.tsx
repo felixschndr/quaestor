@@ -8,6 +8,7 @@ vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).ro
 import { SettingsCredentialsIndexView } from '@/pages/settings.credentials.index'
 import type { CredentialRead } from '@/lib/auth'
 import { buildUser } from './-settingsUserTestHelpers'
+import { DATETIME_RECENT } from '@/test/constants'
 
 function buildCredential(overrides: Partial<CredentialRead>): CredentialRead {
   return {
@@ -67,7 +68,7 @@ describe('SettingsCredentialsIndexView', () => {
               bank: 'fints',
               bank_name: 'ING',
               bank_icon: '/static/banks/ing-diba.png',
-              last_fetching_timestamp: '2026-05-20T10:00:00Z',
+              last_fetching_timestamp: DATETIME_RECENT,
             }),
           ],
         })}

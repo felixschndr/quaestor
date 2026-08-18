@@ -12,6 +12,7 @@ from tests.backend.conftest import (
     BANK_PASSWORD,
     BANK_USERNAME,
     CHALLENGE_TOKEN,
+    INTRUDER_USER_NAME,
     PHONE_NUMBER,
     PIN,
     SECOND_USER_NAME,
@@ -329,7 +330,7 @@ def test_start_sync_returns_404_for_other_users_credential(http_client: TestClie
     register(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
     assert http_client.post(f"/api/credentials/{credential_id}/sync").status_code == 404
 
@@ -396,7 +397,7 @@ def test_get_sync_job_returns_404_for_other_users_credential(http_client: TestCl
     )
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
     assert http_client.get(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
 
@@ -409,7 +410,7 @@ def test_list_sync_jobs_returns_only_own_jobs(http_client: TestClient, monkeypat
     owner_credential_id = create_credential(http_client).json()["id"]
     owner_job_id = http_client.post(f"/api/credentials/{owner_credential_id}/sync").json()["job_id"]
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
     intruder_credential_id = create_credential(http_client).json()["id"]
     http_client.post(f"/api/credentials/{intruder_credential_id}/sync")
 
@@ -446,7 +447,7 @@ def test_cancel_sync_job_returns_404_for_other_users_credential(
     )
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
     assert http_client.delete(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
 
@@ -474,7 +475,7 @@ def test_sync_job_polling_rejects_credential_of_another_user(http_client: TestCl
     )
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
     assert http_client.get(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
 
 

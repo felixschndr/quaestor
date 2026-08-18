@@ -10,6 +10,11 @@ from source.backend.exceptions import (
 from source.backend.models.accounts.account import Account
 from source.backend.services.accounts import account_service
 from tests.backend.conftest import (
+    ACME,
+    DEFAULT_AMOUNT,
+    DEFAULT_BALANCE,
+    SECOND_AMOUNT,
+    THIRD_AMOUNT,
     assert_log_contains,
     make_transaction,
     persist_account_with_new_user,
@@ -20,7 +25,7 @@ from tests.backend.conftest import (
 def test_create_expected_transaction_is_pending_expected_and_balance_neutral(
     session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
-    account_id = persist_account_with_new_user(session_factory, balance=100.0)
+    account_id = persist_account_with_new_user(session_factory, balance=DEFAULT_BALANCE)
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
@@ -39,7 +44,7 @@ def test_create_expected_transaction_is_pending_expected_and_balance_neutral(
         assert transaction.expected is True
         assert transaction.match_tolerance_percent == 5
         assert transaction.date == date.today()
-        assert account.balance == 100.0  # expected transactions never move the balance
+        assert account.balance == DEFAULT_BALANCE  # expected transactions never move the balance
 
 
 def test_create_expected_transaction_defaults_date_to_today_and_tolerance_to_zero(session_factory: sessionmaker):
@@ -64,9 +69,9 @@ def test_create_expected_transaction_on_manual_account_is_forbidden(session_fact
 def test_list_expected_transactions_returns_only_expected_newest_first(session_factory: sessionmaker):
     account_id = persist_account_with_new_user(session_factory)
     with session_factory() as session:
-        make_transaction(session, account_id=account_id, amount=-1.0)
-        make_transaction(session, account_id=account_id, amount=10.0, pending=True, expected=True)
-        make_transaction(session, account_id=account_id, amount=20.0, pending=True, expected=True)
+        make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT)
+        make_transaction(session, account_id=account_id, amount=THIRD_AMOUNT, pending=True, expected=True)
+        make_transaction(session, account_id=account_id, amount=SECOND_AMOUNT, pending=True, expected=True)
         session.commit()
 
     with session_factory() as session:
@@ -74,17 +79,17 @@ def test_list_expected_transactions_returns_only_expected_newest_first(session_f
         expected = account_service.list_expected_transactions(db_session=session, account=account)
         assert all(tx.expected for tx in expected)
         assert len(expected) == 2
-        assert [tx.amount for tx in expected] == [20.0, 10.0]
+        assert [tx.amount for tx in expected] == [SECOND_AMOUNT, THIRD_AMOUNT]
 
 
 def test_update_expected_transaction_changes_fields(session_factory: sessionmaker):
-    account_id = persist_account_with_new_user(session_factory, balance=100.0)
+    account_id = persist_account_with_new_user(session_factory, balance=DEFAULT_BALANCE)
     with session_factory() as session:
         expectation = make_transaction(
             session,
             account_id=account_id,
-            amount=10.0,
-            other_party="ACME",
+            amount=DEFAULT_AMOUNT,
+            other_party=ACME,
             note="old",
             pending=True,
             expected=True,
@@ -110,7 +115,7 @@ def test_update_expected_transaction_changes_fields(session_factory: sessionmake
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
-        assert account.balance == 100.0
+        assert account.balance == DEFAULT_BALANCE
 
 
 def test_update_expected_transaction_rejects_a_normal_transaction(
@@ -118,7 +123,7 @@ def test_update_expected_transaction_rejects_a_normal_transaction(
 ):
     account_id = persist_account_with_new_user(session_factory)
     with session_factory() as session:
-        booked = make_transaction(session, account_id=account_id, amount=-5.0)
+        booked = make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT)
         session.commit()
         booked_id = booked.id
 
@@ -134,7 +139,9 @@ def test_update_expected_transaction_rejects_a_normal_transaction(
 def test_delete_expected_transaction_removes_it(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     account_id = persist_account_with_new_user(session_factory)
     with session_factory() as session:
-        expectation = make_transaction(session, account_id=account_id, amount=10.0, pending=True, expected=True)
+        expectation = make_transaction(
+            session, account_id=account_id, amount=DEFAULT_AMOUNT, pending=True, expected=True
+        )
         session.commit()
         expectation_id = expectation.id
 
@@ -153,7 +160,7 @@ def test_delete_expected_transaction_removes_it(session_factory: sessionmaker, c
 def test_delete_expected_transaction_rejects_a_normal_transaction(session_factory: sessionmaker):
     account_id = persist_account_with_new_user(session_factory)
     with session_factory() as session:
-        booked = make_transaction(session, account_id=account_id, amount=-5.0)
+        booked = make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT)
         session.commit()
         booked_id = booked.id
 

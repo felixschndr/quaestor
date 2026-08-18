@@ -3,6 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
+import { AMOUNT_L, AMOUNT_M, AMOUNT_S, DATE_RANGE_END } from '@/test/constants'
+
+const { PICKED_DAY } = vi.hoisted(() => ({ PICKED_DAY: '2026-01-02' }))
 
 vi.mock('recharts', () => {
   const Passthrough = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>
@@ -18,7 +21,7 @@ vi.mock('recharts', () => {
     <div>
       <button
         data-testid="pick-early"
-        onClick={() => onClick?.({ activeLabel: '2026-01-02', activeTooltipIndex: 0 })}
+        onClick={() => onClick?.({ activeLabel: PICKED_DAY, activeTooltipIndex: 0 })}
       />
       <button data-testid="leave" onClick={() => onMouseLeave?.()} />
       {children}
@@ -41,13 +44,12 @@ vi.mock('recharts', () => {
 import { NetWorthChart } from '../net-worth-chart'
 
 const data = [
-  { date: '2026-01-02', value: 100 },
-  { date: '2026-01-05', value: 110 },
-  { date: '2026-01-10', value: 120 },
+  { date: PICKED_DAY, value: AMOUNT_S },
+  { date: '2026-01-05', value: AMOUNT_M },
+  { date: DATE_RANGE_END, value: AMOUNT_L },
 ]
 
-// The chart persists the pinned day in sessionStorage; clear it so cases stay
-// independent.
+// The chart persists the pinned day in sessionStorage; clear it so cases stay independent
 beforeEach(() => {
   sessionStorage.clear()
 })
@@ -64,7 +66,7 @@ describe('NetWorthChart view day', () => {
     await user.click(screen.getByTestId('leave')) // cursor leaves; pinned day must survive
     await user.click(viewDayButton())
 
-    expect(onOpenDay).toHaveBeenCalledWith('2026-01-02')
+    expect(onOpenDay).toHaveBeenCalledWith(PICKED_DAY)
   })
 
   it('breaks down the whole shown range when nothing was picked', async () => {
@@ -77,7 +79,7 @@ describe('NetWorthChart view day', () => {
 
     await user.click(viewDayButton())
 
-    expect(onOpenRange).toHaveBeenCalledWith('2026-01-02', '2026-01-10')
+    expect(onOpenRange).toHaveBeenCalledWith(PICKED_DAY, DATE_RANGE_END)
     expect(onOpenDay).not.toHaveBeenCalled()
   })
 
@@ -92,6 +94,6 @@ describe('NetWorthChart view day', () => {
     render(<NetWorthChart data={data} summary={null} onOpenDay={onOpenDay} />)
     await user.click(viewDayButton())
 
-    expect(onOpenDay).toHaveBeenCalledWith('2026-01-02')
+    expect(onOpenDay).toHaveBeenCalledWith(PICKED_DAY)
   })
 })

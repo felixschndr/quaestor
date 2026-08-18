@@ -2,6 +2,8 @@ from fastapi.testclient import TestClient
 
 from source.backend.security import csrf
 from tests.backend.conftest import (
+    API_KEY_NAME,
+    INTRUDER_USER_NAME,
     auth_header_for_api_key,
     create_api_key,
     register,
@@ -23,7 +25,7 @@ def test_create_returns_the_raw_token_exactly_once(http_client: TestClient):
     assert response.status_code == 201
     body = response.json()
     assert body["token"].startswith("qk_")
-    assert body["name"] == "My script"
+    assert body["name"] == API_KEY_NAME
     assert body["last_used_at"] is None
     assert body["token"].startswith(body["prefix"])
 
@@ -46,7 +48,7 @@ def test_list_never_exposes_the_raw_token(http_client: TestClient):
     keys = listed.json()
     assert len(keys) == 1
     assert "token" not in keys[0]
-    assert keys[0]["name"] == "My script"
+    assert keys[0]["name"] == API_KEY_NAME
     assert keys[0]["prefix"] == created["prefix"]
 
 
@@ -114,7 +116,7 @@ def test_cannot_delete_another_users_key(http_client: TestClient):
     register(http_client, user_name="owner")
     api_key_id = create_api_key(http_client).json()["id"]
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
     assert http_client.delete(f"/api/api_keys/{api_key_id}").status_code == 404
 

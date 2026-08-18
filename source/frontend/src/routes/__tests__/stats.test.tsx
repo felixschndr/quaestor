@@ -42,6 +42,7 @@ import { FILTERABLE_CATEGORIES } from '@/lib/statistics'
 import { TRANSACTION_TYPES } from '@/lib/transaction'
 import { StatsView } from '@/pages/stats'
 import { type StatsSearchParams, type StatsViewState } from '@/routes/stats'
+import { ACCOUNT_NAME_GIRO } from '@/test/constants'
 
 const credentials: CredentialRead[] = [
   {
@@ -52,7 +53,7 @@ const credentials: CredentialRead[] = [
     accounts: [
       {
         id: 42,
-        name: 'Girokonto',
+        name: ACCOUNT_NAME_GIRO,
         balance: 0,
         balance_factor: 100,
         display_name: null,

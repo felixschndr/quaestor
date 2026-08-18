@@ -31,8 +31,14 @@ from source.backend.services.notifications.notification_service import (
 )
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
+    DEFAULT_AMOUNT,
+    DEFAULT_BALANCE,
+    LARGE_AMOUNT,
     LAST_FETCHING_TIMESTAMP,
+    NETFLIX,
     RECENT_DATE,
+    SECOND_AMOUNT,
+    THIRD_AMOUNT,
     FakeBankSession,
     assert_log_contains,
     build_handler,
@@ -128,7 +134,7 @@ def test_transaction_rule_triggers_on_matching_new_transaction(
             other_party_contains="netflix",
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        transaction = make_transaction(db_session, account_id=account_id, amount=-9.99, other_party="Netflix Intl.")
+        transaction = make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party=NETFLIX)
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -137,7 +143,7 @@ def test_transaction_rule_triggers_on_matching_new_transaction(
         assert_one_notification(
             notifications=notifications,
             title="Transaction booked",
-            body=f"{ACCOUNT_IBAN}: -9,99 € · Netflix Intl.",
+            body=f"{ACCOUNT_IBAN}: -50,00 € · {NETFLIX}",
             url=f"/account/{account_id}/transactions/{transaction.id}",
         )
     assert_log_contains(caplog, messages=["matched on", "Collected"])
@@ -153,7 +159,7 @@ def test_transaction_rule_does_not_trigger_when_sender_does_not_match(session_fa
             other_party_contains="netflix",
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        make_transaction(db_session, account_id=account_id, amount=-9.99, other_party="Spotify")
+        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party="Spotify")
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -169,13 +175,12 @@ def test_transaction_rule_respects_amount_bounds(session_factory: sessionmaker):
             trigger=NotificationTrigger.TRANSACTION,
             categories=ALL_CATEGORIES,
             types=ALL_TYPES,
-            min_amount=-100.0,
-            max_amount=-50.0,
+            min_amount=-LARGE_AMOUNT,
+            max_amount=-SECOND_AMOUNT,
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        in_range = make_transaction(db_session, account_id=account_id, amount=-75.0)
-        make_transaction(db_session, account_id=account_id, amount=-10.0)
-        make_transaction(db_session, account_id=account_id, amount=-150.0)
+        in_range = make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT)
+        make_transaction(db_session, account_id=account_id, amount=-THIRD_AMOUNT)
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -184,7 +189,7 @@ def test_transaction_rule_respects_amount_bounds(session_factory: sessionmaker):
         assert_one_notification(
             notifications=notifications,
             title="Transaction booked",
-            body=f"{ACCOUNT_IBAN}: -75,00 €",
+            body=f"{ACCOUNT_IBAN}: -50,00 €",
             url=f"/account/{account_id}/transactions/{in_range.id}",
         )
 
@@ -199,9 +204,11 @@ def test_transaction_rule_filters_by_category(session_factory: sessionmaker):
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
         groceries = make_transaction(
-            db_session, account_id=account_id, amount=-5.0, category=TransactionCategory.SUPERMARKET
+            db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.SUPERMARKET
         )
-        make_transaction(db_session, account_id=account_id, amount=-5.0, category=TransactionCategory.RESTAURANTS)
+        make_transaction(
+            db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.RESTAURANTS
+        )
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -210,7 +217,7 @@ def test_transaction_rule_filters_by_category(session_factory: sessionmaker):
         assert_one_notification(
             notifications=notifications,
             title="Transaction booked",
-            body=f"{ACCOUNT_IBAN}: -5,00 €",
+            body=f"{ACCOUNT_IBAN}: -50,00 €",
             url=f"/account/{account_id}/transactions/{groceries.id}",
         )
 
@@ -225,7 +232,7 @@ def test_disabled_rule_never_triggers(session_factory: sessionmaker):
             enabled=False,
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        make_transaction(db_session, account_id=account_id, amount=-9.99, other_party="Anything")
+        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party="Anything")
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -250,7 +257,7 @@ def test_rule_scoped_to_other_account_does_not_trigger(session_factory: sessionm
         )
         db_session.flush()
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        make_transaction(db_session, account_id=other.id, amount=-9.99, other_party="Shop")
+        make_transaction(db_session, account_id=other.id, amount=-DEFAULT_AMOUNT, other_party="Shop")
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -276,7 +283,7 @@ def test_rule_with_empty_account_list_covers_every_account(session_factory: sess
         db_session.flush()
         snapshot = notification_engine.capture_sync_snapshot(credential)
         for account in [first, second]:
-            make_transaction(db_session, account_id=account.id, amount=-1.0, other_party="Shop")
+            make_transaction(db_session, account_id=account.id, amount=-DEFAULT_AMOUNT, other_party="Shop")
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -299,7 +306,7 @@ def test_first_sight_account_is_skipped(session_factory: sessionmaker):
             categories=ALL_CATEGORIES,
             types=ALL_TYPES,
         )
-        make_transaction(db_session, account_id=account.id, amount=-9.99, other_party="History")
+        make_transaction(db_session, account_id=account.id, amount=-DEFAULT_AMOUNT, other_party="History")
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -315,7 +322,12 @@ def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_f
     with session_factory() as db_session:
         user, credential, account = make_user_and_credential_and_account(db_session)
         expected = make_transaction(
-            db_session, account_id=account.id, amount=100.0, other_party="Landlord", expected=True, pending=True
+            db_session,
+            account_id=account.id,
+            amount=DEFAULT_AMOUNT,
+            other_party="Landlord",
+            expected=True,
+            pending=True,
         )
         _make_notification_rule(
             db_session,
@@ -325,7 +337,7 @@ def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_f
         )
         db_session.flush()
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        booking = make_transaction(db_session, account_id=account.id, amount=100.0, other_party="Landlord")
+        booking = make_transaction(db_session, account_id=account.id, amount=DEFAULT_AMOUNT, other_party="Landlord")
         booking.matched_expected_id = expected.id
         account.transactions.remove(expected)
 
@@ -336,7 +348,7 @@ def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_f
         assert_one_notification(
             notifications=notifications,
             title="Expected transaction booked",
-            body=f"{ACCOUNT_IBAN}: 100,00 € booked · Landlord",
+            body=f"{ACCOUNT_IBAN}: 50,00 € booked · Landlord",
             url=f"/account/{account.id}/transactions/{booking.id}",
         )
 
@@ -344,7 +356,7 @@ def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_f
 def test_expected_transaction_rule_quiet_when_nothing_booked(session_factory: sessionmaker):
     with session_factory() as db_session:
         user, credential, account = make_user_and_credential_and_account(db_session)
-        make_transaction(db_session, account_id=account.id, amount=100.0, expected=True, pending=True)
+        make_transaction(db_session, account_id=account.id, amount=DEFAULT_AMOUNT, expected=True, pending=True)
         _make_notification_rule(
             db_session,
             user_id=user.id,
@@ -370,12 +382,12 @@ def test_balance_below_rule_triggers_on_downward_crossing(session_factory: sessi
             db_session,
             trigger=NotificationTrigger.BALANCE_THRESHOLD,
             direction=BalanceDirection.BELOW,
-            threshold=50.0,
-            balance=100.0,
+            threshold=SECOND_AMOUNT,
+            balance=DEFAULT_AMOUNT,
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
         account = credential.accounts[0]
-        account.balance = 40.0
+        account.balance = THIRD_AMOUNT
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -384,7 +396,7 @@ def test_balance_below_rule_triggers_on_downward_crossing(session_factory: sessi
     assert_one_notification(
         notifications=notifications,
         title="Balance below threshold",
-        body=f"{ACCOUNT_IBAN}: 40,00 € (threshold 50,00 €)",
+        body=f"{ACCOUNT_IBAN}: 10,00 € (threshold 20,00 €)",
         url=f"/account/{account_id}",
     )
     assert notifications[0].tag is not None  # balance alerts collapse via a tag
@@ -396,12 +408,12 @@ def test_balance_below_rule_quiet_when_already_below(session_factory: sessionmak
             db_session,
             trigger=NotificationTrigger.BALANCE_THRESHOLD,
             direction=BalanceDirection.BELOW,
-            threshold=50.0,
-            balance=40.0,
+            threshold=DEFAULT_AMOUNT,
+            balance=SECOND_AMOUNT,
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
         account = credential.accounts[0]
-        account.balance = 30.0
+        account.balance = THIRD_AMOUNT
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -416,12 +428,12 @@ def test_balance_above_rule_triggers_on_upward_crossing(session_factory: session
             db_session,
             trigger=NotificationTrigger.BALANCE_THRESHOLD,
             direction=BalanceDirection.ABOVE,
-            threshold=50.0,
-            balance=40.0,
+            threshold=SECOND_AMOUNT,
+            balance=THIRD_AMOUNT,
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
         account = credential.accounts[0]
-        account.balance = 60.0
+        account.balance = DEFAULT_AMOUNT
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -430,7 +442,7 @@ def test_balance_above_rule_triggers_on_upward_crossing(session_factory: session
     assert_one_notification(
         notifications=notifications,
         title="Balance above threshold",
-        body=f"{ACCOUNT_IBAN}: 60,00 € (threshold 50,00 €)",
+        body=f"{ACCOUNT_IBAN}: 50,00 € (threshold 20,00 €)",
         url=f"/account/{account_id}",
     )
 
@@ -441,12 +453,12 @@ def test_balance_above_rule_does_not_trigger_on_downward_crossing(session_factor
             db_session,
             trigger=NotificationTrigger.BALANCE_THRESHOLD,
             direction=BalanceDirection.ABOVE,
-            threshold=50.0,
-            balance=100.0,
+            threshold=SECOND_AMOUNT,
+            balance=DEFAULT_AMOUNT,
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
         account = credential.accounts[0]
-        account.balance = 40.0
+        account.balance = THIRD_AMOUNT
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -480,18 +492,18 @@ def test_weekly_digest_reports_the_previous_week(
     with session_factory() as db_session:
         user = _user_with_digest_rule(db_session, period=DigestPeriod.WEEKLY, weekday=_MONDAY.weekday())
         account_id = user.credentials[0].accounts[0].id
-        # Last week: 100 € in, 60 € out. The week before: 30 € out.
-        make_transaction(db_session, account_id=account_id, amount=100.0, date=_MONDAY - timedelta(days=3))
-        make_transaction(db_session, account_id=account_id, amount=-60.0, date=_MONDAY - timedelta(days=1))
-        make_transaction(db_session, account_id=account_id, amount=-30.0, date=_MONDAY - timedelta(days=9))
+        # Last week: 50 € in, 20 € out. The week before: 10 € out.
+        make_transaction(db_session, account_id=account_id, amount=DEFAULT_AMOUNT, date=_MONDAY - timedelta(days=3))
+        make_transaction(db_session, account_id=account_id, amount=-SECOND_AMOUNT, date=_MONDAY - timedelta(days=1))
+        make_transaction(db_session, account_id=account_id, amount=-THIRD_AMOUNT, date=_MONDAY - timedelta(days=9))
         db_session.commit()
 
         notification_engine.evaluate_digests(db_session=db_session, today=_MONDAY)
 
     assert_one_notification(
         notifications=sent,
-        title="Weekly review: 40,00 €",
-        body="Spent 60,00 € · Received 100,00 € · 2 transactions\n100 % / 30,00 € more spending than last week",
+        title="Weekly review: 30,00 €",
+        body="Spent 20,00 € · Received 50,00 € · 2 transactions\n100 % / 10,00 € more spending than last week",
         url="/stats?date_from=2026-07-13&date_to=2026-07-19",
     )
     assert_log_contains(caplog, messages=["Evaluating digest rules for", "digest for 2026-07-13..2026-07-19"])
@@ -505,21 +517,21 @@ def test_weekly_digest_excludes_investing_and_saving(session_factory: sessionmak
         make_transaction(
             db_session,
             account_id=account_id,
-            amount=-60.0,
+            amount=-DEFAULT_AMOUNT,
             date=_MONDAY - timedelta(days=1),
             category=TransactionCategory.SUPERMARKET,
         )
         make_transaction(
             db_session,
             account_id=account_id,
-            amount=-500.0,
+            amount=-DEFAULT_AMOUNT,
             date=_MONDAY - timedelta(days=2),
             category=TransactionCategory.INVESTMENT,
         )
         make_transaction(
             db_session,
             account_id=account_id,
-            amount=-200.0,
+            amount=-DEFAULT_AMOUNT,
             date=_MONDAY - timedelta(days=3),
             category=TransactionCategory.SAVINGS,
         )
@@ -529,8 +541,8 @@ def test_weekly_digest_excludes_investing_and_saving(session_factory: sessionmak
 
     assert_one_notification(
         notifications=sent,
-        title="Weekly review: -60,00 €",
-        body="Spent 60,00 € · Received 0,00 € · 1 transactions",
+        title="Weekly review: -50,00 €",
+        body="Spent 50,00 € · Received 0,00 € · 1 transactions",
         url="/stats?date_from=2026-07-13&date_to=2026-07-19",
     )
 
@@ -553,7 +565,7 @@ def test_weekly_digest_is_not_resent_on_a_server_restart(
     with session_factory() as db_session:
         user = _user_with_digest_rule(db_session, period=DigestPeriod.WEEKLY, weekday=_MONDAY.weekday())
         account_id = user.credentials[0].accounts[0].id
-        make_transaction(db_session, account_id=account_id, amount=-60.0, date=_MONDAY - timedelta(days=1))
+        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, date=_MONDAY - timedelta(days=1))
         db_session.commit()
 
         notification_engine.evaluate_digests(db_session=db_session, today=_MONDAY)
@@ -567,8 +579,10 @@ def test_monthly_digest_reports_the_previous_month(session_factory: sessionmaker
     with session_factory() as db_session:
         user = _user_with_digest_rule(db_session, period=DigestPeriod.MONTHLY)
         account_id = user.credentials[0].accounts[0].id
-        make_transaction(db_session, account_id=account_id, amount=-20.0, date=date(year=2026, month=6, day=15))
-        make_transaction(db_session, account_id=account_id, amount=-10.0, date=date(year=2026, month=5, day=15))
+        make_transaction(
+            db_session, account_id=account_id, amount=-SECOND_AMOUNT, date=date(year=2026, month=6, day=15)
+        )
+        make_transaction(db_session, account_id=account_id, amount=-THIRD_AMOUNT, date=date(year=2026, month=5, day=15))
         db_session.commit()
 
         notification_engine.evaluate_digests(db_session=db_session, today=date(year=2026, month=7, day=1))
@@ -590,7 +604,7 @@ def test_digest_without_content_hides_the_amounts(session_factory: sessionmaker,
         make_transaction(
             db_session,
             account_id=user.credentials[0].accounts[0].id,
-            amount=-60.0,
+            amount=-DEFAULT_AMOUNT,
             date=_MONDAY - timedelta(days=1),
         )
         db_session.commit()
@@ -633,9 +647,9 @@ def test_duplicate_booking_notifies(session_factory: sessionmaker, caplog: pytes
         credential, account_id = _account_with_notification_rule(
             db_session, trigger=NotificationTrigger.DUPLICATE_TRANSACTION
         )
-        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="Netflix")
+        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party=NETFLIX)
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="netflix")
+        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party="netflix")
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -644,10 +658,10 @@ def test_duplicate_booking_notifies(session_factory: sessionmaker, caplog: pytes
         assert_one_notification(
             notifications=notifications,
             title="Possible duplicate booking",
-            body=f"{ACCOUNT_IBAN}: -42,00 € · netflix booked twice within 3 days",
+            body=f"{ACCOUNT_IBAN}: -50,00 € · netflix booked twice within 3 days",
             url=(
-                f"/account/{account_id}/search?account_ids={account_id}&amount_from=-42.01"
-                f"&amount_to=-41.99&date_from={RECENT_DATE.isoformat()}"
+                f"/account/{account_id}/search?account_ids={account_id}&amount_from=-50.01"
+                f"&amount_to=-49.99&date_from={RECENT_DATE.isoformat()}"
                 f"&date_to={RECENT_DATE.isoformat()}&text=netflix"
             ),
         )
@@ -660,10 +674,14 @@ def test_duplicate_outside_the_window_is_quiet(session_factory: sessionmaker):
             db_session, trigger=NotificationTrigger.DUPLICATE_TRANSACTION, days=3
         )
         make_transaction(
-            db_session, account_id=account_id, amount=-42.0, other_party="Netflix", date=RECENT_DATE - timedelta(days=4)
+            db_session,
+            account_id=account_id,
+            amount=-DEFAULT_AMOUNT,
+            other_party=NETFLIX,
+            date=RECENT_DATE - timedelta(days=4),
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="Netflix")
+        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party=NETFLIX)
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -677,11 +695,11 @@ def test_different_other_party_or_amount_is_no_duplicate(session_factory: sessio
         credential, account_id = _account_with_notification_rule(
             db_session, trigger=NotificationTrigger.DUPLICATE_TRANSACTION
         )
-        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="Netflix")
-        make_transaction(db_session, account_id=account_id, amount=-11.0, other_party="Spotify")
+        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party=NETFLIX)
+        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party="Spotify")
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="Spotify")
-        make_transaction(db_session, account_id=account_id, amount=-11.0, other_party="Netflix")
+        make_transaction(db_session, account_id=account_id, amount=-SECOND_AMOUNT, other_party="Spotify")
+        make_transaction(db_session, account_id=account_id, amount=-SECOND_AMOUNT, other_party=NETFLIX)
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -695,9 +713,9 @@ def test_duplicate_without_other_party_is_quiet(session_factory: sessionmaker):
         credential, account_id = _account_with_notification_rule(
             db_session, trigger=NotificationTrigger.DUPLICATE_TRANSACTION
         )
-        make_transaction(db_session, account_id=account_id, amount=-42.0)
+        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT)
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        make_transaction(db_session, account_id=account_id, amount=-42.0)
+        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT)
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -712,8 +730,8 @@ def test_two_new_duplicates_notify_once(session_factory: sessionmaker):
             db_session, trigger=NotificationTrigger.DUPLICATE_TRANSACTION
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="Netflix")
-        make_transaction(db_session, account_id=account_id, amount=-42.0, other_party="Netflix")
+        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party=NETFLIX)
+        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party=NETFLIX)
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -722,10 +740,10 @@ def test_two_new_duplicates_notify_once(session_factory: sessionmaker):
         assert_one_notification(
             notifications=notifications,
             title="Possible duplicate booking",
-            body=f"{ACCOUNT_IBAN}: -42,00 € · Netflix booked twice within 3 days",
+            body=f"{ACCOUNT_IBAN}: -50,00 € · Netflix booked twice within 3 days",
             url=(
-                f"/account/{account_id}/search?account_ids={account_id}&amount_from=-42.01"
-                f"&amount_to=-41.99&date_from={RECENT_DATE.isoformat()}"
+                f"/account/{account_id}/search?account_ids={account_id}&amount_from=-50.01"
+                f"&amount_to=-49.99&date_from={RECENT_DATE.isoformat()}"
                 f"&date_to={RECENT_DATE.isoformat()}&text=Netflix"
             ),
         )
@@ -735,7 +753,7 @@ def test_two_new_duplicates_notify_once(session_factory: sessionmaker):
 
 
 def _contract_charge(
-    db_session: Session, amount: float, median: float = -50.0, spread: float = 1.0
+    db_session: Session, amount: float, median: float = -DEFAULT_AMOUNT, spread: float = 1.0
 ) -> tuple[Credential, notification_engine.SyncSnapshot]:
     credential, account_id = _account_with_notification_rule(
         db_session, trigger=NotificationTrigger.CONTRACT_AMOUNT_INCREASED
@@ -750,7 +768,7 @@ def _contract_charge(
 
 def test_contract_amount_increase_notifies(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     with session_factory() as db_session:
-        credential, snapshot = _contract_charge(db_session, amount=-70.0)
+        credential, snapshot = _contract_charge(db_session, amount=-LARGE_AMOUNT)
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -759,7 +777,7 @@ def test_contract_amount_increase_notifies(session_factory: sessionmaker, caplog
         assert_one_notification(
             notifications=notifications,
             title="Contract amount increased",
-            body=f"{ACCOUNT_IBAN}: Gym -70,00 € instead of -50,00 €",
+            body=f"{ACCOUNT_IBAN}: Gym -3.500,00 € instead of -50,00 €",
             url=f"/contracts/{credential.accounts[0].contracts[0].id}",
         )
         assert_log_contains(caplog, message="against a median of")
@@ -767,7 +785,7 @@ def test_contract_amount_increase_notifies(session_factory: sessionmaker, caplog
 
 def test_contract_amount_within_usual_spread_is_quiet(session_factory: sessionmaker):
     with session_factory() as db_session:
-        credential, snapshot = _contract_charge(db_session, amount=-51.0)
+        credential, snapshot = _contract_charge(db_session, amount=-DEFAULT_AMOUNT)
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -778,7 +796,7 @@ def test_contract_amount_within_usual_spread_is_quiet(session_factory: sessionma
 
 def test_contract_amount_drop_is_quiet(session_factory: sessionmaker):
     with session_factory() as db_session:
-        credential, snapshot = _contract_charge(db_session, amount=-10.0)
+        credential, snapshot = _contract_charge(db_session, amount=-DEFAULT_AMOUNT)
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -789,7 +807,7 @@ def test_contract_amount_drop_is_quiet(session_factory: sessionmaker):
 
 def test_incoming_contract_reports_a_bigger_payout(session_factory: sessionmaker):
     with session_factory() as db_session:
-        credential, snapshot = _contract_charge(db_session, amount=3000.0, median=2000.0, spread=10.0)
+        credential, snapshot = _contract_charge(db_session, amount=LARGE_AMOUNT, median=DEFAULT_AMOUNT)
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -798,7 +816,7 @@ def test_incoming_contract_reports_a_bigger_payout(session_factory: sessionmaker
         assert_one_notification(
             notifications=notifications,
             title="Contract amount increased",
-            body=f"{ACCOUNT_IBAN}: Gym 3.000,00 € instead of 2.000,00 €",
+            body=f"{ACCOUNT_IBAN}: Gym 3.500,00 € instead of 50,00 €",
             url=f"/contracts/{credential.accounts[0].contracts[0].id}",
         )
 
@@ -862,9 +880,11 @@ def _account_with_shortfall_rule(
 
 def test_upcoming_shortfall_notifies_when_balance_drops_below_due_payments(session_factory: sessionmaker):
     with session_factory() as db_session:
-        credential = _account_with_shortfall_rule(db_session, balance=500.0, due_in_days=3, median_amount=-300.0)
+        credential = _account_with_shortfall_rule(
+            db_session, balance=DEFAULT_AMOUNT, due_in_days=3, median_amount=-SECOND_AMOUNT
+        )
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        credential.accounts[0].balance = 100.0
+        credential.accounts[0].balance = THIRD_AMOUNT
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -873,16 +893,18 @@ def test_upcoming_shortfall_notifies_when_balance_drops_below_due_payments(sessi
     assert_one_notification(
         notifications=notifications,
         title="Upcoming payments exceed balance",
-        body=f"{ACCOUNT_IBAN}: 300,00 € due within 7 days, only 100,00 € available",
+        body=f"{ACCOUNT_IBAN}: 20,00 € due within 7 days, only 10,00 € available",
         url=f"/account/{credential.accounts[0].id}",
     )
 
 
 def test_upcoming_shortfall_quiet_when_balance_still_covers_payments(session_factory: sessionmaker):
     with session_factory() as db_session:
-        credential = _account_with_shortfall_rule(db_session, balance=500.0, due_in_days=3, median_amount=-300.0)
+        credential = _account_with_shortfall_rule(
+            db_session, balance=DEFAULT_AMOUNT, due_in_days=3, median_amount=-THIRD_AMOUNT
+        )
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        credential.accounts[0].balance = 400.0
+        credential.accounts[0].balance = SECOND_AMOUNT
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -895,12 +917,12 @@ def test_upcoming_shortfall_ignores_payments_beyond_the_lookahead(session_factor
     with session_factory() as db_session:
         credential = _account_with_shortfall_rule(
             db_session,
-            balance=500.0,
+            balance=DEFAULT_AMOUNT,
             due_in_days=SHORTFALL_LOOKAHEAD.days + 1,
-            median_amount=-300.0,
+            median_amount=-DEFAULT_AMOUNT,
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        credential.accounts[0].balance = 100.0
+        credential.accounts[0].balance = THIRD_AMOUNT
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -912,10 +934,10 @@ def test_upcoming_shortfall_ignores_payments_beyond_the_lookahead(session_factor
 def test_upcoming_shortfall_honours_a_custom_lookahead(session_factory: sessionmaker):
     with session_factory() as db_session:
         credential = _account_with_shortfall_rule(
-            db_session, balance=500.0, due_in_days=20, median_amount=-300.0, days=30
+            db_session, balance=DEFAULT_AMOUNT, due_in_days=20, median_amount=-SECOND_AMOUNT, days=30
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        credential.accounts[0].balance = 100.0
+        credential.accounts[0].balance = THIRD_AMOUNT
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -924,16 +946,18 @@ def test_upcoming_shortfall_honours_a_custom_lookahead(session_factory: sessionm
     assert_one_notification(
         notifications=notifications,
         title="Upcoming payments exceed balance",
-        body=f"{ACCOUNT_IBAN}: 300,00 € due within 30 days, only 100,00 € available",
+        body=f"{ACCOUNT_IBAN}: 20,00 € due within 30 days, only 10,00 € available",
         url=f"/account/{credential.accounts[0].id}",
     )
 
 
 def test_upcoming_shortfall_quiet_when_already_short_before_sync(session_factory: sessionmaker):
     with session_factory() as db_session:
-        credential = _account_with_shortfall_rule(db_session, balance=100.0, due_in_days=3, median_amount=-300.0)
+        credential = _account_with_shortfall_rule(
+            db_session, balance=DEFAULT_BALANCE, due_in_days=3, median_amount=-DEFAULT_AMOUNT
+        )
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        credential.accounts[0].balance = 50.0
+        credential.accounts[0].balance = DEFAULT_AMOUNT
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -956,7 +980,7 @@ def test_transaction_rule_without_content_omits_amount_and_other_party(session_f
         )
         account_label = credential.accounts[0].display_label
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        transaction = make_transaction(db_session, account_id=account_id, amount=-42.50, other_party="Netflix Intl.")
+        transaction = make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party=NETFLIX)
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -976,13 +1000,13 @@ def test_balance_below_rule_without_content_omits_balance_and_threshold(session_
             db_session,
             trigger=NotificationTrigger.BALANCE_THRESHOLD,
             direction=BalanceDirection.BELOW,
-            threshold=50.0,
-            balance=100.0,
+            threshold=SECOND_AMOUNT,
+            balance=DEFAULT_AMOUNT,
             include_content=False,
         )
         account_label = credential.accounts[0].display_label
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        credential.accounts[0].balance = 40.0
+        credential.accounts[0].balance = THIRD_AMOUNT
 
         notifications = notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
@@ -999,7 +1023,9 @@ def test_balance_below_rule_without_content_omits_balance_and_threshold(session_
 def test_expected_transaction_rule_without_content_omits_amount(session_factory: sessionmaker):
     with session_factory() as db_session:
         user, credential, account = make_user_and_credential_and_account(db_session)
-        expected = make_transaction(db_session, account_id=account.id, amount=123.45, expected=True, pending=True)
+        expected = make_transaction(
+            db_session, account_id=account.id, amount=DEFAULT_AMOUNT, expected=True, pending=True
+        )
         _make_notification_rule(
             db_session,
             user_id=user.id,
@@ -1010,7 +1036,7 @@ def test_expected_transaction_rule_without_content_omits_amount(session_factory:
         db_session.flush()
         account_label = account.display_label
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        booking = make_transaction(db_session, account_id=account.id, amount=123.45)
+        booking = make_transaction(db_session, account_id=account.id, amount=DEFAULT_AMOUNT)
         booking.matched_expected_id = expected.id
         account.transactions.remove(expected)
 
@@ -1066,7 +1092,9 @@ def test_sync_credential_triggers_notification_end_to_end(
         FakeBankSession(
             accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
             balances={ACCOUNT_IBAN: 0.0},
-            transactions={ACCOUNT_IBAN: [create_fetched_transaction(amount=-20.0, other_party="Corner Shop")]},
+            transactions={
+                ACCOUNT_IBAN: [create_fetched_transaction(amount=-DEFAULT_AMOUNT, other_party="Corner Shop")]
+            },
         )
     )
     monkeypatch.setattr(target=Credential, name="handler", value=property(lambda self: handler))
@@ -1088,7 +1116,7 @@ def test_sync_credential_triggers_notification_end_to_end(
         credential_service.sync_credential(db_session=db_session, credential_id=credential.id)
 
     assert len(sent_notifications) == 1
-    assert sent_notifications[0].body == f"{ACCOUNT_IBAN}: -20,00 € · Corner Shop"
+    assert sent_notifications[0].body == f"{ACCOUNT_IBAN}: -50,00 € · Corner Shop"
 
 
 # --- contract overdue trigger ----------------------------------------------
@@ -1298,7 +1326,7 @@ def test_charge_after_contract_end_notifies(session_factory: sessionmaker, caplo
         end_date = RECENT_DATE - timedelta(days=10)
         contract = make_contract(db_session, account_id=account_id, name="Gym", end_date=end_date)
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        transaction = make_transaction(db_session, account_id=account_id, amount=-42.0, date=RECENT_DATE)
+        transaction = make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, date=RECENT_DATE)
         transaction.contract_id = contract.id
         db_session.flush()
 
@@ -1309,7 +1337,7 @@ def test_charge_after_contract_end_notifies(session_factory: sessionmaker, caplo
         assert_one_notification(
             notifications=notifications,
             title="Charge after contract end",
-            body=f"{ACCOUNT_IBAN}: Gym charged -42,00 € after ending on {end_date.isoformat()}",
+            body=f"{ACCOUNT_IBAN}: Gym charged -50,00 € after ending on {end_date.isoformat()}",
             url=f"/contracts/{contract.id}",
         )
         assert_log_contains(caplog, message="booked after")
@@ -1324,7 +1352,7 @@ def test_charge_before_contract_end_is_quiet(session_factory: sessionmaker):
             db_session, account_id=account_id, name="Gym", end_date=RECENT_DATE + timedelta(days=10)
         )
         snapshot = notification_engine.capture_sync_snapshot(credential)
-        transaction = make_transaction(db_session, account_id=account_id, amount=-42.0, date=RECENT_DATE)
+        transaction = make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, date=RECENT_DATE)
         transaction.contract_id = contract.id
         db_session.flush()
 
@@ -1340,7 +1368,9 @@ def test_notifications_are_rendered_in_recipient_language(session_factory: sessi
         user = make_user(db_session, language="de")
         credential = make_credential(db_session, user_id=user.id)
         account = make_account(db_session, credential_id=credential.id)
-        expected = make_transaction(db_session, account_id=account.id, amount=100.0, expected=True, pending=True)
+        expected = make_transaction(
+            db_session, account_id=account.id, amount=DEFAULT_AMOUNT, expected=True, pending=True
+        )
         _make_notification_rule(
             db_session,
             user_id=user.id,
@@ -1358,6 +1388,6 @@ def test_notifications_are_rendered_in_recipient_language(session_factory: sessi
     assert_one_notification(
         notifications=notifications,
         title="Erwartete Transaktion gebucht",
-        body=f"{ACCOUNT_IBAN}: 100,00 € gebucht",
+        body=f"{ACCOUNT_IBAN}: 50,00 € gebucht",
         url=f"/account/{account.id}",
     )

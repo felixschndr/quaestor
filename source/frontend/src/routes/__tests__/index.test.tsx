@@ -13,6 +13,23 @@ vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).ro
 import { OverviewView } from '@/pages'
 import { sumFactoredBalance } from '@/lib/accountDisplayGroups'
 import { buildUser } from './-settingsUserTestHelpers'
+import {
+  ACCOUNT_NAME_BROKER,
+  ACCOUNT_NAME_CHECKING,
+  ACCOUNT_NAME_DAY,
+  ACCOUNT_NAME_GIRO,
+  AMOUNT_L,
+  AMOUNT_M,
+  AMOUNT_S,
+  AMOUNT_XL,
+  DATE_FAR_FUTURE,
+  DATE_LONG_OVERDUE,
+  GROUP_NAME_SAVINGS,
+  TEST_BALANCE,
+  TEST_IBAN,
+  TEST_IBAN_FORMATTED,
+  money,
+} from '@/test/constants'
 
 function buildCredential(): UserRead['credentials'][number] {
   return {
@@ -23,9 +40,9 @@ function buildCredential(): UserRead['credentials'][number] {
     accounts: [
       {
         id: 8,
-        name: 'DE12345678900001',
+        name: TEST_IBAN,
         display_name: null,
-        balance: 10,
+        balance: AMOUNT_S,
         balance_factor: 100,
         is_hidden: false,
         include_by_default: true,
@@ -87,13 +104,13 @@ describe('OverviewView', () => {
   })
 
   it('renders the total balance formatted as EUR (de-DE locale)', () => {
-    render_(buildUser({ balance: 1234.5, credentials: [buildCredential()] }))
-    expect(screen.getByText('1.234,50 €')).toBeInTheDocument()
+    render_(buildUser({ balance: TEST_BALANCE, credentials: [buildCredential()] }))
+    expect(screen.getByText(money(TEST_BALANCE))).toBeInTheDocument()
   })
 
   it('hides the balance and the account-only actions until a bank is connected', () => {
     render_(buildUser({ balance: 0 }))
-    expect(screen.queryByText('0,00 €')).not.toBeInTheDocument()
+    expect(screen.queryByText(money(0))).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Sync all accounts' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Statistics' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument()
@@ -123,7 +140,7 @@ describe('OverviewView', () => {
           accounts: [
             {
               id: 5,
-              name: 'Girokonto',
+              name: ACCOUNT_NAME_GIRO,
               display_name: null,
               balance: 0,
               balance_factor: 100,
@@ -133,7 +150,7 @@ describe('OverviewView', () => {
             },
             {
               id: 7,
-              name: 'Tagesgeld',
+              name: ACCOUNT_NAME_DAY,
               display_name: null,
               balance: 0,
               balance_factor: 100,
@@ -171,9 +188,9 @@ describe('OverviewView', () => {
           accounts: [
             {
               id: 1,
-              name: 'TR Cash',
+              name: ACCOUNT_NAME_BROKER,
               display_name: null,
-              balance: 50,
+              balance: AMOUNT_M,
               balance_factor: 100,
               is_hidden: false,
               include_by_default: true,
@@ -192,9 +209,9 @@ describe('OverviewView', () => {
           accounts: [
             {
               id: 2,
-              name: 'Tagesgeld',
+              name: ACCOUNT_NAME_DAY,
               display_name: null,
-              balance: 1000,
+              balance: AMOUNT_XL,
               balance_factor: 100,
               is_hidden: false,
               include_by_default: true,
@@ -202,9 +219,9 @@ describe('OverviewView', () => {
             },
             {
               id: 3,
-              name: 'Girokonto',
+              name: ACCOUNT_NAME_GIRO,
               display_name: null,
-              balance: -200,
+              balance: -AMOUNT_L,
               balance_factor: 100,
               is_hidden: false,
               include_by_default: true,
@@ -225,9 +242,9 @@ describe('OverviewView', () => {
     // ing rows come first (banks alphabetical: ing < trade_republic);
     // within ing, Girokonto < Tagesgeld.
     expect(accountLinks.map((link) => link.textContent)).toEqual([
-      expect.stringContaining('Girokonto'),
-      expect.stringContaining('Tagesgeld'),
-      expect.stringContaining('TR Cash'),
+      expect.stringContaining(ACCOUNT_NAME_GIRO),
+      expect.stringContaining(ACCOUNT_NAME_DAY),
+      expect.stringContaining(ACCOUNT_NAME_BROKER),
     ])
     expect(accountLinks.map((link) => link.getAttribute('href'))).toEqual([
       '/account/3',
@@ -247,9 +264,9 @@ describe('OverviewView', () => {
           accounts: [
             {
               id: 8,
-              name: 'DE12345678900001',
-              display_name: 'Gehaltskonto',
-              balance: 100,
+              name: TEST_IBAN,
+              display_name: ACCOUNT_NAME_CHECKING,
+              balance: AMOUNT_L,
               balance_factor: 100,
               is_hidden: false,
               include_by_default: true,
@@ -264,15 +281,15 @@ describe('OverviewView', () => {
     })
     render_(user)
     // The personalised name shows up.
-    expect(screen.getByText('Gehaltskonto')).toBeInTheDocument()
-    // The IBAN does NOT — the overview is supposed to be just the personalised name.
-    expect(screen.queryByText('DE12 3456 7890 0001')).not.toBeInTheDocument()
+    expect(screen.getByText(ACCOUNT_NAME_CHECKING)).toBeInTheDocument()
+    // The IBAN does NOT (the overview is supposed to be just the personalised name)
+    expect(screen.queryByText(TEST_IBAN_FORMATTED)).not.toBeInTheDocument()
   })
 
   it('renders custom group headings when the user has defined account groups', async () => {
     mockApi({
       layout: {
-        groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }] }],
+        groups: [{ id: 100, name: GROUP_NAME_SAVINGS, accounts: [{ id: 8 }] }],
         ungrouped: [],
       },
     })
@@ -287,9 +304,9 @@ describe('OverviewView', () => {
           accounts: [
             {
               id: 8,
-              name: 'DE12345678900001',
-              display_name: 'Gehaltskonto',
-              balance: 100,
+              name: TEST_IBAN,
+              display_name: ACCOUNT_NAME_CHECKING,
+              balance: AMOUNT_L,
               balance_factor: 100,
               is_hidden: false,
               include_by_default: true,
@@ -304,14 +321,17 @@ describe('OverviewView', () => {
     })
     render_(user)
 
-    const heading = await screen.findByRole('heading', { level: 2, name: /Spar/ })
+    const heading = await screen.findByRole('heading', {
+      level: 2,
+      name: new RegExp(GROUP_NAME_SAVINGS),
+    })
     expect(heading).toBeInTheDocument()
   })
 
   it('shows a factored total next to each custom group heading', async () => {
     mockApi({
       layout: {
-        groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }, { id: 9 }] }],
+        groups: [{ id: 100, name: GROUP_NAME_SAVINGS, accounts: [{ id: 8 }, { id: 9 }] }],
         ungrouped: [{ id: 10 }],
       },
     })
@@ -366,20 +386,23 @@ describe('OverviewView', () => {
     })
     render_(user)
 
-    const sparHeading = await screen.findByRole('heading', { level: 2, name: /Spar/ })
-    expect(sparHeading).toHaveTextContent('200,00 €')
+    const sparHeading = await screen.findByRole('heading', {
+      level: 2,
+      name: new RegExp(GROUP_NAME_SAVINGS),
+    })
+    expect(sparHeading).toHaveTextContent(money(200))
 
     const ungroupedHeading = await screen.findByRole('heading', { level: 2, name: /Without group/ })
     const spans = ungroupedHeading.querySelectorAll('span')
     const total = spans[spans.length - 1]
-    expect(total).toHaveTextContent('-50,00 €')
+    expect(total).toHaveTextContent(money(-AMOUNT_M))
     expect(total?.className).toMatch(/text-destructive/)
   })
 
   it('renders the "without group" heading when the layout has ungrouped accounts', async () => {
     mockApi({
       layout: {
-        groups: [{ id: 100, name: 'Spar', accounts: [] }],
+        groups: [{ id: 100, name: GROUP_NAME_SAVINGS, accounts: [] }],
         ungrouped: [{ id: 8 }],
       },
     })
@@ -394,9 +417,9 @@ describe('OverviewView', () => {
           accounts: [
             {
               id: 8,
-              name: 'DE12345678900001',
-              display_name: 'Gehaltskonto',
-              balance: 100,
+              name: TEST_IBAN,
+              display_name: ACCOUNT_NAME_CHECKING,
+              balance: AMOUNT_L,
               balance_factor: 100,
               is_hidden: false,
               include_by_default: true,
@@ -419,7 +442,7 @@ describe('OverviewView', () => {
   it('omits hidden accounts from the list and from group totals', async () => {
     mockApi({
       layout: {
-        groups: [{ id: 1, name: 'Spar', accounts: [{ id: 11 }, { id: 12 }] }],
+        groups: [{ id: 1, name: GROUP_NAME_SAVINGS, accounts: [{ id: 11 }, { id: 12 }] }],
         ungrouped: [],
       },
     })
@@ -436,7 +459,7 @@ describe('OverviewView', () => {
               id: 11,
               name: 'Visible',
               display_name: null,
-              balance: 100,
+              balance: AMOUNT_L,
               balance_factor: 100,
               is_hidden: false,
               include_by_default: true,
@@ -461,9 +484,12 @@ describe('OverviewView', () => {
     })
     render_(user)
 
-    const heading = await screen.findByRole('heading', { level: 2, name: /Spar/ })
+    const heading = await screen.findByRole('heading', {
+      level: 2,
+      name: new RegExp(GROUP_NAME_SAVINGS),
+    })
     // Group total = 100 only (hidden 9999 doesn't count).
-    expect(heading.parentElement).toHaveTextContent('100,00 €')
+    expect(heading.parentElement).toHaveTextContent(money(AMOUNT_L))
     expect(screen.getByText('Visible')).toBeInTheDocument()
     // The hidden account's IBAN-formatted name must not surface anywhere.
     expect(screen.queryByText('HiddenSub')).not.toBeInTheDocument()
@@ -483,7 +509,7 @@ describe('OverviewView', () => {
   function buildGroupedUser() {
     mockApi({
       layout: {
-        groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }] }],
+        groups: [{ id: 100, name: GROUP_NAME_SAVINGS, accounts: [{ id: 8 }] }],
         ungrouped: [],
       },
     })
@@ -498,9 +524,9 @@ describe('OverviewView', () => {
           accounts: [
             {
               id: 8,
-              name: 'Gehaltskonto',
-              display_name: 'Gehaltskonto',
-              balance: 100,
+              name: ACCOUNT_NAME_CHECKING,
+              display_name: ACCOUNT_NAME_CHECKING,
+              balance: AMOUNT_L,
               balance_factor: 100,
               is_hidden: false,
               include_by_default: true,
@@ -517,17 +543,17 @@ describe('OverviewView', () => {
 
   it('collapses a group when its heading is clicked, hiding the accounts', async () => {
     render_(buildGroupedUser())
-    const trigger = await screen.findByRole('button', { name: /Spar/ })
-    expect(screen.getByText('Gehaltskonto')).toBeInTheDocument()
+    const trigger = await screen.findByRole('button', { name: new RegExp(GROUP_NAME_SAVINGS) })
+    expect(screen.getByText(ACCOUNT_NAME_CHECKING)).toBeInTheDocument()
 
     await userEvent.click(trigger)
 
-    await waitFor(() => expect(screen.queryByText('Gehaltskonto')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText(ACCOUNT_NAME_CHECKING)).not.toBeInTheDocument())
   })
 
   it('flips aria-expanded on the group trigger when toggled', async () => {
     render_(buildGroupedUser())
-    const trigger = await screen.findByRole('button', { name: /Spar/ })
+    const trigger = await screen.findByRole('button', { name: new RegExp(GROUP_NAME_SAVINGS) })
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
 
     await userEvent.click(trigger)
@@ -536,12 +562,12 @@ describe('OverviewView', () => {
 
   it('keeps the group total visible while collapsed', async () => {
     render_(buildGroupedUser())
-    const trigger = await screen.findByRole('button', { name: /Spar/ })
+    const trigger = await screen.findByRole('button', { name: new RegExp(GROUP_NAME_SAVINGS) })
 
     await userEvent.click(trigger)
 
-    await waitFor(() => expect(screen.queryByText('Gehaltskonto')).not.toBeInTheDocument())
-    expect(trigger).toHaveTextContent('100,00 €')
+    await waitFor(() => expect(screen.queryByText(ACCOUNT_NAME_CHECKING)).not.toBeInTheDocument())
+    expect(trigger).toHaveTextContent(money(AMOUNT_L))
   })
 
   it('does not render a collapse trigger for the legacy by-bank layout', () => {
@@ -555,9 +581,9 @@ describe('OverviewView', () => {
           accounts: [
             {
               id: 2,
-              name: 'Girokonto',
+              name: ACCOUNT_NAME_GIRO,
               display_name: null,
-              balance: 100,
+              balance: AMOUNT_L,
               balance_factor: 100,
               is_hidden: false,
               include_by_default: true,
@@ -571,7 +597,7 @@ describe('OverviewView', () => {
       ],
     })
     render_(user)
-    expect(screen.getByText('Girokonto')).toBeInTheDocument()
+    expect(screen.getByText(ACCOUNT_NAME_GIRO)).toBeInTheDocument()
     expect(document.querySelector('[aria-expanded]')).toBeNull()
   })
 
@@ -602,7 +628,7 @@ describe('OverviewView', () => {
       ],
     })
     render_(user)
-    const amount = screen.getByText('-150,50 €')
+    const amount = screen.getByText(money(-150.5))
     expect(amount.className).toMatch(/text-destructive/)
   })
 
@@ -745,7 +771,7 @@ describe('OverviewView hero extras', () => {
 
     const trend = await screen.findByRole('link', { name: /past month/ })
     expect(trend).toHaveAttribute('href', '/stats')
-    expect(trend).toHaveTextContent('+200,00 €')
+    expect(trend).toHaveTextContent(`+${money(200)}`)
     expect(trend).toHaveTextContent('20,0 %')
   })
 
@@ -754,7 +780,7 @@ describe('OverviewView hero extras', () => {
     render_(buildUser({ balance: 400, credentials: [buildCredential()] }))
 
     const trend = await screen.findByRole('link', { name: /past month/ })
-    expect(trend).toHaveTextContent('-600,00 €')
+    expect(trend).toHaveTextContent(money(-600))
     expect(trend.querySelector('span')?.className).toMatch(/text-destructive/)
   })
 
@@ -778,7 +804,7 @@ describe('OverviewView hero extras', () => {
     })
     render_(
       buildUser({
-        balance: 10,
+        balance: AMOUNT_S,
         credentials: [credential(1, 8, fresh), credential(2, 9, stale)],
       }),
     )
@@ -790,7 +816,7 @@ describe('OverviewView hero extras', () => {
     const fresh = new Date(Date.now() - 60 * 1000).toISOString()
     render_(
       buildUser({
-        balance: 10,
+        balance: AMOUNT_S,
         credentials: [{ ...buildCredential(), last_fetching_timestamp: fresh }],
       }),
     )
@@ -802,7 +828,7 @@ describe('OverviewView hero extras', () => {
     const fresh = new Date(Date.now() - 60 * 1000).toISOString()
     render_(
       buildUser({
-        balance: 10,
+        balance: AMOUNT_S,
         credentials: [
           { ...buildCredential(), id: 1, last_fetching_timestamp: fresh },
           {
@@ -830,7 +856,7 @@ describe('OverviewView upcoming contracts', () => {
       source: 'DETECTED',
       median_amount: -12.99,
       frequency: 'MONTHLY',
-      expected_next_date: '2099-01-15',
+      expected_next_date: DATE_FAR_FUTURE,
       end_date: null,
       is_archived: false,
       is_overdue: false,
@@ -847,10 +873,10 @@ describe('OverviewView upcoming contracts', () => {
         contract({ id: 2, name: 'Netflix', expected_next_date: '2099-01-02' }),
         contract({ id: 3, name: 'Gym', expected_next_date: '2099-01-03' }),
         contract({ id: 4, name: 'Newspaper', expected_next_date: '2099-01-05' }),
-        contract({ id: 5, name: 'Rent', expected_next_date: '2020-01-01', is_overdue: true }),
+        contract({ id: 5, name: 'Rent', expected_next_date: DATE_LONG_OVERDUE, is_overdue: true }),
       ],
     })
-    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
 
     await screen.findByText('Rent')
     const names = screen
@@ -864,7 +890,7 @@ describe('OverviewView upcoming contracts', () => {
 
   it('ignores contracts of accounts that are not on the overview', async () => {
     mockApi({ contracts: [contract({ account_id: 999 })] })
-    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
 
     await waitFor(() => expect(screen.queryByText('Due soon')).not.toBeInTheDocument())
   })
@@ -880,7 +906,7 @@ describe('OverviewView overdue badge', () => {
     source: 'DETECTED',
     median_amount: -800,
     frequency: 'MONTHLY',
-    expected_next_date: '2020-01-01',
+    expected_next_date: DATE_LONG_OVERDUE,
     end_date: null,
     is_archived: false,
     is_overdue: true,
@@ -890,14 +916,14 @@ describe('OverviewView overdue badge', () => {
 
   it('counts overdue contracts into the contracts icon label', async () => {
     mockApi({ contracts: [overdue, { ...overdue, id: 2, name: 'Gym' }] })
-    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
 
     expect(await screen.findByRole('link', { name: 'Contracts – 2 overdue' })).toBeInTheDocument()
   })
 
   it('leaves the plain label when nothing is overdue', async () => {
-    mockApi({ contracts: [{ ...overdue, is_overdue: false, expected_next_date: '2099-01-15' }] })
-    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+    mockApi({ contracts: [{ ...overdue, is_overdue: false, expected_next_date: DATE_FAR_FUTURE }] })
+    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
 
     await screen.findByRole('link', { name: 'Contracts' })
     expect(screen.queryByRole('link', { name: /overdue/ })).not.toBeInTheDocument()
@@ -905,7 +931,7 @@ describe('OverviewView overdue badge', () => {
 
   it('ignores contracts of accounts that are not on the overview', async () => {
     mockApi({ contracts: [{ ...overdue, account_id: 999 }] })
-    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
 
     await screen.findByRole('link', { name: 'Contracts' })
   })
@@ -917,14 +943,14 @@ describe('OverviewView privacy mode', () => {
   })
 
   it('blurs the amounts, remembers the choice and flips the label back', async () => {
-    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
 
     expect(document.documentElement).not.toHaveAttribute('data-privacy')
     await userEvent.click(screen.getByRole('button', { name: 'Hide amounts' }))
 
     expect(document.documentElement).toHaveAttribute('data-privacy', 'on')
     expect(window.localStorage.getItem('privacyMode')).toBe('on')
-    for (const amount of screen.getAllByText('10,00 €')) {
+    for (const amount of screen.getAllByText(money(AMOUNT_S))) {
       expect(amount.closest('.private-amount')).not.toBeNull()
     }
 
@@ -935,7 +961,7 @@ describe('OverviewView privacy mode', () => {
 
   it('starts hidden when the last session left it that way', () => {
     window.localStorage.setItem('privacyMode', 'on')
-    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
 
     expect(document.documentElement).toHaveAttribute('data-privacy', 'on')
     expect(screen.getByRole('button', { name: 'Show amounts' })).toBeInTheDocument()
@@ -959,7 +985,7 @@ describe('OverviewView sync progress', () => {
     return render(
       <QueryClientProvider client={queryClient}>
         <OverviewView
-          user={buildUser({ balance: 10, credentials: [buildCredential()] })}
+          user={buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] })}
           onSyncClick={() => {}}
           syncDisabled={false}
           syncSpinning={true}
@@ -987,11 +1013,14 @@ describe('OverviewView sync progress', () => {
 
   it('keeps a spinner on the group header of a collapsed group', async () => {
     mockApi({
-      layout: { groups: [{ id: 100, name: 'Spar', accounts: [{ id: 8 }] }], ungrouped: [] },
+      layout: {
+        groups: [{ id: 100, name: GROUP_NAME_SAVINGS, accounts: [{ id: 8 }] }],
+        ungrouped: [],
+      },
     })
     renderWithJobs(new Map([[1, job(1, 'running')]]))
 
-    const trigger = await screen.findByRole('button', { name: /Spar/ })
+    const trigger = await screen.findByRole('button', { name: new RegExp(GROUP_NAME_SAVINGS) })
     await userEvent.click(trigger)
 
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
@@ -1009,7 +1038,7 @@ describe('OverviewView upcoming contracts visibility', () => {
     source: 'DETECTED',
     median_amount: -12.99,
     frequency: 'MONTHLY',
-    expected_next_date: '2099-01-15',
+    expected_next_date: DATE_FAR_FUTURE,
     end_date: null,
     is_archived: false,
     is_overdue: false,
@@ -1020,14 +1049,18 @@ describe('OverviewView upcoming contracts visibility', () => {
   it('hides the section when the user switched it off', async () => {
     mockApi({ contracts: [contract] })
     render_(
-      buildUser({ balance: 10, credentials: [buildCredential()], show_upcoming_contracts: false }),
+      buildUser({
+        balance: AMOUNT_S,
+        credentials: [buildCredential()],
+        show_upcoming_contracts: false,
+      }),
     )
     await waitFor(() => expect(screen.queryByText('Netflix')).not.toBeInTheDocument())
   })
 
   it('collapses the section and remembers it, like an account group', async () => {
     mockApi({ contracts: [contract] })
-    render_(buildUser({ balance: 10, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
 
     const trigger = await screen.findByRole('button', { name: /Due soon/ })
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
@@ -1042,7 +1075,7 @@ describe('OverviewView upcoming contracts visibility', () => {
     // Collapsed, the header carries the most urgent payment instead of the link.
     expect(screen.queryByRole('link', { name: 'View all' })).not.toBeInTheDocument()
     expect(trigger).toHaveTextContent('Netflix')
-    expect(trigger).toHaveTextContent('-12,99 €')
+    expect(trigger).toHaveTextContent(money(-12.99))
     expect(window.localStorage.getItem('collapsedGroups')).toContain('upcomingContracts')
   })
 })

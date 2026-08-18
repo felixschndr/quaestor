@@ -24,7 +24,7 @@ from source.backend.helpers import (
 )
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_type import TransactionType
-from tests.backend.conftest import RECENT_DATE, create_fetched_transaction
+from tests.backend.conftest import DEFAULT_AMOUNT, RECENT_DATE, create_fetched_transaction
 
 
 @pytest.mark.parametrize(
@@ -175,7 +175,7 @@ def test_get_content_of_pyproject_toml_is_cached():
 
 def test_format_transaction_for_categorization_renders_identifying_fields():
     fetched_transaction = FetchedTransaction(
-        amount=-19.99,
+        amount=-DEFAULT_AMOUNT,
         purpose="Coffee",
         other_party="Café",
         date=RECENT_DATE,

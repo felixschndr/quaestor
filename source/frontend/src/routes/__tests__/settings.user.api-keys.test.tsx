@@ -17,13 +17,14 @@ vi.mock('@/lib/clipboard', async (importOriginal) => ({
 import { SettingsApiKeysView } from '@/pages/settings.user.api-keys'
 import type { ApiKeyRead } from '@/lib/apiKeys'
 import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { DATETIME_CREATED_NEWER, DATETIME_RECENT } from '@/test/constants'
 
 function buildKey(overrides: Partial<ApiKeyRead> = {}): ApiKeyRead {
   return {
     id: 1,
     name: 'My script',
     prefix: 'qk_abcdef',
-    created_at: '2026-05-20T10:00:00Z',
+    created_at: DATETIME_RECENT,
     last_used_at: null,
     ...overrides,
   }
@@ -51,7 +52,7 @@ describe('SettingsApiKeysView', () => {
               buildKey({
                 id: 2,
                 name: 'Newer key',
-                created_at: '2026-05-21T10:00:00Z',
+                created_at: DATETIME_CREATED_NEWER,
                 last_used_at: '2026-05-26T09:00:00Z',
               }),
             ],
@@ -105,7 +106,7 @@ describe('SettingsApiKeysView', () => {
               id: 5,
               name: 'CI key',
               prefix: 'qk_secret',
-              created_at: '2026-05-21T10:00:00Z',
+              created_at: DATETIME_CREATED_NEWER,
               last_used_at: null,
               token: 'qk_secret-raw-token-value',
             },

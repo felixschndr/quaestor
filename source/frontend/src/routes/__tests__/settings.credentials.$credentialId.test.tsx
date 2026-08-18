@@ -14,13 +14,23 @@ vi.mock('@tanstack/react-router', async () =>
 import { CredentialDetailView } from '@/pages/settings.credentials.$credentialId'
 import type { AccountRead, CredentialRead } from '@/lib/auth'
 import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import {
+  ACCOUNT_NAME_CHECKING,
+  ACCOUNT_NAME_GIRO,
+  ACCOUNT_NAME_SAVINGS,
+  AMOUNT_XL,
+  DATETIME_RECENT,
+  LABEL_SAVINGS,
+  TEST_IBAN,
+  TEST_IBAN_FORMATTED,
+} from '@/test/constants'
 
 function buildAccount(overrides: Partial<AccountRead> = {}): AccountRead {
   return {
     id: 1,
-    name: 'DE12 3456 7890 0001',
+    name: TEST_IBAN_FORMATTED,
     display_name: null,
-    balance: 1000,
+    balance: AMOUNT_XL,
     balance_factor: 100,
     is_hidden: false,
     include_by_default: true,
@@ -68,7 +78,7 @@ describe('CredentialDetailView', () => {
         credential={buildCredential({
           bank: 'trade_republic',
           bank_icon: '/static/banks/trade-republic.png',
-          last_fetching_timestamp: '2026-05-20T10:00:00Z',
+          last_fetching_timestamp: DATETIME_RECENT,
         })}
         onDeleted={vi.fn()}
       />,
@@ -103,15 +113,15 @@ describe('CredentialDetailView', () => {
       <CredentialDetailView
         credential={buildCredential({
           accounts: [
-            buildAccount({ id: 1, name: 'Girokonto', balance_factor: 100 }),
-            buildAccount({ id: 2, name: 'Sparbuch', balance_factor: 50 }),
+            buildAccount({ id: 1, name: ACCOUNT_NAME_GIRO, balance_factor: 100 }),
+            buildAccount({ id: 2, name: LABEL_SAVINGS, balance_factor: 50 }),
           ],
         })}
         onDeleted={vi.fn()}
       />,
     )
-    expect(screen.getByText('Girokonto')).toBeInTheDocument()
-    expect(screen.getByText('Sparbuch')).toBeInTheDocument()
+    expect(screen.getByText(ACCOUNT_NAME_GIRO)).toBeInTheDocument()
+    expect(screen.getByText(LABEL_SAVINGS)).toBeInTheDocument()
     const inputs = screen.getAllByLabelText('Balance factor') as HTMLInputElement[]
     expect(inputs.map((input) => input.value)).toEqual(['100', '50'])
   })
@@ -126,9 +136,9 @@ describe('CredentialDetailView', () => {
             status: 200,
             body: {
               id: 1,
-              name: 'Girokonto',
+              name: ACCOUNT_NAME_GIRO,
               display_name: null,
-              balance: 1000,
+              balance: AMOUNT_XL,
               balance_factor: 60,
             },
           }),
@@ -140,7 +150,7 @@ describe('CredentialDetailView', () => {
     renderWithQuery(
       <CredentialDetailView
         credential={buildCredential({
-          accounts: [buildAccount({ id: 1, name: 'Girokonto', balance_factor: 100 })],
+          accounts: [buildAccount({ id: 1, name: ACCOUNT_NAME_GIRO, balance_factor: 100 })],
         })}
         onDeleted={vi.fn()}
       />,
@@ -240,12 +250,12 @@ describe('CredentialDetailView', () => {
     renderWithQuery(
       <CredentialDetailView
         credential={buildCredential({
-          accounts: [buildAccount({ id: 1, display_name: 'Gehaltskonto' })],
+          accounts: [buildAccount({ id: 1, display_name: ACCOUNT_NAME_CHECKING })],
         })}
         onDeleted={vi.fn()}
       />,
     )
-    expect(screen.getByLabelText('Personalised name')).toHaveValue('Gehaltskonto')
+    expect(screen.getByLabelText('Personalised name')).toHaveValue(ACCOUNT_NAME_CHECKING)
   })
 
   it('shows the personalised name as the card title with the IBAN as subtitle', () => {
@@ -255,16 +265,16 @@ describe('CredentialDetailView', () => {
           accounts: [
             buildAccount({
               id: 1,
-              name: 'DE12345678900001',
-              display_name: 'Gehaltskonto',
+              name: TEST_IBAN,
+              display_name: ACCOUNT_NAME_CHECKING,
             }),
           ],
         })}
         onDeleted={vi.fn()}
       />,
     )
-    expect(screen.getByText('Gehaltskonto')).toBeInTheDocument()
-    expect(screen.getByText('DE12 3456 7890 0001')).toBeInTheDocument()
+    expect(screen.getByText(ACCOUNT_NAME_CHECKING)).toBeInTheDocument()
+    expect(screen.getByText(TEST_IBAN_FORMATTED)).toBeInTheDocument()
   })
 
   it('auto-PATCHes display_name when only the personalised name changes', async () => {
@@ -286,7 +296,7 @@ describe('CredentialDetailView', () => {
       />,
     )
 
-    await user.type(screen.getByLabelText('Personalised name'), 'Sparkonto')
+    await user.type(screen.getByLabelText('Personalised name'), ACCOUNT_NAME_SAVINGS)
 
     await waitFor(
       () => {
@@ -296,7 +306,7 @@ describe('CredentialDetailView', () => {
         expect(call).toBeDefined()
         // balance_factor not in the payload — sending it would touch a value the
         // user didn't intend to change.
-        expect(JSON.parse(call![1].body)).toEqual({ display_name: 'Sparkonto' })
+        expect(JSON.parse(call![1].body)).toEqual({ display_name: ACCOUNT_NAME_SAVINGS })
       },
       { timeout: 2000 },
     )
@@ -315,7 +325,7 @@ describe('CredentialDetailView', () => {
     renderWithQuery(
       <CredentialDetailView
         credential={buildCredential({
-          accounts: [buildAccount({ id: 1, display_name: 'Gehaltskonto' })],
+          accounts: [buildAccount({ id: 1, display_name: ACCOUNT_NAME_CHECKING })],
         })}
         onDeleted={vi.fn()}
       />,
@@ -354,7 +364,7 @@ describe('CredentialDetailView', () => {
       />,
     )
 
-    await user.type(screen.getByLabelText('Personalised name'), 'Sparkonto')
+    await user.type(screen.getByLabelText('Personalised name'), ACCOUNT_NAME_SAVINGS)
     const factorInput = screen.getByLabelText('Balance factor')
     await user.clear(factorInput)
     await user.type(factorInput, '50')
@@ -368,7 +378,7 @@ describe('CredentialDetailView', () => {
         expect(patchCalls).toHaveLength(1)
         expect(JSON.parse(patchCalls[0]![1].body)).toEqual({
           balance_factor: 50,
-          display_name: 'Sparkonto',
+          display_name: ACCOUNT_NAME_SAVINGS,
         })
       },
       { timeout: 2000 },

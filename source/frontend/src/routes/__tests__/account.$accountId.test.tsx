@@ -19,6 +19,25 @@ vi.mock('@/lib/expectedTransaction', async (importActual) => ({
 
 import { AccountDetailView } from '@/pages/account.$accountId'
 import type { ExpectedTransactionRead } from '@/lib/expectedTransaction'
+import {
+  ACCOUNT_NAME_CHECKING,
+  AMOUNT_L,
+  AMOUNT_M,
+  AMOUNT_S,
+  AMOUNT_XL,
+  DATETIME_UPDATED,
+  DATE_OLDER,
+  DATE_RECENT,
+  DATE_TODAY,
+  DATE_YESTERDAY,
+  LABEL_RENT,
+  PARTY_SUPERMARKET,
+  TEST_BALANCE,
+  TEST_IBAN,
+  TEST_IBAN_FORMATTED,
+  TODAY,
+  money,
+} from '@/test/constants'
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn()
@@ -45,9 +64,9 @@ beforeEach(() => {
 
 const account: AccountRead = {
   id: 42,
-  name: 'Girokonto',
+  name: ACCOUNT_NAME_CHECKING,
   display_name: null,
-  balance: 1234.5,
+  balance: TEST_BALANCE,
   balance_factor: 100,
   is_hidden: false,
   include_by_default: true,
@@ -60,7 +79,7 @@ function buildTransaction(overrides: Partial<TransactionRead> = {}): Transaction
     account_id: 42,
     amount: 0,
     purpose: null,
-    date: '2026-05-22',
+    date: DATE_TODAY,
     other_party: null,
     transaction_type: null,
     category: 'UNKNOWN',
@@ -70,9 +89,6 @@ function buildTransaction(overrides: Partial<TransactionRead> = {}): Transaction
 }
 
 function withClient(ui: React.ReactNode) {
-  // BalanceDisplay calls useUpdateAccount even before edit mode is entered, so
-  // the tests need a real QueryClient in scope. retry:false keeps failures
-  // from being masked by react-query's default retry behavior.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
 }
@@ -101,7 +117,7 @@ function renderView(
         isFetchingNextPage={false}
         hasNextPage={opts.hasNextPage ?? false}
         onLoadMore={onLoadMore}
-        today={new Date(2026, 4, 22)}
+        today={TODAY}
         focusTransactionId={opts.focusTransactionId}
       />,
     ),
@@ -112,8 +128,8 @@ function renderView(
 describe('AccountDetailView', () => {
   it('renders the account name and current balance', () => {
     renderView([])
-    expect(screen.getAllByText('Girokonto')).toHaveLength(2)
-    expect(screen.getByText('1.234,50 €')).toBeInTheDocument()
+    expect(screen.getAllByText(ACCOUNT_NAME_CHECKING)).toHaveLength(2)
+    expect(screen.getByText(money(TEST_BALANCE))).toBeInTheDocument()
   })
 
   it('renders a negative balance in the destructive color', () => {
@@ -125,33 +141,33 @@ describe('AccountDetailView', () => {
           isFetchingNextPage={false}
           hasNextPage={false}
           onLoadMore={vi.fn()}
-          today={new Date(2026, 4, 22)}
+          today={TODAY}
         />,
       ),
     )
-    const amount = screen.getByText('-200,00 €')
+    const amount = screen.getByText(money(-200))
     expect(amount.className).toMatch(/text-destructive/)
   })
 
   it('renders the balance exactly once', () => {
     renderView([])
-    expect(screen.getAllByText('1.234,50 €')).toHaveLength(1)
+    expect(screen.getAllByText(money(TEST_BALANCE))).toHaveLength(1)
   })
 
   it('offers the privacy toggle, hiding the balances but not the transactions', async () => {
     renderView([
       buildPage({
         total_days: 1,
-        transactions: [buildTransaction({ id: 1, date: '2026-05-22', amount: -12.5 })],
-        balance_at_date: { '2026-05-22': 500 },
+        transactions: [buildTransaction({ id: 1, date: DATE_TODAY, amount: -AMOUNT_S })],
+        balance_at_date: { [DATE_TODAY]: 500 },
       }),
     ])
 
     await userEvent.click(screen.getByRole('button', { name: 'Hide amounts' }))
     expect(document.documentElement).toHaveAttribute('data-privacy', 'on')
-    expect(screen.getByText('1.234,50 €').className).toMatch(/private-amount/)
-    expect(screen.getByText('500,00 €').className).toMatch(/private-amount/)
-    expect(screen.getByText('-12,50 €').className).not.toMatch(/private-amount/)
+    expect(screen.getByText(money(TEST_BALANCE)).className).toMatch(/private-amount/)
+    expect(screen.getByText(money(500)).className).toMatch(/private-amount/)
+    expect(screen.getByText(money(-AMOUNT_S)).className).not.toMatch(/private-amount/)
 
     await userEvent.click(screen.getByRole('button', { name: 'Show amounts' }))
     expect(document.documentElement).not.toHaveAttribute('data-privacy')
@@ -174,7 +190,7 @@ describe('AccountDetailView', () => {
     const expectation: ExpectedTransactionRead = {
       id: 1,
       account_id: 42,
-      amount: -50,
+      amount: -AMOUNT_M,
       other_party: 'Landlord',
       note: null,
       match_tolerance_percent: 0,
@@ -190,17 +206,17 @@ describe('AccountDetailView', () => {
     render(
       withClient(
         <AccountDetailView
-          account={{ ...account, name: 'DE12345678900001', display_name: 'Gehaltskonto' }}
+          account={{ ...account, name: TEST_IBAN, display_name: ACCOUNT_NAME_CHECKING }}
           pages={[]}
           isFetchingNextPage={false}
           hasNextPage={false}
           onLoadMore={vi.fn()}
-          today={new Date(2026, 4, 22)}
+          today={TODAY}
         />,
       ),
     )
-    expect(screen.getByText('Gehaltskonto')).toBeInTheDocument()
-    expect(screen.getByText('DE12 3456 7890 0001')).toBeInTheDocument()
+    expect(screen.getByText(ACCOUNT_NAME_CHECKING)).toBeInTheDocument()
+    expect(screen.getByText(TEST_IBAN_FORMATTED)).toBeInTheDocument()
   })
 
   it('shows the last-updated time beside the IBAN when a timestamp is given', () => {
@@ -208,12 +224,12 @@ describe('AccountDetailView', () => {
       withClient(
         <AccountDetailView
           account={account}
-          lastUpdated="2026-06-15T08:30:00Z"
+          lastUpdated={DATETIME_UPDATED}
           pages={[]}
           isFetchingNextPage={false}
           hasNextPage={false}
           onLoadMore={vi.fn()}
-          today={new Date(2026, 4, 22)}
+          today={TODAY}
         />,
       ),
     )
@@ -229,16 +245,16 @@ describe('AccountDetailView', () => {
     render(
       withClient(
         <AccountDetailView
-          account={{ ...account, name: 'DE12345678900001', display_name: null }}
+          account={{ ...account, name: TEST_IBAN, display_name: null }}
           pages={[]}
           isFetchingNextPage={false}
           hasNextPage={false}
           onLoadMore={vi.fn()}
-          today={new Date(2026, 4, 22)}
+          today={TODAY}
         />,
       ),
     )
-    expect(screen.getAllByText('DE12 3456 7890 0001')).toHaveLength(2)
+    expect(screen.getAllByText(TEST_IBAN_FORMATTED)).toHaveLength(2)
   })
 
   it('copies the compact IBAN to the clipboard via the copy button', async () => {
@@ -251,17 +267,17 @@ describe('AccountDetailView', () => {
     render(
       withClient(
         <AccountDetailView
-          account={{ ...account, name: 'DE12345678900001', display_name: null }}
+          account={{ ...account, name: TEST_IBAN, display_name: null }}
           pages={[]}
           isFetchingNextPage={false}
           hasNextPage={false}
           onLoadMore={vi.fn()}
-          today={new Date(2026, 4, 22)}
+          today={TODAY}
         />,
       ),
     )
     await user.click(screen.getByRole('button', { name: 'Copy IBAN' }))
-    expect(writeText).toHaveBeenCalledWith('DE12345678900001')
+    expect(writeText).toHaveBeenCalledWith(TEST_IBAN)
   })
 
   it('shows no copy button when the account name is not an IBAN', () => {
@@ -290,7 +306,7 @@ describe('AccountDetailView', () => {
           isFetchingNextPage={false}
           hasNextPage={false}
           onLoadMore={vi.fn()}
-          today={new Date(2026, 4, 22)}
+          today={TODAY}
         />,
       ),
     )
@@ -303,11 +319,21 @@ describe('AccountDetailView', () => {
       buildPage({
         total_days: 2,
         transactions: [
-          buildTransaction({ id: 1, date: '2026-05-22', amount: -10, other_party: 'REWE' }),
-          buildTransaction({ id: 2, date: '2026-05-22', amount: -5, other_party: 'Aldi' }),
-          buildTransaction({ id: 3, date: '2026-05-21', amount: 1500, other_party: 'Employer' }),
+          buildTransaction({
+            id: 1,
+            date: DATE_TODAY,
+            amount: -AMOUNT_S,
+            other_party: PARTY_SUPERMARKET,
+          }),
+          buildTransaction({ id: 2, date: DATE_TODAY, amount: -AMOUNT_M, other_party: 'Aldi' }),
+          buildTransaction({
+            id: 3,
+            date: DATE_YESTERDAY,
+            amount: AMOUNT_XL,
+            other_party: 'Employer',
+          }),
         ],
-        balance_at_date: { '2026-05-22': 1234.5, '2026-05-21': 1244.5 },
+        balance_at_date: { [DATE_TODAY]: TEST_BALANCE, [DATE_YESTERDAY]: 1244.5 },
       }),
     ])
 
@@ -316,9 +342,9 @@ describe('AccountDetailView', () => {
 
     // End-of-day balances appear next to their date header (and in this fixture
     // are distinct from the current-balance number above).
-    expect(screen.getByText('1.244,50 €')).toBeInTheDocument()
+    expect(screen.getByText(money(TEST_BALANCE + AMOUNT_S))).toBeInTheDocument()
 
-    expect(screen.getByText('REWE')).toBeInTheDocument()
+    expect(screen.getByText(PARTY_SUPERMARKET)).toBeInTheDocument()
     expect(screen.getByText('Aldi')).toBeInTheDocument()
     expect(screen.getByText('Employer')).toBeInTheDocument()
   })
@@ -330,20 +356,20 @@ describe('AccountDetailView', () => {
         transactions: [
           buildTransaction({
             id: 1,
-            date: '2026-05-22',
-            amount: -9,
+            date: DATE_TODAY,
+            amount: -AMOUNT_S,
             other_party: 'PayPal',
             purpose: 'Steam Games',
           }),
-          buildTransaction({ id: 2, date: '2026-05-22', amount: -8, purpose: 'Miete Mai' }),
+          buildTransaction({ id: 2, date: DATE_TODAY, amount: -AMOUNT_M, purpose: LABEL_RENT }),
         ],
-        balance_at_date: { '2026-05-22': 0 },
+        balance_at_date: { [DATE_TODAY]: 0 },
       }),
     ])
 
     expect(screen.getByText('PayPal')).toBeInTheDocument()
     expect(screen.getByText('Steam Games')).toBeInTheDocument()
-    expect(screen.getAllByText('Miete Mai')).toHaveLength(1)
+    expect(screen.getAllByText(LABEL_RENT)).toHaveLength(1)
   })
 
   it('falls back to "Unknown" when other_party is null or blank', () => {
@@ -351,10 +377,10 @@ describe('AccountDetailView', () => {
       buildPage({
         total_days: 1,
         transactions: [
-          buildTransaction({ id: 1, other_party: null, amount: -1 }),
-          buildTransaction({ id: 2, other_party: '   ', amount: -2 }),
+          buildTransaction({ id: 1, other_party: null, amount: -AMOUNT_S }),
+          buildTransaction({ id: 2, other_party: '   ', amount: -AMOUNT_M }),
         ],
-        balance_at_date: { '2026-05-22': 0 },
+        balance_at_date: { [DATE_TODAY]: 0 },
       }),
     ])
     expect(screen.getAllByText('Unknown')).toHaveLength(2)
@@ -365,14 +391,14 @@ describe('AccountDetailView', () => {
       buildPage({
         total_days: 1,
         transactions: [
-          buildTransaction({ id: 1, amount: -42, other_party: 'Supermarket' }),
-          buildTransaction({ id: 2, amount: 100, other_party: 'Refund' }),
+          buildTransaction({ id: 1, amount: -AMOUNT_M, other_party: 'Supermarket' }),
+          buildTransaction({ id: 2, amount: AMOUNT_L, other_party: 'Refund' }),
         ],
-        balance_at_date: { '2026-05-22': 0 },
+        balance_at_date: { [DATE_TODAY]: 0 },
       }),
     ])
-    expect(screen.getByText('-42,00 €').className).toMatch(/text-destructive/)
-    expect(screen.getByText('100,00 €').className).toMatch(/text-success/)
+    expect(screen.getByText(money(-AMOUNT_M)).className).toMatch(/text-destructive/)
+    expect(screen.getByText(money(AMOUNT_L)).className).toMatch(/text-success/)
   })
 
   it('links each transaction row to its detail page under the right account', () => {
@@ -380,7 +406,7 @@ describe('AccountDetailView', () => {
       buildPage({
         total_days: 1,
         transactions: [buildTransaction({ id: 7, other_party: 'X' })],
-        balance_at_date: { '2026-05-22': 0 },
+        balance_at_date: { [DATE_TODAY]: 0 },
       }),
     ])
     const row = screen.getByText('X').closest('a')
@@ -391,8 +417,8 @@ describe('AccountDetailView', () => {
     renderView([
       buildPage({
         total_days: 1,
-        transactions: [buildTransaction({ id: 1, date: '2026-05-10', other_party: 'X' })],
-        balance_at_date: { '2026-05-10': 0 },
+        transactions: [buildTransaction({ id: 1, date: DATE_OLDER, other_party: 'X' })],
+        balance_at_date: { [DATE_OLDER]: 0 },
       }),
     ])
     const heading = screen.getByRole('heading', { level: 2 })
@@ -403,11 +429,11 @@ describe('AccountDetailView', () => {
     renderView([
       buildPage({
         total_days: 1,
-        transactions: [buildTransaction({ id: 1, date: '2026-05-22', other_party: 'X' })],
+        transactions: [buildTransaction({ id: 1, date: DATE_TODAY, other_party: 'X' })],
         balance_at_date: {},
       }),
     ])
-    // Only the current-account balance (1.234,50 €) and the amount row exist;
+    // Only the current-account balance and the amount row exist;
     // nothing in the date header should expose a euro-formatted balance.
     const heading = screen.getByRole('heading', { level: 2, name: 'Today' })
     const header = heading.parentElement!
@@ -415,7 +441,7 @@ describe('AccountDetailView', () => {
   })
 
   it('scrolls to the focused transaction when it is already loaded', async () => {
-    const pages = [buildPage({ transactions: [buildTransaction({ id: 501, date: '2026-05-20' })] })]
+    const pages = [buildPage({ transactions: [buildTransaction({ id: 501, date: DATE_RECENT })] })]
     renderView(pages, { focusTransactionId: 501 })
     await waitFor(() =>
       expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
@@ -426,19 +452,19 @@ describe('AccountDetailView', () => {
   })
 
   it('loads more pages until the focused transaction appears', () => {
-    const pages = [buildPage({ transactions: [buildTransaction({ id: 999, date: '2026-05-20' })] })]
+    const pages = [buildPage({ transactions: [buildTransaction({ id: 999, date: DATE_RECENT })] })]
     const { onLoadMore } = renderView(pages, { focusTransactionId: 501, hasNextPage: true })
     expect(onLoadMore).toHaveBeenCalled()
   })
 
   it('does not scroll or load when no focus is given', () => {
-    const pages = [buildPage({ transactions: [buildTransaction({ id: 1, date: '2026-05-20' })] })]
+    const pages = [buildPage({ transactions: [buildTransaction({ id: 1, date: DATE_RECENT })] })]
     const { onLoadMore } = renderView(pages)
     expect(onLoadMore).not.toHaveBeenCalled()
   })
 
   it('highlights the focused transaction row once it is scrolled into view', async () => {
-    const pages = [buildPage({ transactions: [buildTransaction({ id: 501, date: '2026-05-20' })] })]
+    const pages = [buildPage({ transactions: [buildTransaction({ id: 501, date: DATE_RECENT })] })]
     renderView(pages, { focusTransactionId: 501 })
     await waitFor(() => {
       const row = document.getElementById('transaction-501')
@@ -449,7 +475,7 @@ describe('AccountDetailView', () => {
   it('re-scrolls to the same focus id when the navigation key changes', async () => {
     const scrollMock = Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>
     scrollMock.mockClear()
-    const pages = [buildPage({ transactions: [buildTransaction({ id: 501, date: '2026-05-20' })] })]
+    const pages = [buildPage({ transactions: [buildTransaction({ id: 501, date: DATE_RECENT })] })]
     const view = (navKey: string) =>
       withClient(
         <AccountDetailView
@@ -458,14 +484,13 @@ describe('AccountDetailView', () => {
           isFetchingNextPage={false}
           hasNextPage={false}
           onLoadMore={vi.fn()}
-          today={new Date(2026, 4, 22)}
+          today={TODAY}
           focusTransactionId={501}
           focusNavKey={navKey}
         />,
       )
     const { rerender } = render(view('nav-1'))
     await waitFor(() => expect(scrollMock).toHaveBeenCalledTimes(1))
-    // Same focus id, fresh navigation: the one-shot guard must re-arm.
     rerender(view('nav-2'))
     await waitFor(() => expect(scrollMock).toHaveBeenCalledTimes(2))
   })

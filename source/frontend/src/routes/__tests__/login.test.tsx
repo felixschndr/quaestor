@@ -7,6 +7,7 @@ import '@/i18n'
 import { LoginForm, LoginPageContent, RegisterForm } from '@/pages/login'
 import type { PasswordRequirements } from '@/lib/auth'
 import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { TEST_TOTP_SECRET } from '@/test/constants'
 
 const PASSWORD_REQUIREMENTS: PasswordRequirements = {
   min_length: 15,
@@ -371,7 +372,7 @@ describe('registration with two-factor', () => {
           jsonResponse({
             status: 200,
             body: {
-              secret: 'JBSWY3DPEHPK3PXP',
+              secret: TEST_TOTP_SECRET,
               otpauth_uri: 'otpauth://x',
               qr_code: 'data:image/svg+xml;base64,abc',
             },
@@ -396,7 +397,7 @@ describe('registration with two-factor', () => {
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     await user.click(await screen.findByRole('button', { name: 'Create account' }))
 
-    expect(await screen.findByText('JBSWY3DPEHPK3PXP')).toBeInTheDocument()
+    expect(await screen.findByText(TEST_TOTP_SECRET)).toBeInTheDocument()
     await user.type(screen.getByLabelText('Authentication code'), '123456')
     await user.click(screen.getByRole('button', { name: 'Verify and enable' }))
 
@@ -434,7 +435,7 @@ describe('registration with two-factor', () => {
           jsonResponse({
             status: 200,
             body: {
-              secret: 'JBSWY3DPEHPK3PXP',
+              secret: TEST_TOTP_SECRET,
               otpauth_uri: 'otpauth://x',
               qr_code: 'data:image/svg+xml;base64,abc',
             },

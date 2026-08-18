@@ -14,10 +14,15 @@ from source.backend.models.banking.credential import Credential
 from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
+    ACME,
+    DEFAULT_AMOUNT,
+    LARGE_AMOUNT,
     LAST_FETCHING_TIMESTAMP,
+    NETFLIX,
     OLDER_DATE,
     RECENT_DATE,
     SECOND_ACCOUNT_IBAN,
+    SECOND_AMOUNT,
     FakeBankSession,
     assert_log_contains,
     build_handler,
@@ -39,14 +44,14 @@ def test_sync_creates_new_account_with_balance_and_transactions(
     fake_account = FetchedAccount(name=ACCOUNT_IBAN)
     transactions = [
         FetchedTransaction(
-            amount=-12.34,
+            amount=-DEFAULT_AMOUNT,
             purpose="Coffee",
             date=RECENT_DATE,
             other_party="Café",
             transaction_type=TransactionType.OUTGOING,
         ),
         FetchedTransaction(
-            amount=2500.0,
+            amount=DEFAULT_AMOUNT,
             purpose="Salary",
             date=date(year=2026, month=5, day=1),
             other_party="ACME Corp",
@@ -74,7 +79,7 @@ def test_sync_creates_new_account_with_balance_and_transactions(
         account = credential.accounts[0]
         assert account.name == ACCOUNT_IBAN
         assert account.balance == 1000.0
-        assert {tx.amount for tx in account.transactions} == {-12.34, 2500.0}
+        assert {tx.amount for tx in account.transactions} == {-DEFAULT_AMOUNT, DEFAULT_AMOUNT}
         expected_days = {RECENT_DATE, date(year=2026, month=5, day=1)}
         assert expected_days <= set(account.balance_at_date.keys())
         assert credential.last_fetching_timestamp is not None
@@ -247,10 +252,10 @@ def test_sync_does_not_let_new_same_named_account_hijack_row_with_other_external
 def test_sync_does_not_duplicate_already_existing_transactions(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
     existing_tx = FetchedTransaction(
-        amount=-9.99,
+        amount=-DEFAULT_AMOUNT,
         purpose="Recurring",
         date=date(year=2026, month=5, day=10),
-        other_party="ACME",
+        other_party=ACME,
         transaction_type=TransactionType.OUTGOING,
     )
 
@@ -336,13 +341,13 @@ def test_sync_backfills_bank_reference_onto_rows_matched_by_fingerprint(session_
 
 def _booked_transaction(amount: float, day: int) -> FetchedTransaction:
     return create_fetched_transaction(
-        amount=amount, purpose="booked", date=RECENT_DATE + timedelta(days=day), other_party="ACME"
+        amount=amount, purpose="booked", date=RECENT_DATE + timedelta(days=day), other_party=ACME
     )
 
 
 def _pending_transaction(amount: float, day: int) -> FetchedTransaction:
     return create_fetched_transaction(
-        amount=amount, purpose="vorgemerkt", date=RECENT_DATE + timedelta(days=day), other_party="ACME", pending=True
+        amount=amount, purpose="pending", date=RECENT_DATE + timedelta(days=day), other_party=ACME, pending=True
     )
 
 
@@ -353,7 +358,10 @@ def test_sync_stores_pending_flag(session_factory: sessionmaker):
             accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
             balances={ACCOUNT_IBAN: 0.0},
             transactions={
-                ACCOUNT_IBAN: [_booked_transaction(amount=-10.0, day=10), _pending_transaction(amount=-20.0, day=11)]
+                ACCOUNT_IBAN: [
+                    _booked_transaction(amount=-DEFAULT_AMOUNT, day=10),
+                    _pending_transaction(amount=-SECOND_AMOUNT, day=11),
+                ]
             },
         )
     )
@@ -365,7 +373,10 @@ def test_sync_stores_pending_flag(session_factory: sessionmaker):
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
-        assert {tx.amount: tx.pending for tx in credential.accounts[0].transactions} == {-10.0: False, -20.0: True}
+        assert {tx.amount: tx.pending for tx in credential.accounts[0].transactions} == {
+            -DEFAULT_AMOUNT: False,
+            -SECOND_AMOUNT: True,
+        }
 
 
 def test_sync_rebuilds_pending_each_time_without_accumulating(session_factory: sessionmaker):
@@ -374,7 +385,10 @@ def test_sync_rebuilds_pending_each_time_without_accumulating(session_factory: s
         accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
         balances={ACCOUNT_IBAN: 0.0},
         transactions={
-            ACCOUNT_IBAN: [_booked_transaction(amount=-10.0, day=10), _pending_transaction(amount=-20.0, day=11)]
+            ACCOUNT_IBAN: [
+                _booked_transaction(amount=-DEFAULT_AMOUNT, day=10),
+                _pending_transaction(amount=-DEFAULT_AMOUNT, day=11),
+            ]
         },
     )
     handler = build_handler(bank)
@@ -386,8 +400,8 @@ def test_sync_rebuilds_pending_each_time_without_accumulating(session_factory: s
 
         # Next sync: the pending entry has drifted (new date) --> the stale one must be wiped, not kept
         bank._transactions[ACCOUNT_IBAN] = [
-            _booked_transaction(amount=-10.0, day=10),
-            _pending_transaction(amount=-20.0, day=13),
+            _booked_transaction(amount=-DEFAULT_AMOUNT, day=10),
+            _pending_transaction(amount=-DEFAULT_AMOUNT, day=13),
         ]
         credential.sync(handler)
         session.commit()
@@ -406,7 +420,7 @@ def test_pending_that_becomes_booked_is_not_duplicated(session_factory: sessionm
     bank = FakeBankSession(
         accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
         balances={ACCOUNT_IBAN: 0.0},
-        transactions={ACCOUNT_IBAN: [_pending_transaction(amount=-142.0, day=4)]},
+        transactions={ACCOUNT_IBAN: [_pending_transaction(amount=-DEFAULT_AMOUNT, day=4)]},
     )
     handler = build_handler(bank)
 
@@ -415,7 +429,7 @@ def test_pending_that_becomes_booked_is_not_duplicated(session_factory: sessionm
         credential.sync(handler)
         session.commit()
 
-        bank._transactions[ACCOUNT_IBAN] = [_booked_transaction(amount=-142.0, day=2)]
+        bank._transactions[ACCOUNT_IBAN] = [_booked_transaction(amount=-DEFAULT_AMOUNT, day=2)]
         credential.sync(handler)
         session.commit()
 
@@ -434,7 +448,10 @@ def test_pending_transactions_are_excluded_from_balance_history(session_factory:
             accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
             balances={ACCOUNT_IBAN: 0.0},
             transactions={
-                ACCOUNT_IBAN: [_booked_transaction(amount=-10.0, day=10), _pending_transaction(amount=-20.0, day=12)]
+                ACCOUNT_IBAN: [
+                    _booked_transaction(amount=-DEFAULT_AMOUNT, day=10),
+                    _pending_transaction(amount=-DEFAULT_AMOUNT, day=12),
+                ]
             },
         )
     )
@@ -455,8 +472,10 @@ def test_sync_keeps_expected_transactions_while_wiping_bank_pending(session_fact
     credential_id = persist_credential_with_new_user(session_factory)
     with session_factory() as session:
         account = make_account(session, credential_id=credential_id, name=ACCOUNT_IBAN)
-        make_transaction(session, account_id=account.id, amount=-500.0, date=OLDER_DATE, pending=True, expected=True)
-        make_transaction(session, account_id=account.id, amount=-7.0, date=OLDER_DATE, pending=True)
+        make_transaction(
+            session, account_id=account.id, amount=-DEFAULT_AMOUNT, date=OLDER_DATE, pending=True, expected=True
+        )
+        make_transaction(session, account_id=account.id, amount=-DEFAULT_AMOUNT, date=OLDER_DATE, pending=True)
         session.commit()
 
     sync_with_booked(session_factory=session_factory, credential_id=credential_id, booked=[])
@@ -465,7 +484,7 @@ def test_sync_keeps_expected_transactions_while_wiping_bank_pending(session_fact
         transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
         assert len(transactions) == 1
         assert transactions[0].expected is True
-        assert transactions[0].amount == -500.0
+        assert transactions[0].amount == -DEFAULT_AMOUNT
 
 
 def test_sync_resolves_expected_within_tolerance_and_moves_note(
@@ -473,13 +492,13 @@ def test_sync_resolves_expected_within_tolerance_and_moves_note(
 ):
     credential_id = persist_credential_with_new_user(session_factory)
     seed_account_with_expectation(
-        session_factory=session_factory, credential_id=credential_id, amount=-100.0, tolerance=10
+        session_factory=session_factory, credential_id=credential_id, amount=-DEFAULT_AMOUNT, tolerance=10
     )
 
     sync_with_booked(
         session_factory=session_factory,
         credential_id=credential_id,
-        booked=[_booked_transaction(amount=-105.0, day=5)],
+        booked=[_booked_transaction(amount=-DEFAULT_AMOUNT, day=5)],
     )
 
     assert_log_contains(caplog, messages=["Resolved", "expected transaction(s) on"])
@@ -490,18 +509,20 @@ def test_sync_resolves_expected_within_tolerance_and_moves_note(
         booking = transactions[0]
         assert not booking.expected
         assert not booking.pending
-        assert booking.amount == -105.0
+        assert booking.amount == -DEFAULT_AMOUNT
         assert booking.note == "expected note"
 
 
 def test_sync_keeps_expected_when_amount_outside_tolerance(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
     seed_account_with_expectation(
-        session_factory=session_factory, credential_id=credential_id, amount=-100.0, tolerance=10
+        session_factory=session_factory, credential_id=credential_id, amount=-DEFAULT_AMOUNT, tolerance=10
     )
 
     sync_with_booked(
-        session_factory=session_factory, credential_id=credential_id, booked=[_booked_transaction(amount=-120.0, day=5)]
+        session_factory=session_factory,
+        credential_id=credential_id,
+        booked=[_booked_transaction(amount=-LARGE_AMOUNT, day=5)],
     )
 
     with session_factory() as session:
@@ -513,11 +534,13 @@ def test_sync_keeps_expected_when_amount_outside_tolerance(session_factory: sess
 def test_sync_does_not_match_expected_with_opposite_sign(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
     seed_account_with_expectation(
-        session_factory=session_factory, credential_id=credential_id, amount=100.0, tolerance=20
+        session_factory=session_factory, credential_id=credential_id, amount=DEFAULT_AMOUNT, tolerance=20
     )
 
     sync_with_booked(
-        session_factory=session_factory, credential_id=credential_id, booked=[_booked_transaction(amount=-100.0, day=5)]
+        session_factory=session_factory,
+        credential_id=credential_id,
+        booked=[_booked_transaction(amount=-DEFAULT_AMOUNT, day=5)],
     )
 
     with session_factory() as session:
@@ -528,11 +551,15 @@ def test_sync_does_not_match_expected_with_opposite_sign(session_factory: sessio
 def test_sync_matches_expected_by_other_party_substring(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
     seed_account_with_expectation(
-        session_factory=session_factory, credential_id=credential_id, amount=-50.0, tolerance=0, other_party="Netflix"
+        session_factory=session_factory,
+        credential_id=credential_id,
+        amount=-DEFAULT_AMOUNT,
+        tolerance=0,
+        other_party=NETFLIX,
     )
 
     booking = FetchedTransaction(
-        amount=-50.0,
+        amount=-DEFAULT_AMOUNT,
         purpose="Subscription",
         date=date(year=2026, month=5, day=6),
         other_party="NETFLIX INTL BV",
@@ -549,11 +576,15 @@ def test_sync_matches_expected_by_other_party_substring(session_factory: session
 def test_sync_keeps_expected_when_other_party_does_not_match(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
     seed_account_with_expectation(
-        session_factory=session_factory, credential_id=credential_id, amount=-50.0, tolerance=0, other_party="Netflix"
+        session_factory=session_factory,
+        credential_id=credential_id,
+        amount=-DEFAULT_AMOUNT,
+        tolerance=0,
+        other_party=NETFLIX,
     )
 
     booking = FetchedTransaction(
-        amount=-50.0,
+        amount=-DEFAULT_AMOUNT,
         purpose="Subscription",
         date=date(year=2026, month=5, day=6),
         other_party="Spotify AB",
@@ -572,7 +603,7 @@ def test_sync_consumes_only_one_expectation_per_booking(session_factory: session
         make_transaction(
             session,
             account_id=account.id,
-            amount=-100.0,
+            amount=-DEFAULT_AMOUNT,
             date=OLDER_DATE,
             pending=True,
             expected=True,
@@ -581,7 +612,7 @@ def test_sync_consumes_only_one_expectation_per_booking(session_factory: session
         make_transaction(
             session,
             account_id=account.id,
-            amount=-100.0,
+            amount=-DEFAULT_AMOUNT,
             date=OLDER_DATE,
             pending=True,
             expected=True,
@@ -590,7 +621,9 @@ def test_sync_consumes_only_one_expectation_per_booking(session_factory: session
         session.commit()
 
     sync_with_booked(
-        session_factory=session_factory, credential_id=credential_id, booked=[_booked_transaction(amount=-100.0, day=5)]
+        session_factory=session_factory,
+        credential_id=credential_id,
+        booked=[_booked_transaction(amount=-DEFAULT_AMOUNT, day=5)],
     )
 
     with session_factory() as session:
@@ -603,19 +636,23 @@ def test_sync_consumes_only_one_expectation_per_booking(session_factory: session
 def test_sync_tolerance_zero_requires_exact_amount(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
     seed_account_with_expectation(
-        session_factory=session_factory, credential_id=credential_id, amount=-9.99, tolerance=0
+        session_factory=session_factory, credential_id=credential_id, amount=-DEFAULT_AMOUNT, tolerance=0
     )
 
-    # Booking off by one cent must NOT match at tolerance 0.
+    # A booking of any different amount must NOT match at tolerance 0.
     sync_with_booked(
-        session_factory=session_factory, credential_id=credential_id, booked=[_booked_transaction(amount=-9.98, day=5)]
+        session_factory=session_factory,
+        credential_id=credential_id,
+        booked=[_booked_transaction(amount=-SECOND_AMOUNT, day=5)],
     )
     with session_factory() as session:
         assert len(session.get(entity=Credential, ident=credential_id).accounts[0].transactions) == 2
 
     # The exact amount resolves it (and float noise around 9.99 is tolerated by the epsilon).
     sync_with_booked(
-        session_factory=session_factory, credential_id=credential_id, booked=[_booked_transaction(amount=-9.99, day=6)]
+        session_factory=session_factory,
+        credential_id=credential_id,
+        booked=[_booked_transaction(amount=-DEFAULT_AMOUNT, day=6)],
     )
     with session_factory() as session:
         transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
@@ -629,7 +666,7 @@ def test_sync_appends_expected_note_when_booking_already_has_one(session_factory
         make_transaction(
             session,
             account_id=account.id,
-            amount=-30.0,
+            amount=-DEFAULT_AMOUNT,
             date=OLDER_DATE,
             note="from grandma",
             pending=True,
@@ -639,9 +676,9 @@ def test_sync_appends_expected_note_when_booking_already_has_one(session_factory
         make_transaction(
             session,
             account_id=account.id,
-            amount=-30.0,
+            amount=-DEFAULT_AMOUNT,
             date=date(year=2026, month=5, day=7),
-            other_party="ACME",
+            other_party=ACME,
             note="bank note",
         )
         session.commit()
@@ -659,12 +696,16 @@ def test_sync_does_not_match_a_booking_that_predates_the_expectation(session_fac
     with session_factory() as session:
         account = make_account(session, credential_id=credential_id, name=ACCOUNT_IBAN)
         make_transaction(
-            session, account_id=account.id, amount=-30.0, date=date(year=2026, month=2, day=15), other_party="ACME"
+            session,
+            account_id=account.id,
+            amount=-DEFAULT_AMOUNT,
+            date=date(year=2026, month=2, day=15),
+            other_party=ACME,
         )
         make_transaction(
             session,
             account_id=account.id,
-            amount=-30.0,
+            amount=-DEFAULT_AMOUNT,
             date=OLDER_DATE,
             pending=True,
             expected=True,
@@ -688,7 +729,7 @@ def test_sync_records_bank_reported_balance_observations_as_anchors(session_fact
             accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
             balances={ACCOUNT_IBAN: 1000.0},
             transactions={ACCOUNT_IBAN: []},
-            observations={ACCOUNT_IBAN: [BalanceObservation(date=anchor_day, amount=625.15)]},
+            observations={ACCOUNT_IBAN: [BalanceObservation(date=anchor_day, amount=DEFAULT_AMOUNT)]},
         )
     )
 
@@ -700,7 +741,7 @@ def test_sync_records_bank_reported_balance_observations_as_anchors(session_fact
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
         snapshot = credential.accounts[0].balance_at_date[anchor_day]
-        assert snapshot.balance == 625.15
+        assert snapshot.balance == DEFAULT_AMOUNT
         assert snapshot.source == BalanceSnapshotSource.BANK_REPORTED
 
 
@@ -752,7 +793,7 @@ def _market_valued_handler(market_day: date, transactions: list[FetchedTransacti
             accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
             balances={ACCOUNT_IBAN: 4200.0},
             transactions={ACCOUNT_IBAN: transactions or []},
-            market_values={ACCOUNT_IBAN: [BalanceObservation(date=market_day, amount=4200.0)]},
+            market_values={ACCOUNT_IBAN: [BalanceObservation(date=market_day, amount=DEFAULT_AMOUNT)]},
         )
     )
 
@@ -761,7 +802,7 @@ def test_sync_records_market_value_history_as_market_valued_snapshots(session_fa
     credential_id = persist_credential_with_new_user(session_factory)
     market_day = date(year=2026, month=5, day=2)
     buy = FetchedTransaction(
-        amount=-100.0,
+        amount=-DEFAULT_AMOUNT,
         purpose="Buy",
         date=RECENT_DATE,
         other_party="Broker",
@@ -777,7 +818,7 @@ def test_sync_records_market_value_history_as_market_valued_snapshots(session_fa
     with session_factory() as session:
         account = session.get(entity=Credential, ident=credential_id).accounts[0]
         snapshot = account.balance_at_date[market_day]
-        assert snapshot.balance == 4200.0
+        assert snapshot.balance == DEFAULT_AMOUNT
         assert snapshot.source == BalanceSnapshotSource.MARKET_VALUED
         assert RECENT_DATE not in account.balance_at_date
 
@@ -811,10 +852,12 @@ def test_incomplete_history_accounts_keep_anchors_but_skip_the_transaction_walk(
             balances={ACCOUNT_IBAN: 0.0},
             transactions={
                 ACCOUNT_IBAN: [
-                    FetchedTransaction(amount=-100.0, purpose="PayPal payment", date=OLDER_DATE, other_party="Shop")
+                    FetchedTransaction(
+                        amount=-DEFAULT_AMOUNT, purpose="PayPal payment", date=OLDER_DATE, other_party="Shop"
+                    )
                 ]
             },
-            observations={ACCOUNT_IBAN: [BalanceObservation(date=anchor_day, amount=0.0)]},
+            observations={ACCOUNT_IBAN: [BalanceObservation(date=anchor_day, amount=DEFAULT_AMOUNT)]},
         )
     )
 

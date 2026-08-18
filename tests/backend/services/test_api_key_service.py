@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from source.backend.exceptions import ApiKeyNotFoundError
 from source.backend.models.auth.api_key import ApiKey
 from source.backend.services.auth import api_key_service
-from tests.backend.conftest import assert_log_contains, create_user
+from tests.backend.conftest import API_KEY_NAME, INTRUDER_USER_NAME, assert_log_contains, create_user
 
 
 def test_create_returns_prefixed_token_and_stores_only_its_hash(
@@ -13,11 +13,11 @@ def test_create_returns_prefixed_token_and_stores_only_its_hash(
 ):
     user = create_user(session_factory)
     with session_factory() as db_session:
-        raw_token, api_key = api_key_service.create_api_key(db_session=db_session, user=user, name="My script")
+        raw_token, api_key = api_key_service.create_api_key(db_session=db_session, user=user, name=API_KEY_NAME)
 
         assert_log_contains(caplog, message="Created API key")
         assert raw_token.startswith(api_key_service.TOKEN_PREFIX)
-        assert api_key.name == "My script"
+        assert api_key.name == API_KEY_NAME
         assert api_key.last_used_at is None
         assert raw_token.startswith(api_key.prefix)
         stored = db_session.scalars(select(ApiKey)).one()
@@ -28,7 +28,7 @@ def test_create_returns_prefixed_token_and_stores_only_its_hash(
 def test_authenticate_returns_user_and_stamps_last_used(session_factory: sessionmaker):
     user = create_user(session_factory)
     with session_factory() as db_session:
-        raw_token, _ = api_key_service.create_api_key(db_session=db_session, user=user, name="My script")
+        raw_token, _ = api_key_service.create_api_key(db_session=db_session, user=user, name=API_KEY_NAME)
 
     with session_factory() as db_session:
         authenticated = api_key_service.authenticate(db_session=db_session, raw_token=raw_token)
@@ -45,7 +45,7 @@ def test_authenticate_returns_none_for_unknown_token(session_factory: sessionmak
 def test_delete_removes_the_key(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     user = create_user(session_factory)
     with session_factory() as db_session:
-        _, api_key = api_key_service.create_api_key(db_session=db_session, user=user, name="My script")
+        _, api_key = api_key_service.create_api_key(db_session=db_session, user=user, name=API_KEY_NAME)
         api_key_id = api_key.id
 
     with session_factory() as db_session:
@@ -58,9 +58,9 @@ def test_delete_removes_the_key(session_factory: sessionmaker, caplog: pytest.Lo
 
 def test_get_foreign_key_raises_not_found_and_keeps_it(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     owner = create_user(session_factory, user_name="owner")
-    intruder = create_user(session_factory, user_name="intruder")
+    intruder = create_user(session_factory, user_name=INTRUDER_USER_NAME)
     with session_factory() as db_session:
-        _, api_key = api_key_service.create_api_key(db_session=db_session, user=owner, name="My script")
+        _, api_key = api_key_service.create_api_key(db_session=db_session, user=owner, name=API_KEY_NAME)
         api_key_id = api_key.id
 
     with session_factory() as db_session:
@@ -72,7 +72,7 @@ def test_get_foreign_key_raises_not_found_and_keeps_it(session_factory: sessionm
 
 def test_list_only_returns_the_users_own_keys(session_factory: sessionmaker):
     owner = create_user(session_factory, user_name="owner")
-    intruder = create_user(session_factory, user_name="intruder")
+    intruder = create_user(session_factory, user_name=INTRUDER_USER_NAME)
     with session_factory() as db_session:
         api_key_service.create_api_key(db_session=db_session, user=owner, name="owner key")
         api_key_service.create_api_key(db_session=db_session, user=intruder, name="intruder key")

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
+import { AMOUNT_S, AMOUNT_M, TEST_BALANCE } from '@/test/constants'
 
 vi.mock('recharts', () => {
   const Passthrough = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>
@@ -20,7 +21,7 @@ vi.mock('recharts', () => {
   const Bar = ({ dataKey }: { dataKey: string }) => <div data-testid="bar-key">{dataKey}</div>
   const Tooltip = ({ content }: { content: (props: unknown) => React.ReactNode }) => (
     <div data-testid="tooltip">
-      {content({ active: true, payload: [{ value: 1234.5 }], label: '2026-06' })}
+      {content({ active: true, payload: [{ value: TEST_BALANCE }], label: '2026-06' })}
     </div>
   )
   return {
@@ -37,8 +38,8 @@ vi.mock('recharts', () => {
 import { TransactionCountChart } from '../transaction-count-chart'
 
 const data = [
-  { bucket: '2026-06', count: 2, amount: 50 },
-  { bucket: '2026-07', count: 1, amount: 20 },
+  { bucket: '2026-06', count: 2, amount: AMOUNT_M },
+  { bucket: '2026-07', count: 1, amount: AMOUNT_S },
 ]
 
 describe('TransactionCountChart', () => {
@@ -52,7 +53,7 @@ describe('TransactionCountChart', () => {
   it('switches the fed values to the amount when the metric is "amount"', () => {
     render(<TransactionCountChart data={data} groupBy="month" metric="amount" />)
 
-    expect(screen.getByTestId('values')).toHaveTextContent('[50,20]')
+    expect(screen.getByTestId('values')).toHaveTextContent(`[${AMOUNT_M},${AMOUNT_S}]`)
     expect(screen.getByTestId('bar-key')).toHaveTextContent('value')
   })
 
@@ -60,9 +61,9 @@ describe('TransactionCountChart', () => {
     const { rerender } = render(
       <TransactionCountChart data={data} groupBy="month" metric="count" />,
     )
-    expect(screen.getByTestId('tooltip')).toHaveTextContent('1234.5')
+    expect(screen.getByTestId('tooltip')).toHaveTextContent(String(TEST_BALANCE))
 
     rerender(<TransactionCountChart data={data} groupBy="month" metric="amount" />)
-    expect(screen.getByTestId('tooltip')).not.toHaveTextContent('1234.5')
+    expect(screen.getByTestId('tooltip')).not.toHaveTextContent(String(TEST_BALANCE))
   })
 })

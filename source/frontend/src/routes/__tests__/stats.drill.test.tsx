@@ -18,10 +18,10 @@ vi.mock('recharts', async (importOriginal) => {
 vi.mock('@/lib/api', () => ({
   api: vi.fn((path: string) => {
     if (path.includes('/statistics/categories')) {
-      return Promise.resolve([{ category: 'FUEL', total: 10 }])
+      return Promise.resolve([{ category: 'FUEL', total: AMOUNT_S }])
     }
     if (path.includes('/statistics/other-parties')) {
-      return Promise.resolve([{ other_party: 'Rewe', total: 20 }])
+      return Promise.resolve([{ other_party: PARTY_SUPERMARKET, total: AMOUNT_M }])
     }
     if (path.includes('/net-worth')) return Promise.resolve({ series: [], summary: null })
     return Promise.resolve([])
@@ -51,6 +51,7 @@ import '@/i18n'
 import type { CredentialRead } from '@/lib/auth'
 import { StatsView } from '@/pages/stats'
 import { type StatsSearchParams } from '@/routes/stats'
+import { ACCOUNT_NAME_GIRO, AMOUNT_M, AMOUNT_S, PARTY_SUPERMARKET } from '@/test/constants'
 
 const credentials: CredentialRead[] = [
   {
@@ -61,7 +62,7 @@ const credentials: CredentialRead[] = [
     accounts: [
       {
         id: 42,
-        name: 'Girokonto',
+        name: ACCOUNT_NAME_GIRO,
         balance: 0,
         balance_factor: 100,
         display_name: null,
@@ -135,7 +136,7 @@ describe('StatsView drill-in carries the active filters', () => {
     fireEvent.click(arrows[1]) // top recipients
 
     const drill = onOpenSearch.mock.calls.at(-1)?.[0]
-    expect(drill.text).toBe('Rewe')
+    expect(drill.text).toBe(PARTY_SUPERMARKET)
     expect(drill.transactionTypes).toEqual(['FEES'])
     expect(drill.linked).toBe('linked')
   })
@@ -146,7 +147,7 @@ describe('StatsView drill-in carries the active filters', () => {
     fireEvent.click(arrows[1]) // top recipients
 
     const drill = onOpenSearch.mock.calls.at(-1)?.[0]
-    expect(drill.text).toBe('Rewe')
+    expect(drill.text).toBe(PARTY_SUPERMARKET)
     expect(drill.categories).toEqual(['FUEL'])
   })
 

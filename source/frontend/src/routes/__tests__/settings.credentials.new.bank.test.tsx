@@ -14,6 +14,7 @@ vi.mock('@tanstack/react-router', async () =>
 import { NewCredentialFormView } from '@/pages/settings.credentials.new.$bank'
 import type { SupportedBank, SyncJob } from '@/lib/credentials'
 import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { DATETIME_FAR_FUTURE } from '@/test/constants'
 
 const ING_BANK: SupportedBank = {
   provider: 'ing',
@@ -847,7 +848,7 @@ describe('NewCredentialFormView', () => {
         job_id: 'job-tr',
         credential_id: 7,
         status: 'awaiting_2fa',
-        expires_at: '2099-01-01T00:00:00Z',
+        expires_at: DATETIME_FAR_FUTURE,
         error: null,
       })
 
@@ -882,7 +883,7 @@ describe('NewCredentialFormView', () => {
         job_id: 'job-tr',
         credential_id: 7,
         status: 'awaiting_2fa',
-        expires_at: '2099-01-01T00:00:00Z',
+        expires_at: DATETIME_FAR_FUTURE,
         error: null,
       })
 
@@ -970,7 +971,7 @@ describe('NewCredentialFormView', () => {
         job_id: 'job-tr',
         credential_id: 7,
         status: 'awaiting_2fa',
-        expires_at: '2099-01-01T00:00:00Z',
+        expires_at: DATETIME_FAR_FUTURE,
         error: null,
       })
 
@@ -1037,7 +1038,7 @@ describe('NewCredentialFormView', () => {
         />,
       )
 
-      await user.type(screen.getByLabelText('Username'), 'felix')
+      await user.type(screen.getByLabelText('Username'), 'bankuser')
       await user.type(screen.getByLabelText('Password'), 'secret-password')
       await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 
@@ -1073,7 +1074,7 @@ describe('NewCredentialFormView', () => {
         />,
       )
 
-      await user.type(screen.getByLabelText('Username'), 'felix')
+      await user.type(screen.getByLabelText('Username'), 'bankuser')
       await user.type(screen.getByLabelText('Password'), 'secret-password')
       await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { groupAccounts } from '@/components/ui/account-select-utils'
 import type { AccountGroupLayout } from '@/lib/accountGroups'
 import type { AccountRead, CredentialRead } from '@/lib/auth'
+import { ACCOUNT_NAME_GIRO } from '@/test/constants'
 
 function account(id: number, name: string): AccountRead {
   return {
@@ -26,7 +27,7 @@ const credentials: CredentialRead[] = [
     last_fetching_timestamp: null,
     requires_two_factor_authentication: false,
     sync_enabled: true,
-    accounts: [account(1, 'Girokonto'), account(2, 'Extra-Konto')],
+    accounts: [account(1, ACCOUNT_NAME_GIRO), account(2, 'Extra Account')],
   },
   {
     id: 2,

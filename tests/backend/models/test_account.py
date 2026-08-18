@@ -12,6 +12,11 @@ from source.backend.models.accounts.account_balance_snapshot import (
     BalanceSnapshotSource,
 )
 from tests.backend.conftest import (
+    DEFAULT_AMOUNT,
+    DEFAULT_BALANCE,
+    OLDER_DATE,
+    SECOND_AMOUNT,
+    THIRD_AMOUNT,
     assert_log_contains,
     make_account,
     make_credential,
@@ -59,21 +64,21 @@ def test_account_repr_contains_identifying_fields():
 
 
 def test_account_repr_includes_display_name_when_set():
-    account = Account(id=1, credential_id=1, name="DE00", display_name="Mein Konto", balance=0.0, balance_factor=100)
+    account = Account(id=1, credential_id=1, name="DE00", display_name="My Account", balance=0.0, balance_factor=100)
 
-    assert "display_name=Mein Konto" in repr(account)
+    assert "display_name=My Account" in repr(account)
 
 
 def test_update_balance_at_date_persists_back_calculated_snapshots(session_factory: sessionmaker):
     with session_factory() as session:
         account = _persist_account(
             session=session,
-            balance=100.0,
+            balance=DEFAULT_BALANCE,
             transactions=[
-                (date(year=2025, month=3, day=5), 10.0),
-                (date(year=2025, month=3, day=5), -5.0),
-                (date(year=2025, month=3, day=3), 20.0),
-                (date(year=2025, month=2, day=1), 50.0),
+                (OLDER_DATE, 10.0),
+                (OLDER_DATE, -5.0),
+                (OLDER_DATE - timedelta(days=2), 20.0),
+                (OLDER_DATE - timedelta(days=32), 50.0),
             ],
         )
 
@@ -81,9 +86,9 @@ def test_update_balance_at_date_persists_back_calculated_snapshots(session_facto
         session.flush()
 
         assert _get_persisted_snapshots(session=session, account=account) == {
-            date(year=2025, month=3, day=5): 100.0,
-            date(year=2025, month=3, day=3): 95.0,
-            date(year=2025, month=2, day=1): 75.0,
+            OLDER_DATE: 100.0,
+            OLDER_DATE - timedelta(days=2): 95.0,
+            OLDER_DATE - timedelta(days=32): 75.0,
         }
 
 
@@ -92,7 +97,7 @@ def test_update_balance_at_date_is_idempotent(session_factory: sessionmaker):
         account = _persist_account(
             session=session,
             balance=10.0,
-            transactions=[(date(year=2025, month=1, day=1), 10.0)],
+            transactions=[(OLDER_DATE - timedelta(days=63), 10.0)],
         )
 
         account.update_balance_at_date()
@@ -101,7 +106,7 @@ def test_update_balance_at_date_is_idempotent(session_factory: sessionmaker):
         session.flush()
 
         assert _get_persisted_snapshots(session=session, account=account) == {
-            date(year=2025, month=1, day=1): 10.0,
+            OLDER_DATE - timedelta(days=63): 10.0,
         }
 
 
@@ -112,7 +117,7 @@ def test_update_balance_at_date_ignores_future_dated_transactions(session_factor
         yesterday = today - timedelta(days=1)
         account = _persist_account(
             session=session,
-            balance=100.0,
+            balance=DEFAULT_BALANCE,
             transactions=[
                 (future, -50.0),
                 (today, 5.0),
@@ -133,7 +138,7 @@ def test_recompute_balance_at_date_overwrites_stale_snapshots(session_factory: s
     with session_factory() as session:
         account = _persist_account(
             session=session,
-            balance=100.0,
+            balance=DEFAULT_BALANCE,
             transactions=[(date.today() - timedelta(days=1), -10.0)],
         )
         # Plant a wrong snapshot from a hypothetical earlier run.
@@ -157,35 +162,38 @@ def test_recompute_leaves_market_valued_snapshots_untouched(session_factory: ses
     with session_factory() as session:
         account = _persist_account(
             session=session,
-            balance=100.0,
-            transactions=[(date(year=2025, month=3, day=5), 10.0)],
+            balance=DEFAULT_BALANCE,
+            transactions=[(OLDER_DATE, 10.0)],
         )
-        _plant_market_value(account=account, day=date(year=2025, month=3, day=5), balance=42.0)
+        _plant_market_value(account=account, day=OLDER_DATE, balance=42.0)
         session.flush()
 
         assert account.is_market_valued
         account.recompute_balances_at_date()
         session.flush()
 
-        assert _get_persisted_snapshots(session=session, account=account) == {date(year=2025, month=3, day=5): 42.0}
+        assert _get_persisted_snapshots(session=session, account=account) == {OLDER_DATE: 42.0}
 
 
 def test_record_market_value_history_replaces_previous_market_snapshots(session_factory: sessionmaker):
     with session_factory() as session:
         account = _persist_account(session=session, balance=0.0, transactions=[])
-        _plant_market_value(account=account, day=date(year=2025, month=1, day=1), balance=10.0)
+        _plant_market_value(account=account, day=OLDER_DATE - timedelta(days=63), balance=10.0)
         session.flush()
 
         account.record_market_value_history(
             [
-                BalanceObservation(date=date(year=2025, month=2, day=1), amount=20.0),
-                BalanceObservation(date=date(year=2025, month=2, day=2), amount=25.0),
+                BalanceObservation(date=OLDER_DATE - timedelta(days=32), amount=SECOND_AMOUNT),
+                BalanceObservation(date=OLDER_DATE - timedelta(days=31), amount=THIRD_AMOUNT),
             ]
         )
         session.flush()
 
         snapshots = _get_persisted_snapshots(session=session, account=account)
-        assert snapshots == {date(year=2025, month=2, day=1): 20.0, date(year=2025, month=2, day=2): 25.0}
+        assert snapshots == {
+            OLDER_DATE - timedelta(days=32): SECOND_AMOUNT,
+            OLDER_DATE - timedelta(days=31): THIRD_AMOUNT,
+        }
         assert all(
             snapshot.source == BalanceSnapshotSource.MARKET_VALUED for snapshot in account.balance_at_date.values()
         )
@@ -196,7 +204,7 @@ def test_record_market_value_history_ignores_future_dates(session_factory: sessi
         account = _persist_account(session=session, balance=0.0, transactions=[])
         future = date.today() + timedelta(days=3)
 
-        account.record_market_value_history([BalanceObservation(date=future, amount=99.0)])
+        account.record_market_value_history([BalanceObservation(date=future, amount=DEFAULT_AMOUNT)])
         session.flush()
 
         assert future not in account.balance_at_date
@@ -206,23 +214,21 @@ def test_update_balance_at_date_preserves_existing_snapshots_but_chains_correctl
     with session_factory() as session:
         account = _persist_account(
             session=session,
-            balance=100.0,
+            balance=DEFAULT_BALANCE,
             transactions=[
-                (date(year=2025, month=3, day=5), 10.0),
-                (date(year=2025, month=3, day=3), 20.0),
+                (OLDER_DATE, 10.0),
+                (OLDER_DATE - timedelta(days=2), 20.0),
             ],
         )
-        account.balance_at_date[date(year=2025, month=3, day=5)] = AccountBalanceSnapshot(
-            date=date(year=2025, month=3, day=5), balance=999.0
-        )
+        account.balance_at_date[OLDER_DATE] = AccountBalanceSnapshot(date=OLDER_DATE, balance=999.0)
         session.flush()
 
         account.update_balance_at_date()
         session.flush()
 
         assert _get_persisted_snapshots(session=session, account=account) == {
-            date(year=2025, month=3, day=5): 999.0,
-            date(year=2025, month=3, day=3): 90.0,
+            OLDER_DATE: 999.0,
+            OLDER_DATE - timedelta(days=2): 90.0,
         }
 
 
@@ -231,11 +237,11 @@ def test_record_balance_observations_persists_bank_reported_anchor(session_facto
         account = _persist_account(session=session, balance=0.0, transactions=[])
         anchor_day = date.today() - timedelta(days=10)
 
-        account.record_balance_observations([BalanceObservation(date=anchor_day, amount=625.15)])
+        account.record_balance_observations([BalanceObservation(date=anchor_day, amount=DEFAULT_AMOUNT)])
         session.flush()
 
         snapshot = account.balance_at_date[anchor_day]
-        assert snapshot.balance == 625.15
+        assert snapshot.balance == DEFAULT_AMOUNT
         assert snapshot.source == BalanceSnapshotSource.BANK_REPORTED
 
 
@@ -244,7 +250,7 @@ def test_record_balance_observations_ignores_future_dates(session_factory: sessi
         account = _persist_account(session=session, balance=0.0, transactions=[])
         future = date.today() + timedelta(days=3)
 
-        account.record_balance_observations([BalanceObservation(date=future, amount=10.0)])
+        account.record_balance_observations([BalanceObservation(date=future, amount=DEFAULT_AMOUNT)])
         session.flush()
 
         assert future not in account.balance_at_date
@@ -253,16 +259,16 @@ def test_record_balance_observations_ignores_future_dates(session_factory: sessi
 def test_record_balance_observations_upgrades_existing_computed_snapshot(session_factory: sessionmaker):
     with session_factory() as session:
         day = date.today() - timedelta(days=2)
-        account = _persist_account(session=session, balance=100.0, transactions=[(day, 5.0)])
+        account = _persist_account(session=session, balance=DEFAULT_BALANCE, transactions=[(day, 5.0)])
         account.update_balance_at_date()  # creates a COMPUTED snapshot for `day`
         session.flush()
         assert account.balance_at_date[day].source == BalanceSnapshotSource.COMPUTED
 
-        account.record_balance_observations([BalanceObservation(date=day, amount=88.0)])
+        account.record_balance_observations([BalanceObservation(date=day, amount=DEFAULT_AMOUNT)])
         session.flush()
 
         snapshot = account.balance_at_date[day]
-        assert snapshot.balance == 88.0
+        assert snapshot.balance == DEFAULT_AMOUNT
         assert snapshot.source == BalanceSnapshotSource.BANK_REPORTED
 
 
@@ -272,7 +278,7 @@ def test_drift_warns_for_actionable_anchors_but_stays_quiet_at_fetch_horizon(
     with session_factory() as session:
         today = date.today()
         d1, d2, d3, d4 = (today - timedelta(days=n) for n in (1, 2, 3, 4))
-        account = _persist_account(session=session, balance=100.0, transactions=[(d1, 10.0), (d3, 5.0)])
+        account = _persist_account(session=session, balance=DEFAULT_BALANCE, transactions=[(d1, 10.0), (d3, 5.0)])
         _plant_bank_anchor(account=account, day=d2, balance=80.0)
         _plant_bank_anchor(account=account, day=d4, balance=60.0)
         session.flush()
@@ -349,7 +355,7 @@ def test_bank_anchor_within_tolerance_does_not_warn(session_factory: sessionmake
         d1, d2 = today - timedelta(days=1), today - timedelta(days=2)
         # Backward walk derives exactly 100 at d2, matching the anchor --> no drift.
         account = _persist_account(session=session, balance=110.0, transactions=[(d1, 10.0)])
-        _plant_bank_anchor(account=account, day=d2, balance=100.0)
+        _plant_bank_anchor(account=account, day=d2, balance=DEFAULT_BALANCE)
         session.flush()
 
         with caplog.at_level(logging.WARNING):
@@ -362,7 +368,7 @@ def test_bank_anchor_within_tolerance_does_not_warn(session_factory: sessionmake
 def test_recompute_preserves_bank_reported_anchor_but_rebuilds_computed(session_factory: sessionmaker):
     with session_factory() as session:
         day = date.today() - timedelta(days=1)
-        account = _persist_account(session=session, balance=100.0, transactions=[(day, -10.0)])
+        account = _persist_account(session=session, balance=DEFAULT_BALANCE, transactions=[(day, -10.0)])
         anchor_day = date.today() - timedelta(days=5)
         _plant_bank_anchor(account=account, day=anchor_day, balance=42.0)
         # A stale computed snapshot that must be rebuilt.
@@ -374,5 +380,5 @@ def test_recompute_preserves_bank_reported_anchor_but_rebuilds_computed(session_
 
         snapshots = _get_persisted_snapshots(session=session, account=account)
         assert snapshots[anchor_day] == 42.0  # anchor survived
-        assert snapshots[day] == 100.0  # computed rebuilt from scratch
+        assert snapshots[day] == DEFAULT_BALANCE  # computed rebuilt from scratch
         assert account.balance_at_date[anchor_day].source == BalanceSnapshotSource.BANK_REPORTED

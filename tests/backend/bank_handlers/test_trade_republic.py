@@ -20,8 +20,10 @@ from source.backend.services.banking import trade_republic_login
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     CHALLENGE_TOKEN,
+    DEFAULT_AMOUNT,
     ETF_NAME,
     ISIN,
+    PERSON_NAME,
     PHONE_NUMBER,
     PIN,
     SECOND_ISIN,
@@ -87,7 +89,7 @@ def _session() -> _TradeRepublicSession:
 
 def test_cash_and_position_transactions_are_routed_to_the_right_account(monkeypatch: pytest.MonkeyPatch):
     rows = [
-        {"date": "2026-05-13", "type": "Removal", "value": -500.0, "note": "Alice Parker", "isin": None},
+        {"date": "2026-05-13", "type": "Removal", "value": -500.0, "note": PERSON_NAME, "isin": None},
         {
             "date": "2025-03-24",
             "type": "Buy",
@@ -114,7 +116,7 @@ def test_cash_and_position_transactions_are_routed_to_the_right_account(monkeypa
 
 def test_position_trades_also_appear_in_the_cash_account(monkeypatch: pytest.MonkeyPatch):
     rows = [
-        {"date": "2026-05-13", "type": "Deposit", "value": 1000.0, "note": "Alice Parker", "isin": None},
+        {"date": "2026-05-13", "type": "Deposit", "value": 1000.0, "note": PERSON_NAME, "isin": None},
         {
             "date": "2026-05-14",
             "type": "Buy",
@@ -211,7 +213,7 @@ def test_market_value_history_is_empty_for_cash_account():
 def test_market_value_history_is_fetched_once_and_cached(monkeypatch: pytest.MonkeyPatch):
     session = _session()
     calls = {"count": 0}
-    expected = [BalanceObservation(date=date(year=2025, month=3, day=24), amount=1000.0)]
+    expected = [BalanceObservation(date=date(year=2025, month=3, day=24), amount=DEFAULT_AMOUNT)]
 
     async def fake_fetch_value_history() -> dict:  # noqa: ASYNC124 — must be awaitable for asyncio.run
         calls["count"] += 1
@@ -366,7 +368,7 @@ def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.M
 
 def test_project_savings_plans_next_buy():
     plans = [
-        {"instrumentId": ISIN, "amount": 50.0, "nextExecutionDate": "2026-09-15"},
+        {"instrumentId": ISIN, "amount": DEFAULT_AMOUNT, "nextExecutionDate": "2026-09-15"},
         {"instrumentId": ISIN, "amount": 99.0, "nextExecutionDate": "2026-09-15", "paused": True},  # skipped
         {"instrumentId": SECOND_ISIN, "amount": 10.0, "nextExecutionDate": "2026-09-15"},  # other instrument
     ]
@@ -380,7 +382,7 @@ def test_project_savings_plans_next_buy():
 def test_get_transactions_appends_savings_plan_buys_only_to_the_position_account(monkeypatch: pytest.MonkeyPatch):
     _patch_pytr(monkeypatch=monkeypatch, rows=[], captured={})
     session = _session()
-    session._savings_plans = [{"instrumentId": ISIN, "amount": 50.0, "nextExecutionDate": "2026-09-15"}]
+    session._savings_plans = [{"instrumentId": ISIN, "amount": DEFAULT_AMOUNT, "nextExecutionDate": "2026-09-15"}]
 
     cash = session.get_transactions(FetchedAccount(name=ACCOUNT_IBAN), start_date=date(year=2025, month=1, day=1))
     position = session.get_transactions(FetchedAccount(name=ETF_NAME), start_date=date(year=2025, month=1, day=1))

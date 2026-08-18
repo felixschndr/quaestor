@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { buildFilterQueryString } from '@/lib/transactionSearch'
+import { DATE_YEAR_START } from '@/test/constants'
 
 describe('buildFilterQueryString', () => {
   it('emits one account_ids entry per id', () => {
@@ -18,7 +19,7 @@ describe('buildFilterQueryString', () => {
       text: 'rewe',
       amount_from: -50,
       amount_to: 0,
-      date_from: '2026-01-01',
+      date_from: DATE_YEAR_START,
       date_to: '2026-12-31',
       transaction_types: ['OUTGOING', 'FEES'],
       categories: ['SUPERMARKET'],
@@ -28,7 +29,7 @@ describe('buildFilterQueryString', () => {
     expect(params.get('text')).toBe('rewe')
     expect(params.get('amount_from')).toBe('-50')
     expect(params.get('amount_to')).toBe('0')
-    expect(params.get('date_from')).toBe('2026-01-01')
+    expect(params.get('date_from')).toBe(DATE_YEAR_START)
     expect(params.get('date_to')).toBe('2026-12-31')
     expect(params.getAll('transaction_types')).toEqual(['OUTGOING', 'FEES'])
     expect(params.get('categories')).toBe('SUPERMARKET')

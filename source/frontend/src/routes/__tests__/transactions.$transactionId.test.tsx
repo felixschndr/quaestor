@@ -14,15 +14,29 @@ import {
   transferPartnerLabel,
 } from '@/pages/transactions.$transactionId'
 import { compareFlowMembers, type FlowMemberView } from '@/routes/transactions.$transactionId'
+import {
+  ACCOUNT_NAME_GIRO,
+  ACCOUNT_NAME_SAVINGS,
+  AMOUNT_L,
+  AMOUNT_M,
+  AMOUNT_XL,
+  DATE_BROKER_SETTLE,
+  DATE_RECENT,
+  DATE_SAME_DAY_TRANSFER,
+  PARTY_SUPERMARKET,
+  TEST_IBAN,
+  TEST_IBAN_FORMATTED,
+  money,
+} from '@/test/constants'
 
 function buildTransaction(overrides: Partial<TransactionDetailRead> = {}): TransactionDetailRead {
   return {
     id: 7,
     account_id: 42,
-    amount: -42.5,
+    amount: -AMOUNT_M,
     purpose: 'Weekly groceries',
-    date: '2026-05-20',
-    other_party: 'REWE',
+    date: DATE_RECENT,
+    other_party: PARTY_SUPERMARKET,
     transaction_type: 'OUTGOING',
     category: 'SUPERMARKET',
     note: null,
@@ -33,7 +47,7 @@ function buildTransaction(overrides: Partial<TransactionDetailRead> = {}): Trans
 
 function flowMemberOf(
   transaction: TransactionRead,
-  accountName: string | null = 'Sparkonto',
+  accountName: string | null = ACCOUNT_NAME_SAVINGS,
   isCurrent = false,
 ) {
   return {
@@ -57,7 +71,7 @@ function renderView(
   const flowMembers =
     transaction.flow_members.length > 0
       ? [
-          flowMemberOf(transaction, 'Girokonto', true),
+          flowMemberOf(transaction, ACCOUNT_NAME_GIRO, true),
           ...transaction.flow_members.map((m) => flowMemberOf(m)),
         ]
       : []
@@ -82,26 +96,26 @@ describe('TransactionDetailView', () => {
   })
 
   it('shows a negative amount in the destructive color', () => {
-    renderView({ amount: -42.5 })
-    const amount = screen.getByText('-42,50 €')
+    renderView({ amount: -AMOUNT_M })
+    const amount = screen.getByText(money(-AMOUNT_M))
     expect(amount.className).toMatch(/text-destructive/)
   })
 
   it('shows a positive amount in the success color', () => {
-    renderView({ amount: 1500 })
-    const amount = screen.getByText('1.500,00 €')
+    renderView({ amount: AMOUNT_XL })
+    const amount = screen.getByText(money(AMOUNT_XL))
     expect(amount.className).toMatch(/text-success/)
   })
 
   it('renders all fields in the table in the documented order', () => {
-    // amount: -42.5 (outgoing) → "Recipient" label
+    // amount: -AMOUNT_M (outgoing) → "Recipient" label
     renderView()
     const dts = screen.getAllByRole('term').map((node) => node.textContent)
     expect(dts).toEqual(['Recipient', 'PurposePurpose', 'Category', 'Account', 'Note'])
   })
 
   it('labels the other-party row "Sender" for incoming amounts', () => {
-    renderView({ amount: 100 })
+    renderView({ amount: AMOUNT_L })
     const dts = screen.getAllByRole('term').map((node) => node.textContent)
     expect(dts[0]).toBe('Sender')
   })
@@ -113,7 +127,7 @@ describe('TransactionDetailView', () => {
   })
 
   it('renders the date in long form in the header following the active language', () => {
-    renderView({ date: '2026-05-20' })
+    renderView({ date: DATE_RECENT })
     expect(screen.getByText(/May 20, 2026/)).toBeInTheDocument()
   })
 
@@ -175,9 +189,9 @@ describe('TransactionDetailView', () => {
   const memberTransaction: TransactionRead = {
     id: 99,
     account_id: 55,
-    amount: 42.5,
+    amount: AMOUNT_M,
     purpose: null,
-    date: '2026-05-20',
+    date: DATE_RECENT,
     other_party: null,
     transaction_type: 'TRANSFER_IN',
     category: 'TRANSFER',
@@ -192,7 +206,7 @@ describe('TransactionDetailView', () => {
 
   it('renders each flow member linking to its account with a focus param', () => {
     renderView({ flow_members: [memberTransaction] })
-    const link = screen.getByRole('link', { name: /Sparkonto/ })
+    const link = screen.getByRole('link', { name: new RegExp(ACCOUNT_NAME_SAVINGS) })
     expect(link).toHaveAttribute('href', '/account/55?focus=99')
   })
 
@@ -204,7 +218,7 @@ describe('TransactionDetailView', () => {
   it('asks for confirmation and removes the addressed member from the flow', async () => {
     const user = userEvent.setup()
     const { onUnlink } = renderView({ flow_members: [memberTransaction] })
-    const row = screen.getByRole('link', { name: /Sparkonto/ }).closest('li')!
+    const row = screen.getByRole('link', { name: new RegExp(ACCOUNT_NAME_SAVINGS) }).closest('li')!
     await user.click(within(row).getByRole('button', { name: 'Remove from money flow' }))
     expect(onUnlink).not.toHaveBeenCalled()
     await user.click(within(row).getByRole('button', { name: 'Remove from money flow' }))
@@ -214,7 +228,7 @@ describe('TransactionDetailView', () => {
   it('does not remove when the confirmation is cancelled', async () => {
     const user = userEvent.setup()
     const { onUnlink } = renderView({ flow_members: [memberTransaction] })
-    const row = screen.getByRole('link', { name: /Sparkonto/ }).closest('li')!
+    const row = screen.getByRole('link', { name: new RegExp(ACCOUNT_NAME_SAVINGS) }).closest('li')!
     await user.click(within(row).getByRole('button', { name: 'Remove from money flow' }))
     await user.click(within(row).getByRole('button', { name: 'Cancel' }))
     expect(onUnlink).not.toHaveBeenCalled()
@@ -230,20 +244,20 @@ describe('TransactionDetailView', () => {
     renderView({
       flow_members: [{ ...memberTransaction, other_party: 'ACME Corp', purpose: 'Invoice 42' }],
     })
-    expect(screen.getByRole('link', { name: /Sparkonto/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: new RegExp(ACCOUNT_NAME_SAVINGS) })).toBeInTheDocument()
     expect(screen.getByText('ACME Corp · Invoice 42')).toBeInTheDocument()
   })
 
   it('omits the details line when a member has no other party or purpose', () => {
     renderView({ flow_members: [{ ...memberTransaction, other_party: null, purpose: null }] })
-    const row = screen.getByRole('link', { name: /Sparkonto/ }).closest('li')!
+    const row = screen.getByRole('link', { name: new RegExp(ACCOUNT_NAME_SAVINGS) }).closest('li')!
     expect(within(row).queryByText(/·/)).toBeNull()
   })
 
   it('renders all flow members when there are more than one', () => {
     const second: TransactionRead = { ...memberTransaction, id: 100, account_id: 56 }
     renderView({ flow_members: [memberTransaction, second] })
-    const links = screen.getAllByRole('link', { name: /Sparkonto/ })
+    const links = screen.getAllByRole('link', { name: new RegExp(ACCOUNT_NAME_SAVINGS) })
     expect(links).toHaveLength(2)
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/account/55?focus=99',
@@ -255,11 +269,16 @@ describe('TransactionDetailView', () => {
     const current: TransactionRead = { ...memberTransaction, id: 7, account_id: 42 }
     renderView(
       { flow_members: [memberTransaction] },
-      { flowMembers: [flowMemberOf(current, 'Girokonto', true), flowMemberOf(memberTransaction)] },
+      {
+        flowMembers: [
+          flowMemberOf(current, ACCOUNT_NAME_GIRO, true),
+          flowMemberOf(memberTransaction),
+        ],
+      },
     )
-    expect(screen.queryByRole('link', { name: /Girokonto/ })).toBeNull()
-    expect(screen.getByText('Girokonto')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Sparkonto/ })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: new RegExp(ACCOUNT_NAME_GIRO) })).toBeNull()
+    expect(screen.getByText(ACCOUNT_NAME_GIRO)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: new RegExp(ACCOUNT_NAME_SAVINGS) })).toBeInTheDocument()
   })
 
   it('renders the linkSection slot when the flow is empty', () => {
@@ -294,17 +313,17 @@ describe('TransactionDetailView', () => {
 
 describe('transferPartnerLabel', () => {
   it('prefers the other party over the account name', () => {
-    expect(transferPartnerLabel('ACME Corp', 'Sparkonto')).toBe('ACME Corp')
+    expect(transferPartnerLabel('ACME Corp', ACCOUNT_NAME_SAVINGS)).toBe('ACME Corp')
   })
 
   it('falls back to the account name when the other party is missing or blank', () => {
-    expect(transferPartnerLabel(null, 'Sparkonto')).toBe('Sparkonto')
-    expect(transferPartnerLabel('   ', 'Sparkonto')).toBe('Sparkonto')
+    expect(transferPartnerLabel(null, ACCOUNT_NAME_SAVINGS)).toBe(ACCOUNT_NAME_SAVINGS)
+    expect(transferPartnerLabel('   ', ACCOUNT_NAME_SAVINGS)).toBe(ACCOUNT_NAME_SAVINGS)
   })
 
   it('formats IBAN values', () => {
-    expect(transferPartnerLabel('DE89370400440532013000', null)).toBe('DE89 3704 0044 0532 0130 00')
-    expect(transferPartnerLabel(null, 'DE89370400440532013000')).toBe('DE89 3704 0044 0532 0130 00')
+    expect(transferPartnerLabel(TEST_IBAN, null)).toBe(TEST_IBAN_FORMATTED)
+    expect(transferPartnerLabel(null, TEST_IBAN)).toBe(TEST_IBAN_FORMATTED)
   })
 
   it('returns null when neither is available', () => {
@@ -404,10 +423,15 @@ describe('compareFlowMembers', () => {
   })
 
   it('orders a broker purchase the way the money travels', () => {
-    const personalOut = flowMember({ id: 4750, date: '2026-07-14', amount: -2100 })
-    const cashIn = flowMember({ id: 5145, date: '2026-07-16', amount: 2100 })
-    const cashOut = flowMember({ id: 5146, date: '2026-07-16', amount: -2100 })
-    const depotIn = flowMember({ id: 5147, date: '2026-07-16', amount: 2100, isMarketValued: true })
+    const personalOut = flowMember({ id: 4750, date: '2026-07-14', amount: -AMOUNT_XL })
+    const cashIn = flowMember({ id: 5145, date: DATE_BROKER_SETTLE, amount: AMOUNT_XL })
+    const cashOut = flowMember({ id: 5146, date: DATE_BROKER_SETTLE, amount: -AMOUNT_XL })
+    const depotIn = flowMember({
+      id: 5147,
+      date: DATE_BROKER_SETTLE,
+      amount: AMOUNT_XL,
+      isMarketValued: true,
+    })
 
     const ordered = [depotIn, cashOut, personalOut, cashIn].sort(compareFlowMembers)
 
@@ -415,8 +439,18 @@ describe('compareFlowMembers', () => {
   })
 
   it('shows a same-date transfer as departure before arrival', () => {
-    const personalOut = flowMember({ id: 2, date: '2026-08-11', amount: -5000, accountId: 24 })
-    const cashIn = flowMember({ id: 1, date: '2026-08-11', amount: 5000, accountId: 20 })
+    const personalOut = flowMember({
+      id: 2,
+      date: DATE_SAME_DAY_TRANSFER,
+      amount: -AMOUNT_XL,
+      accountId: 24,
+    })
+    const cashIn = flowMember({
+      id: 1,
+      date: DATE_SAME_DAY_TRANSFER,
+      amount: AMOUNT_XL,
+      accountId: 20,
+    })
 
     const ordered = [cashIn, personalOut].sort(compareFlowMembers)
 

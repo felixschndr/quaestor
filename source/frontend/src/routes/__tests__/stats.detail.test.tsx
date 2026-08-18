@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
+import { ACCOUNT_NAME_GIRO, DATE_RECENT, PARTY_SUPERMARKET, money } from '@/test/constants'
 
 const routerState = vi.hoisted(() => ({
   search: { account_ids: [42, 43], end: '2026-05-20' } as Record<string, unknown>,
@@ -40,7 +41,7 @@ vi.mock('@/lib/auth', () => ({
           accounts: [
             {
               id: 42,
-              name: 'Girokonto',
+              name: ACCOUNT_NAME_GIRO,
               display_name: null,
               balance: 130,
               balance_factor: 100,
@@ -76,7 +77,7 @@ vi.mock(import('@/lib/statistics'), async (importOriginal) => ({
     data: {
       start: '2026-05-19',
       // Totals arrive pre-factored from the backend (Giro x1.0 + Depot x1.5); rows stay raw.
-      end: '2026-05-20',
+      end: DATE_RECENT,
       total_at_start: 475,
       total_at_end: 880,
       total_difference: 405,
@@ -92,8 +93,8 @@ vi.mock(import('@/lib/statistics'), async (importOriginal) => ({
               account_id: 42,
               amount: 30,
               purpose: null,
-              date: '2026-05-20',
-              other_party: 'Rewe',
+              date: DATE_RECENT,
+              other_party: PARTY_SUPERMARKET,
               transaction_type: null,
               category: 'UNKNOWN',
               note: null,
@@ -117,7 +118,7 @@ import { NetWorthDetailPage } from '@/pages/stats_.detail'
 
 describe('NetWorthDetailPage', () => {
   beforeEach(() => {
-    routerState.search = { account_ids: [42, 43], end: '2026-05-20' }
+    routerState.search = { account_ids: [42, 43], end: DATE_RECENT }
     routerState.canGoBack = true
     routerState.navigate.mockClear()
     routerState.back.mockClear()
@@ -143,11 +144,11 @@ describe('NetWorthDetailPage', () => {
   it('keeps a row collapsed until it is in the expanded URL state', async () => {
     render(<NetWorthDetailPage />)
 
-    expect(screen.getByText('Girokonto')).toBeInTheDocument()
+    expect(screen.getByText(ACCOUNT_NAME_GIRO)).toBeInTheDocument()
     expect(screen.getByText('Depot')).toBeInTheDocument()
-    expect(screen.queryByText('Rewe')).not.toBeInTheDocument()
+    expect(screen.queryByText(PARTY_SUPERMARKET)).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: /Girokonto/ }))
+    await userEvent.click(screen.getByRole('button', { name: new RegExp(ACCOUNT_NAME_GIRO) }))
     expect(routerState.navigate).toHaveBeenCalledWith(
       expect.objectContaining({
         to: '/stats/detail',
@@ -158,10 +159,10 @@ describe('NetWorthDetailPage', () => {
   })
 
   it('reveals the transactions of rows listed in the expanded URL state', () => {
-    routerState.search = { account_ids: [42, 43], end: '2026-05-20', expanded: [42, 43] }
+    routerState.search = { account_ids: [42, 43], end: DATE_RECENT, expanded: [42, 43] }
     render(<NetWorthDetailPage />)
 
-    expect(screen.getByText('Rewe')).toBeInTheDocument()
+    expect(screen.getByText(PARTY_SUPERMARKET)).toBeInTheDocument()
     // The depot has no transactions to explain its market-driven change.
     expect(screen.getByText('No transactions in this period')).toBeInTheDocument()
   })
@@ -172,7 +173,7 @@ describe('NetWorthDetailPage', () => {
     expect(screen.getByText('x 1,50')).toBeInTheDocument()
 
     // Total at end = 130 * 1.0 + 500 * 1.5 = 880; difference = 30 * 1.0 + 250 * 1.5 = 405.
-    expect(screen.getByText('880,00 €')).toBeInTheDocument()
-    expect(screen.getByText('+405,00 €')).toBeInTheDocument()
+    expect(screen.getByText(money(880))).toBeInTheDocument()
+    expect(screen.getByText(`+${money(405)}`)).toBeInTheDocument()
   })
 })

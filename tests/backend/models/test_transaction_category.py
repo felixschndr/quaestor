@@ -6,6 +6,7 @@ from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
+    PERSON_NAME,
     UNKNOWN_TRANSACTION_OTHER_PARTY,
     assert_log_contains,
     create_fetched_transaction,
@@ -94,9 +95,9 @@ from tests.backend.conftest import (
         ("Kanzlei Meier", "Rechtsanwalt Honorar", TransactionCategory.FEES),
         ("Notariat Dr. Schmidt", "Beurkundung", TransactionCategory.FEES),
         # Private person names alone stay UNKNOWN — no matcher rule
-        ("Max Mustermann", None, TransactionCategory.UNKNOWN),
-        ("Alica Parker", None, TransactionCategory.UNKNOWN),
-        ("Bob Traumer", None, TransactionCategory.UNKNOWN),
+        ("John Doe", None, TransactionCategory.UNKNOWN),
+        (PERSON_NAME, None, TransactionCategory.UNKNOWN),
+        ("Richard Roe", None, TransactionCategory.UNKNOWN),
         # Truly unknown fallbacks
         (UNKNOWN_TRANSACTION_OTHER_PARTY, "Miscellaneous", TransactionCategory.UNKNOWN),
         (None, None, TransactionCategory.UNKNOWN),
@@ -155,7 +156,7 @@ def test_log_result_false_keeps_the_log_quiet(caplog: pytest.LogCaptureFixture):
 def test_type_short_circuits_to_category_regardless_of_text(
     transaction_type: TransactionType, expected: TransactionCategory
 ):
-    fetched = create_fetched_transaction(other_party="Felix Schneider", purpose=None, transaction_type=transaction_type)
+    fetched = create_fetched_transaction(other_party=PERSON_NAME, purpose=None, transaction_type=transaction_type)
 
     assert TransactionCategory.from_transaction(transaction=fetched) == expected
 

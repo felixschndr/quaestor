@@ -7,6 +7,7 @@ import i18n from 'i18next'
 
 import '@/i18n'
 import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { DATETIME_RECENT } from '@/test/constants'
 
 vi.mock('@tanstack/react-router', async () =>
   (await import('./-routerMock')).routerMocks({
@@ -20,7 +21,7 @@ import type { SessionRead } from '@/lib/sessions'
 function buildSession(overrides: Partial<SessionRead> = {}): SessionRead {
   return {
     id: 10,
-    created_at: '2026-05-20T10:00:00Z',
+    created_at: DATETIME_RECENT,
     last_used_at: '2026-05-26T09:00:00Z',
     ip: '203.0.113.7',
     user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Safari/605.1.15',

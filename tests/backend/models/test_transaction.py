@@ -1,14 +1,14 @@
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
-from tests.backend.conftest import RECENT_DATE
+from tests.backend.conftest import DEFAULT_AMOUNT, RECENT_DATE
 
 
 def test_transaction_repr_contains_identifying_fields():
     transaction = Transaction(
         id=99,
         account_id=42,
-        amount=-19.99,
+        amount=-DEFAULT_AMOUNT,
         purpose="Coffee",
         date=RECENT_DATE,
         other_party="Café",
@@ -18,7 +18,7 @@ def test_transaction_repr_contains_identifying_fields():
     )
 
     assert repr(transaction) == (
-        "<Transaction(id=99, account_id=42, amount=-19.99, purpose=Coffee, "
+        f"<Transaction(id=99, account_id=42, amount={-DEFAULT_AMOUNT}, purpose=Coffee, "
         "date=2026-04-29, other_party=Café, transaction_type=OUTGOING, "
         "category=UNKNOWN, note=Birthday gift, pending=None, bank_reference=None, expected=None, "
         "match_tolerance_percent=None, flow_id=None, "

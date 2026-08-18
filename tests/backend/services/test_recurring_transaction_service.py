@@ -16,6 +16,8 @@ from source.backend.models.transactions.transaction import Transaction
 from source.backend.services.accounts import account_service
 from source.backend.services.transactions import recurring_transaction_service
 from tests.backend.conftest import (
+    DEFAULT_AMOUNT,
+    DEFAULT_BALANCE,
     assert_log_contains,
     make_account_with_new_user,
     persist_manual_account_with_new_user,
@@ -83,11 +85,11 @@ def test_create_without_immediate_booking_schedules_only(
         rule = recurring_transaction_service.create_recurring_transaction(
             db_session=session,
             account=account,
-            fields={"amount": -50.0, "frequency": RecurrenceFrequency.MONTHLY, "day_of_month": 28},
+            fields={"amount": -DEFAULT_AMOUNT, "frequency": RecurrenceFrequency.MONTHLY, "day_of_month": 28},
             book_immediately=False,
         )
         assert rule.next_run_date == _d("2026-06-28")
-        assert account.balance == 100.0  # nothing booked yet
+        assert account.balance == DEFAULT_BALANCE  # nothing booked yet
         assert account.transactions == []
         assert_log_contains(caplog, messages=["Created", "booked today:"])
 
@@ -103,11 +105,11 @@ def test_create_with_immediate_booking_books_today_and_schedules_next(
         rule = recurring_transaction_service.create_recurring_transaction(
             db_session=session,
             account=account,
-            fields={"amount": -50.0, "frequency": RecurrenceFrequency.MONTHLY, "day_of_month": 6},
+            fields={"amount": -DEFAULT_AMOUNT, "frequency": RecurrenceFrequency.MONTHLY, "day_of_month": 6},
             book_immediately=True,
         )
         assert rule.next_run_date == _d("2026-07-06")  # strictly after today
-        assert account.balance == 50.0
+        assert account.balance == DEFAULT_BALANCE - DEFAULT_AMOUNT
         assert len(account.transactions) == 1
         booked = account.transactions[0]
         assert booked.date == _d("2026-06-06")
@@ -218,7 +220,7 @@ def test_update_amount_only_keeps_the_next_run_date(session_factory: sessionmake
         rule = recurring_transaction_service.create_recurring_transaction(
             db_session=session,
             account=account,
-            fields={"amount": -50.0, "frequency": RecurrenceFrequency.MONTHLY, "day_of_month": 28},
+            fields={"amount": -DEFAULT_AMOUNT, "frequency": RecurrenceFrequency.MONTHLY, "day_of_month": 28},
             book_immediately=False,
         )
         rule_id = rule.id  # next_run_date == 2026-06-28
@@ -245,7 +247,7 @@ def test_update_schedule_recomputes_next_run_and_clears_other_day(
         rule = recurring_transaction_service.create_recurring_transaction(
             db_session=session,
             account=account,
-            fields={"amount": -50.0, "frequency": RecurrenceFrequency.MONTHLY, "day_of_month": 28},
+            fields={"amount": -DEFAULT_AMOUNT, "frequency": RecurrenceFrequency.MONTHLY, "day_of_month": 28},
             book_immediately=False,
         )
         rule_id = rule.id
@@ -256,7 +258,7 @@ def test_update_schedule_recomputes_next_run_and_clears_other_day(
             db_session=session,
             account=account,
             recurring_transaction_id=rule_id,
-            fields={"amount": -50.0, "frequency": RecurrenceFrequency.WEEKLY, "day_of_week": 0},  # Monday
+            fields={"amount": -DEFAULT_AMOUNT, "frequency": RecurrenceFrequency.WEEKLY, "day_of_week": 0},  # Monday
         )
         assert updated.frequency == RecurrenceFrequency.WEEKLY
         assert updated.day_of_month is None
@@ -291,7 +293,7 @@ def test_delete_detaches_booked_transactions_and_removes_rule(
         rule = recurring_transaction_service.create_recurring_transaction(
             db_session=session,
             account=account,
-            fields={"amount": -50.0, "frequency": RecurrenceFrequency.MONTHLY, "day_of_month": 6},
+            fields={"amount": -DEFAULT_AMOUNT, "frequency": RecurrenceFrequency.MONTHLY, "day_of_month": 6},
             book_immediately=True,
         )
         rule_id = rule.id

@@ -17,6 +17,7 @@ from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.services.banking import credential_service, trade_republic_login
 from tests.backend.conftest import (
+    APPLICATION_ID,
     BANK_PASSWORD,
     BANK_USERNAME,
     CHALLENGE_TOKEN,
@@ -430,7 +431,7 @@ def test_sync_all_due_credentials_logs_exception_per_failure(
 
 
 _ENABLE_BANKING_APP = {
-    "application_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "application_id": APPLICATION_ID,
     "private_key": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
     "redirect_url": "https://localhost:8000/banking/callback",
 }
@@ -489,7 +490,7 @@ def test_create_enable_banking_credential_extracts_the_application_id_from_the_k
         )
         session.commit()
 
-    assert credential.credentials["application_id"] == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    assert credential.credentials["application_id"] == APPLICATION_ID
     assert "private_key_file_name" not in credential.credentials
 
 

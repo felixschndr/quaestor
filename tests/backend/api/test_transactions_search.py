@@ -9,6 +9,12 @@ from source.backend.models.transactions.transaction_attachment import Transactio
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
+    ACME,
+    DEFAULT_AMOUNT,
+    INTRUDER_USER_NAME,
+    LARGE_AMOUNT,
+    REWE,
+    SECOND_AMOUNT,
     create_credential,
     link_transactions_as_flow,
     make_transaction,
@@ -25,9 +31,9 @@ def _seed_three_transactions(session_factory: sessionmaker, account_id: int) -> 
         rewe = make_transaction(
             session,
             account_id=account_id,
-            amount=-12.50,
-            purpose="Wocheneinkauf",
-            other_party="Rewe",
+            amount=-SECOND_AMOUNT,
+            purpose="Groceries",
+            other_party=REWE,
             date=date(year=2026, month=1, day=15),
             transaction_type=TransactionType.OUTGOING,
             category=TransactionCategory.SUPERMARKET,
@@ -36,9 +42,9 @@ def _seed_three_transactions(session_factory: sessionmaker, account_id: int) -> 
         salary = make_transaction(
             session,
             account_id=account_id,
-            amount=2500.00,
-            purpose="Gehalt April",
-            other_party="ACME GmbH",
+            amount=LARGE_AMOUNT,
+            purpose="Salary April",
+            other_party=ACME,
             date=date(year=2026, month=4, day=30),
             transaction_type=TransactionType.INCOMING,
             category=TransactionCategory.SALARY,
@@ -46,9 +52,9 @@ def _seed_three_transactions(session_factory: sessionmaker, account_id: int) -> 
         atm = make_transaction(
             session,
             account_id=account_id,
-            amount=-200.00,
-            purpose="ATM Berlin",
-            other_party="Sparkasse",
+            amount=-LARGE_AMOUNT,
+            purpose="ATM withdrawal",
+            other_party="Savings Bank",
             date=date(year=2026, month=5, day=2),
             transaction_type=TransactionType.OUTGOING,
             category=TransactionCategory.WITHDRAWAL,
@@ -61,24 +67,24 @@ def _seed_three_transactions(session_factory: sessionmaker, account_id: int) -> 
 def _seed_linked_pair_and_single(session_factory: sessionmaker, account_id: int) -> dict[str, int]:
     """Two transactions linked as transfer counterparts plus one standalone."""
     with session_factory() as session:
-        out = make_transaction(session, account_id=account_id, amount=-100.0, purpose="transfer out")
-        back = make_transaction(session, account_id=account_id, amount=100.0, purpose="transfer in")
+        out = make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, purpose="transfer out")
+        back = make_transaction(session, account_id=account_id, amount=DEFAULT_AMOUNT, purpose="transfer in")
         session.flush()
         link_transactions_as_flow(db_session=session, transactions=[out, back])
-        single = make_transaction(session, account_id=account_id, amount=-5.0, purpose="standalone")
+        single = make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, purpose="standalone")
         session.commit()
         return {"out": out.id, "back": back.id, "single": single.id}
 
 
 def _seed_with_and_without_attachment(session_factory: sessionmaker, account_id: int) -> dict[str, int]:
     with session_factory() as session:
-        with_att = make_transaction(session, account_id=account_id, amount=-9.0, purpose="invoice payment")
-        without_att = make_transaction(session, account_id=account_id, amount=-4.0, purpose="cash")
+        with_att = make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, purpose="invoice payment")
+        without_att = make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, purpose="cash")
         session.flush()
         session.add(
             TransactionAttachment(
                 transaction_id=with_att.id,
-                filename="Rechnung_2026.pdf",
+                filename="Invoice_2026.pdf",
                 content_type="application/pdf",
                 size=3,
                 data=b"pdf",
@@ -136,17 +142,17 @@ def test_search_flips_buy_sign_only_on_depot_accounts(http_client: TestClient, s
     cash_id = persist_account(session_factory=session_factory, credential_id=credential_id, name="Cash")
     depot_id = persist_account(session_factory=session_factory, credential_id=credential_id, name="Depot")
     persist_transaction(
-        session_factory=session_factory, account_id=cash_id, amount=-3500.0, transaction_type=TransactionType.BUY
+        session_factory=session_factory, account_id=cash_id, amount=-LARGE_AMOUNT, transaction_type=TransactionType.BUY
     )
     persist_transaction(
-        session_factory=session_factory, account_id=depot_id, amount=-3500.0, transaction_type=TransactionType.BUY
+        session_factory=session_factory, account_id=depot_id, amount=-LARGE_AMOUNT, transaction_type=TransactionType.BUY
     )
     with session_factory() as session:
         session.add(
             AccountBalanceSnapshot(
                 account_id=depot_id,
                 date=date(year=2026, month=1, day=15),
-                balance=3500.0,
+                balance=LARGE_AMOUNT,
                 source=BalanceSnapshotSource.MARKET_VALUED,
             )
         )
@@ -155,8 +161,8 @@ def test_search_flips_buy_sign_only_on_depot_accounts(http_client: TestClient, s
     response = http_client.get("/api/transactions/search", params=[("account_ids", cash_id), ("account_ids", depot_id)])
 
     amounts = {row["account_id"]: row["amount"] for row in response.json()}
-    assert amounts[cash_id] == -3500.0
-    assert amounts[depot_id] == 3500.0
+    assert amounts[cash_id] == -LARGE_AMOUNT
+    assert amounts[depot_id] == LARGE_AMOUNT
 
 
 def test_search_only_returns_selected_accounts(http_client: TestClient, session_factory: sessionmaker):
@@ -175,7 +181,7 @@ def test_search_only_returns_selected_accounts(http_client: TestClient, session_
 @pytest.mark.parametrize(
     argnames="extra_params, expected_keys",
     argvalues=[
-        ([("text", "GEHALT")], {"salary"}),  # purpose, case-insensitive
+        ([("text", "SALARY")], {"salary"}),  # purpose, case-insensitive
         ([("text", "rewe")], {"rewe"}),  # also matches other_party
         ([("text", "vacation")], {"atm"}),  # also matches note
         ([("amount_from", 0), ("amount_to", 5000)], {"salary"}),
@@ -272,7 +278,7 @@ def test_search_rejects_account_owned_by_a_different_user(http_client: TestClien
     account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
     _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
     response = http_client.get("/api/transactions/search", params=[("account_ids", account_id)])
 
@@ -286,7 +292,7 @@ def test_search_rejects_when_only_some_accounts_are_owned(http_client: TestClien
     owner_cred = create_credential(http_client).json()["id"]
     owner_account = persist_account(session_factory=session_factory, credential_id=owner_cred, name="Owner")
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
     intruder_cred = create_credential(http_client).json()["id"]
     intruder_account = persist_account(session_factory=session_factory, credential_id=intruder_cred, name="Intruder")
 
@@ -398,7 +404,7 @@ def test_search_text_matches_attachment_filename(http_client: TestClient, sessio
 
     response = http_client.get(
         "/api/transactions/search",
-        params=[("account_ids", account_id), ("text", "Rechnung")],
+        params=[("account_ids", account_id), ("text", "Invoice")],
     )
 
     assert response.status_code == 200
@@ -420,7 +426,7 @@ def test_get_by_id_hides_foreign_transaction(http_client: TestClient, session_fa
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
     response = http_client.get(f"/api/transactions/{ids['salary']}")
 
     assert response.status_code == 404

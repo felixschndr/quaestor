@@ -6,6 +6,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/i18n'
 import type { TransactionRead } from '@/lib/accountHistory'
 import type { CredentialRead } from '@/lib/auth'
+import {
+  ACCOUNT_NAME_BROKER,
+  ACCOUNT_NAME_DAY,
+  ACCOUNT_NAME_GIRO,
+  AMOUNT_L,
+  AMOUNT_M,
+  AMOUNT_S,
+  AMOUNT_XL,
+  DATE_RECENT,
+  DATE_YEAR_START,
+  DATE_YESTERDAY,
+  LABEL_GROCERIES,
+  LABEL_SALARY,
+  PARTY_SUPERMARKET,
+  money,
+} from '@/test/constants'
 
 vi.mock('@tanstack/react-router', async () =>
   (await import('./-routerMock')).routerMocks({
@@ -31,7 +47,7 @@ const credentials: CredentialRead[] = [
     accounts: [
       {
         id: 42,
-        name: 'Girokonto',
+        name: ACCOUNT_NAME_GIRO,
         balance: 0,
         balance_factor: 100,
         display_name: null,
@@ -41,7 +57,7 @@ const credentials: CredentialRead[] = [
       },
       {
         id: 43,
-        name: 'Tagesgeld',
+        name: ACCOUNT_NAME_DAY,
         balance: 0,
         balance_factor: 100,
         display_name: null,
@@ -62,7 +78,7 @@ const credentials: CredentialRead[] = [
     accounts: [
       {
         id: 99,
-        name: 'TR Cash',
+        name: ACCOUNT_NAME_BROKER,
         balance: 0,
         balance_factor: 100,
         display_name: null,
@@ -213,12 +229,12 @@ describe('TransactionSearchView — form', () => {
     const { onChange } = renderView()
 
     await user.type(screen.getByLabelText('Search text'), 'rewe')
-    await user.type(screen.getByLabelText('Amount from'), '50')
+    await user.type(screen.getByLabelText('Amount from'), String(AMOUNT_M))
 
     await waitFor(() => {
       const payload = lastPayload(onChange)
       expect(payload?.filters.text).toBe('rewe')
-      expect(payload?.filters.amount_from).toBe(50)
+      expect(payload?.filters.amount_from).toBe(AMOUNT_M)
     })
     const payload = lastPayload(onChange)
     expect(payload?.filters.amount_to).toBeUndefined()
@@ -226,9 +242,9 @@ describe('TransactionSearchView — form', () => {
   })
 
   it('preserves the existing URL filters in the form', () => {
-    renderView({ search: { text: 'gehalt', amount_from: 100 } })
+    renderView({ search: { text: 'gehalt', amount_from: AMOUNT_L } })
     expect((screen.getByLabelText('Search text') as HTMLInputElement).value).toBe('gehalt')
-    expect((screen.getByLabelText('Amount from') as HTMLInputElement).value).toBe('100')
+    expect((screen.getByLabelText('Amount from') as HTMLInputElement).value).toBe(String(AMOUNT_L))
   })
 })
 
@@ -243,7 +259,7 @@ describe('TransactionSearchView — accounts multi-select', () => {
     const { onChange } = renderView()
 
     await user.click(screen.getByLabelText('Accounts'))
-    const tagesgeldRow = screen.getByText('Tagesgeld').closest('label')!
+    const tagesgeldRow = screen.getByText(ACCOUNT_NAME_DAY).closest('label')!
     await user.click(within(tagesgeldRow).getByRole('checkbox'))
 
     await waitFor(() =>
@@ -338,10 +354,10 @@ describe('TransactionSearchView — results', () => {
       {
         id: 1,
         account_id: 42,
-        amount: -42.5,
-        purpose: 'Wocheneinkauf',
-        date: '2026-05-20',
-        other_party: 'Rewe',
+        amount: -AMOUNT_M,
+        purpose: LABEL_GROCERIES,
+        date: DATE_RECENT,
+        other_party: PARTY_SUPERMARKET,
         transaction_type: 'OUTGOING',
         category: 'SUPERMARKET',
         note: null,
@@ -349,8 +365,8 @@ describe('TransactionSearchView — results', () => {
       {
         id: 2,
         account_id: 42,
-        amount: 2500,
-        purpose: 'Gehalt',
+        amount: AMOUNT_XL,
+        purpose: LABEL_SALARY,
         date: '2026-04-30',
         other_party: 'ACME',
         transaction_type: 'INCOMING',
@@ -360,11 +376,14 @@ describe('TransactionSearchView — results', () => {
     ])
     renderView({ search: { text: 'a', account_ids: [42] } })
 
-    expect(await screen.findByText('Rewe')).toBeInTheDocument()
+    expect(await screen.findByText(PARTY_SUPERMARKET)).toBeInTheDocument()
     expect(screen.getByText('ACME')).toBeInTheDocument()
-    expect(screen.getByText('-42,50 €').className).toMatch(/text-destructive/)
-    expect(screen.getByText('2.500,00 €').className).toMatch(/text-success/)
-    expect(screen.getByText('Rewe').closest('a')).toHaveAttribute('href', '/transactions/1')
+    expect(screen.getByText(money(-AMOUNT_M)).className).toMatch(/text-destructive/)
+    expect(screen.getByText(money(AMOUNT_XL)).className).toMatch(/text-success/)
+    expect(screen.getByText(PARTY_SUPERMARKET).closest('a')).toHaveAttribute(
+      'href',
+      '/transactions/1',
+    )
   })
 
   it('shows the per-row account name only when more than one account is selected', async () => {
@@ -372,10 +391,10 @@ describe('TransactionSearchView — results', () => {
       {
         id: 1,
         account_id: 42,
-        amount: -10,
+        amount: -AMOUNT_S,
         purpose: 'x',
-        date: '2026-05-20',
-        other_party: 'Rewe',
+        date: DATE_RECENT,
+        other_party: PARTY_SUPERMARKET,
         transaction_type: null,
         category: 'UNKNOWN',
         note: null,
@@ -383,9 +402,9 @@ describe('TransactionSearchView — results', () => {
       {
         id: 2,
         account_id: 43,
-        amount: -20,
+        amount: -AMOUNT_M,
         purpose: 'y',
-        date: '2026-05-21',
+        date: DATE_YESTERDAY,
         other_party: 'Aldi',
         transaction_type: null,
         category: 'UNKNOWN',
@@ -395,18 +414,18 @@ describe('TransactionSearchView — results', () => {
     renderView({ search: { account_ids: [42, 43] } })
 
     // Each row's subtitle (date + account name) should mention the account.
-    expect(await screen.findByText(/Girokonto/)).toBeInTheDocument()
-    expect(screen.getByText(/Tagesgeld/)).toBeInTheDocument()
+    expect(await screen.findByText(new RegExp(ACCOUNT_NAME_GIRO))).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(ACCOUNT_NAME_DAY))).toBeInTheDocument()
   })
 
   it('links each result row to its own account, not to the anchor', async () => {
     mockFetchOnce([
       {
         id: 7,
-        account_id: 99, // belongs to TR, not to the ING credential above
-        amount: 5,
+        account_id: 99,
+        amount: AMOUNT_S,
         purpose: 'x',
-        date: '2026-05-20',
+        date: DATE_RECENT,
         other_party: 'Other',
         transaction_type: null,
         category: 'UNKNOWN',
@@ -445,9 +464,9 @@ describe('TransactionSearchView — link mode', () => {
       {
         id: 7,
         account_id: 42,
-        amount: -10,
+        amount: -AMOUNT_S,
         purpose: 'source',
-        date: '2026-05-20',
+        date: DATE_RECENT,
         other_party: 'Source Party',
         transaction_type: null,
         category: 'UNKNOWN',
@@ -456,9 +475,9 @@ describe('TransactionSearchView — link mode', () => {
       {
         id: 8,
         account_id: 42,
-        amount: 10,
+        amount: AMOUNT_S,
         purpose: 'candidate',
-        date: '2026-05-20',
+        date: DATE_RECENT,
         other_party: 'Candidate Party',
         transaction_type: null,
         category: 'UNKNOWN',
@@ -478,9 +497,9 @@ describe('TransactionSearchView — link mode', () => {
       {
         id: 8,
         account_id: 42,
-        amount: 10,
+        amount: AMOUNT_S,
         purpose: 'booked',
-        date: '2026-05-20',
+        date: DATE_RECENT,
         other_party: 'Booked Party',
         transaction_type: null,
         category: 'UNKNOWN',
@@ -490,9 +509,9 @@ describe('TransactionSearchView — link mode', () => {
       {
         id: 9,
         account_id: 42,
-        amount: 10,
+        amount: AMOUNT_S,
         purpose: 'pending',
-        date: '2026-05-20',
+        date: DATE_RECENT,
         other_party: 'Pending Party',
         transaction_type: null,
         category: 'UNKNOWN',
@@ -512,9 +531,9 @@ describe('TransactionSearchView — link mode', () => {
     const inFlow = {
       id: 8,
       account_id: 42,
-      amount: 10,
+      amount: AMOUNT_S,
       purpose: null,
-      date: '2026-05-20',
+      date: DATE_RECENT,
       other_party: 'In-Flow Party',
       transaction_type: null,
       category: 'UNKNOWN',
@@ -547,9 +566,9 @@ describe('TransactionSearchView — link mode', () => {
       {
         id: 8,
         account_id: 43,
-        amount: 10,
+        amount: AMOUNT_S,
         purpose: null,
-        date: '2026-05-20',
+        date: DATE_RECENT,
         other_party: 'Candidate Party',
         transaction_type: null,
         category: 'UNKNOWN',
@@ -591,8 +610,8 @@ describe('TransactionSearchView — request building', () => {
     renderView({
       search: {
         text: 'rewe',
-        amount_from: -100,
-        date_from: '2026-01-01',
+        amount_from: -AMOUNT_L,
+        date_from: DATE_YEAR_START,
         transaction_types: ['OUTGOING'],
         linked: 'linked',
         account_ids: [42, 99],
@@ -605,8 +624,8 @@ describe('TransactionSearchView — request building', () => {
     expect(url).toContain('account_ids=42')
     expect(url).toContain('account_ids=99')
     expect(url).toContain('text=rewe')
-    expect(url).toContain('amount_from=-100')
-    expect(url).toContain('date_from=2026-01-01')
+    expect(url).toContain(`amount_from=${-AMOUNT_L}`)
+    expect(url).toContain(`date_from=${DATE_YEAR_START}`)
     expect(url).toContain('transaction_types=OUTGOING')
     expect(url).toContain('linked=linked')
     expect(url).not.toContain('submitted=')

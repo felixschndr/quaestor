@@ -12,7 +12,12 @@ from source.backend.models.auth.user import User
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.services.transactions import statistics_service
 from tests.backend.conftest import (
+    DEFAULT_AMOUNT,
+    DEFAULT_BALANCE,
+    LARGE_AMOUNT,
     LATEST_DATE,
+    SECOND_AMOUNT,
+    THIRD_AMOUNT,
     make_account,
     make_transaction,
     make_user,
@@ -29,12 +34,12 @@ def test_category_breakdown_excludes_market_valued_accounts(session_factory: ses
             AccountBalanceSnapshot(
                 account_id=depot.id,
                 date=LATEST_DATE,
-                balance=3500.0,
+                balance=LARGE_AMOUNT,
                 source=BalanceSnapshotSource.MARKET_VALUED,
             )
         )
-        make_transaction(session, account_id=cash.id, amount=-3500.0, category=TransactionCategory.INVESTMENT)
-        make_transaction(session, account_id=depot.id, amount=-3500.0, category=TransactionCategory.INVESTMENT)
+        make_transaction(session, account_id=cash.id, amount=-LARGE_AMOUNT, category=TransactionCategory.INVESTMENT)
+        make_transaction(session, account_id=depot.id, amount=-LARGE_AMOUNT, category=TransactionCategory.INVESTMENT)
         session.commit()
         user_id, cash_id, depot_id = user.id, cash.id, depot.id
 
@@ -49,7 +54,7 @@ def test_category_breakdown_excludes_market_valued_accounts(session_factory: ses
             categories=[],
         )
 
-    assert [(slice_.category, slice_.total) for slice_ in result] == [(TransactionCategory.INVESTMENT, 3500.0)]
+    assert [(slice_.category, slice_.total) for slice_ in result] == [(TransactionCategory.INVESTMENT, LARGE_AMOUNT)]
 
 
 @pytest.mark.parametrize(
@@ -131,7 +136,7 @@ def test_daily_net_worth_apply_factor_false_ignores_balance_factor(session_facto
         account.balance_factor = 50
         session.commit()
         user_id, account_id = user.id, account.id
-    seed_snapshot(session_factory, account_id=account_id, day=day, balance=100.0)
+    seed_snapshot(session_factory, account_id=account_id, day=day, balance=DEFAULT_BALANCE)
 
     with session_factory() as session:
         user = session.get(entity=User, ident=user_id)
@@ -142,8 +147,8 @@ def test_daily_net_worth_apply_factor_false_ignores_balance_factor(session_facto
             db_session=session, user=user, account_ids=[account_id], date_from=day, date_to=day, apply_factor=False
         )
 
-    assert factored.series[0].value == 50.0
-    assert raw.series[0].value == 100.0
+    assert factored.series[0].value == DEFAULT_BALANCE / 2
+    assert raw.series[0].value == DEFAULT_BALANCE
 
 
 def test_daily_net_worth_returns_empty_when_range_is_inverted(session_factory: sessionmaker):
@@ -169,15 +174,15 @@ def test_net_worth_range_reports_before_after_and_transactions(session_factory: 
         session.commit()
         user_id, account_id = user.id, account.id
     # Balance at the end of `start` was 100; two booked transactions push it to 130 by `end`.
-    seed_snapshot(session_factory, account_id=account_id, day=start, balance=100.0)
+    seed_snapshot(session_factory, account_id=account_id, day=start, balance=DEFAULT_BALANCE)
     seed_snapshot(session_factory, account_id=account_id, day=end, balance=130.0)
     with session_factory() as session:
-        first = make_transaction(session, account_id=account_id, amount=50.0, date=end)
-        second = make_transaction(session, account_id=account_id, amount=-20.0, date=end)
-        make_transaction(session, account_id=account_id, amount=-999.0, date=end, pending=True)
-        make_transaction(session, account_id=account_id, amount=-888.0, date=end, expected=True)
+        first = make_transaction(session, account_id=account_id, amount=DEFAULT_AMOUNT, date=end)
+        second = make_transaction(session, account_id=account_id, amount=-SECOND_AMOUNT, date=end)
+        make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, date=end, pending=True)
+        make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, date=end, expected=True)
         # A transaction on `start` itself is part of the "before" snapshot, not the range.
-        make_transaction(session, account_id=account_id, amount=7.0, date=start)
+        make_transaction(session, account_id=account_id, amount=DEFAULT_AMOUNT, date=start)
         session.commit()
         first_id, second_id = first.id, second.id
 
@@ -218,8 +223,8 @@ def test_net_worth_range_reports_before_after_and_transactions(session_factory: 
                 "balance_at_end": 130.0,
                 "difference": 30.0,
                 "transactions": [
-                    booked(transaction_id=second_id, amount=-20.0),
-                    booked(transaction_id=first_id, amount=50.0),
+                    booked(transaction_id=second_id, amount=-SECOND_AMOUNT),
+                    booked(transaction_id=first_id, amount=DEFAULT_AMOUNT),
                 ],
             }
         ],
@@ -282,7 +287,7 @@ def test_net_worth_range_totals_apply_balance_factor(session_factory: sessionmak
         account.balance_factor = 50
         session.commit()
         user_id, account_id = user.id, account.id
-    seed_snapshot(session_factory, account_id=account_id, day=start, balance=100.0)
+    seed_snapshot(session_factory, account_id=account_id, day=start, balance=DEFAULT_BALANCE)
     seed_snapshot(session_factory, account_id=account_id, day=end, balance=130.0)
 
     with session_factory() as session:
@@ -311,7 +316,7 @@ def test_category_trend_averages_baseline_and_sorts_by_current_amount(session_fa
             make_transaction(session, account_id=account.id, amount=-supermarket_amount, date=day, category=supermarket)
         for offset in [5, 15, 25, 35, 45]:
             day = date_from + datetime.timedelta(days=5) - datetime.timedelta(days=offset)
-            make_transaction(session, account_id=account.id, amount=-50.0, date=day, category=fuel)
+            make_transaction(session, account_id=account.id, amount=-DEFAULT_AMOUNT, date=day, category=fuel)
 
         result = statistics_service.category_trend(
             db_session=session,
@@ -368,8 +373,8 @@ def test_transaction_counts_grouping(session_factory: sessionmaker, group_by: st
 def test_transaction_counts_sums_absolute_amount(session_factory: sessionmaker):
     with session_factory() as session:
         user, _, account = make_user_and_credential_and_account(session)
-        make_transaction(session, account_id=account.id, amount=-30.0, date=LATEST_DATE)
-        make_transaction(session, account_id=account.id, amount=20.0, date=LATEST_DATE)
+        make_transaction(session, account_id=account.id, amount=-SECOND_AMOUNT, date=LATEST_DATE)
+        make_transaction(session, account_id=account.id, amount=THIRD_AMOUNT, date=LATEST_DATE)
         result = statistics_service.transaction_counts(
             db_session=session,
             user=user,
@@ -380,7 +385,9 @@ def test_transaction_counts_sums_absolute_amount(session_factory: sessionmaker):
             group_by="month",
         )
 
-    assert [(bucket.bucket, bucket.count, bucket.amount) for bucket in result] == [("2026-06", 2, 50.0)]
+    assert [(bucket.bucket, bucket.count, bucket.amount) for bucket in result] == [
+        ("2026-06", 2, SECOND_AMOUNT + THIRD_AMOUNT)
+    ]
 
 
 def test_transaction_counts_respects_date_range(session_factory: sessionmaker):

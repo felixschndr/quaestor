@@ -24,6 +24,8 @@ from tests.backend.conftest import (
     BANK_PASSWORD,
     BANK_USERNAME,
     CHALLENGE_TOKEN,
+    DEFAULT_AMOUNT,
+    DEFAULT_BALANCE,
     LAST_FETCHING_TIMESTAMP,
     PIN,
     RECENT_DATE,
@@ -286,7 +288,7 @@ def test_session_resolves_tan_responses_from_get_transactions(monkeypatch: pytes
     pending.decoupled = True
 
     fake_transaction = MagicMock()
-    fake_transaction.data = {"amount": MagicMock(amount=1.0), "purpose": "x", "date": MagicMock()}
+    fake_transaction.data = {"amount": MagicMock(amount=DEFAULT_AMOUNT), "purpose": "x", "date": MagicMock()}
 
     client = MagicMock()
     client.get_transactions.return_value = pending
@@ -336,7 +338,7 @@ def test_session_uses_camt_xml_for_banks_without_mt940(monkeypatch: pytest.Monke
     monkeypatch.setattr(
         target=module,
         name="camt053_to_dict",
-        value=lambda stream: [{"amount": MagicMock(amount=1.0), "purpose": "x", "date": RECENT_DATE}],
+        value=lambda stream: [{"amount": MagicMock(amount=DEFAULT_AMOUNT), "purpose": "x", "date": RECENT_DATE}],
     )
 
     client = MagicMock()
@@ -501,7 +503,7 @@ def test_get_balance_observations_returns_captured_anchors_for_account():
     session = module._FinTSSession(client=MagicMock())
     sepa_account = MagicMock(iban=ACCOUNT_IBAN)
     session._account_mapping = {ACCOUNT_IBAN: sepa_account}
-    anchors = [BalanceObservation(date=RECENT_DATE, amount=625.15)]
+    anchors = [BalanceObservation(date=RECENT_DATE, amount=DEFAULT_AMOUNT)]
     session._balance_observations = {ACCOUNT_IBAN: anchors}
 
     assert session.get_balance_observations(FetchedAccount(name=ACCOUNT_IBAN)) == anchors
@@ -537,9 +539,14 @@ def test_get_transactions_accumulates_opening_anchor_from_both_fetches():
     session = _session_with_mapped_account()
     booked_opening_day = LAST_FETCHING_TIMESTAMP.date()
     booked = _statement_with_opening(
-        amount=-10.0, txn_day=booked_opening_day, opening_balance=100.0, opening_day=booked_opening_day
+        amount=-DEFAULT_AMOUNT,
+        txn_day=booked_opening_day,
+        opening_balance=DEFAULT_BALANCE,
+        opening_day=booked_opening_day,
     )
-    pending = _statement_with_opening(amount=-20.0, txn_day=RECENT_DATE, opening_balance=300.0, opening_day=RECENT_DATE)
+    pending = _statement_with_opening(
+        amount=-DEFAULT_AMOUNT, txn_day=RECENT_DATE, opening_balance=300.0, opening_day=RECENT_DATE
+    )
     session._client.get_transactions.side_effect = [booked, pending]
 
     session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=booked_opening_day)
@@ -555,7 +562,7 @@ def test_get_transactions_resets_anchors_between_calls():
     # Two get_transactions calls (e.g. two syncs) must not let anchors pile up across calls.
     session = _session_with_mapped_account()
     statement = _statement_with_opening(
-        amount=-10.0, txn_day=RECENT_DATE, opening_balance=100.0, opening_day=RECENT_DATE
+        amount=-DEFAULT_AMOUNT, txn_day=RECENT_DATE, opening_balance=DEFAULT_BALANCE, opening_day=RECENT_DATE
     )
     session._client.get_transactions.side_effect = [statement, [], statement, []]
 

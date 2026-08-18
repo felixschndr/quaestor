@@ -7,6 +7,14 @@ import '@/i18n'
 import type { AccountRead } from '@/lib/auth'
 import { formatDateWithoutYear } from '@/lib/format'
 import type { RecurringTransactionRead } from '@/lib/recurringTransaction'
+import {
+  ACCOUNT_NAME_CHECKING,
+  AMOUNT_M,
+  AMOUNT_XL,
+  DATE_NEXT_RUN,
+  TODAY_RECURRING,
+  money,
+} from '@/test/constants'
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, ...rest }: { children: React.ReactNode }) => <a {...rest}>{children}</a>,
@@ -41,9 +49,9 @@ beforeAll(() => {
 
 const account: AccountRead = {
   id: 42,
-  name: 'Wallet',
+  name: ACCOUNT_NAME_CHECKING,
   display_name: null,
-  balance: 1000,
+  balance: AMOUNT_XL,
   balance_factor: 100,
   is_hidden: false,
   include_by_default: true,
@@ -54,7 +62,7 @@ function buildRule(overrides: Partial<RecurringTransactionRead> = {}): Recurring
   return {
     id: 1,
     account_id: 42,
-    amount: -50,
+    amount: -AMOUNT_M,
     purpose: null,
     other_party: null,
     transaction_type: null,
@@ -63,7 +71,7 @@ function buildRule(overrides: Partial<RecurringTransactionRead> = {}): Recurring
     frequency: 'MONTHLY',
     day_of_month: 15,
     day_of_week: null,
-    next_run_date: '2026-07-15',
+    next_run_date: DATE_NEXT_RUN,
     ...overrides,
   }
 }
@@ -79,7 +87,7 @@ function renderManualAccount() {
         isFetchingNextPage={false}
         hasNextPage={false}
         onLoadMore={vi.fn()}
-        today={new Date(2026, 6, 1)}
+        today={TODAY_RECURRING}
       />
     </QueryClientProvider>,
   )
@@ -108,10 +116,10 @@ describe('RecurringTransactionsList', () => {
     renderManualAccount()
 
     expect(screen.getByText('Recurring transactions')).toBeInTheDocument()
-    expect(screen.getByText('-50,00 €')).toBeInTheDocument()
+    expect(screen.getByText(money(-AMOUNT_M))).toBeInTheDocument()
     expect(screen.getByText('Day 15 of the month')).toBeInTheDocument()
     expect(
-      screen.getByText(`Next booking: ${formatDateWithoutYear('2026-07-15')}`),
+      screen.getByText(`Next booking: ${formatDateWithoutYear(DATE_NEXT_RUN)}`),
     ).toBeInTheDocument()
   })
 
@@ -123,7 +131,7 @@ describe('RecurringTransactionsList', () => {
 
     expect(screen.getByText('Day 05 of the month')).toBeInTheDocument()
     expect(
-      screen.getByText(`Next booking: ${formatDateWithoutYear('2026-07-15')}`),
+      screen.getByText(`Next booking: ${formatDateWithoutYear(DATE_NEXT_RUN)}`),
     ).toBeInTheDocument()
   })
 
@@ -135,7 +143,7 @@ describe('RecurringTransactionsList', () => {
 
     expect(screen.getByText('Wednesday')).toBeInTheDocument()
     expect(
-      screen.getByText(`Next booking: ${formatDateWithoutYear('2026-07-15')}`),
+      screen.getByText(`Next booking: ${formatDateWithoutYear(DATE_NEXT_RUN)}`),
     ).toBeInTheDocument()
   })
 

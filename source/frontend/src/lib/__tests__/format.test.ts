@@ -175,9 +175,9 @@ describe('formatIban', () => {
     ['DE89370400440532013000', 'DE89 3704 0044 0532 0130 00'],
     ['DE89 3704 0044 0532 0130 00', 'DE89 3704 0044 0532 0130 00'],
     ['NO9386011117947', 'NO93 8601 1117 947'],
-    ['Max Mustermann', 'Max Mustermann'],
+    ['not an iban', 'not an iban'],
     ['', ''],
-    ['DE82 Mustermann GmbH', 'DE82 Mustermann GmbH'],
+    ['DE82 Example GmbH', 'DE82 Example GmbH'],
     ['de89370400440532013000', 'de89370400440532013000'],
   ])('formatIban(%j) → %j', (input, expected) => {
     expect(formatIban(input)).toBe(expected)

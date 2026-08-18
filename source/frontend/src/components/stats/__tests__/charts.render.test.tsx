@@ -16,6 +16,7 @@ vi.mock('recharts', async (importOriginal) => {
 })
 
 import '@/i18n'
+import { AMOUNT_S, AMOUNT_M, AMOUNT_L, PARTY_SUPERMARKET } from '@/test/constants'
 import { CategoryChart } from '../category-chart'
 import { CashflowChart } from '../cashflow-chart'
 import { OtherPartyChart } from '../other-party-chart'
@@ -26,7 +27,7 @@ describe('charts render with real recharts', () => {
     expect(() =>
       render(
         <CategoryChart
-          slices={[{ category: 'FUEL', total: 10 }]}
+          slices={[{ category: 'FUEL', total: AMOUNT_S }]}
           chartType="bar"
           hidden={new Set()}
           onToggleHidden={vi.fn()}
@@ -38,7 +39,7 @@ describe('charts render with real recharts', () => {
     expect(() =>
       render(
         <CategoryChart
-          slices={[{ category: 'FUEL', total: 10 }]}
+          slices={[{ category: 'FUEL', total: AMOUNT_S }]}
           chartType="pie"
           hidden={new Set()}
           onToggleHidden={vi.fn()}
@@ -74,19 +75,19 @@ describe('charts render with real recharts', () => {
   })
   it('CashflowChart', () => {
     expect(() =>
-      render(<CashflowChart data={[{ month: '2026-01', income: 100, expenses: 50 }]} />),
+      render(<CashflowChart data={[{ month: '2026-01', income: AMOUNT_L, expenses: AMOUNT_M }]} />),
     ).not.toThrow()
   })
   it('NetSavingsChart', () => {
     expect(() =>
-      render(<NetSavingsChart data={[{ month: '2026-01', net: 50, savings_rate: 50 }]} />),
+      render(<NetSavingsChart data={[{ month: '2026-01', net: AMOUNT_M, savings_rate: 50 }]} />),
     ).not.toThrow()
   })
   it('OtherPartyChart', () => {
     expect(() =>
       render(
         <OtherPartyChart
-          data={[{ other_party: 'Rewe', total: 20 }]}
+          data={[{ other_party: PARTY_SUPERMARKET, total: AMOUNT_S }]}
           hidden={new Set()}
           onToggleHidden={vi.fn()}
         />,

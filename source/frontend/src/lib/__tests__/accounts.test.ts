@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import { accountDisplayName, accountSecondaryName, displayNameOrUserName } from '@/lib/accounts'
+import {
+  ACCOUNT_NAME_CHECKING,
+  LABEL_SALARY,
+  LABEL_SAVINGS,
+  TEST_IBAN,
+  TEST_IBAN_FORMATTED,
+} from '@/test/constants'
 
 describe('displayNameOrUserName', () => {
   it('uses display_name when present', () => {
@@ -15,39 +22,35 @@ describe('displayNameOrUserName', () => {
 
 describe('accountDisplayName', () => {
   it('returns the display_name when present', () => {
-    expect(accountDisplayName({ name: 'DE12345678900001', display_name: 'Gehaltskonto' })).toBe(
-      'Gehaltskonto',
+    expect(accountDisplayName({ name: TEST_IBAN, display_name: ACCOUNT_NAME_CHECKING })).toBe(
+      ACCOUNT_NAME_CHECKING,
     )
   })
 
   it('falls back to the formatted IBAN when display_name is null', () => {
-    expect(accountDisplayName({ name: 'DE12345678900001', display_name: null })).toBe(
-      'DE12 3456 7890 0001',
-    )
+    expect(accountDisplayName({ name: TEST_IBAN, display_name: null })).toBe(TEST_IBAN_FORMATTED)
   })
 
   it('treats a whitespace-only display_name as unset', () => {
-    expect(accountDisplayName({ name: 'DE12345678900001', display_name: '   ' })).toBe(
-      'DE12 3456 7890 0001',
-    )
+    expect(accountDisplayName({ name: TEST_IBAN, display_name: '   ' })).toBe(TEST_IBAN_FORMATTED)
   })
 
   it('trims the display_name before returning it', () => {
-    expect(accountDisplayName({ name: 'DE12345678900001', display_name: '  Sparbuch  ' })).toBe(
-      'Sparbuch',
+    expect(accountDisplayName({ name: TEST_IBAN, display_name: `  ${LABEL_SAVINGS}  ` })).toBe(
+      LABEL_SAVINGS,
     )
   })
 })
 
 describe('accountSecondaryName', () => {
   it('returns null when no personalised name is set (the IBAN is already the primary label)', () => {
-    expect(accountSecondaryName({ name: 'DE12345678900001', display_name: null })).toBeNull()
-    expect(accountSecondaryName({ name: 'DE12345678900001', display_name: '  ' })).toBeNull()
+    expect(accountSecondaryName({ name: TEST_IBAN, display_name: null })).toBeNull()
+    expect(accountSecondaryName({ name: TEST_IBAN, display_name: '  ' })).toBeNull()
   })
 
   it('returns the formatted IBAN when a personalised name is set', () => {
-    expect(accountSecondaryName({ name: 'DE12345678900001', display_name: 'Gehalt' })).toBe(
-      'DE12 3456 7890 0001',
+    expect(accountSecondaryName({ name: TEST_IBAN, display_name: LABEL_SALARY })).toBe(
+      TEST_IBAN_FORMATTED,
     )
   })
 })

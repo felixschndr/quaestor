@@ -17,6 +17,9 @@ from source.backend.services.transactions.recurring_transaction_scheduler import
     run_periodic_recurring as real_run_periodic_recurring,
 )
 from tests.backend.conftest import (
+    DEFAULT_AMOUNT,
+    DEFAULT_BALANCE,
+    WALLET_ACCOUNT_NAME,
     assert_log_contains,
     make_account,
     make_credential,
@@ -96,12 +99,12 @@ def test_startup_run_books_rules_whose_day_passed_while_offline(
     with session_factory() as session:
         user = make_user(session)
         credential = make_credential(session, user_id=user.id, bank=BankProvider.MANUAL, credentials={})
-        account = make_account(session, credential_id=credential.id, name="Wallet", balance=100.0)
+        account = make_account(session, credential_id=credential.id, name=WALLET_ACCOUNT_NAME, balance=DEFAULT_BALANCE)
         session.flush()
         session.add(
             RecurringTransaction(
                 account=account,
-                amount=-10.0,
+                amount=-DEFAULT_AMOUNT,
                 frequency=RecurrenceFrequency.MONTHLY,
                 day_of_month=yesterday.day,
                 next_run_date=yesterday,
@@ -128,7 +131,7 @@ def test_startup_run_books_rules_whose_day_passed_while_offline(
         account = session.get(entity=Account, ident=account_id)
         assert len(account.transactions) == 1
         assert account.transactions[0].date == yesterday  # booked with the scheduled date
-        assert account.balance == 90.0
+        assert account.balance == DEFAULT_BALANCE - DEFAULT_AMOUNT
 
 
 def test_run_periodic_recurring_calls_the_booking_function(monkeypatch: pytest.MonkeyPatch):

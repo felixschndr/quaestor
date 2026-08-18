@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from source.backend.models.auth.api_key import ApiKey
+from tests.backend.conftest import API_KEY_NAME
 
 
 def test_api_key_repr_contains_identifying_fields_but_not_token_hash():
@@ -9,7 +10,7 @@ def test_api_key_repr_contains_identifying_fields_but_not_token_hash():
     api_key = ApiKey(
         id=7,
         user_id=1,
-        name="My script",
+        name=API_KEY_NAME,
         token_hash="should_not_appear",  # nosec B106
         prefix="qk_abcdef",
         created_at=created_at,

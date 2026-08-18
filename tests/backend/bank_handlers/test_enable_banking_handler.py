@@ -28,6 +28,7 @@ from tests.backend.conftest import (
     ACCOUNT_UID,
     APPLICATION_ID,
     CHALLENGE_TOKEN,
+    PERSON_NAME,
     SECOND_ACCOUNT_UID,
     SESSION_ID,
     FakeHttpResponse,
@@ -279,7 +280,7 @@ def test_session_fetches_accounts_balances_and_paginated_transactions(fake_http:
                 json_data={"status": "AUTHORIZED", "accounts": [ACCOUNT_UID]}
             ),
             ("GET", f"/accounts/{ACCOUNT_UID}/details"): FakeHttpResponse(
-                json_data={"name": "Felix Schneider", "product": "PAYPAL_PREMIER_ACCOUNT", "account_id": None}
+                json_data={"name": PERSON_NAME, "product": "PAYPAL_PREMIER_ACCOUNT", "account_id": None}
             ),
             ("GET", f"/accounts/{ACCOUNT_UID}/balances"): FakeHttpResponse(
                 json_data={
@@ -294,7 +295,7 @@ def test_session_fetches_accounts_balances_and_paginated_transactions(fake_http:
 
     with _handler(session_state={"session_id": SESSION_ID}).session() as bank:
         accounts = bank.get_accounts()
-        assert [account.name for account in accounts] == ["Felix Schneider"]
+        assert [account.name for account in accounts] == [PERSON_NAME]
         assert bank.get_balance(accounts[0]) == 12.34
         transactions = bank.get_transactions(account=accounts[0], start_date=date(year=2026, month=6, day=1))
 

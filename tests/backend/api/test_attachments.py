@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from source.backend.services.transactions import attachment_service
 from tests.backend.conftest import (
+    INTRUDER_USER_NAME,
     persist_transaction,
     register_and_login,
     setup_account,
@@ -112,6 +113,6 @@ def test_attachment_of_other_user_is_not_accessible(http_client: TestClient, ses
         http_client=http_client, account_id=account_id, transaction_id=transaction_id, name="receipt.pdf", content=b"x"
     ).json()[0]["id"]
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
     response = http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}/attachments/{attachment_id}")
     assert response.status_code == 404

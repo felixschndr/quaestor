@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { copyText } from '../clipboard'
+import { TEST_IBAN } from '@/test/constants'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -12,12 +13,12 @@ describe('copyText', () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
 
-    await copyText('DE12345678900001')
+    await copyText(TEST_IBAN)
 
-    expect(writeText).toHaveBeenCalledWith('DE12345678900001')
+    expect(writeText).toHaveBeenCalledWith(TEST_IBAN)
   })
 
   it('rejects when the clipboard API is unavailable (non-secure context)', async () => {
-    await expect(copyText('DE12345678900001')).rejects.toThrow()
+    await expect(copyText(TEST_IBAN)).rejects.toThrow()
   })
 })

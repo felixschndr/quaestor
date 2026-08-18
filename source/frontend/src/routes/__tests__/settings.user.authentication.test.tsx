@@ -9,6 +9,7 @@ import i18n from 'i18next'
 vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
 import { SettingsAuthenticationView } from '@/pages/settings.user.authentication'
+import { TEST_TOTP_SECRET } from '@/test/constants'
 import {
   PASSWORD_REQUIREMENTS,
   buildUser,
@@ -111,7 +112,7 @@ describe('SettingsAuthenticationView — two-factor', () => {
             jsonResponse({
               status: 200,
               body: {
-                secret: 'JBSWY3DPEHPK3PXP',
+                secret: TEST_TOTP_SECRET,
                 otpauth_uri: 'otpauth://x',
                 qr_code: 'data:image/svg+xml;base64,abc',
               },
@@ -132,7 +133,7 @@ describe('SettingsAuthenticationView — two-factor', () => {
     expect(screen.getByText('Two-factor authentication is off')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Enable two-factor authentication' }))
 
-    expect(await screen.findByText('JBSWY3DPEHPK3PXP')).toBeInTheDocument()
+    expect(await screen.findByText(TEST_TOTP_SECRET)).toBeInTheDocument()
     await user.type(screen.getByLabelText('Authentication code'), '123456')
     await user.click(screen.getByRole('button', { name: 'Verify and enable' }))
 

@@ -9,6 +9,13 @@ from source.backend.constants import API_PREFIX
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
+    DEFAULT_AMOUNT,
+    DEFAULT_BALANCE,
+    INTRUDER_USER_NAME,
+    LARGE_AMOUNT,
+    REWE,
+    SECOND_AMOUNT,
+    THIRD_AMOUNT,
     create_credential,
     link_transactions_as_flow,
     make_transaction,
@@ -38,8 +45,8 @@ def test_categories_sums_expenses_by_category_excluding_income(http_client: Test
 
     assert response.status_code == 200
     assert response.json() == [
-        {"category": "RESTAURANTS", "total": 30.0},
-        {"category": "SUPERMARKET", "total": 20.0},
+        {"category": "SUPERMARKET", "total": 2 * DEFAULT_AMOUNT},
+        {"category": "RESTAURANTS", "total": DEFAULT_AMOUNT},
     ]
 
 
@@ -52,7 +59,7 @@ def test_categories_income_direction_returns_only_incoming(http_client: TestClie
     )
 
     assert response.status_code == 200
-    assert response.json() == [{"category": "SALARY", "total": 2500.0}]
+    assert response.json() == [{"category": "SALARY", "total": DEFAULT_AMOUNT}]
 
 
 def test_categories_logs_with_user_object(
@@ -74,14 +81,14 @@ def test_categories_respects_date_range(http_client: TestClient, session_factory
         make_transaction(
             session,
             account_id=account_id,
-            amount=-10.0,
+            amount=-DEFAULT_AMOUNT,
             category=TransactionCategory.FUEL,
             date=date(year=2026, month=1, day=10),
         )
         make_transaction(
             session,
             account_id=account_id,
-            amount=-20.0,
+            amount=-DEFAULT_AMOUNT,
             category=TransactionCategory.FUEL,
             date=date(year=2026, month=3, day=10),
         )
@@ -92,7 +99,7 @@ def test_categories_respects_date_range(http_client: TestClient, session_factory
         params=[("account_ids", account_id), ("date_from", "2026-01-01"), ("date_to", "2026-01-31")],
     )
 
-    assert response.json() == [{"category": "FUEL", "total": 10.0}]
+    assert response.json() == [{"category": "FUEL", "total": DEFAULT_AMOUNT}]
 
 
 @pytest.mark.parametrize(
@@ -109,14 +116,18 @@ def test_categories_rejects_invalid_filter(
 def test_categories_include_transfers(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     with session_factory() as session:
-        out = make_transaction(session, account_id=account_id, amount=-100.0, category=TransactionCategory.SAVINGS)
-        back = make_transaction(session, account_id=account_id, amount=100.0, category=TransactionCategory.SAVINGS)
+        out = make_transaction(
+            session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.SAVINGS
+        )
+        back = make_transaction(
+            session, account_id=account_id, amount=DEFAULT_AMOUNT, category=TransactionCategory.SAVINGS
+        )
         session.flush()
         link_transactions_as_flow(db_session=session, transactions=[out, back])
         make_transaction(
             session,
             account_id=account_id,
-            amount=200.0,
+            amount=LARGE_AMOUNT,
             category=TransactionCategory.SALARY,
             transaction_type=TransactionType.TRANSFER_IN,
         )
@@ -127,7 +138,10 @@ def test_categories_include_transfers(http_client: TestClient, session_factory: 
     )
 
     assert response.status_code == 200
-    assert response.json() == [{"category": "SALARY", "total": 200.0}, {"category": "SAVINGS", "total": 100.0}]
+    assert response.json() == [
+        {"category": "SALARY", "total": LARGE_AMOUNT},
+        {"category": "SAVINGS", "total": DEFAULT_AMOUNT},
+    ]
 
 
 def test_categories_filter_by_transaction_type(http_client: TestClient, session_factory: sessionmaker):
@@ -136,14 +150,14 @@ def test_categories_filter_by_transaction_type(http_client: TestClient, session_
         make_transaction(
             session,
             account_id=account_id,
-            amount=-10.0,
+            amount=-DEFAULT_AMOUNT,
             category=TransactionCategory.FUEL,
             transaction_type=TransactionType.OUTGOING,
         )
         make_transaction(
             session,
             account_id=account_id,
-            amount=-20.0,
+            amount=-DEFAULT_AMOUNT,
             category=TransactionCategory.FEES,
             transaction_type=TransactionType.FEES,
         )
@@ -155,7 +169,7 @@ def test_categories_filter_by_transaction_type(http_client: TestClient, session_
     )
 
     assert response.status_code == 200
-    assert response.json() == [{"category": "FEES", "total": 20.0}]
+    assert response.json() == [{"category": "FEES", "total": DEFAULT_AMOUNT}]
 
 
 def test_categories_filter_by_multiple_transaction_types(http_client: TestClient, session_factory: sessionmaker):
@@ -164,21 +178,21 @@ def test_categories_filter_by_multiple_transaction_types(http_client: TestClient
         make_transaction(
             session,
             account_id=account_id,
-            amount=-10.0,
+            amount=-THIRD_AMOUNT,
             category=TransactionCategory.FUEL,
             transaction_type=TransactionType.OUTGOING,
         )
         make_transaction(
             session,
             account_id=account_id,
-            amount=-20.0,
+            amount=-SECOND_AMOUNT,
             category=TransactionCategory.FEES,
             transaction_type=TransactionType.FEES,
         )
         make_transaction(
             session,
             account_id=account_id,
-            amount=-5.0,
+            amount=-DEFAULT_AMOUNT,
             category=TransactionCategory.GIFTS,
             transaction_type=TransactionType.BUY,
         )
@@ -190,14 +204,19 @@ def test_categories_filter_by_multiple_transaction_types(http_client: TestClient
     )
 
     assert response.status_code == 200
-    assert response.json() == [{"category": "FEES", "total": 20.0}, {"category": "FUEL", "total": 10.0}]
+    assert response.json() == [
+        {"category": "FEES", "total": SECOND_AMOUNT},
+        {"category": "FUEL", "total": THIRD_AMOUNT},
+    ]
 
 
 def test_categories_filter_by_linked_transfers_only(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     with session_factory() as session:
-        out = make_transaction(session, account_id=account_id, amount=-100.0, category=TransactionCategory.SAVINGS)
-        make_transaction(session, account_id=account_id, amount=-100.0, category=TransactionCategory.RENT)
+        out = make_transaction(
+            session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.SAVINGS
+        )
+        make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.RENT)
         session.flush()
         link_transactions_as_flow(db_session=session, transactions=[out])
         session.commit()
@@ -212,16 +231,16 @@ def test_categories_filter_by_linked_transfers_only(http_client: TestClient, ses
     )
 
     assert linked.status_code == 200
-    assert linked.json() == [{"category": "SAVINGS", "total": 100.0}]
-    assert unlinked.json() == [{"category": "RENT", "total": 100.0}]
+    assert linked.json() == [{"category": "SAVINGS", "total": DEFAULT_AMOUNT}]
+    assert unlinked.json() == [{"category": "RENT", "total": DEFAULT_AMOUNT}]
 
 
 def test_categories_filter_restricts_results(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     with session_factory() as session:
-        make_transaction(session, account_id=account_id, amount=-10.0, category=TransactionCategory.FUEL)
-        make_transaction(session, account_id=account_id, amount=-20.0, category=TransactionCategory.RENT)
-        make_transaction(session, account_id=account_id, amount=-5.0, category=TransactionCategory.GIFTS)
+        make_transaction(session, account_id=account_id, amount=-THIRD_AMOUNT, category=TransactionCategory.FUEL)
+        make_transaction(session, account_id=account_id, amount=-SECOND_AMOUNT, category=TransactionCategory.RENT)
+        make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.GIFTS)
         session.commit()
 
     response = http_client.get(
@@ -230,16 +249,19 @@ def test_categories_filter_restricts_results(http_client: TestClient, session_fa
     )
 
     assert response.status_code == 200
-    assert response.json() == [{"category": "RENT", "total": 20.0}, {"category": "FUEL", "total": 10.0}]
+    assert response.json() == [
+        {"category": "RENT", "total": SECOND_AMOUNT},
+        {"category": "FUEL", "total": THIRD_AMOUNT},
+    ]
 
 
 def _seed_two_months(session_factory: sessionmaker, account_id: int) -> None:
     with session_factory() as session:
-        make_transaction(session, account_id=account_id, amount=2500.00, date=date(year=2026, month=1, day=31))
-        make_transaction(session, account_id=account_id, amount=-12.50, date=date(year=2026, month=1, day=15))
-        make_transaction(session, account_id=account_id, amount=-30.00, date=date(year=2026, month=2, day=5))
+        make_transaction(session, account_id=account_id, amount=LARGE_AMOUNT, date=date(year=2026, month=1, day=31))
+        make_transaction(session, account_id=account_id, amount=-SECOND_AMOUNT, date=date(year=2026, month=1, day=15))
+        make_transaction(session, account_id=account_id, amount=-THIRD_AMOUNT, date=date(year=2026, month=2, day=5))
         make_transaction(
-            session, account_id=account_id, amount=-77.0, date=date(year=2026, month=1, day=20), pending=True
+            session, account_id=account_id, amount=-DEFAULT_AMOUNT, date=date(year=2026, month=1, day=20), pending=True
         )
         session.commit()
 
@@ -252,8 +274,8 @@ def test_cashflow_splits_income_and_expenses_per_month(http_client: TestClient, 
 
     assert response.status_code == 200
     assert response.json() == [
-        {"month": "2026-01", "income": 2500.0, "expenses": 12.5},
-        {"month": "2026-02", "income": 0.0, "expenses": 30.0},
+        {"month": "2026-01", "income": LARGE_AMOUNT, "expenses": SECOND_AMOUNT},
+        {"month": "2026-02", "income": 0.0, "expenses": THIRD_AMOUNT},
     ]
 
 
@@ -265,21 +287,21 @@ def test_net_savings_computes_net_and_rate_per_month(http_client: TestClient, se
 
     assert response.status_code == 200
     body = response.json()
-    # 2026-01: net = 2500 - 12.50 = 2487.50; rate = 2487.50 / 2500 * 100 = 99.5%.
-    assert body[0] == {"month": "2026-01", "net": 2487.5, "savings_rate": 99.5}
+    # 2026-01: net = 3500 - 20 = 3480; rate = 3480 / 3500 * 100 = 99.43%.
+    assert body[0] == {"month": "2026-01", "net": LARGE_AMOUNT - SECOND_AMOUNT, "savings_rate": 99.43}
     # 2026-02: no income → net negative, savings_rate clamped to 0.0 (no divide-by-zero).
-    assert body[1] == {"month": "2026-02", "net": -30.0, "savings_rate": 0.0}
+    assert body[1] == {"month": "2026-02", "net": -THIRD_AMOUNT, "savings_rate": 0.0}
 
 
 def _seed_other_parties(session_factory: sessionmaker, account_id: int) -> None:
     with session_factory() as session:
-        make_transaction(session, account_id=account_id, amount=-12.50, other_party="Rewe")
-        make_transaction(session, account_id=account_id, amount=-7.50, other_party="Rewe")
-        make_transaction(session, account_id=account_id, amount=-30.00, other_party="Edeka")
-        make_transaction(session, account_id=account_id, amount=-5.00, other_party="Amazon")
-        make_transaction(session, account_id=account_id, amount=1000.00, other_party="Employer")
-        make_transaction(session, account_id=account_id, amount=-100.00, other_party=None)
-        make_transaction(session, account_id=account_id, amount=-50.00, other_party="")
+        make_transaction(session, account_id=account_id, amount=-THIRD_AMOUNT, other_party=REWE)
+        make_transaction(session, account_id=account_id, amount=-THIRD_AMOUNT, other_party=REWE)
+        make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party="Edeka")
+        make_transaction(session, account_id=account_id, amount=-THIRD_AMOUNT, other_party="Amazon")
+        make_transaction(session, account_id=account_id, amount=LARGE_AMOUNT, other_party="Employer")
+        make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party=None)
+        make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party="")
         session.commit()
 
 
@@ -291,9 +313,9 @@ def test_other_parties_orders_by_total_desc(http_client: TestClient, session_fac
 
     assert response.status_code == 200
     assert response.json() == [
-        {"other_party": "Edeka", "total": 30.0},
-        {"other_party": "Rewe", "total": 20.0},
-        {"other_party": "Amazon", "total": 5.0},
+        {"other_party": "Edeka", "total": DEFAULT_AMOUNT},
+        {"other_party": REWE, "total": SECOND_AMOUNT},
+        {"other_party": "Amazon", "total": THIRD_AMOUNT},
     ]
 
 
@@ -305,7 +327,7 @@ def test_other_parties_income_direction(http_client: TestClient, session_factory
         "/api/statistics/other-parties", params=[("account_ids", account_id), ("direction", "INCOMING")]
     )
 
-    assert response.json() == [{"other_party": "Employer", "total": 1000.0}]
+    assert response.json() == [{"other_party": "Employer", "total": LARGE_AMOUNT}]
 
 
 def test_statistics_span_multiple_accounts(http_client: TestClient, session_factory: sessionmaker):
@@ -314,13 +336,13 @@ def test_statistics_span_multiple_accounts(http_client: TestClient, session_fact
     giro = persist_account(session_factory=session_factory, credential_id=credential_id, name="Giro")
     spar = persist_account(session_factory=session_factory, credential_id=credential_id, name="Sparkonto")
     with session_factory() as session:
-        make_transaction(session, account_id=giro, amount=-10.0, category=TransactionCategory.FUEL)
-        make_transaction(session, account_id=spar, amount=-15.0, category=TransactionCategory.FUEL)
+        make_transaction(session, account_id=giro, amount=-DEFAULT_AMOUNT, category=TransactionCategory.FUEL)
+        make_transaction(session, account_id=spar, amount=-DEFAULT_AMOUNT, category=TransactionCategory.FUEL)
         session.commit()
 
     response = http_client.get("/api/statistics/categories", params=[("account_ids", giro), ("account_ids", spar)])
 
-    assert response.json() == [{"category": "FUEL", "total": 25.0}]
+    assert response.json() == [{"category": "FUEL", "total": 2 * DEFAULT_AMOUNT}]
 
 
 def test_net_worth_carries_forward_latest_snapshot_per_day(http_client: TestClient, session_factory: sessionmaker):
@@ -407,7 +429,10 @@ def test_net_worth_sums_across_accounts_applying_balance_factor(http_client: Tes
 def test_net_worth_skips_days_with_no_anchor(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     seed_snapshot(
-        session_factory=session_factory, account_id=account_id, day=date(year=2026, month=1, day=3), balance=100.0
+        session_factory=session_factory,
+        account_id=account_id,
+        day=date(year=2026, month=1, day=3),
+        balance=DEFAULT_BALANCE,
     )
 
     response = http_client.get(
@@ -456,7 +481,7 @@ def test_statistics_reject_account_owned_by_a_different_user(
     credential_id = create_credential(http_client).json()["id"]
     account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
     response = http_client.get(endpoint, params=[("account_ids", account_id)])
 
@@ -478,13 +503,16 @@ def test_statistics_return_empty_list_without_matching_transactions(
 def test_net_worth_range_breaks_down_change_per_account(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     seed_snapshot(
-        session_factory=session_factory, account_id=account_id, day=date(year=2026, month=5, day=19), balance=100.0
+        session_factory=session_factory,
+        account_id=account_id,
+        day=date(year=2026, month=5, day=19),
+        balance=DEFAULT_BALANCE,
     )
     seed_snapshot(
         session_factory=session_factory, account_id=account_id, day=date(year=2026, month=5, day=20), balance=130.0
     )
     transaction_id = persist_transaction(
-        session_factory, account_id=account_id, amount=30.0, date=date(year=2026, month=5, day=20)
+        session_factory, account_id=account_id, amount=DEFAULT_AMOUNT, date=date(year=2026, month=5, day=20)
     )
 
     response = http_client.get(
@@ -509,7 +537,7 @@ def test_net_worth_range_breaks_down_change_per_account(http_client: TestClient,
                     {
                         "id": transaction_id,
                         "account_id": account_id,
-                        "amount": 30.0,
+                        "amount": DEFAULT_AMOUNT,
                         "purpose": None,
                         "date": "2026-05-20",
                         "other_party": None,
@@ -528,7 +556,7 @@ def test_net_worth_range_breaks_down_change_per_account(http_client: TestClient,
 def test_net_worth_range_rejects_foreign_account(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
     response = http_client.get(
         "/api/statistics/net-worth/range",

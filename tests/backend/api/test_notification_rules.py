@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
-from tests.backend.conftest import assert_log_contains, setup_account
+from tests.backend.conftest import DEFAULT_AMOUNT, DEFAULT_BALANCE, NETFLIX, assert_log_contains, setup_account
 
 
 def _balance_rule_payload(account_id: int, **overrides: Any) -> dict:
@@ -12,7 +12,7 @@ def _balance_rule_payload(account_id: int, **overrides: Any) -> dict:
         "trigger": "balance_threshold",
         "name": "Low balance",
         "account_ids": [account_id],
-        "threshold": 100.0,
+        "threshold": DEFAULT_BALANCE,
         "direction": "below",
     }
     payload.update(overrides)
@@ -23,10 +23,10 @@ def _transaction_rule_payload(account_id: int, **overrides: Any) -> dict:
     payload = {
         "trigger": "transaction",
         "account_ids": [account_id],
-        "other_party_contains": "Netflix",
+        "other_party_contains": NETFLIX,
         "categories": ["SUBSCRIPTIONS"],
         "types": ["OUTGOING"],
-        "min_amount": -50.0,
+        "min_amount": -DEFAULT_AMOUNT,
         "max_amount": -1.0,
     }
     payload.update(overrides)
@@ -44,7 +44,7 @@ def test_create_and_list_balance_rule(
     assert_log_contains(caplog, messages=["Created", "<NotificationRule(", "default notification rules for"])
     created = response.json()
     assert created["trigger"] == "balance_threshold"
-    assert created["threshold"] == 100.0
+    assert created["threshold"] == DEFAULT_BALANCE
     assert created["direction"] == "below"
     assert created["account_ids"] == [account_id]
     assert created["name"] == "Low balance"
@@ -87,8 +87,8 @@ def test_create_transaction_rule_round_trips_criteria(http_client: TestClient, s
     assert created["trigger"] == "transaction"
     assert created["categories"] == ["SUBSCRIPTIONS"]
     assert created["types"] == ["OUTGOING"]
-    assert created["other_party_contains"] == "Netflix"
-    assert created["min_amount"] == -50.0
+    assert created["other_party_contains"] == NETFLIX
+    assert created["min_amount"] == -DEFAULT_AMOUNT
 
 
 def test_update_rule(http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):

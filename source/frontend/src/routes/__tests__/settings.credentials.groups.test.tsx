@@ -19,6 +19,7 @@ import { __testing } from '@/pages/settings.credentials.groups'
 import type { AccountGroupLayout } from '@/lib/accountGroups'
 import type { UserRead } from '@/lib/auth'
 import { buildUser as buildBaseUser } from './-settingsUserTestHelpers'
+import { ACCOUNT_NAME_DAY, GROUP_NAME_SAVINGS } from '@/test/constants'
 
 const {
   moveAccount,
@@ -51,7 +52,7 @@ function buildUser(): UserRead {
           },
           {
             id: 2,
-            name: 'Tagesgeld',
+            name: ACCOUNT_NAME_DAY,
             display_name: null,
             balance: 200,
             balance_factor: 100,
@@ -70,7 +71,7 @@ function buildUser(): UserRead {
 
 const sampleLayout: AccountGroupLayout = {
   groups: [
-    { id: 100, name: 'Spar', accounts: [{ id: 1 }] },
+    { id: 100, name: GROUP_NAME_SAVINGS, accounts: [{ id: 1 }] },
     { id: 200, name: 'Daily', accounts: [{ id: 2 }] },
   ],
   ungrouped: [],
@@ -255,7 +256,7 @@ describe('buildAccountLookup', () => {
   it('flattens accounts across credentials and tags each with its bank', () => {
     const lookup = buildAccountLookup(buildUser())
     expect(lookup.get(1)?.bank).toBe('ing')
-    expect(lookup.get(2)?.name).toBe('Tagesgeld')
+    expect(lookup.get(2)?.name).toBe(ACCOUNT_NAME_DAY)
     expect(lookup.size).toBe(2)
   })
 

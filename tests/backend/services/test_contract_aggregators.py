@@ -4,7 +4,7 @@ from source.backend.services.contracts.contract_aggregators import (
     Fingerprint,
     compute_fingerprint,
 )
-from tests.backend.conftest import make_transaction, persist_account_with_new_user
+from tests.backend.conftest import NETFLIX, make_transaction, persist_account_with_new_user
 
 
 def _fingerprint(
@@ -91,10 +91,10 @@ def test_regular_other_party_uses_generic_fingerprint(session_factory: sessionma
     account_id = persist_account_with_new_user(session_factory)
 
     with session_factory() as session:
-        fingerprint = _fingerprint(session, account_id=account_id, other_party="Netflix", purpose="Abo")
+        fingerprint = _fingerprint(session, account_id=account_id, other_party=NETFLIX, purpose="Abo")
 
     assert fingerprint.key == "party:netflix"
-    assert fingerprint.display_name == "Netflix"
+    assert fingerprint.display_name == NETFLIX
 
 
 def test_missing_other_party_is_skipped(session_factory: sessionmaker):

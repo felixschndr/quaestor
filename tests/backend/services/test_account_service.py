@@ -22,9 +22,13 @@ from source.backend.services.accounts import account_service
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     AMOUNT,
+    DEFAULT_AMOUNT,
+    DEFAULT_BALANCE,
     RECENT_DATE,
+    REWE,
     SECOND_ACCOUNT_IBAN,
     SECOND_USER_NAME,
+    WALLET_ACCOUNT_NAME,
     assert_log_contains,
     link_transactions_as_flow,
     make_account,
@@ -98,7 +102,7 @@ def test_create_manual_account_persists_account_with_caller_owned_credential(
         account = account_service.create_manual_account(
             db_session=session,
             credential=credential,
-            name="Wallet",
+            name=WALLET_ACCOUNT_NAME,
             display_name="Cash wallet",
             balance=123.45,
             balance_factor=100,
@@ -109,7 +113,7 @@ def test_create_manual_account_persists_account_with_caller_owned_credential(
         loaded = session.get(entity=Account, ident=account_id)
         assert loaded is not None
         assert loaded.credential_id == credential_id
-        assert loaded.name == "Wallet"
+        assert loaded.name == WALLET_ACCOUNT_NAME
         assert loaded.balance == 123.45
     assert_log_contains(caplog, messages=["Created manual <Account("])
 
@@ -139,7 +143,7 @@ def test_create_manual_transaction_updates_balance_and_snapshots(
 ):
     user_id, credential_id = _create_user_with_manual_credential(session_factory)
     with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name="Wallet", balance=100.0)
+        account = make_account(session, credential_id=credential_id, name=WALLET_ACCOUNT_NAME, balance=DEFAULT_BALANCE)
         session.commit()
         account_id = account.id
 
@@ -152,7 +156,7 @@ def test_create_manual_transaction_updates_balance_and_snapshots(
                 "amount": -25.0,
                 "date": RECENT_DATE,
                 "purpose": "Coffee run",
-                "other_party": "Rewe",
+                "other_party": REWE,
                 "transaction_type": TransactionType.OUTGOING,
             },
         )
@@ -178,7 +182,7 @@ def test_create_manual_transaction_resolves_category(
 ):
     _, credential_id = _create_user_with_manual_credential(session_factory)
     with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name="Wallet", balance=1000.0)
+        account = make_account(session, credential_id=credential_id, name=WALLET_ACCOUNT_NAME, balance=1000.0)
         session.commit()
         account_id = account.id
 
@@ -195,7 +199,7 @@ def test_create_manual_transaction_resolves_category(
 def test_update_account_treats_explicit_null_balance_as_no_change(session_factory: sessionmaker):
     _, credential_id = _create_user_with_manual_credential(session_factory)
     with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name="Wallet", balance=42.0)
+        account = make_account(session, credential_id=credential_id, name=WALLET_ACCOUNT_NAME, balance=42.0)
         session.commit()
         account_id = account.id
 
@@ -217,7 +221,7 @@ def test_create_manual_transaction_rejects_non_manual_account(session_factory: s
     with session_factory() as session:
         user = make_user(session)
         credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
-        account = make_account(session, credential_id=credential.id, name="Real", balance=100.0)
+        account = make_account(session, credential_id=credential.id, name="Real", balance=DEFAULT_BALANCE)
         session.commit()
         account_id = account.id
 
@@ -234,7 +238,7 @@ def test_create_manual_transaction_rejects_non_manual_account(session_factory: s
 def test_delete_transaction_restores_balance(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     _, credential_id = _create_user_with_manual_credential(session_factory)
     with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name="Wallet", balance=200.0)
+        account = make_account(session, credential_id=credential_id, name=WALLET_ACCOUNT_NAME, balance=200.0)
         session.commit()
         account_id = account.id
 
@@ -243,7 +247,7 @@ def test_delete_transaction_restores_balance(session_factory: sessionmaker, capl
         transaction = account_service.create_manual_transaction(
             db_session=session,
             account=account,
-            fields={"amount": -50.0, "date": RECENT_DATE},
+            fields={"amount": -DEFAULT_AMOUNT, "date": RECENT_DATE},
         )
         assert account.balance == 150.0
         transaction_id = transaction.id
@@ -298,17 +302,17 @@ def test_update_account_rejects_balance_change_on_non_manual_account(session_fac
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
         with pytest.raises(PermissionDeniedError, match="manual"):
-            account_service.update_account(db_session=session, account=account, fields={"balance": 100.0})
+            account_service.update_account(db_session=session, account=account, fields={"balance": DEFAULT_BALANCE})
 
 
 def test_update_account_balance_recomputes_snapshots_on_manual_account(session_factory: sessionmaker):
     _, credential_id = _create_user_with_manual_credential(session_factory)
     with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name="Wallet", balance=100.0)
+        account = make_account(session, credential_id=credential_id, name=WALLET_ACCOUNT_NAME, balance=DEFAULT_BALANCE)
         make_transaction(
             session,
             account_id=account.id,
-            amount=-20.0,
+            amount=-DEFAULT_AMOUNT,
             date=RECENT_DATE,
         )
         account.update_balance_at_date()
@@ -318,7 +322,7 @@ def test_update_account_balance_recomputes_snapshots_on_manual_account(session_f
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
         original_snapshot = account.balance_at_date[RECENT_DATE].balance
-        assert original_snapshot == 100.0
+        assert original_snapshot == DEFAULT_BALANCE
 
         account_service.update_account(db_session=session, account=account, fields={"balance": 500.0})
         assert account.balance == 500.0
@@ -423,10 +427,10 @@ def test_filter_transactions(
     }
     with session_factory() as session:
         all_transactions = [
-            make_transaction(session, purpose="Supermarket", other_party="Rewe", **common_attrs),
+            make_transaction(session, purpose="Supermarket", other_party=REWE, **common_attrs),
             make_transaction(session, purpose="Drug store", other_party="DM", **common_attrs),
         ]
-        make_transaction(session, purpose="Supermarket", other_party="Rewe", expected=True, **common_attrs)
+        make_transaction(session, purpose="Supermarket", other_party=REWE, expected=True, **common_attrs)
         session.commit()
     expected_ids = [
         all_transactions[i].id
@@ -501,7 +505,7 @@ def test_get_transaction_for_account_rejects_unknown_and_foreign_transactions(
 ):
     _, account_ids = _create_user_with_accounts(session_factory)
     with session_factory() as session:
-        foreign_transaction = make_transaction(session, account_id=account_ids[1], amount=-5.0)
+        foreign_transaction = make_transaction(session, account_id=account_ids[1], amount=-DEFAULT_AMOUNT)
         session.commit()
         foreign_transaction_id = foreign_transaction.id
 

@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from source.backend.models.auth.theme import Theme
 from source.backend.models.auth.user import User
 from tests.backend.conftest import (
+    DEFAULT_BALANCE,
     DISPLAY_NAME,
     TWO_FACTOR_SECRET,
     USER_NAME,
@@ -62,10 +63,10 @@ def test_user_balance_excludes_hidden_accounts(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
         credential = make_credential(session, user_id=user.id)
-        make_account(session, credential_id=credential.id, name="visible", balance=100.0, balance_factor=100)
+        make_account(session, credential_id=credential.id, name="visible", balance=DEFAULT_BALANCE, balance_factor=100)
         make_account(
             session, credential_id=credential.id, name="hidden", balance=500.0, balance_factor=100, is_hidden=True
         )
         session.commit()
 
-        assert user.balance == 100.0
+        assert user.balance == DEFAULT_BALANCE

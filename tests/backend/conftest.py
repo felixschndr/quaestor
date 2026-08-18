@@ -74,6 +74,18 @@ LATEST_DATE = _date(year=2026, month=6, day=1)
 AMOUNT = 4000
 TWO_FACTOR_SECRET = "T2UXK5D6ZPTJ3WF2YXHYGGXKIT2G5LUH"  # nosec B105  # gitleaks:allow
 UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"
+INTRUDER_USER_NAME = "intruder"
+WALLET_ACCOUNT_NAME = "Wallet"
+API_KEY_NAME = "My script"
+PERSON_NAME = "Jane Doe"
+DEFAULT_AMOUNT = 50.0
+SECOND_AMOUNT = 20.0
+THIRD_AMOUNT = 10.0
+LARGE_AMOUNT = 3500.0
+DEFAULT_BALANCE = 100.0
+NETFLIX = "Netflix"
+ACME = "ACME"
+REWE = "Rewe"
 
 
 def date_to_epoch_ms(day: _date) -> int:
@@ -244,7 +256,7 @@ def enable_two_factor(http_client: TestClient, user_id: int) -> tuple[str, list[
 
 
 def create_api_key(http_client: TestClient) -> Response:
-    return http_client.post("/api/api_keys", json={"name": "My script"})
+    return http_client.post("/api/api_keys", json={"name": API_KEY_NAME})
 
 
 def auth_header_for_api_key(raw_token: str) -> dict[str, str]:
@@ -580,9 +592,11 @@ def make_account_with_new_user(
     return account
 
 
-def persist_manual_account_with_new_user(session_factory: sessionmaker, balance: float = 100.0) -> int:
+def persist_manual_account_with_new_user(session_factory: sessionmaker, balance: float = DEFAULT_BALANCE) -> int:
     with session_factory() as session:
-        account = make_account_with_new_user(session, bank=BankProvider.MANUAL, name="Wallet", balance=balance)
+        account = make_account_with_new_user(
+            session, bank=BankProvider.MANUAL, name=WALLET_ACCOUNT_NAME, balance=balance
+        )
         session.commit()
         return account.id
 
@@ -593,36 +607,44 @@ def setup_account(http_client: TestClient, session_factory: sessionmaker) -> int
     return persist_account(session_factory=session_factory, credential_id=credential_id)
 
 
-def setup_manual_account(http_client: TestClient, balance: float = 100.0) -> int:
+def setup_manual_account(http_client: TestClient, balance: float = DEFAULT_BALANCE) -> int:
     credential_id = create_manual_credential(http_client)
     return http_client.post(
         "/api/account",
-        json={"credential_id": credential_id, "name": "Wallet", "balance": balance},
+        json={"credential_id": credential_id, "name": WALLET_ACCOUNT_NAME, "balance": balance},
     ).json()["id"]
 
 
 def seed_for_categories(session_factory: sessionmaker, account_id: int) -> None:
     with session_factory() as session:
         make_transaction(
-            session, account_id=account_id, amount=-12.50, other_party="Rewe", category=TransactionCategory.SUPERMARKET
-        )
-        make_transaction(
-            session, account_id=account_id, amount=-7.50, other_party="Edeka", category=TransactionCategory.SUPERMARKET
+            session,
+            account_id=account_id,
+            amount=-DEFAULT_AMOUNT,
+            other_party=REWE,
+            category=TransactionCategory.SUPERMARKET,
         )
         make_transaction(
             session,
             account_id=account_id,
-            amount=-30.00,
+            amount=-DEFAULT_AMOUNT,
+            other_party="Edeka",
+            category=TransactionCategory.SUPERMARKET,
+        )
+        make_transaction(
+            session,
+            account_id=account_id,
+            amount=-DEFAULT_AMOUNT,
             other_party="Pizzeria",
             category=TransactionCategory.RESTAURANTS,
         )
         make_transaction(
-            session, account_id=account_id, amount=2500.00, other_party="ACME", category=TransactionCategory.SALARY
+            session, account_id=account_id, amount=DEFAULT_AMOUNT, other_party=ACME, category=TransactionCategory.SALARY
         )
         make_transaction(
             session,
             account_id=account_id,
-            amount=-999.00,
+            amount=-DEFAULT_AMOUNT,
             category=TransactionCategory.SUPERMARKET,
             pending=True,
         )

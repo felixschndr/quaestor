@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot
 from tests.backend.conftest import (
+    DEFAULT_BALANCE,
     SECOND_USER_NAME,
     create_credential,
     make_account,
@@ -17,7 +18,6 @@ from tests.backend.conftest import (
 def _account_with_history(
     session_factory: sessionmaker, credential_id: int, day_count: int, transactions_per_day: int = 1
 ) -> int:
-    """Account with `day_count` distinct transaction days (newest = 2026-05-01)."""
     with session_factory() as session:
         account = make_account(session, credential_id=credential_id)
         base = date(year=2026, month=5, day=1)
@@ -31,7 +31,7 @@ def _account_with_history(
                     purpose=f"d{day_offset}-t{index}",
                     date=day,
                 )
-            session.add(AccountBalanceSnapshot(account_id=account.id, date=day, balance=100.0 - day_offset))
+            session.add(AccountBalanceSnapshot(account_id=account.id, date=day, balance=DEFAULT_BALANCE - day_offset))
         session.commit()
         return account.id
 

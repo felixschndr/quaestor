@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.backend.conftest import (
+    INTRUDER_USER_NAME,
     USER_NAME,
     create_credential,
     register_and_get_id,
@@ -22,7 +23,7 @@ def test_user_cannot_read_other_users_credential(http_client: TestClient):
     register_and_login(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
     assert http_client.get(f"/api/credentials/{credential_id}").status_code == 404
 
@@ -31,7 +32,7 @@ def test_user_cannot_modify_or_delete_other_users_credential(http_client: TestCl
     register_and_login(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
 
-    register_and_login(http_client, user_name="intruder")
+    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
     assert http_client.patch(f"/api/credentials/{credential_id}", json={"username": "x"}).status_code == 404
     assert http_client.delete(f"/api/credentials/{credential_id}").status_code == 404
