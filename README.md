@@ -200,7 +200,6 @@ Thus, there are many security measures in place:
 
 In all cases you have to create an encryption key for the database with `python -c 'import secrets; print(secrets.token_hex(32))'` and add it to your `.env` as `${DATABASE_ENCRYPTION_KEY}`.
 
-If you are running this app behind a reverse proxy ensure to allow the usage of websockets (the application needs it).
 
 ### Container image
 
