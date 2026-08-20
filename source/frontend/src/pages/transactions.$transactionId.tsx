@@ -270,25 +270,46 @@ function FlowTimelineRow({
     />
   )
 
+  const timeline = (
+    <>
+      <span
+        className={cn(
+          'bg-border absolute left-1/2 w-px -translate-x-1/2',
+          isFirst ? 'top-1/2' : 'top-0',
+          isLast ? 'bottom-1/2' : 'bottom-0',
+        )}
+      />
+      <span
+        className={cn(
+          'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full',
+          isCurrent
+            ? 'bg-primary ring-primary ring-offset-background size-2 ring-2 ring-offset-1'
+            : 'border-muted-foreground/40 bg-background size-2.5 border-2',
+        )}
+      />
+    </>
+  )
+  const timelineClassName = 'relative w-3 shrink-0 self-stretch'
+
   return (
     <li className="flex gap-3">
-      <div className="relative w-3 shrink-0 self-stretch" aria-hidden="true">
-        <span
-          className={cn(
-            'bg-border absolute left-1/2 w-px -translate-x-1/2',
-            isFirst ? 'top-1/2' : 'top-0',
-            isLast ? 'bottom-1/2' : 'bottom-0',
-          )}
-        />
-        <span
-          className={cn(
-            'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full',
-            isCurrent
-              ? 'bg-primary ring-primary ring-offset-background size-2 ring-2 ring-offset-1'
-              : 'border-muted-foreground/40 bg-background size-2.5 border-2',
-          )}
-        />
-      </div>
+      {isCurrent ? (
+        <div className={timelineClassName} aria-hidden="true">
+          {timeline}
+        </div>
+      ) : (
+        // Same destination as the account-name link — hidden from tab order and screen readers so it stays a
+        // mouse-only shortcut rather than a duplicate stop.
+        <Link
+          to="/transactions/$transactionId"
+          params={{ transactionId: String(transaction.id) }}
+          className={cn(timelineClassName, 'block')}
+          aria-hidden="true"
+          tabIndex={-1}
+        >
+          {timeline}
+        </Link>
+      )}
       <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5">
         <span className="text-muted-foreground w-14 shrink-0 text-xs tabular-nums">
           {formatDateCompact(transaction.date)}
@@ -302,9 +323,8 @@ function FlowTimelineRow({
             account
           ) : (
             <Link
-              to="/account/$accountId"
-              params={{ accountId: String(transaction.account_id) }}
-              search={{ focus: transaction.id }}
+              to="/transactions/$transactionId"
+              params={{ transactionId: String(transaction.id) }}
               className="text-primary hover:text-primary/80 min-w-0 transition-colors"
             >
               {account}

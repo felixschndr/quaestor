@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -27,7 +27,6 @@ import {
   AMOUNT_XL,
   DATETIME_UPDATED,
   DATE_OLDER,
-  DATE_RECENT,
   DATE_TODAY,
   DATE_YESTERDAY,
   LABEL_RENT,
@@ -104,10 +103,7 @@ function buildPage(overrides: Partial<AccountHistoryPage> = {}): AccountHistoryP
   }
 }
 
-function renderView(
-  pages: AccountHistoryPage[],
-  opts: { hasNextPage?: boolean; focusTransactionId?: number } = {},
-) {
+function renderView(pages: AccountHistoryPage[], opts: { hasNextPage?: boolean } = {}) {
   const onLoadMore = vi.fn()
   render(
     withClient(
@@ -118,7 +114,6 @@ function renderView(
         hasNextPage={opts.hasNextPage ?? false}
         onLoadMore={onLoadMore}
         today={TODAY}
-        focusTransactionId={opts.focusTransactionId}
       />,
     ),
   )
@@ -438,60 +433,5 @@ describe('AccountDetailView', () => {
     const heading = screen.getByRole('heading', { level: 2, name: 'Today' })
     const header = heading.parentElement!
     expect(within(header).queryByText(/€/)).toBeNull()
-  })
-
-  it('scrolls to the focused transaction when it is already loaded', async () => {
-    const pages = [buildPage({ transactions: [buildTransaction({ id: 501, date: DATE_RECENT })] })]
-    renderView(pages, { focusTransactionId: 501 })
-    await waitFor(() =>
-      expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
-        behavior: 'smooth',
-        block: 'center',
-      }),
-    )
-  })
-
-  it('loads more pages until the focused transaction appears', () => {
-    const pages = [buildPage({ transactions: [buildTransaction({ id: 999, date: DATE_RECENT })] })]
-    const { onLoadMore } = renderView(pages, { focusTransactionId: 501, hasNextPage: true })
-    expect(onLoadMore).toHaveBeenCalled()
-  })
-
-  it('does not scroll or load when no focus is given', () => {
-    const pages = [buildPage({ transactions: [buildTransaction({ id: 1, date: DATE_RECENT })] })]
-    const { onLoadMore } = renderView(pages)
-    expect(onLoadMore).not.toHaveBeenCalled()
-  })
-
-  it('highlights the focused transaction row once it is scrolled into view', async () => {
-    const pages = [buildPage({ transactions: [buildTransaction({ id: 501, date: DATE_RECENT })] })]
-    renderView(pages, { focusTransactionId: 501 })
-    await waitFor(() => {
-      const row = document.getElementById('transaction-501')
-      expect(row?.className).toMatch(/bg-primary\/20/)
-    })
-  })
-
-  it('re-scrolls to the same focus id when the navigation key changes', async () => {
-    const scrollMock = Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>
-    scrollMock.mockClear()
-    const pages = [buildPage({ transactions: [buildTransaction({ id: 501, date: DATE_RECENT })] })]
-    const view = (navKey: string) =>
-      withClient(
-        <AccountDetailView
-          account={account}
-          pages={pages}
-          isFetchingNextPage={false}
-          hasNextPage={false}
-          onLoadMore={vi.fn()}
-          today={TODAY}
-          focusTransactionId={501}
-          focusNavKey={navKey}
-        />,
-      )
-    const { rerender } = render(view('nav-1'))
-    await waitFor(() => expect(scrollMock).toHaveBeenCalledTimes(1))
-    rerender(view('nav-2'))
-    await waitFor(() => expect(scrollMock).toHaveBeenCalledTimes(2))
   })
 })

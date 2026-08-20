@@ -273,6 +273,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "amazon",
         "amzn",
         "apple store",
+        "caseking",
         "ebay",
         "etsy",
         "ikea",

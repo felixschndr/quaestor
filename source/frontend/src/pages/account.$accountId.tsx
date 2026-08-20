@@ -235,50 +235,11 @@ export function AccountDetailView({
   syncDisabled = false,
   syncSpinning = false,
   syncSucceededAt = null,
-  focusTransactionId,
-  focusNavKey,
 }: AccountDetailViewProps) {
   const { t } = useTranslation()
   const groups = useMemo(() => groupTransactionsByDate(pages), [pages])
   const hasAnyTransactions = groups.length > 0
 
-  const [highlightId, setHighlightId] = useState<number | null>(null)
-  // Keep the latest onLoadMore without listing it as an effect dependency: the
-  // parent passes a fresh arrow on every render, which would otherwise re-run
-  // the focus effect (and re-fire scrollIntoView) on every render and fight the
-  // user's scroll. Mirrors the ref pattern used by InfiniteScrollSentinel below.
-  const onLoadMoreRef = useRef(onLoadMore)
-  useEffect(() => {
-    onLoadMoreRef.current = onLoadMore
-  }, [onLoadMore])
-  // One-shot guard: once we've scrolled for a given navigation, don't scroll
-  // again when groups change as further pages load. Keyed on the navigation key
-  // (falling back to the focus id when none is provided, e.g. in unit tests) so
-  // a fresh navigation to the same focus id re-arms the scroll/highlight.
-  const scrolledForRef = useRef<string | number | null>(null)
-  useEffect(() => {
-    if (!focusTransactionId) return
-    const guardKey = focusNavKey ?? focusTransactionId
-    if (scrolledForRef.current === guardKey) return
-    const isLoaded = groups.some((group) =>
-      group.transactions.some((transaction) => transaction.id === focusTransactionId),
-    )
-    if (!isLoaded) {
-      if (hasNextPage && !isFetchingNextPage) onLoadMoreRef.current()
-      return
-    }
-    const element = document.getElementById(`transaction-${focusTransactionId}`)
-    if (!element) return
-    scrolledForRef.current = guardKey
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHighlightId(focusTransactionId)
-  }, [focusTransactionId, focusNavKey, groups, hasNextPage, isFetchingNextPage])
-  useEffect(() => {
-    if (highlightId === null) return
-    const timer = setTimeout(() => setHighlightId(null), 4000)
-    return () => clearTimeout(timer)
-  }, [highlightId])
   const personalisedName = account.display_name?.trim() || null
   const isManual = isManualBank(bank)
   const [addingTxn, setAddingTxn] = useState(false)
@@ -458,7 +419,6 @@ export function AccountDetailView({
               today={today}
               isManual={isManual}
               isMarketValued={account.is_market_valued}
-              highlightId={highlightId}
             />
           ) : isLoading ? (
             <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
@@ -596,14 +556,12 @@ function TransactionGroupList({
   today,
   isManual = false,
   isMarketValued = false,
-  highlightId,
 }: {
   accountId: number
   groups: ReturnType<typeof groupTransactionsByDate>
   today?: Date
   isManual?: boolean
   isMarketValued?: boolean
-  highlightId?: number | null
 }) {
   return (
     <ul className="flex flex-col gap-6">
@@ -632,7 +590,6 @@ function TransactionGroupList({
                   transaction={transaction}
                   isFuture={isFuture}
                   isManual={isManual}
-                  highlighted={highlightId === transaction.id}
                 />
               ))}
             </ul>
@@ -692,13 +649,11 @@ function TransactionRow({
   transaction,
   isFuture = false,
   isManual = false,
-  highlighted = false,
 }: {
   accountId: number
   transaction: TransactionRead
   isFuture?: boolean
   isManual?: boolean
-  highlighted?: boolean
 }) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
@@ -712,10 +667,7 @@ function TransactionRow({
 
   if (editing) {
     return (
-      <li
-        id={`transaction-${transaction.id}`}
-        className={cn('py-2', highlighted && 'bg-primary/20 rounded-md transition-colors')}
-      >
+      <li className="py-2">
         <ManualTransactionForm
           accountId={accountId}
           mode="edit"
@@ -728,10 +680,7 @@ function TransactionRow({
 
   if (!isManual) {
     return (
-      <li
-        id={`transaction-${transaction.id}`}
-        className={cn(highlighted && 'bg-primary/20 rounded-md transition-colors')}
-      >
+      <li>
         <Link
           to="/transactions/$transactionId"
           params={{ transactionId: String(transaction.id) }}
@@ -786,11 +735,9 @@ function TransactionRow({
 
   return (
     <li
-      id={`transaction-${transaction.id}`}
       className={cn(
         'flex items-center gap-3 rounded-md py-3 pl-2 transition-colors',
         isFuture && 'opacity-60',
-        highlighted && 'bg-primary/20',
       )}
     >
       <CategoryAvatar category={transaction.category} className="size-8" iconClassName="size-4" />

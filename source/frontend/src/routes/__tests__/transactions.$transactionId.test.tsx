@@ -204,10 +204,10 @@ describe('TransactionDetailView', () => {
     expect(screen.queryByRole('button', { name: 'Remove from money flow' })).not.toBeInTheDocument()
   })
 
-  it('renders each flow member linking to its account with a focus param', () => {
+  it('renders each flow member linking to its transaction detail page', () => {
     renderView({ flow_members: [memberTransaction] })
     const link = screen.getByRole('link', { name: new RegExp(ACCOUNT_NAME_SAVINGS) })
-    expect(link).toHaveAttribute('href', '/account/55?focus=99')
+    expect(link).toHaveAttribute('href', '/transactions/99')
   })
 
   it('offers an unlink control next to every flow member', () => {
@@ -260,8 +260,8 @@ describe('TransactionDetailView', () => {
     const links = screen.getAllByRole('link', { name: new RegExp(ACCOUNT_NAME_SAVINGS) })
     expect(links).toHaveLength(2)
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
-      '/account/55?focus=99',
-      '/account/56?focus=100',
+      '/transactions/99',
+      '/transactions/100',
     ])
   })
 

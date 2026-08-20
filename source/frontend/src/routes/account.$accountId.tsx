@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { createFileRoute, useLocation } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -12,10 +12,6 @@ import { BackLink } from '@/components/back-link'
 
 export const Route = createFileRoute('/account/$accountId')({
   component: AccountDetailPage,
-  validateSearch: (search: Record<string, unknown>): { focus?: number } => {
-    const focus = Number(search.focus)
-    return Number.isFinite(focus) && focus > 0 ? { focus } : {}
-  },
 })
 
 function AccountDetailPage() {
@@ -27,8 +23,6 @@ function AccountDetailPage() {
   const history = useAccountHistory(accountId)
   const sync = useCredentialSync(accountInfo?.credentialId ?? -1)
   const { t } = useTranslation()
-  const { focus } = Route.useSearch()
-  const focusNavKey = useLocation({ select: (location) => location.state.__TSR_key })
 
   // A sync that fails *after* a successful 2FA submit resolves the POST with 200, so the submit handler
   // below never sees it. `failedAt` is the only signal that the async job died
@@ -68,8 +62,6 @@ function AccountDetailPage() {
             void history.fetchNextPage()
           }
         }}
-        focusTransactionId={focus}
-        focusNavKey={focusNavKey}
         onSyncClick={isManual ? undefined : sync.start}
         syncDisabled={isSyncBusy}
         syncSpinning={isSyncBusy}
@@ -123,6 +115,4 @@ export interface AccountDetailViewProps {
   syncDisabled?: boolean
   syncSpinning?: boolean
   syncSucceededAt?: number | null
-  focusTransactionId?: number
-  focusNavKey?: string
 }
