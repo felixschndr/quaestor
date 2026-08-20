@@ -1,23 +1,27 @@
 """
 Copy the production database to the local data dir, then rotate the encryption key.
 
+By default, the login credentials are wiped from the copy. Pass --keep-credentials to leave them in place.
+
 Usage:
     python scripts/db/copy_prod_db_to_local.py
+    python scripts/db/copy_prod_db_to_local.py --keep-credentials
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import subprocess  # nosec B404
 import sys
 from pathlib import Path
 
+import sqlcipher3
+
 ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import rotate_db_encryption_key
-
+from scripts.db import rotate_db_encryption_key
 from source.backend.db import KEY_ENV_VARIABLE_NAME
 from source.backend.paths import DATABASE_PATH, ENV_FILE_PATH
 
@@ -46,10 +50,28 @@ def _get_remote_encryption_key() -> str:
     sys.exit(f"{KEY_ENV_VARIABLE_NAME} not found in {REMOTE_ENV} on {REMOTE_HOST}.")
 
 
+def _wipe_credentials(db_path: Path, key: str) -> None:
+    conn = sqlcipher3.connect(str(db_path))
+    try:
+        conn.execute(f"PRAGMA key = '{rotate_db_encryption_key._escape(key)}'")
+        conn.execute("UPDATE credentials SET credentials = '{}', session_state = NULL")
+        conn.commit()
+    finally:
+        conn.close()
+    print("Wiped login credentials")
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--keep-credentials", action="store_true", help="keep the login secrets instead of wiping them")
+    args = parser.parse_args()
+
     _copy_database()
 
     prod_key = _get_remote_encryption_key()
+
+    if not args.keep_credentials:
+        _wipe_credentials(DATABASE_PATH, prod_key)
 
     rotate_db_encryption_key._write_env_key(ENV_FILE_PATH, prod_key)
     os.environ[KEY_ENV_VARIABLE_NAME] = prod_key
