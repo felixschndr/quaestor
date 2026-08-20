@@ -6,7 +6,14 @@ import { toast } from 'sonner'
 
 import type { TransactionRead } from '@/lib/accountHistory'
 import { TRANSACTION_TYPE_ICONS } from '@/lib/transactionTypeIcons'
-import { formatDate, formatDateCompact, formatMoney, formatIban, isIban } from '@/lib/format'
+import {
+  formatDate,
+  formatDateCompact,
+  formatDateShortWeekdayWithoutYear,
+  formatMoney,
+  formatIban,
+  isIban,
+} from '@/lib/format'
 import { CategoryAvatar, useCategoryOptions } from '@/lib/categoryIcons'
 import { type TransactionCategory } from '@/lib/transaction'
 import { NoteEditor } from '@/components/note-editor'
@@ -174,6 +181,14 @@ function FlowSection({
 
   const showAmount = new Set(members.map((member) => Math.abs(member.transaction.amount))).size > 1
 
+  const dedupe = (values: string[]) => Array.from(new Set(values))
+  const flowDatesCompact = dedupe(
+    members.map((member) => formatDateCompact(member.transaction.date)),
+  )
+  const flowDates = dedupe(
+    members.map((member) => formatDateShortWeekdayWithoutYear(member.transaction.date)),
+  )
+
   return (
     <DetailRow label={t('transaction.flow')} align="start">
       <div className="flex w-full flex-col gap-3">
@@ -186,12 +201,14 @@ function FlowSection({
                 isFirst={index === 0}
                 isLast={index === members.length - 1}
                 showAmount={showAmount}
+                flowDates={flowDates}
+                flowDatesCompact={flowDatesCompact}
                 onRemove={canUnlink ? () => onUnlink(member.transaction) : undefined}
               />
             ))}
           </ol>
         ) : null}
-        {linkAction}
+        {linkAction ? <div className={cn(members.length > 0 && 'ml-6')}>{linkAction}</div> : null}
       </div>
     </DetailRow>
   )
@@ -202,12 +219,16 @@ function FlowTimelineRow({
   isFirst,
   isLast,
   showAmount,
+  flowDates,
+  flowDatesCompact,
   onRemove,
 }: {
   member: FlowMemberView
   isFirst: boolean
   isLast: boolean
   showAmount: boolean
+  flowDates: string[]
+  flowDatesCompact: string[]
   onRemove?: () => Promise<unknown>
 }) {
   const { t } = useTranslation()
@@ -311,13 +332,37 @@ function FlowTimelineRow({
         </Link>
       )}
       <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5">
-        <span className="text-muted-foreground w-14 shrink-0 text-xs tabular-nums">
-          {formatDateCompact(transaction.date)}
-        </span>
-        <DirectionIcon
-          className={cn('size-4 shrink-0', incoming ? 'text-success' : 'text-destructive')}
-          aria-label={t(incoming ? 'transaction.incoming' : 'transaction.outgoing')}
-        />
+        {/* Date + direction arrow group: stacked (arrow centered under the date) on mobile to save width, side
+            by side on desktop. */}
+        <div className="flex shrink-0 flex-col items-center gap-0.5 sm:flex-row sm:gap-2">
+          {/* Every date in the flow is stacked invisibly in one grid cell, so the column sizes to the widest
+              one the browser actually renders; the real date sits in the same cell on top. Same set per row →
+              identical width → aligned. Compact form on mobile, written on desktop. */}
+          <span className="text-muted-foreground whitespace-nowrap text-xs tabular-nums">
+            <span className="inline-grid sm:hidden">
+              {flowDatesCompact.map((date) => (
+                <span key={date} aria-hidden="true" className="invisible col-start-1 row-start-1">
+                  {date}
+                </span>
+              ))}
+              <span className="col-start-1 row-start-1">{formatDateCompact(transaction.date)}</span>
+            </span>
+            <span className="hidden sm:inline-grid">
+              {flowDates.map((date) => (
+                <span key={date} aria-hidden="true" className="invisible col-start-1 row-start-1">
+                  {date}
+                </span>
+              ))}
+              <span className="col-start-1 row-start-1">
+                {formatDateShortWeekdayWithoutYear(transaction.date)}
+              </span>
+            </span>
+          </span>
+          <DirectionIcon
+            className={cn('size-4 shrink-0', incoming ? 'text-success' : 'text-destructive')}
+            aria-label={t(incoming ? 'transaction.incoming' : 'transaction.outgoing')}
+          />
+        </div>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {isCurrent ? (
             account

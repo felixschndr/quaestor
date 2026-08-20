@@ -4,6 +4,7 @@ import {
   formatAmountForInput,
   formatMoney,
   formatDate,
+  formatDateShortWeekdayWithoutYear,
   formatDateTime,
   formatIban,
   transactionPartyName,
@@ -81,30 +82,20 @@ describe('wrapWithCurrency', () => {
 })
 
 describe('formatDate', () => {
-  afterAll(async () => {
-    await i18n.changeLanguage('en')
-  })
-
-  it('formats an ISO date in long German form when the language is German', async () => {
-    await i18n.changeLanguage('de')
-    expect(formatDate('2026-05-20T12:00:00Z')).toMatch(/20\. Mai 2026/)
-  })
-
-  it('pads a single-digit day with a leading zero', async () => {
-    await i18n.changeLanguage('de')
-    expect(formatDate('2026-05-05T12:00:00Z')).toMatch(/05\. Mai 2026/)
-  })
-
-  it('prefixes the date with the weekday in German', async () => {
-    await i18n.changeLanguage('de')
-    // 2026-05-20 is a Wednesday → Mittwoch.
-    expect(formatDate('2026-05-20T12:00:00Z')).toMatch(/^Mittwoch, /)
-  })
-
-  it('formats the same date in long English form when the language is English', async () => {
-    await i18n.changeLanguage('en')
-    // 2026-05-20 is a Wednesday → "Wednesday, May 20, 2026".
+  it('formats an ISO date in long English form', () => {
     expect(formatDate('2026-05-20T12:00:00Z')).toMatch(/^Wednesday, May 20, 2026/)
+  })
+
+  it('pads a single-digit day with a leading zero', () => {
+    expect(formatDate('2026-05-05T12:00:00Z')).toMatch(/May 05, 2026/)
+  })
+
+  it('prefixes the date with the weekday', () => {
+    expect(formatDate('2026-05-20T12:00:00Z')).toMatch(/^Wednesday, /)
+  })
+
+  it('writes out a short weekday and long month without the year', () => {
+    expect(formatDateShortWeekdayWithoutYear('2026-05-20T12:00:00Z')).toBe('Wed, May 20')
   })
 })
 

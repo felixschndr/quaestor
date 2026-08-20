@@ -159,6 +159,11 @@ export function formatDateWithoutYear(d: Date | string): string {
   return formatWith(d, { year: undefined })
 }
 
+// e.g. "Wed, May 20"
+export function formatDateShortWeekdayWithoutYear(d: Date | string): string {
+  return formatWith(d, { weekday: 'short', year: undefined })
+}
+
 // e.g. "May 20"
 export function formatDateCompact(d: Date | string): string {
   return formatWith(d, { weekday: undefined, month: 'short', year: undefined })
