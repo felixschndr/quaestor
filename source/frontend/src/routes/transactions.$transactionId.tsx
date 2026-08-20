@@ -386,20 +386,19 @@ export interface FlowMemberView {
 }
 
 // Order a flow the way the money travels: by date, then non-depot accounts before the market-valued depot
-// (the terminal asset side), then a sign rule, then a stable tiebreak. So a broker buy reads
-// deposit-in -> cash-out -> depot-in instead of raw (date, amount). The sign rule depends on whether the two
-// legs share an account: within one account an inflow funds a later outflow (in first), but the two legs of a
-// single transfer live on different accounts, so the source outflow precedes the destination inflow (out
-// first)
+// (the terminal asset side), then a sign rule, then id. So a broker buy reads deposit-in -> cash-out ->
+// depot-in. The sign rule only applies across accounts: the two legs of a single transfer live on different
+// accounts, so the source outflow precedes the destination inflow (out first). Within one account the legs
+// arrive in provider order, so id (ascending = booking order) decides — e.g. a debit before its later
+// reversal, even though the reversal is an inflow.
 export function compareFlowMembers(a: FlowMemberView, b: FlowMemberView): number {
   const outLast = (m: FlowMemberView) => (m.transaction.amount < 0 ? 1 : 0)
   const sameAccount = a.transaction.account_id === b.transaction.account_id
-  const signRank = sameAccount ? outLast(a) - outLast(b) : outLast(b) - outLast(a)
+  const signRank = sameAccount ? 0 : outLast(b) - outLast(a)
   return (
     a.transaction.date.localeCompare(b.transaction.date) ||
     Number(a.isMarketValued) - Number(b.isMarketValued) ||
     signRank ||
-    a.transaction.amount - b.transaction.amount ||
     a.transaction.id - b.transaction.id
   )
 }

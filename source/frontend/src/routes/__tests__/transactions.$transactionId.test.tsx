@@ -456,4 +456,13 @@ describe('compareFlowMembers', () => {
 
     expect(ordered.map((m) => m.transaction.id)).toEqual([2, 1])
   })
+
+  it('orders same-account legs in booking order, debit before its later reversal', () => {
+    const debit = flowMember({ id: 5054, date: '2026-07-16', amount: -AMOUNT_XL, accountId: 24 })
+    const reversal = flowMember({ id: 5109, date: '2026-07-16', amount: AMOUNT_XL, accountId: 24 })
+
+    const ordered = [reversal, debit].sort(compareFlowMembers)
+
+    expect(ordered.map((m) => m.transaction.id)).toEqual([5054, 5109])
+  })
 })
