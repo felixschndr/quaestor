@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Input } from '@/components/ui/input'
@@ -70,6 +70,14 @@ export function AmountInput({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [negative])
 
+  const pendingCaret = useRef<{ el: HTMLInputElement; pos: number } | null>(null)
+  useLayoutEffect(() => {
+    const caret = pendingCaret.current
+    if (!caret) return
+    pendingCaret.current = null
+    caret.el.setSelectionRange(caret.pos, caret.pos)
+  })
+
   const toggleSign = () => {
     const next = !isNegative
     if (controlled) {
@@ -112,7 +120,23 @@ export function AmountInput({
         className={inputClassName}
         onKeyDown={onKeyDown}
         onChange={(event) => {
-          const raw = event.target.value
+          const el = event.target
+          const raw = el.value
+          const signs = raw.match(/^[+-]+/)?.[0]
+          if (signs) {
+            const stripped = raw.slice(signs.length)
+            const removed = signs.length
+            pendingCaret.current = {
+              el,
+              pos: Math.max(0, (el.selectionStart ?? removed) - removed),
+            }
+            const next = signs[signs.length - 1] === '-'
+            if (controlled) onNegativeChange?.(next)
+            else setInternalNegative(next)
+            setMagnitude(stripped)
+            emit(stripped, next)
+            return
+          }
           setMagnitude(raw)
           emit(raw, isNegative)
         }}

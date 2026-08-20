@@ -9,6 +9,7 @@ export const NOTIFICATION_TRIGGERS = [
   'contract_overdue',
   'contract_ending',
   'contract_charged_after_end',
+  'contract_detected',
   'contract_amount_increased',
   'duplicate_transaction',
   'digest',
@@ -61,6 +62,10 @@ export interface ContractChargedAfterEndRule extends RuleBase {
   trigger: 'contract_charged_after_end'
 }
 
+export interface ContractDetectedRule extends RuleBase {
+  trigger: 'contract_detected'
+}
+
 export interface ContractAmountIncreasedRule extends RuleBase {
   trigger: 'contract_amount_increased'
 }
@@ -101,6 +106,7 @@ export type NotificationRule =
   | ContractOverdueRule
   | ContractEndingRule
   | ContractChargedAfterEndRule
+  | ContractDetectedRule
   | ContractAmountIncreasedRule
   | DuplicateTransactionRule
   | DigestRule
@@ -112,6 +118,7 @@ export type NotificationRuleDraft =
   | Omit<ContractOverdueRule, 'id'>
   | Omit<ContractEndingRule, 'id'>
   | Omit<ContractChargedAfterEndRule, 'id'>
+  | Omit<ContractDetectedRule, 'id'>
   | Omit<ContractAmountIncreasedRule, 'id'>
   | Omit<DuplicateTransactionRule, 'id'>
   | Omit<DigestRule, 'id'>

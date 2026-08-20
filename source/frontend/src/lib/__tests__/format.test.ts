@@ -154,10 +154,10 @@ describe('formatRelativeDateTime', () => {
     expect(formatRelativeDateTime(iso, t, now)).toBe(expected)
   })
 
-  it('falls back to the full long date for older timestamps', () => {
+  it('falls back to a full weekday without the year for older timestamps', () => {
     setDisplayTimeZone('UTC')
-    expect(formatRelativeDateTime('2026-05-10T08:30:00Z', t, now)).toMatch(
-      /10\. Mai 2026 um 08:30 Uhr/,
+    expect(formatRelativeDateTime('2026-05-10T08:30:00Z', t, now)).toBe(
+      'Sonntag, 10. Mai um 08:30 Uhr',
     )
   })
 

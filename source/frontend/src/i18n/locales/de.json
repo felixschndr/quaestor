@@ -397,8 +397,8 @@
     },
     "neverSynced": "Noch nie synchronisiert",
     "autoSync": {
-      "enabled_one": "Dieses Konto wird automatisch im {{hours}}-Stunden-Takt synchronisiert.",
-      "enabled_other": "Diese Konten werden automatisch im {{hours}}-Stunden-Takt synchronisiert.",
+      "enabled_one": "Dieses Konto wird im {{hours}}-Stunden-Takt automatisch synchronisiert.",
+      "enabled_other": "Diese Konten werden im {{hours}}-Stunden-Takt automatisch synchronisiert.",
       "disabled_one": "Dieses Konto wird nicht automatisch synchronisiert, da ein zweiter Faktor benötigt wird.",
       "disabled_other": "Diese Konten werden nicht automatisch synchronisiert, da ein zweiter Faktor benötigt wird."
     },
@@ -745,6 +745,7 @@
       "contract_overdue": "Vertrag überfällig",
       "contract_ending": "Vertrag endet bald",
       "contract_charged_after_end": "Buchung nach Vertragsende",
+      "contract_detected": "Neuer Vertrag erkannt",
       "upcoming_shortfall": "Kontostand reicht nicht",
       "transaction": "Transaktion gebucht",
       "balance_threshold": "Kontostand-Schwelle",
@@ -757,6 +758,7 @@
       "contract_overdue": "Benachrichtige mich, wenn die nächste Zahlung eines Vertrags länger als die Karenzzeit überfällig ist.",
       "contract_ending": "Benachrichtige mich, wenn das Ende eines Vertrags innerhalb der Vorlaufzeit näher rückt.",
       "contract_charged_after_end": "Benachrichtige mich, wenn nach dem Enddatum eines Vertrags noch eine Buchung dazu eingeht.",
+      "contract_detected": "Benachrichtige mich, wenn ein neuer wiederkehrender Vertrag automatisch erkannt wird.",
       "upcoming_shortfall": "Benachrichtige mich, wenn die im gewählten Zeitraum fälligen Vertragszahlungen den Kontostand übersteigen.",
       "transaction": "Benachrichtige mich, wenn eine gebuchte Transaktion die folgenden Kriterien erfüllt.",
       "balance_threshold": "Benachrichtige mich, wenn der Kontostand eines Kontos den Schwellwert in der gewählten Richtung überschreitet.",

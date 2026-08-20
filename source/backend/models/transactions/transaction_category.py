@@ -289,7 +289,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
 
 
 def normalize_string(input_string: str) -> str:
-    return (
+    normalized = (
         input_string.strip()
         .lower()
         .replace("ä", "ae")
@@ -299,3 +299,4 @@ def normalize_string(input_string: str) -> str:
         .replace(".", " ")
         .replace("/", " ")
     )
+    return " ".join(normalized.split())

@@ -236,6 +236,11 @@
   transition: filter 500ms ease-in-out;
 }
 
+.private-amount {
+  padding-block: 0.4em;
+  margin-block: -0.4em;
+}
+
 [data-privacy='on'] .private-amount {
   filter: blur(0.3em);
 }

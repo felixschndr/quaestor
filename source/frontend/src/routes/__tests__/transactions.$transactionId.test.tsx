@@ -387,9 +387,15 @@ describe('compareFlowMembers', () => {
     id: number
     date: string
     amount: number
+    accountId?: number
     isMarketValued?: boolean
   }): FlowMemberView => ({
-    transaction: buildTransaction({ id: over.id, date: over.date, amount: over.amount }),
+    transaction: buildTransaction({
+      id: over.id,
+      date: over.date,
+      amount: over.amount,
+      account_id: over.accountId ?? 42,
+    }),
     accountName: null,
     bankName: null,
     bankIcon: null,
@@ -406,5 +412,14 @@ describe('compareFlowMembers', () => {
     const ordered = [depotIn, cashOut, personalOut, cashIn].sort(compareFlowMembers)
 
     expect(ordered.map((m) => m.transaction.id)).toEqual([4750, 5145, 5146, 5147])
+  })
+
+  it('shows a same-date transfer as departure before arrival', () => {
+    const personalOut = flowMember({ id: 2, date: '2026-08-11', amount: -5000, accountId: 24 })
+    const cashIn = flowMember({ id: 1, date: '2026-08-11', amount: 5000, accountId: 20 })
+
+    const ordered = [cashIn, personalOut].sort(compareFlowMembers)
+
+    expect(ordered.map((m) => m.transaction.id)).toEqual([2, 1])
   })
 })

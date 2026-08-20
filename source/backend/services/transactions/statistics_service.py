@@ -393,6 +393,7 @@ def daily_net_worth(
     account_ids: list[int],
     date_from: datetime.date | None,
     date_to: datetime.date | None,
+    apply_factor: bool = True,
 ) -> NetWorthResponse:
     owned_account_ids = account_service.resolve_owned_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
@@ -404,7 +405,7 @@ def daily_net_worth(
     end_date = min(date_to, today) if date_to is not None else today
 
     accounts = list(db_session.scalars(select(Account).where(Account.id.in_(owned_account_ids))))  # noqa: FKA100
-    balance_factors = {account.id: account.balance_factor for account in accounts}
+    balance_factors = {account.id: (account.balance_factor if apply_factor else 100) for account in accounts}
     live_balances = {account.id: account.balance for account in accounts}
 
     # When the caller didn't pin the start, anchor to the earliest snapshot across selected accounts

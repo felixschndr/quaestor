@@ -75,6 +75,8 @@ from tests.backend.conftest import (
         ("VISA SUMUP  *KOFTECI OGUZ", None, TransactionCategory.RESTAURANTS),
         # Lifestyle
         ("VISA NEW YORKER 20118", None, TransactionCategory.CLOTHING),
+        # Repeated whitespace from the bank must not break a multi-word matcher
+        ("VISA JACK  JONES KARLSRUHE", None, TransactionCategory.CLOTHING),
         ("VISA MEWAN FRISEURSTUDIO", None, TransactionCategory.PERSONAL_CARE),
         ("VISA BLUME 2000 SE", None, TransactionCategory.GIFTS),
         # Entertainment

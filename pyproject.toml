@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "Quaestor"
 description = "Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts"
-version = "0.3.13"
+version = "0.3.15"
 authors = ["Felix Schneider <mail@fschneider.me>"]
 repository = "https://github.com/felixschndr/quaestor"
 package-mode = false
@@ -12,7 +12,7 @@ sqlalchemy = "^2.0.52"
 fastapi = "^0.141.1"
 pydantic = "^2.13.4"
 alembic = "^1.19.1"
-uvicorn = ">=0.52.2,<0.53"
+uvicorn = ">=0.52.3,<0.53"
 sqlcipher3 = ">=0.5.4,<0.7.0"
 python-dotenv = "^1.2.2"
 requests = "^2.33.1"

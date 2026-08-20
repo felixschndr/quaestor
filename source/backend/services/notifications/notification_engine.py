@@ -253,6 +253,45 @@ def _build_ending_notification(rule: NotificationRule, contract: Contract, langu
     )
 
 
+def collect_detected_contract_notifications(
+    db_session: Session, user: User, contracts: list[Contract]
+) -> list[Notification]:
+    if not contracts:
+        return []
+    rules = [
+        rule
+        for rule in notification_rule_service.list_rules(db_session=db_session, user=user)
+        if rule.enabled and rule.trigger is NotificationTrigger.CONTRACT_DETECTED
+    ]
+    notifications: list[Notification] = []
+    for contract in contracts:
+        rule = next(
+            (rule for rule in rules if _rule_applies_to_account(rule=rule, account_id=contract.account_id)), None
+        )
+        if rule is None:
+            continue
+        notifications.append(_build_detected_notification(rule=rule, contract=contract, language=user.language))
+        logger.info(f"Newly detected {contract}; queued notification")
+    return notifications
+
+
+def _build_detected_notification(rule: NotificationRule, contract: Contract, language: str) -> Notification:
+    if rule.include_content:
+        body = notification_messages.translate(
+            language, key="contract_detected.body", account=contract.account.display_label, name=contract.name
+        )
+    else:
+        body = notification_messages.translate(
+            language, key="contract_detected.body_minimal", account=contract.account.display_label
+        )
+    return Notification(
+        title=rule.name or notification_messages.translate(language, key="contract_detected.title"),
+        body=body,
+        url=f"/contracts/{contract.id}",
+        tag=f"contract-detected-{contract.id}",
+    )
+
+
 def evaluate_digests(db_session: Session, today: datetime.date) -> None:
     users = db_session.scalars(select(User)).all()
     logger.info(f"Evaluating digest rules for {len(users)} user(s)")

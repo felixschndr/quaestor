@@ -8,6 +8,7 @@ export interface SortSelectProps<T extends string> {
   onChange: (next: T) => void
   options: SingleSelectOption<T>[]
   ariaLabel: string
+  width?: 'full' | 'content'
 }
 
 export function SortSelect<T extends string>({
@@ -16,6 +17,7 @@ export function SortSelect<T extends string>({
   onChange,
   options,
   ariaLabel,
+  width = 'content',
 }: SortSelectProps<T>) {
   return (
     <SingleSelectPopover
@@ -24,7 +26,7 @@ export function SortSelect<T extends string>({
       value={value}
       onChange={onChange}
       options={options}
-      width="content"
+      width={width}
       align="end"
     />
   )

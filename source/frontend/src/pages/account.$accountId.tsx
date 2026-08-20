@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronRight, Copy, Pencil, Plus, Search, X } from 'lucide-react'
+import { Check, ChevronRight, Pencil, Plus, Search, X } from 'lucide-react'
 import { Collapsible } from 'radix-ui'
 import { toast } from 'sonner'
 
@@ -34,7 +34,7 @@ import {
 import { isManualBank } from '@/lib/credentials'
 import { presetDateRange, useNetWorthStats } from '@/lib/statistics'
 import { Sparkline } from '@/components/sparkline'
-import { copyText } from '@/lib/clipboard'
+import { CopyButton } from '@/components/copy-button'
 import { EXPECTED_TRANSACTIONS_KEY, useCollapsedGroups } from '@/lib/collapsedGroups'
 import { cn } from '@/lib/utils'
 import { AmountInput } from '@/components/ui/amount-input'
@@ -90,7 +90,7 @@ function AccountSparkline({
   const { t } = useTranslation()
   const accountIds = useMemo(() => [accountId], [accountId])
   const range = useMemo(() => presetDateRange('1m'), [])
-  const { data } = useNetWorthStats(accountIds, range)
+  const { data } = useNetWorthStats(accountIds, range, true, false)
   const series = data?.series ?? []
 
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
@@ -198,10 +198,6 @@ function AccountSparkline({
 
 function IbanLabel({ value, id }: { value: string; id?: string }) {
   const { t } = useTranslation()
-  const [copied, setCopied] = useState(false)
-  const copyTimeout = useRef<ReturnType<typeof setTimeout>>(undefined)
-
-  useEffect(() => () => clearTimeout(copyTimeout.current), [])
 
   if (!isIban(value)) {
     return (
@@ -211,33 +207,16 @@ function IbanLabel({ value, id }: { value: string; id?: string }) {
     )
   }
 
-  const handleCopy = async () => {
-    try {
-      await copyText(value.replace(/\s+/g, ''))
-      setCopied(true)
-      clearTimeout(copyTimeout.current)
-      copyTimeout.current = setTimeout(() => setCopied(false), 2000)
-      toast.success(t('account.iban.copied'))
-    } catch {
-      toast.error(t('account.iban.copyFailed'))
-    }
-  }
-
   return (
     <p id={id} className="text-muted-foreground flex items-center gap-1.5 text-sm">
       {formatIban(value)}
-      <button
-        type="button"
-        onClick={handleCopy}
-        aria-label={t('account.iban.copy')}
-        className="hover:text-foreground -m-0.5 cursor-pointer rounded p-0.5 transition-colors"
-      >
-        {copied ? (
-          <Check className="text-success size-3.5" aria-hidden="true" />
-        ) : (
-          <Copy className="size-3.5" aria-hidden="true" />
-        )}
-      </button>
+      <CopyButton
+        value={value.replace(/\s+/g, '')}
+        label={t('account.iban.copy')}
+        className="-m-0.5"
+        successMessage={t('account.iban.copied')}
+        errorMessage={t('account.iban.copyFailed')}
+      />
     </p>
   )
 }

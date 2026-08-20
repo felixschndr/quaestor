@@ -12,7 +12,7 @@ import { ListSkeleton } from '@/components/list-skeleton'
 import { QueryStates } from '@/components/query-states'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { copyText } from '@/lib/clipboard'
+import { useCopyFeedback } from '@/lib/clipboard'
 import { readApiErrorMessage } from '@/lib/apiError'
 import { formatDateTime } from '@/lib/format'
 import {
@@ -109,18 +109,7 @@ function CreateKeyForm({ onCreated }: { onCreated: (apiKey: ApiKeyCreated) => vo
 
 function CreatedKeyReveal({ apiKey, onDone }: { apiKey: ApiKeyCreated; onDone: () => void }) {
   const { t } = useTranslation()
-  const [copied, setCopied] = useState(false)
-
-  const copy = async () => {
-    try {
-      await copyText(apiKey.token)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // Clipboard can be unavailable (insecure context / denied permission); the token stays
-      // selectable on screen as a fallback.
-    }
-  }
+  const { copied, copy } = useCopyFeedback()
 
   return (
     <section className="border-border bg-card flex flex-col gap-4 rounded-lg border p-4">
@@ -132,7 +121,12 @@ function CreatedKeyReveal({ apiKey, onDone }: { apiKey: ApiKeyCreated; onDone: (
         {apiKey.token}
       </code>
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Button type="button" variant="outline" onClick={copy} className="flex-1">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => void copy(apiKey.token)}
+          className="flex-1"
+        >
           {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
           {copied ? t('common.copied') : t('common.copy')}
         </Button>

@@ -62,14 +62,16 @@ def test_detects_monthly_series_as_contract(session_factory: sessionmaker, caplo
 
         detected = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
 
-        assert detected == 1
+        assert len(detected) == 1
         contract = session.query(Contract).one()
         assert contract.name == "Netflix"
         assert contract.frequency == ContractFrequency.MONTHLY
         assert len(contract.members()) == 4
         assert contract.median_amount == -12.99
         assert contract.expected_next_date == OLDER_DATE + timedelta(days=120)
-        assert_log_contains(caplog, messages=["Detected new <Contract(", "1 recurring contract(s) detected"])
+        assert_log_contains(
+            caplog, messages=["Detected new <Contract(", "1 recurring and 1 newly created contract(s) detected"]
+        )
 
 
 def test_detects_biweekly_series(session_factory: sessionmaker):
@@ -171,7 +173,7 @@ def test_blacklisted_other_party_does_not_form_a_contract(session_factory: sessi
 
         detected = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
 
-        assert detected == 0
+        assert detected == []
         assert session.query(Contract).count() == 0
 
 
@@ -183,7 +185,7 @@ def test_too_few_occurrences_do_not_form_a_contract(session_factory: sessionmake
 
         detected = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
 
-        assert detected == 0
+        assert detected == []
         assert session.query(Contract).count() == 0
 
 
@@ -297,7 +299,7 @@ def test_paypal_transactions_are_split_into_one_contract_per_merchant(session_fa
 
         detected = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
 
-        assert detected == 2
+        assert len(detected) == 2
         assert {contract.name for contract in session.query(Contract).all()} == {"Apple Services", "Spotify AB"}
 
 
@@ -307,9 +309,11 @@ def test_detection_is_idempotent(session_factory: sessionmaker):
         _seed(session, account_id=account.id, other_party="Netflix", amount=-12.99, day_offsets=[0, 30, 60, 90])
         session.commit()
 
-        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
-        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+        first_run = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+        second_run = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
 
+        assert len(first_run) == 1
+        assert second_run == []
         assert session.query(Contract).count() == 1
         assert len(session.query(Contract).one().members()) == 4
 
