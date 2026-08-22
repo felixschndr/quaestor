@@ -21,6 +21,7 @@ from tests.backend.conftest import (
     RECENT_DATE,
     SECOND_ACCOUNT_IBAN,
     SECOND_AMOUNT,
+    UNKNOWN_TRANSACTION_OTHER_PARTY,
     assert_log_contains,
     link_transactions_as_flow,
     make_account,
@@ -718,6 +719,80 @@ def test_does_not_chain_a_same_account_leg(session_factory: sessionmaker):
         transfer_detection.detect_transfers_for_user(db_session=session, user=user)
 
         assert refund.flow_id is None
+
+
+def test_chains_a_same_account_retry_naming_the_same_counterparty(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, _ = _create_two_accounts(session, user_id=user.id)
+        outgoing = make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=-DEFAULT_AMOUNT,
+            date=RECENT_DATE,
+            other_party=NETFLIX,
+            transaction_type=TransactionType.TRANSFER_OUT,
+        )
+        returned = make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=DEFAULT_AMOUNT,
+            date=RECENT_DATE,
+            other_party=NETFLIX,
+            transaction_type=TransactionType.TRANSFER_IN,
+        )
+        link_transactions_as_flow(db_session=session, transactions=[outgoing, returned])
+        retry = make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=-DEFAULT_AMOUNT,
+            date=RECENT_DATE + timedelta(days=1),
+            other_party=NETFLIX,
+            transaction_type=TransactionType.OUTGOING,
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert retry.flow_id == outgoing.flow_id
+        assert retry.transaction_type == TransactionType.TRANSFER_OUT
+        assert retry.transfer_original_type == TransactionType.OUTGOING
+
+
+def test_does_not_chain_a_same_account_leg_with_a_different_counterparty(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, _ = _create_two_accounts(session, user_id=user.id)
+        outgoing = make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=-DEFAULT_AMOUNT,
+            date=RECENT_DATE,
+            other_party=NETFLIX,
+            transaction_type=TransactionType.TRANSFER_OUT,
+        )
+        returned = make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=DEFAULT_AMOUNT,
+            date=RECENT_DATE,
+            other_party=NETFLIX,
+            transaction_type=TransactionType.TRANSFER_IN,
+        )
+        link_transactions_as_flow(db_session=session, transactions=[outgoing, returned])
+        unrelated = make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=-DEFAULT_AMOUNT,
+            date=RECENT_DATE + timedelta(days=1),
+            other_party=UNKNOWN_TRANSACTION_OTHER_PARTY,
+            transaction_type=TransactionType.OUTGOING,
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert unrelated.flow_id is None
 
 
 def _make_broker_setup(session: Session, user: User) -> tuple[object, Account, Account, object]:

@@ -266,10 +266,19 @@ def _chain_into_detected_flows(db_session: Session, user: User, unlinked: list[T
 
 
 def _is_chain_hop(leg: Transaction, member: Transaction) -> bool:
-    # A leg chains onto a flow member if it is the opposite side of a self-transfer between two accounts:
-    # exact counter-amount, within TRANSFER_MAX_DISTANCE, and a *different* account (same-account = refund, not a hop).
-    if leg.account_id == member.account_id:
+    # A leg chains onto a flow member in two shapes, both within TRANSFER_MAX_DISTANCE:
+    #  - cross-account self-transfer: exact counter-amount on a *different* account (the classic hop), or
+    #  - same-account retry cluster: same |amount| and same counterparty on the *same* account
+    #    (e.g. a rejected debit re-attempted
+    if abs(leg.date - member.date) > TRANSFER_MAX_DISTANCE:
         return False
+    if leg.account_id == member.account_id:
+        party = normalize_string(leg.other_party or "")
+        if not party or party != normalize_string(member.other_party or ""):
+            return False
+        if any(name in party for name, _ in INTERMEDIARIES):
+            return False
+        return abs(leg.amount) == abs(member.amount)
     outflow, inflow = (leg, member) if leg.amount < 0 else (member, leg)
     return _is_match(outflow=outflow, inflow=inflow)
 
