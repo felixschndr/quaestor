@@ -31,6 +31,10 @@ ELIGIBLE_TYPES = frozenset(
 
 TRANSFER_MAX_DISTANCE = timedelta(days=3)
 
+# A refund may not match its original payment by amount (partial refunds) or a tight date, so it gets a wider
+# window and is matched by the shared counterparty name instead.
+REFUND_MAX_DISTANCE = timedelta(days=31)
+
 # Broker legs (a Sparplan deposit, the cash-side buy, its depot mirror booking) settle days apart and don't
 # share a sign, so they get a wider, credential-scoped window instead of the strict transfer match.
 BROKER_LEG_MAX_DISTANCE = timedelta(days=31)
@@ -69,14 +73,15 @@ def detect_transfers_for_user(db_session: Session, user: User) -> int:
     )
     created_transfers = _link_transfer_pairs(db_session=db_session, transactions=unpaired_transactions)
     mirrored = _link_mirror_bookings(db_session=db_session, transactions=unpaired_transactions)
+    refunds_linked = _link_refunds_to_payments(db_session=db_session, transactions=unpaired_transactions)
     chained = _chain_into_detected_flows(db_session=db_session, user=user, unlinked=unpaired_transactions)
     broker_chained = _chain_broker_legs(db_session=db_session, user=user)
     logger.info(
         f"Transfer detection for {user}: {created_transfers} new transfer pair(s), "
-        f"{mirrored} new mirror pair(s), {chained} leg(s) chained into existing flows, "
-        f"{broker_chained} broker leg(s) chained"
+        f"{mirrored} new mirror pair(s), {refunds_linked} refund(s) linked to a payment, "
+        f"{chained} leg(s) chained into existing flows, {broker_chained} broker leg(s) chained"
     )
-    return created_transfers + mirrored + chained + broker_chained
+    return created_transfers + mirrored + refunds_linked + chained + broker_chained
 
 
 def detect_transfers_for_all_users() -> None:
@@ -214,6 +219,49 @@ def _link_mirror_bookings(db_session: Session, transactions: list[Transaction]) 
             f"Matched mirror booking: Funding {best} <-> Intermediary {intermediary_leg}; "
             f"{len(candidates)} candidate(s) considered"
         )
+    return created
+
+
+def _link_refunds_to_payments(db_session: Session, transactions: list[Transaction]) -> int:
+    # A bank-flagged refund (category REIMBURSEMENT) names the same counterparty as the payment it reverses,
+    # but its amount is often smaller (partial refund) and it can land weeks later, so amount/date matching
+    # misses it. Link it to the single open outflow to that same party that covers it within REFUND_MAX_DISTANCE.
+    # Ambiguous (0 or >1 candidates) -> skip, matching the other passes' conservatism.
+    refunds = [
+        t
+        for t in transactions
+        if t.flow_id is None and t.amount > 0 and t.category == TransactionCategory.REIMBURSEMENT and t.other_party
+    ]
+    consumed_outflow_ids: set[int] = set()
+    created = 0
+    for refund in refunds:
+        party = normalize_string(refund.other_party or "")
+        candidates = [
+            outflow
+            for outflow in transactions
+            if outflow.flow_id is None
+            and outflow.id not in consumed_outflow_ids
+            and outflow.amount < 0
+            and abs(outflow.amount) >= refund.amount
+            and outflow.date <= refund.date
+            and (refund.date - outflow.date) <= REFUND_MAX_DISTANCE
+            and normalize_string(outflow.other_party or "") == party
+        ]
+        if len(candidates) != 1:
+            continue
+        outflow = candidates[0]
+        flow = _new_flow(db_session=db_session)
+        outflow.transfer_original_type = outflow.transaction_type
+        refund.transfer_original_type = refund.transaction_type
+        outflow.transaction_type = TransactionType.TRANSFER_OUT
+        refund.transaction_type = TransactionType.TRANSFER_IN
+        outflow.flow_id = flow.id
+        refund.flow_id = flow.id
+        outflow.flow_link_source = FlowLinkSource.DETECTED
+        refund.flow_link_source = FlowLinkSource.DETECTED
+        consumed_outflow_ids.add(outflow.id)
+        created += 1
+        logger.debug(f"Linked refund {refund} to payment {outflow}")
     return created
 
 

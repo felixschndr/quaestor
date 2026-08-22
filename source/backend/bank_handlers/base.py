@@ -34,6 +34,7 @@ class FetchedTransaction:
     transaction_type: TransactionType | None = None
     pending: bool = False
     bank_reference: str | None = None
+    is_refund: bool = False
 
     def __post_init__(self) -> None:
         if self.purpose:

@@ -170,6 +170,9 @@ def _to_fetched_transaction(raw: dict, is_paypal: bool = False) -> FetchedTransa
     if is_paypal and amount < 0 and not other_party and not purpose:
         transaction_type = TransactionType.REMOVAL
 
+    bank_transaction_code = raw.get("bank_transaction_code") or {}
+    is_refund = (bank_transaction_code.get("sub_code") or "").upper() == "REFUND"
+
     return FetchedTransaction(
         amount=amount,
         purpose=purpose or None,
@@ -178,6 +181,7 @@ def _to_fetched_transaction(raw: dict, is_paypal: bool = False) -> FetchedTransa
         transaction_type=transaction_type,
         pending=status == "PDNG",
         bank_reference=raw.get("entry_reference") or None,
+        is_refund=is_refund,
     )
 
 

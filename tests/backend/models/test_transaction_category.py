@@ -6,6 +6,7 @@ from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
+    AMOUNT,
     PERSON_NAME,
     UNKNOWN_TRANSACTION_OTHER_PARTY,
     assert_log_contains,
@@ -109,6 +110,14 @@ def test_from_transaction_matches_other_party_and_purpose(
     fetched = create_fetched_transaction(other_party=other_party, purpose=purpose)
 
     assert TransactionCategory.from_transaction(transaction=fetched) == expected
+
+
+def test_bank_flagged_refund_is_reimbursement_without_a_keyword():
+    fetched = create_fetched_transaction(
+        amount=AMOUNT, other_party=PERSON_NAME, transaction_type=TransactionType.INCOMING, is_refund=True
+    )
+
+    assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.REIMBURSEMENT
 
 
 def test_from_fetched_assigns_matching_category():

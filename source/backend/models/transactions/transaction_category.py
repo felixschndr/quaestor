@@ -58,6 +58,9 @@ class TransactionCategory(str, Enum):
     def _match(
         cls: type["TransactionCategory"], transaction: "FetchedTransaction | Transaction"
     ) -> "TransactionCategory":
+        if getattr(transaction, "is_refund", False):
+            return cls.REIMBURSEMENT
+
         if transaction.transaction_type is not None:
             type_based = CATEGORY_BY_TRANSACTION_TYPE.get(transaction.transaction_type)
             if type_based is not None:

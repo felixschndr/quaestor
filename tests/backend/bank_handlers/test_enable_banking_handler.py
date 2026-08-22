@@ -1,6 +1,7 @@
 import base64
 import json
 from collections.abc import Callable
+from copy import deepcopy
 from datetime import date
 
 import pytest
@@ -28,7 +29,9 @@ from tests.backend.conftest import (
     ACCOUNT_UID,
     APPLICATION_ID,
     CHALLENGE_TOKEN,
+    DEFAULT_AMOUNT,
     PERSON_NAME,
+    RECENT_DATE,
     SECOND_ACCOUNT_UID,
     SESSION_ID,
     FakeHttpResponse,
@@ -168,6 +171,27 @@ def test_transaction_mapping_signs_and_dates():
     assert credit.pending is True
     assert credit.bank_reference is None
     assert credit.transaction_type == TransactionType.INCOMING
+
+
+def test_refund_sub_code_is_flagged_as_refund():
+    non_refund_raw = {
+        "status": "BOOK",
+        "transaction_amount": {"currency": "EUR", "amount": DEFAULT_AMOUNT},
+        "credit_debit_indicator": "CRDT",
+        "transaction_date": RECENT_DATE.isoformat(),
+        "remittance_information": [],
+        "bank_transaction_code": {"code": "PAYMENT", "sub_code": None},
+        "debtor": {"name": PERSON_NAME},
+    }
+    non_refund = _to_fetched_transaction(non_refund_raw)
+    refund_raw = deepcopy(non_refund_raw)
+    refund_raw["bank_transaction_code"]["sub_code"] = "REFUND"
+    refund = _to_fetched_transaction(refund_raw)
+
+    assert refund.is_refund is True
+    assert refund.other_party == PERSON_NAME
+    assert non_refund is not None
+    assert non_refund.is_refund is False
 
 
 def test_paypal_balance_payout_is_typed_as_removal():

@@ -721,6 +721,101 @@ def test_does_not_chain_a_same_account_leg(session_factory: sessionmaker):
         assert refund.flow_id is None
 
 
+def test_links_a_partial_refund_to_its_payment_by_counterparty(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, _ = _create_two_accounts(session, user_id=user.id)
+        payment = make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=-LARGE_AMOUNT,
+            date=RECENT_DATE,
+            other_party=NETFLIX,
+            transaction_type=TransactionType.OUTGOING,
+        )
+        refund = make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=DEFAULT_AMOUNT,
+            date=RECENT_DATE + timedelta(days=20),
+            other_party=NETFLIX,
+            transaction_type=TransactionType.INCOMING,
+            category=TransactionCategory.REIMBURSEMENT,
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        _assert_linked([payment, refund])
+        assert payment.transaction_type == TransactionType.TRANSFER_OUT
+        assert refund.transaction_type == TransactionType.TRANSFER_IN
+        assert refund.category == TransactionCategory.REIMBURSEMENT
+
+
+def test_does_not_link_a_refund_when_two_payments_to_the_same_party_are_open(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, _ = _create_two_accounts(session, user_id=user.id)
+        make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=-LARGE_AMOUNT,
+            date=RECENT_DATE,
+            other_party=NETFLIX,
+            transaction_type=TransactionType.OUTGOING,
+        )
+        make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=-LARGE_AMOUNT,
+            date=RECENT_DATE + timedelta(days=1),
+            other_party=NETFLIX,
+            transaction_type=TransactionType.OUTGOING,
+        )
+        refund = make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=DEFAULT_AMOUNT,
+            date=RECENT_DATE + timedelta(days=20),
+            other_party=NETFLIX,
+            transaction_type=TransactionType.INCOMING,
+            category=TransactionCategory.REIMBURSEMENT,
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert refund.flow_id is None
+
+
+def test_does_not_link_a_refund_older_than_the_window(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, _ = _create_two_accounts(session, user_id=user.id)
+        make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=-LARGE_AMOUNT,
+            date=RECENT_DATE,
+            other_party=NETFLIX,
+            transaction_type=TransactionType.OUTGOING,
+        )
+        refund = make_transaction(
+            session,
+            account_id=account_a.id,
+            amount=DEFAULT_AMOUNT,
+            date=RECENT_DATE + timedelta(days=40),
+            other_party=NETFLIX,
+            transaction_type=TransactionType.INCOMING,
+            category=TransactionCategory.REIMBURSEMENT,
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert refund.flow_id is None
+
+
 def test_chains_a_same_account_retry_naming_the_same_counterparty(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
