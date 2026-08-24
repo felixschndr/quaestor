@@ -1,5 +1,4 @@
 import datetime
-from collections import defaultdict
 from dataclasses import dataclass
 from statistics import fmean
 
@@ -30,6 +29,7 @@ from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.accounts import account_service
+from source.backend.services.transactions import flow_refunds
 
 logger = get_logger(__name__)
 
@@ -45,33 +45,6 @@ class RangeSummary:
     income: float
     expenses: float
     count: int
-
-
-def _hidden_flow_member_ids(db_session: Session) -> set[int]:
-    # Within each flow, cancel opposite-signed legs of equal magnitude against each other.
-    # Whatever is left over is a real net effect
-    legs_by_flow: dict[int, list[tuple[int, float]]] = defaultdict(list)
-    for transaction_id, flow_id, amount in db_session.execute(
-        select(Transaction.id, Transaction.flow_id, Transaction.amount).where(  # noqa: FKA100
-            Transaction.flow_id.isnot(None)
-        )
-    ):
-        legs_by_flow[flow_id].append((transaction_id, amount))
-
-    hidden: set[int] = set()
-    for legs in legs_by_flow.values():
-        outflows_by_magnitude: dict[float, list[int]] = defaultdict(list)
-        for transaction_id, amount in legs:
-            if amount < 0:
-                outflows_by_magnitude[round(number=-amount, ndigits=2)].append(transaction_id)
-        for transaction_id, amount in legs:
-            if amount <= 0:
-                continue
-            matches = outflows_by_magnitude.get(round(number=amount, ndigits=2))
-            if matches:
-                hidden.add(transaction_id)
-                hidden.add(matches.pop())
-    return hidden
 
 
 def _base_conditions(
@@ -91,7 +64,7 @@ def _base_conditions(
         Transaction.pending.is_(False),
         Transaction.expected.is_(False),
     ]
-    hidden = _hidden_flow_member_ids(db_session)
+    hidden = flow_refunds.analyze(db_session=db_session).hidden_ids
     if hidden:
         conditions.append(Transaction.id.notin_(hidden))
     if date_from is not None:

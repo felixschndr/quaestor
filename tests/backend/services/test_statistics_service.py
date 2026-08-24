@@ -208,6 +208,7 @@ def test_net_worth_range_reports_before_after_and_transactions(session_factory: 
             "note": None,
             "pending": False,
             "contract_id": None,
+            "refund_status": None,
         }
 
     assert result.model_dump() == {

@@ -15,7 +15,10 @@ export interface TransactionRead {
   note: string | null
   pending?: boolean
   contract_id?: number | null
+  refund_status?: RefundStatus | null
 }
+
+export type RefundStatus = 'refunded' | 'partially_refunded' | 'refund'
 
 export interface TransactionDetailRead extends TransactionRead {
   flow_members: TransactionRead[]

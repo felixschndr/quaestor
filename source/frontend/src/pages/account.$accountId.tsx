@@ -39,6 +39,7 @@ import { EXPECTED_TRANSACTIONS_KEY, useCollapsedGroups } from '@/lib/collapsedGr
 import { cn } from '@/lib/utils'
 import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
+import { RefundBadge } from '@/components/ui/refund-badge'
 import { ManualTransactionForm } from '@/components/manual-transaction-form'
 import { ExpectedTransactionForm } from '@/components/expected-transaction-form'
 import { ContractIcon } from '@/components/contract-icon'
@@ -702,6 +703,7 @@ function TransactionRow({
                   {t('transaction.pendingBadge')}
                 </span>
               ) : null}
+              <RefundBadge status={transaction.refund_status} />
             </span>
             {subline ? (
               <span className="text-muted-foreground truncate text-xs">{subline}</span>

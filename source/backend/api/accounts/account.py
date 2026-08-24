@@ -35,7 +35,7 @@ from source.backend.models.transactions.transaction import Transaction
 from source.backend.services.accounts import account_service
 from source.backend.services.auth import session_service
 from source.backend.services.banking import credential_service
-from source.backend.services.transactions import attachment_service, recurring_transaction_service
+from source.backend.services.transactions import attachment_service, flow_refunds, recurring_transaction_service
 
 router = create_router()
 
@@ -54,6 +54,7 @@ def detail_read(db_session: Session, transaction: Transaction) -> TransactionDet
     account_ids = [transaction.account_id, *(member.account_id for member in members)]
     market_valued = account_service.market_valued_ids(db_session=db_session, account_ids=account_ids)
     TransactionRead.flip_depot_signs(reads=[read, *members], market_valued_account_ids=market_valued)
+    flow_refunds.annotate_transactions(db_session=db_session, transactions=[transaction], reads=[read, *members])
     return read
 
 
@@ -379,6 +380,7 @@ def get_account_history(
     reads = [TransactionRead.model_validate(transaction) for transaction in transactions]
     market_valued = account_service.market_valued_ids(db_session=db_session, account_ids=[account.id])
     TransactionRead.flip_depot_signs(reads=reads, market_valued_account_ids=market_valued)
+    flow_refunds.annotate_transactions(db_session=db_session, transactions=transactions, reads=reads)
     return AccountHistory(
         transactions=reads,
         balance_at_date=balance_at_date,

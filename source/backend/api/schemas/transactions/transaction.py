@@ -1,4 +1,5 @@
 import datetime
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -8,6 +9,12 @@ from source.backend.models.transactions.transaction_type import TransactionType
 
 StatisticsLinked = Literal["linked", "unlinked", "none"]
 HasAttachment = Literal["with", "without", "none"]
+
+
+class RefundStatus(StrEnum):
+    REFUNDED = "refunded"
+    PARTIALLY_REFUNDED = "partially_refunded"
+    REFUND = "refund"
 
 
 class TransactionRead(BaseModel):
@@ -24,6 +31,7 @@ class TransactionRead(BaseModel):
     note: str | None
     pending: bool
     contract_id: int | None = None
+    refund_status: RefundStatus | None = None
 
     @staticmethod
     def flip_depot_signs(reads: "list[TransactionRead]", market_valued_account_ids: set[int]) -> None:

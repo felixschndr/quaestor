@@ -11,6 +11,7 @@ import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { FilterHeading } from '@/components/ui/filter-heading'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { RefundBadge } from '@/components/ui/refund-badge'
 import { SortSelect } from '@/components/ui/sort-select'
 import { TransactionFilterFields } from '@/components/ui/transaction-filter-fields'
 import type { TransactionRead } from '@/lib/accountHistory'
@@ -345,7 +346,10 @@ function ResultRow({
       >
         <CategoryAvatar category={transaction.category} className="size-8" iconClassName="size-4" />
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-medium">{otherParty}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-sm font-medium">{otherParty}</span>
+            <RefundBadge status={transaction.refund_status} />
+          </span>
           <span className="text-muted-foreground flex items-center gap-1 text-xs">
             <span className="truncate">{formatDate(transaction.date)}</span>
             {account ? (

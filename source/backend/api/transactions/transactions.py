@@ -14,6 +14,7 @@ from source.backend.db import get_session
 from source.backend.models.auth.user import User
 from source.backend.services.accounts import account_service
 from source.backend.services.auth import session_service
+from source.backend.services.transactions import flow_refunds
 
 router = create_router()
 
@@ -35,6 +36,7 @@ def search_transactions(
         db_session=db_session, account_ids=[transaction.account_id for transaction in transactions]
     )
     TransactionRead.flip_depot_signs(reads=reads, market_valued_account_ids=market_valued)
+    flow_refunds.annotate_transactions(db_session=db_session, transactions=transactions, reads=reads)
     return reads
 
 
