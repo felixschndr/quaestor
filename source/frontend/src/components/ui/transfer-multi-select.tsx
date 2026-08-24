@@ -26,7 +26,7 @@ export function TransferMultiSelect({ id, value, onChange, className }: Transfer
   const options: MultiSelectOption<'linked' | 'unlinked'>[] = [
     {
       value: 'linked',
-      label: t('filters.transferLabel'),
+      label: t('filters.transfer.linked'),
       leading: <ArrowLeftRight className={iconClass} aria-hidden="true" />,
     },
     {

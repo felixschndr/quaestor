@@ -113,7 +113,7 @@ def test_categories_rejects_invalid_filter(
     assert response.status_code == 422
 
 
-def test_categories_include_transfers(http_client: TestClient, session_factory: sessionmaker):
+def test_categories_hide_net_zero_transfers(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     with session_factory() as session:
         out = make_transaction(
@@ -138,10 +138,7 @@ def test_categories_include_transfers(http_client: TestClient, session_factory: 
     )
 
     assert response.status_code == 200
-    assert response.json() == [
-        {"category": "SALARY", "total": LARGE_AMOUNT},
-        {"category": "SAVINGS", "total": DEFAULT_AMOUNT},
-    ]
+    assert response.json() == [{"category": "SALARY", "total": LARGE_AMOUNT}]
 
 
 def test_categories_filter_by_transaction_type(http_client: TestClient, session_factory: sessionmaker):
@@ -210,29 +207,36 @@ def test_categories_filter_by_multiple_transaction_types(http_client: TestClient
     ]
 
 
-def test_categories_filter_by_linked_transfers_only(http_client: TestClient, session_factory: sessionmaker):
+def test_categories_hide_net_zero_flows_but_keep_flows_with_net_effect(
+    http_client: TestClient, session_factory: sessionmaker
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     with session_factory() as session:
-        out = make_transaction(
+        transfer_out = make_transaction(
             session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.SAVINGS
         )
-        make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.RENT)
+        transfer_in = make_transaction(
+            session, account_id=account_id, amount=DEFAULT_AMOUNT, category=TransactionCategory.SAVINGS
+        )
+        returned_payment = make_transaction(
+            session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.FEES
+        )
+        reimbursement = make_transaction(
+            session, account_id=account_id, amount=DEFAULT_AMOUNT, category=TransactionCategory.REIMBURSEMENT
+        )
+        successful_retry = make_transaction(
+            session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.FEES
+        )
         session.flush()
-        link_transactions_as_flow(db_session=session, transactions=[out])
+        link_transactions_as_flow(db_session=session, transactions=[transfer_out, transfer_in])
+        link_transactions_as_flow(db_session=session, transactions=[returned_payment, reimbursement, successful_retry])
         session.commit()
 
-    linked = http_client.get(
-        "/api/statistics/categories",
-        params=[("account_ids", account_id), ("linked", "linked")],
-    )
-    unlinked = http_client.get(
-        "/api/statistics/categories",
-        params=[("account_ids", account_id), ("linked", "unlinked")],
-    )
+    response = http_client.get("/api/statistics/categories", params=[("account_ids", account_id)])
 
-    assert linked.status_code == 200
-    assert linked.json() == [{"category": "SAVINGS", "total": DEFAULT_AMOUNT}]
-    assert unlinked.json() == [{"category": "RENT", "total": DEFAULT_AMOUNT}]
+    assert response.status_code == 200
+    # SAVINGS transfer gone; the returned FEES payment + reimbursement cancel, leaving the single real retry.
+    assert response.json() == [{"category": "FEES", "total": DEFAULT_AMOUNT}]
 
 
 def test_categories_filter_restricts_results(http_client: TestClient, session_factory: sessionmaker):

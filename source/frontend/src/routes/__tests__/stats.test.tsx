@@ -77,7 +77,6 @@ function toSearch(next: StatsViewState): StatsSearchParams {
     direction: next.direction,
     transaction_types:
       next.transactionTypes.length === TRANSACTION_TYPES.length ? undefined : next.transactionTypes,
-    linked: next.linked === undefined ? 'any' : next.linked === 'unlinked' ? undefined : 'linked',
     categories:
       next.categories.length === FILTERABLE_CATEGORIES.length ? undefined : next.categories,
   }
@@ -144,11 +143,10 @@ describe('StatsView', () => {
     expect(onChange.mock.calls.at(-1)?.[0].direction).toBe('INCOMING')
   })
 
-  it('renders the category, type and transfer filters together', () => {
+  it('renders the category and type filters together', () => {
     renderView()
     expect(screen.getByLabelText('Categories')).toBeInTheDocument()
     expect(screen.getByLabelText('Type')).toBeInTheDocument()
-    expect(screen.getByLabelText('Transfer')).toBeInTheDocument()
   })
 
   it('fires onChange with the picked transaction types', async () => {
@@ -162,29 +160,9 @@ describe('StatsView', () => {
     expect(onChange.mock.calls.at(-1)?.[0].transactionTypes).toEqual(['FEES'])
   })
 
-  it('fires onChange restricting to transfers when picking "Transfer"', async () => {
-    const user = userEvent.setup()
-    const { onChange } = renderView({ linked: 'any' })
-
-    await user.click(screen.getByLabelText('Transfer'))
-    await user.click(document.getElementById('transfer-unlinked')!)
-
-    expect(onChange.mock.calls.at(-1)?.[0].linked).toBe('linked')
-  })
-
-  it('defaults the transfer filter to "No transfer" (Keine Umbuchung)', () => {
+  it('has no transfer filter (net-zero flows are hidden automatically)', () => {
     renderView()
-    expect(screen.getByLabelText('Transfer').textContent).toContain('No transfer')
-  })
-
-  it('picking "Any" clears the transfer filter', async () => {
-    const user = userEvent.setup()
-    const { onChange } = renderView() // default: only "No transfer"
-
-    await user.click(screen.getByLabelText('Transfer'))
-    await user.click(document.getElementById('transfer-linked')!)
-
-    expect(onChange.mock.calls.at(-1)?.[0].linked).toBeUndefined()
+    expect(screen.queryByLabelText('Money flow')).toBeNull()
   })
 
   it('fires onChange with chartType pie when switching the category chart to Pie', async () => {

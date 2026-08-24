@@ -3,10 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from source.backend.api.schemas.transactions.transaction import (
-    StatisticsLinked,
-    TransactionRead,
-)
+from source.backend.api.schemas.transactions.transaction import TransactionRead
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 
@@ -28,7 +25,6 @@ class DailyNetWorthQuery(NetWorthQuery):
 class StatisticsQuery(NetWorthQuery):
     categories: list[TransactionCategory] = Field(default_factory=list)
     transaction_types: list[TransactionType] = Field(default_factory=list)
-    linked: StatisticsLinked | None = None
 
 
 class DirectionalStatisticsQuery(StatisticsQuery):

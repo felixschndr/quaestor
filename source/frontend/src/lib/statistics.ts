@@ -36,11 +36,8 @@ export interface StatsFilters {
   date_to?: string
 }
 
-export type StatsLinked = 'linked' | 'unlinked' | 'none'
-
 export interface StatsTypeFilters {
   transaction_types?: TransactionType[]
-  linked?: StatsLinked
 }
 
 export const FILTERABLE_CATEGORIES: TransactionCategory[] = [...TRANSACTION_CATEGORIES]

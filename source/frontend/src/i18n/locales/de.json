@@ -605,9 +605,10 @@
     "rejectedSizeGeneric": "Datei zu groß"
   },
   "filters": {
-    "transferLabel": "Umbuchung",
+    "transferLabel": "$t(transaction.flow)",
     "transfer": {
-      "unlinked": "Keine Umbuchung"
+      "linked": "Teil eines Geldflusses",
+      "unlinked": "Nicht Teil eines Geldflusses"
     },
     "attachmentLabel": "Anhang",
     "attachment": {

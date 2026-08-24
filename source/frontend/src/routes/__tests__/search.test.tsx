@@ -139,7 +139,7 @@ describe('TransactionSearchView — form', () => {
     expect(dateTriggers).toHaveLength(2)
     expect(screen.getByLabelText('Type')).toBeInTheDocument()
     expect(screen.getByLabelText('Categories')).toBeInTheDocument()
-    expect(screen.getByLabelText('Transfer')).toBeInTheDocument()
+    expect(screen.getByLabelText('Money flow')).toBeInTheDocument()
   })
 
   it('searches automatically — there is no submit button', () => {
@@ -152,7 +152,7 @@ describe('TransactionSearchView — form', () => {
     const user = userEvent.setup()
     const { onChange } = renderView()
 
-    await user.click(screen.getByLabelText('Transfer'))
+    await user.click(screen.getByLabelText('Money flow'))
     await user.click(document.getElementById('transfer-unlinked')!)
 
     await waitFor(() => expect(lastPayload(onChange)?.filters.linked).toBe('linked'))
@@ -202,7 +202,7 @@ describe('TransactionSearchView — form', () => {
   it('prefills the type and transfer pickers from the URL (a stats drill-in)', () => {
     renderView({ search: { transaction_types: ['FEES'], linked: 'linked' } })
     expect(screen.getByLabelText('Type').textContent).toContain('1 type')
-    expect(screen.getByLabelText('Transfer').textContent).toContain('Transfer')
+    expect(screen.getByLabelText('Money flow').textContent).toContain('Part of a money flow')
   })
 
   it('renders translated labels for the transaction type options', async () => {

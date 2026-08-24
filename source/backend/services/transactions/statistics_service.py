@@ -1,8 +1,9 @@
 import datetime
+from collections import defaultdict
 from dataclasses import dataclass
 from statistics import fmean
 
-from sqlalchemy import ColumnElement, case, false, func, select
+from sqlalchemy import ColumnElement, case, func, select
 from sqlalchemy.orm import Session
 
 from source.backend.api.schemas.transactions.statistics import (
@@ -17,7 +18,6 @@ from source.backend.api.schemas.transactions.statistics import (
     NetWorthSummary,
     OtherPartySlice,
     StatisticsDirection,
-    StatisticsLinked,
     TransactionCountBucket,
     TransactionCountsGroupBy,
 )
@@ -47,13 +47,40 @@ class RangeSummary:
     count: int
 
 
+def _hidden_flow_member_ids(db_session: Session) -> set[int]:
+    # Within each flow, cancel opposite-signed legs of equal magnitude against each other.
+    # Whatever is left over is a real net effect
+    legs_by_flow: dict[int, list[tuple[int, float]]] = defaultdict(list)
+    for transaction_id, flow_id, amount in db_session.execute(
+        select(Transaction.id, Transaction.flow_id, Transaction.amount).where(  # noqa: FKA100
+            Transaction.flow_id.isnot(None)
+        )
+    ):
+        legs_by_flow[flow_id].append((transaction_id, amount))
+
+    hidden: set[int] = set()
+    for legs in legs_by_flow.values():
+        outflows_by_magnitude: dict[float, list[int]] = defaultdict(list)
+        for transaction_id, amount in legs:
+            if amount < 0:
+                outflows_by_magnitude[round(number=-amount, ndigits=2)].append(transaction_id)
+        for transaction_id, amount in legs:
+            if amount <= 0:
+                continue
+            matches = outflows_by_magnitude.get(round(number=amount, ndigits=2))
+            if matches:
+                hidden.add(transaction_id)
+                hidden.add(matches.pop())
+    return hidden
+
+
 def _base_conditions(
+    db_session: Session,
     account_ids: list[int],
     date_from: datetime.date | None,
     date_to: datetime.date | None,
     categories: list[TransactionCategory],
     transaction_types: list[TransactionType] | None = None,
-    linked: StatisticsLinked | None = None,
     exclude_categories: list[TransactionCategory] | None = None,
 ) -> list[ColumnElement[bool]]:
     # Depot/fund accounts carry the asset side of every buy as a mirror booking (e.g. Trade Republic books a
@@ -64,6 +91,9 @@ def _base_conditions(
         Transaction.pending.is_(False),
         Transaction.expected.is_(False),
     ]
+    hidden = _hidden_flow_member_ids(db_session)
+    if hidden:
+        conditions.append(Transaction.id.notin_(hidden))
     if date_from is not None:
         conditions.append(Transaction.date >= date_from)
     if date_to is not None:
@@ -74,13 +104,6 @@ def _base_conditions(
         conditions.append(Transaction.category.notin_(exclude_categories))
     if transaction_types:
         conditions.append(Transaction.transaction_type.in_(transaction_types))
-    if linked is not None:
-        if linked == "linked":
-            conditions.append(Transaction.flow_id.isnot(None))
-        elif linked == "unlinked":
-            conditions.append(Transaction.flow_id.is_(None))
-        else:
-            conditions.append(false())
     return conditions
 
 
@@ -108,6 +131,7 @@ def range_summary(
     row = db_session.execute(
         select(income, expenses, func.count()).where(  # noqa: FKA100
             *_base_conditions(
+                db_session=db_session,
                 account_ids=owned_account_ids,
                 date_from=date_from,
                 date_to=date_to,
@@ -134,7 +158,6 @@ def category_breakdown(
     direction: StatisticsDirection,
     categories: list[TransactionCategory],
     transaction_types: list[TransactionType] | None = None,
-    linked: StatisticsLinked | None = None,
 ) -> list[CategorySlice]:
     owned_account_ids = account_service.resolve_owned_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
@@ -147,12 +170,12 @@ def category_breakdown(
         select(Transaction.category, total)  # noqa: FKA100
         .where(
             *_base_conditions(
+                db_session=db_session,
                 account_ids=owned_account_ids,
                 date_from=date_from,
                 date_to=date_to,
                 categories=categories,
                 transaction_types=transaction_types,
-                linked=linked,
             )
         )
         .where(_direction_condition(direction))
@@ -175,7 +198,6 @@ def category_trend(
     categories: list[TransactionCategory],
     baseline_windows: int = DEFAULT_TREND_BASELINE_PERIOD_COUNT,
     transaction_types: list[TransactionType] | None = None,
-    linked: StatisticsLinked | None = None,
 ) -> list[CategoryTrendSlice]:
     def breakdown(window_from: datetime.date, window_to: datetime.date) -> dict[TransactionCategory, float]:
         slices = category_breakdown(
@@ -187,7 +209,6 @@ def category_trend(
             direction=direction,
             categories=categories,
             transaction_types=transaction_types,
-            linked=linked,
         )
         return {category_slice.category: category_slice.total for category_slice in slices}
 
@@ -225,7 +246,6 @@ def monthly_cashflow(
     date_to: datetime.date | None,
     categories: list[TransactionCategory],
     transaction_types: list[TransactionType] | None = None,
-    linked: StatisticsLinked | None = None,
 ) -> list[MonthlyCashflow]:
     owned_account_ids = account_service.resolve_owned_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
@@ -239,12 +259,12 @@ def monthly_cashflow(
         select(month, income, expenses)  # noqa: FKA100
         .where(
             *_base_conditions(
+                db_session=db_session,
                 account_ids=owned_account_ids,
                 date_from=date_from,
                 date_to=date_to,
                 categories=categories,
                 transaction_types=transaction_types,
-                linked=linked,
             )
         )
         .group_by(month)
@@ -270,7 +290,6 @@ def monthly_net_savings(
     date_to: datetime.date | None,
     categories: list[TransactionCategory],
     transaction_types: list[TransactionType] | None = None,
-    linked: StatisticsLinked | None = None,
 ) -> list[MonthlyNetSavings]:
     cashflow = monthly_cashflow(
         db_session=db_session,
@@ -280,7 +299,6 @@ def monthly_net_savings(
         date_to=date_to,
         categories=categories,
         transaction_types=transaction_types,
-        linked=linked,
     )
     result = []
     for entry in cashflow:
@@ -308,7 +326,6 @@ def transaction_counts(
     categories: list[TransactionCategory],
     group_by: TransactionCountsGroupBy,
     transaction_types: list[TransactionType] | None = None,
-    linked: StatisticsLinked | None = None,
 ) -> list[TransactionCountBucket]:
     owned_account_ids = account_service.resolve_owned_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
@@ -321,12 +338,12 @@ def transaction_counts(
         select(bucket, func.count(), func.sum(func.abs(Transaction.amount)))  # noqa: FKA100
         .where(
             *_base_conditions(
+                db_session=db_session,
                 account_ids=owned_account_ids,
                 date_from=date_from,
                 date_to=date_to,
                 categories=categories,
                 transaction_types=transaction_types,
-                linked=linked,
             )
         )
         .group_by(bucket)
@@ -349,7 +366,6 @@ def top_other_parties(
     direction: StatisticsDirection,
     categories: list[TransactionCategory],
     transaction_types: list[TransactionType] | None = None,
-    linked: StatisticsLinked | None = None,
     limit: int = DEFAULT_TOP_OTHER_PARTIES_LIMIT,
 ) -> list[OtherPartySlice]:
     owned_account_ids = account_service.resolve_owned_account_ids(
@@ -363,12 +379,12 @@ def top_other_parties(
         select(Transaction.other_party, total)  # noqa: FKA100
         .where(
             *_base_conditions(
+                db_session=db_session,
                 account_ids=owned_account_ids,
                 date_from=date_from,
                 date_to=date_to,
                 categories=categories,
                 transaction_types=transaction_types,
-                linked=linked,
             )
         )
         .where(_direction_condition(direction))

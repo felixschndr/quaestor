@@ -113,10 +113,9 @@ async function renderAndGetArrows(search: Partial<StatsSearchParams>) {
 }
 
 describe('StatsView drill-in carries the active filters', () => {
-  it('passes the clicked category plus the active type and transfer filters', async () => {
+  it('passes the clicked category plus the active type filter', async () => {
     const { onOpenSearch, arrows } = await renderAndGetArrows({
       transaction_types: ['FEES'],
-      linked: 'linked',
     })
 
     fireEvent.click(arrows[0]) // the "By category" bar
@@ -124,13 +123,11 @@ describe('StatsView drill-in carries the active filters', () => {
     const drill = onOpenSearch.mock.calls.at(-1)?.[0]
     expect(drill.categories).toEqual(['FUEL'])
     expect(drill.transactionTypes).toEqual(['FEES'])
-    expect(drill.linked).toBe('linked')
   })
 
-  it('passes the party plus the active type and transfer filters', async () => {
+  it('passes the party plus the active type filter', async () => {
     const { onOpenSearch, arrows } = await renderAndGetArrows({
       transaction_types: ['FEES'],
-      linked: 'linked',
     })
 
     fireEvent.click(arrows[1]) // top recipients
@@ -138,7 +135,6 @@ describe('StatsView drill-in carries the active filters', () => {
     const drill = onOpenSearch.mock.calls.at(-1)?.[0]
     expect(drill.text).toBe(PARTY_SUPERMARKET)
     expect(drill.transactionTypes).toEqual(['FEES'])
-    expect(drill.linked).toBe('linked')
   })
 
   it('carries the selected category subset into the party drill', async () => {
@@ -165,15 +161,5 @@ describe('StatsView drill-in carries the active filters', () => {
     fireEvent.click(arrows[0]) // the "By category" bar
 
     expect(onOpenSearch.mock.calls.at(-1)?.[0].accountIds).toEqual([42])
-  })
-
-  it('defaults the transfer drill to "unlinked" (Keine Umbuchung) with no URL filter', async () => {
-    const { onOpenSearch, arrows } = await renderAndGetArrows({})
-
-    fireEvent.click(arrows[0])
-
-    const drill = onOpenSearch.mock.calls.at(-1)?.[0]
-    expect(drill.transactionTypes).toEqual([])
-    expect(drill.linked).toBe('unlinked')
   })
 })

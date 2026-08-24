@@ -605,14 +605,15 @@
     "rejectedSizeGeneric": "File too large"
   },
   "filters": {
-    "transferLabel": "Transfer",
+    "transferLabel": "$t(transaction.flow)",
     "attachmentLabel": "Attachment",
     "attachment": {
       "with": "With attachment",
       "without": "Without attachment"
     },
     "transfer": {
-      "unlinked": "No transfer"
+      "linked": "Part of a money flow",
+      "unlinked": "Not part of a money flow"
     },
     "dateFrom": "From date",
     "dateTo": "To date",

@@ -14,7 +14,6 @@ import {
   type ChartType,
   type StatsDirection,
   type StatsFilters,
-  type StatsLinked,
   type TransactionCountsGroupBy,
 } from '@/lib/statistics'
 import { StatsView } from '@/pages/stats'
@@ -31,7 +30,6 @@ const searchParamsSchema = z.object({
   trend_periods: z.coerce.number().int().positive().optional(),
   direction: z.enum(['INCOMING', 'OUTGOING']).optional(),
   transaction_types: oneOrMany(z.enum(TRANSACTION_TYPES)).optional(),
-  linked: z.enum(['linked', 'unlinked', 'any', 'none']).optional(),
   account_ids: oneOrMany(z.coerce.number()).optional(),
   categories: oneOrMany(z.enum(TRANSACTION_CATEGORIES)).optional(),
   hidden_categories: oneOrMany(hiddenCategorySchema).optional(),
@@ -74,12 +72,6 @@ function StatsPage() {
               next.transactionTypes.length === TRANSACTION_TYPES.length
                 ? undefined
                 : next.transactionTypes,
-            linked:
-              next.linked === undefined
-                ? 'any'
-                : next.linked === 'unlinked'
-                  ? undefined
-                  : next.linked,
             categories:
               next.categories.length === FILTERABLE_CATEGORIES.length ? undefined : next.categories,
             hidden_categories: next.hiddenCategories.length ? next.hiddenCategories : undefined,
@@ -99,7 +91,6 @@ function StatsPage() {
             categories: drill.categories?.length ? drill.categories : undefined,
             text: drill.text,
             transaction_types: drill.transactionTypes?.length ? drill.transactionTypes : undefined,
-            linked: drill.linked,
             amount_from: drill.direction === 'INCOMING' ? 0 : undefined,
             amount_to: drill.direction === 'OUTGOING' ? 0 : undefined,
             sort: drill.sort,
@@ -134,7 +125,6 @@ export interface StatsViewState {
   direction: StatsDirection
   categories: TransactionCategory[]
   transactionTypes: TransactionType[]
-  linked?: StatsLinked
   hiddenCategories: Array<TransactionCategory | 'OTHER'>
   hiddenParties: string[]
 }
@@ -147,7 +137,6 @@ export interface StatsDrilldown {
   categories?: TransactionCategory[]
   text?: string
   transactionTypes?: TransactionType[]
-  linked?: StatsLinked
   sort?: TransactionSortKey
 }
 

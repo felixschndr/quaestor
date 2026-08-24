@@ -17,9 +17,8 @@ export interface TransactionFilterFieldsProps {
   onCategoriesChange: (next: TransactionCategory[]) => void
   selectedTypes: TransactionType[]
   onTypesChange: (next: TransactionType[]) => void
-  transfer: TransferFilter | undefined
-  onTransferChange: (next: TransferFilter | undefined) => void
-  // Attachment filter only makes sense in transaction search, not in stats aggregation.
+  transfer?: TransferFilter | undefined
+  onTransferChange?: (next: TransferFilter | undefined) => void
   attachment?: AttachmentFilter | undefined
   onAttachmentChange?: (next: AttachmentFilter | undefined) => void
   idPrefix?: string
@@ -42,7 +41,8 @@ export function TransactionFilterFields({
   const transferId = `${idPrefix}-transfer`
   const attachmentId = `${idPrefix}-attachment`
 
-  const columns = onAttachmentChange ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
+  const fieldCount = 2 + (onTransferChange ? 1 : 0) + (onAttachmentChange ? 1 : 0)
+  const columns = fieldCount === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
 
   return (
     <div className={`grid grid-cols-1 gap-3 ${columns}`}>
@@ -58,10 +58,12 @@ export function TransactionFilterFields({
         <Label htmlFor={typeId}>{t('common.type')}</Label>
         <TypeMultiSelect id={typeId} selected={selectedTypes} onChange={onTypesChange} />
       </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={transferId}>{t('filters.transferLabel')}</Label>
-        <TransferMultiSelect id={transferId} value={transfer} onChange={onTransferChange} />
-      </div>
+      {onTransferChange ? (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={transferId}>{t('filters.transferLabel')}</Label>
+          <TransferMultiSelect id={transferId} value={transfer} onChange={onTransferChange} />
+        </div>
+      ) : null}
       {onAttachmentChange ? (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={attachmentId}>{t('filters.attachmentLabel')}</Label>

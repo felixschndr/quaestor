@@ -50,7 +50,6 @@ import {
   type DateRangePreset,
   type StatsDirection,
   type StatsFilters,
-  type StatsLinked,
   type StatsTypeFilters,
   type TransactionCountMetric,
   type TransactionCountsGroupBy,
@@ -102,8 +101,6 @@ export function StatsView({
   const direction: StatsDirection = search.direction ?? 'OUTGOING'
   const selectedCategories: TransactionCategory[] = search.categories ?? [...FILTERABLE_CATEGORIES]
   const selectedTypes: TransactionType[] = search.transaction_types ?? [...TRANSACTION_TYPES]
-  const linked: StatsLinked | undefined =
-    search.linked === 'any' ? undefined : (search.linked ?? 'unlinked')
   const hiddenCategories = search.hidden_categories ?? []
   const hiddenParties = search.hidden_parties ?? []
 
@@ -117,7 +114,6 @@ export function StatsView({
       direction,
       categories: selectedCategories,
       transactionTypes: selectedTypes,
-      linked,
       hiddenCategories,
       hiddenParties,
       ...next,
@@ -130,7 +126,6 @@ export function StatsView({
     direction !== 'OUTGOING' ||
     selectedCategories.length !== FILTERABLE_CATEGORIES.length ||
     selectedTypes.length !== TRANSACTION_TYPES.length ||
-    linked !== 'unlinked' ||
     hiddenCategories.length > 0 ||
     hiddenParties.length > 0
   const resetFilters = () =>
@@ -140,7 +135,6 @@ export function StatsView({
       direction: 'OUTGOING',
       categories: [...FILTERABLE_CATEGORIES],
       transactionTypes: [...TRANSACTION_TYPES],
-      linked: 'unlinked',
       hiddenCategories: [],
       hiddenParties: [],
     })
@@ -155,7 +149,6 @@ export function StatsView({
   const updateDirection = (next: StatsDirection) => sync({ direction: next })
   const updateCategories = (next: TransactionCategory[]) => sync({ categories: next })
   const updateTypes = (next: TransactionType[]) => sync({ transactionTypes: next })
-  const updateLinked = (next: StatsLinked | undefined) => sync({ linked: next })
   const toggleHiddenCategory = (category: TransactionCategory | 'OTHER') =>
     sync({
       hiddenCategories: hiddenCategories.includes(category)
@@ -172,13 +165,10 @@ export function StatsView({
   const categoriesParam =
     selectedCategories.length === FILTERABLE_CATEGORIES.length ? [] : selectedCategories
   const typesParam = selectedTypes.length === TRANSACTION_TYPES.length ? [] : selectedTypes
-  const typeFilters: StatsTypeFilters = { transaction_types: typesParam, linked }
+  const typeFilters: StatsTypeFilters = { transaction_types: typesParam }
 
   const hasSelection =
-    accountIds.length > 0 &&
-    selectedCategories.length > 0 &&
-    selectedTypes.length > 0 &&
-    linked !== 'none'
+    accountIds.length > 0 && selectedCategories.length > 0 && selectedTypes.length > 0
 
   const marketValued = new Set(
     credentials
@@ -203,7 +193,6 @@ export function StatsView({
       dateTo: filters.date_to,
       direction,
       transactionTypes: typesParam,
-      linked,
       categories: categoriesParam,
       sort: drillSort,
       ...extra,
@@ -226,7 +215,6 @@ export function StatsView({
       dateTo: range.to,
       direction,
       transactionTypes: typesParam,
-      linked,
       categories: [category],
       sort: drillSort,
     })
@@ -242,7 +230,6 @@ export function StatsView({
       dateTo: filters.date_to,
       direction: 'OUTGOING',
       transactionTypes: typesParam,
-      linked,
       categories: runwayCategories,
       sort: 'amount_asc',
     })
@@ -345,8 +332,6 @@ export function StatsView({
             onCategoriesChange={updateCategories}
             selectedTypes={selectedTypes}
             onTypesChange={updateTypes}
-            transfer={linked}
-            onTransferChange={updateLinked}
           />
         </AdvancedFilters>
       </section>
