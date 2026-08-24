@@ -211,7 +211,7 @@ function IbanLabel({ value, id }: { value: string; id?: string }) {
     <p id={id} className="text-muted-foreground flex items-center gap-1.5 text-sm">
       {formatIban(value)}
       <CopyButton
-        value={value.replace(/\s+/g, '')}
+        value={formatIban(value)}
         label={t('account.iban.copy')}
         className="-m-0.5"
         successMessage={t('account.iban.copied')}

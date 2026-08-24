@@ -252,7 +252,7 @@ describe('AccountDetailView', () => {
     expect(screen.getAllByText(TEST_IBAN_FORMATTED)).toHaveLength(2)
   })
 
-  it('copies the compact IBAN to the clipboard via the copy button', async () => {
+  it('copies the formatted IBAN to the clipboard via the copy button', async () => {
     const user = userEvent.setup()
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
@@ -272,7 +272,7 @@ describe('AccountDetailView', () => {
       ),
     )
     await user.click(screen.getByRole('button', { name: 'Copy IBAN' }))
-    expect(writeText).toHaveBeenCalledWith(TEST_IBAN)
+    expect(writeText).toHaveBeenCalledWith(TEST_IBAN_FORMATTED)
   })
 
   it('shows no copy button when the account name is not an IBAN', () => {
