@@ -10,7 +10,7 @@ import {
   YAxis,
 } from 'recharts'
 
-import { AXIS_TICK, BAR_RADIUS_RIGHT, euroFormat } from './chartTheme'
+import { AXIS_TICK, BAR_RADIUS_RIGHT, euroAxisFormat } from './chartTheme'
 import { ArrowTick, DRILL_ARROW_WIDTH, ToggleTick, ValueBarShape } from './chart-parts'
 
 export interface DrillBarRow {
@@ -51,7 +51,7 @@ export function HorizontalDrillBarChart({
             type="number"
             domain={[0, 'dataMax']}
             tick={AXIS_TICK}
-            tickFormatter={euroFormat}
+            tickFormatter={euroAxisFormat}
           />
           <YAxis
             type="category"
