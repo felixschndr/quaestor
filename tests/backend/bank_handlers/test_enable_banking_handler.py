@@ -212,6 +212,11 @@ def test_paypal_balance_payout_is_typed_as_removal():
     assert payout.other_party is None
     assert payout.transaction_type == TransactionType.REMOVAL
 
+    with_holder = _to_fetched_transaction(raw, is_paypal=True, account_name=PERSON_NAME)
+    assert with_holder is not None
+    assert with_holder.transaction_type == TransactionType.REMOVAL
+    assert with_holder.other_party == PERSON_NAME
+
 
 def test_paypal_payment_with_a_creditor_stays_outgoing():
     payment = _to_fetched_transaction(

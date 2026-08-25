@@ -139,7 +139,7 @@ class _EnableBankingSession(BankSession):
                 params["continuation_key"] = continuation_key
             page = self._api.get(f"/accounts/{uid}/transactions", params=params)
             for raw_transaction in page.get("transactions") or []:
-                fetched = _to_fetched_transaction(raw_transaction, is_paypal=self._is_paypal)
+                fetched = _to_fetched_transaction(raw_transaction, is_paypal=self._is_paypal, account_name=account.name)
                 if fetched is not None:
                     transactions.append(fetched)
             continuation_key = page.get("continuation_key")
@@ -149,7 +149,9 @@ class _EnableBankingSession(BankSession):
         return transactions
 
 
-def _to_fetched_transaction(raw: dict, is_paypal: bool = False) -> FetchedTransaction | None:
+def _to_fetched_transaction(
+    raw: dict, is_paypal: bool = False, account_name: str | None = None
+) -> FetchedTransaction | None:
     status = raw.get("status")
     if status not in ("BOOK", "PDNG"):  # ignore informational/rejected entries
         return None
@@ -169,6 +171,7 @@ def _to_fetched_transaction(raw: dict, is_paypal: bool = False) -> FetchedTransa
     transaction_type = TransactionType.from_amount(amount=amount)
     if is_paypal and amount < 0 and not other_party and not purpose:
         transaction_type = TransactionType.REMOVAL
+        other_party = account_name
 
     bank_transaction_code = raw.get("bank_transaction_code") or {}
     is_refund = (bank_transaction_code.get("sub_code") or "").upper() == "REFUND"
