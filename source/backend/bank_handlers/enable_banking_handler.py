@@ -1,7 +1,7 @@
 import secrets
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
-from typing import Iterator
+from typing import Iterator, cast
 from urllib.parse import parse_qs, urlsplit
 
 import jwt
@@ -118,10 +118,10 @@ class _EnableBankingSession(BankSession):
             if existing is None or (
                 existing["balance_amount"]["currency"] != "EUR" and balance["balance_amount"]["currency"] == "EUR"
             ):
-                by_type[balance.get("balance_type")] = balance
+                by_type[balance["balance_type"]] = balance
         chosen = next((by_type[t] for t in _BALANCE_TYPE_PREFERENCE if t in by_type), balances[0])
         balance = float(chosen["balance_amount"]["amount"])
-        self._balance_by_uid[account.external_id] = balance
+        self._balance_by_uid[cast(str, account.external_id)] = balance
         return balance
 
     def get_balance_observations(self, account: FetchedAccount) -> list[BalanceObservation]:

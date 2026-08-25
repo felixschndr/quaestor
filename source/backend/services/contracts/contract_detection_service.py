@@ -347,7 +347,7 @@ def _dominant_category(members: list[Transaction]) -> TransactionCategory | None
             counts[transaction.category] += 1
     if not counts:
         return None
-    return max(counts, key=counts.get)
+    return max(counts, key=counts.__getitem__)
 
 
 def _release_auto_assignments(db_session: Session, account: Account) -> None:

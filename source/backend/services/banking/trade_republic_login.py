@@ -46,7 +46,7 @@ def _cleanup_expired_pending_logins() -> None:
         logger.debug(f"Cleaned up {len(expired)} expired pending 2FA login(s)")
 
 
-def _raise_if_rate_limited(exc: requests.exceptions.HTTPError, credential_id: int) -> None:
+def _raise_if_rate_limited(exc: requests.exceptions.HTTPError, credential_id: int | None) -> None:
     if exc.response is None or exc.response.status_code != 429:
         return
     error_message = f"Trade Republic rate limited the login for credential {credential_id}"

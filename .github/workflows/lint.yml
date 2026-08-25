@@ -36,6 +36,14 @@ jobs:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install backend deps for pyright
+        run: poetry install --no-interaction --no-root
+        env:
+          POETRY_VIRTUALENVS_IN_PROJECT: "true"
+
       - name: Install pre-commit
         run: pipx install pre-commit
 

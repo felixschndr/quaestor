@@ -65,3 +65,9 @@ src_paths = ["source", "scripts", "tests"]
 [tool.bandit]
 exclude_dirs = [".venv"]
 skips = ["B101"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+include = ["source/backend"]
+pythonVersion = "3.14"

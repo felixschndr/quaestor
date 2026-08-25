@@ -6,13 +6,14 @@ import sys
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncGenerator, Awaitable, Callable
+from typing import Any, AsyncGenerator, AsyncIterator, Awaitable, Callable, cast
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import StreamingResponse
 from starlette.types import Scope
 
 from source.backend.api.accounts import account, account_groups
@@ -135,7 +136,7 @@ def _route_third_party_loggers_to_root() -> None:
 
 def setup_logging() -> None:
     log_level = os.environ.get(key="LOG_LEVEL", default="INFO")
-    logging.basicConfig(
+    logging.basicConfig(  # pyright: ignore[reportCallIssue]
         stream=sys.stdout,
         format=LOG_FORMAT,
         encoding="utf-8",
@@ -144,7 +145,7 @@ def setup_logging() -> None:
     )
     tz = ZoneInfo(i18n_service.get_display_timezone())
     formatter = logging.Formatter(LOG_FORMAT)
-    formatter.converter = lambda timestamp: datetime.fromtimestamp(timestamp=timestamp, tz=tz).timetuple()
+    formatter.converter = lambda timestamp: datetime.fromtimestamp(timestamp=timestamp or 0.0, tz=tz).timetuple()
     for handler in logging.root.handlers:
         handler.setFormatter(formatter)
         handler.addFilter(_RenameUvicornError())
@@ -209,7 +210,7 @@ async def refresh_session(request: Request, call_next: Callable[[Request], Await
         session_service.clear_session_cookie(response)
     elif session_valid:
         session_service.set_session_cookie(
-            request=request, response=response, raw_token=raw_token, remember_me=remember_me
+            request=request, response=response, raw_token=cast(str, raw_token), remember_me=remember_me
         )
     return response
 
@@ -255,7 +256,8 @@ async def log_http_requests(request: Request, call_next: Callable[[Request], Awa
         log_method(summary)
         return response
 
-    response_body = b"".join([chunk async for chunk in response.body_iterator])
+    body_iterator = cast(AsyncIterator[bytes], cast(StreamingResponse, response).body_iterator)
+    response_body = b"".join([chunk async for chunk in body_iterator])
     rebuilt = Response(content=response_body, status_code=response.status_code, media_type=response.media_type)
     rebuilt.raw_headers = response.raw_headers
 

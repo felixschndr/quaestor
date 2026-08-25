@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import Callable
 from datetime import timedelta
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -282,7 +283,7 @@ def _chain_into_detected_flows(db_session: Session, user: User, unlinked: list[T
         .where(Transaction.flow_link_source == FlowLinkSource.DETECTED)
         .where(Transaction.pending.is_(False))
     ):
-        members_by_flow.setdefault(member.flow_id, []).append(member)  # noqa: FKA100
+        members_by_flow.setdefault(cast(int, member.flow_id), []).append(member)  # noqa: FKA100
     candidates = [leg for leg in unlinked if leg.flow_id is None]
 
     created = 0

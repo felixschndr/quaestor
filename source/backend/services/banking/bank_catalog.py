@@ -1,5 +1,6 @@
 from dataclasses import asdict, dataclass
 from functools import lru_cache
+from typing import cast
 
 from schwifty import registry
 
@@ -42,7 +43,7 @@ def is_tested(provider: str, name: str) -> bool:
 
 def _schwifty_index() -> dict[str, dict]:
     index = {}
-    for bank in registry.get("bank"):
+    for bank in cast("list[dict]", registry.get("bank")):
         if bank.get("country_code") != "DE":
             continue
         bank_code = bank["bank_code"]

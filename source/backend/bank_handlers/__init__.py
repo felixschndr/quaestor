@@ -8,22 +8,29 @@ from source.backend.bank_handlers.fints_handler import FinTSHandler
 from source.backend.bank_handlers.manual_handler import ManualHandler
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 
+
+class BankProvider(str, Enum):
+    FINTS = "fints"
+    ENABLE_BANKING = "enable_banking"
+    DFS = "dfs"
+    FIN4U = "fin4u"
+    TRADE_REPUBLIC = "trade_republic"
+    MANUAL = "manual"
+
+
 SUPPORTED_BANKS: list[BankInfo] = [
-    BankInfo(name="fints", handler=FinTSHandler),
-    BankInfo(name="enable_banking", handler=EnableBankingHandler),
-    BankInfo(name="dfs", handler=DFSHandler),
-    BankInfo(name="fin4u", handler=Fin4uHandler),
-    BankInfo(name="trade_republic", handler=TradeRepublicHandler),
-    BankInfo(name="manual", handler=ManualHandler),
+    BankInfo(name=BankProvider.FINTS.value, handler=FinTSHandler),
+    BankInfo(name=BankProvider.ENABLE_BANKING.value, handler=EnableBankingHandler),
+    BankInfo(name=BankProvider.DFS.value, handler=DFSHandler),
+    BankInfo(name=BankProvider.FIN4U.value, handler=Fin4uHandler),
+    BankInfo(name=BankProvider.TRADE_REPUBLIC.value, handler=TradeRepublicHandler),
+    BankInfo(name=BankProvider.MANUAL.value, handler=ManualHandler),
 ]
 
 BANKS_BY_NAME: dict[str, BankInfo] = {bank.name: bank for bank in SUPPORTED_BANKS}
 
-BankProvider = Enum(
-    value="BankProvider",
-    names={bank.name.upper(): bank.name for bank in SUPPORTED_BANKS},
-    type=str,
-)
+if set(BANKS_BY_NAME) != {provider.value for provider in BankProvider}:
+    raise RuntimeError("BankProvider enum and SUPPORTED_BANKS handler list are out of sync")
 
 
 def handler_for(provider: BankProvider, credentials: dict[str, str]) -> BankHandler:

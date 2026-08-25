@@ -68,7 +68,9 @@ def delete_api_key(db_session: Session, api_key: ApiKey) -> None:
     logger.info(f"Deleted {api_key}")
 
 
-def authenticate(db_session: Session, raw_token: str) -> User | None:
+def authenticate(db_session: Session, raw_token: str | None) -> User | None:
+    if raw_token is None:
+        return None
     api_key = db_session.scalar(select(ApiKey).where(ApiKey.token_hash == hash_token(raw_token)))
     if api_key is None:
         logger.debug("Presented API key does not match any known key")

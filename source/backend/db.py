@@ -50,7 +50,10 @@ def _database_key() -> str:
 
 
 # Plain sqlite dialect, but driven by the SQLCipher DBAPI, so the whole database file is AES-encrypted at rest
-engine = create_engine(f"sqlite:///{DATABASE_PATH}", module=sqlcipher3.dbapi2)
+engine = create_engine(
+    f"sqlite:///{DATABASE_PATH}",
+    module=sqlcipher3.dbapi2,  # pyright: ignore[reportAttributeAccessIssue]  # sqlcipher3 ships no type stubs
+)
 
 
 def log_database_location() -> None:

@@ -2,8 +2,10 @@ import base64
 import json
 from dataclasses import dataclass
 from enum import Enum
+from typing import cast
 
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from py_vapid import Vapid02
 from pywebpush import WebPushException, webpush
 
@@ -58,7 +60,8 @@ def _load_or_create_vapid() -> Vapid02:
 
 def get_application_server_key() -> str:
     vapid = _load_or_create_vapid()
-    raw = vapid.public_key.public_bytes(
+    public_key = cast(ec.EllipticCurvePublicKey, vapid.public_key)
+    raw = public_key.public_bytes(
         encoding=serialization.Encoding.X962,
         format=serialization.PublicFormat.UncompressedPoint,
     )

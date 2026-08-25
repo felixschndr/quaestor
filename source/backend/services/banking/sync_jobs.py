@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import secrets
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field, fields
@@ -70,7 +71,7 @@ _jobs: dict[str, SyncJob] = {}
 _background_tasks: set[asyncio.Task] = set()
 
 
-def _spawn(coro: "asyncio.coroutines.Coroutine") -> None:
+def _spawn(coro: Coroutine) -> None:
     task = asyncio.create_task(coro)
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
@@ -156,7 +157,7 @@ def _make_two_factor_state_notifier(job: SyncJob) -> "Callable[[bool], None]":
     def notify(awaiting: bool) -> None:
         future = asyncio.run_coroutine_threadsafe(coro=_update_decoupled_state(job=job, awaiting=awaiting), loop=loop)
 
-        def log_outcome(finished_future: "asyncio.Future") -> None:
+        def log_outcome(finished_future: "concurrent.futures.Future[None]") -> None:
             exception = finished_future.exception()
             if exception is not None:
                 logger.error(f"{job} decoupled-state update awaiting={awaiting} raised: {exception!r}")

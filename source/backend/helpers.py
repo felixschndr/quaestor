@@ -52,7 +52,8 @@ def index_transactions_for_matching(transactions: "Iterable[Transaction]") -> di
 
 
 def format_transaction_for_categorization(transaction: "FetchedTransaction | Transaction") -> str:
-    id_insert = f"id={transaction.id}, " if getattr(transaction, "id", None) else ""
+    transaction_id = getattr(transaction, "id", None)
+    id_insert = f"id={transaction_id}, " if transaction_id else ""
     return f"<{transaction.__class__.__name__}({id_insert}amount={transaction.amount}, purpose={transaction.purpose}, other_party={transaction.other_party}, transaction_type={transaction.transaction_type})>"
 
 

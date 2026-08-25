@@ -371,12 +371,12 @@ def _resolve_target_flow(db_session: Session, transaction: Transaction, counterp
         db_session.add(flow)
         db_session.flush()
         return flow
-    target = db_session.get(entity=TransferFlow, ident=existing_ids[0])
+    # existing_ids come from persisted flow_ids, so these rows always exist (.one() raises otherwise)
+    target = db_session.scalars(select(TransferFlow).where(TransferFlow.id == existing_ids[0])).one()
     for other_id in existing_ids[1:]:
         if other_id != target.id:
-            _merge_flow(
-                db_session=db_session, source=db_session.get(entity=TransferFlow, ident=other_id), target=target
-            )
+            source = db_session.scalars(select(TransferFlow).where(TransferFlow.id == other_id)).one()
+            _merge_flow(db_session=db_session, source=source, target=target)
     return target
 
 

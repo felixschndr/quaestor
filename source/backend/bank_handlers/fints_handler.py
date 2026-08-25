@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date, timedelta
 from time import sleep
-from typing import Iterator, TypeVar
+from typing import Iterator, TypeVar, cast
 
 import fints_url
 from fints.camt_parser import camt053_to_dict
@@ -38,8 +38,8 @@ logger = get_logger(__name__)
 # python-fints marks the balance booking-date required, but DKB omits it (e.g. for zero-balance Tagesgeld accounts),
 # so the whole HISAL segment fails to parse and get_balance raises 'FinTS3Segment' has no 'balance_booked'.
 # The date is informational only --> make it optional so the balance still parses.
-Balance1._fields["date"].required = False
-Balance2._fields["date"].required = False
+Balance1._fields["date"].required = False  # pyright: ignore[reportAttributeAccessIssue]  # python-fints internal
+Balance2._fields["date"].required = False  # pyright: ignore[reportAttributeAccessIssue]  # python-fints internal
 
 APPROVAL_TIMEOUT = timedelta(minutes=3)
 APPROVAL_POLL_INTERVAL = timedelta(seconds=2)
@@ -70,7 +70,7 @@ class _FinTSSession(BankSession):
 
     def get_balance(self, account: FetchedAccount) -> float:
         balance = self._resolve(self._client.get_balance(self._account_mapping[account.name]))
-        return float(balance.amount.amount)
+        return float(balance.amount.amount)  # pyright: ignore[reportOptionalMemberAccess]
 
     def get_transactions(self, account: FetchedAccount, start_date: date) -> list[FetchedTransaction]:
         sepa_account = self._account_mapping[account.name]
@@ -156,7 +156,8 @@ def _parse_camt_if_needed(result: object, include_pending: bool) -> list:
     # (booked_streams, pending_streams) tuple of XML bytestrings instead (the library's parsing is
     # never reached). Reproduce that parsing here so both paths yield the same Transaction list.
     if not isinstance(result, tuple):
-        return result
+        # the non-tuple path is always the ready mt940 transaction list
+        return cast(list, result)
     booked_streams, pending_streams = result
     transactions = [FinTSTransaction(data) for stream in booked_streams for data in camt053_to_dict(stream)]
     if include_pending:
@@ -290,7 +291,7 @@ def _try_configure_pushtan_mechanism(client: FinTS3PinTanClient) -> None:
     client.set_tan_mechanism(sec_func)
     description_required = getattr(mechanism, "description_required", None)
     if description_required is not None and str(description_required) == "MUST":
-        media = list(client.get_tan_media())
+        media = list(client.get_tan_media() or [])
         if not media:
             error_message = "Bank requires a TAN medium for pushTAN but none was returned"
             logger.warning(error_message)

@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
@@ -48,13 +48,13 @@ def register_exception_handlers(app: FastAPI) -> None:
 
         return handler
 
-    def validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
-        # Catch and log FastAPI's RequestValidationError
-        message = f"RequestValidationError on [{request.method}] [{request.url.path}] -> 422: {_loggable_validation_errors(exc)}"
+    def log_validation_handler(request: Request, exc: Exception) -> JSONResponse:
+        validation_error = cast(RequestValidationError, exc)
+        message = f"RequestValidationError on [{request.method}] [{request.url.path}] -> 422: {_loggable_validation_errors(validation_error)}"
         logger.error(message)
-        return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
+        return JSONResponse(status_code=422, content={"detail": jsonable_encoder(validation_error.errors())})
 
     for exc_type, status_code in EXCEPTIONS_TO_CATCH_AND_THEIR_STATUS_CODES.items():
         app.add_exception_handler(exc_class_or_status_code=exc_type, handler=make_handler(status_code))
 
-    app.add_exception_handler(exc_class_or_status_code=RequestValidationError, handler=validation_handler)
+    app.add_exception_handler(exc_class_or_status_code=RequestValidationError, handler=log_validation_handler)

@@ -1,4 +1,5 @@
 import importlib
+from collections.abc import Iterable
 
 from alembic import context
 from alembic.operations.ops import MigrateOperation, MigrationScript
@@ -35,14 +36,17 @@ def _describe_operation(op: MigrateOperation) -> str:
 
 def process_revision_directives(
     migration_context: MigrationContext,
-    _revision: tuple[str, ...],
+    _revision: str | Iterable[str | None] | Iterable[str],
     directives: list[MigrationScript],
 ) -> None:
     if not directives:
         return
     script = directives[0]
 
-    head = ScriptDirectory.from_config(migration_context.config).get_current_head()
+    migration_config = migration_context.config
+    if migration_config is None:
+        raise RuntimeError("alembic migration context has no config")
+    head = ScriptDirectory.from_config(migration_config).get_current_head()
     next_num = 1 if head is None else int(head) + 1
     script.rev_id = f"{next_num:04d}"
 

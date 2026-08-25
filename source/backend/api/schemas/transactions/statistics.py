@@ -32,8 +32,8 @@ class DirectionalStatisticsQuery(StatisticsQuery):
 
 
 class CategoryTrendQuery(DirectionalStatisticsQuery):
-    date_from: date
-    date_to: date
+    date_from: date  # pyright: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    date_to: date  # pyright: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
     baseline_windows: int = Field(default=6, ge=1, le=24)
 
     @model_validator(mode="after")

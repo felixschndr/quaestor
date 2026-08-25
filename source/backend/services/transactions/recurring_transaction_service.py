@@ -1,5 +1,6 @@
 import calendar
 from datetime import date, timedelta
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -40,8 +41,8 @@ def next_weekly(from_date: date, weekday: int, after: bool = False) -> date:
 
 def _next_occurrence(rule: RecurringTransaction, from_date: date, after: bool) -> date:
     if rule.frequency == RecurrenceFrequency.MONTHLY:
-        return next_monthly(from_date=from_date, day=rule.day_of_month, after=after)
-    return next_weekly(from_date=from_date, weekday=rule.day_of_week, after=after)
+        return next_monthly(from_date=from_date, day=cast(int, rule.day_of_month), after=after)
+    return next_weekly(from_date=from_date, weekday=cast(int, rule.day_of_week), after=after)
 
 
 def _book_occurrence(db_session: Session, account: Account, rule: RecurringTransaction, on_date: date) -> Transaction:
