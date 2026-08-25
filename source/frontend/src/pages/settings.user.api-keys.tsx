@@ -168,20 +168,14 @@ function ApiKeyRow({ apiKey }: { apiKey: ApiKeyRead }) {
           </dd>
         </dl>
       </div>
-      <div className="sm:w-40 sm:self-center">
+      <div className="flex justify-end sm:self-center">
         <RowActions
           onDelete={onDelete}
           deleting={remove.isPending}
           confirmLabel={t('common.deleteConfirm')}
-          className="gap-2 [&>button]:flex-1"
+          className="gap-2"
           renderTrigger={(confirm) => (
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={confirm}
-              className="w-full"
-            >
+            <Button type="button" variant="destructive" size="sm" onClick={confirm}>
               <Trash2 className="size-3.5" aria-hidden="true" />
               {t('common.delete')}
             </Button>
