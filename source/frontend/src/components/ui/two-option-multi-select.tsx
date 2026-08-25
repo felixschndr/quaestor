@@ -56,3 +56,34 @@ export function selectionToScalar<T extends string>(
 ): T | 'none' | undefined {
   return next.length >= total ? undefined : next.length === 1 ? next[0] : 'none'
 }
+
+export function ScalarMultiSelect<T extends string>({
+  id,
+  ariaLabel,
+  options,
+  value,
+  onChange,
+  checkboxIdPrefix,
+  className,
+}: {
+  id?: string
+  ariaLabel: string
+  options: MultiSelectOption<T>[]
+  value: T | 'none' | undefined
+  onChange: (next: T | 'none' | undefined) => void
+  checkboxIdPrefix: string
+  className?: string
+}) {
+  const all = options.map((option) => option.value)
+  return (
+    <TwoOptionMultiSelect
+      id={id}
+      ariaLabel={ariaLabel}
+      options={options}
+      selected={scalarToSelection(value, all)}
+      onChange={(next) => onChange(selectionToScalar(next, all.length))}
+      checkboxIdPrefix={checkboxIdPrefix}
+      className={className}
+    />
+  )
+}
