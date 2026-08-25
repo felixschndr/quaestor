@@ -516,9 +516,6 @@ def get_filtered_transactions_for_user(
     if categories := filter_parameters.get("categories"):
         query = query.where(Transaction.category.in_(categories))
 
-    if note := filter_parameters.get("note"):
-        query = query.where(Transaction.note.ilike(f"%{note}%"))
-
     if (linked := filter_parameters.get("linked")) is not None:
         if linked == "linked":
             query = query.where(Transaction.flow_id.isnot(None))

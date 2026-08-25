@@ -24,12 +24,6 @@ def new_user_registration_allowed() -> bool:
     return os.environ.get(key=ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME, default="true").lower() == "true"
 
 
-def list_users(db_session: Session) -> list[User]:
-    users = list(db_session.scalars(select(User)))
-    logger.debug(f"Found {len(users)} user(s)")
-    return users
-
-
 def create_user(
     db_session: Session,
     user_name: str,
@@ -68,10 +62,6 @@ def _get_user(db_session: Session, condition: ColumnElement[bool], identifier_de
         raise UserNotFoundError(error_message)
     logger.debug(f"Loaded user with the {identifier_description}")
     return user
-
-
-def get_user_by_id(db_session: Session, user_id: int) -> User:
-    return _get_user(db_session=db_session, condition=User.id == user_id, identifier_description=f"ID {user_id}")
 
 
 def get_user_by_user_name(db_session: Session, user_name: str) -> User:

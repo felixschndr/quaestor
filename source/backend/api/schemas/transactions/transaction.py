@@ -84,7 +84,6 @@ class TransactionSearchQuery(BaseModel):
     date_to: datetime.date | None = None
     transaction_types: list[TransactionType] = Field(default_factory=list)
     categories: list[TransactionCategory] = Field(default_factory=list)
-    note: str | None = None
     linked: StatisticsLinked | None = None
     has_attachment: HasAttachment | None = None
 

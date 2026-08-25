@@ -10,7 +10,6 @@ export default defineConfig([
   globalIgnores([
     'dist',
     'dev-dist',
-    'playwright-report',
     'test-results',
     'src/routeTree.gen.ts',
     'src/lib/transactionCategories.gen.ts',

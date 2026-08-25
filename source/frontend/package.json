@@ -15,8 +15,7 @@
     "typecheck": "tsr generate && tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui",
-    "e2e": "playwright test"
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -44,7 +43,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.62.1",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-cli": "^1.167.28",
     "@tanstack/router-plugin": "^1.168.30",
