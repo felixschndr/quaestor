@@ -86,6 +86,7 @@ export function useUpdateTransaction(accountId: number, transactionId: number) {
       queryClient.setQueryData(transactionQueryKeys.detail(accountId, transactionId), updated)
       queryClient.setQueryData(transactionQueryKeys.byId(transactionId), updated)
       queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(accountId) })
+      queryClient.invalidateQueries({ queryKey: transactionSearchQueryKeys.all })
       queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     },
   })
@@ -111,6 +112,7 @@ export function useCreateTransaction(accountId: number) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(accountId) })
+      queryClient.invalidateQueries({ queryKey: transactionSearchQueryKeys.all })
       queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     },
   })
@@ -123,6 +125,7 @@ export function useDeleteTransaction(accountId: number) {
       api<void>(`/account/${accountId}/transactions/${transactionId}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(accountId) })
+      queryClient.invalidateQueries({ queryKey: transactionSearchQueryKeys.all })
       queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
     },
   })
