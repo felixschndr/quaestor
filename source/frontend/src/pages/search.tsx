@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Link } from '@tanstack/react-router'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeftRight } from 'lucide-react'
 
 import { QueryStates } from '@/components/query-states'
+import { TransactionListItem } from '@/components/transaction-list-item'
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
 import { AdvancedFilters } from '@/components/ui/advanced-filters'
 import { AmountRangeFields } from '@/components/ui/amount-range-fields'
@@ -20,8 +20,7 @@ import { accountDisplayName, defaultAccountIds, sameAccountSelection } from '@/l
 import { buildAccountLookup, type AccountWithBank } from '@/lib/accountDisplayGroups'
 import { AccountLabel } from '@/components/AccountLabel'
 import { type CredentialRead } from '@/lib/auth'
-import { formatDate, formatMoney, transactionPartyName } from '@/lib/format'
-import { CategoryAvatar } from '@/lib/categoryIcons'
+import { formatDate, transactionPartyName } from '@/lib/format'
 import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES, useTransaction } from '@/lib/transaction'
 import { useSearchTransactions, type TransactionFilters } from '@/lib/transactionSearch'
 import {
@@ -30,7 +29,6 @@ import {
   type TransactionSortKey,
 } from '@/lib/transactionSearchParams'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
-import { cn } from '@/lib/utils'
 import { BackLink } from '@/components/back-link'
 
 export interface TransactionSearchViewProps {
@@ -373,56 +371,41 @@ function ResultRow({
   style?: CSSProperties
 }) {
   const { t } = useTranslation()
-  const negative = transaction.amount < 0
   const otherParty = transactionPartyName(transaction) || t('common.unknown')
   return (
-    <li style={style}>
-      <Link
-        to="/transactions/$transactionId"
-        params={{ transactionId: String(transaction.id) }}
-        search={
-          linkSource
-            ? {
-                link_account_id: linkSource.accountId,
-                link_transaction_id: linkSource.transactionId,
-              }
-            : undefined
-        }
-        className="hover:bg-muted/60 grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md px-2 py-3 transition-colors"
-      >
-        <CategoryAvatar category={transaction.category} className="size-8" iconClassName="size-4" />
-        <span className="flex min-w-0 flex-col">
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-medium">{otherParty}</span>
-            <RefundBadge status={transaction.refund_status} />
-          </span>
-          <span className="text-muted-foreground flex items-center gap-1 text-xs">
-            <span className="truncate">{formatDate(transaction.date)}</span>
-            {account ? (
-              <>
-                <span aria-hidden="true">·</span>
-                <AccountLabel
-                  icon={account.bankIcon}
-                  bankName={account.bankName ?? account.bank}
-                  accountName={accountDisplayName(account)}
-                  iconClassName="size-3.5 rounded"
-                  nameClassName="truncate"
-                  className="gap-1"
-                />
-              </>
-            ) : null}
-          </span>
+    <TransactionListItem
+      transaction={transaction}
+      party={otherParty}
+      badges={<RefundBadge status={transaction.refund_status} />}
+      linkSearch={
+        linkSource
+          ? {
+              link_account_id: linkSource.accountId,
+              link_transaction_id: linkSource.transactionId,
+            }
+          : undefined
+      }
+      className="px-2 py-3"
+      style={style}
+      subline={
+        <span className="text-muted-foreground flex items-center gap-1 text-xs">
+          <span className="truncate">{formatDate(transaction.date)}</span>
+          {account ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <AccountLabel
+                icon={account.bankIcon}
+                bankName={account.bankName ?? account.bank}
+                accountName={accountDisplayName(account)}
+                iconClassName="size-3.5 rounded"
+                nameClassName="truncate"
+                className="gap-1"
+              />
+            </>
+          ) : null}
         </span>
-        <span
-          className={cn(
-            'text-sm font-semibold tabular-nums',
-            negative ? 'text-destructive' : 'text-success',
-          )}
-        >
-          {formatMoney(transaction.amount)}
-        </span>
-      </Link>
-    </li>
+      }
+    />
   )
 }
 

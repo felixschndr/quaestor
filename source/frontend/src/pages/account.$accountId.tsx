@@ -9,7 +9,6 @@ import { type AccountRead } from '@/lib/auth'
 import { groupTransactionsByDate, type TransactionRead } from '@/lib/accountHistory'
 import { useUpdateAccount } from '@/lib/accounts'
 import { useDeleteTransaction } from '@/lib/transaction'
-import { CategoryAvatar } from '@/lib/categoryIcons'
 import {
   useDeleteRecurringTransaction,
   useRecurringTransactions,
@@ -41,6 +40,7 @@ import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
 import { RefundBadge } from '@/components/ui/refund-badge'
 import { ManualTransactionForm } from '@/components/manual-transaction-form'
+import { TransactionListItem } from '@/components/transaction-list-item'
 import { ExpectedTransactionForm } from '@/components/expected-transaction-form'
 import { ContractIcon } from '@/components/contract-icon'
 import { StatsIcon } from '@/components/stats-icon'
@@ -660,11 +660,13 @@ function TransactionRow({
   const [editing, setEditing] = useState(false)
   const remove = useDeleteTransaction(accountId)
 
-  const negative = transaction.amount < 0
   const pending = transaction.pending ?? false
   const otherParty = transactionPartyName(transaction) || t('common.unknown')
   const purpose = transaction.purpose?.trim()
-  const subline = purpose && purpose !== otherParty ? purpose : null
+  const subline =
+    purpose && purpose !== otherParty ? (
+      <span className="text-muted-foreground truncate text-xs">{purpose}</span>
+    ) : undefined
 
   if (editing) {
     return (
@@ -681,48 +683,24 @@ function TransactionRow({
 
   if (!isManual) {
     return (
-      <li>
-        <Link
-          to="/transactions/$transactionId"
-          params={{ transactionId: String(transaction.id) }}
-          className={cn(
-            'hover:bg-muted/60 flex items-center gap-3 rounded-md py-3 pl-2 transition-colors',
-            (isFuture || pending) && 'opacity-60',
-          )}
-        >
-          <CategoryAvatar
-            category={transaction.category}
-            className="size-8"
-            iconClassName="size-4"
-          />
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="flex min-w-0 items-center gap-2">
-              <span className="truncate text-sm font-medium">{otherParty}</span>
-              {pending ? (
-                <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium">
-                  {t('transaction.pendingBadge')}
-                </span>
-              ) : null}
-              <RefundBadge status={transaction.refund_status} />
-            </span>
-            {subline ? (
-              <span className="text-muted-foreground truncate text-xs">{subline}</span>
+      <TransactionListItem
+        transaction={transaction}
+        party={otherParty}
+        badges={
+          <>
+            {pending ? (
+              <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium">
+                {t('transaction.pendingBadge')}
+              </span>
             ) : null}
-          </span>
-          <span
-            className={cn(
-              'text-sm font-semibold tabular-nums',
-              isFuture || pending
-                ? 'text-muted-foreground'
-                : negative
-                  ? 'text-destructive'
-                  : 'text-success',
-            )}
-          >
-            {formatMoney(transaction.amount)}
-          </span>
-        </Link>
-      </li>
+            <RefundBadge status={transaction.refund_status} />
+          </>
+        }
+        subline={subline}
+        className="py-3 pl-2"
+        dimmed={isFuture || pending}
+        mutedAmount={isFuture || pending}
+      />
     )
   }
 
@@ -736,32 +714,23 @@ function TransactionRow({
   }
 
   return (
-    <li
-      className={cn(
-        'flex items-center gap-3 rounded-md py-3 pl-2 transition-colors',
-        isFuture && 'opacity-60',
-      )}
-    >
-      <CategoryAvatar category={transaction.category} className="size-8" iconClassName="size-4" />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-medium">{otherParty}</span>
-        {subline ? <span className="text-muted-foreground truncate text-xs">{subline}</span> : null}
-      </span>
-      <span
-        className={cn(
-          'text-sm font-semibold tabular-nums',
-          isFuture ? 'text-muted-foreground' : negative ? 'text-destructive' : 'text-success',
-        )}
-      >
-        {formatMoney(transaction.amount)}
-      </span>
-      <RowActions
-        className="-mr-2.5"
-        onEdit={() => setEditing(true)}
-        onDelete={onDelete}
-        deleting={remove.isPending}
-      />
-    </li>
+    <TransactionListItem
+      transaction={transaction}
+      party={otherParty}
+      subline={subline}
+      link={false}
+      className="py-3 pl-2"
+      dimmed={isFuture}
+      mutedAmount={isFuture}
+      trailing={
+        <RowActions
+          className="-mr-2.5"
+          onEdit={() => setEditing(true)}
+          onDelete={onDelete}
+          deleting={remove.isPending}
+        />
+      }
+    />
   )
 }
 

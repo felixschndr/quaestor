@@ -1,4 +1,4 @@
-import { Link, getRouteApi, useNavigate } from '@tanstack/react-router'
+import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Collapsible } from 'radix-ui'
 import { ChevronRight } from 'lucide-react'
@@ -6,9 +6,9 @@ import { ChevronRight } from 'lucide-react'
 import { BackLink } from '@/components/back-link'
 import { BankLogo } from '@/components/BankLogo'
 import { QueryStates } from '@/components/query-states'
+import { TransactionListItem } from '@/components/transaction-list-item'
 import { DateRangeFields } from '@/components/ui/date-range-fields'
 import { SortSelect } from '@/components/ui/sort-select'
-import { CategoryAvatar } from '@/lib/categoryIcons'
 import {
   SORT_COMPARATORS,
   TRANSACTION_SORT_KEYS,
@@ -260,32 +260,18 @@ function AccountChangeRow({
 
 function TransactionLine({ transaction }: { transaction: TransactionRead }) {
   const { t } = useTranslation()
-  const negative = transaction.amount < 0
   const otherParty = formatIban(transaction.other_party?.trim() || '') || t('common.unknown')
   return (
-    <li>
-      <Link
-        to="/transactions/$transactionId"
-        params={{ transactionId: String(transaction.id) }}
-        className="hover:bg-muted/60 ml-[1.625rem] grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md px-2 py-2 transition-colors"
-      >
-        <CategoryAvatar category={transaction.category} className="size-8" iconClassName="size-4" />
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate text-sm">{otherParty}</span>
-          {transaction.purpose ? (
-            <span className="text-muted-foreground truncate text-xs">{transaction.purpose}</span>
-          ) : null}
-        </span>
-        <span
-          className={cn(
-            'text-sm font-semibold tabular-nums',
-            negative ? 'text-destructive' : 'text-success',
-          )}
-        >
-          {formatMoney(transaction.amount)}
-        </span>
-      </Link>
-    </li>
+    <TransactionListItem
+      transaction={transaction}
+      party={otherParty}
+      className="ml-[1.625rem] px-2 py-2"
+      subline={
+        transaction.purpose ? (
+          <span className="text-muted-foreground truncate text-xs">{transaction.purpose}</span>
+        ) : undefined
+      }
+    />
   )
 }
 
