@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link } from '@tanstack/react-router'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeftRight } from 'lucide-react'
 
@@ -302,18 +303,61 @@ function SearchResults({
             ]}
           />
         </div>
-        <ul className="flex flex-col">
-          {results.map((transaction) => (
+        <VirtualResultList
+          results={results}
+          showAccountLabel={showAccountLabel}
+          accountById={accountById}
+          linkSource={linkSource}
+        />
+      </section>
+    </QueryStates>
+  )
+}
+
+function VirtualResultList({
+  results,
+  showAccountLabel,
+  accountById,
+  linkSource,
+}: {
+  results: TransactionRead[]
+  showAccountLabel: boolean
+  accountById: Map<number, AccountWithBank>
+  linkSource: { accountId: number; transactionId: number } | null
+}) {
+  const listRef = useRef<HTMLUListElement>(null)
+  const [listTop, setListTop] = useState(0)
+  useLayoutEffect(() => setListTop(listRef.current?.offsetTop ?? 0), [])
+  const virtualizer = useWindowVirtualizer({
+    count: results.length,
+    estimateSize: () => 60,
+    overscan: 10,
+    scrollMargin: listTop,
+  })
+  return (
+    <ul ref={listRef} className="flex flex-col">
+      <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+        {virtualizer.getVirtualItems().map((item) => {
+          const transaction = results[item.index]
+          return (
             <ResultRow
               key={`${transaction.account_id}-${transaction.id}`}
               transaction={transaction}
               account={showAccountLabel ? accountById.get(transaction.account_id) : undefined}
               linkSource={linkSource}
+              style={{
+                height: 60,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${item.start - listTop}px)`,
+              }}
             />
-          ))}
-        </ul>
-      </section>
-    </QueryStates>
+          )
+        })}
+      </div>
+    </ul>
   )
 }
 
@@ -321,16 +365,18 @@ function ResultRow({
   transaction,
   account,
   linkSource,
+  style,
 }: {
   transaction: TransactionRead
   account: AccountWithBank | undefined
   linkSource: { accountId: number; transactionId: number } | null
+  style?: CSSProperties
 }) {
   const { t } = useTranslation()
   const negative = transaction.amount < 0
   const otherParty = transactionPartyName(transaction) || t('common.unknown')
   return (
-    <li>
+    <li style={style}>
       <Link
         to="/transactions/$transactionId"
         params={{ transactionId: String(transaction.id) }}

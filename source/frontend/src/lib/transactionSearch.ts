@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import { api } from './api'
 import type { TransactionRead } from './accountHistory'
@@ -34,5 +34,6 @@ export function useSearchTransactions(accountIds: number[], filters: Transaction
     queryFn: () => api<TransactionRead[]>(`/transactions/search?${queryString}`),
     enabled: accountIds.length > 0,
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   })
 }
