@@ -13,7 +13,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { BankLogo } from '@/components/BankLogo'
+import { DeviceCodeAuthorization } from '@/components/device-code-authorization'
 import type { Current2FA } from '@/lib/auth'
+import {
+  NO_CODE_PLACEHOLDER,
+  deviceCodeFromAuthorizationUrl,
+  isNoCodeAuthProvider,
+} from '@/lib/credentials'
 
 export interface TwoFactorModalProps {
   current2fa: Current2FA | null
@@ -53,6 +59,18 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
     ? (current2fa.bankName ??
       t(`banks.${current2fa.bank}.title`, { defaultValue: current2fa.bank }))
     : ''
+  const noCodeRequired = current2fa !== null && isNoCodeAuthProvider(current2fa.bank)
+  const deviceCode =
+    current2fa?.deviceCode ?? deviceCodeFromAuthorizationUrl(current2fa?.authorizationUrl)
+
+  const handleNoCodeConfirm = async () => {
+    setSubmitting(true)
+    try {
+      await onSubmit(NO_CODE_PLACEHOLDER)
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? null : onSkip())}>
@@ -84,6 +102,30 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
               <Loader2 className="size-6 animate-spin text-primary" aria-hidden="true" />
             </div>
           </>
+        ) : current2fa?.kind === 'awaiting_2fa' && noCodeRequired ? (
+          <div className="flex flex-col gap-4">
+            <DialogHeader>
+              <BankLogo
+                icon={current2fa.bankIcon}
+                name={bankTitle}
+                seed={current2fa.bankName ?? current2fa.bank}
+                className="mx-auto size-12"
+              />
+              <DialogTitle>
+                {t('sync.twoFactor.authorizeNoCodeTitle', { bank: bankTitle })}
+              </DialogTitle>
+              <DialogDescription>
+                {t('sync.twoFactor.authorizeNoCodeDescription', { bank: bankTitle })}
+              </DialogDescription>
+            </DialogHeader>
+            <DeviceCodeAuthorization
+              bankTitle={bankTitle}
+              authorizationUrl={current2fa.authorizationUrl}
+              deviceCode={deviceCode}
+              pending={submitting}
+              onConfirm={() => void handleNoCodeConfirm()}
+            />
+          </div>
         ) : current2fa?.kind === 'awaiting_2fa' ? (
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
             <DialogHeader>

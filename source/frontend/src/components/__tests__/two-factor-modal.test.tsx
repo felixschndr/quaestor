@@ -67,6 +67,47 @@ describe('TwoFactorModal', () => {
     expect(screen.getByText(/sent a confirmation code/i)).toBeVisible()
   })
 
+  it('renders a no-code confirm button with the authorization link for scalable_capital', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderModal({
+      current2fa: {
+        credentialId: 1,
+        jobId: 'j',
+        bank: 'scalable_capital',
+        bankName: null,
+        bankIcon: null,
+        kind: 'awaiting_2fa',
+        authorizationUrl: 'https://secure.scalable.capital/activate?user_code=ABCD-EFGH',
+      },
+      onSubmit,
+    })
+    expect(screen.getByRole('dialog')).toBeVisible()
+    expect(screen.queryByLabelText('Code')).toBeNull()
+    expect(screen.getByText('ABCD-EFGH')).toBeVisible()
+    expect(screen.getByRole('link', { name: /sign in at scalable capital/i })).toHaveAttribute(
+      'href',
+      'https://secure.scalable.capital/activate?user_code=ABCD-EFGH',
+    )
+    await userEvent.click(screen.getByRole('button', { name: "I've completed the login" }))
+    expect(onSubmit).toHaveBeenCalledWith('confirmed')
+  })
+
+  it('prefers the device code reported by the backend over the one in the URL', () => {
+    renderModal({
+      current2fa: {
+        credentialId: 1,
+        jobId: 'j',
+        bank: 'scalable_capital',
+        bankName: null,
+        bankIcon: null,
+        kind: 'awaiting_2fa',
+        authorizationUrl: 'https://secure.scalable.capital/activate',
+        deviceCode: 'WXYZ-1234',
+      },
+    })
+    expect(screen.getByText('WXYZ-1234')).toBeVisible()
+  })
+
   it('renders a neutral spinner without submit while confirming', () => {
     renderModal({
       current2fa: {

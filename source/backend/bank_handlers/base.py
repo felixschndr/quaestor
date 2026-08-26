@@ -5,7 +5,10 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from source.backend.bank_handlers.bank_logos import logo_slug
+from source.backend.logging_utils import get_logger
 from source.backend.models.transactions.transaction_type import TransactionType
+
+logger = get_logger(__name__)
 
 TwoFactorStateCallback = Callable[[bool], None]
 CancelCheck = Callable[[], bool]
@@ -16,6 +19,7 @@ class TwoFactorChallenge:
     challenge_token: str
     expires_at: datetime
     authorization_url: str | None = None
+    device_code: str | None = None
 
 
 @dataclass(frozen=True)
@@ -49,6 +53,29 @@ class BalanceObservation:
     # Used as a ground-truth anchor for the account's balance history.
     date: date
     amount: float
+
+
+def build_daily_market_value_history(
+    label: str, moves: list[tuple[date, float]], prices: dict[date, float]
+) -> list[BalanceObservation]:
+    # Walks the share moves (date, +/- quantity) forward through the price series so every day
+    # with a known price gets its own market value. Shared by every depot-style bank handler.
+    if not prices or not moves:
+        logger.debug(f"No price history or share moves for {label}; skipping value history")
+        return []
+    moves = sorted(moves)
+    first_trade = moves[0][0]
+    held = 0.0
+    next_move = 0
+    observations: list[BalanceObservation] = []
+    for day in sorted(prices):
+        while next_move < len(moves) and moves[next_move][0] <= day:
+            held += moves[next_move][1]
+            next_move += 1
+        if day >= first_trade:
+            observations.append(BalanceObservation(date=day, amount=round(number=held * prices[day], ndigits=2)))
+    logger.debug(f"Valued {label}: {len(observations)} daily snapshot(s) from {len(moves)} share move(s)")
+    return observations
 
 
 class BankSession(ABC):

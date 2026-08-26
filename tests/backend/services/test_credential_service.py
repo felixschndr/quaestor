@@ -8,6 +8,7 @@ from source.backend.bank_handlers import BankProvider
 from source.backend.bank_handlers.base import BankHandler
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 from source.backend.exceptions import (
+    CredentialAlreadyExistsError,
     CredentialNotFoundError,
     InvalidCredentialFieldError,
     MissingCredentialFieldError,
@@ -395,6 +396,42 @@ def test_create_generic_fints_credential_persists_blz(session_factory: sessionma
     assert credential.credentials == {"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": "70150000"}
     assert_log_contains(caplog, messages=["Created", "<Credential("])
     assert BANK_PASSWORD not in caplog.text
+
+
+def test_create_generic_fints_credential_rejects_a_duplicate(session_factory: sessionmaker):
+    user_id = create_user(session_factory).id
+    credentials = {"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": "70150000"}
+
+    with session_factory() as session:
+        user = session.get(entity=User, ident=user_id)
+        credential_service.create_credential(session, user=user, bank=BankProvider.FINTS, credentials=credentials)
+        session.commit()
+
+        with pytest.raises(CredentialAlreadyExistsError):
+            credential_service.create_credential(
+                session, user=user, bank=BankProvider.FINTS, credentials=dict(credentials)
+            )
+
+
+def test_create_scalable_capital_credential_allows_a_second_attempt_after_the_first(
+    session_factory: sessionmaker,
+):
+    # No CREDENTIAL_FIELDS means every attempt validates to `{}`, so dedup must not apply here.
+    user_id = create_user(session_factory).id
+
+    with session_factory() as session:
+        user = session.get(entity=User, ident=user_id)
+        first = credential_service.create_credential(
+            session, user=user, bank=BankProvider.SCALABLE_CAPITAL, credentials={}
+        )
+        session.commit()
+
+        second = credential_service.create_credential(
+            session, user=user, bank=BankProvider.SCALABLE_CAPITAL, credentials={}
+        )
+        session.commit()
+
+    assert first.id != second.id
 
 
 def test_create_generic_fints_credential_rejects_missing_blz(session_factory: sessionmaker):

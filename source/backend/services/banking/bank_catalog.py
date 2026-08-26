@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 _GENERIC_FINTS_PROVIDER = "fints"
 _ENABLE_BANKING_PROVIDER = "enable_banking"
-_NON_FINTS_PROVIDERS = frozenset({"dfs", "fin4u", "trade_republic", "manual"})
+_NON_FINTS_PROVIDERS = frozenset({"dfs", "fin4u", "trade_republic", "scalable_capital", "manual"})
 
 _TESTED_FINTS_PROVIDERS = frozenset(
     {"ING-DiBa", "Deutsche Kreditbank Berlin", "Sparkasse Karlsruhe", "Volksbank Mittelhessen"}

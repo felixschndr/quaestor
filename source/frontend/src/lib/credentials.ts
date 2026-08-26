@@ -111,6 +111,7 @@ export interface SyncJob {
   error: string | null
   error_code: SyncJobErrorCode | null
   authorization_url?: string | null
+  device_code?: string | null
 }
 
 export function useStartSync() {
@@ -197,6 +198,29 @@ const MANUAL_BANK = 'manual'
 
 export function isManualBank(bank: string | undefined): boolean {
   return bank === MANUAL_BANK
+}
+
+// Providers whose device-code/OAuth login never hands back a code to paste into Quaestor.
+const NO_CODE_AUTH_PROVIDERS = new Set(['scalable_capital'])
+
+/** Placeholder code submitted for no-code providers; the backend ignores it. */
+export const NO_CODE_PLACEHOLDER = 'confirmed'
+
+export function isNoCodeAuthProvider(bank: string | undefined): boolean {
+  return bank !== undefined && NO_CODE_AUTH_PROVIDERS.has(bank)
+}
+
+// Fallback for backends that only report the URL: the device-code flow puts the verification
+// code in `?user_code=...` whenever the auth server returns a complete verification URI.
+export function deviceCodeFromAuthorizationUrl(
+  authorizationUrl: string | null | undefined,
+): string | null {
+  if (!authorizationUrl) return null
+  try {
+    return new URL(authorizationUrl).searchParams.get('user_code')
+  } catch {
+    return null
+  }
 }
 
 export function lastSyncedLabel(t: TFunction, credential: CredentialRead): string | null {

@@ -6,6 +6,7 @@ from source.backend.bank_handlers.enable_banking_handler import EnableBankingHan
 from source.backend.bank_handlers.fin4u_handler import Fin4uHandler
 from source.backend.bank_handlers.fints_handler import FinTSHandler
 from source.backend.bank_handlers.manual_handler import ManualHandler
+from source.backend.bank_handlers.scalable_capital import ScalableCapitalHandler
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 
 
@@ -15,6 +16,7 @@ class BankProvider(str, Enum):
     DFS = "dfs"
     FIN4U = "fin4u"
     TRADE_REPUBLIC = "trade_republic"
+    SCALABLE_CAPITAL = "scalable_capital"
     MANUAL = "manual"
 
 
@@ -24,6 +26,7 @@ SUPPORTED_BANKS: list[BankInfo] = [
     BankInfo(name=BankProvider.DFS.value, handler=DFSHandler),
     BankInfo(name=BankProvider.FIN4U.value, handler=Fin4uHandler),
     BankInfo(name=BankProvider.TRADE_REPUBLIC.value, handler=TradeRepublicHandler),
+    BankInfo(name=BankProvider.SCALABLE_CAPITAL.value, handler=ScalableCapitalHandler),
     BankInfo(name=BankProvider.MANUAL.value, handler=ManualHandler),
 ]
 

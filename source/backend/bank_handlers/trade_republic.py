@@ -19,6 +19,7 @@ from source.backend.bank_handlers.base import (
     FetchedTransaction,
     FieldRule,
     TwoFactorChallenge,
+    build_daily_market_value_history,
 )
 from source.backend.exceptions import ReauthenticationRequiredError
 from source.backend.logging_utils import get_logger
@@ -280,7 +281,9 @@ class _TradeRepublicSession(BankSession):
                     continue
                 exchange = await self._instrument_exchange(isin)
                 prices = await self._price_history(isin=isin, exchange=exchange)
-                history[name] = self._market_value_series(name=name, isin=isin, moves=moves, prices=prices)
+                history[name] = build_daily_market_value_history(
+                    label=f"Trade Republic {name} ({isin})", moves=moves, prices=prices
+                )
             return history
 
     async def _load_full_events(self) -> list[dict]:
@@ -345,29 +348,6 @@ class _TradeRepublicSession(BankSession):
                     return response
         finally:
             await self._trade_republic_client.unsubscribe(subscription_id)
-
-    @staticmethod
-    def _market_value_series(
-        name: str, isin: str, moves: list[tuple[date, float]], prices: dict[date, float]
-    ) -> list[BalanceObservation]:
-        if not prices:
-            logger.debug(f"Trade Republic: no price history for {name} ({isin}); skipping value history")
-            return []
-        first_trade = moves[0][0]
-        held = 0.0
-        next_move = 0
-        observations: list[BalanceObservation] = []
-        for day in sorted(prices):
-            while next_move < len(moves) and moves[next_move][0] <= day:
-                held += moves[next_move][1]
-                next_move += 1
-            if day >= first_trade:
-                observations.append(BalanceObservation(date=day, amount=round(number=held * prices[day], ndigits=2)))
-        logger.debug(
-            f"Trade Republic valued {name} ({isin}): {len(observations)} daily snapshot(s) "
-            f"from {len(moves)} share move(s)"
-        )
-        return observations
 
 
 class TradeRepublicHandler(BankHandler):

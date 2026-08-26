@@ -41,6 +41,7 @@ class SyncResult:
     challenge_token: str | None = None
     expires_at: datetime | None = None
     authorization_url: str | None = None
+    device_code: str | None = None
 
 
 def list_credentials(db_session: Session, user: User) -> list[Credential]:
@@ -137,7 +138,8 @@ def create_credential(
         credentials = _inherit_enable_banking_application(db_session=db_session, user=user, credentials=credentials)
     validated_credentials = _validate_credentials(bank=bank, credentials=credentials)
 
-    if bank != BankProvider.MANUAL:
+    # Skip dedup for providers with nothing to compare (MANUAL, or no CREDENTIAL_FIELDS at all).
+    if bank != BankProvider.MANUAL and validated_credentials:
         existing_credentials = db_session.scalars(
             select(Credential).where(Credential.user_id == user.id).where(Credential.bank == bank)
         ).all()
@@ -247,6 +249,7 @@ def sync_credential_object(
             challenge_token=challenge.challenge_token,
             expires_at=challenge.expires_at,
             authorization_url=challenge.authorization_url,
+            device_code=challenge.device_code,
         )
 
     credential.session_state = handler.session_state

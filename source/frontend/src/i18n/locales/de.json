@@ -323,6 +323,10 @@
     "trade_republic": {
       "title": "Trade Republic"
     },
+    "scalable_capital": {
+      "title": "Scalable Capital",
+      "note": "Verbindung über das offizielle Scalable Capital CLI. Du bestätigst die Anmeldung selbst in deinem Browser, hier wird kein Passwort eingegeben."
+    },
     "manual": {
       "title": "Manuelles Konto",
       "note": "Ein manuelles Konto: Saldo und Transaktionen werden von Hand eingetragen."
@@ -394,6 +398,10 @@
     "decoupledApproval": {
       "title": "Bitte in der App bestätigen",
       "description": "Wir warten auf die Freigabe in deiner Banking-App. Öffne die App und bestätige die Anfrage, um die Synchronisierung fortzusetzen."
+    },
+    "confirming": {
+      "title": "Wird abgeschlossen …",
+      "description": "Wir bestätigen deine Anmeldung und laden deine Konten und Transaktionen. Das kann einen Moment dauern, besonders beim ersten Sync — du musst nichts weiter tun."
     },
     "neverSynced": "Noch nie synchronisiert",
     "autoSync": {
@@ -567,7 +575,11 @@
       "decoupledTitle": "{{bank}} bestätigen",
       "decoupledDescription": "Bitte öffne deine {{bank}}-App und bestätige die Anfrage. Wir warten auf die Freigabe.",
       "authorizeDescription": "Melde dich über den Link bei {{bank}} an und bestätige den Zugriff. Danach landest du auf einer Seite mit einem Code — füge ihn hier ein.",
-      "authorizeLink": "Bei {{bank}} anmelden"
+      "authorizeLink": "Bei {{bank}} anmelden",
+      "authorizeNoCodeTitle": "Bei {{bank}} anmelden",
+      "authorizeNoCodeDescription": "Melde dich über den folgenden Link bei {{bank}} an und bestätige hier, sobald du fertig bist. Kein Code nötig.",
+      "verifyCodeLabel": "Prüfe, ob dieser Code mit dem auf der Anmeldeseite übereinstimmt",
+      "authorizeNoCodeConfirm": "Ich habe die Anmeldung abgeschlossen"
     },
     "skipped": "{{bank}} übersprungen.",
     "failed": "{{bank}} konnte nicht synchronisiert werden.",

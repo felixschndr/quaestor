@@ -21,4 +21,11 @@ BANK_DB_PATH = DATA_DIR / "bank_info.pickle"
 ENABLE_BANKING_ASPSPS_PATH = DATA_DIR / "enable_banking_aspsps.json"
 PLAYWRIGHT_BROWSERS_PATH = DATA_DIR / "playwright"
 
+# Separate from DATA_DIR since that's a bind-mounted volume in the container image and would shadow a binary baked in at build time.
+SCALABLE_CLI_INSTALL_DIR_ENV_VARIABLE_NAME = "SCALABLE_CLI_INSTALL_DIR"
+SCALABLE_CLI_INSTALL_DIR = Path(
+    os.environ.get(SCALABLE_CLI_INSTALL_DIR_ENV_VARIABLE_NAME) or (DATA_DIR / "scalable-cli")
+)
+SCALABLE_CLI_BIN = SCALABLE_CLI_INSTALL_DIR / "sc"
+
 os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(PLAYWRIGHT_BROWSERS_PATH)
