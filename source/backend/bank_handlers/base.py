@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -49,6 +49,36 @@ class BalanceObservation:
     # Used as a ground-truth anchor for the account's balance history.
     date: date
     amount: float
+
+
+def build_daily_market_value_history(
+    moves: list[tuple[date, float]],
+    prices: list[tuple[date, float]],
+    extra_days: Iterable[date] = (),
+) -> list[BalanceObservation]:
+    # Daily market values of a holding: walks all valuation days (price days plus extra_days),
+    # accumulating the units held and forward-filling the last known price, starting at the first move
+    if not prices or not moves:
+        return []
+    moves = sorted(moves)
+    prices = sorted(prices)
+    first_move = moves[0][0]
+    valuation_days = sorted({day for day, _ in prices} | set(extra_days))
+    held = 0.0
+    next_move = 0
+    next_price = 0
+    price = prices[0][1]
+    observations: list[BalanceObservation] = []
+    for day in valuation_days:
+        while next_move < len(moves) and moves[next_move][0] <= day:
+            held += moves[next_move][1]
+            next_move += 1
+        while next_price < len(prices) and prices[next_price][0] <= day:
+            price = prices[next_price][1]
+            next_price += 1
+        if day >= first_move:
+            observations.append(BalanceObservation(date=day, amount=round(number=held * price, ndigits=2)))
+    return observations
 
 
 class BankSession(ABC):

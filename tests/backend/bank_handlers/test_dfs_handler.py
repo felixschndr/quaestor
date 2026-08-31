@@ -287,7 +287,7 @@ def test_value_series_fills_transaction_days_with_carried_forward_price():
     later_priced_day = date(year=2026, month=5, day=5)
     kurs_series = [[date_to_epoch_ms(priced_day), 10], [date_to_epoch_ms(later_priced_day), 20]]
 
-    series = _DFSSession._market_value_series(
+    series = _DFSSession._build_daily_market_value_history(
         name="Fund",
         kurs_series=kurs_series,
         units_moves=[(priced_day, 2.0)],
@@ -302,7 +302,7 @@ def test_value_series_fills_transaction_days_with_carried_forward_price():
 
 
 def test_value_series_is_empty_without_unit_moves():
-    series = _DFSSession._market_value_series(
+    series = _DFSSession._build_daily_market_value_history(
         name="Fund",
         kurs_series=[[date_to_epoch_ms(LAST_FETCHING_TIMESTAMP), 10]],
         units_moves=[],

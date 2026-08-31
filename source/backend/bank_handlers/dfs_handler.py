@@ -11,6 +11,7 @@ from source.backend.bank_handlers.base import (
     BankSession,
     FetchedAccount,
     FetchedTransaction,
+    build_daily_market_value_history,
 )
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
 from source.backend.helpers import epoch_ms_to_date, parse_german_decimal
@@ -64,7 +65,7 @@ class _DFSSession(BankSession):
         state = self._accounts.get(account.name)
         if state is None:
             return []
-        return self._market_value_series(
+        return self._build_daily_market_value_history(
             name=account.name,
             kurs_series=state["kurs_series"],
             units_moves=state["units_moves"],
@@ -137,7 +138,7 @@ class _DFSSession(BankSession):
                 )
 
     @staticmethod
-    def _market_value_series(
+    def _build_daily_market_value_history(
         name: str,
         kurs_series: list[list],
         units_moves: list[tuple[date, float]],
@@ -146,28 +147,11 @@ class _DFSSession(BankSession):
         if not kurs_series:
             logger.debug(f"No price series for {name}; skipping value history")
             return []
-        series = sorted((epoch_ms_to_date(epoch_ms), float(kurs)) for epoch_ms, kurs in kurs_series)
-        moves = sorted(units_moves)
-        if not moves:
-            return []
-
-        first_move = moves[0][0]
-        valuation_days = sorted({day for day, _ in series} | set(transaction_days))
-        held = 0.0
-        next_move = 0
-        next_price = 0
-        kurs = series[0][1]
-        observations: list[BalanceObservation] = []
-        for day in valuation_days:
-            while next_move < len(moves) and moves[next_move][0] <= day:
-                held += moves[next_move][1]
-                next_move += 1
-            while next_price < len(series) and series[next_price][0] <= day:
-                kurs = series[next_price][1]
-                next_price += 1
-            if day >= first_move:
-                observations.append(BalanceObservation(date=day, amount=round(number=held * kurs, ndigits=2)))
-        logger.debug(f"DFS valued {name}: {len(observations)} daily snapshot(s) from {len(moves)} contribution(s)")
+        prices = [(epoch_ms_to_date(epoch_ms), float(kurs)) for epoch_ms, kurs in kurs_series]
+        observations = build_daily_market_value_history(moves=units_moves, prices=prices, extra_days=transaction_days)
+        logger.debug(
+            f"DFS valued {name}: {len(observations)} daily snapshot(s) from {len(units_moves)} contribution(s)"
+        )
         return observations
 
     def _login(self) -> None:
