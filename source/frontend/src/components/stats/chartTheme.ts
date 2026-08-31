@@ -1,5 +1,4 @@
 import { de, enUS, type Locale } from 'date-fns/locale'
-import { format } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 
 import { formatMoney, wrapWithCurrency } from '@/lib/format'
@@ -25,11 +24,12 @@ export function useDateFnsLocale(): Locale {
 }
 
 export function useMonthLabel(): (month: string) => string {
-  const locale = useDateFnsLocale()
+  const { i18n } = useTranslation()
+  const monthFormat = new Intl.DateTimeFormat(i18n.language, { month: 'short', year: 'numeric' })
   return (month: string) => {
     const [year, monthNumber] = month.split('-').map(Number)
     if (!year || !monthNumber) return month
-    return format(new Date(year, monthNumber - 1, 1), 'MMM yyyy', { locale })
+    return monthFormat.format(new Date(year, monthNumber - 1, 1))
   }
 }
 

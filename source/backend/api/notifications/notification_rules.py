@@ -146,21 +146,7 @@ _RULE_DEFAULTS = {
 }
 
 
-def _columns(
-    payload: (
-        ExpectedRuleIn
-        | ContractOverdueRuleIn
-        | ContractEndingRuleIn
-        | ContractChargedAfterEndRuleIn
-        | ContractDetectedRuleIn
-        | ContractAmountIncreasedRuleIn
-        | DuplicateTransactionRuleIn
-        | DigestRuleIn
-        | UpcomingShortfallRuleIn
-        | TransactionRuleIn
-        | BalanceRuleIn
-    ),
-) -> dict:
+def _columns(payload: RuleIn) -> dict:
     columns = _RULE_DEFAULTS | payload.model_dump(mode="json")
     columns["trigger"] = NotificationTrigger(payload.trigger)
     if columns["period"] is not None:

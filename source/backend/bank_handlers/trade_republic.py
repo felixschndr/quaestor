@@ -62,11 +62,6 @@ _LABEL_TO_TRANSACTION_TYPE: dict[str, TransactionType] = {
 }
 
 
-def _savings_plan_next_date(plan: dict) -> date | None:
-    raw = plan.get("nextExecutionDate")
-    return date.fromisoformat(raw) if raw else None
-
-
 def _project_savings_plans(plans: list[dict], isin: str) -> list[FetchedTransaction]:
     # One pending buy (a "Vormerkung") per active plan on this instrument, at its next execution date.
     projected_transactions: list[FetchedTransaction] = []
@@ -75,14 +70,14 @@ def _project_savings_plans(plans: list[dict], isin: str) -> list[FetchedTransact
             continue
 
         amount = plan.get("amount")
-        next_date = _savings_plan_next_date(plan)
-        if amount is None or next_date is None:
+        raw_next_date = plan.get("nextExecutionDate")
+        if amount is None or not raw_next_date:
             continue
         projected_transactions.append(
             FetchedTransaction(
                 amount=-abs(float(amount)),
                 purpose="Sparplan",
-                date=next_date,
+                date=date.fromisoformat(raw_next_date),
                 other_party=None,
                 transaction_type=TransactionType.BUY,
                 pending=True,
