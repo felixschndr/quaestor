@@ -1,7 +1,8 @@
 import asyncio
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 from fastapi import Request
@@ -9,8 +10,11 @@ from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Scope
 
-from source.backend import main
+from source.backend import helpers, main
 from source.backend.helpers import get_project_name, get_project_version
+from source.backend.services.contracts import contract_overdue_scheduler
+from source.backend.services.notifications import digest_scheduler
+from source.backend.services.transactions import recurring_transaction_scheduler
 from tests.backend.conftest import assert_log_contains
 
 
@@ -163,3 +167,52 @@ async def test_spa_static_files_propagates_non_404_errors(tmp_path: Path):
         await spa.get_response(path="anything", scope=scope)
 
     assert exc_info.value.status_code == 405
+
+
+PERIODIC_SCHEDULERS = [
+    (
+        recurring_transaction_scheduler,
+        recurring_transaction_scheduler.run_periodic_recurring,
+        "_book_due_recurring_transactions",
+        "Recurring transaction booking run crashed",
+    ),
+    (
+        contract_overdue_scheduler,
+        contract_overdue_scheduler.run_periodic_overdue_check,
+        "_evaluate_overdue_contracts",
+        "Overdue contract check run crashed",
+    ),
+    (
+        digest_scheduler,
+        digest_scheduler.run_periodic_digest,
+        "_evaluate_digests",
+        "Digest run crashed",
+    ),
+]
+
+
+@pytest.mark.parametrize(argnames="module, run, job_name, error_message", argvalues=PERIODIC_SCHEDULERS)
+def test_periodic_scheduler_runs_its_job_and_logs_crashes(
+    module: object,
+    run: Callable,
+    job_name: str,
+    error_message: str,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+):
+    class _StopLoop(Exception):
+        pass
+
+    job = Mock(side_effect=RuntimeError("job failed"))
+    monkeypatch.setattr(target=module, name=job_name, value=job)
+
+    async def fake_sleep(_seconds: float) -> None:  # noqa: ASYNC124
+        raise _StopLoop
+
+    monkeypatch.setattr(target=helpers.asyncio, name="sleep", value=fake_sleep)
+
+    with pytest.raises(_StopLoop):
+        asyncio.run(run())
+
+    job.assert_called_once_with()
+    assert_log_contains(caplog, message=error_message)

@@ -1,8 +1,10 @@
+import asyncio
 from datetime import date
 from typing import Any
 
 import pytest
 
+from source.backend import helpers
 from source.backend.bank_handlers.base import FetchedTransaction
 from source.backend.helpers import (
     apply_fields,
@@ -24,7 +26,7 @@ from source.backend.helpers import (
 )
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_type import TransactionType
-from tests.backend.conftest import DEFAULT_AMOUNT, RECENT_DATE, create_fetched_transaction
+from tests.backend.conftest import DEFAULT_AMOUNT, RECENT_DATE, assert_log_contains, create_fetched_transaction
 
 
 @pytest.mark.parametrize(
@@ -235,3 +237,44 @@ def test_backend_and_frontend_are_siblings_under_the_repo_root():
 
     assert backend.parent == frontend.parent
     assert backend.parent.parent == root
+
+
+def test_run_daily_runs_the_job_then_sleeps_until_the_next_midnight(monkeypatch: pytest.MonkeyPatch):
+    class _StopLoop(Exception):
+        pass
+
+    job_runs: list[int] = []
+    sleeps: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:  # noqa: ASYNC124
+        sleeps.append(delay)
+        raise _StopLoop
+
+    monkeypatch.setattr(target=helpers.asyncio, name="sleep", value=fake_sleep)
+    monkeypatch.setattr(target=helpers, name="seconds_until_next_midnight", value=lambda: 123.0)
+
+    with pytest.raises(_StopLoop):
+        asyncio.run(helpers.run_daily(job=lambda: job_runs.append(1), error_message="unused"))
+
+    assert job_runs == [1]
+    assert sleeps == [123.0]
+
+
+def test_run_daily_logs_a_crashing_job_and_keeps_running(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    class _StopLoop(Exception):
+        pass
+
+    def crashing_job() -> None:
+        raise RuntimeError("job failed")
+
+    async def fake_sleep(delay: float) -> None:  # noqa: ASYNC124
+        raise _StopLoop
+
+    monkeypatch.setattr(target=helpers.asyncio, name="sleep", value=fake_sleep)
+
+    with pytest.raises(_StopLoop):
+        asyncio.run(helpers.run_daily(job=crashing_job, error_message="daily job crashed"))
+
+    assert_log_contains(caplog, message="daily job crashed")

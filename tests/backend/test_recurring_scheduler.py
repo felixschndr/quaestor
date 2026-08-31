@@ -1,7 +1,7 @@
 import asyncio
 import threading
 from datetime import date, datetime, timedelta
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -20,7 +20,6 @@ from tests.backend.conftest import (
     DEFAULT_AMOUNT,
     DEFAULT_BALANCE,
     WALLET_ACCOUNT_NAME,
-    assert_log_contains,
     make_account,
     make_credential,
     make_user,
@@ -70,28 +69,6 @@ def test_book_helper_uses_session_local(session_factory: sessionmaker, monkeypat
     assert len(called_with) == 1
 
 
-def test_run_periodic_recurring_logs_and_keeps_running_on_exception(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-):
-    class _StopLoop(Exception):
-        pass
-
-    book_mock = Mock(side_effect=RuntimeError("booking failed"))
-    monkeypatch.setattr(
-        target=recurring_transaction_scheduler, name="_book_due_recurring_transactions", value=book_mock
-    )
-
-    async def fake_sleep(_seconds: float):  # noqa: ASYNC124
-        raise _StopLoop
-
-    monkeypatch.setattr(target=recurring_transaction_scheduler.asyncio, name="sleep", value=fake_sleep)
-
-    with pytest.raises(_StopLoop):
-        asyncio.run(real_run_periodic_recurring())
-
-    assert_log_contains(caplog, message="Recurring transaction booking run crashed")
-
-
 def test_startup_run_books_rules_whose_day_passed_while_offline(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
@@ -122,7 +99,7 @@ def test_startup_run_books_rules_whose_day_passed_while_offline(
     async def fake_sleep(_seconds: float):  # noqa: ASYNC124
         raise _StopLoop
 
-    monkeypatch.setattr(target=recurring_transaction_scheduler.asyncio, name="sleep", value=fake_sleep)
+    monkeypatch.setattr(target=helpers.asyncio, name="sleep", value=fake_sleep)
 
     with pytest.raises(_StopLoop):
         asyncio.run(real_run_periodic_recurring())
@@ -132,21 +109,3 @@ def test_startup_run_books_rules_whose_day_passed_while_offline(
         assert len(account.transactions) == 1
         assert account.transactions[0].date == yesterday  # booked with the scheduled date
         assert account.balance == DEFAULT_BALANCE - DEFAULT_AMOUNT
-
-
-def test_run_periodic_recurring_calls_the_booking_function(monkeypatch: pytest.MonkeyPatch):
-    class _StopLoop(Exception):
-        pass
-
-    book = Mock()
-    monkeypatch.setattr(target=recurring_transaction_scheduler, name="_book_due_recurring_transactions", value=book)
-
-    async def fake_sleep(_seconds: float):  # noqa: ASYNC124
-        raise _StopLoop
-
-    monkeypatch.setattr(target=recurring_transaction_scheduler.asyncio, name="sleep", value=fake_sleep)
-
-    with pytest.raises(_StopLoop):
-        asyncio.run(real_run_periodic_recurring())
-
-    book.assert_called_once_with()

@@ -1,16 +1,22 @@
+import asyncio
 import functools
 import hashlib
 import tomllib
+from collections.abc import Callable
 from datetime import date, datetime, time, timedelta, timezone
 from email.utils import parseaddr
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from source.backend.logging_utils import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from source.backend.bank_handlers.base import FetchedTransaction
     from source.backend.models.transactions.transaction import Transaction
+
+logger = get_logger(__name__)
 
 
 def utc_now() -> datetime:
@@ -23,6 +29,15 @@ def seconds_until_next_midnight() -> float:
     now = datetime.now()
     next_midnight = datetime.combine(date=now.date() + timedelta(days=1), time=time.min)
     return (next_midnight - now).total_seconds() + 5
+
+
+async def run_daily(job: Callable[[], None], error_message: str) -> None:
+    while True:
+        try:
+            await asyncio.to_thread(job)
+        except Exception as e:
+            logger.exception(message=error_message, exc_info=e)
+        await asyncio.sleep(seconds_until_next_midnight())
 
 
 def hash_token(raw_token: str) -> str:

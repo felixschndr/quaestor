@@ -11,15 +11,9 @@ from source.backend.models.contracts.contract_assignment import ContractAssignme
 from source.backend.models.contracts.contract_frequency import ContractFrequency
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
-from source.backend.services.contracts import (
-    contract_detection_service,
-    contract_overdue_scheduler,
-)
+from source.backend.services.contracts import contract_detection_service
 from source.backend.services.contracts.contract_detection_service import (
     run_startup_detection as real_run_startup_detection,
-)
-from source.backend.services.contracts.contract_overdue_scheduler import (
-    run_periodic_overdue_check as real_run_periodic_overdue_check,
 )
 from tests.backend.conftest import (
     DEFAULT_AMOUNT,
@@ -394,29 +388,6 @@ def test_startup_detection_logs_and_swallows_a_crash(monkeypatch: pytest.MonkeyP
     asyncio.run(real_run_startup_detection())
 
     assert_log_contains(caplog, message="Startup contract detection backfill crashed")
-
-
-def test_periodic_overdue_check_logs_and_keeps_running_on_exception(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-):
-    class _StopLoop(Exception):
-        pass
-
-    monkeypatch.setattr(
-        target=contract_overdue_scheduler,
-        name="_evaluate_overdue_contracts",
-        value=Mock(side_effect=RuntimeError("evaluation failed")),
-    )
-
-    async def fake_sleep(_seconds: float):  # noqa: ASYNC124
-        raise _StopLoop
-
-    monkeypatch.setattr(target=contract_overdue_scheduler.asyncio, name="sleep", value=fake_sleep)
-
-    with pytest.raises(_StopLoop):
-        asyncio.run(real_run_periodic_overdue_check())
-
-    assert_log_contains(caplog, message="Overdue contract check run crashed")
 
 
 def test_new_matching_payments_reactivate_an_archived_contract(session_factory: sessionmaker):

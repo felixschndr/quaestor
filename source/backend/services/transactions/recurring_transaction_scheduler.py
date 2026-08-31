@@ -1,11 +1,6 @@
-import asyncio
-
 from source.backend.db import SessionLocal
-from source.backend.helpers import seconds_until_next_midnight
-from source.backend.logging_utils import get_logger
+from source.backend.helpers import run_daily
 from source.backend.services.transactions import recurring_transaction_service
-
-logger = get_logger(__name__)
 
 
 def _book_due_recurring_transactions() -> None:
@@ -14,10 +9,4 @@ def _book_due_recurring_transactions() -> None:
 
 
 async def run_periodic_recurring() -> None:
-    while True:
-        # Run to catch occurrences missed while the app was down; then sleep
-        try:
-            await asyncio.to_thread(_book_due_recurring_transactions)
-        except Exception as e:
-            logger.exception(message="Recurring transaction booking run crashed", exc_info=e)
-        await asyncio.sleep(seconds_until_next_midnight())
+    await run_daily(job=_book_due_recurring_transactions, error_message="Recurring transaction booking run crashed")
