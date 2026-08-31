@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from source.backend.db import SessionLocal
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
-from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot, BalanceSnapshotSource
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.transactions.flow_link_source import FlowLinkSource
@@ -17,6 +16,7 @@ from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory, normalize_string
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.models.transactions.transfer_flow import TransferFlow
+from source.backend.services.accounts import account_service
 from source.backend.services.contracts.contract_aggregators import INTERMEDIARIES
 
 logger = get_logger(__name__)
@@ -332,16 +332,6 @@ def _is_chain_hop(leg: Transaction, member: Transaction) -> bool:
     return _is_match(outflow=outflow, inflow=inflow)
 
 
-def _market_valued_account_ids(db_session: Session) -> set[int]:
-    return set(
-        db_session.scalars(
-            select(AccountBalanceSnapshot.account_id)
-            .where(AccountBalanceSnapshot.source == BalanceSnapshotSource.MARKET_VALUED)
-            .distinct()
-        )
-    )
-
-
 def _attach_broker_leg(leg: Transaction, flow_id: int, market_valued_ids: set[int]) -> None:
     # Market-valued depot legs keep their BUY/SELL type: the depot sign-flip (see flip_depot_signs) depends on it.
     # Cash-side legs become plain transfers like any other flow member.
@@ -357,7 +347,7 @@ def _chain_broker_legs(db_session: Session, user: User) -> int:
     # the broker's cash and depot accounts, days apart and not sign-opposed, so the strict transfer match misses
     # them. Attach such a leg to a DETECTED flow when exactly one flow already holds a member on the SAME
     # credential with the same absolute amount within BROKER_LEG_MAX_DISTANCE. Scoped to broker credentials.
-    market_valued_ids = _market_valued_account_ids(db_session=db_session)
+    market_valued_ids = set(db_session.scalars(account_service.market_valued_account_ids_select()))
     broker_credential_ids = set(
         db_session.scalars(
             select(Account.credential_id)

@@ -170,6 +170,44 @@ def test_share_moves_only_count_buys_and_sells(monkeypatch: pytest.MonkeyPatch):
     ]
 
 
+def test_value_series_multiplies_holding_by_daily_close():
+    moves = [(date(year=2025, month=3, day=24), 10.0), (date(year=2025, month=4, day=1), 5.0)]
+    prices = {
+        date(year=2025, month=3, day=23): 90.0,  # before the first trade -> skipped
+        date(year=2025, month=3, day=24): 100.0,
+        date(year=2025, month=3, day=25): 110.0,
+        date(year=2025, month=4, day=1): 120.0,
+    }
+
+    series = _TradeRepublicSession._build_daily_market_value_history(
+        name="World", isin=ISIN, moves=moves, prices=prices
+    )
+
+    assert [(observation.date, observation.amount) for observation in series] == [
+        (date(year=2025, month=3, day=24), 1000.0),
+        (date(year=2025, month=3, day=25), 1100.0),
+        (date(year=2025, month=4, day=1), 1800.0),
+    ]
+
+
+def test_value_series_logs_debug_summary(caplog: pytest.LogCaptureFixture):
+    moves = [(date(year=2025, month=3, day=24), 10.0)]
+    prices = {date(year=2025, month=3, day=24): 100.0}
+
+    with caplog.at_level(logging.DEBUG):
+        _TradeRepublicSession._build_daily_market_value_history(name="World", isin=ISIN, moves=moves, prices=prices)
+
+    assert_log_contains(caplog, message="valued World")
+
+
+def test_value_series_without_prices_is_empty():
+    moves = [(date(year=2025, month=3, day=24), 10.0)]
+
+    assert (
+        _TradeRepublicSession._build_daily_market_value_history(name="World", isin=ISIN, moves=moves, prices={}) == []
+    )
+
+
 def test_market_value_history_is_empty_for_cash_account():
     session = _session()
 

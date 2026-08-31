@@ -71,8 +71,11 @@ describe('autoSubscribe', () => {
   it('swallows errors (e.g. no user gesture, offline)', async () => {
     installPushEnv('granted', null)
     vi.mocked(api).mockRejectedValue(new Error('offline'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     await expect(autoSubscribe()).resolves.toBeUndefined()
+
+    expect(warn).toHaveBeenCalledWith('Push auto-subscribe failed', expect.any(Error))
   })
 
   it('does nothing without push support (plain http)', async () => {

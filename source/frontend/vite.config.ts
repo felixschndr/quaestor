@@ -6,6 +6,10 @@ import tailwindcss from '@tailwindcss/vite'
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const tsrConfig = JSON.parse(
+  fs.readFileSync(new URL('./tsr.config.json', import.meta.url), 'utf-8'),
+)
+
 const FRONTEND_PORT = Number(process.env.FRONTEND_PORT ?? 8000)
 const BACKEND_DEV_PORT = Number(process.env.BACKEND_DEV_PORT ?? 8001)
 
@@ -28,12 +32,7 @@ export default defineConfig({
     },
   },
   plugins: [
-    TanStackRouterVite({
-      routesDirectory: './src/routes',
-      generatedRouteTree: './src/routeTree.gen.ts',
-      autoCodeSplitting: true,
-      routeFileIgnorePattern: '(^|/)__tests__/|\\.test\\.',
-    }),
+    TanStackRouterVite(tsrConfig),
     react(),
     tailwindcss(),
     VitePWA({

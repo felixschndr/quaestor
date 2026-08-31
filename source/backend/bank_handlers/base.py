@@ -1,14 +1,11 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import date, datetime
 
 from source.backend.bank_handlers.bank_logos import logo_slug
-from source.backend.logging_utils import get_logger
 from source.backend.models.transactions.transaction_type import TransactionType
-
-logger = get_logger(__name__)
 
 TwoFactorStateCallback = Callable[[bool], None]
 CancelCheck = Callable[[], bool]
@@ -56,25 +53,32 @@ class BalanceObservation:
 
 
 def build_daily_market_value_history(
-    label: str, moves: list[tuple[date, float]], prices: dict[date, float]
+    moves: list[tuple[date, float]],
+    prices: list[tuple[date, float]],
+    extra_days: Iterable[date] = (),
 ) -> list[BalanceObservation]:
-    # Walks the share moves (date, +/- quantity) forward through the price series so every day
-    # with a known price gets its own market value. Shared by every depot-style bank handler.
+    # Daily market values of a holding: walks all valuation days (price days plus extra_days),
+    # accumulating the units held and forward-filling the last known price, starting at the first move
     if not prices or not moves:
-        logger.debug(f"No price history or share moves for {label}; skipping value history")
         return []
     moves = sorted(moves)
-    first_trade = moves[0][0]
+    prices = sorted(prices)
+    first_move = moves[0][0]
+    valuation_days = sorted({day for day, _ in prices} | set(extra_days))
     held = 0.0
     next_move = 0
+    next_price = 0
+    price = prices[0][1]
     observations: list[BalanceObservation] = []
-    for day in sorted(prices):
+    for day in valuation_days:
         while next_move < len(moves) and moves[next_move][0] <= day:
             held += moves[next_move][1]
             next_move += 1
-        if day >= first_trade:
-            observations.append(BalanceObservation(date=day, amount=round(number=held * prices[day], ndigits=2)))
-    logger.debug(f"Valued {label}: {len(observations)} daily snapshot(s) from {len(moves)} share move(s)")
+        while next_price < len(prices) and prices[next_price][0] <= day:
+            price = prices[next_price][1]
+            next_price += 1
+        if day >= first_move:
+            observations.append(BalanceObservation(date=day, amount=round(number=held * price, ndigits=2)))
     return observations
 
 

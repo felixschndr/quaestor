@@ -1,12 +1,8 @@
-import asyncio
 from datetime import datetime
 
 from source.backend.db import SessionLocal
-from source.backend.helpers import seconds_until_next_midnight
-from source.backend.logging_utils import get_logger
+from source.backend.helpers import run_daily
 from source.backend.services.notifications import notification_engine
-
-logger = get_logger(__name__)
 
 
 def _evaluate_digests() -> None:
@@ -15,9 +11,4 @@ def _evaluate_digests() -> None:
 
 
 async def run_periodic_digest() -> None:
-    while True:
-        try:
-            await asyncio.to_thread(_evaluate_digests)
-        except Exception as e:
-            logger.exception(message="Digest run crashed", exc_info=e)
-        await asyncio.sleep(seconds_until_next_midnight())
+    await run_daily(job=_evaluate_digests, error_message="Digest run crashed")

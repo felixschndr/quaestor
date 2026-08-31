@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { TriangleAlert, X } from 'lucide-react'
+import { Trash2, TriangleAlert, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -19,9 +19,9 @@ import { NoteEditor } from '@/components/note-editor'
 import {
   ArchiveContractButton,
   ContractNameInput,
-  DeleteContractButton,
   RenameContractButton,
 } from '@/components/contract-actions'
+import { RowActions } from '@/components/row-actions'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Button } from '@/components/ui/button'
@@ -84,7 +84,22 @@ export function ContractDetailView({
           {contract.is_archived || contract.is_overdue ? (
             <ArchiveContractButton archived={contract.is_archived} onToggle={onSetArchived} />
           ) : null}
-          <DeleteContractButton onConfirm={onDelete} isDeleting={isDeleting} />
+          <RowActions
+            onDelete={onDelete}
+            deleting={isDeleting}
+            renderTrigger={(confirm) => (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={t('contracts.delete')}
+                onClick={confirm}
+                className="text-muted-foreground hover:text-destructive px-1 sm:px-2.5"
+              >
+                <Trash2 className="size-3.5" aria-hidden="true" />
+              </Button>
+            )}
+          />
         </div>
       </header>
 

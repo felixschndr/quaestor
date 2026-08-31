@@ -62,11 +62,6 @@ _LABEL_TO_TRANSACTION_TYPE: dict[str, TransactionType] = {
 }
 
 
-def _savings_plan_next_date(plan: dict) -> date | None:
-    raw = plan.get("nextExecutionDate")
-    return date.fromisoformat(raw) if raw else None
-
-
 def _project_savings_plans(plans: list[dict], isin: str) -> list[FetchedTransaction]:
     # One pending buy (a "Vormerkung") per active plan on this instrument, at its next execution date.
     projected_transactions: list[FetchedTransaction] = []
@@ -75,14 +70,14 @@ def _project_savings_plans(plans: list[dict], isin: str) -> list[FetchedTransact
             continue
 
         amount = plan.get("amount")
-        next_date = _savings_plan_next_date(plan)
-        if amount is None or next_date is None:
+        raw_next_date = plan.get("nextExecutionDate")
+        if amount is None or not raw_next_date:
             continue
         projected_transactions.append(
             FetchedTransaction(
                 amount=-abs(float(amount)),
                 purpose="Sparplan",
-                date=next_date,
+                date=date.fromisoformat(raw_next_date),
                 other_party=None,
                 transaction_type=TransactionType.BUY,
                 pending=True,
@@ -281,9 +276,7 @@ class _TradeRepublicSession(BankSession):
                     continue
                 exchange = await self._instrument_exchange(isin)
                 prices = await self._price_history(isin=isin, exchange=exchange)
-                history[name] = build_daily_market_value_history(
-                    label=f"Trade Republic {name} ({isin})", moves=moves, prices=prices
-                )
+                history[name] = self._build_daily_market_value_history(name=name, isin=isin, moves=moves, prices=prices)
             return history
 
     async def _load_full_events(self) -> list[dict]:
@@ -348,6 +341,20 @@ class _TradeRepublicSession(BankSession):
                     return response
         finally:
             await self._trade_republic_client.unsubscribe(subscription_id)
+
+    @staticmethod
+    def _build_daily_market_value_history(
+        name: str, isin: str, moves: list[tuple[date, float]], prices: dict[date, float]
+    ) -> list[BalanceObservation]:
+        if not prices:
+            logger.debug(f"Trade Republic: no price history for {name} ({isin}); skipping value history")
+            return []
+        observations = build_daily_market_value_history(moves=moves, prices=list(prices.items()))
+        logger.debug(
+            f"Trade Republic valued {name} ({isin}): {len(observations)} daily snapshot(s) "
+            f"from {len(moves)} share move(s)"
+        )
+        return observations
 
 
 class TradeRepublicHandler(BankHandler):

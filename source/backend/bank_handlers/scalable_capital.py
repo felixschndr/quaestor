@@ -343,11 +343,11 @@ class _ScalableCapitalSession(BankSession):
         share_moves = _share_moves_by_isin(await self._load_broker_transactions())
         history: dict[str, list[BalanceObservation]] = {}
         for name, isin in positions.items():
+            prices = await self._price_history(isin)
             observations = build_daily_market_value_history(
-                label=f"Scalable Capital {name} ({isin})",
-                moves=share_moves.get(isin) or [],
-                prices=await self._price_history(isin),
+                moves=share_moves.get(isin) or [], prices=list(prices.items())
             )
+            logger.debug(f"Scalable Capital valued {name} ({isin}): {len(observations)} daily snapshot(s)")
             if observations:
                 history[name] = observations
         return history

@@ -31,7 +31,7 @@ import {
   type DetailRangePreset,
 } from '@/lib/statistics'
 import type { TransactionRead } from '@/lib/accountHistory'
-import { formatMoney, formatIban } from '@/lib/format'
+import { formatMoney, formatIban, formatSignedMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const detailRoute = getRouteApi('/stats_/detail')
@@ -42,10 +42,6 @@ const toIsoDate = (date: Date): string => date.toLocaleDateString('en-CA')
 function shiftIsoDay(iso: string, delta: number): string {
   const [year, month, day] = iso.split('-').map(Number)
   return toIsoDate(new Date(year, month - 1, day + delta))
-}
-
-function formatSignedEuro(value: number): string {
-  return value > 0 ? `+${formatMoney(value)}` : formatMoney(value)
 }
 
 function sortLabelKey(key: TransactionSortKey): string {
@@ -283,7 +279,7 @@ function DifferenceAmount({ value }: { value: number }) {
         value > 0 ? 'text-success' : value < 0 ? 'text-destructive' : 'text-muted-foreground',
       )}
     >
-      {formatSignedEuro(value)}
+      {formatSignedMoney(value)}
     </span>
   )
 }

@@ -55,11 +55,13 @@ function ContractDetailPage() {
         })
       }}
       onDelete={() => {
-        toast.promise(onDelete(), {
+        const promise = onDelete()
+        toast.promise(promise, {
           loading: t('common.saving'),
           success: t('contracts.deleted'),
           error: t('errors.unexpected.title'),
         })
+        return promise.catch(() => {})
       }}
     />
   )
@@ -84,5 +86,5 @@ export interface ContractDetailViewProps {
   onChangeEndDate: (endDate: string | null) => Promise<unknown>
   onSaveNote: (note: string | null) => Promise<unknown>
   onSetArchived: (archived: boolean) => void
-  onDelete: () => void
+  onDelete: () => Promise<unknown>
 }

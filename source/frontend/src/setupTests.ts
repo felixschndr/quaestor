@@ -1,5 +1,11 @@
 import '@testing-library/jest-dom/vitest'
 
+window.scrollTo = () => {}
+document.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target.closest('a[href]') : null
+  if (target && !event.defaultPrevented) event.preventDefault()
+})
+
 class NoopResizeObserver {
   observe() {}
   unobserve() {}
