@@ -10,7 +10,6 @@ export interface DeviceCodeAuthorizationProps {
   onConfirm: () => void
 }
 
-/** Device-code login step shared by the global sync modal and the new-credential page. */
 export function DeviceCodeAuthorization({
   bankTitle,
   authorizationUrl,

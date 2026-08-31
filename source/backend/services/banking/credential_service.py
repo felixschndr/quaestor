@@ -138,7 +138,6 @@ def create_credential(
         credentials = _inherit_enable_banking_application(db_session=db_session, user=user, credentials=credentials)
     validated_credentials = _validate_credentials(bank=bank, credentials=credentials)
 
-    # Skip dedup for providers with nothing to compare (MANUAL, or no CREDENTIAL_FIELDS at all).
     if bank != BankProvider.MANUAL and validated_credentials:
         existing_credentials = db_session.scalars(
             select(Credential).where(Credential.user_id == user.id).where(Credential.bank == bank)

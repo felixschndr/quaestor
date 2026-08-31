@@ -290,7 +290,6 @@ function CredentialForm({
   const showCodeForm = job?.status === 'awaiting_2fa'
   const noCodeRequired = isNoCodeAuthProvider(bank.provider)
   const showDecoupledApproval = job?.status === 'awaiting_decoupled_approval'
-  // Stays confirming_2fa for the whole first sync, not just the handshake — can take a while.
   const showConfirming = job?.status === 'confirming_2fa'
   const isSyncing =
     activeJob !== null &&

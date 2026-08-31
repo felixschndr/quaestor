@@ -25,22 +25,19 @@ from source.backend.services.banking import scalable_capital_login
 
 logger = get_logger(__name__)
 
-# `sc` error codes that only a fresh device-code login can fix (confirmed against the live binary:
-# a missing session reports `no_session` at exit code 20). Exit code 20 alone is not a usable signal:
-# it also covers `secret_storage_unavailable` and `device_locked`, where re-login loops.
+# `sc` error codes that only a fresh device-code login can fix
 _REAUTHENTICATION_ERROR_CODES = frozenset({"no_session", "refresh_relogin_required", "auth_grant_not_enabled"})
 _RATE_LIMITED_ERROR_CODE = "rate_limited"
 
 # Retry delays for Scalable's backend rate limit (a full sync fires many `sc` calls back to back).
 _RATE_LIMIT_BACKOFF_SECONDS = (2, 4, 8, 16)
 
-_TRANSACTION_PAGE_SIZE = "100"  # the CLI's maximum (cli.rs allows 1..100)
+_TRANSACTION_PAGE_SIZE = "100"
 _SETTLED_STATUS = "SETTLED"
 _MAX_TRANSACTION_PAGES = 500  # safety net in case the CLI keeps handing back a fresh cursor
 
 _CASH_ACCOUNT_NAME = "Scalable Capital Verrechnungskonto"
 _OVERNIGHT_ACCOUNT_NAME = "Scalable Capital Tagesgeld"
-# `sc overnight --json` exposes neither an account id nor a display name, so both are fixed here.
 _OVERNIGHT_EXTERNAL_ID = "scalable-overnight"
 
 # `summary_type` values (broker_projections.rs' `__typename`) that carry a security `isin` and are
@@ -49,15 +46,14 @@ _SIDE_BASED_SUMMARY_TYPES = frozenset({"BrokerSecurityTransactionSummary", "Brok
 _NON_TRADE_SECURITY_SUMMARY_TYPE = "BrokerNonTradeSecurityTransactionSummary"
 _ISIN_SUMMARY_TYPES = _SIDE_BASED_SUMMARY_TYPES | {_NON_TRADE_SECURITY_SUMMARY_TYPE}
 
-# `side` on BrokerSecurityTransactionSummary/BrokerEltifTransactionSummary items.
+# `side` on BrokerSecurityTransactionSummary/BrokerEltifTransactionSummary items
 _SIDE_TYPE_MAP: dict[str, TransactionType] = {"BUY": TransactionType.BUY, "SELL": TransactionType.SELL}
-# `non_trade_security_transaction_type` on BrokerNonTradeSecurityTransactionSummary items.
+# `non_trade_security_transaction_type` on BrokerNonTradeSecurityTransactionSummary items
 _NON_TRADE_TYPE_MAP: dict[str, TransactionType] = {
     "TRANSFER_IN": TransactionType.TRANSFER_IN,
     "TRANSFER_OUT": TransactionType.TRANSFER_OUT,
 }
 # `cash_transaction_type` on BrokerCashTransactionSummary items and on overnight transaction items
-# (which carry no `summary_type` at all — every overnight transaction is a cash movement).
 _CASH_TRANSACTION_TYPE_MAP: dict[str, TransactionType] = {
     "DEPOSIT": TransactionType.DEPOSIT,
     "POCKET_MONEY": TransactionType.DEPOSIT,
@@ -89,14 +85,14 @@ _SHARE_MOVE_SIGN: dict[TransactionType, float] = {
 def ensure_cli_binary_available() -> None:
     if not SCALABLE_CLI_BIN.exists():
         raise RuntimeError(
-            f"The Scalable Capital CLI binary is missing at {SCALABLE_CLI_BIN}. It ships with the "
-            "container image; when running Quaestor natively, install it manually and point "
-            "SCALABLE_CLI_INSTALL_DIR at it (see docs/bank_handlers/scalable_capital.md)."
+            f"The Scalable Capital CLI binary is missing at {SCALABLE_CLI_BIN}. "
+            f"See docs/bank_handlers/scalable_capital.md."
         )
 
 
 async def _run_command(config_dir: Path, args: tuple[str, ...]) -> dict:
     command = [str(SCALABLE_CLI_BIN), *args, "--json"]
+    command_text = " ".join(command)
     retries = 0  # one initial attempt plus one retry per configured backoff delay
     while True:
         process = await asyncio.create_subprocess_exec(
@@ -107,18 +103,16 @@ async def _run_command(config_dir: Path, args: tuple[str, ...]) -> dict:
         )
         stdout, stderr = await process.communicate()
 
-        # `sc` writes its `{"ok": ...}` envelope to stdout even on failure; stderr is just a fallback.
+        # `sc` writes its `{"ok": ...}` envelope to stdout even on failure
         try:
             payload = json.loads(stdout)
         except (json.JSONDecodeError, UnicodeDecodeError):
             payload = None
         if isinstance(payload, dict) and payload.get("ok"):
             data = payload["data"]
-            # The live `sc` binary nests each broker/overnight command's projection under an extra
+            # `sc` nests each broker/overnight command's projection under an extra
             # `result` key alongside resolution metadata (account_id/portfolio_id/resolution for
-            # broker.*, account/savings_account_id/selection for overnight.*); `broker chart` does
-            # not. Verified by running the pinned binary directly, since the upstream repository's
-            # current source no longer matches the shape the released CLI actually emits.
+            # broker.*, account/savings_account_id/selection for overnight.*); `broker chart` does not.
             if isinstance(data, dict) and "result" in data:
                 data = data["result"]
             return data
@@ -127,25 +121,25 @@ async def _run_command(config_dir: Path, args: tuple[str, ...]) -> dict:
         error_code = error.get("code") if isinstance(error, dict) else None
         if error_code in _REAUTHENTICATION_ERROR_CODES:
             raise ReauthenticationRequiredError(
-                f"Scalable Capital rejected `sc {' '.join(args)}` ({error_code}); re-authentication required."
+                f"Scalable Capital rejected `{command_text}` ({error_code}); re-authentication required."
             )
         if error_code == _RATE_LIMITED_ERROR_CODE and retries < len(_RATE_LIMIT_BACKOFF_SECONDS):
             delay = _RATE_LIMIT_BACKOFF_SECONDS[retries]
             retries += 1
-            logger.warning(f"Scalable Capital rate-limited `sc {' '.join(args)}`; retrying in {delay}s")
+            logger.warning(f"Scalable Capital rate-limited `{command_text}`; retrying in {delay}s")
             await asyncio.sleep(delay)
             continue
 
         details = stdout.decode(errors="replace").strip() or stderr.decode(errors="replace").strip()
-        raise RuntimeError(f"`sc {' '.join(args)}` failed (exit code {process.returncode}): {details}")
+        raise RuntimeError(f"`{command_text}` failed (exit code {process.returncode}): {details}")
 
 
 def _event_date(raw: dict) -> date:
     return datetime.fromisoformat(raw["last_event_datetime"].replace("Z", "+00:00")).astimezone(timezone.utc).date()
 
 
-def _amount(raw: dict) -> float:
-    return float(raw.get("amount") or 0.0)  # noqa FKA100
+def _get_or_zero(raw: dict, key: str) -> float:
+    return float(raw.get(key) or 0)  # noqa FKA100
 
 
 def _quantity(raw: dict) -> float | None:
@@ -165,7 +159,11 @@ def _transaction_type(raw: dict) -> TransactionType:
     else:
         # BrokerCashTransactionSummary, and overnight transaction items, which carry no `summary_type`.
         transaction_type = _CASH_TRANSACTION_TYPE_MAP.get(raw.get("cash_transaction_type") or "")
-    return transaction_type if transaction_type is not None else TransactionType.from_amount(amount=_amount(raw))
+    return (
+        transaction_type
+        if transaction_type is not None
+        else TransactionType.from_amount(amount=_get_or_zero(raw=raw, key="amount"))
+    )
 
 
 def _isin(raw: dict) -> str | None:
@@ -177,7 +175,7 @@ def _isin(raw: dict) -> str | None:
 
 def _to_fetched_transaction(raw: dict, transaction_type: TransactionType) -> FetchedTransaction:
     return FetchedTransaction(
-        amount=_amount(raw),
+        amount=_get_or_zero(raw=raw, key="amount"),
         purpose=raw.get("description") or None,
         date=_event_date(raw),
         other_party=None,  # the Scalable Capital API does not expose a counterparty field
@@ -232,8 +230,6 @@ class _ScalableCapitalSession(BankSession):
             return []
         if self._value_history is None:
             self._value_history = asyncio.run(self._fetch_value_history())
-        # Empty on purpose: record_market_value_history() replaces every stored snapshot, so a
-        # one-point fallback would wipe the position's chart whenever a single chart call fails.
         return self._value_history.get(account.name) or []
 
     def get_transactions(self, account: FetchedAccount, start_date: date) -> list[FetchedTransaction]:
@@ -250,7 +246,7 @@ class _ScalableCapitalSession(BankSession):
         self._add_account(
             name=_CASH_ACCOUNT_NAME,
             external_id=f"scalable-cash-{account_id}",
-            balance=float(cash.get("cash_balance") or 0.0),  # noqa FKA100
+            balance=_get_or_zero(raw=cash, key="cash_balance"),
         )
 
         holdings = await _run_command(config_dir=self._config_dir, args=("broker", "holdings"))
@@ -258,21 +254,21 @@ class _ScalableCapitalSession(BankSession):
             self._add_account(
                 name=item["name"],
                 external_id=item["isin"],
-                balance=float(item.get("valuation") or 0.0),  # noqa FKA100
+                balance=_get_or_zero(raw=item, key="valuation"),
                 isin=item["isin"],
             )
 
         try:
             overnight = await _run_command(config_dir=self._config_dir, args=("overnight",))
         except RuntimeError:
-            # Not every account has an overnight/Tagesgeld savings product; a failure here isn't fatal.
+            # Not every account has an overnight/Tagesgeld savings product
             logger.debug("Scalable Capital: no overnight/Tagesgeld account available, skipping")
         else:
             self._has_overnight_account = True
             self._add_account(
                 name=_OVERNIGHT_ACCOUNT_NAME,
                 external_id=_OVERNIGHT_EXTERNAL_ID,
-                balance=float(overnight.get("balance") or 0.0),  # noqa FKA100
+                balance=_get_or_zero(raw=overnight, key="balance"),
             )
 
         logger.debug(f"Scalable Capital fetched {len(self._accounts)} account(s)")
@@ -288,15 +284,12 @@ class _ScalableCapitalSession(BankSession):
         try:
             overnight_items = await self._paginated_items(args=("overnight", "transactions", "--from-time", from_time))
         except RuntimeError:
-            # Same rationale as in _fetch(): a failure here isn't fatal to the rest of the sync.
             logger.debug("Scalable Capital: overnight/Tagesgeld transactions unavailable, skipping")
         else:
             for raw in overnight_items:
                 self._apply_overnight_transaction(raw)
 
     async def _load_broker_transactions(self) -> list[dict]:
-        # Fetched in full and cached: the value history needs every trade ever, so an incremental
-        # window would only buy a second paginated run over the same command on every sync.
         if self._raw_broker_transactions is None:
             self._raw_broker_transactions = await self._paginated_items(
                 args=("broker", "transactions", "--status", _SETTLED_STATUS)
@@ -404,7 +397,7 @@ class ScalableCapitalHandler(BankHandler):
         )
 
     def complete_two_factor_challenge(self, challenge_token: str, credential_id: int, code: str) -> dict:
-        # `code` is unused: the device-code flow never produces one to submit back.
+        # `code` is unused: the device-code flow never produces one to submit back
         return scalable_capital_login.complete(challenge_token=challenge_token, credential_id=credential_id)
 
     @contextmanager

@@ -416,7 +416,6 @@ def test_create_generic_fints_credential_rejects_a_duplicate(session_factory: se
 def test_create_scalable_capital_credential_allows_a_second_attempt_after_the_first(
     session_factory: sessionmaker,
 ):
-    # No CREDENTIAL_FIELDS means every attempt validates to `{}`, so dedup must not apply here.
     user_id = create_user(session_factory).id
 
     with session_factory() as session:

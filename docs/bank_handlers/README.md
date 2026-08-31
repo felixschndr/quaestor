@@ -2,15 +2,15 @@
 
 Quaestor connects to banks through different handlers. Which handler serves your bank decides how the connection works and what you need to set it up:
 
-| Your bank                                   | Documenation              | Bank integration source code                                         |
-|---------------------------------------------|---------------------------|----------------------------------------------------------------------|
-| Trade Republic                              | [Link](trade_republic.md) | [Link](../../source/backend/bank_handlers/trade_republic.py)         |
-| Scalable Capital                            | [Link](scalable_capital.md) | [Link](../../source/backend/bank_handlers/scalable_capital.py)     |
-| Deutsche Flugsicherung GmbH retirement plan | [Link](dfs.md)            | [Link](../../source/backend/bank_handlers/dfs_handler.py)            |
-| fin4u retirement plan (Alte Leipziger)      | [Link](fin4u.md)          | [Link](../../source/backend/bank_handlers/fin4u_handler.py)          |
-| A manual account                            | [Link](manual.md)         | [Link](../../source/backend/bank_handlers/manual_handler.py)         |
-| A German bank supporting FinTS              | [Link](fints.md)          | [Link](../../source/backend/bank_handlers/fints_handler.py)          |
-| Anything else                               | [Link](enable_banking.md) | [Link](../../source/backend/bank_handlers/enable_banking_handler.py) |
+| Your bank                                   | Documenation                | Bank integration source code                                         |
+|---------------------------------------------|-----------------------------|----------------------------------------------------------------------|
+| Trade Republic                              | [Link](trade_republic.md)   | [Link](../../source/backend/bank_handlers/trade_republic.py)         |
+| Scalable Capital                            | [Link](scalable_capital.md) | [Link](../../source/backend/bank_handlers/scalable_capital.py)       |
+| Deutsche Flugsicherung GmbH retirement plan | [Link](dfs.md)              | [Link](../../source/backend/bank_handlers/dfs_handler.py)            |
+| fin4u retirement plan (Alte Leipziger)      | [Link](fin4u.md)            | [Link](../../source/backend/bank_handlers/fin4u_handler.py)          |
+| A manual account                            | [Link](manual.md)           | [Link](../../source/backend/bank_handlers/manual_handler.py)         |
+| A German bank supporting FinTS              | [Link](fints.md)            | [Link](../../source/backend/bank_handlers/fints_handler.py)          |
+| Anything else                               | [Link](enable_banking.md)   | [Link](../../source/backend/bank_handlers/enable_banking_handler.py) |
 
 The easiest way to find out which integration offers your bank, search for it in the [full bank catalog](https://quaestordocs.fschneider.me/banks.html) and look for the badge naming its integration.
 

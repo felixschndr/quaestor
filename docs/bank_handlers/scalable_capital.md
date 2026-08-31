@@ -20,7 +20,7 @@ with their current valuation and price history, your transaction history, and yo
 overnight/Tagesgeld savings account if you have one.
 
 > [!NOTE]
-> Scalable Capital is the only provider that needs the `sc` binary installed manually — and only
+> Scalable Capital is the only provider that needs the `sc` binary installed manually and only
 > when running Quaestor natively instead of in the container. Download the release archive for your
 > platform from the [releases page](https://github.com/ScalableCapital/scalable-cli/releases),
 > extract the `sc` binary, and point the `SCALABLE_CLI_INSTALL_DIR` environment variable at the

@@ -5,7 +5,7 @@ import queue
 import re
 import secrets
 import shutil
-import subprocess  # nosec B404 -- fixed argv list below, never shell=True, never user input in args
+import subprocess  # nosec B404
 import tarfile
 import tempfile
 import threading
@@ -72,8 +72,6 @@ def _cleanup_expired_pending_logins() -> None:
 
 
 def cli_config_dir(config_dir: Path) -> Path:
-    # `sc` only honours XDG_CONFIG_HOME on Linux and falls back to $HOME/.config elsewhere
-    # (config.rs), so subprocess_env() pins both to land on this single path on every platform.
     return config_dir / ".config" / "scalable-cli"
 
 
@@ -111,7 +109,7 @@ def _next_line(sink: "queue.Queue[str | None]", deadline: datetime, credential_i
 
 
 def _read_login_prompt(sink: "queue.Queue[str | None]", credential_id: int) -> tuple[str, str | None]:
-    # `sc` prints "Open this URL:\n<url>\n\nVerify the code <CODE> in your browser." (auth.rs).
+    # `sc` prints "Open this URL:\n<url>\n\nVerify the code <CODE> in your browser." (auth.rs)
     deadline = utc_now() + DURATION_TO_WAIT_FOR_AUTH_URL_LINE
     authorization_url: str | None = None
     while True:
@@ -145,9 +143,8 @@ def start(credential_id: int) -> tuple[str, str, str | None, datetime]:
     config_dir = Path(tempfile.mkdtemp(prefix="scalable-cli-"))
     _write_config(config_dir)
 
-    command = [str(SCALABLE_CLI_BIN), "login", "--local-read-only"]
-    process = subprocess.Popen(  # nosec B603 -- fixed argv, no shell, no user input
-        command,
+    process = subprocess.Popen(  # nosec B603
+        [str(SCALABLE_CLI_BIN), "login", "--local-read-only"],
         env=subprocess_env(config_dir),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -178,7 +175,6 @@ def start(credential_id: int) -> tuple[str, str, str | None, datetime]:
 
 
 def read_session_state(config_dir: Path) -> dict[str, str]:
-    # A tar keeps the CLI's directory layout and file permissions (e.g. a 0600 key file) intact.
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w") as archive:
         archive.add(name=str(config_dir), arcname=".")
@@ -190,7 +186,7 @@ def write_session_state(config_dir: Path, session_state: dict[str, str]) -> None
     if not encoded:
         raise ValueError("Scalable Capital session state does not contain a CLI config archive")
     with tarfile.open(fileobj=io.BytesIO(base64.b64decode(encoded)), mode="r") as archive:
-        archive.extractall(path=config_dir, filter="data")  # the `data` filter rejects entries escaping the dir
+        archive.extractall(path=config_dir, filter="data")
 
 
 def complete(challenge_token: str, credential_id: int) -> dict[str, str]:

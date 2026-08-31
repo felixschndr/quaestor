@@ -31,10 +31,6 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
   const { t } = useTranslation()
   const [code, setCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  // Track the credential the input belongs to so a queue advance (credA → credB
-  // without passing through null) doesn't leak credA's typed code into credB's
-  // form. The setState-during-render pattern is the React-recommended way to
-  // adjust state on prop changes — no useEffect flicker.
   const [activeCredentialId, setActiveCredentialId] = useState<number | null>(null)
   if (activeCredentialId !== (current2fa?.credentialId ?? null)) {
     setActiveCredentialId(current2fa?.credentialId ?? null)

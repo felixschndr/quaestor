@@ -202,16 +202,12 @@ export function isManualBank(bank: string | undefined): boolean {
 
 // Providers whose device-code/OAuth login never hands back a code to paste into Quaestor.
 const NO_CODE_AUTH_PROVIDERS = new Set(['scalable_capital'])
-
-/** Placeholder code submitted for no-code providers; the backend ignores it. */
 export const NO_CODE_PLACEHOLDER = 'confirmed'
 
 export function isNoCodeAuthProvider(bank: string | undefined): boolean {
   return bank !== undefined && NO_CODE_AUTH_PROVIDERS.has(bank)
 }
 
-// Fallback for backends that only report the URL: the device-code flow puts the verification
-// code in `?user_code=...` whenever the auth server returns a complete verification URI.
 export function deviceCodeFromAuthorizationUrl(
   authorizationUrl: string | null | undefined,
 ): string | null {

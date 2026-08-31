@@ -324,8 +324,7 @@
       "title": "Trade Republic"
     },
     "scalable_capital": {
-      "title": "Scalable Capital",
-      "note": "Verbindung über das offizielle Scalable Capital CLI. Du bestätigst die Anmeldung selbst in deinem Browser, hier wird kein Passwort eingegeben."
+      "title": "Scalable Capital"
     },
     "manual": {
       "title": "Manuelles Konto",

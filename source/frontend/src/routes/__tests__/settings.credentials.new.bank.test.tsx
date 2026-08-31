@@ -997,7 +997,12 @@ describe('NewCredentialFormView', () => {
   })
 
   describe('Scalable Capital no-code 2FA flow', () => {
-    function mockBackend(fetchMock: Mock, credentialId: number, jobId: string) {
+    function mockBackend(
+      fetchMock: Mock,
+      credentialId: number,
+      jobId: string,
+      failConfirm = false,
+    ) {
       fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
         const poll = pollBranch(url, init)
         if (poll) return poll
@@ -1034,6 +1039,7 @@ describe('NewCredentialFormView', () => {
           url === `/api/credentials/${credentialId}/sync/${jobId}/2fa` &&
           init?.method === 'POST'
         ) {
+          if (failConfirm) return Promise.resolve(jsonResponse({ status: 422, body: {} }))
           return Promise.resolve(
             jsonResponse({
               status: 202,
@@ -1177,6 +1183,41 @@ describe('NewCredentialFormView', () => {
       expect(
         screen.queryByRole('button', { name: "I've completed the login" }),
       ).not.toBeInTheDocument()
+    })
+
+    it('bounces back to onSyncFailed when the no-code confirmation errors', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+      mockBackend(fetchMock, 9, 'job-sc', true)
+      const onConnected = vi.fn()
+      const onSyncFailed = vi.fn()
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankKey="scalable_capital"
+          bank={SCALABLE_CAPITAL_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={onConnected}
+          onSyncFailed={onSyncFailed}
+        />,
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+      await waitForFirstPoll()
+      await pushJob({
+        job_id: 'job-sc',
+        credential_id: 9,
+        status: 'awaiting_2fa',
+        expires_at: DATETIME_FAR_FUTURE,
+        error: null,
+        authorization_url: 'https://secure.scalable.capital/activate?user_code=ABCD-EFGH',
+      })
+
+      await user.click(screen.getByRole('button', { name: "I've completed the login" }))
+
+      await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
+      expect(onConnected).not.toHaveBeenCalled()
     })
   })
 

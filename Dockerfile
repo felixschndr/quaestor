@@ -37,9 +37,6 @@ RUN poetry install --no-root --without dev
 RUN python -m compileall -q /app/.venv/lib || true
 
 
-# Official Scalable Capital CLI (https://github.com/ScalableCapital/scalable-cli). Version and
-# checksums are pinned so the build stays reproducible and the archive is verified before it is used.
-# The checksums come from the minisign-signed `sc-${SC_VERSION}-SHA256SUMS` release asset.
 FROM python:3.14-slim-trixie AS scalable-cli-builder
 
 ARG TARGETARCH
