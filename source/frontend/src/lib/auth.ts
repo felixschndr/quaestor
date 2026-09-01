@@ -184,6 +184,7 @@ export interface Current2FA {
   bankIcon: string | null
   kind: 'awaiting_2fa' | 'confirming' | 'awaiting_decoupled_approval'
   authorizationUrl?: string | null
+  deviceCode?: string | null
 }
 
 export interface UseGlobalSyncResult {
@@ -366,6 +367,7 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
             ? 'confirming'
             : 'awaiting_2fa',
       authorizationUrl: job.authorization_url ?? null,
+      deviceCode: job.device_code ?? null,
     }
   }, [current2faId, jobs, credentialDisplay])
 

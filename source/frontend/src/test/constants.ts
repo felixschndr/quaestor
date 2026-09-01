@@ -7,6 +7,11 @@ export const TEST_IBAN = 'DE12345678900001'
 export const TEST_IBAN_FORMATTED = 'DE12 3456 7890 0001'
 export const TEST_TOTP_SECRET = 'JBSWY3DPEHPK3PXP'
 
+export const DEVICE_CODE = 'ABCD-EFGH'
+export const SECOND_DEVICE_CODE = 'WXYZ-1234'
+export const AUTHORIZATION_URL = 'https://secure.scalable.capital/activate'
+export const AUTHORIZATION_URL_WITH_CODE = `${AUTHORIZATION_URL}?user_code=${DEVICE_CODE}`
+
 export const ACCOUNT_NAME_CHECKING = 'Gehaltskonto'
 export const ACCOUNT_NAME_SAVINGS = 'Sparkonto'
 export const ACCOUNT_NAME_GIRO = 'Girokonto'

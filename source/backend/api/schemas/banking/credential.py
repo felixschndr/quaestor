@@ -38,6 +38,7 @@ class SyncJobRead(BaseModel):
     error: str | None = None
     error_code: JobErrorCode | None = None
     authorization_url: str | None = None
+    device_code: str | None = None
 
 
 class TwoFactorCode(BaseModel):

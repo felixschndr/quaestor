@@ -323,6 +323,9 @@
     "trade_republic": {
       "title": "Trade Republic"
     },
+    "scalable_capital": {
+      "title": "Scalable Capital"
+    },
     "manual": {
       "title": "Manual account",
       "note": "A manual account: balance and transactions are entered by hand."
@@ -394,6 +397,10 @@
     "decoupledApproval": {
       "title": "Please approve in your banking app",
       "description": "We're waiting for you to approve the request in your banking app. Open the app and confirm to let the sync continue."
+    },
+    "confirming": {
+      "title": "Finishing up …",
+      "description": "We're confirming your login and fetching your accounts and transactions. This can take a moment, especially on the first sync — no need to do anything else."
     },
     "neverSynced": "Never synced",
     "autoSync": {
@@ -567,7 +574,11 @@
       "decoupledTitle": "Approve in {{bank}}",
       "decoupledDescription": "Please open your {{bank}} app and approve the request. We're waiting for your confirmation.",
       "authorizeDescription": "Sign in at {{bank}} via the link and approve access. You will land on a page showing a code — paste it here.",
-      "authorizeLink": "Sign in at {{bank}}"
+      "authorizeLink": "Sign in at {{bank}}",
+      "authorizeNoCodeTitle": "Sign in to {{bank}}",
+      "authorizeNoCodeDescription": "Sign in at {{bank}} via the link below, then confirm here once you're done. No code needed.",
+      "verifyCodeLabel": "Verify this code matches the one shown on the sign-in page",
+      "authorizeNoCodeConfirm": "I've completed the login"
     },
     "skipped": "{{bank}} skipped.",
     "failed": "{{bank}} couldn't be synced.",

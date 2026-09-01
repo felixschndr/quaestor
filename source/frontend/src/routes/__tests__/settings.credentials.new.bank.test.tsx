@@ -12,9 +12,10 @@ vi.mock('@tanstack/react-router', async () =>
 )
 
 import { NewCredentialFormView } from '@/pages/settings.credentials.new.$bank'
+import { NO_CODE_PLACEHOLDER } from '@/lib/credentials'
 import type { SupportedBank, SyncJob } from '@/lib/credentials'
 import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
-import { DATETIME_FAR_FUTURE } from '@/test/constants'
+import { AUTHORIZATION_URL_WITH_CODE, DATETIME_FAR_FUTURE, DEVICE_CODE } from '@/test/constants'
 
 const ING_BANK: SupportedBank = {
   provider: 'ing',
@@ -63,6 +64,18 @@ const TR_BANK: SupportedBank = {
       rules: [{ name: 'pin_four_digits', regex: '^\\d{4}$', description: 'be exactly 4 digits' }],
     },
   },
+}
+
+// Device-code/OAuth login: no credential fields, no code ever comes back from the provider.
+const SCALABLE_CAPITAL_BANK: SupportedBank = {
+  provider: 'scalable_capital',
+  key: 'scalable_capital',
+  name: 'Scalable Capital',
+  bic: null,
+  icon: '/static/banks/scalable-capital.png',
+  tested: true,
+  required_fields: [],
+  blzs: [],
 }
 
 // A grouped FinTS bank with a single branch BLZ: only login + PIN, BLZ injected on submit.
@@ -978,6 +991,231 @@ describe('NewCredentialFormView', () => {
       const codeInput = await screen.findByLabelText('Code')
       await user.type(codeInput, 'wrong')
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+      await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
+      expect(onConnected).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Scalable Capital no-code 2FA flow', () => {
+    function mockBackend(
+      fetchMock: Mock,
+      credentialId: number,
+      jobId: string,
+      failConfirm = false,
+    ) {
+      fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
+        const poll = pollBranch(url, init)
+        if (poll) return poll
+        if (url === '/api/credentials' && init?.method === 'POST') {
+          return Promise.resolve(
+            jsonResponse({
+              status: 201,
+              body: {
+                id: credentialId,
+                bank: 'scalable_capital',
+                accounts: [],
+                last_fetching_timestamp: null,
+                requires_two_factor_authentication: false,
+                sync_enabled: true,
+              },
+            }),
+          )
+        }
+        if (url === `/api/credentials/${credentialId}/sync` && init?.method === 'POST') {
+          return Promise.resolve(
+            jsonResponse({
+              status: 202,
+              body: {
+                job_id: jobId,
+                credential_id: credentialId,
+                status: 'running',
+                expires_at: null,
+                error: null,
+              },
+            }),
+          )
+        }
+        if (
+          url === `/api/credentials/${credentialId}/sync/${jobId}/2fa` &&
+          init?.method === 'POST'
+        ) {
+          if (failConfirm) return Promise.resolve(jsonResponse({ status: 422, body: {} }))
+          return Promise.resolve(
+            jsonResponse({
+              status: 202,
+              body: {
+                job_id: jobId,
+                credential_id: credentialId,
+                status: 'running',
+                expires_at: null,
+                error: null,
+              },
+            }),
+          )
+        }
+        return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+      })
+    }
+
+    it('shows an authorize link and a no-code confirm button instead of a code field', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+      mockBackend(fetchMock, 9, 'job-sc')
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankKey="scalable_capital"
+          bank={SCALABLE_CAPITAL_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={vi.fn()}
+          onSyncFailed={vi.fn()}
+        />,
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+      await waitForFirstPoll()
+
+      await pushJob({
+        job_id: 'job-sc',
+        credential_id: 9,
+        status: 'awaiting_2fa',
+        expires_at: DATETIME_FAR_FUTURE,
+        error: null,
+        authorization_url: AUTHORIZATION_URL_WITH_CODE,
+      })
+
+      expect(
+        await screen.findByRole('link', { name: /sign in at scalable capital/i }),
+      ).toHaveAttribute('href', AUTHORIZATION_URL_WITH_CODE)
+      expect(screen.getByText(DEVICE_CODE)).toBeVisible()
+      expect(screen.queryByLabelText('Code')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: "I've completed the login" })).toBeInTheDocument()
+    })
+
+    it('confirms without a code and routes to onConnected after the WS pushes completed', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+      mockBackend(fetchMock, 9, 'job-sc')
+      const onConnected = vi.fn()
+      const onSyncFailed = vi.fn()
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankKey="scalable_capital"
+          bank={SCALABLE_CAPITAL_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={onConnected}
+          onSyncFailed={onSyncFailed}
+        />,
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+      await waitForFirstPoll()
+      await pushJob({
+        job_id: 'job-sc',
+        credential_id: 9,
+        status: 'awaiting_2fa',
+        expires_at: DATETIME_FAR_FUTURE,
+        error: null,
+        authorization_url: AUTHORIZATION_URL_WITH_CODE,
+      })
+
+      await user.click(screen.getByRole('button', { name: "I've completed the login" }))
+
+      await pushJob({
+        job_id: 'job-sc',
+        credential_id: 9,
+        status: 'completed',
+        expires_at: null,
+        error: null,
+      })
+
+      await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
+      expect(onSyncFailed).not.toHaveBeenCalled()
+
+      const confirmCall = fetchMock.mock.calls.find(
+        ([url, init]) => url === '/api/credentials/9/sync/job-sc/2fa' && init?.method === 'POST',
+      )!
+      expect(JSON.parse(confirmCall[1].body)).toEqual({ code: NO_CODE_PLACEHOLDER })
+    })
+
+    it('shows a waiting message instead of the connect form while confirming_2fa is in progress', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+      mockBackend(fetchMock, 9, 'job-sc')
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankKey="scalable_capital"
+          bank={SCALABLE_CAPITAL_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={vi.fn()}
+          onSyncFailed={vi.fn()}
+        />,
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+      await waitForFirstPoll()
+      await pushJob({
+        job_id: 'job-sc',
+        credential_id: 9,
+        status: 'awaiting_2fa',
+        expires_at: DATETIME_FAR_FUTURE,
+        error: null,
+        authorization_url: AUTHORIZATION_URL_WITH_CODE,
+      })
+      await user.click(screen.getByRole('button', { name: "I've completed the login" }))
+
+      // confirming_2fa spans the whole first sync — must show a waiting state, not the form again.
+      await pushJob({
+        job_id: 'job-sc',
+        credential_id: 9,
+        status: 'confirming_2fa',
+        expires_at: null,
+        error: null,
+      })
+
+      expect(await screen.findByText(/Finishing up/)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Connect and sync' })).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: "I've completed the login" }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('bounces back to onSyncFailed when the no-code confirmation errors', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+      mockBackend(fetchMock, 9, 'job-sc', true)
+      const onConnected = vi.fn()
+      const onSyncFailed = vi.fn()
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankKey="scalable_capital"
+          bank={SCALABLE_CAPITAL_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={onConnected}
+          onSyncFailed={onSyncFailed}
+        />,
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+      await waitForFirstPoll()
+      await pushJob({
+        job_id: 'job-sc',
+        credential_id: 9,
+        status: 'awaiting_2fa',
+        expires_at: DATETIME_FAR_FUTURE,
+        error: null,
+        authorization_url: AUTHORIZATION_URL_WITH_CODE,
+      })
+
+      await user.click(screen.getByRole('button', { name: "I've completed the login" }))
 
       await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
       expect(onConnected).not.toHaveBeenCalled()

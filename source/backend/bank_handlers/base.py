@@ -16,6 +16,7 @@ class TwoFactorChallenge:
     challenge_token: str
     expires_at: datetime
     authorization_url: str | None = None
+    device_code: str | None = None
 
 
 @dataclass(frozen=True)

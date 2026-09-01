@@ -22,10 +22,14 @@ import {
   useSyncJob,
   type CredentialFieldSpec,
   type SupportedBank,
+  NO_CODE_PLACEHOLDER,
   bankDisplayName,
+  deviceCodeFromAuthorizationUrl,
+  isNoCodeAuthProvider,
   viaHandlerLabel,
 } from '@/lib/credentials'
 import { BackLink } from '@/components/back-link'
+import { DeviceCodeAuthorization } from '@/components/device-code-authorization'
 
 export interface NewCredentialFormViewProps {
   bankKey: string
@@ -269,11 +273,30 @@ function CredentialForm({
     }
   }
 
+  const handleNoCodeConfirm = async () => {
+    if (!activeJob) return
+    try {
+      await confirm2fa.mutateAsync({
+        credentialId: activeJob.credentialId,
+        jobId: activeJob.jobId,
+        code: NO_CODE_PLACEHOLDER,
+      })
+    } catch {
+      toast.error(t('credentials.twoFactor.failed'))
+      onSyncFailed()
+    }
+  }
+
   const showCodeForm = job?.status === 'awaiting_2fa'
+  const noCodeRequired = isNoCodeAuthProvider(bank.provider)
   const showDecoupledApproval = job?.status === 'awaiting_decoupled_approval'
+  const showConfirming = job?.status === 'confirming_2fa'
   const isSyncing =
     activeJob !== null &&
-    (job === null || job.status === 'running' || job.status === 'awaiting_decoupled_approval')
+    (job === null ||
+      job.status === 'running' ||
+      job.status === 'awaiting_decoupled_approval' ||
+      job.status === 'confirming_2fa')
 
   if (showDecoupledApproval) {
     return (
@@ -284,6 +307,33 @@ function CredentialForm({
         <p className="text-muted-foreground text-sm">
           {t('credentials.decoupledApproval.description')}
         </p>
+      </div>
+    )
+  }
+
+  if (showConfirming) {
+    return (
+      <div role="status" aria-live="polite" className="flex flex-col gap-2">
+        <p className="text-foreground text-sm font-medium">{t('credentials.confirming.title')}</p>
+        <p className="text-muted-foreground text-sm">{t('credentials.confirming.description')}</p>
+      </div>
+    )
+  }
+
+  if (showCodeForm && noCodeRequired) {
+    const authorizationUrl = job?.authorization_url ?? null
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="text-muted-foreground text-sm">
+          {t('sync.twoFactor.authorizeNoCodeDescription', { bank: bankTitle })}
+        </p>
+        <DeviceCodeAuthorization
+          bankTitle={bankTitle}
+          authorizationUrl={authorizationUrl}
+          deviceCode={job?.device_code ?? deviceCodeFromAuthorizationUrl(authorizationUrl)}
+          pending={confirm2fa.isPending}
+          onConfirm={() => void handleNoCodeConfirm()}
+        />
       </div>
     )
   }
