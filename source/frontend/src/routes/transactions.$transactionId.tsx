@@ -59,6 +59,9 @@ function TransactionDetailPage() {
   if (!query.data) return <TransactionNotFoundView />
 
   const found = findAccountInUser(user, accountId)
+  const permission = found?.sharePermission ?? null
+  const isOwner = permission === null
+  const canWrite = isOwner || permission === 'write'
   const account = found?.account
   const accountName = account ? account.display_name?.trim() || account.name : null
 
@@ -77,6 +80,7 @@ function TransactionDetailPage() {
       bankIcon: resolved?.bankIcon ?? null,
       isMarketValued: resolvedAccount?.is_market_valued ?? false,
       isCurrent,
+      isAccessible: resolvedAccount !== null,
     }
   }
 
@@ -96,9 +100,11 @@ function TransactionDetailPage() {
       : null
   const viewingLinkSourceItself =
     linkSource?.accountId === accountId && linkSource?.transactionId === transactionId
-  const canStartLink = linkSource === null && !query.data.pending
+  const canStartLink = linkSource === null && !query.data.pending && isOwner
   const allAccountIds =
-    user?.credentials.flatMap((credential) => credential.accounts.map((a) => a.id)) ?? []
+    user?.credentials
+      .filter((credential) => !credential.shared_from)
+      .flatMap((credential) => credential.accounts.map((a) => a.id)) ?? []
 
   return (
     <TransactionDetailView
@@ -110,17 +116,23 @@ function TransactionDetailPage() {
       bankIcon={found?.bankIcon ?? null}
       flowMembers={flowMembers}
       linking={linkSource !== null}
+      canWrite={canWrite}
+      canUnlink={isOwner}
       onSaveNote={(note) => update.mutateAsync({ note })}
       onChangeCategory={(category) => update.mutateAsync({ category })}
       onUnlink={(transaction) =>
         unlink.mutateAsync({ accountId: transaction.account_id, transactionId: transaction.id })
       }
       contractSection={
-        query.data.pending ? undefined : <ContractSection transaction={query.data} />
+        query.data.pending || !isOwner ? undefined : <ContractSection transaction={query.data} />
       }
       attachmentsSection={
         query.data.pending ? undefined : (
-          <AttachmentSection accountId={accountId} transactionId={transactionId} />
+          <AttachmentSection
+            accountId={accountId}
+            transactionId={transactionId}
+            canWrite={canWrite}
+          />
         )
       }
       linkSection={
@@ -134,7 +146,7 @@ function TransactionDetailPage() {
         ) : undefined
       }
       linkConfirmSection={
-        linkSource && !viewingLinkSourceItself && !query.data.pending ? (
+        linkSource && !viewingLinkSourceItself && !query.data.pending && isOwner ? (
           <LinkConfirmSection source={linkSource} targetAccountId={accountId} target={query.data} />
         ) : undefined
       }
@@ -249,9 +261,11 @@ function formatBytes(bytes: number): string {
 function AttachmentSection({
   accountId,
   transactionId,
+  canWrite,
 }: {
   accountId: number
   transactionId: number
+  canWrite: boolean
 }) {
   const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -298,7 +312,7 @@ function AttachmentSection({
     })
   }
 
-  const addButton = (
+  const addButton = !canWrite ? null : (
     <Button
       type="button"
       variant="outline"
@@ -334,15 +348,17 @@ function AttachmentSection({
                     {formatDate(attachment.created_at)} · {formatBytes(attachment.size)}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => remove.mutate(attachment.id)}
-                  disabled={remove.isPending}
-                  aria-label={t('attachments.delete')}
-                  className="text-muted-foreground hover:text-destructive ml-auto shrink-0 transition-colors"
-                >
-                  <Trash2 className="size-4" aria-hidden="true" />
-                </button>
+                {canWrite ? (
+                  <button
+                    type="button"
+                    onClick={() => remove.mutate(attachment.id)}
+                    disabled={remove.isPending}
+                    aria-label={t('attachments.delete')}
+                    className="text-muted-foreground hover:text-destructive ml-auto shrink-0 transition-colors"
+                  >
+                    <Trash2 className="size-4" aria-hidden="true" />
+                  </button>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -383,6 +399,7 @@ export interface FlowMemberView {
   bankIcon: string | null
   isMarketValued: boolean
   isCurrent: boolean
+  isAccessible: boolean
 }
 
 // Order a flow the way the money travels: by date, then non-depot accounts before the market-valued depot
@@ -411,6 +428,8 @@ export interface TransactionDetailViewProps {
   bankIcon?: string | null
   flowMembers: FlowMemberView[]
   linking?: boolean
+  canWrite?: boolean
+  canUnlink?: boolean
   onSaveNote: (note: string | null) => Promise<unknown>
   onChangeCategory: (category: TransactionCategory) => Promise<unknown>
   onUnlink: (transaction: TransactionRead) => Promise<unknown>

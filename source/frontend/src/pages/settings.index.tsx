@@ -7,17 +7,24 @@ import {
   Info,
   KeyRound,
   LogOut,
+  Check,
   MonitorSmartphone,
   Palette,
   ShieldCheck,
   Tag,
   Trash2,
   User,
+  Users,
+  X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
+import { toast } from 'sonner'
+
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import type { AccountShareInvitation } from '@/lib/auth'
+import { useRespondToInvitation } from '@/lib/accountShares'
 import type { SettingsIndexViewProps } from '@/routes/settings.index'
 import { BackLink } from '@/components/back-link'
 
@@ -37,6 +44,7 @@ export function SettingsIndexView({
   logoutPending,
   onLogout,
   serverVersion,
+  invitations = [],
 }: SettingsIndexViewProps) {
   const { t } = useTranslation()
   const versionDescription =
@@ -62,6 +70,9 @@ export function SettingsIndexView({
 
       <nav aria-label={t('settings.title')} className="flex flex-col gap-4">
         <ul className="border-border bg-card flex flex-col rounded-lg border">
+          {invitations.map((invitation) => (
+            <InvitationRow key={invitation.id} invitation={invitation} />
+          ))}
           <SettingsLink
             to="/settings/credentials"
             icon={CreditCard}
@@ -139,6 +150,66 @@ export function SettingsIndexView({
         </ul>
       </nav>
     </main>
+  )
+}
+
+function InvitationRow({ invitation }: { invitation: AccountShareInvitation }) {
+  const { t } = useTranslation()
+  const respond = useRespondToInvitation()
+
+  const onRespond = async (accept: boolean) => {
+    try {
+      await respond.mutateAsync({ shareId: invitation.id, accept })
+      toast.success(
+        t(accept ? 'accountShares.invitation.accepted' : 'accountShares.invitation.declined', {
+          account: invitation.account_name,
+        }),
+      )
+    } catch {
+      toast.error(t('accountShares.invitation.respondFailed'))
+    }
+  }
+
+  return (
+    <li className="border-border/40 border-t first:border-t-0">
+      <div className="flex items-center gap-3 px-3 py-3">
+        <Users className="text-warning size-5 shrink-0" aria-hidden="true" />
+        <span className="flex flex-1 flex-col">
+          <span className="text-warning text-sm font-medium">
+            {t('accountShares.invitation.title', { owner: invitation.owner_name })}
+          </span>
+          <span className="text-warning/80 text-xs">
+            {t('accountShares.invitation.description', {
+              account: invitation.account_name,
+              bank: invitation.bank_name,
+              permission: t(`accountShares.permission.${invitation.permission}`),
+            })}
+          </span>
+        </span>
+        <Button
+          type="button"
+          variant="primary"
+          size="sm"
+          disabled={respond.isPending}
+          aria-label={t('accountShares.invitation.accept')}
+          title={t('accountShares.invitation.accept')}
+          onClick={() => void onRespond(true)}
+        >
+          <Check className="size-3.5" aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          disabled={respond.isPending}
+          aria-label={t('accountShares.invitation.decline')}
+          title={t('accountShares.invitation.decline')}
+          onClick={() => void onRespond(false)}
+        >
+          <X className="size-3.5" aria-hidden="true" />
+        </Button>
+      </div>
+    </li>
   )
 }
 

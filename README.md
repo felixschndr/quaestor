@@ -123,6 +123,7 @@ The tool is strictly read-only: it only ever *reads* your data and can **never**
 - **Manual accounts**: Track anything your banks don't cover (cash, a loan, a friend's IOU) by entering balances and transactions by hand
 - **Account groups**: Drag accounts into your own groups to organize the overview
 - **Custom display names** for accounts, and hide the ones you don't want to see
+- **Account sharing**: Share an account with another user, with read-only or write access
 
 ### Transactions
 

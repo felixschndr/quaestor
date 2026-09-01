@@ -11,6 +11,7 @@ from pydantic import (
 )
 
 from source.backend.api.schemas.banking.credential import CredentialRead
+from source.backend.models.accounts.account_share import SharePermission, ShareStatus
 from source.backend.models.auth.theme import Theme
 from source.backend.services.core import i18n_service
 
@@ -85,8 +86,55 @@ class PasswordRequirements(BaseModel):
     rules: list[PasswordRule]
 
 
-class UserRead(BaseModel):
+class AccountShareInvitationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    account_name: str
+    bank_name: str
+    owner_name: str
+    permission: SharePermission
+
+
+class AccountShareRecipientRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    display_name: str
+    permission: SharePermission
+    status: ShareStatus
+
+
+class ShareableUserRead(BaseModel):
+    """No `user_name`: picking someone to share with must not hand every login name to every user."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    display_name: str
+
+
+class AccountShareWrite(BaseModel):
+    user_id: int
+    permission: SharePermission
+
+
+class AccountSharePermissionUpdate(BaseModel):
+    permission: SharePermission
+
+
+class AccountShareSettingsUpdate(BaseModel):
+    """What a recipient may change about a shared account — their own labels, never the owner's."""
+
+    display_name: Annotated[str, Field(max_length=150)] | None = None
+    balance_factor: Annotated[float, Field(ge=0, le=100)] | None = None
+    is_hidden: bool | None = None
+    include_by_default: bool | None = None
+
+
+class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: int
     user_name: str
@@ -97,7 +145,8 @@ class UserRead(BaseModel):
     two_factor_enabled: bool
     show_upcoming_contracts: bool
     balance: float
-    credentials: list[CredentialRead] = []
+    credentials: list[CredentialRead] = Field(default=[], validation_alias="visible_credentials")
+    account_share_invitations: list[AccountShareInvitationRead] = []
 
 
 class UserLogin(BaseModel):

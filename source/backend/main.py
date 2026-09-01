@@ -16,7 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import StreamingResponse
 from starlette.types import Scope
 
-from source.backend.api.accounts import account, account_groups
+from source.backend.api.accounts import account, account_groups, account_shares
 from source.backend.api.auth import api_keys, auth, users
 from source.backend.api.banking import credentials
 from source.backend.api.contracts import contracts
@@ -294,6 +294,7 @@ async def prevent_caching_of_sensitive_responses(
 for api_object in [
     account,
     account_groups,
+    account_shares,
     api_keys,
     auth,
     contracts,

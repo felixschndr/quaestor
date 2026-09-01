@@ -49,6 +49,7 @@ function flowMemberOf(
   transaction: TransactionRead,
   accountName: string | null = ACCOUNT_NAME_SAVINGS,
   isCurrent = false,
+  isAccessible = true,
 ) {
   return {
     transaction,
@@ -57,6 +58,7 @@ function flowMemberOf(
     bankIcon: null,
     isMarketValued: false,
     isCurrent,
+    isAccessible,
   }
 }
 
@@ -208,6 +210,29 @@ describe('TransactionDetailView', () => {
     renderView({ flow_members: [memberTransaction] })
     const link = screen.getByRole('link', { name: new RegExp(ACCOUNT_NAME_SAVINGS) })
     expect(link).toHaveAttribute('href', '/transactions/99')
+  })
+
+  it('renders a flow member we cannot open as plain text instead of a link', () => {
+    const transaction = buildTransaction({ flow_members: [memberTransaction] })
+    render(
+      <TransactionDetailView
+        accountId={42}
+        transaction={transaction}
+        flowMembers={[
+          flowMemberOf(transaction, ACCOUNT_NAME_GIRO, true),
+          flowMemberOf(memberTransaction, null, false, false),
+        ]}
+        onSaveNote={vi.fn()}
+        onChangeCategory={vi.fn()}
+        onUnlink={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen
+        .queryAllByRole('link')
+        .some((link) => link.getAttribute('href') === '/transactions/99'),
+    ).toBe(false)
   })
 
   it('offers an unlink control next to every flow member', () => {
@@ -420,6 +445,7 @@ describe('compareFlowMembers', () => {
     bankIcon: null,
     isMarketValued: over.isMarketValued ?? false,
     isCurrent: false,
+    isAccessible: true,
   })
 
   it('orders a broker purchase the way the money travels', () => {

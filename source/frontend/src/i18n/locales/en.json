@@ -187,7 +187,7 @@
       "hide": "Hide amounts",
       "show": "Show amounts"
     },
-    "upcoming": "Due soon",
+    "upcoming": "Due soon contracts",
     "trendRange": "in the past month",
     "contractsOverdue_one": "Contracts – {{count}} overdue",
     "contractsOverdue_other": "Contracts – {{count}} overdue"
@@ -583,7 +583,8 @@
     "skipped": "{{bank}} skipped.",
     "failed": "{{bank}} couldn't be synced.",
     "rateLimited": "{{bank}} received too many requests. Please try again later.",
-    "unsupportedBank": "The FinTS server for {{bank}} currently can't be found. Please contact your administrator."
+    "unsupportedBank": "The FinTS server for {{bank}} currently can't be found. Please contact your administrator.",
+    "notAllowedForShare": "Only its owner can refresh this account"
   },
   "transaction": {
     "otherParty": "Other party",
@@ -908,6 +909,42 @@
     "statusLabel": "Status",
     "statusOption": {
       "active": "Active"
+    }
+  },
+  "accountShares": {
+    "title": "Shares",
+    "empty": "This account is not shared yet.",
+    "noUsers": "There are no other users you could share this account with.",
+    "selectUser": "Select a user",
+    "permissionLabel": "Permission",
+    "permission": {
+      "read": "Read only",
+      "write": "Read and write"
+    },
+    "invite": "Invite",
+    "pending": "Waiting for a response",
+    "revoke": "Revoke the share",
+    "leave": "Leave the share",
+    "shared": "Invitation sent",
+    "shareFailed": "The invitation could not be sent",
+    "sharedBy": "Shared by {{owner}}",
+    "sharedWithYou": "{{owner}} shared this account with you {{permission}}.",
+    "pendingInvitations_one": "Settings – {{count}} pending account share",
+    "pendingInvitations_other": "Settings – {{count}} pending account shares",
+    "invitation": {
+      "title": "Account share from {{owner}}",
+      "description": "{{account}} ({{bank}}) · {{permission}}",
+      "accept": "Accept",
+      "decline": "Decline",
+      "accepted": "Accepted {{account}}",
+      "declined": "Declined {{account}}",
+      "respondFailed": "The response could not be saved"
+    },
+    "left": "Share left",
+    "leaveFailed": "The share could not be left",
+    "permissionAdverb": {
+      "read": "with read access",
+      "write": "with read and write access"
     }
   }
 }

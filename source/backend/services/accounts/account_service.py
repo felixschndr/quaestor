@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import Select, false, func, select
+from sqlalchemy import Select, false, func, or_, select
 from sqlalchemy.orm import Session
 
 from source.backend.bank_handlers import BankProvider
@@ -16,6 +16,7 @@ from source.backend.helpers import apply_fields
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
 from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot, BalanceSnapshotSource
+from source.backend.models.accounts.account_share import AccountShare, SharePermission, ShareStatus
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.base import snapshot_columns
@@ -68,15 +69,62 @@ DEFAULT_DAYS_PER_PAGE = 30
 MAX_DAYS_PER_PAGE = 365
 
 
-def list_accounts(db_session: Session, user: User) -> list[Account]:
-    stmt = (
-        select(Account)
+def owned_account_ids_select(user_id: int) -> Select[tuple[int]]:
+    return (
+        select(Account.id)
         .join(Credential, onclause=Account.credential_id == Credential.id)
-        .where(Credential.user_id == user.id)
+        .where(Credential.user_id == user_id)
     )
+
+
+def accessible_account_ids_select(user_id: int) -> Select[tuple[int]]:
+    shared = (
+        select(AccountShare.account_id)
+        .where(AccountShare.user_id == user_id)
+        .where(AccountShare.status == ShareStatus.ACCEPTED)
+    )
+    return (
+        select(Account.id)
+        .join(Credential, onclause=Account.credential_id == Credential.id)
+        .where(or_(Credential.user_id == user_id, Account.id.in_(shared)))  # noqa: FKA100
+    )
+
+
+def list_accounts(db_session: Session, user: User) -> list[Account]:
+    stmt = select(Account).where(Account.id.in_(accessible_account_ids_select(user.id)))
     accounts = list(db_session.scalars(stmt))
     logger.debug(f"Found {len(accounts)} account(s) for {user}")
     return accounts
+
+
+def share_for_user(account: Account, user: User) -> AccountShare | None:
+    return next(
+        (share for share in account.shares if share.user_id == user.id and share.status is ShareStatus.ACCEPTED),
+        None,
+    )
+
+
+def owns(account: Account, user: User) -> bool:
+    return account.credential.user_id == user.id
+
+
+def can_read(account: Account, user: User) -> bool:
+    return owns(account=account, user=user) or share_for_user(account=account, user=user) is not None
+
+
+def require_owned_account(account: Account, user: User) -> Account:
+    if not owns(account=account, user=user):
+        raise PermissionDeniedError(f"{account} is shared with {user}, who may not perform this action on it")
+    return account
+
+
+def require_writable_account(account: Account, user: User) -> Account:
+    if owns(account=account, user=user):
+        return account
+    share = share_for_user(account=account, user=user)
+    if share is None or share.permission is not SharePermission.WRITE:
+        raise PermissionDeniedError(f"{user} only has read access to {account}")
+    return account
 
 
 def get_account(db_session: Session, account_id: int) -> Account:
@@ -91,7 +139,7 @@ def get_account(db_session: Session, account_id: int) -> Account:
 
 def get_account_for_user(db_session: Session, account_id: int, user: User) -> Account:
     account = get_account(db_session=db_session, account_id=account_id)
-    if account.credential.user_id != user.id:
+    if not can_read(account=account, user=user):
         logger.warning(f"{user} attempted to access {account} owned by user {account.credential.user_id}")
         raise AccountNotFoundError(f"Account with the ID {account_id} not found")
     logger.debug(f"{user} accessed {account}")
@@ -117,7 +165,7 @@ def get_transaction_for_user(db_session: Session, transaction_id: int, user: Use
     if transaction is None:
         logger.warning(f"Transaction with the ID {transaction_id} not found")
         raise not_found_error
-    if transaction.account.credential.user_id != user.id:
+    if not can_read(account=transaction.account, user=user):
         logger.warning(f"{user} attempted to access {transaction} owned by another user")
         raise not_found_error
     logger.debug(f"{user} accessed {transaction}")
@@ -460,24 +508,32 @@ def get_history_page(
     return transactions, balance_at_date, total_days
 
 
-def resolve_owned_account_ids(db_session: Session, user: User, account_ids: list[int]) -> list[int]:
+def _resolve_account_ids(
+    db_session: Session, user: User, account_ids: list[int], scope: Select[tuple[int]]
+) -> list[int]:
     if not account_ids:
         return []
-    owned_account_ids = {
-        account.id
-        for account in db_session.scalars(
-            select(Account)
-            .join(Credential, onclause=Account.credential_id == Credential.id)
-            .where(Credential.user_id == user.id)
-            .where(Account.id.in_(account_ids))
-        )
-    }
-    unknown_account_ids = set(account_ids) - owned_account_ids
+    resolved = set(
+        db_session.scalars(select(Account.id).where(Account.id.in_(scope)).where(Account.id.in_(account_ids)))
+    )
+    unknown_account_ids = set(account_ids) - resolved
     if unknown_account_ids:
-        logger.warning(f"{user} attempted to access accounts they don't own: {sorted(unknown_account_ids)}")
+        logger.warning(f"{user} attempted to access accounts they cannot reach: {sorted(unknown_account_ids)}")
         raise AccountNotFoundError(f"Account(s) {sorted(unknown_account_ids)} not found")
-    logger.debug(f"Resolved {len(owned_account_ids)} owned account(s) for {user}")
-    return list(owned_account_ids)
+    logger.debug(f"Resolved {len(resolved)} account(s) for {user}")
+    return list(resolved)
+
+
+def resolve_owned_account_ids(db_session: Session, user: User, account_ids: list[int]) -> list[int]:
+    return _resolve_account_ids(
+        db_session=db_session, user=user, account_ids=account_ids, scope=owned_account_ids_select(user.id)
+    )
+
+
+def resolve_accessible_account_ids(db_session: Session, user: User, account_ids: list[int]) -> list[int]:
+    return _resolve_account_ids(
+        db_session=db_session, user=user, account_ids=account_ids, scope=accessible_account_ids_select(user.id)
+    )
 
 
 def get_filtered_transactions_for_user(
@@ -486,7 +542,9 @@ def get_filtered_transactions_for_user(
     account_ids_to_search_through: list[int],
     filter_parameters: dict,
 ) -> list[Transaction]:
-    account_ids = resolve_owned_account_ids(db_session=db_session, user=user, account_ids=account_ids_to_search_through)
+    account_ids = resolve_accessible_account_ids(
+        db_session=db_session, user=user, account_ids=account_ids_to_search_through
+    )
     if not account_ids:
         return []
 

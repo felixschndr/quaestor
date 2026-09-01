@@ -1,10 +1,12 @@
 import type { AccountRead, CredentialRead, UserRead } from './auth'
 import type { AccountGroupAccountRef, AccountGroupLayout } from './accountGroups'
+import { isSharedCredential } from './accountShares'
 
 export interface AccountWithBank extends AccountRead {
   bank: string
   bankName: string | null
   bankIcon: string | null
+  shared: boolean
 }
 
 export interface DisplayGroup {
@@ -22,6 +24,7 @@ export function buildAccountLookup(credentials: CredentialRead[]): Map<number, A
         bank: credential.bank,
         bankName: credential.bank_name,
         bankIcon: credential.bank_icon,
+        shared: isSharedCredential(credential),
       })
     }
   }
@@ -47,6 +50,7 @@ export function buildDisplayGroups(
             bank: credential.bank,
             bankName: credential.bank_name,
             bankIcon: credential.bank_icon,
+            shared: isSharedCredential(credential),
           })),
       }))
       .filter((group) => group.accounts.length > 0)

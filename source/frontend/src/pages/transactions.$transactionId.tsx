@@ -53,6 +53,8 @@ export function TransactionDetailView({
   bankIcon,
   flowMembers,
   linking,
+  canWrite = true,
+  canUnlink = true,
   onSaveNote,
   onChangeCategory,
   onUnlink,
@@ -115,7 +117,7 @@ export function TransactionDetailView({
           {transaction.purpose?.trim() || <EmptyValue />}
         </DetailRow>
         <DetailRow label={t('common.category')}>
-          {transaction.pending ? (
+          {transaction.pending || !canWrite ? (
             <span className="text-sm">{t(`common.transactionLabel.${transaction.category}`)}</span>
           ) : (
             <CategorySelect
@@ -129,7 +131,7 @@ export function TransactionDetailView({
             members={flowMembers}
             onUnlink={onUnlink}
             linkAction={linkSection}
-            canUnlink={!linking}
+            canUnlink={canUnlink && !linking}
           />
         ) : null}
         <DetailRow label={t('common.account')}>
@@ -158,7 +160,13 @@ export function TransactionDetailView({
         {attachmentsSection}
         {transaction.pending ? null : (
           <DetailRow label={t('common.note')} align="start">
-            <NoteEditor remoteNote={transaction.note ?? ''} onSave={onSaveNote} />
+            {canWrite ? (
+              <NoteEditor remoteNote={transaction.note ?? ''} onSave={onSaveNote} />
+            ) : (
+              <span className="text-sm break-words">
+                {transaction.note?.trim() || <EmptyValue />}
+              </span>
+            )}
           </DetailRow>
         )}
       </dl>
@@ -233,7 +241,8 @@ function FlowTimelineRow({
 }) {
   const { t } = useTranslation()
   const [pending, setPending] = useState(false)
-  const { transaction, accountName, bankName, bankIcon, isCurrent } = member
+  const { transaction, accountName, bankName, bankIcon, isCurrent, isAccessible } = member
+  const linkable = !isCurrent && isAccessible
   const incoming = transaction.amount > 0
   const DirectionIcon = incoming ? ArrowDownLeft : ArrowUpRight
 
@@ -314,13 +323,11 @@ function FlowTimelineRow({
 
   return (
     <li className="flex gap-3">
-      {isCurrent ? (
+      {!linkable ? (
         <div className={timelineClassName} aria-hidden="true">
           {timeline}
         </div>
       ) : (
-        // Same destination as the account-name link — hidden from tab order and screen readers so it stays a
-        // mouse-only shortcut rather than a duplicate stop.
         <Link
           to="/transactions/$transactionId"
           params={{ transactionId: String(transaction.id) }}
@@ -332,12 +339,7 @@ function FlowTimelineRow({
         </Link>
       )}
       <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5">
-        {/* Date + direction arrow group: stacked (arrow centered under the date) on mobile to save width, side
-            by side on desktop. */}
         <div className="flex shrink-0 flex-col items-center gap-0.5 sm:flex-row sm:gap-2">
-          {/* Every date in the flow is stacked invisibly in one grid cell, so the column sizes to the widest
-              one the browser actually renders; the real date sits in the same cell on top. Same set per row →
-              identical width → aligned. Compact form on mobile, written on desktop. */}
           <span className="text-muted-foreground whitespace-nowrap text-xs tabular-nums">
             <span className="inline-grid sm:hidden">
               {flowDatesCompact.map((date) => (
@@ -364,7 +366,7 @@ function FlowTimelineRow({
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {isCurrent ? (
+          {!linkable ? (
             account
           ) : (
             <Link

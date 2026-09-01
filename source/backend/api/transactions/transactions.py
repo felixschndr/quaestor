@@ -49,4 +49,4 @@ def get_transaction(
     transaction = account_service.get_transaction_for_user(
         db_session=db_session, transaction_id=transaction_id, user=current_user
     )
-    return detail_read(db_session=db_session, transaction=transaction)
+    return detail_read(db_session=db_session, transaction=transaction, user=current_user)

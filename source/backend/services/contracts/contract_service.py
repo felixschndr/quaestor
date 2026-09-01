@@ -4,9 +4,7 @@ from sqlalchemy.orm import Session
 from source.backend.exceptions import ContractNotFoundError
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
-from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
-from source.backend.models.banking.credential import Credential
 from source.backend.models.contracts.contract import Contract
 from source.backend.models.contracts.contract_assignment import ContractAssignment
 from source.backend.models.contracts.contract_source import ContractSource
@@ -22,6 +20,7 @@ logger = get_logger(__name__)
 
 def create_contract(db_session: Session, user: User, account_id: int, fields: dict) -> Contract:
     account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=user)
+    account_service.require_owned_account(account=account, user=user)
     contract = Contract(
         account=account,
         name=fields["name"],
@@ -39,9 +38,7 @@ def create_contract(db_session: Session, user: User, account_id: int, fields: di
 def list_contracts_for_user(db_session: Session, user: User, include_archived: bool = False) -> list[Contract]:
     query = (
         select(Contract)
-        .join(Account, onclause=Contract.account_id == Account.id)
-        .join(Credential, onclause=Account.credential_id == Credential.id)
-        .where(Credential.user_id == user.id)
+        .where(Contract.account_id.in_(account_service.owned_account_ids_select(user.id)))
         .order_by(Contract.created_at.desc())
     )
     if not include_archived:
@@ -57,7 +54,7 @@ def get_contract_for_user(db_session: Session, user: User, contract_id: int) -> 
     if contract is None:
         logger.warning(error_message)
         raise ContractNotFoundError(error_message)
-    if contract.account.credential.user_id != user.id:
+    if not account_service.owns(account=contract.account, user=user):
         logger.warning(f"{user} attempted to access {contract} owned by user {contract.account.credential.user_id}")
         raise ContractNotFoundError(error_message)
     logger.debug(f"{user} accessed {contract}")

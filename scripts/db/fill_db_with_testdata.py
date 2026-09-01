@@ -17,6 +17,7 @@ from source.backend.db import SessionLocal
 from source.backend.helpers import utc_now
 from source.backend.models.accounts.account import Account
 from source.backend.models.accounts.account_group import AccountGroup
+from source.backend.models.accounts.account_share import AccountShare, SharePermission, ShareStatus
 from source.backend.models.auth.user import User
 from source.backend.models.contracts.contract_assignment import ContractAssignment
 from source.backend.models.contracts.contract_frequency import ContractFrequency
@@ -36,6 +37,8 @@ from source.backend.services.auth.password_service import hash_password
 from source.backend.services.core import migrations
 from tests.backend.conftest import (
     DISPLAY_NAME,
+    SECOND_DISPLAY_NAME,
+    SECOND_USER_NAME,
     UNKNOWN_TRANSACTION_OTHER_PARTY,
     USER_NAME,
     VALID_PASSWORD,
@@ -342,6 +345,21 @@ def fill_db_with_testdata() -> None:
         _seed_notification_rules(session, user=user, account_ids=[account.id for account in accounts])
 
         _seed_note_and_attachment_for_screenshot(session)
+
+        bob = make_user(
+            session,
+            user_name=SECOND_USER_NAME,
+            display_name=SECOND_DISPLAY_NAME,
+            password_hash=hash_password(VALID_PASSWORD),
+        )
+        session.add(
+            AccountShare(
+                account_id=accounts[1].id,
+                user_id=bob.id,
+                permission=SharePermission.WRITE,
+                status=ShareStatus.ACCEPTED,
+            )
+        )
 
         session.commit()
     print(f"Created demo data: user '{USER_NAME}' / password '{VALID_PASSWORD}'")

@@ -55,7 +55,7 @@ export function UpcomingContracts({ accountIds }: { accountIds: number[] }) {
                 aria-hidden="true"
                 className="text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 ease-in-out group-data-[state=open]/collapsible:rotate-90"
               />
-              <span className="text-muted-foreground shrink-0 text-xs font-semibold tracking-wide uppercase">
+              <span className="text-muted-foreground shrink-0 text-xs font-semibold tracking-wide">
                 {t('overview.upcoming')}
               </span>
               {open ? null : (

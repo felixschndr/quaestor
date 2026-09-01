@@ -7,6 +7,7 @@ from source.backend.models.base import Base
 
 if TYPE_CHECKING:
     from source.backend.models.accounts.account import Account
+    from source.backend.models.accounts.account_share import AccountShare
     from source.backend.models.auth.user import User
 
 
@@ -27,4 +28,8 @@ class AccountGroup(Base):
     accounts: Mapped[List["Account"]] = relationship(
         back_populates="group",
         order_by="Account.position",
+    )
+    shares: Mapped[List["AccountShare"]] = relationship(
+        back_populates="group",
+        order_by="AccountShare.position",
     )

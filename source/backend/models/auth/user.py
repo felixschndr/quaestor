@@ -1,3 +1,4 @@
+from itertools import groupby
 from typing import TYPE_CHECKING, List
 
 from sqlalchemy import Boolean
@@ -5,6 +6,14 @@ from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from source.backend.models.accounts.account_share import (
+    AccountShare,
+    SharedCredentialView,
+    ShareInvitationView,
+    SharePermission,
+    ShareStatus,
+    shared_account_view,
+)
 from source.backend.models.auth.theme import Theme
 from source.backend.models.base import Base
 
@@ -49,12 +58,62 @@ class User(Base):
         cascade="all, delete-orphan",
         order_by="AccountGroup.position",
     )
+    account_shares: Mapped[List["AccountShare"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+    @property
+    def accepted_shares(self) -> list["AccountShare"]:
+        return [share for share in self.account_shares if share.status is ShareStatus.ACCEPTED]
+
+    @property
+    def visible_credentials(self) -> list:
+        def key(share: "AccountShare") -> int:
+            return share.account.credential_id
+
+        shared = sorted(self.accepted_shares, key=key)
+        stand_ins = []
+        for _, group in groupby(shared, key=key):
+            shares = list(group)
+            credential = shares[0].account.credential
+            permission = (
+                SharePermission.READ
+                if any(share.permission is SharePermission.READ for share in shares)
+                else SharePermission.WRITE
+            )
+            stand_ins.append(
+                SharedCredentialView(
+                    id=credential.id,
+                    bank=credential.bank,
+                    bank_name=credential.bank_name,
+                    bank_icon=credential.bank_icon,
+                    accounts=[shared_account_view(share) for share in shares],
+                    shared_from=credential.user.display_name,
+                    share_permission=permission,
+                    last_fetching_timestamp=credential.last_fetching_timestamp,
+                    requires_two_factor_authentication=credential.requires_two_factor_authentication,
+                    sync_enabled=credential.sync_enabled,
+                )
+            )
+        return list(self.credentials) + stand_ins
+
+    @property
+    def account_share_invitations(self) -> list[ShareInvitationView]:
+        return [
+            ShareInvitationView(
+                id=share.id,
+                account_name=share.account.display_label,
+                bank_name=share.account.credential.bank_name or share.account.credential.bank.value,
+                owner_name=share.account.credential.user.display_name,
+                permission=share.permission,
+            )
+            for share in self.account_shares
+            if share.status is ShareStatus.PENDING
+        ]
 
     @property
     def balance(self) -> float:
         return sum(
             account.balance * account.balance_factor / 100
-            for credential in self.credentials
+            for credential in self.visible_credentials
             for account in credential.accounts
             if not account.is_hidden
         )

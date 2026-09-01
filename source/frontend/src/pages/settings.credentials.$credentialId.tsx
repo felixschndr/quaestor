@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import type { AccountRead, CredentialRead } from '@/lib/auth'
+import type { AccountRead, CredentialRead, SharePermission } from '@/lib/auth'
 import {
   accountDisplayName,
   accountSecondaryName,
@@ -31,6 +31,18 @@ import type { CredentialDetailViewProps } from '@/routes/settings.credentials.$c
 import { BackLink } from '@/components/back-link'
 import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
 import { RowActions } from '@/components/row-actions'
+import { SingleSelectPopover } from '@/components/ui/single-select-popover'
+import {
+  isSharedCredential,
+  shareUserLabel,
+  useAccountShares,
+  useLeaveShare,
+  useRevokeShare,
+  useShareableUsers,
+  useShareAccount,
+  useUpdateSharePermission,
+  useUpdateShareSettings,
+} from '@/lib/accountShares'
 
 const AUTOSAVE_DEBOUNCE_MS = 600
 
@@ -49,6 +61,11 @@ export function CredentialDetailView({ credential, onDeleted }: CredentialDetail
 
       {!credential ? (
         <NotFoundFallback />
+      ) : isSharedCredential(credential) ? (
+        <>
+          <BankHeader credential={credential} bankTitle={bankTitle} />
+          <SharedAccountsSection credential={credential} />
+        </>
       ) : (
         <>
           <BankHeader credential={credential} bankTitle={bankTitle} />
@@ -304,7 +321,17 @@ function AddManualAccountForm({
   )
 }
 
-function AccountRow({ account, isManual }: { account: AccountRead; isManual: boolean }) {
+function AccountRow({
+  account,
+  isManual,
+  shared = false,
+  sharedNote,
+}: {
+  account: AccountRead
+  isManual: boolean
+  shared?: boolean
+  sharedNote?: string
+}) {
   const { t } = useTranslation()
   // Initial values follow the server props; once the user starts editing, local
   // state diverges until the debounced auto-save settles it back.
@@ -312,7 +339,9 @@ function AccountRow({ account, isManual }: { account: AccountRead; isManual: boo
   const [displayName, setDisplayName] = useState<string>(account.display_name ?? '')
   // `mutateAsync` is stable across renders (React Query guarantee), so it's
   // safe to depend on directly without a ref.
-  const { mutateAsync } = useUpdateAccount()
+  const updateOwn = useUpdateAccount()
+  const updateShared = useUpdateShareSettings()
+  const mutateAsync = shared ? updateShared.mutateAsync : updateOwn.mutateAsync
 
   const normalisedFactor = factor.replace(',', '.')
   const parsed = Number(normalisedFactor)
@@ -500,13 +529,216 @@ function AccountRow({ account, isManual }: { account: AccountRead; isManual: boo
           </p>
         </div>
       </div>
-      {isManual ? (
+      <div className="border-border/60 border-t" />
+      {shared ? (
+        <LeaveShareControls accountId={account.id} note={sharedNote} />
+      ) : (
         <>
-          <div className="border-border/60 border-t" />
-          <DeleteAccountControls accountId={account.id} accountName={cardTitle} />
+          <AccountShareSection accountId={account.id} />
+          {isManual ? (
+            <>
+              <div className="border-border/60 border-t" />
+              <DeleteAccountControls accountId={account.id} accountName={cardTitle} />
+            </>
+          ) : null}
         </>
-      ) : null}
+      )}
     </li>
+  )
+}
+
+function LeaveShareControls({ accountId, note }: { accountId: number; note?: string }) {
+  const { t } = useTranslation()
+  const leave = useLeaveShare()
+
+  const onConfirm = async () => {
+    try {
+      await leave.mutateAsync(accountId)
+      toast.success(t('accountShares.left'))
+    } catch {
+      toast.error(t('accountShares.leaveFailed'))
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 p-3">
+      <span className="text-muted-foreground min-w-0 text-xs">{note}</span>
+      <RowActions
+        onDelete={onConfirm}
+        deleting={leave.isPending}
+        confirmLabel={t('common.deleteConfirm')}
+        className="shrink-0 gap-2"
+        renderTrigger={(confirm) => (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={confirm}
+            className="text-destructive hover:text-destructive shrink-0"
+          >
+            <Trash2 className="size-3.5" aria-hidden="true" />
+            {t('accountShares.leave')}
+          </Button>
+        )}
+      />
+    </div>
+  )
+}
+
+function SharedAccountsSection({ credential }: { credential: CredentialRead }) {
+  const { t } = useTranslation()
+  const permission = credential.share_permission ?? 'read'
+  const sharedNote = t('accountShares.sharedWithYou', {
+    owner: credential.shared_from,
+    permission: t(`accountShares.permissionAdverb.${permission}`),
+  })
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+        {t('common.accounts')}
+      </h2>
+      <ul className="flex flex-col gap-3">
+        {credential.accounts.map((account) => (
+          <AccountRow
+            key={account.id}
+            account={account}
+            isManual={false}
+            shared
+            sharedNote={sharedNote}
+          />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+const PERMISSIONS: SharePermission[] = ['read', 'write']
+
+function AccountShareSection({ accountId }: { accountId: number }) {
+  const { t } = useTranslation()
+  const shares = useAccountShares(accountId)
+  const candidates = useShareableUsers()
+  const share = useShareAccount(accountId)
+  const updatePermission = useUpdateSharePermission(accountId)
+  const revoke = useRevokeShare(accountId)
+  const [recipientId, setRecipientId] = useState('')
+  const [permission, setPermission] = useState<SharePermission>('read')
+
+  const alreadyShared = new Set((shares.data ?? []).map((entry) => entry.user_id))
+  const options = (candidates.data ?? [])
+    .filter((user) => !alreadyShared.has(user.id))
+    .map((user) => ({ value: String(user.id), label: shareUserLabel(user) }))
+  const permissionOptions = PERMISSIONS.map((value) => ({
+    value,
+    label: t(`accountShares.permission.${value}`),
+  }))
+
+  const onChangePermission = async (shareId: number, next: SharePermission) => {
+    try {
+      await updatePermission.mutateAsync({ shareId, permission: next })
+      toast.success(t('common.saved'))
+    } catch {
+      toast.error(t('credentials.detail.saveFailed'))
+    }
+  }
+
+  const onShare = async () => {
+    try {
+      await share.mutateAsync({ user_id: Number(recipientId), permission })
+      setRecipientId('')
+      toast.success(t('accountShares.shared'))
+    } catch {
+      toast.error(t('accountShares.shareFailed'))
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      <span className="text-muted-foreground text-[0.65rem] font-medium tracking-wide uppercase">
+        {t('accountShares.title')}
+      </span>
+
+      {shares.isPending ? (
+        <p className="text-muted-foreground text-xs">{t('common.loading')}</p>
+      ) : (shares.data ?? []).length === 0 ? (
+        <p className="text-muted-foreground text-xs">{t('accountShares.empty')}</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {(shares.data ?? []).map((entry) => (
+            <li key={entry.id} className="flex h-8 items-center gap-2">
+              <span className="flex min-w-0 flex-1 items-baseline gap-2">
+                <span className="truncate text-sm">
+                  {shareUserLabel({ id: entry.user_id, display_name: entry.display_name })}
+                </span>
+                {entry.status === 'pending' ? (
+                  <span className="text-warning shrink-0 text-xs">
+                    {t('accountShares.pending')}
+                  </span>
+                ) : null}
+              </span>
+              <SingleSelectPopover
+                ariaLabel={t('accountShares.permissionLabel')}
+                options={permissionOptions}
+                value={entry.permission}
+                width="content"
+                align="end"
+                disabled={updatePermission.isPending}
+                onChange={(next) => void onChangePermission(entry.id, next)}
+              />
+              <RowActions
+                onDelete={() => revoke.mutateAsync(entry.id)}
+                deleting={revoke.isPending}
+                confirmLabel={t('common.deleteConfirm')}
+                renderTrigger={(confirm) => (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="w-24"
+                    title={t('accountShares.revoke')}
+                    onClick={confirm}
+                  >
+                    {t('common.delete')}
+                  </Button>
+                )}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {options.length === 0 ? (
+        <p className="text-muted-foreground text-xs">{t('accountShares.noUsers')}</p>
+      ) : (
+        <div className="flex items-center gap-2">
+          <SingleSelectPopover
+            ariaLabel={t('accountShares.selectUser')}
+            options={options}
+            value={recipientId}
+            placeholder={t('accountShares.selectUser')}
+            onChange={setRecipientId}
+            className="flex-1"
+          />
+          <SingleSelectPopover
+            ariaLabel={t('accountShares.permissionLabel')}
+            options={permissionOptions}
+            value={permission}
+            width="content"
+            align="end"
+            onChange={setPermission}
+          />
+          <Button
+            type="button"
+            variant="primary"
+            className="w-24"
+            disabled={!recipientId || share.isPending}
+            onClick={() => void onShare()}
+          >
+            {t('accountShares.invite')}
+          </Button>
+        </div>
+      )}
+    </div>
   )
 }
 

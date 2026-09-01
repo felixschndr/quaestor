@@ -892,7 +892,7 @@ describe('OverviewView upcoming contracts', () => {
     mockApi({ contracts: [contract({ account_id: 999 })] })
     render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
 
-    await waitFor(() => expect(screen.queryByText('Due soon')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Due soon contracts')).not.toBeInTheDocument())
   })
 })
 
@@ -1062,7 +1062,7 @@ describe('OverviewView upcoming contracts visibility', () => {
     mockApi({ contracts: [contract] })
     render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
 
-    const trigger = await screen.findByRole('button', { name: /Due soon/ })
+    const trigger = await screen.findByRole('button', { name: /Due soon contracts/ })
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('link', { name: 'View all' })).toBeInTheDocument()
 

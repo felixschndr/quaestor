@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { BankLogo } from '@/components/BankLogo'
 import type { CredentialRead } from '@/lib/auth'
 import { lastSyncedLabel } from '@/lib/credentials'
+import { isSharedCredential } from '@/lib/accountShares'
 import type { SettingsCredentialsIndexViewProps } from '@/routes/settings.credentials.index'
 import { BackLink } from '@/components/back-link'
 
@@ -78,6 +79,9 @@ function CredentialRow({ credential }: { credential: CredentialRead }) {
   const { t } = useTranslation()
   const title = bankTitle(t, credential)
   const syncedLabel = lastSyncedLabel(t, credential)
+  const sharedLabel = isSharedCredential(credential)
+    ? t('accountShares.sharedBy', { owner: credential.shared_from })
+    : null
   return (
     <li className="border-border/40 border-t first:border-t-0">
       <Link
@@ -94,6 +98,9 @@ function CredentialRow({ credential }: { credential: CredentialRead }) {
           <span className="text-sm font-medium">{title}</span>
           {syncedLabel ? (
             <span className="text-muted-foreground text-xs">{syncedLabel}</span>
+          ) : null}
+          {sharedLabel ? (
+            <span className="text-muted-foreground text-xs">{sharedLabel}</span>
           ) : null}
         </span>
         <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />

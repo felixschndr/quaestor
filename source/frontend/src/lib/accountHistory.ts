@@ -1,7 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 
 import { api } from './api'
-import type { AccountRead, UserRead } from './auth'
+import type { AccountRead, SharePermission, UserRead } from './auth'
 
 export interface TransactionRead {
   id: number
@@ -39,6 +39,8 @@ export interface FoundAccount {
   bankIcon: string | null
   credentialId: number
   lastFetchingTimestamp: string | null
+  sharePermission: SharePermission | null
+  requiresTwoFactor: boolean
 }
 
 export const accountQueryKeys = {
@@ -61,6 +63,8 @@ export function findAccountInUser(
           bankIcon: credential.bank_icon,
           credentialId: credential.id,
           lastFetchingTimestamp: credential.last_fetching_timestamp,
+          sharePermission: credential.shared_from ? (credential.share_permission ?? 'read') : null,
+          requiresTwoFactor: credential.requires_two_factor_authentication,
         }
       }
     }

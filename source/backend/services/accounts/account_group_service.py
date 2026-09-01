@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -6,14 +8,33 @@ from source.backend.exceptions import AccountNotFoundError, NotFoundError, Valid
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
 from source.backend.models.accounts.account_group import AccountGroup
+from source.backend.models.accounts.account_share import AccountShare
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 
 logger = get_logger(__name__)
 
+LayoutEntry = Account | AccountShare
+
 
 class AccountGroupNotFoundError(NotFoundError):
     pass
+
+
+def _account_id(entry: LayoutEntry) -> int:
+    return entry.account_id if isinstance(entry, AccountShare) else entry.id
+
+
+def layout_entries(db_session: Session, user: User) -> dict[int, LayoutEntry]:
+    own = db_session.scalars(
+        select(Account)
+        .join(Credential, onclause=Account.credential_id == Credential.id)
+        .where(Credential.user_id == user.id)
+    )
+    entries: dict[int, LayoutEntry] = {account.id: account for account in own}
+    entries.update({share.account_id: share for share in user.accepted_shares})
+    logger.debug(f"{user} has {len(entries)} account(s) to lay out")
+    return entries
 
 
 def list_groups_for_user(db_session: Session, user: User) -> list[AccountGroup]:
@@ -27,23 +48,11 @@ def list_groups_for_user(db_session: Session, user: User) -> list[AccountGroup]:
     return rows
 
 
-def list_ungrouped_accounts_for_user(db_session: Session, user: User) -> list[Account]:
-    statement = (
-        select(Account)  # noqa: FKA100
-        .join(Credential, Account.credential_id == Credential.id)
-        .where(Credential.user_id == user.id, Account.group_id.is_(None))
-        .order_by(Account.position, Account.id)
-    )
-    accounts = list(db_session.scalars(statement))
-    logger.debug(f"Found {len(accounts)} ungrouped account(s) for {user}")
-    return accounts
-
-
 def replace_layout(db_session: Session, user: User, payload: AccountGroupLayoutWrite) -> None:
     logger.debug(f"Replacing account-group layout for {user}: {len(payload.groups)} group(s) in payload")
     existing_groups = {group.id: group for group in list_groups_for_user(db_session=db_session, user=user)}
-    user_account_ids = _user_account_ids(db_session=db_session, user_id=user.id)
-    _validate_account_ownership(payload=payload, user_account_ids=user_account_ids)
+    entries = layout_entries(db_session=db_session, user=user)
+    _validate_account_access(payload=payload, visible_account_ids=set(entries))
     _validate_no_duplicate_account_ids(payload=payload)
 
     incoming_ids = {incoming.id for incoming in payload.groups if incoming.id is not None}
@@ -63,24 +72,16 @@ def replace_layout(db_session: Session, user: User, payload: AccountGroupLayoutW
             group.position = position
         target_groups.append(group)
 
-    accounts_by_id = {
-        account.id: account
-        for account in db_session.scalars(
-            select(Account)
-            .join(Credential, onclause=Account.credential_id == Credential.id)
-            .where(Credential.user_id == user.id)
-        )
-    }
     for group, incoming in zip(target_groups, payload.groups, strict=True):
         for position, account_id in enumerate(incoming.account_ids):
-            account = accounts_by_id[account_id]
-            account.group = group
-            account.position = position
+            entry = entries[account_id]
+            entry.group = group
+            entry.position = position
 
     for position, account_id in enumerate(payload.ungrouped):
-        account = accounts_by_id[account_id]
-        account.group = None
-        account.position = position
+        entry = entries[account_id]
+        entry.group = None
+        entry.position = position
 
     groups_to_delete = [group for group_id, group in existing_groups.items() if group_id not in incoming_ids]
     for group in groups_to_delete:
@@ -94,22 +95,13 @@ def replace_layout(db_session: Session, user: User, payload: AccountGroupLayoutW
     )
 
 
-def _user_account_ids(db_session: Session, user_id: int) -> set[int]:
-    statement = (
-        select(Account.id)  # noqa: FKA100
-        .join(Credential, Account.credential_id == Credential.id)
-        .where(Credential.user_id == user_id)
-    )
-    return set(db_session.scalars(statement))
-
-
-def _validate_account_ownership(payload: AccountGroupLayoutWrite, user_account_ids: set[int]) -> None:
+def _validate_account_access(payload: AccountGroupLayoutWrite, visible_account_ids: set[int]) -> None:
     listed: set[int] = set(payload.ungrouped)
     for group in payload.groups:
         listed.update(group.account_ids)
-    foreign = listed - user_account_ids
+    foreign = listed - visible_account_ids
     if foreign:
-        raise AccountNotFoundError(f"Account id(s) not owned by user: {sorted(foreign)}")
+        raise AccountNotFoundError(f"Account id(s) not visible to user: {sorted(foreign)}")
 
 
 def _validate_no_duplicate_account_ids(payload: AccountGroupLayoutWrite) -> None:
@@ -125,15 +117,17 @@ def _validate_no_duplicate_account_ids(payload: AccountGroupLayoutWrite) -> None
         seen.add(account_id)
 
 
-def serialize_layout(groups: list[AccountGroup], ungrouped_accounts: list[Account]) -> dict[str, object]:
+def _ordered_refs(entries: list[LayoutEntry]) -> list[dict[str, int]]:
+    return [{"id": _account_id(entry)} for entry in sorted(entries, key=lambda e: (e.position, _account_id(e)))]
+
+
+def serialize_layout(groups: list[AccountGroup], entries: dict[int, LayoutEntry]) -> dict[str, object]:
+    by_group: dict[int | None, list[LayoutEntry]] = defaultdict(list)
+    for entry in entries.values():
+        by_group[entry.group_id].append(entry)
     return {
         "groups": [
-            {
-                "id": group.id,
-                "name": group.name,
-                "accounts": [{"id": account.id} for account in group.accounts],
-            }
-            for group in groups
+            {"id": group.id, "name": group.name, "accounts": _ordered_refs(by_group[group.id])} for group in groups
         ],
-        "ungrouped": [{"id": account.id} for account in ungrouped_accounts],
+        "ungrouped": _ordered_refs(by_group[None]),
     }

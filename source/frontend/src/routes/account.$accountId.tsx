@@ -29,9 +29,14 @@ function AccountDetailPage() {
   const syncFailedAt = sync.failedAt
   const syncBank = accountInfo?.bank
   const syncJobs = sync.jobs
+  const syncStartError = sync.startError
   useEffect(() => {
     if (syncFailedAt === null || syncBank === undefined) return
     const bankTitle = t(`banks.${syncBank}.title`, { defaultValue: syncBank })
+    if (syncStartError?.status === 403) {
+      toast.error(t('sync.notAllowedForShare'))
+      return
+    }
     const rateLimited = Array.from(syncJobs.values()).some((j) => j.error_code === 'rate_limited')
     toast.error(t(rateLimited ? 'sync.rateLimited' : 'sync.failed', { bank: bankTitle }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -44,6 +49,9 @@ function AccountDetailPage() {
   }
 
   const isManual = isManualBank(accountInfo.bank)
+  const permission = accountInfo.sharePermission
+  const canSync =
+    !isManual && (permission === null || (permission === 'write' && !accountInfo.requiresTwoFactor))
   const isSyncBusy =
     sync.status === 'starting' || sync.status === 'running' || sync.status === 'awaiting_2fa'
 
@@ -52,6 +60,8 @@ function AccountDetailPage() {
       <AccountDetailView
         account={accountInfo.account}
         bank={accountInfo.bank}
+        isOwner={permission === null}
+        canWrite={permission === null || permission === 'write'}
         lastUpdated={accountInfo.lastFetchingTimestamp}
         pages={history.data?.pages ?? []}
         isLoading={history.isLoading}
@@ -62,7 +72,7 @@ function AccountDetailPage() {
             void history.fetchNextPage()
           }
         }}
-        onSyncClick={isManual ? undefined : sync.start}
+        onSyncClick={canSync ? sync.start : undefined}
         syncDisabled={isSyncBusy}
         syncSpinning={isSyncBusy}
         syncSucceededAt={sync.succeededAt}
@@ -115,4 +125,6 @@ export interface AccountDetailViewProps {
   syncDisabled?: boolean
   syncSpinning?: boolean
   syncSucceededAt?: number | null
+  isOwner?: boolean
+  canWrite?: boolean
 }

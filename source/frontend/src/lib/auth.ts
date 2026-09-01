@@ -25,6 +25,18 @@ export interface CredentialRead {
   last_fetching_timestamp: string | null
   requires_two_factor_authentication: boolean
   sync_enabled: boolean
+  shared_from?: string | null
+  share_permission?: SharePermission | null
+}
+
+export type SharePermission = 'read' | 'write'
+
+export interface AccountShareInvitation {
+  id: number
+  account_name: string
+  bank_name: string
+  owner_name: string
+  permission: SharePermission
 }
 
 export type Theme = 'LIGHT' | 'DARK' | 'SYSTEM'
@@ -40,6 +52,7 @@ export interface UserRead {
   show_upcoming_contracts: boolean
   balance: number
   credentials: CredentialRead[]
+  account_share_invitations?: AccountShareInvitation[]
 }
 
 export interface PasswordRule {
@@ -196,6 +209,7 @@ export interface UseGlobalSyncResult {
   skip2fa: () => void
   succeededAt: number | null
   failedAt: number | null
+  startError: ApiError | null
 }
 
 const TWO_FACTOR_STATUSES = new Set<SyncJobStatus>([
@@ -214,6 +228,7 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
   const [queue, setQueue] = useState<number[]>([])
   const [succeededAt, setSucceededAt] = useState<number | null>(null)
   const [failedAt, setFailedAt] = useState<number | null>(null)
+  const [startError, setStartError] = useState<ApiError | null>(null)
   const queueRef = useRef<number[]>(queue)
   useEffect(() => {
     queueRef.current = queue
@@ -256,6 +271,7 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
     setQueue([])
     setSucceededAt(null)
     setFailedAt(null)
+    setStartError(null)
     void (async () => {
       try {
         const started = await startJobs()
@@ -267,7 +283,9 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
         for (const job of started) initial.set(job.credential_id, job)
         setJobs(initial)
         setPhase('active')
-      } catch {
+      } catch (error) {
+        setStartError(error instanceof ApiError ? error : null)
+        setFailedAt(Date.now())
         setPhase('finishing')
       }
     })()
@@ -396,7 +414,7 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
     }
   }, [])
 
-  return { start, status, jobs, current2fa, submit2fa, skip2fa, succeededAt, failedAt }
+  return { start, status, jobs, current2fa, submit2fa, skip2fa, succeededAt, failedAt, startError }
 }
 
 export function useGlobalSync(): UseGlobalSyncResult {

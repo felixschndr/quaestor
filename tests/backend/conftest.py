@@ -41,10 +41,13 @@ from source.backend.models.transactions.transfer_flow import TransferFlow
 from source.backend.security import csrf, rate_limit
 from source.backend.services.banking import bank_catalog, enable_banking_catalog
 from source.backend.services.core import i18n_service
+from source.backend.services.notifications import notification_service
+from source.backend.services.notifications.notification_service import Notification, NotificationResult
 
 USER_NAME = "alice"
 SECOND_USER_NAME = "bob"
 DISPLAY_NAME = "Alice"
+SECOND_DISPLAY_NAME = "Bob"
 VALID_PASSWORD = "Sup3rSecret!Pass with Spaces"  # nosec B105
 VALID_PASSWORD_HASH = (
     "$argon2id$v=19$m=65536,t=3,p=4$SHe1II5FiMI7z+lVd6e6Ig$+liPtR4Uu7MjpiMGPMLmkvmaWai+KehP9tPOmQllTfE"  # nosec B105
@@ -81,6 +84,7 @@ TWO_FACTOR_SECRET = "T2UXK5D6ZPTJ3WF2YXHYGGXKIT2G5LUH"  # nosec B105  # gitleaks
 UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"
 INTRUDER_USER_NAME = "intruder"
 WALLET_ACCOUNT_NAME = "Wallet"
+RECIPIENT_ACCOUNT_NAME = "Our joint account"
 API_KEY_NAME = "My script"
 PERSON_NAME = "Jane Doe"
 DEFAULT_AMOUNT = 50.0
@@ -189,6 +193,19 @@ def http_client_logged_out(http_client: TestClient) -> TestClient:
     register(http_client)
     http_client.cookies.delete("session")
     return http_client
+
+
+@pytest.fixture
+def sent_notifications(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, Notification]]:
+    recorded: list[tuple[str, Notification]] = []
+    monkeypatch.setattr(
+        target=notification_service,
+        name="notify_user",
+        value=lambda db_session, user, notification: (
+            recorded.append((user.user_name, notification)) or NotificationResult()
+        ),
+    )
+    return recorded
 
 
 def register(

@@ -18,6 +18,7 @@ from source.backend.models.accounts.account_balance_snapshot import (
     BalanceSnapshotSource,
 )
 from source.backend.models.accounts.account_group import AccountGroup
+from source.backend.models.accounts.account_share import AccountShare
 from source.backend.models.base import Base
 
 if TYPE_CHECKING:
@@ -61,6 +62,7 @@ class Account(Base):
         back_populates="account", cascade="all, delete-orphan"
     )
     contracts: Mapped[List["Contract"]] = relationship(back_populates="account", cascade="all, delete-orphan")
+    shares: Mapped[List["AccountShare"]] = relationship(back_populates="account", cascade="all, delete-orphan")
     balance_at_date: Mapped[dict[date, "AccountBalanceSnapshot"]] = relationship(
         back_populates="account",
         cascade="all, delete-orphan",

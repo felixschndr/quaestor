@@ -32,6 +32,7 @@ import {
   type AccountGroupLayoutWrite,
 } from '@/lib/accountGroups'
 import { accountDisplayName, useUpdateAccount } from '@/lib/accounts'
+import { useUpdateShareSettings } from '@/lib/accountShares'
 import { BankLogo } from '@/components/BankLogo'
 import { cn } from '@/lib/utils'
 import type { UserRead } from '@/lib/auth'
@@ -381,7 +382,9 @@ function DraggableAccountItem({ account }: { account: AccountWithBank }) {
 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
-  const { mutateAsync, isPending } = useUpdateAccount()
+  const updateOwn = useUpdateAccount()
+  const updateShared = useUpdateShareSettings()
+  const { mutateAsync, isPending } = account.shared ? updateShared : updateOwn
 
   const startEditing = () => {
     setDraft(account.display_name ?? '')

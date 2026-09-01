@@ -374,7 +374,7 @@ def test_resolve_owned_account_ids_raises_for_foreign_account(
         intruder = session.get(entity=User, ident=intruder_id)
         with pytest.raises(AccountNotFoundError, match="not found"):
             account_service.resolve_owned_account_ids(db_session=session, user=intruder, account_ids=owner_account_ids)
-        assert_log_contains(caplog, message="attempted to access accounts they don't own")
+        assert_log_contains(caplog, message="attempted to access accounts they cannot reach")
 
 
 @pytest.mark.parametrize(

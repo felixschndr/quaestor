@@ -98,6 +98,7 @@ export function OverviewView({
     (contract) => contract.is_overdue && visibleAccountIds.includes(contract.account_id),
   ).length
   const staleSince = staleSyncTimestamp(user.credentials)
+  const pendingInvitations = (user.account_share_invitations ?? []).length
   const [settleKey, setSettleKey] = useState<number | null>(null)
   const lastBalance = useRef(user.balance)
   useEffect(() => {
@@ -119,11 +120,16 @@ export function OverviewView({
         <div className="-mr-2.5 flex items-center gap-1">
           <Link
             to="/settings"
-            aria-label={t('settings.title')}
+            aria-label={
+              pendingInvitations > 0
+                ? t('accountShares.pendingInvitations', { count: pendingInvitations })
+                : t('settings.title')
+            }
             title={t('settings.title')}
-            className="text-primary hover:text-primary/80 focus-visible:ring-ring group rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            className="text-primary hover:text-primary/80 focus-visible:ring-ring group relative rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             <Settings className="size-5 transition-transform duration-300 ease-in-out group-hover:rotate-90" />
+            {pendingInvitations > 0 ? <WarningDot /> : null}
           </Link>
           {hasAccounts ? <PrivacyToggle className="p-2.5" /> : null}
           {hasAccounts ? (

@@ -187,7 +187,7 @@
       "hide": "Beträge ausblenden",
       "show": "Beträge einblenden"
     },
-    "upcoming": "Demnächst fällig",
+    "upcoming": "Demnächst fällige Verträge",
     "trendRange": "im letzten Monat",
     "contractsOverdue_one": "Verträge – {{count}} überfällig",
     "contractsOverdue_other": "Verträge – {{count}} überfällig"
@@ -583,7 +583,8 @@
     "skipped": "{{bank}} übersprungen.",
     "failed": "{{bank}} konnte nicht synchronisiert werden.",
     "rateLimited": "{{bank}} hat zu viele Anfragen erhalten. Bitte versuche es später erneut.",
-    "unsupportedBank": "Der FinTS-Server für {{bank}} ist aktuell nicht auffindbar. Bitte wende dich an den Administrator."
+    "unsupportedBank": "Der FinTS-Server für {{bank}} ist aktuell nicht auffindbar. Bitte wende dich an den Administrator.",
+    "notAllowedForShare": "Dieses Konto kann nur sein Eigentümer aktualisieren"
   },
   "transaction": {
     "otherParty": "Empfänger / Absender",
@@ -908,6 +909,42 @@
     "statusLabel": "Status",
     "statusOption": {
       "active": "Aktiv"
+    }
+  },
+  "accountShares": {
+    "title": "Freigaben",
+    "empty": "Dieses Konto ist noch nicht freigegeben.",
+    "noUsers": "Es gibt keine weiteren Benutzer, mit denen du dieses Konto teilen kannst.",
+    "selectUser": "Benutzer wählen",
+    "permissionLabel": "Berechtigung",
+    "permission": {
+      "read": "Nur lesen",
+      "write": "Lesen und schreiben"
+    },
+    "invite": "Einladen",
+    "pending": "Warten auf Antwort",
+    "revoke": "Freigabe entziehen",
+    "leave": "Freigabe verlassen",
+    "shared": "Einladung verschickt",
+    "shareFailed": "Die Einladung konnte nicht verschickt werden",
+    "sharedBy": "Freigegeben von {{owner}}",
+    "sharedWithYou": "{{owner}} hat dieses Konto {{permission}} mit dir geteilt.",
+    "pendingInvitations_one": "Einstellungen – {{count}} offene Kontofreigabe",
+    "pendingInvitations_other": "Einstellungen – {{count}} offene Kontofreigaben",
+    "invitation": {
+      "title": "Kontofreigabe von {{owner}}",
+      "description": "{{account}} ({{bank}}) · {{permission}}",
+      "accept": "Annehmen",
+      "decline": "Ablehnen",
+      "accepted": "{{account}} angenommen",
+      "declined": "{{account}} abgelehnt",
+      "respondFailed": "Die Antwort konnte nicht gespeichert werden"
+    },
+    "left": "Freigabe verlassen",
+    "leaveFailed": "Die Freigabe konnte nicht verlassen werden",
+    "permissionAdverb": {
+      "read": "lesend",
+      "write": "lesend und schreibend"
     }
   }
 }

@@ -13,13 +13,16 @@ from source.backend.exceptions import (
     CredentialNotFoundError,
     InvalidCredentialFieldError,
     MissingCredentialFieldError,
+    PermissionDeniedError,
     ReauthenticationRequiredError,
 )
 from source.backend.helpers import apply_fields, utc_now
 from source.backend.logging_utils import get_logger
+from source.backend.models.accounts.account_share import SharePermission
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.base import snapshot_columns
+from source.backend.services.accounts import account_service
 from source.backend.services.contracts import contract_detection_service
 from source.backend.services.notifications import notification_engine
 from source.backend.services.notifications.notification_service import Notification
@@ -67,6 +70,35 @@ def get_credential_for_user(db_session: Session, credential_id: int, user: User)
         raise CredentialNotFoundError(f"Credential with the ID {credential_id} not found")
     logger.debug(f"{user} accessed {credential}")
     return credential
+
+
+def get_syncable_credential_for_user(db_session: Session, credential_id: int, user: User) -> Credential:
+    credential = get_credential(db_session=db_session, credential_id=credential_id)
+    if credential.user_id == user.id:
+        return credential
+    shares = [
+        share
+        for share in (account_service.share_for_user(account=account, user=user) for account in credential.accounts)
+        if share is not None
+    ]
+    if not shares:
+        logger.warning(f"{user} attempted to sync {credential} owned by user {credential.user_id}")
+        raise CredentialNotFoundError(f"Credential with the ID {credential_id} not found")
+    if credential.requires_two_factor_authentication:
+        raise PermissionDeniedError(f"{credential} needs a second factor and can only be synced by its owner")
+    if not any(share.permission is SharePermission.WRITE for share in shares):
+        raise PermissionDeniedError(f"{user} only has read access to the accounts shared on {credential}")
+    logger.debug(f"{user} may sync {credential} through a read-write share")
+    return credential
+
+
+def list_syncable_credentials(db_session: Session, user: User) -> list[Credential]:
+    shared = {
+        share.account.credential
+        for share in user.accepted_shares
+        if share.permission is SharePermission.WRITE and not share.account.credential.requires_two_factor_authentication
+    }
+    return list_credentials(db_session=db_session, user=user) + list(shared)
 
 
 def _validate_credentials(bank: BankProvider, credentials: dict[str, str]) -> dict[str, str]:

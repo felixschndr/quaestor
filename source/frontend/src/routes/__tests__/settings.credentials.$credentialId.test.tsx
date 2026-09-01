@@ -457,8 +457,8 @@ describe('CredentialDetailView', () => {
         'These accounts are not synced automatically because a second factor is required.',
       ),
     ).toBeInTheDocument()
-    // No interval lookup is needed for 2FA credentials.
-    expect(globalThis.fetch).not.toHaveBeenCalled()
+    const calls = (globalThis.fetch as Mock).mock.calls.map(([url]) => url as string)
+    expect(calls).not.toContain('/api/settings')
   })
 
   it('uses the singular wording for a single-account 2FA credential', () => {

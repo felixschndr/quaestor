@@ -236,6 +236,8 @@ export function AccountDetailView({
   syncDisabled = false,
   syncSpinning = false,
   syncSucceededAt = null,
+  isOwner = true,
+  canWrite = true,
 }: AccountDetailViewProps) {
   const { t } = useTranslation()
   const groups = useMemo(() => groupTransactionsByDate(pages), [pages])
@@ -243,6 +245,7 @@ export function AccountDetailView({
 
   const personalisedName = account.display_name?.trim() || null
   const isManual = isManualBank(bank)
+  const canBookManually = isManual && isOwner
   const [addingTxn, setAddingTxn] = useState(false)
   const [addingExpected, setAddingExpected] = useState(false)
   const [sparklineValue, setSparklineValue] = useState<number | null>(null)
@@ -366,10 +369,14 @@ export function AccountDetailView({
           aria-labelledby="account-balance-label"
           className="z-30 w-fit"
         >
-          <BalanceDisplay account={account} isManual={isManual} overrideValue={sparklineValue} />
+          <BalanceDisplay
+            account={account}
+            isManual={canBookManually}
+            overrideValue={sparklineValue}
+          />
         </div>
         <AccountSparkline accountId={account.id} onActiveDayChange={setSparklineValue} />
-        {isManual ? (
+        {canBookManually ? (
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -381,15 +388,15 @@ export function AccountDetailView({
               {t('credentials.manualTransactions.add')}
             </Button>
           </div>
-        ) : (
+        ) : !isManual && canWrite ? (
           <ExpectedAddHeaderButton
             accountId={account.id}
             onToggle={() => setAddingExpected((prev) => !prev)}
           />
-        )}
+        ) : null}
 
         <div className="mt-4 flex flex-col gap-6">
-          {isManual && addingTxn ? (
+          {canBookManually && addingTxn ? (
             <ManualTransactionForm
               accountId={account.id}
               mode="create"
@@ -404,9 +411,9 @@ export function AccountDetailView({
             />
           ) : null}
 
-          {isManual ? <RecurringTransactionsList accountId={account.id} /> : null}
+          {isManual && canWrite ? <RecurringTransactionsList accountId={account.id} /> : null}
 
-          {!isManual ? (
+          {!isManual && canWrite ? (
             <ExpectedTransactionsList
               accountId={account.id}
               onAdd={() => setAddingExpected((prev) => !prev)}
@@ -418,7 +425,7 @@ export function AccountDetailView({
               accountId={account.id}
               groups={groups}
               today={today}
-              isManual={isManual}
+              isManual={canBookManually}
               isMarketValued={account.is_market_valued}
             />
           ) : isLoading ? (

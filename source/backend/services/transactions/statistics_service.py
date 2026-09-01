@@ -93,10 +93,10 @@ def range_summary(
     date_from: datetime.date,
     date_to: datetime.date,
 ) -> RangeSummary:
-    owned_account_ids = account_service.resolve_owned_account_ids(
+    accessible_account_ids = account_service.resolve_accessible_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
     )
-    if not owned_account_ids:
+    if not accessible_account_ids:
         return RangeSummary(income=0.0, expenses=0.0, count=0)
 
     income = func.sum(case((Transaction.amount > 0, Transaction.amount), else_=0.0))
@@ -105,7 +105,7 @@ def range_summary(
         select(income, expenses, func.count()).where(  # noqa: FKA100
             *_base_conditions(
                 db_session=db_session,
-                account_ids=owned_account_ids,
+                account_ids=accessible_account_ids,
                 date_from=date_from,
                 date_to=date_to,
                 categories=[],
@@ -132,10 +132,10 @@ def category_breakdown(
     categories: list[TransactionCategory],
     transaction_types: list[TransactionType] | None = None,
 ) -> list[CategorySlice]:
-    owned_account_ids = account_service.resolve_owned_account_ids(
+    accessible_account_ids = account_service.resolve_accessible_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
     )
-    if not owned_account_ids:
+    if not accessible_account_ids:
         return []
 
     total = func.sum(Transaction.amount)
@@ -144,7 +144,7 @@ def category_breakdown(
         .where(
             *_base_conditions(
                 db_session=db_session,
-                account_ids=owned_account_ids,
+                account_ids=accessible_account_ids,
                 date_from=date_from,
                 date_to=date_to,
                 categories=categories,
@@ -220,10 +220,10 @@ def monthly_cashflow(
     categories: list[TransactionCategory],
     transaction_types: list[TransactionType] | None = None,
 ) -> list[MonthlyCashflow]:
-    owned_account_ids = account_service.resolve_owned_account_ids(
+    accessible_account_ids = account_service.resolve_accessible_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
     )
-    if not owned_account_ids:
+    if not accessible_account_ids:
         return []
     month = func.strftime("%Y-%m", Transaction.date)  # noqa: FKA100
     income = func.sum(case((Transaction.amount > 0, Transaction.amount), else_=0.0))
@@ -233,7 +233,7 @@ def monthly_cashflow(
         .where(
             *_base_conditions(
                 db_session=db_session,
-                account_ids=owned_account_ids,
+                account_ids=accessible_account_ids,
                 date_from=date_from,
                 date_to=date_to,
                 categories=categories,
@@ -300,10 +300,10 @@ def transaction_counts(
     group_by: TransactionCountsGroupBy,
     transaction_types: list[TransactionType] | None = None,
 ) -> list[TransactionCountBucket]:
-    owned_account_ids = account_service.resolve_owned_account_ids(
+    accessible_account_ids = account_service.resolve_accessible_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
     )
-    if not owned_account_ids:
+    if not accessible_account_ids:
         return []
 
     bucket = _count_bucket_expression(group_by)
@@ -312,7 +312,7 @@ def transaction_counts(
         .where(
             *_base_conditions(
                 db_session=db_session,
-                account_ids=owned_account_ids,
+                account_ids=accessible_account_ids,
                 date_from=date_from,
                 date_to=date_to,
                 categories=categories,
@@ -341,10 +341,10 @@ def top_other_parties(
     transaction_types: list[TransactionType] | None = None,
     limit: int = DEFAULT_TOP_OTHER_PARTIES_LIMIT,
 ) -> list[OtherPartySlice]:
-    owned_account_ids = account_service.resolve_owned_account_ids(
+    accessible_account_ids = account_service.resolve_accessible_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
     )
-    if not owned_account_ids:
+    if not accessible_account_ids:
         return []
 
     total = func.sum(Transaction.amount)
@@ -353,7 +353,7 @@ def top_other_parties(
         .where(
             *_base_conditions(
                 db_session=db_session,
-                account_ids=owned_account_ids,
+                account_ids=accessible_account_ids,
                 date_from=date_from,
                 date_to=date_to,
                 categories=categories,
@@ -384,16 +384,16 @@ def daily_net_worth(
     date_to: datetime.date | None,
     apply_factor: bool = True,
 ) -> NetWorthResponse:
-    owned_account_ids = account_service.resolve_owned_account_ids(
+    accessible_account_ids = account_service.resolve_accessible_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
     )
-    if not owned_account_ids:
+    if not accessible_account_ids:
         return NetWorthResponse(series=[])
 
     today = datetime.date.today()
     end_date = min(date_to, today) if date_to is not None else today
 
-    accounts = list(db_session.scalars(select(Account).where(Account.id.in_(owned_account_ids))))  # noqa: FKA100
+    accounts = list(db_session.scalars(select(Account).where(Account.id.in_(accessible_account_ids))))  # noqa: FKA100
     balance_factors = {account.id: (account.balance_factor if apply_factor else 100) for account in accounts}
     live_balances = {account.id: account.balance for account in accounts}
 
@@ -401,7 +401,7 @@ def daily_net_worth(
     if date_from is None:
         earliest = db_session.scalar(
             select(func.min(AccountBalanceSnapshot.date)).where(
-                AccountBalanceSnapshot.account_id.in_(owned_account_ids)
+                AccountBalanceSnapshot.account_id.in_(accessible_account_ids)
             )
         )
         if earliest is None:
@@ -414,20 +414,20 @@ def daily_net_worth(
     in_range_snapshots = list(
         db_session.scalars(
             select(AccountBalanceSnapshot)
-            .where(AccountBalanceSnapshot.account_id.in_(owned_account_ids))
+            .where(AccountBalanceSnapshot.account_id.in_(accessible_account_ids))
             .where(AccountBalanceSnapshot.date >= date_from)
             .where(AccountBalanceSnapshot.date <= end_date)
             .order_by(AccountBalanceSnapshot.date)
         )
     )
     per_account_steps: dict[int, list[tuple[datetime.date, float]]] = {
-        account_id: [] for account_id in owned_account_ids
+        account_id: [] for account_id in accessible_account_ids
     }
     for snapshot in in_range_snapshots:
         per_account_steps[snapshot.account_id].append((snapshot.date, snapshot.balance))
 
-    current_balance: dict[int, float | None] = dict.fromkeys(owned_account_ids)
-    for account_id in owned_account_ids:
+    current_balance: dict[int, float | None] = dict.fromkeys(accessible_account_ids)
+    for account_id in accessible_account_ids:
         anchor = db_session.scalar(
             select(AccountBalanceSnapshot.balance)
             .where(AccountBalanceSnapshot.account_id == account_id)
@@ -437,7 +437,7 @@ def daily_net_worth(
         )
         current_balance[account_id] = anchor
 
-    step_indices: dict[int, int] = dict.fromkeys(owned_account_ids, 0)  # noqa: FKA100
+    step_indices: dict[int, int] = dict.fromkeys(accessible_account_ids, 0)  # noqa: FKA100
     result: list[DailyNetWorth] = []
     day = date_from
     one_day = datetime.timedelta(days=1)
@@ -481,18 +481,18 @@ def get_net_worth_of_range(
     start: datetime.date,
     end: datetime.date,
 ) -> NetWorthRangeResponse:
-    owned_account_ids = account_service.resolve_owned_account_ids(
+    accessible_account_ids = account_service.resolve_accessible_account_ids(
         db_session=db_session, user=user, account_ids=account_ids
     )
     accounts_by_id = {
         account.id: account
-        for account in db_session.scalars(select(Account).where(Account.id.in_(owned_account_ids)))  # noqa: FKA100
+        for account in db_session.scalars(select(Account).where(Account.id.in_(accessible_account_ids)))  # noqa: FKA100
     }
-    market_valued = account_service.market_valued_ids(db_session=db_session, account_ids=owned_account_ids)
+    market_valued = account_service.market_valued_ids(db_session=db_session, account_ids=accessible_account_ids)
     changes: list[AccountRangeChange] = []
     total_at_start = 0.0
     total_at_end = 0.0
-    for account_id in owned_account_ids:
+    for account_id in accessible_account_ids:
         account = accounts_by_id[account_id]
         before = _balance_at_end_of(db_session=db_session, account=account, cutoff=start)
         after = _balance_at_end_of(db_session=db_session, account=account, cutoff=end)

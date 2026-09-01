@@ -27,7 +27,7 @@ from source.backend.api.schemas.transactions.transaction import (
     TransferLinkCreate,
 )
 from source.backend.db import get_session
-from source.backend.exceptions import ConflictError
+from source.backend.exceptions import ConflictError, PermissionDeniedError
 from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.transactions.recurring_transaction import RecurringTransaction
@@ -40,7 +40,7 @@ from source.backend.services.transactions import attachment_service, flow_refund
 router = create_router()
 
 
-def detail_read(db_session: Session, transaction: Transaction) -> TransactionDetailRead:
+def detail_read(db_session: Session, transaction: Transaction, user: User) -> TransactionDetailRead:
     # Serialize a single transaction and flip buy/sell signs if it lives on a depot (see flip_depot_signs).
     read = TransactionDetailRead.model_validate(transaction)
     members = []
@@ -48,7 +48,7 @@ def detail_read(db_session: Session, transaction: Transaction) -> TransactionDet
         members = [
             TransactionRead.model_validate(member)
             for member in transaction.flow.transactions
-            if member.id != transaction.id
+            if member.id != transaction.id and account_service.can_read(account=member.account, user=user)
         ]
     read.flow_members = members
     account_ids = [transaction.account_id, *(member.account_id for member in members)]
@@ -58,12 +58,29 @@ def detail_read(db_session: Session, transaction: Transaction) -> TransactionDet
     return read
 
 
-def owned_account(
+SHARED_WRITABLE_TRANSACTION_FIELDS = frozenset({"category", "note"})
+
+
+def readable_account(
     account_id: int,
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> Account:
     return account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=current_user)
+
+
+def owned_account(
+    account: Account = Depends(readable_account),
+    current_user: User = Depends(session_service.get_current_user_from_request),
+) -> Account:
+    return account_service.require_owned_account(account=account, user=current_user)
+
+
+def writable_account(
+    account: Account = Depends(readable_account),
+    current_user: User = Depends(session_service.get_current_user_from_request),
+) -> Account:
+    return account_service.require_writable_account(account=account, user=current_user)
 
 
 @router.post("", response_model=AccountRead, status_code=201)
@@ -138,14 +155,17 @@ def add_to_flow(
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
-    counterpart_account = account_service.get_account_for_user(
-        db_session=db_session, account_id=payload.counterpart_account_id, user=current_user
+    counterpart_account = account_service.require_owned_account(
+        account=account_service.get_account_for_user(
+            db_session=db_session, account_id=payload.counterpart_account_id, user=current_user
+        ),
+        user=current_user,
     )
     counterpart = account_service.get_transaction_for_account(
         db_session=db_session, account=counterpart_account, transaction_id=payload.counterpart_transaction_id
     )
     account_service.add_to_flow(db_session=db_session, transaction=transaction, counterpart=counterpart)
-    return detail_read(db_session=db_session, transaction=transaction)
+    return detail_read(db_session=db_session, transaction=transaction, user=current_user)
 
 
 @router.delete("/{account_id}/transactions/{transaction_id}/transfer-link", status_code=204)
@@ -163,32 +183,41 @@ def remove_from_flow(
 @router.get("/{account_id}/transactions/{transaction_id}", response_model=TransactionDetailRead)
 def get_transaction(
     transaction_id: int,
-    account: Account = Depends(owned_account),
+    account: Account = Depends(readable_account),
+    current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> TransactionDetailRead:
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
-    return detail_read(db_session=db_session, transaction=transaction)
+    return detail_read(db_session=db_session, transaction=transaction, user=current_user)
 
 
 @router.patch("/{account_id}/transactions/{transaction_id}", response_model=TransactionDetailRead)
 def update_transaction(
     transaction_id: int,
     payload: TransactionUpdate,
-    account: Account = Depends(owned_account),
+    account: Account = Depends(writable_account),
+    current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> TransactionDetailRead:
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
+    fields = payload.model_dump(exclude_unset=True)
+    if not account_service.owns(account=account, user=current_user):
+        forbidden = set(fields) - SHARED_WRITABLE_TRANSACTION_FIELDS
+        if forbidden:
+            raise PermissionDeniedError(
+                f"A shared account only allows editing {sorted(SHARED_WRITABLE_TRANSACTION_FIELDS)}"
+            )
     updated = account_service.update_transaction(
         db_session=db_session,
         account=account,
         transaction=transaction,
-        fields=payload.model_dump(exclude_unset=True),
+        fields=fields,
     )
-    return detail_read(db_session=db_session, transaction=updated)
+    return detail_read(db_session=db_session, transaction=updated, user=current_user)
 
 
 @router.get(
@@ -197,7 +226,7 @@ def update_transaction(
 )
 def list_attachments(
     transaction_id: int,
-    account: Account = Depends(owned_account),
+    account: Account = Depends(readable_account),
     db_session: Session = Depends(get_session),
 ) -> list:
     transaction = account_service.get_transaction_for_account(
@@ -214,7 +243,7 @@ def list_attachments(
 def upload_attachments(
     transaction_id: int,
     files: list[UploadFile] = File(...),
-    account: Account = Depends(owned_account),
+    account: Account = Depends(writable_account),
     db_session: Session = Depends(get_session),
 ) -> list:
     transaction = account_service.get_transaction_for_account(
@@ -241,7 +270,7 @@ def upload_attachments(
 def download_attachment(
     transaction_id: int,
     attachment_id: int,
-    account: Account = Depends(owned_account),
+    account: Account = Depends(readable_account),
     db_session: Session = Depends(get_session),
 ) -> Response:
     transaction = account_service.get_transaction_for_account(
@@ -261,7 +290,7 @@ def download_attachment(
 def delete_attachment(
     transaction_id: int,
     attachment_id: int,
-    account: Account = Depends(owned_account),
+    account: Account = Depends(writable_account),
     db_session: Session = Depends(get_session),
 ) -> None:
     transaction = account_service.get_transaction_for_account(
@@ -273,7 +302,7 @@ def delete_attachment(
 @router.post("/{account_id}/recurring-transactions", response_model=RecurringTransactionRead, status_code=201)
 def create_recurring_transaction(
     payload: RecurringTransactionCreate,
-    account: Account = Depends(owned_account),
+    account: Account = Depends(writable_account),
     db_session: Session = Depends(get_session),
 ) -> RecurringTransaction:
     fields = payload.model_dump(exclude_unset=True, exclude={"book_immediately"})
@@ -284,7 +313,7 @@ def create_recurring_transaction(
 
 @router.get("/{account_id}/recurring-transactions", response_model=list[RecurringTransactionRead])
 def list_recurring_transactions(
-    account: Account = Depends(owned_account),
+    account: Account = Depends(readable_account),
     db_session: Session = Depends(get_session),
 ) -> list[RecurringTransaction]:
     return recurring_transaction_service.list_recurring_transactions(db_session=db_session, account=account)
@@ -297,7 +326,7 @@ def list_recurring_transactions(
 def update_recurring_transaction(
     recurring_transaction_id: int,
     payload: RecurringTransactionUpdate,
-    account: Account = Depends(owned_account),
+    account: Account = Depends(writable_account),
     db_session: Session = Depends(get_session),
 ) -> RecurringTransaction:
     return recurring_transaction_service.update_recurring_transaction(
@@ -311,7 +340,7 @@ def update_recurring_transaction(
 @router.delete("/{account_id}/recurring-transactions/{recurring_transaction_id}", status_code=204)
 def delete_recurring_transaction(
     recurring_transaction_id: int,
-    account: Account = Depends(owned_account),
+    account: Account = Depends(writable_account),
     db_session: Session = Depends(get_session),
 ) -> None:
     recurring_transaction_service.delete_recurring_transaction(
@@ -322,7 +351,7 @@ def delete_recurring_transaction(
 @router.post("/{account_id}/expected-transactions", response_model=ExpectedTransactionRead, status_code=201)
 def create_expected_transaction(
     payload: ExpectedTransactionWrite,
-    account: Account = Depends(owned_account),
+    account: Account = Depends(writable_account),
     db_session: Session = Depends(get_session),
 ) -> Transaction:
     return account_service.create_expected_transaction(
@@ -332,7 +361,7 @@ def create_expected_transaction(
 
 @router.get("/{account_id}/expected-transactions", response_model=list[ExpectedTransactionRead])
 def list_expected_transactions(
-    account: Account = Depends(owned_account),
+    account: Account = Depends(readable_account),
     db_session: Session = Depends(get_session),
 ) -> list[Transaction]:
     return account_service.list_expected_transactions(db_session=db_session, account=account)
@@ -345,7 +374,7 @@ def list_expected_transactions(
 def update_expected_transaction(
     expected_transaction_id: int,
     payload: ExpectedTransactionWrite,
-    account: Account = Depends(owned_account),
+    account: Account = Depends(writable_account),
     db_session: Session = Depends(get_session),
 ) -> Transaction:
     return account_service.update_expected_transaction(
@@ -359,7 +388,7 @@ def update_expected_transaction(
 @router.delete("/{account_id}/expected-transactions/{expected_transaction_id}", status_code=204)
 def delete_expected_transaction(
     expected_transaction_id: int,
-    account: Account = Depends(owned_account),
+    account: Account = Depends(writable_account),
     db_session: Session = Depends(get_session),
 ) -> None:
     account_service.delete_expected_transaction(
@@ -371,7 +400,7 @@ def delete_expected_transaction(
 def get_account_history(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=account_service.DEFAULT_DAYS_PER_PAGE, ge=1, le=account_service.MAX_DAYS_PER_PAGE),
-    account: Account = Depends(owned_account),
+    account: Account = Depends(readable_account),
     db_session: Session = Depends(get_session),
 ) -> AccountHistory:
     transactions, balance_at_date, total_days = account_service.get_history_page(
