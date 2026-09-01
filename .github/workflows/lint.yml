@@ -2,6 +2,11 @@ name: Lint
 
 on:
   workflow_call:
+    inputs:
+      ref:
+        description: Commit to check out. Empty means the ref that triggered the run.
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -11,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-python@v7.0.0
         with:
