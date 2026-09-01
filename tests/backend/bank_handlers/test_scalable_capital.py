@@ -16,12 +16,25 @@ from source.backend.paths import SCALABLE_CLI_BIN
 from source.backend.services.banking import scalable_capital_login
 from tests.backend.conftest import (
     ACCOUNT_UID,
+    AMOUNT,
     CHALLENGE_TOKEN,
+    DEFAULT_AMOUNT,
+    DEFAULT_BALANCE,
     ETF_NAME,
     ISIN,
+    LATEST_DATE,
+    OLDER_DATE,
     PORTFOLIO_ID,
     POSITION_NAME,
+    RECENT_DATE,
+    SCALABLE_AUTHORIZATION_URL,
+    SECOND_ACCOUNT_UID,
+    SECOND_AMOUNT,
     SECOND_ISIN,
+    SECOND_SESSION_ARCHIVE,
+    SESSION_ARCHIVE,
+    THIRD_AMOUNT,
+    TWO_FACTOR_CODE,
     assert_log_contains,
 )
 
@@ -34,6 +47,17 @@ HOLDINGS_COMMAND = f"{SCALABLE_CLI_BIN} broker holdings --json"
 CASH_ACCOUNT = FetchedAccount(name="Scalable Capital Verrechnungskonto")
 OVERNIGHT_ACCOUNT = FetchedAccount(name="Scalable Capital Tagesgeld")
 
+QUANTITY = 10.0
+SECOND_QUANTITY = 20.0
+SOLD_QUANTITY = 4.0
+PRICES = {OLDER_DATE: 100.0, RECENT_DATE: 110.0, LATEST_DATE: 120.0}
+SECOND_PRICES = {OLDER_DATE: 25.0, RECENT_DATE: 30.0}
+
+
+def _event_datetime(day: date) -> str:
+    return f"{day.isoformat()}T00:00:00.000Z"
+
+
 CASH_BREAKDOWN_PAYLOAD = {
     "ok": True,
     "command": "broker.cash-breakdown",
@@ -44,15 +68,15 @@ CASH_BREAKDOWN_PAYLOAD = {
         "result": {
             "account_id": ACCOUNT_UID,
             "portfolio_id": PORTFOLIO_ID,
-            "cash_balance": 780.52,
-            "buying_power": 780.52,
-            "buying_power_without_credit": 780.52,
+            "cash_balance": DEFAULT_BALANCE,
+            "buying_power": DEFAULT_BALANCE,
+            "buying_power_without_credit": DEFAULT_BALANCE,
             "available_credit_line": 0,
             "loaned": 0,
             "pending_buy_orders_amount": 0,
             "possible_taxes": 0,
-            "derivatives_buying_power": 780.52,
-            "available_for_derivatives": 780.52,
+            "derivatives_buying_power": DEFAULT_BALANCE,
+            "available_for_derivatives": DEFAULT_BALANCE,
         },
     },
 }
@@ -73,30 +97,30 @@ HOLDINGS_PAYLOAD = {
                     "isin": ISIN,
                     "name": ETF_NAME,
                     "security_type": "STOCK",
-                    "quantity": 7.086199,
+                    "quantity": QUANTITY,
                     "pending_quantity": 0,
                     "blocked_quantity": 0,
-                    "fifo_price": 180.1,
-                    "valuation": 1308.18,
+                    "fifo_price": PRICES[RECENT_DATE],
+                    "valuation": QUANTITY * PRICES[LATEST_DATE],
                     "valuation_currency": "EUR",
-                    "quote_mid_price": 184.6,
+                    "quote_mid_price": PRICES[LATEST_DATE],
                     "quote_currency": "EUR",
-                    "quote_timestamp_utc": "2026-08-20T16:30:00Z",
+                    "quote_timestamp_utc": _event_datetime(LATEST_DATE),
                     "quote_is_outdated": False,
                 },
                 {
                     "isin": SECOND_ISIN,
                     "name": POSITION_NAME,
                     "security_type": "STOCK",
-                    "quantity": 10,
+                    "quantity": SECOND_QUANTITY,
                     "pending_quantity": 0,
                     "blocked_quantity": 0,
-                    "fifo_price": 140.0,
-                    "valuation": 1531.7,
+                    "fifo_price": SECOND_PRICES[OLDER_DATE],
+                    "valuation": SECOND_QUANTITY * SECOND_PRICES[RECENT_DATE],
                     "valuation_currency": "EUR",
-                    "quote_mid_price": 153.17,
+                    "quote_mid_price": SECOND_PRICES[RECENT_DATE],
                     "quote_currency": "EUR",
-                    "quote_timestamp_utc": "2026-08-20T16:30:00Z",
+                    "quote_timestamp_utc": _event_datetime(RECENT_DATE),
                     "quote_is_outdated": False,
                 },
             ],
@@ -119,82 +143,82 @@ TRANSACTIONS_PAYLOAD = {
             "count": 5,
             "items": [
                 {
-                    "id": "3DJm6SUwZH29huULhh9ymJ",
+                    "id": f"SECURITY_{PORTFOLIO_ID}_BUY",
                     "summary_type": "BrokerSecurityTransactionSummary",
                     "currency": "EUR",
                     # `type` is a coarse category, not the transaction type — real direction is `side`.
                     "type": "SECURITY_TRANSACTION",
                     "status": "SETTLED",
                     "is_cancellation": False,
-                    "last_event_datetime": "2026-08-13T14:20:06.007Z",
+                    "last_event_datetime": _event_datetime(RECENT_DATE),
                     "description": ETF_NAME,
                     "custodian": "SCALABLE",
                     "documents": [],
                     "unknown_summary_type": False,
                     "isin": ISIN,
                     "security_transaction_type": "SINGLE",
-                    "quantity": 7.086199,
-                    "amount": -805.69,
+                    "quantity": QUANTITY,
+                    "amount": -(QUANTITY * PRICES[RECENT_DATE]),
                     "side": "BUY",
                     "limit_price": None,
                     "stop_price": None,
                 },
                 {
-                    "id": "CASH_4F8p2DQ58zJ2PjjBN2CRAh_798337",
+                    "id": f"CASH_{PORTFOLIO_ID}_DISTRIBUTION",
                     "summary_type": "BrokerCashTransactionSummary",
                     "currency": "EUR",
                     "type": "CASH_TRANSACTION",
                     "status": "SETTLED",
                     "is_cancellation": False,
-                    "last_event_datetime": "2026-08-20T00:00:00.000Z",
+                    "last_event_datetime": _event_datetime(LATEST_DATE),
                     "description": f"{POSITION_NAME} Dividende",
                     "custodian": "SCALABLE",
                     "documents": [],
                     "unknown_summary_type": False,
                     "related_isin": SECOND_ISIN,
                     "cash_transaction_type": "DISTRIBUTION",
-                    "amount": 19.57,
+                    "amount": DEFAULT_AMOUNT,
                 },
                 {
-                    "id": "CASH_4F8p2DQ58zJ2PjjBN2CRAh_9e39b7",
+                    "id": f"CASH_{PORTFOLIO_ID}_DEPOSIT",
                     "summary_type": "BrokerCashTransactionSummary",
                     "currency": "EUR",
                     "type": "CASH_TRANSACTION",
                     "status": "SETTLED",
                     "is_cancellation": False,
-                    "last_event_datetime": "2026-08-13T00:00:00.000Z",
+                    "last_event_datetime": _event_datetime(RECENT_DATE),
                     "description": "Wechselbonus",
                     "custodian": "SCALABLE",
                     "documents": [],
                     "unknown_summary_type": False,
                     "related_isin": None,
                     "cash_transaction_type": "DEPOSIT",
-                    "amount": 25,
+                    "amount": SECOND_AMOUNT,
                 },
                 {
-                    "id": "CASH_4F8p2DQ58zJ2PjjBN2CRAh_BK1G5GSQ",
+                    "id": f"CASH_{PORTFOLIO_ID}_TRANSFER",
                     "summary_type": "BrokerCashTransactionSummary",
                     "currency": "EUR",
                     "type": "CASH_TRANSACTION",
                     "status": "SETTLED",
                     "is_cancellation": False,
-                    "last_event_datetime": "2026-07-27T00:00:00.000Z",
+                    "last_event_datetime": _event_datetime(OLDER_DATE),
                     "description": "Interne Überweisung",
                     "custodian": "SCALABLE",
                     "documents": [],
                     "unknown_summary_type": False,
                     "related_isin": None,
                     "cash_transaction_type": "CASH_TRANSFER_OUT",
-                    "amount": -5000,
+                    "amount": -AMOUNT,
                 },
                 {
-                    "id": "qDWAwSDjkxJ81bzdzJQKLT",
+                    "id": f"SECURITY_{PORTFOLIO_ID}_NON_TRADE",
                     "summary_type": "BrokerNonTradeSecurityTransactionSummary",
                     "currency": "EUR",
                     "type": "NON_TRADE_SECURITY_TRANSACTION",
                     "status": "SETTLED",
                     "is_cancellation": False,
-                    "last_event_datetime": "2026-07-30T08:46:47.439Z",
+                    "last_event_datetime": _event_datetime(OLDER_DATE),
                     "description": f"{POSITION_NAME} Depotübertrag",
                     "custodian": "SCALABLE",
                     "documents": [],
@@ -202,8 +226,8 @@ TRANSACTIONS_PAYLOAD = {
                     "isin": SECOND_ISIN,
                     # Quantity is always a positive magnitude; direction comes from this field, not sign.
                     "non_trade_security_transaction_type": "TRANSFER_IN",
-                    "quantity": 10,
-                    "amount": 1500,
+                    "quantity": SECOND_QUANTITY,
+                    "amount": SECOND_QUANTITY * SECOND_PRICES[OLDER_DATE],
                 },
             ],
         },
@@ -217,14 +241,14 @@ OVERNIGHT_SUMMARY_PAYLOAD = {
         "account": {"display_name": "Tagesgeld", "is_active": True, "owner_kind": "personal"},
         "result": {
             "interest_rate": 2.0,
-            "balance": 5024.84,
-            "current_accrued_amount": 3.12,
-            "current_interest_bearing_amount": 5024.84,
-            "deposit_accrued_lifetime_amount": 27.96,
-            "estimated_next_payout_amount": 8.4,
-            "next_payout_date": "2026-09-01T00:00:00+00:00",
+            "balance": AMOUNT,
+            "current_accrued_amount": THIRD_AMOUNT,
+            "current_interest_bearing_amount": AMOUNT,
+            "deposit_accrued_lifetime_amount": THIRD_AMOUNT,
+            "estimated_next_payout_amount": THIRD_AMOUNT,
+            "next_payout_date": _event_datetime(LATEST_DATE),
         },
-        "savings_account_id": "jpVcvLzvhoivFaYwTzL9yt",
+        "savings_account_id": SECOND_ACCOUNT_UID,
         "selection": {"account": "auto_resolve"},
     },
 }
@@ -241,50 +265,43 @@ OVERNIGHT_TRANSACTIONS_PAYLOAD = {
             # Overnight transaction items carry no `summary_type` at all — every item is a cash move.
             "items": [
                 {
-                    "id": "CASH_jpVcvLzvhoivFaYwTzL9yt_INTEREST-PAY-1",
+                    "id": f"CASH_{SECOND_ACCOUNT_UID}_INTEREST",
                     "currency": "EUR",
                     "type": "CASH_TRANSACTION",
                     "status": "SETTLED",
                     "is_cancellation": False,
-                    "last_event_datetime": "2026-08-01T00:00:00.000Z",
+                    "last_event_datetime": _event_datetime(RECENT_DATE),
                     "description": "Zinsen",
                     "cash_transaction_type": "INTEREST",
-                    "amount": 24.84,
+                    "amount": THIRD_AMOUNT,
                     "custodian": None,
                     "related_isin": None,
                     "documents": [],
                 },
                 {
-                    "id": "CASH_jpVcvLzvhoivFaYwTzL9yt_BK1G5GSQ",
+                    "id": f"CASH_{SECOND_ACCOUNT_UID}_TRANSFER",
                     "currency": "EUR",
                     "type": "CASH_TRANSACTION",
                     "status": "SETTLED",
                     "is_cancellation": False,
-                    "last_event_datetime": "2026-07-27T00:00:00.000Z",
+                    "last_event_datetime": _event_datetime(OLDER_DATE),
                     "description": "Interne Überweisung",
                     "cash_transaction_type": "CASH_TRANSFER_IN",
-                    "amount": 5000,
+                    "amount": AMOUNT,
                     "custodian": None,
                     "related_isin": None,
                     "documents": [],
                 },
             ],
         },
-        "savings_account_id": "jpVcvLzvhoivFaYwTzL9yt",
+        "savings_account_id": SECOND_ACCOUNT_UID,
         "selection": {"account": "auto_resolve"},
     },
 }
 
 _CHART_POINTS_BY_ISIN = {
-    ISIN: [
-        {"mid_price": 179.0, "timestamp_utc": "2026-08-12T16:30:00Z"},
-        {"mid_price": 182.0, "timestamp_utc": "2026-08-13T16:30:00Z"},
-        {"mid_price": 184.6, "timestamp_utc": "2026-08-14T16:30:00Z"},
-    ],
-    SECOND_ISIN: [
-        {"mid_price": 150.0, "timestamp_utc": "2026-07-30T16:30:00Z"},
-        {"mid_price": 153.17, "timestamp_utc": "2026-07-31T16:30:00Z"},
-    ],
+    ISIN: [{"mid_price": price, "timestamp_utc": _event_datetime(day)} for day, price in PRICES.items()],
+    SECOND_ISIN: [{"mid_price": price, "timestamp_utc": _event_datetime(day)} for day, price in SECOND_PRICES.items()],
 }
 
 
@@ -373,7 +390,7 @@ def test_begin_two_factor_challenge_delegates_to_login_module(monkeypatch: pytes
 
     def fake_start(credential_id: int):
         calls.append(credential_id)
-        return CHALLENGE_TOKEN, "https://secure.scalable.capital/activate", "DJQZ-TFNL", expires_at
+        return CHALLENGE_TOKEN, SCALABLE_AUTHORIZATION_URL, TWO_FACTOR_CODE, expires_at
 
     monkeypatch.setattr(target=scalable_capital, name="ensure_cli_binary_available", value=lambda: None)
     monkeypatch.setattr(target=scalable_capital_login, name="start", value=fake_start)
@@ -383,8 +400,8 @@ def test_begin_two_factor_challenge_delegates_to_login_module(monkeypatch: pytes
     assert challenge == TwoFactorChallenge(
         challenge_token=CHALLENGE_TOKEN,
         expires_at=expires_at,
-        authorization_url="https://secure.scalable.capital/activate",
-        device_code="DJQZ-TFNL",
+        authorization_url=SCALABLE_AUTHORIZATION_URL,
+        device_code=TWO_FACTOR_CODE,
     )
     assert calls == [7]
 
@@ -394,7 +411,7 @@ def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest
 
     def fake_complete(challenge_token: str, credential_id: int):
         calls.append({"challenge_token": challenge_token, "credential_id": credential_id})
-        return {"archive": "ZmFrZQ=="}
+        return {"archive": SESSION_ARCHIVE}
 
     monkeypatch.setattr(target=scalable_capital_login, name="complete", value=fake_complete)
 
@@ -402,7 +419,7 @@ def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest
         challenge_token=CHALLENGE_TOKEN, credential_id=7, code="unused"
     )
 
-    assert session_state == {"archive": "ZmFrZQ=="}
+    assert session_state == {"archive": SESSION_ARCHIVE}
     assert calls == [{"challenge_token": CHALLENGE_TOKEN, "credential_id": 7}]
 
 
@@ -423,7 +440,7 @@ def test_get_accounts_lists_cash_positions_and_overnight(
 
     accounts = {account.name: account.external_id for account in session.get_accounts()}
 
-    assert_log_contains(caplog, message="Scalable Capital fetched 4 account(s)")
+    assert_log_contains(caplog, message="Fetched 4 account(s)")
 
     assert accounts == {
         "Scalable Capital Verrechnungskonto": f"scalable-cash-{ACCOUNT_UID}",
@@ -436,13 +453,13 @@ def test_get_accounts_lists_cash_positions_and_overnight(
 def test_cash_balance_comes_from_the_cash_breakdown_command(monkeypatch: pytest.MonkeyPatch):
     session = _fetched_session(monkeypatch)
 
-    assert session.get_balance(CASH_ACCOUNT) == pytest.approx(780.52)
+    assert session.get_balance(CASH_ACCOUNT) == pytest.approx(DEFAULT_BALANCE)
 
 
 def test_overnight_balance_comes_from_the_overnight_summary(monkeypatch: pytest.MonkeyPatch):
     session = _fetched_session(monkeypatch)
 
-    assert session.get_balance(OVERNIGHT_ACCOUNT) == pytest.approx(5024.84)
+    assert session.get_balance(OVERNIGHT_ACCOUNT) == pytest.approx(AMOUNT)
 
 
 def test_missing_overnight_account_is_not_fatal(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
@@ -452,36 +469,36 @@ def test_missing_overnight_account_is_not_fatal(monkeypatch: pytest.MonkeyPatch,
     names = {account.name for account in session.get_accounts()}
 
     assert names == {"Scalable Capital Verrechnungskonto", ETF_NAME, POSITION_NAME}
-    assert_log_contains(caplog, message="Scalable Capital: no overnight/Tagesgeld account available, skipping")
+    assert_log_contains(caplog, message="No overnight/Tagesgeld account available, skipping")
 
 
 def test_transactions_are_routed_to_the_cash_and_position_accounts(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     session = _fetched_session(monkeypatch)
-    start_date = date(year=2020, month=1, day=1)
+    start_date = OLDER_DATE
 
     with caplog.at_level(logging.DEBUG):
         cash = session.get_transactions(CASH_ACCOUNT, start_date=start_date)
-    assert_log_contains(caplog, message=f"Scalable Capital returned 5 transaction(s) for {CASH_ACCOUNT.name}")
-    siemens = session.get_transactions(FetchedAccount(name=POSITION_NAME), start_date=start_date)
+    assert_log_contains(caplog, message=f"Fetched 5 transaction(s) for {CASH_ACCOUNT.name}")
+    position = session.get_transactions(FetchedAccount(name=POSITION_NAME), start_date=start_date)
     tagesgeld = session.get_transactions(OVERNIGHT_ACCOUNT, start_date=start_date)
 
     assert {(t.amount, t.transaction_type) for t in cash} == {
-        (-805.69, TransactionType.BUY),
-        (19.57, TransactionType.DIVIDEND),
-        (25.0, TransactionType.DEPOSIT),
-        (-5000.0, TransactionType.TRANSFER_OUT),
-        (1500.0, TransactionType.TRANSFER_IN),
+        (-(QUANTITY * PRICES[RECENT_DATE]), TransactionType.BUY),
+        (DEFAULT_AMOUNT, TransactionType.DIVIDEND),
+        (SECOND_AMOUNT, TransactionType.DEPOSIT),
+        (-AMOUNT, TransactionType.TRANSFER_OUT),
+        (SECOND_QUANTITY * SECOND_PRICES[OLDER_DATE], TransactionType.TRANSFER_IN),
     }
-    # The dividend references Siemens Energy via `related_isin`, the depot transfer via `isin`.
-    assert {(t.amount, t.transaction_type) for t in siemens} == {
-        (19.57, TransactionType.DIVIDEND),
-        (1500.0, TransactionType.TRANSFER_IN),
+    # The dividend references the second position via `related_isin`, the depot transfer via `isin`.
+    assert {(t.amount, t.transaction_type) for t in position} == {
+        (DEFAULT_AMOUNT, TransactionType.DIVIDEND),
+        (SECOND_QUANTITY * SECOND_PRICES[OLDER_DATE], TransactionType.TRANSFER_IN),
     }
     assert {(t.amount, t.transaction_type) for t in tagesgeld} == {
-        (24.84, TransactionType.INTEREST),
-        (5000.0, TransactionType.TRANSFER_IN),
+        (THIRD_AMOUNT, TransactionType.INTEREST),
+        (AMOUNT, TransactionType.TRANSFER_IN),
     }
 
 
@@ -491,7 +508,7 @@ def test_broker_transactions_are_fetched_once_for_the_full_history(monkeypatch: 
     session = _session()
     session.get_accounts()
 
-    session.get_transactions(CASH_ACCOUNT, start_date=date(year=2026, month=1, day=1))
+    session.get_transactions(CASH_ACCOUNT, start_date=OLDER_DATE)
     session.get_market_value_history(FetchedAccount(name=ETF_NAME))
 
     broker_calls = [args for args in recorded if args[:2] == ("broker", "transactions")]
@@ -503,17 +520,17 @@ def test_broker_transactions_are_fetched_once_for_the_full_history(monkeypatch: 
 
     # The overnight history has only one consumer, so it stays filtered by the CLI.
     overnight_call = next(args for args in recorded if args[:2] == ("overnight", "transactions"))
-    assert overnight_call[overnight_call.index("--from-time") + 1] == "2026-01-01T00:00:00Z"
+    assert overnight_call[overnight_call.index("--from-time") + 1] == f"{OLDER_DATE.isoformat()}T00:00:00Z"
     assert overnight_call[overnight_call.index("--page-size") + 1] == "100"
 
 
 def test_broker_transactions_before_the_start_date_are_dropped(monkeypatch: pytest.MonkeyPatch):
     session = _fetched_session(monkeypatch)
 
-    cash = session.get_transactions(CASH_ACCOUNT, start_date=date(year=2026, month=8, day=14))
+    cash = session.get_transactions(CASH_ACCOUNT, start_date=LATEST_DATE)
 
-    # Only the 2026-08-20 dividend is inside the window; everything older is sliced off locally.
-    assert {(t.amount, t.transaction_type) for t in cash} == {(19.57, TransactionType.DIVIDEND)}
+    # Only the dividend is inside the window; everything older is sliced off locally.
+    assert {(t.amount, t.transaction_type) for t in cash} == {(DEFAULT_AMOUNT, TransactionType.DIVIDEND)}
 
 
 def test_get_balance_observations_returns_a_single_point_for_today(monkeypatch: pytest.MonkeyPatch):
@@ -523,7 +540,7 @@ def test_get_balance_observations_returns_a_single_point_for_today(monkeypatch: 
 
     assert len(observations) == 1
     assert observations[0].date == date.today()
-    assert observations[0].amount == pytest.approx(1308.18)
+    assert observations[0].amount == pytest.approx(QUANTITY * PRICES[LATEST_DATE])
 
 
 def test_market_value_history_is_built_from_chart_prices_and_share_moves(
@@ -534,12 +551,12 @@ def test_market_value_history_is_built_from_chart_prices_and_share_moves(
     with caplog.at_level(logging.DEBUG):
         history = session.get_market_value_history(FetchedAccount(name=ETF_NAME))
 
-    assert_log_contains(caplog, message=f"Scalable Capital valued {ETF_NAME} ({ISIN}): 2 daily snapshot(s)")
+    assert_log_contains(caplog, message=f"Valued {ETF_NAME} ({ISIN}): 2 daily snapshot(s)")
 
-    # The 2026-08-12 price predates the only buy, so it carries no position yet.
+    # The oldest price point predates the only buy, so it carries no position yet.
     assert [(observation.date, observation.amount) for observation in history] == [
-        (date(year=2026, month=8, day=13), pytest.approx(7.086199 * 182.0, abs=0.01)),
-        (date(year=2026, month=8, day=14), pytest.approx(7.086199 * 184.6, abs=0.01)),
+        (RECENT_DATE, pytest.approx(QUANTITY * PRICES[RECENT_DATE])),
+        (LATEST_DATE, pytest.approx(QUANTITY * PRICES[LATEST_DATE])),
     ]
 
 
@@ -549,8 +566,8 @@ def test_market_value_history_counts_non_trade_transfers_as_share_moves(monkeypa
     history = session.get_market_value_history(FetchedAccount(name=POSITION_NAME))
 
     assert [(observation.date, observation.amount) for observation in history] == [
-        (date(year=2026, month=7, day=30), pytest.approx(1500.0)),
-        (date(year=2026, month=7, day=31), pytest.approx(1531.7)),
+        (OLDER_DATE, pytest.approx(SECOND_QUANTITY * SECOND_PRICES[OLDER_DATE])),
+        (RECENT_DATE, pytest.approx(SECOND_QUANTITY * SECOND_PRICES[RECENT_DATE])),
     ]
 
 
@@ -563,7 +580,7 @@ def test_market_value_history_is_empty_without_chart_data(
         # A one-point fallback would be truthy and make the sync replace the stored chart with it.
         assert session.get_market_value_history(FetchedAccount(name=ETF_NAME)) == []
 
-    assert_log_contains(caplog, message=f"Scalable Capital: no chart data for {ISIN}; skipping its value history")
+    assert_log_contains(caplog, message=f"No chart data for {ISIN}; skipping its value history")
 
 
 def test_market_value_history_is_empty_for_cash_accounts(monkeypatch: pytest.MonkeyPatch):
@@ -579,7 +596,7 @@ def test_missing_overnight_account_skips_overnight_transactions_fetch(monkeypatc
     payloads = {key: value for key, value in FULL_PAYLOADS.items() if key != "overnight transactions"}
     session = _fetched_session(monkeypatch, payloads=payloads | {"overnight": [{"ok": False}]})
 
-    cash = session.get_transactions(CASH_ACCOUNT, start_date=date(year=2020, month=1, day=1))
+    cash = session.get_transactions(CASH_ACCOUNT, start_date=OLDER_DATE)
 
     assert cash
 
@@ -618,7 +635,7 @@ def test_run_command_maps_auth_error_codes_to_reauthentication_required(
     with pytest.raises(ReauthenticationRequiredError) as error:
         asyncio.run(scalable_capital._run_command(config_dir=tmp_path, args=("broker", "holdings")))
 
-    assert f"rejected `{HOLDINGS_COMMAND}` ({error_code})" in str(error.value)
+    assert f"`{HOLDINGS_COMMAND}` was rejected ({error_code})" in str(error.value)
 
 
 def test_run_command_does_not_ask_for_a_relogin_on_a_config_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
@@ -672,8 +689,8 @@ def test_run_command_retries_after_a_rate_limited_response(
     assert_log_contains(
         caplog,
         messages=[
-            f"Scalable Capital rate-limited `{HOLDINGS_COMMAND}`; retrying in 2s",
-            f"Scalable Capital rate-limited `{HOLDINGS_COMMAND}`; retrying in 4s",
+            f"Rate-limited `{HOLDINGS_COMMAND}`; retrying in 2s",
+            f"Rate-limited `{HOLDINGS_COMMAND}`; retrying in 4s",
         ],
     )
 
@@ -707,35 +724,35 @@ SHARE_MOVE_PAYLOAD = _paged_payload(
             "id": "eltif-buy",
             "summary_type": "BrokerEltifTransactionSummary",
             "status": "SETTLED",
-            "last_event_datetime": "2026-08-12T09:00:00.000Z",
+            "last_event_datetime": _event_datetime(OLDER_DATE),
             "description": ETF_NAME,
             "isin": ISIN,
             # ELTIF summaries carry `eltif_quantity` where every other summary carries `quantity`
-            "eltif_quantity": 10,
-            "amount": -1790.0,
+            "eltif_quantity": QUANTITY,
+            "amount": -(QUANTITY * PRICES[OLDER_DATE]),
             "side": "BUY",
         },
         {
             "id": "sell",
             "summary_type": "BrokerSecurityTransactionSummary",
             "status": "SETTLED",
-            "last_event_datetime": "2026-08-13T09:00:00.000Z",
+            "last_event_datetime": _event_datetime(RECENT_DATE),
             "description": ETF_NAME,
             "isin": ISIN,
-            "quantity": 4,
-            "amount": 728.0,
+            "quantity": SOLD_QUANTITY,
+            "amount": SOLD_QUANTITY * PRICES[RECENT_DATE],
             "side": "SELL",
         },
         {
             "id": "transfer-out",
             "summary_type": "BrokerNonTradeSecurityTransactionSummary",
             "status": "SETTLED",
-            "last_event_datetime": "2026-08-14T09:00:00.000Z",
+            "last_event_datetime": _event_datetime(LATEST_DATE),
             "description": ETF_NAME,
             "isin": ISIN,
             "non_trade_security_transaction_type": "TRANSFER_OUT",
-            "quantity": 6,
-            "amount": -1107.6,
+            "quantity": QUANTITY - SOLD_QUANTITY,
+            "amount": -((QUANTITY - SOLD_QUANTITY) * PRICES[LATEST_DATE]),
         },
     ],
     cursor=None,
@@ -758,7 +775,7 @@ def test_ensure_cli_binary_available_names_the_missing_binary_and_the_docs(
 def test_session_requires_the_cli_binary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setattr(target=scalable_capital, name="SCALABLE_CLI_BIN", value=tmp_path / "sc")
     handler = _handler()
-    handler.session_state = {"archive": "ZmFrZQ=="}
+    handler.session_state = {"archive": SESSION_ARCHIVE}
 
     with pytest.raises(RuntimeError, match="CLI binary is missing"):
         with handler.session():
@@ -774,18 +791,20 @@ def test_session_restores_the_config_dir_and_stores_the_refreshed_state(monkeypa
         value=lambda config_dir, session_state: written.append({"dir": config_dir, "state": session_state}),
     )
     monkeypatch.setattr(
-        target=scalable_capital_login, name="read_session_state", value=lambda config_dir: {"archive": "cmVmcmVzaA=="}
+        target=scalable_capital_login,
+        name="read_session_state",
+        value=lambda config_dir: {"archive": SECOND_SESSION_ARCHIVE},
     )
     handler = _handler()
-    handler.session_state = {"archive": "ZmFrZQ=="}
+    handler.session_state = {"archive": SESSION_ARCHIVE}
 
     with handler.session() as session:
         config_dir = session._config_dir
         assert config_dir.exists()
 
-    assert written == [{"dir": config_dir, "state": {"archive": "ZmFrZQ=="}}]
+    assert written == [{"dir": config_dir, "state": {"archive": SESSION_ARCHIVE}}]
     # The refreshed CLI state is read back so a rotated refresh token survives the sync.
-    assert handler.session_state == {"archive": "cmVmcmVzaA=="}
+    assert handler.session_state == {"archive": SECOND_SESSION_ARCHIVE}
     assert not config_dir.exists()
 
 
@@ -796,7 +815,7 @@ def test_session_with_an_unusable_session_state_requires_reauthentication(monkey
     monkeypatch.setattr(target=scalable_capital, name="ensure_cli_binary_available", value=lambda: None)
     monkeypatch.setattr(target=scalable_capital_login, name="write_session_state", value=fake_write)
     handler = _handler()
-    handler.session_state = {"legacy": "ZmFrZQ=="}
+    handler.session_state = {"legacy": SESSION_ARCHIVE}
 
     with pytest.raises(ReauthenticationRequiredError, match="does not contain a CLI config archive"):
         with handler.session():
@@ -834,7 +853,7 @@ def test_broker_transactions_follow_the_cursor_across_pages(monkeypatch: pytest.
     session = _session()
     session.get_accounts()
 
-    cash = session.get_transactions(CASH_ACCOUNT, start_date=date(year=2020, month=1, day=1))
+    cash = session.get_transactions(CASH_ACCOUNT, start_date=OLDER_DATE)
 
     assert len(cash) == len(BROKER_ITEMS)
     broker_calls = [args for args in recorded if args[:2] == ("broker", "transactions")]
@@ -850,7 +869,7 @@ def test_pagination_stops_when_the_cli_keeps_returning_the_same_cursor(monkeypat
     session = _session()
     session.get_accounts()
 
-    session.get_transactions(CASH_ACCOUNT, start_date=date(year=2020, month=1, day=1))
+    session.get_transactions(CASH_ACCOUNT, start_date=OLDER_DATE)
 
     # Second page repeats the cursor of the first one, so paging stops instead of looping forever.
     assert len([args for args in recorded if args[:2] == ("broker", "transactions")]) == 2
@@ -867,7 +886,7 @@ def test_pagination_gives_up_after_the_page_cap(monkeypatch: pytest.MonkeyPatch)
     session = _session()
     session.get_accounts()
 
-    session.get_transactions(CASH_ACCOUNT, start_date=date(year=2020, month=1, day=1))
+    session.get_transactions(CASH_ACCOUNT, start_date=OLDER_DATE)
 
     # A CLI handing back a fresh cursor forever must not keep the sync running indefinitely.
     assert len([args for args in recorded if args[:2] == ("broker", "transactions")]) == 3
@@ -882,7 +901,7 @@ def test_overnight_transactions_that_are_not_settled_are_ignored(monkeypatch: py
     }
     session = _fetched_session(monkeypatch, payloads=payloads)
 
-    transactions = session.get_transactions(OVERNIGHT_ACCOUNT, start_date=date(year=2020, month=1, day=1))
+    transactions = session.get_transactions(OVERNIGHT_ACCOUNT, start_date=OLDER_DATE)
 
     assert [transaction.bank_reference for transaction in transactions] == [OVERNIGHT_ITEMS[1]["id"]]
 
@@ -892,15 +911,15 @@ def test_an_unknown_cash_transaction_type_falls_back_to_the_amount_sign(monkeypa
         "id": "unknown",
         "summary_type": "BrokerCashTransactionSummary",
         "status": "SETTLED",
-        "last_event_datetime": "2026-08-13T00:00:00.000Z",
+        "last_event_datetime": _event_datetime(RECENT_DATE),
         "description": "Neue Buchungsart",
         "cash_transaction_type": "SOMETHING_SCALABLE_ADDED_LATER",
-        "amount": -12.5,
+        "amount": -DEFAULT_AMOUNT,
     }
     payloads = FULL_PAYLOADS | {"broker transactions": [_paged_payload(items=[unknown], cursor=None)]}
     session = _fetched_session(monkeypatch, payloads=payloads)
 
-    cash = session.get_transactions(CASH_ACCOUNT, start_date=date(year=2020, month=1, day=1))
+    cash = session.get_transactions(CASH_ACCOUNT, start_date=OLDER_DATE)
 
     assert [transaction.transaction_type for transaction in cash] == [TransactionType.OUTGOING]
 
@@ -909,7 +928,7 @@ def test_sales_and_non_trade_transfers_out_keep_their_transaction_type(monkeypat
     payloads = FULL_PAYLOADS | {"broker transactions": [SHARE_MOVE_PAYLOAD]}
     session = _fetched_session(monkeypatch, payloads=payloads)
 
-    cash = session.get_transactions(CASH_ACCOUNT, start_date=date(year=2020, month=1, day=1))
+    cash = session.get_transactions(CASH_ACCOUNT, start_date=OLDER_DATE)
 
     assert [transaction.transaction_type for transaction in cash] == [
         TransactionType.BUY,
@@ -924,16 +943,20 @@ def test_share_moves_cover_eltif_quantities_sales_and_transfers_out(monkeypatch:
 
     history = session.get_market_value_history(FetchedAccount(name=ETF_NAME))
 
-    # 10 ELTIF units, 4 sold the next day, the remaining 6 transferred out on the last day.
+    # All ELTIF units first, then the sold ones gone, then the rest transferred out.
     assert [(observation.date, observation.amount) for observation in history] == [
-        (date(year=2026, month=8, day=12), pytest.approx(10 * 179.0)),
-        (date(year=2026, month=8, day=13), pytest.approx(6 * 182.0)),
-        (date(year=2026, month=8, day=14), pytest.approx(0.0)),
+        (OLDER_DATE, pytest.approx(QUANTITY * PRICES[OLDER_DATE])),
+        (RECENT_DATE, pytest.approx((QUANTITY - SOLD_QUANTITY) * PRICES[RECENT_DATE])),
+        (LATEST_DATE, pytest.approx(0.0)),
     ]
 
 
 def test_cash_external_id_falls_back_when_the_cli_reports_no_account_id(monkeypatch: pytest.MonkeyPatch):
-    cash_breakdown = {"ok": True, "command": "broker.cash-breakdown", "data": {"result": {"cash_balance": 10.0}}}
+    cash_breakdown = {
+        "ok": True,
+        "command": "broker.cash-breakdown",
+        "data": {"result": {"cash_balance": DEFAULT_BALANCE}},
+    }
     session = _fetched_session(monkeypatch, payloads=FULL_PAYLOADS | {"broker cash-breakdown": [cash_breakdown]})
 
     cash = next(account for account in session.get_accounts() if account.name == CASH_ACCOUNT.name)
@@ -948,8 +971,8 @@ def test_unavailable_overnight_transactions_are_skipped(
     session = _fetched_session(monkeypatch, payloads=payloads)
 
     with caplog.at_level(logging.DEBUG):
-        cash = session.get_transactions(CASH_ACCOUNT, start_date=date(year=2020, month=1, day=1))
+        cash = session.get_transactions(CASH_ACCOUNT, start_date=OLDER_DATE)
 
     assert cash  # the broker side of the sync still went through
-    assert session.get_transactions(OVERNIGHT_ACCOUNT, start_date=date(year=2020, month=1, day=1)) == []
-    assert_log_contains(caplog, message="Scalable Capital: overnight/Tagesgeld transactions unavailable, skipping")
+    assert session.get_transactions(OVERNIGHT_ACCOUNT, start_date=OLDER_DATE) == []
+    assert_log_contains(caplog, message="Overnight/Tagesgeld transactions unavailable, skipping")

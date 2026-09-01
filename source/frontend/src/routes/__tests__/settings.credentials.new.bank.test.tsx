@@ -12,9 +12,10 @@ vi.mock('@tanstack/react-router', async () =>
 )
 
 import { NewCredentialFormView } from '@/pages/settings.credentials.new.$bank'
+import { NO_CODE_PLACEHOLDER } from '@/lib/credentials'
 import type { SupportedBank, SyncJob } from '@/lib/credentials'
 import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
-import { DATETIME_FAR_FUTURE } from '@/test/constants'
+import { AUTHORIZATION_URL_WITH_CODE, DATETIME_FAR_FUTURE, DEVICE_CODE } from '@/test/constants'
 
 const ING_BANK: SupportedBank = {
   provider: 'ing',
@@ -1082,13 +1083,13 @@ describe('NewCredentialFormView', () => {
         status: 'awaiting_2fa',
         expires_at: DATETIME_FAR_FUTURE,
         error: null,
-        authorization_url: 'https://secure.scalable.capital/activate?user_code=ABCD-EFGH',
+        authorization_url: AUTHORIZATION_URL_WITH_CODE,
       })
 
       expect(
         await screen.findByRole('link', { name: /sign in at scalable capital/i }),
-      ).toHaveAttribute('href', 'https://secure.scalable.capital/activate?user_code=ABCD-EFGH')
-      expect(screen.getByText('ABCD-EFGH')).toBeVisible()
+      ).toHaveAttribute('href', AUTHORIZATION_URL_WITH_CODE)
+      expect(screen.getByText(DEVICE_CODE)).toBeVisible()
       expect(screen.queryByLabelText('Code')).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: "I've completed the login" })).toBeInTheDocument()
     })
@@ -1119,7 +1120,7 @@ describe('NewCredentialFormView', () => {
         status: 'awaiting_2fa',
         expires_at: DATETIME_FAR_FUTURE,
         error: null,
-        authorization_url: 'https://secure.scalable.capital/activate?user_code=ABCD-EFGH',
+        authorization_url: AUTHORIZATION_URL_WITH_CODE,
       })
 
       await user.click(screen.getByRole('button', { name: "I've completed the login" }))
@@ -1138,7 +1139,7 @@ describe('NewCredentialFormView', () => {
       const confirmCall = fetchMock.mock.calls.find(
         ([url, init]) => url === '/api/credentials/9/sync/job-sc/2fa' && init?.method === 'POST',
       )!
-      expect(JSON.parse(confirmCall[1].body)).toEqual({ code: 'confirmed' })
+      expect(JSON.parse(confirmCall[1].body)).toEqual({ code: NO_CODE_PLACEHOLDER })
     })
 
     it('shows a waiting message instead of the connect form while confirming_2fa is in progress', async () => {
@@ -1165,7 +1166,7 @@ describe('NewCredentialFormView', () => {
         status: 'awaiting_2fa',
         expires_at: DATETIME_FAR_FUTURE,
         error: null,
-        authorization_url: 'https://secure.scalable.capital/activate?user_code=ABCD-EFGH',
+        authorization_url: AUTHORIZATION_URL_WITH_CODE,
       })
       await user.click(screen.getByRole('button', { name: "I've completed the login" }))
 
@@ -1211,7 +1212,7 @@ describe('NewCredentialFormView', () => {
         status: 'awaiting_2fa',
         expires_at: DATETIME_FAR_FUTURE,
         error: null,
-        authorization_url: 'https://secure.scalable.capital/activate?user_code=ABCD-EFGH',
+        authorization_url: AUTHORIZATION_URL_WITH_CODE,
       })
 
       await user.click(screen.getByRole('button', { name: "I've completed the login" }))

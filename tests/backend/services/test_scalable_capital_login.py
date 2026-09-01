@@ -11,9 +11,10 @@ import pytest
 from source.backend.exceptions import InvalidTwoFactorError
 from source.backend.helpers import utc_now
 from source.backend.services.banking import scalable_capital_login as module
-from tests.backend.conftest import assert_log_contains
+from tests.backend.conftest import SCALABLE_AUTHORIZATION_URL, SESSION_ARCHIVE, TWO_FACTOR_CODE, assert_log_contains
 
-AUTHORIZATION_URL = "https://secure.scalable.capital/activate?user_code=DJQZ-TFNL"
+AUTHORIZATION_URL_WITH_CODE = f"{SCALABLE_AUTHORIZATION_URL}?user_code={TWO_FACTOR_CODE}"
+DEVICE_CODE_LINE = f"Verify the code {TWO_FACTOR_CODE} in your browser."
 
 
 @pytest.fixture(autouse=True)
@@ -51,14 +52,12 @@ def _patch_subprocess(monkeypatch: pytest.MonkeyPatch, process: _FakeProcess) ->
 def test_start_returns_authorization_url_and_registers_pending_login(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    process = _FakeProcess(
-        lines=["Open this URL:", AUTHORIZATION_URL, "", "Verify the code DJQZ-TFNL in your browser."]
-    )
+    process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE, "", DEVICE_CODE_LINE])
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
 
     token, authorization_url, device_code, expires_at = module.start(credential_id=1)
 
-    assert authorization_url == AUTHORIZATION_URL
+    assert authorization_url == AUTHORIZATION_URL_WITH_CODE
     assert device_code is None
     assert expires_at > utc_now()
     assert token in module._pending_logins
@@ -66,21 +65,20 @@ def test_start_returns_authorization_url_and_registers_pending_login(
     assert_log_contains(
         caplog,
         messages=[
-            "Initiating Scalable Capital device-code login for credential 1",
-            "Scalable Capital device-code challenge issued for credential 1",
+            "Initiating device-code login for credential 1",
+            "Device-code challenge issued for credential 1",
         ],
     )
 
 
 def test_start_reads_the_device_code_from_the_follow_up_line(monkeypatch: pytest.MonkeyPatch):
-    bare_url = "https://secure.scalable.capital/activate"
-    process = _FakeProcess(lines=["Open this URL:", bare_url, "", "Verify the code DJQZ-TFNL in your browser."])
+    process = _FakeProcess(lines=["Open this URL:", SCALABLE_AUTHORIZATION_URL, "", DEVICE_CODE_LINE])
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
 
     _token, authorization_url, device_code, _expires_at = module.start(credential_id=1)
 
-    assert authorization_url == bare_url
-    assert device_code == "DJQZ-TFNL"
+    assert authorization_url == SCALABLE_AUTHORIZATION_URL
+    assert device_code == TWO_FACTOR_CODE
 
 
 def test_start_raises_when_process_ends_without_a_url(monkeypatch: pytest.MonkeyPatch):
@@ -97,7 +95,7 @@ def test_start_raises_when_process_ends_without_a_url(monkeypatch: pytest.Monkey
 def test_complete_reads_back_config_dir_as_session_state(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL], wait_returncode=0)
+    process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE], wait_returncode=0)
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
     token, *_ = module.start(credential_id=1)
     config_dir = module._pending_logins[token].config_dir
@@ -106,7 +104,7 @@ def test_complete_reads_back_config_dir_as_session_state(
 
     session_state = module.complete(challenge_token=token, credential_id=1)
 
-    assert_log_contains(caplog, message="Scalable Capital login completed for credential 1")
+    assert_log_contains(caplog, message="Login completed for credential 1")
     restored_dir = Path(tempfile.mkdtemp())
     module.write_session_state(config_dir=restored_dir, session_state=session_state)
 
@@ -122,7 +120,7 @@ def test_complete_rejects_unknown_token():
 
 
 def test_complete_rejects_token_issued_for_other_credential(monkeypatch: pytest.MonkeyPatch):
-    process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL])
+    process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE])
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
     token, *_ = module.start(credential_id=1)
 
@@ -131,14 +129,14 @@ def test_complete_rejects_token_issued_for_other_credential(monkeypatch: pytest.
 
 
 def test_complete_raises_when_process_exited_nonzero(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
-    process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL], wait_returncode=1)
+    process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE], wait_returncode=1)
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
     token, *_ = module.start(credential_id=1)
 
-    with pytest.raises(InvalidTwoFactorError, match="login failed"):
+    with pytest.raises(InvalidTwoFactorError, match="Login failed"):
         module.complete(challenge_token=token, credential_id=1)
 
-    assert_log_contains(caplog, message="Scalable Capital login failed for credential 1")
+    assert_log_contains(caplog, message="Login failed for credential 1")
     assert module._pending_logins == {}
 
 
@@ -146,7 +144,7 @@ def test_complete_times_out_when_browser_step_is_not_finished_yet(monkeypatch: p
     monkeypatch.setattr(
         target=module, name="DURATION_TO_WAIT_FOR_PROCESS_ON_COMPLETE", value=timedelta(milliseconds=10)
     )
-    process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL], wait_hangs=True)
+    process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE], wait_hangs=True)
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
     token, *_ = module.start(credential_id=1)
 
@@ -160,7 +158,7 @@ def test_complete_times_out_when_browser_step_is_not_finished_yet(monkeypatch: p
 def test_expired_challenge_is_cleaned_up_and_rejected(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL])
+    process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE])
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
     token, *_ = module.start(credential_id=1)
     config_dir = module._pending_logins[token].config_dir
@@ -170,7 +168,7 @@ def test_expired_challenge_is_cleaned_up_and_rejected(
         with pytest.raises(InvalidTwoFactorError):
             module.complete(challenge_token=token, credential_id=1)
 
-    assert_log_contains(caplog, message="Cleaned up 1 expired pending Scalable Capital login(s)")
+    assert_log_contains(caplog, message="Cleaned up 1 expired pending login(s)")
     assert module._pending_logins == {}
     assert not config_dir.exists()
 
@@ -194,26 +192,20 @@ def test_write_session_state_restores_original_file_permissions():
 
 def test_write_session_state_rejects_a_state_without_an_archive():
     with pytest.raises(ValueError, match="archive"):
-        module.write_session_state(config_dir=Path(tempfile.mkdtemp()), session_state={"legacy": "600:ZmFrZQ=="})
+        module.write_session_state(config_dir=Path(tempfile.mkdtemp()), session_state={"legacy": SESSION_ARCHIVE})
 
 
 def test_start_strips_terminal_styling_before_matching_the_prompt(monkeypatch: pytest.MonkeyPatch):
     # `sc` renders the prompt through `emphasize_terminal`, so both lines arrive wrapped in ANSI codes.
-    bare_url = "https://secure.scalable.capital/activate"
     process = _FakeProcess(
-        lines=[
-            "\x1b[1mOpen this URL:\x1b[0m",
-            bare_url,
-            "",
-            "\x1b[1mVerify the code DJQZ-TFNL in your browser.\x1b[0m",
-        ]
+        lines=["\x1b[1mOpen this URL:\x1b[0m", SCALABLE_AUTHORIZATION_URL, "", f"\x1b[1m{DEVICE_CODE_LINE}\x1b[0m"]
     )
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
 
     _token, authorization_url, device_code, _expires_at = module.start(credential_id=1)
 
-    assert authorization_url == bare_url
-    assert device_code == "DJQZ-TFNL"
+    assert authorization_url == SCALABLE_AUTHORIZATION_URL
+    assert device_code == TWO_FACTOR_CODE
 
 
 def test_start_raises_when_the_url_line_is_blank(monkeypatch: pytest.MonkeyPatch):

@@ -85,8 +85,7 @@ _SHARE_MOVE_SIGN: dict[TransactionType, float] = {
 def ensure_cli_binary_available() -> None:
     if not SCALABLE_CLI_BIN.exists():
         raise RuntimeError(
-            f"The Scalable Capital CLI binary is missing at {SCALABLE_CLI_BIN}. "
-            f"See docs/bank_handlers/scalable_capital.md."
+            f"The `sc` CLI binary is missing at {SCALABLE_CLI_BIN}. " f"See docs/bank_handlers/scalable_capital.md."
         )
 
 
@@ -121,12 +120,12 @@ async def _run_command(config_dir: Path, args: tuple[str, ...]) -> dict:
         error_code = error.get("code") if isinstance(error, dict) else None
         if error_code in _REAUTHENTICATION_ERROR_CODES:
             raise ReauthenticationRequiredError(
-                f"Scalable Capital rejected `{command_text}` ({error_code}); re-authentication required."
+                f"`{command_text}` was rejected ({error_code}); re-authentication required."
             )
         if error_code == _RATE_LIMITED_ERROR_CODE and retries < len(_RATE_LIMIT_BACKOFF_SECONDS):
             delay = _RATE_LIMIT_BACKOFF_SECONDS[retries]
             retries += 1
-            logger.warning(f"Scalable Capital rate-limited `{command_text}`; retrying in {delay}s")
+            logger.warning(f"Rate-limited `{command_text}`; retrying in {delay}s")
             await asyncio.sleep(delay)
             continue
 
@@ -237,7 +236,7 @@ class _ScalableCapitalSession(BankSession):
             asyncio.run(self._fetch_transactions(start_date))
             self._transactions_loaded = True
         transactions = self._accounts[account.name]["transactions"]
-        logger.debug(f"Scalable Capital returned {len(transactions)} transaction(s) for {account.name}")
+        logger.debug(f"Fetched {len(transactions)} transaction(s) for {account.name}")
         return transactions
 
     async def _fetch(self) -> None:
@@ -262,7 +261,7 @@ class _ScalableCapitalSession(BankSession):
             overnight = await _run_command(config_dir=self._config_dir, args=("overnight",))
         except RuntimeError:
             # Not every account has an overnight/Tagesgeld savings product
-            logger.debug("Scalable Capital: no overnight/Tagesgeld account available, skipping")
+            logger.debug("No overnight/Tagesgeld account available, skipping")
         else:
             self._has_overnight_account = True
             self._add_account(
@@ -271,7 +270,7 @@ class _ScalableCapitalSession(BankSession):
                 balance=_get_or_zero(raw=overnight, key="balance"),
             )
 
-        logger.debug(f"Scalable Capital fetched {len(self._accounts)} account(s)")
+        logger.debug(f"Fetched {len(self._accounts)} account(s)")
 
     async def _fetch_transactions(self, start_date: date) -> None:
         from_time = f"{start_date.isoformat()}T00:00:00Z"
@@ -284,7 +283,7 @@ class _ScalableCapitalSession(BankSession):
         try:
             overnight_items = await self._paginated_items(args=("overnight", "transactions", "--from-time", from_time))
         except RuntimeError:
-            logger.debug("Scalable Capital: overnight/Tagesgeld transactions unavailable, skipping")
+            logger.debug("Overnight/Tagesgeld transactions unavailable, skipping")
         else:
             for raw in overnight_items:
                 self._apply_overnight_transaction(raw)
@@ -340,7 +339,7 @@ class _ScalableCapitalSession(BankSession):
             observations = build_daily_market_value_history(
                 moves=share_moves.get(isin) or [], prices=list(prices.items())
             )
-            logger.debug(f"Scalable Capital valued {name} ({isin}): {len(observations)} daily snapshot(s)")
+            logger.debug(f"Valued {name} ({isin}): {len(observations)} daily snapshot(s)")
             if observations:
                 history[name] = observations
         return history
@@ -351,7 +350,7 @@ class _ScalableCapitalSession(BankSession):
                 config_dir=self._config_dir, args=("broker", "chart", "--isin", isin, "--timeframe", "max")
             )
         except RuntimeError:
-            logger.debug(f"Scalable Capital: no chart data for {isin}; skipping its value history")
+            logger.debug(f"No chart data for {isin}; skipping its value history")
             return {}
         prices: dict[date, float] = {}
         for point in chart.get("data_points") or []:
@@ -403,7 +402,7 @@ class ScalableCapitalHandler(BankHandler):
     @contextmanager
     def session(self) -> Iterator[_ScalableCapitalSession]:
         if not self.session_state:
-            raise ReauthenticationRequiredError("Scalable Capital has not been authorized yet.")
+            raise ReauthenticationRequiredError("Not authorized yet.")
         ensure_cli_binary_available()
 
         config_dir = Path(tempfile.mkdtemp(prefix="scalable-cli-session-"))
@@ -411,7 +410,7 @@ class ScalableCapitalHandler(BankHandler):
             try:
                 scalable_capital_login.write_session_state(config_dir=config_dir, session_state=self.session_state)
             except ValueError as e:
-                raise ReauthenticationRequiredError(f"Scalable Capital session state is unusable: {e}") from e
+                raise ReauthenticationRequiredError(f"Session state is unusable: {e}") from e
             yield _ScalableCapitalSession(config_dir=config_dir)
             self.session_state = scalable_capital_login.read_session_state(config_dir)
         finally:

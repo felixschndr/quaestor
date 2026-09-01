@@ -7,6 +7,13 @@ import '@/i18n'
 
 import { TwoFactorModal } from '@/components/two-factor-modal'
 import type { Current2FA } from '@/lib/auth'
+import { NO_CODE_PLACEHOLDER } from '@/lib/credentials'
+import {
+  AUTHORIZATION_URL,
+  AUTHORIZATION_URL_WITH_CODE,
+  DEVICE_CODE,
+  SECOND_DEVICE_CODE,
+} from '@/test/constants'
 
 beforeAll(async () => {
   await i18n.changeLanguage('en')
@@ -77,19 +84,19 @@ describe('TwoFactorModal', () => {
         bankName: null,
         bankIcon: null,
         kind: 'awaiting_2fa',
-        authorizationUrl: 'https://secure.scalable.capital/activate?user_code=ABCD-EFGH',
+        authorizationUrl: AUTHORIZATION_URL_WITH_CODE,
       },
       onSubmit,
     })
     expect(screen.getByRole('dialog')).toBeVisible()
     expect(screen.queryByLabelText('Code')).toBeNull()
-    expect(screen.getByText('ABCD-EFGH')).toBeVisible()
+    expect(screen.getByText(DEVICE_CODE)).toBeVisible()
     expect(screen.getByRole('link', { name: /sign in at scalable capital/i })).toHaveAttribute(
       'href',
-      'https://secure.scalable.capital/activate?user_code=ABCD-EFGH',
+      AUTHORIZATION_URL_WITH_CODE,
     )
     await userEvent.click(screen.getByRole('button', { name: "I've completed the login" }))
-    expect(onSubmit).toHaveBeenCalledWith('confirmed')
+    expect(onSubmit).toHaveBeenCalledWith(NO_CODE_PLACEHOLDER)
   })
 
   it('prefers the device code reported by the backend over the one in the URL', () => {
@@ -101,11 +108,11 @@ describe('TwoFactorModal', () => {
         bankName: null,
         bankIcon: null,
         kind: 'awaiting_2fa',
-        authorizationUrl: 'https://secure.scalable.capital/activate',
-        deviceCode: 'WXYZ-1234',
+        authorizationUrl: AUTHORIZATION_URL,
+        deviceCode: SECOND_DEVICE_CODE,
       },
     })
-    expect(screen.getByText('WXYZ-1234')).toBeVisible()
+    expect(screen.getByText(SECOND_DEVICE_CODE)).toBeVisible()
   })
 
   it('renders a neutral spinner without submit while confirming', () => {
