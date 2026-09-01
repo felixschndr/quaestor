@@ -47,6 +47,7 @@
     "continue": "Continue",
     "saved": "Saved",
     "copied": "Copied",
+    "copyFailed": "Copying failed – Quaestor needs to be served over HTTPS or localhost.",
     "delete": "Delete",
     "edit": "Edit",
     "confirm": "Confirm",
@@ -198,8 +199,7 @@
     },
     "iban": {
       "copy": "Copy IBAN",
-      "copied": "IBAN copied",
-      "copyFailed": "Could not copy IBAN"
+      "copied": "IBAN copied"
     },
     "balance": "Current balance",
     "today": "Today",

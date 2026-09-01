@@ -9,23 +9,14 @@ export interface CopyButtonProps {
   label: string
   className?: string
   successMessage?: string
-  errorMessage?: string
 }
 
-export function CopyButton({
-  value,
-  label,
-  className,
-  successMessage,
-  errorMessage,
-}: CopyButtonProps) {
+export function CopyButton({ value, label, className, successMessage }: CopyButtonProps) {
   const { copied, copy } = useCopyFeedback()
 
   const handleCopy = async () => {
-    if (await copy(value)) {
-      if (successMessage) toast.success(successMessage, { duration: COPY_FEEDBACK_MS })
-    } else if (errorMessage) {
-      toast.error(errorMessage)
+    if ((await copy(value)) && successMessage) {
+      toast.success(successMessage, { duration: COPY_FEEDBACK_MS })
     }
   }
 

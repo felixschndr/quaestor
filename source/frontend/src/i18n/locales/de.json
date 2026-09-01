@@ -47,6 +47,7 @@
     "continue": "Weiter",
     "saved": "Gespeichert",
     "copied": "Kopiert",
+    "copyFailed": "Kopieren fehlgeschlagen – dafür muss Quaestor über HTTPS oder localhost erreichbar sein.",
     "delete": "Löschen",
     "edit": "Bearbeiten",
     "confirm": "Bestätigen",
@@ -198,8 +199,7 @@
     },
     "iban": {
       "copy": "IBAN kopieren",
-      "copied": "IBAN kopiert",
-      "copyFailed": "IBAN konnte nicht kopiert werden"
+      "copied": "IBAN kopiert"
     },
     "balance": "Aktueller Kontostand",
     "today": "Heute",

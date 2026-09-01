@@ -18,7 +18,23 @@ describe('copyText', () => {
     expect(writeText).toHaveBeenCalledWith(TEST_IBAN)
   })
 
-  it('rejects when the clipboard API is unavailable (non-secure context)', async () => {
+  it('falls back to execCommand in a non-secure context', async () => {
+    const execCommand = vi.fn().mockReturnValue(true)
+    Object.defineProperty(document, 'execCommand', { value: execCommand, configurable: true })
+
+    await copyText(TEST_IBAN)
+
+    expect(execCommand).toHaveBeenCalledWith('copy')
+    expect(document.querySelector('textarea')).toBeNull()
+  })
+
+  it('rejects when the fallback is rejected too', async () => {
+    Object.defineProperty(document, 'execCommand', {
+      value: vi.fn().mockReturnValue(false),
+      configurable: true,
+    })
+
     await expect(copyText(TEST_IBAN)).rejects.toThrow()
+    expect(document.querySelector('textarea')).toBeNull()
   })
 })

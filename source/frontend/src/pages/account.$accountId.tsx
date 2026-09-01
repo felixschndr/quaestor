@@ -216,7 +216,6 @@ function IbanLabel({ value, id }: { value: string; id?: string }) {
         label={t('account.iban.copy')}
         className="-m-0.5"
         successMessage={t('account.iban.copied')}
-        errorMessage={t('account.iban.copyFailed')}
       />
     </p>
   )

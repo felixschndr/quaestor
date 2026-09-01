@@ -1,9 +1,8 @@
-import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
-import { copyText } from '@/lib/clipboard'
+import { useCopyFeedback } from '@/lib/clipboard'
 import { Button } from '@/components/ui/button'
 
 const callbackSearchSchema = z.object({
@@ -19,7 +18,7 @@ export const Route = createFileRoute('/banking/callback')({
 function BankingCallbackPage() {
   const { code, error } = Route.useSearch()
   const { t } = useTranslation()
-  const [copied, setCopied] = useState(false)
+  const { copied, copy } = useCopyFeedback()
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-page flex-col items-center justify-center gap-4 p-4 text-center">
@@ -32,12 +31,7 @@ function BankingCallbackPage() {
             {t('credentials.enableBanking.callbackDescription')}
           </p>
           <code className="bg-muted rounded px-3 py-2 text-sm break-all select-all">{code}</code>
-          <Button
-            onClick={async () => {
-              await copyText(code)
-              setCopied(true)
-            }}
-          >
+          <Button onClick={() => void copy(code)}>
             {copied
               ? t('credentials.enableBanking.callbackCopied')
               : t('credentials.enableBanking.callbackCopy')}
