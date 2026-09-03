@@ -59,7 +59,7 @@ function RootComponent() {
   const showTabBar = !NO_TAB_BAR_PREFIXES.some((p) => pathname.startsWith(p))
   return (
     <>
-      <div className={showTabBar ? 'pb-16 sm:pb-0' : undefined}>
+      <div className={showTabBar ? 'pb-20 sm:pb-0' : undefined}>
         <Outlet />
       </div>
       {showTabBar ? <BottomTabBar /> : null}
