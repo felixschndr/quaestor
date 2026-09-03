@@ -59,6 +59,8 @@ def share_account(
         recipient=recipient,
         title_key="account_share.invited.title",
         body_key="account_share.invited.body",
+        url="/settings",
+        share_id=share.id,
         owner=owner.display_name,
         account=account.display_label,
         permission=_permission_label(permission=permission, language=recipient.language),
@@ -75,6 +77,8 @@ def update_permission(db_session: Session, share: AccountShare, permission: Shar
         recipient=share.user,
         title_key="account_share.permission_changed.title",
         body_key="account_share.permission_changed.body",
+        url=f"/account/{share.account_id}",
+        share_id=share.id,
         owner=share.account.credential.user.display_name,
         account=share.account.display_label,
         permission=_permission_label(permission=permission, language=share.user.language),
@@ -85,6 +89,7 @@ def update_permission(db_session: Session, share: AccountShare, permission: Shar
 def revoke(db_session: Session, share: AccountShare) -> None:
     recipient = share.user
     account = share.account
+    share_id = share.id
     db_session.delete(share)
     db_session.commit()
     logger.info(f"Revoked the share of {account} with {recipient}")
@@ -93,6 +98,8 @@ def revoke(db_session: Session, share: AccountShare) -> None:
         recipient=recipient,
         title_key="account_share.revoked.title",
         body_key="account_share.revoked.body",
+        url="/settings",
+        share_id=share_id,
         owner=account.credential.user.display_name,
         account=account.display_label,
     )
@@ -118,6 +125,8 @@ def respond_to_invitation(db_session: Session, user: User, share_id: int, accept
         recipient=owner,
         title_key="account_share.accepted.title" if accept else "account_share.declined.title",
         body_key="account_share.accepted.body" if accept else "account_share.declined.body",
+        url=_owner_url(account=account),
+        share_id=share_id,
         user=user.display_name,
         account=account.display_label,
     )
@@ -144,6 +153,7 @@ def update_own_settings(db_session: Session, share: AccountShare, fields: dict) 
 def leave(db_session: Session, user: User, account_id: int) -> None:
     share = get_own_share(user=user, account_id=account_id)
     account = share.account
+    share_id = share.id
     db_session.delete(share)
     db_session.commit()
     logger.info(f"{user} left the share of {account}")
@@ -152,19 +162,27 @@ def leave(db_session: Session, user: User, account_id: int) -> None:
         recipient=account.credential.user,
         title_key="account_share.left.title",
         body_key="account_share.left.body",
+        url=_owner_url(account=account),
+        share_id=share_id,
         user=user.display_name,
         account=account.display_label,
     )
 
 
-def _notify(db_session: Session, recipient: User, title_key: str, body_key: str, **params: object) -> None:
+def _notify(
+    db_session: Session, recipient: User, title_key: str, body_key: str, url: str, share_id: int, **params: object
+) -> None:
     notification_service.notify_user(
         db_session=db_session,
         user=recipient,
         notification=Notification(
             title=notification_messages.translate(language=recipient.language, key=title_key),
             body=notification_messages.translate(language=recipient.language, key=body_key, **params),
-            url="/settings",
-            tag="account-share",
+            url=url,
+            tag=f"account-share-{share_id}",
         ),
     )
+
+
+def _owner_url(account: Account) -> str:
+    return f"/settings/credentials/{account.credential_id}"

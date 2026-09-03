@@ -265,6 +265,37 @@ def test_owner_is_notified_when_the_recipient_declines(
     assert _titles(sent_notifications)[-1] == (USER_NAME, "Share declined")
 
 
+def test_every_share_notification_links_where_the_recipient_can_act(
+    http_client: TestClient, sent_notifications: list[tuple[str, Notification]]
+):
+    account_id, share_id = _setup(http_client, permission="read")
+    credential_id = http_client.get("/api/auth/me").json()["credentials"][0]["id"]
+
+    assert sent_notifications[-1][1].url == "/settings"
+
+    _accept(http_client, share_id=share_id)
+    assert sent_notifications[-1][1].url == f"/settings/credentials/{credential_id}"
+
+    login_as(http_client, user_name=USER_NAME, password=VALID_PASSWORD)
+    http_client.patch(f"/api/account_shares/{share_id}", json={"permission": "write"})
+    assert sent_notifications[-1][1].url == f"/account/{account_id}"
+
+    http_client.delete(f"/api/account_shares/{share_id}")
+    assert sent_notifications[-1][1].url == "/settings"
+
+
+def test_share_notifications_are_tagged_per_share_so_they_do_not_replace_each_other(
+    http_client: TestClient, sent_notifications: list[tuple[str, Notification]]
+):
+    account_id, first_share = _setup(http_client)
+    third_user_id = register(http_client, user_name=INTRUDER_USER_NAME, display_name=SECOND_DISPLAY_NAME).json()["id"]
+    login_as(http_client, user_name=USER_NAME, password=VALID_PASSWORD)
+    second_share = _share(http_client, account_id=account_id, recipient_id=third_user_id)
+
+    tags = [notification.tag for _, notification in sent_notifications]
+    assert tags == [f"account-share-{first_share}", f"account-share-{second_share}"]
+
+
 def test_recipient_keeps_their_own_overview_preferences(http_client: TestClient):
     account_id, share_id = _setup(http_client)
     http_client.patch(f"/api/account/{account_id}", json={"balance": DEFAULT_BALANCE})
