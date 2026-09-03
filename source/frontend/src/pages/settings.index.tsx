@@ -17,7 +17,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import type { ComponentType, SVGProps } from 'react'
 
 import { toast } from 'sonner'
 
@@ -28,8 +28,11 @@ import { useRespondToInvitation } from '@/lib/accountShares'
 import type { SettingsIndexViewProps } from '@/routes/settings.index'
 import { BackLink } from '@/components/back-link'
 import { WarningDot } from '@/components/warning-dot'
+import { NotificationLogIcon } from '@/components/notification-log-icon'
+import { LOG_RETENTION_DAYS } from '@/lib/notificationLog'
 
 type SettingsRoute =
+  | '/notifications'
   | '/settings/credentials'
   | '/settings/user/profile'
   | '/settings/user/appearance'
@@ -90,6 +93,21 @@ export function SettingsIndexView({
 
         <ul className="border-border bg-card flex flex-col rounded-lg border">
           <SettingsLink
+            to="/notifications"
+            icon={NotificationLogIcon}
+            label={t('notificationLog.title')}
+            description={t('notificationLog.description', { days: LOG_RETENTION_DAYS })}
+          />
+          <SettingsLink
+            to="/settings/user/notifications"
+            icon={Bell}
+            label={t('notifications.navTitle')}
+            description={t('notifications.description')}
+          />
+        </ul>
+
+        <ul className="border-border bg-card flex flex-col rounded-lg border">
+          <SettingsLink
             to="/settings/user/profile"
             icon={User}
             label={t('settings.profile')}
@@ -106,12 +124,6 @@ export function SettingsIndexView({
             icon={ShieldCheck}
             label={t('settings.authentication')}
             description={t('settings.authenticationDescription')}
-          />
-          <SettingsLink
-            to="/settings/user/notifications"
-            icon={Bell}
-            label={t('notifications.navTitle')}
-            description={t('notifications.description')}
           />
           <SettingsLink
             to="/settings/user/api-keys"
@@ -230,7 +242,7 @@ function SettingsLink({
   warn = false,
 }: {
   to: SettingsRoute
-  icon: LucideIcon
+  icon: ComponentType<SVGProps<SVGSVGElement>>
   label: string
   description: string
   highlight?: boolean

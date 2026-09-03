@@ -8,7 +8,7 @@ import {
 import { Toaster } from 'sonner'
 import { Loader2, CloudOff, AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { QueryClient } from '@tanstack/react-query'
+import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 
 import { BottomTabBar } from '@/components/bottom-tab-bar'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ import { NetworkError } from '@/lib/api'
 import { authQueryKeys, ensureAuthenticated, useAuthMe, type UserRead } from '@/lib/auth'
 import { ensureAppSettings } from '@/lib/settings'
 import { autoSubscribe } from '@/lib/push'
+import { consumeClickedNotification } from '@/lib/notificationLog'
 import { readStoredTheme, useResolvedTheme } from '@/lib/theme'
 import { setDisplayCurrency } from '@/lib/format'
 import { useApplyUserLanguage } from '@/i18n'
@@ -47,9 +48,13 @@ function RootComponent() {
   useApplyUserLanguage(user?.language)
   if (user?.currency) setDisplayCurrency(user.currency)
   const userId = user?.id
+  const queryClient = useQueryClient()
   useEffect(() => {
     if (userId) void autoSubscribe()
   }, [userId])
+  useEffect(() => {
+    if (userId) void consumeClickedNotification(queryClient)
+  }, [userId, queryClient])
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const showTabBar = !NO_TAB_BAR_PREFIXES.some((p) => pathname.startsWith(p))
   return (

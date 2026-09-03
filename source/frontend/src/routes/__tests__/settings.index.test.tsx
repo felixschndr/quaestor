@@ -24,16 +24,20 @@ describe('SettingsIndexView', () => {
       .filter((link) => link.getAttribute('href')?.startsWith('/settings/'))
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/settings/credentials',
+      '/settings/user/notifications',
       '/settings/user/profile',
       '/settings/user/appearance',
       '/settings/user/authentication',
-      '/settings/user/notifications',
       '/settings/user/api-keys',
       '/settings/user/sessions',
       '/settings/version',
       '/settings/attributions',
       '/settings/user/delete',
     ])
+    expect(screen.getByRole('link', { name: /Notification history/ })).toHaveAttribute(
+      'href',
+      '/notifications',
+    )
   })
 
   it('shows the default version description when no update is available', () => {

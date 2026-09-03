@@ -841,6 +841,16 @@
       "monthly": "Monatlich (Am 01.)"
     }
   },
+  "notificationLog": {
+    "title": "Benachrichtigungsverlauf",
+    "description": "Benachrichtigungen der letzten {{days}} Tage",
+    "empty": "Noch keine Benachrichtigungen erhalten.",
+    "unread": "ungelesen",
+    "retention": "Benachrichtigungen werden nach {{days}} Tagen automatisch gelöscht.",
+    "unreadCount_one": "Benachrichtigungsverlauf – {{count}} ungelesen",
+    "unreadCount_other": "Benachrichtigungsverlauf – {{count}} ungelesen",
+    "markAllRead": "Alle als gelesen markieren"
+  },
   "note": {
     "placeholder": "Notiz hinzufügen …",
     "edit": "Notiz bearbeiten"

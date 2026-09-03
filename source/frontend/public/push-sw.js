@@ -11,16 +11,17 @@ self.addEventListener('push', (event) => {
     icon: '/favicon-192.png',
     badge: '/favicon-192.png',
   }
-  // A tag lets a newer notification replace an older one instead of stacking.
   if (data.tag) options.tag = data.tag
-  if (data.url) options.data = { url: data.url }
+  if (data.url || data.log_id) options.data = { url: data.url, logId: data.log_id }
 
   event.waitUntil(self.registration.showNotification(data.title, options))
 })
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const target = (event.notification.data && event.notification.data.url) || '/'
+  const data = event.notification.data || {}
+  const base = data.url || '/'
+  const target = data.logId ? `${base}#n=${data.logId}` : base
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {

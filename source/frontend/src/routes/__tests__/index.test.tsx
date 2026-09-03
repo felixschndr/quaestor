@@ -66,14 +66,23 @@ function render_(user: UserRead) {
   )
 }
 
-function mockApi(bodies: { contracts?: unknown; netWorth?: unknown; layout?: unknown } = {}) {
+function mockApi(
+  bodies: {
+    contracts?: unknown
+    netWorth?: unknown
+    layout?: unknown
+    notificationLog?: unknown
+  } = {},
+) {
   globalThis.fetch = vi.fn().mockImplementation((input: RequestInfo | URL) => {
     const url = String(input)
     const body = url.includes('/contracts')
       ? (bodies.contracts ?? [])
       : url.includes('/net-worth')
         ? (bodies.netWorth ?? { series: [], summary: null })
-        : (bodies.layout ?? { groups: [], ungrouped: [] })
+        : url.includes('/notification_log')
+          ? (bodies.notificationLog ?? [])
+          : (bodies.layout ?? { groups: [], ungrouped: [] })
     return Promise.resolve(
       new Response(JSON.stringify(body), {
         status: 200,
@@ -127,6 +136,30 @@ describe('OverviewView', () => {
   it('renders the cog link to /settings', () => {
     render_(buildUser())
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings')
+  })
+
+  it('puts the notification log between the settings cog and the privacy toggle', () => {
+    render_(buildUser({ credentials: [buildCredential()] }))
+
+    const log = screen.getByRole('link', { name: 'Notification history' })
+    expect(log).toHaveAttribute('href', '/notifications')
+    const settings = screen.getByRole('link', { name: 'Settings' })
+    const privacy = screen.getByRole('button', { name: 'Hide amounts' })
+    expect(settings.compareDocumentPosition(log) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(log.compareDocumentPosition(privacy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('counts unread notifications on the log link once they arrive', async () => {
+    mockApi({
+      notificationLog: [
+        { id: 1, title: 'A', body: 'B', url: null, created_at: null, read_at: null },
+      ],
+    })
+    render_(buildUser())
+
+    expect(
+      await screen.findByRole('link', { name: 'Notification history – 1 unread' }),
+    ).toBeInTheDocument()
   })
 
   it('renders the search link pointing at the global search route', () => {

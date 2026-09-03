@@ -841,6 +841,16 @@
       "monthly": "Monthly (on the 1st)"
     }
   },
+  "notificationLog": {
+    "title": "Notification history",
+    "description": "Notifications from the last {{days}} days",
+    "empty": "No notifications received yet.",
+    "unread": "unread",
+    "retention": "Notifications are deleted automatically after {{days}} days.",
+    "unreadCount_one": "Notification history – {{count}} unread",
+    "unreadCount_other": "Notification history – {{count}} unread",
+    "markAllRead": "Mark all as read"
+  },
   "note": {
     "placeholder": "Add a note…",
     "edit": "Edit note"

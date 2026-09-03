@@ -67,6 +67,31 @@ def test_notify_user_delivers_to_all_subscriptions(
     assert_log_contains(caplog, message="Notified")
 
 
+def test_the_push_payload_carries_the_log_entry_id_so_a_click_can_mark_it_read(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    payloads: list[dict] = []
+
+    def fake_send(subscription_info: dict, payload: dict) -> PushResult:
+        payloads.append(payload)
+        return PushResult(outcome=PushOutcome.DELIVERED)
+
+    monkeypatch.setattr(target=push_service, name="send", value=fake_send)
+
+    with session_factory() as db_session:
+        user = make_user(db_session)
+        db_session.flush()
+        _add_subscription(db_session=db_session, user_id=user.id, endpoint="https://push.example/live")
+        db_session.commit()
+
+        notification_service.notify_user(
+            db_session=db_session, user=user, notification=Notification(title="t", body="b", url="/contracts/7")
+        )
+        (entry,) = notification_service.list_log(db_session=db_session, user=user)
+
+    assert payloads == [{"title": "t", "body": "b", "url": "/contracts/7", "log_id": entry.id}]
+
+
 def test_notify_user_prunes_expired_subscriptions(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):

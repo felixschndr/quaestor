@@ -41,6 +41,10 @@ class NotificationRuleNotFoundError(NotFoundError):
     pass
 
 
+class NotificationLogEntryNotFoundError(NotFoundError):
+    pass
+
+
 class ContractNotFoundError(NotFoundError):
     pass
 

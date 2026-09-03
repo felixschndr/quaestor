@@ -13,6 +13,7 @@ import { SyncButton } from '@/components/sync-button'
 import { Sparkline } from '@/components/sparkline'
 import { UpcomingContracts } from '@/components/upcoming-contracts'
 import { WarningDot } from '@/components/warning-dot'
+import { NotificationLogIcon } from '@/components/notification-log-icon'
 import { PrivacyToggle } from '@/components/privacy-toggle'
 import { SyncStatusIcon, type SyncState } from '@/components/sync-check'
 import { presetDateRange, useNetWorthStats } from '@/lib/statistics'
@@ -35,6 +36,7 @@ import {
 } from '@/lib/accountDisplayGroups'
 import { useCollapsedGroups } from '@/lib/collapsedGroups'
 import { useContracts } from '@/lib/contract'
+import { unreadCount, useNotificationLog } from '@/lib/notificationLog'
 import { hasSyncError, type SyncJob } from '@/lib/credentials'
 import { cn } from '@/lib/utils'
 
@@ -105,6 +107,8 @@ export function OverviewView({
   )
   const pendingInvitations = (user.account_share_invitations ?? []).length
   const failedCredentials = user.credentials.filter(hasSyncError)
+  const { data: notifications } = useNotificationLog()
+  const unreadNotifications = unreadCount(notifications)
   const [settleKey, setSettleKey] = useState<number | null>(null)
   const lastBalance = useRef(user.balance)
   useEffect(() => {
@@ -140,6 +144,19 @@ export function OverviewView({
             {pendingInvitations > 0 || failedCredentials.length > 0 ? (
               <WarningDot className={failedCredentials.length > 0 ? 'bg-destructive' : undefined} />
             ) : null}
+          </Link>
+          <Link
+            to="/notifications"
+            aria-label={
+              unreadNotifications > 0
+                ? t('notificationLog.unreadCount', { count: unreadNotifications })
+                : t('notificationLog.title')
+            }
+            title={t('notificationLog.title')}
+            className="text-primary hover:text-primary/80 focus-visible:ring-ring group relative rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          >
+            <NotificationLogIcon className="size-5" />
+            {unreadNotifications > 0 ? <WarningDot /> : null}
           </Link>
           {hasAccounts ? <PrivacyToggle className="p-2.5" /> : null}
           {hasAccounts ? (

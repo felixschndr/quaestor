@@ -166,6 +166,31 @@
   animation: collapsible-up 200ms ease-in-out;
 }
 
+@keyframes notification-bell-swing {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-12deg);
+  }
+  45% {
+    transform: rotate(10deg);
+  }
+  70% {
+    transform: rotate(-6deg);
+  }
+}
+
+.notification-bell {
+  transform-box: view-box;
+  transform-origin: 12px 3px;
+}
+
+.group:hover .notification-bell {
+  animation: notification-bell-swing 700ms ease-in-out;
+}
+
 @keyframes stats-bar-bounce {
   0%,
   100% {

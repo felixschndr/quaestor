@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from source.backend.models.auth.backup_code import BackupCode
     from source.backend.models.auth.session import UserSession
     from source.backend.models.banking.credential import Credential
+    from source.backend.models.notifications.notification_log_entry import NotificationLogEntry
     from source.backend.models.notifications.notification_rule import NotificationRule
     from source.backend.models.notifications.push_subscription import PushSubscription
 
@@ -51,6 +52,9 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     notification_rules: Mapped[List["NotificationRule"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    notification_log: Mapped[List["NotificationLogEntry"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
     account_groups: Mapped[List["AccountGroup"]] = relationship(
