@@ -39,6 +39,7 @@ export interface FoundAccount {
   bankIcon: string | null
   credentialId: number
   lastFetchingTimestamp: string | null
+  syncEnabled: boolean
   sharePermission: SharePermission | null
   requiresTwoFactor: boolean
 }
@@ -63,6 +64,7 @@ export function findAccountInUser(
           bankIcon: credential.bank_icon,
           credentialId: credential.id,
           lastFetchingTimestamp: credential.last_fetching_timestamp,
+          syncEnabled: credential.sync_enabled,
           sharePermission: credential.shared_from ? (credential.share_permission ?? 'read') : null,
           requiresTwoFactor: credential.requires_two_factor_authentication,
         }

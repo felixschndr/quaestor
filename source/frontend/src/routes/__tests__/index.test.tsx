@@ -793,7 +793,7 @@ describe('OverviewView hero extras', () => {
     )
   })
 
-  it('warns when the least fresh bank is more than a day old', () => {
+  it('warns on the sync button and the lagging account when a bank is more than 5 days old', () => {
     const stale = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()
     const fresh = new Date(Date.now() - 60 * 1000).toISOString()
     const credential = (id: number, accountId: number, timestamp: string) => ({
@@ -808,8 +808,11 @@ describe('OverviewView hero extras', () => {
         credentials: [credential(1, 8, fresh), credential(2, 9, stale)],
       }),
     )
-    // The oldest one wins, so a single lagging bank still marks the total stale.
-    expect(screen.getByText(/Last updated/).className).toMatch(/text-warning/)
+    const syncButton = screen.getByRole('button', { name: 'Sync all accounts' })
+    expect(syncButton.querySelector('.bg-warning')).not.toBeNull()
+    expect(document.querySelector('a[href="/account/9"] .bg-warning')).not.toBeNull()
+    expect(document.querySelector('a[href="/account/8"] .bg-warning')).toBeNull()
+    expect(screen.getByText(/ing was last synced/).className).toMatch(/text-warning/)
   })
 
   it('stays silent about syncing while every bank is current', () => {
@@ -820,7 +823,9 @@ describe('OverviewView hero extras', () => {
         credentials: [{ ...buildCredential(), last_fetching_timestamp: fresh }],
       }),
     )
-    expect(screen.queryByText(/Last updated/)).not.toBeInTheDocument()
+    const syncButton = screen.getByRole('button', { name: 'Sync all accounts' })
+    expect(syncButton.querySelector('.bg-warning')).toBeNull()
+    expect(screen.queryByText(/was last synced/)).not.toBeInTheDocument()
   })
 
   it('leaves banks with syncing switched off out of the staleness check', () => {
@@ -841,7 +846,10 @@ describe('OverviewView hero extras', () => {
         ],
       }),
     )
-    expect(screen.queryByText(/Last updated/)).not.toBeInTheDocument()
+    const syncButton = screen.getByRole('button', { name: 'Sync all accounts' })
+    expect(syncButton.querySelector('.bg-warning')).toBeNull()
+    expect(document.querySelector('a[href="/account/9"] .bg-warning')).toBeNull()
+    expect(screen.queryByText(/was last synced/)).not.toBeInTheDocument()
   })
 })
 

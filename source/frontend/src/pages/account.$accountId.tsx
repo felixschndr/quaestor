@@ -235,6 +235,7 @@ export function AccountDetailView({
   syncDisabled = false,
   syncSpinning = false,
   syncSucceededAt = null,
+  syncWarn = false,
   isOwner = true,
   canWrite = true,
 }: AccountDetailViewProps) {
@@ -310,6 +311,7 @@ export function AccountDetailView({
                   succeededAt={syncSucceededAt}
                   ariaLabel={t('account.sync.aria')}
                   className="p-2.5"
+                  warn={syncWarn}
                 />
               ) : null}
               <Link
@@ -357,8 +359,13 @@ export function AccountDetailView({
         <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
           <IbanLabel id="account-balance-label" value={account.name} />
           {lastUpdated ? (
-            <p className="text-muted-foreground shrink-0 text-sm sm:text-right">
-              {t('common.lastUpdated')}: {formatRelativeDateTime(lastUpdated, t, today)}
+            <p
+              className={cn(
+                'shrink-0 text-sm sm:text-right',
+                syncWarn ? 'text-warning' : 'text-muted-foreground',
+              )}
+            >
+              {t('account.lastUpdatedAt', { date: formatRelativeDateTime(lastUpdated, t, today) })}
             </p>
           ) : null}
         </div>

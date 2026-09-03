@@ -68,6 +68,13 @@ export function parseTimestamp(d: Date | string): Date {
   return new Date(d)
 }
 
+const STALE_AFTER_MS = 5 * 24 * 60 * 60 * 1000
+
+export function isStale(timestamp: string | null): boolean {
+  if (timestamp === null) return false
+  return Date.now() - parseTimestamp(timestamp).getTime() > STALE_AFTER_MS
+}
+
 function activeLocale(): string {
   return i18n.language || i18n.options.fallbackLng?.toString() || 'en'
 }

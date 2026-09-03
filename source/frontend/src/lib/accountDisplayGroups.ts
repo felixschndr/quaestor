@@ -1,12 +1,18 @@
 import type { AccountRead, CredentialRead, UserRead } from './auth'
 import type { AccountGroupAccountRef, AccountGroupLayout } from './accountGroups'
 import { isSharedCredential } from './accountShares'
+import { isStale } from './format'
 
 export interface AccountWithBank extends AccountRead {
   bank: string
   bankName: string | null
   bankIcon: string | null
   shared: boolean
+  stale: boolean
+}
+
+function credentialStale(credential: CredentialRead): boolean {
+  return credential.sync_enabled && isStale(credential.last_fetching_timestamp)
 }
 
 export interface DisplayGroup {
@@ -25,6 +31,7 @@ export function buildAccountLookup(credentials: CredentialRead[]): Map<number, A
         bankName: credential.bank_name,
         bankIcon: credential.bank_icon,
         shared: isSharedCredential(credential),
+        stale: credentialStale(credential),
       })
     }
   }
@@ -51,6 +58,7 @@ export function buildDisplayGroups(
             bankName: credential.bank_name,
             bankIcon: credential.bank_icon,
             shared: isSharedCredential(credential),
+            stale: credentialStale(credential),
           })),
       }))
       .filter((group) => group.accounts.length > 0)

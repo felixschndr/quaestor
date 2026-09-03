@@ -22,7 +22,7 @@ import {
   formatPercent,
   formatRelativeDateTime,
   formatSignedMoney,
-  parseTimestamp,
+  isStale,
 } from '@/lib/format'
 import { accountDisplayName, displayNameOrUserName } from '@/lib/accounts'
 import { AccountLabel } from '@/components/AccountLabel'
@@ -97,7 +97,12 @@ export function OverviewView({
   const overdueCount = (contracts ?? []).filter(
     (contract) => contract.is_overdue && visibleAccountIds.includes(contract.account_id),
   ).length
-  const staleSince = staleSyncTimestamp(user.credentials)
+  const staleCredentials = user.credentials.filter(
+    (credential): credential is CredentialRead & { last_fetching_timestamp: string } =>
+      credential.sync_enabled &&
+      credential.last_fetching_timestamp !== null &&
+      isStale(credential.last_fetching_timestamp),
+  )
   const pendingInvitations = (user.account_share_invitations ?? []).length
   const [settleKey, setSettleKey] = useState<number | null>(null)
   const lastBalance = useRef(user.balance)
@@ -140,7 +145,7 @@ export function OverviewView({
               succeededAt={syncSucceededAt}
               ariaLabel={t('overview.syncAll.aria')}
               className="p-2.5"
-              warn={staleSince !== null}
+              warn={staleCredentials.length > 0}
             />
           ) : null}
           {hasAccounts ? (
@@ -197,7 +202,9 @@ export function OverviewView({
               {t('overview.syncProgress', syncProgress)}
             </p>
           ) : null}
-          {staleSince ? <LastSyncedLine timestamp={staleSince} /> : null}
+          {staleCredentials.map((credential) => (
+            <StaleSyncLine key={credential.id} credential={credential} />
+          ))}
           <NetWorthTrend accountIds={visibleAccountIds} />
         </section>
       ) : null}
@@ -216,23 +223,20 @@ export function OverviewView({
   )
 }
 
-const STALE_AFTER_MS = 5 * 24 * 60 * 60 * 1000
-
-function staleSyncTimestamp(credentials: CredentialRead[]): string | null {
-  const timestamps = credentials
-    .filter((credential) => credential.sync_enabled)
-    .map((credential) => credential.last_fetching_timestamp)
-    .filter((timestamp): timestamp is string => timestamp !== null)
-  if (timestamps.length === 0) return null
-  const oldest = timestamps.reduce((a, b) => (parseTimestamp(a) <= parseTimestamp(b) ? a : b))
-  return Date.now() - parseTimestamp(oldest).getTime() > STALE_AFTER_MS ? oldest : null
-}
-
-function LastSyncedLine({ timestamp }: { timestamp: string }) {
+function StaleSyncLine({
+  credential,
+}: {
+  credential: CredentialRead & { last_fetching_timestamp: string }
+}) {
   const { t } = useTranslation()
+  const bank =
+    credential.bank_name ?? t(`banks.${credential.bank}.title`, { defaultValue: credential.bank })
   return (
     <p className="private-amount text-warning text-xs">
-      {t('common.lastUpdated')}: {formatRelativeDateTime(timestamp, t)}
+      {t('overview.staleSync', {
+        bank,
+        date: formatRelativeDateTime(credential.last_fetching_timestamp, t),
+      })}
     </p>
   )
 }
@@ -358,6 +362,7 @@ function AccountRow({ account, syncState }: { account: AccountWithBank; syncStat
           nameClassName="truncate text-sm font-medium"
           trailing={<SyncStatusIcon state={syncState} />}
           className="flex-1"
+          stale={account.stale}
         />
         <span className="private-amount text-sm font-semibold tabular-nums">
           {hasFactor ? (

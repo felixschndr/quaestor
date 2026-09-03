@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
 import { isManualBank } from '@/lib/credentials'
 import { findAccountInUser, useAccountHistory, type AccountHistoryPage } from '@/lib/accountHistory'
+import { isStale } from '@/lib/format'
 import { TwoFactorModal } from '@/components/two-factor-modal'
 import { AccountDetailView } from '@/pages/account.$accountId'
 import { BackLink } from '@/components/back-link'
@@ -76,6 +77,7 @@ function AccountDetailPage() {
         syncDisabled={isSyncBusy}
         syncSpinning={isSyncBusy}
         syncSucceededAt={sync.succeededAt}
+        syncWarn={accountInfo.syncEnabled && isStale(accountInfo.lastFetchingTimestamp)}
       />
       <TwoFactorModal
         current2fa={sync.current2fa}
@@ -125,6 +127,7 @@ export interface AccountDetailViewProps {
   syncDisabled?: boolean
   syncSpinning?: boolean
   syncSucceededAt?: number | null
+  syncWarn?: boolean
   isOwner?: boolean
   canWrite?: boolean
 }

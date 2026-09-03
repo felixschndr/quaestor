@@ -228,12 +228,12 @@ describe('AccountDetailView', () => {
         />,
       ),
     )
-    expect(screen.getByText(/^Last updated:/)).toBeInTheDocument()
+    expect(screen.getByText(/^Last updated /)).toBeInTheDocument()
   })
 
   it('omits the last-updated time when no timestamp is given', () => {
     renderView([])
-    expect(screen.queryByText(/^Last updated:/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Last updated /)).not.toBeInTheDocument()
   })
 
   it('falls back to the IBAN as the header title when no personalised name is set', () => {

@@ -184,6 +184,7 @@
     "synced": "Synchronisiert",
     "syncFailed": "Synchronisierung fehlgeschlagen",
     "syncProgress": "{{done}} von {{total}} Banken synchronisiert",
+    "staleSync": "{{bank}} wurde am {{date}} zuletzt synchronisiert",
     "privacy": {
       "hide": "Beträge ausblenden",
       "show": "Beträge einblenden"
@@ -194,6 +195,7 @@
     "contractsOverdue_other": "Verträge – {{count}} überfällig"
   },
   "account": {
+    "lastUpdatedAt": "Zuletzt aktualisiert am {{date}}",
     "sync": {
       "aria": "Konto synchronisieren"
     },

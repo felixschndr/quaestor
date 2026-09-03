@@ -184,6 +184,7 @@
     "synced": "Synced",
     "syncFailed": "Sync failed",
     "syncProgress": "{{done}} of {{total}} banks synced",
+    "staleSync": "{{bank}} was last synced {{date}}",
     "privacy": {
       "hide": "Hide amounts",
       "show": "Show amounts"
@@ -194,6 +195,7 @@
     "contractsOverdue_other": "Contracts – {{count}} overdue"
   },
   "account": {
+    "lastUpdatedAt": "Last updated {{date}}",
     "sync": {
       "aria": "Sync account"
     },
