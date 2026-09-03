@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { BankLogo } from '@/components/BankLogo'
 import { DeviceCodeAuthorization } from '@/components/device-code-authorization'
 import type { Current2FA } from '@/lib/auth'
+import { bankTitle } from '@/lib/credentials'
 import {
   NO_CODE_PLACEHOLDER,
   deviceCodeFromAuthorizationUrl,
@@ -51,10 +52,7 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
     }
   }
 
-  const bankTitle = current2fa
-    ? (current2fa.bankName ??
-      t(`banks.${current2fa.bank}.title`, { defaultValue: current2fa.bank }))
-    : ''
+  const bankLabel = current2fa ? bankTitle(t, current2fa.bank, current2fa.bankName) : ''
   const noCodeRequired = current2fa !== null && isNoCodeAuthProvider(current2fa.bank)
   const deviceCode =
     current2fa?.deviceCode ?? deviceCodeFromAuthorizationUrl(current2fa?.authorizationUrl)
@@ -79,19 +77,19 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
             <DialogHeader>
               <BankLogo
                 icon={current2fa.bankIcon}
-                name={bankTitle}
+                name={bankLabel}
                 seed={current2fa.bankName ?? current2fa.bank}
                 className="mx-auto size-12"
               />
               <DialogTitle>
                 {current2fa.kind === 'confirming'
                   ? t('common.confirming')
-                  : t('sync.twoFactor.decoupledTitle', { bank: bankTitle })}
+                  : t('sync.twoFactor.decoupledTitle', { bank: bankLabel })}
               </DialogTitle>
               <DialogDescription>
                 {current2fa.kind === 'confirming'
                   ? t('sync.twoFactor.confirmingDescription')
-                  : t('sync.twoFactor.decoupledDescription', { bank: bankTitle })}
+                  : t('sync.twoFactor.decoupledDescription', { bank: bankLabel })}
               </DialogDescription>
             </DialogHeader>
             <div className="flex justify-center py-4">
@@ -103,19 +101,19 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
             <DialogHeader>
               <BankLogo
                 icon={current2fa.bankIcon}
-                name={bankTitle}
+                name={bankLabel}
                 seed={current2fa.bankName ?? current2fa.bank}
                 className="mx-auto size-12"
               />
               <DialogTitle>
-                {t('sync.twoFactor.authorizeNoCodeTitle', { bank: bankTitle })}
+                {t('sync.twoFactor.authorizeNoCodeTitle', { bank: bankLabel })}
               </DialogTitle>
               <DialogDescription>
-                {t('sync.twoFactor.authorizeNoCodeDescription', { bank: bankTitle })}
+                {t('sync.twoFactor.authorizeNoCodeDescription', { bank: bankLabel })}
               </DialogDescription>
             </DialogHeader>
             <DeviceCodeAuthorization
-              bankTitle={bankTitle}
+              bankTitle={bankLabel}
               authorizationUrl={current2fa.authorizationUrl}
               deviceCode={deviceCode}
               pending={submitting}
@@ -127,21 +125,21 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
             <DialogHeader>
               <BankLogo
                 icon={current2fa.bankIcon}
-                name={bankTitle}
+                name={bankLabel}
                 seed={current2fa.bankName ?? current2fa.bank}
                 className="mx-auto size-12"
               />
-              <DialogTitle>{t('sync.twoFactor.codeTitle', { bank: bankTitle })}</DialogTitle>
+              <DialogTitle>{t('sync.twoFactor.codeTitle', { bank: bankLabel })}</DialogTitle>
               <DialogDescription>
                 {current2fa.authorizationUrl
-                  ? t('sync.twoFactor.authorizeDescription', { bank: bankTitle })
+                  ? t('sync.twoFactor.authorizeDescription', { bank: bankLabel })
                   : t('sync.twoFactor.codeDescription')}
               </DialogDescription>
             </DialogHeader>
             {current2fa.authorizationUrl ? (
               <Button asChild variant="outline">
                 <a href={current2fa.authorizationUrl} target="_blank" rel="noopener noreferrer">
-                  {t('sync.twoFactor.authorizeLink', { bank: bankTitle })}
+                  {t('sync.twoFactor.authorizeLink', { bank: bankLabel })}
                 </a>
               </Button>
             ) : null}

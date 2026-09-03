@@ -107,6 +107,10 @@ export function hasSyncError(credential: CredentialRead): boolean {
   return credential.last_sync_error_code != null
 }
 
+export function bankTitle(t: TFunction, bank: string, bankName?: string | null): string {
+  return bankName ?? t(`banks.${bank}.title`, { defaultValue: bank })
+}
+
 export interface SyncJob {
   job_id: string
   credential_id: number

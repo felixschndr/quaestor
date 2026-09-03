@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { useAuthMe, useGlobalSync } from '@/lib/auth'
+import { bankTitle } from '@/lib/credentials'
+import { toastSyncFailure } from '@/lib/syncToast'
 import { TwoFactorModal } from '@/components/two-factor-modal'
 import { OverviewView } from '@/pages'
 
@@ -15,6 +17,7 @@ function OverviewPage() {
   const { data: user } = useAuthMe()
   const sync = useGlobalSync()
   const { t } = useTranslation()
+  const router = useRouter()
 
   // Surface failed jobs as toasts once each, by tracking the set of credential
   // ids we've already toasted on. Cleared at the start of each new sync run so
@@ -32,16 +35,14 @@ function OverviewPage() {
         !toastedRef.current.has(job.credential_id)
       ) {
         toastedRef.current.add(job.credential_id)
-        const bank = user?.credentials.find((c) => c.id === job.credential_id)?.bank ?? ''
-        const bankTitle = t(`banks.${bank}.title`, { defaultValue: bank })
-        const key =
-          job.error_code === 'rate_limited'
-            ? 'sync.rateLimited'
-            : job.error_code === 'unsupported_bank'
-              ? 'sync.unsupportedBank'
-              : 'sync.failed'
-        toast.error(t(key, { bank: bankTitle }), {
-          action: { label: t('common.retry'), onClick: () => sync.start() },
+        const credential = user?.credentials.find((c) => c.id === job.credential_id)
+        toastSyncFailure({
+          t,
+          bank: bankTitle(t, credential?.bank ?? '', credential?.bank_name),
+          credentialId: job.credential_id,
+          errorCode: job.error_code,
+          navigate: (path) => router.history.push(path),
+          onRetry: () => sync.start(),
         })
       }
     }
@@ -69,15 +70,13 @@ function OverviewPage() {
             await sync.submit2fa(code)
           } catch {
             const bank = sync.current2fa?.bank ?? ''
-            const bankTitle = t(`banks.${bank}.title`, { defaultValue: bank })
-            toast.error(t('sync.failed', { bank: bankTitle }))
+            toast.error(t('sync.failed', { bank: bankTitle(t, bank, sync.current2fa?.bankName) }))
           }
         }}
         onSkip={() => {
           const bank = sync.current2fa?.bank ?? ''
           if (bank) {
-            const bankTitle = t(`banks.${bank}.title`, { defaultValue: bank })
-            toast(t('sync.skipped', { bank: bankTitle }))
+            toast(t('sync.skipped', { bank: bankTitle(t, bank, sync.current2fa?.bankName) }))
           }
           sync.skip2fa()
         }}

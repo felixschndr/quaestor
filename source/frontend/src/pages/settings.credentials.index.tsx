@@ -1,26 +1,19 @@
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, LayoutGrid, Plus } from 'lucide-react'
-import type { TFunction } from 'i18next'
 
 import { Button } from '@/components/ui/button'
 import { BankLogo } from '@/components/BankLogo'
 import type { CredentialRead } from '@/lib/auth'
-import { hasSyncError, lastSyncedLabel } from '@/lib/credentials'
+import { bankTitle, hasSyncError, lastSyncedLabel } from '@/lib/credentials'
 import { isSharedCredential } from '@/lib/accountShares'
 import type { SettingsCredentialsIndexViewProps } from '@/routes/settings.credentials.index'
 import { BackLink } from '@/components/back-link'
 
-function bankTitle(t: TFunction, credential: CredentialRead): string {
-  return (
-    credential.bank_name ?? t(`banks.${credential.bank}.title`, { defaultValue: credential.bank })
-  )
-}
-
 export function SettingsCredentialsIndexView({ user }: SettingsCredentialsIndexViewProps) {
   const { t } = useTranslation()
   const credentials = [...user.credentials].sort((a, b) =>
-    bankTitle(t, a).localeCompare(bankTitle(t, b)),
+    bankTitle(t, a.bank, a.bank_name).localeCompare(bankTitle(t, b.bank, b.bank_name)),
   )
 
   return (
@@ -77,7 +70,7 @@ function ManageGroupsRow() {
 
 function CredentialRow({ credential }: { credential: CredentialRead }) {
   const { t } = useTranslation()
-  const title = bankTitle(t, credential)
+  const title = bankTitle(t, credential.bank, credential.bank_name)
   const syncedLabel = lastSyncedLabel(t, credential)
   const sharedLabel = isSharedCredential(credential)
     ? t('accountShares.sharedBy', { owner: credential.shared_from })

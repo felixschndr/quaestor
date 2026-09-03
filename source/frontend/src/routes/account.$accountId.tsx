@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
-import { isManualBank } from '@/lib/credentials'
+import { bankTitle, isManualBank } from '@/lib/credentials'
+import { toastSyncFailure } from '@/lib/syncToast'
 import { findAccountInUser, useAccountHistory, type AccountHistoryPage } from '@/lib/accountHistory'
 import { isStale } from '@/lib/format'
 import { TwoFactorModal } from '@/components/two-factor-modal'
@@ -24,22 +25,30 @@ function AccountDetailPage() {
   const history = useAccountHistory(accountId)
   const sync = useCredentialSync(accountInfo?.credentialId ?? -1)
   const { t } = useTranslation()
+  const router = useRouter()
 
   // A sync that fails *after* a successful 2FA submit resolves the POST with 200, so the submit handler
   // below never sees it. `failedAt` is the only signal that the async job died
   const syncFailedAt = sync.failedAt
   const syncBank = accountInfo?.bank
+  const syncBankName = accountInfo?.bankName
+  const syncCredentialId = accountInfo?.credentialId
   const syncJobs = sync.jobs
   const syncStartError = sync.startError
   useEffect(() => {
-    if (syncFailedAt === null || syncBank === undefined) return
-    const bankTitle = t(`banks.${syncBank}.title`, { defaultValue: syncBank })
+    if (syncFailedAt === null || syncBank === undefined || syncCredentialId === undefined) return
     if (syncStartError?.status === 403) {
       toast.error(t('sync.notAllowedForShare'))
       return
     }
-    const rateLimited = Array.from(syncJobs.values()).some((j) => j.error_code === 'rate_limited')
-    toast.error(t(rateLimited ? 'sync.rateLimited' : 'sync.failed', { bank: bankTitle }))
+    const failed = Array.from(syncJobs.values()).find((job) => job.status === 'failed')
+    toastSyncFailure({
+      t,
+      bank: bankTitle(t, syncBank, syncBankName),
+      credentialId: syncCredentialId,
+      errorCode: failed?.error_code,
+      navigate: (path) => router.history.push(path),
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncFailedAt, syncBank, t])
 
@@ -85,17 +94,13 @@ function AccountDetailPage() {
           try {
             await sync.submit2fa(code)
           } catch {
-            const bankTitle = t(`banks.${accountInfo.bank}.title`, {
-              defaultValue: accountInfo.bank,
-            })
-            toast.error(t('sync.failed', { bank: bankTitle }))
+            toast.error(
+              t('sync.failed', { bank: bankTitle(t, accountInfo.bank, accountInfo.bankName) }),
+            )
           }
         }}
         onSkip={() => {
-          const bankTitle = t(`banks.${accountInfo.bank}.title`, {
-            defaultValue: accountInfo.bank,
-          })
-          toast(t('sync.skipped', { bank: bankTitle }))
+          toast(t('sync.skipped', { bank: bankTitle(t, accountInfo.bank, accountInfo.bankName) }))
           sync.skip2fa()
         }}
       />
