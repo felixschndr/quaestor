@@ -103,6 +103,10 @@ export type SyncJobErrorCode =
   | 'application_not_activated'
   | 'unknown'
 
+export function hasSyncError(credential: CredentialRead): boolean {
+  return credential.last_sync_error_code != null
+}
+
 export interface SyncJob {
   job_id: string
   credential_id: number

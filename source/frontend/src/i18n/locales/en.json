@@ -405,6 +405,20 @@
       "description": "We're confirming your login and fetching your accounts and transactions. This can take a moment, especially on the first sync — no need to do anything else."
     },
     "neverSynced": "Never synced",
+    "syncErrorPending_one": "{{count}} bank connection needs attention",
+    "syncErrorPending_other": "{{count}} bank connections need attention",
+    "syncError": {
+      "title": "Automatic sync failed",
+      "rowHint": "$t(overview.syncFailed)",
+      "reason": {
+        "invalid_credentials": "The bank rejected the login. Please check your credentials and reconnect the bank.",
+        "unsupported_bank": "This bank is currently not supported.",
+        "rate_limited": "The bank blocked too many login attempts. Please try again later.",
+        "redirect_url_not_allowed": "The configured redirect URL is not allowed by the bank.",
+        "application_not_activated": "The banking application is not activated yet.",
+        "unknown": "Something went wrong during the last automatic sync:"
+      }
+    },
     "autoSync": {
       "enabled_one": "This account is synced automatically on a {{hours}}-hour schedule.",
       "enabled_other": "These accounts are synced automatically on a {{hours}}-hour schedule.",

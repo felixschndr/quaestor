@@ -106,6 +106,27 @@ describe('SettingsCredentialsIndexView', () => {
     expect(screen.queryByText(/Last updated/)).not.toBeInTheDocument()
   })
 
+  it('replaces the last-synced caption with a failure hint when the last sync failed', () => {
+    render(
+      <SettingsCredentialsIndexView
+        user={buildUser({
+          credentials: [
+            buildCredential({
+              id: 7,
+              bank: 'fints',
+              last_fetching_timestamp: DATETIME_RECENT,
+              last_sync_error: 'the bank rejected the login',
+              last_sync_error_code: 'invalid_credentials',
+            }),
+          ],
+        })}
+      />,
+    )
+
+    expect(screen.getByText('Sync failed')).toBeInTheDocument()
+    expect(screen.queryByText(/Last updated:/)).not.toBeInTheDocument()
+  })
+
   it('includes a back link to /settings', () => {
     render(<SettingsCredentialsIndexView user={buildUser({ credentials: [] })} />)
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/settings')

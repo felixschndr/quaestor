@@ -11,12 +11,15 @@ from source.backend.exceptions import (
     CredentialAlreadyExistsError,
     CredentialNotFoundError,
     InvalidCredentialFieldError,
+    InvalidCredentialsError,
+    JobErrorCode,
     MissingCredentialFieldError,
     ReauthenticationRequiredError,
 )
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.services.banking import credential_service, trade_republic_login
+from source.backend.services.notifications import notification_engine
 from tests.backend.conftest import (
     APPLICATION_ID,
     BANK_PASSWORD,
@@ -193,6 +196,175 @@ def test_sync_credential_object_for_handler_without_2fa_calls_credential_sync(
     assert result.status == credential_service.SyncStatus.COMPLETED
     assert len(calls) == 1
     assert not isinstance(calls[0][1], TradeRepublicHandler)
+
+
+def test_sync_credential_object_records_the_failure_and_clears_it_on_the_next_success(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
+
+    def failing_sync(self: Credential, handler: BankHandler) -> None:
+        raise InvalidCredentialsError("the bank rejected the login")
+
+    monkeypatch.setattr(target=Credential, name="sync", value=failing_sync)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        with pytest.raises(InvalidCredentialsError):
+            credential_service.sync_credential_object(credential=credential)
+
+        assert credential.last_sync_error == "InvalidCredentialsError: the bank rejected the login"
+        assert credential.last_sync_error_code == JobErrorCode.INVALID_CREDENTIALS
+
+        monkeypatch.setattr(target=Credential, name="sync", value=MagicMock())
+        credential_service.sync_credential_object(credential=credential)
+
+        assert credential.last_sync_error is None
+        assert credential.last_sync_error_code is None
+
+
+def test_sync_credential_object_records_a_failure_raised_while_starting_the_2fa_challenge(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
+
+    def failing_sync(self: Credential, handler: BankHandler) -> None:
+        raise ReauthenticationRequiredError("access has not been authorized yet")
+
+    def failing_challenge(self: BankHandler, credential_id: int) -> None:
+        # What Enable Banking does when its application credentials went missing.
+        raise KeyError("application_id")
+
+    monkeypatch.setattr(target=Credential, name="sync", value=failing_sync)
+    monkeypatch.setattr(target=BankHandler, name="begin_two_factor_challenge", value=failing_challenge)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        with pytest.raises(KeyError):
+            credential_service.sync_credential_object(credential=credential)
+
+    # The failure escapes from inside the 2FA handler, which a sibling `except` clause would miss.
+    assert credential.last_sync_error == (
+        "ReauthenticationRequiredError: access has not been authorized yet\nKeyError: 'application_id'"
+    )
+    assert credential.last_sync_error_code == JobErrorCode.UNKNOWN
+
+
+def test_sync_credential_object_records_the_failure_when_no_2fa_challenge_can_be_started(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
+
+    def failing_sync(self: Credential, handler: BankHandler) -> None:
+        raise ReauthenticationRequiredError("access has not been authorized yet")
+
+    monkeypatch.setattr(target=Credential, name="sync", value=failing_sync)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        # The base handler starts no challenge, so the error is re-raised from inside the except block.
+        with pytest.raises(ReauthenticationRequiredError):
+            credential_service.sync_credential_object(credential=credential)
+
+    assert credential.last_sync_error == "ReauthenticationRequiredError: access has not been authorized yet"
+
+
+def _store_sync_failure(session_factory: sessionmaker, credential_id: int) -> None:
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.last_sync_error = "InvalidCredentialsError: the bank rejected the login"
+        credential.last_sync_error_code = JobErrorCode.INVALID_CREDENTIALS
+        session.commit()
+
+
+def _stored_sync_failure(session_factory: sessionmaker, credential_id: int) -> tuple[str | None, JobErrorCode | None]:
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        return credential.last_sync_error, credential.last_sync_error_code
+
+
+def test_sync_credential_commits_the_cleared_failure_after_a_successful_manual_sync(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
+    _store_sync_failure(session_factory, credential_id=credential_id)
+    monkeypatch.setattr(target=Credential, name="sync", value=MagicMock())
+
+    with session_factory() as session:
+        credential_service.sync_credential(db_session=session, credential_id=credential_id)
+
+    assert _stored_sync_failure(session_factory, credential_id=credential_id) == (None, None)
+
+
+def test_sync_all_due_credentials_commits_the_cleared_failure_after_a_successful_periodic_sync(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
+    _store_sync_failure(session_factory, credential_id=credential_id)
+    monkeypatch.setattr(target=Credential, name="sync", value=MagicMock())
+
+    with session_factory() as session:
+        credential_service.sync_all_due_credentials(db_session=session)
+
+    assert _stored_sync_failure(session_factory, credential_id=credential_id) == (None, None)
+
+
+def test_sync_credential_object_records_every_message_of_a_chained_failure(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
+
+    def failing_sync(self: Credential, handler: BankHandler) -> None:
+        # The shape the Enable Banking handler produces: a bare KeyError while handling the real cause.
+        try:
+            raise ReauthenticationRequiredError("access has not been authorized yet")
+        except ReauthenticationRequiredError:
+            raise KeyError("application_id")
+
+    monkeypatch.setattr(target=Credential, name="sync", value=failing_sync)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        with pytest.raises(KeyError):
+            credential_service.sync_credential_object(credential=credential)
+
+    assert credential.last_sync_error == (
+        "ReauthenticationRequiredError: access has not been authorized yet\nKeyError: 'application_id'"
+    )
+
+
+def test_sync_all_due_credentials_notifies_only_on_the_first_of_repeated_failures(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
+
+    def fake_sync(credential: Credential):
+        # Mirrors what the real sync_credential_object records before the error propagates.
+        credential.last_sync_error = "the bank rejected the login"
+        credential.last_sync_error_code = JobErrorCode.INVALID_CREDENTIALS
+        raise InvalidCredentialsError("the bank rejected the login")
+
+    monkeypatch.setattr(
+        target=credential_service, name="sync_credential_object", value=MagicMock(side_effect=fake_sync)
+    )
+    dispatch = MagicMock()
+    monkeypatch.setattr(target=notification_engine, name="dispatch", value=dispatch)
+
+    with session_factory() as session:
+        credential_service.sync_all_due_credentials(db_session=session)
+        credential_service.sync_all_due_credentials(db_session=session)
+
+    assert dispatch.call_count == 1
+    notification = dispatch.call_args.kwargs["notifications"][0]
+    assert notification.tag == f"credential-sync-failed-{credential_id}"
+    assert notification.url == f"/settings/credentials/{credential_id}"
 
 
 def test_sync_credential_object_for_handler_with_2fa_returns_completed_on_resumed_session(

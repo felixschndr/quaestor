@@ -6,7 +6,7 @@ import type { TFunction } from 'i18next'
 import { Button } from '@/components/ui/button'
 import { BankLogo } from '@/components/BankLogo'
 import type { CredentialRead } from '@/lib/auth'
-import { lastSyncedLabel } from '@/lib/credentials'
+import { hasSyncError, lastSyncedLabel } from '@/lib/credentials'
 import { isSharedCredential } from '@/lib/accountShares'
 import type { SettingsCredentialsIndexViewProps } from '@/routes/settings.credentials.index'
 import { BackLink } from '@/components/back-link'
@@ -96,7 +96,11 @@ function CredentialRow({ credential }: { credential: CredentialRead }) {
         />
         <span className="flex flex-1 flex-col">
           <span className="text-sm font-medium">{title}</span>
-          {syncedLabel ? (
+          {hasSyncError(credential) ? (
+            <span className="text-destructive text-xs font-medium">
+              {t('credentials.syncError.rowHint')}
+            </span>
+          ) : syncedLabel ? (
             <span className="text-muted-foreground text-xs">{syncedLabel}</span>
           ) : null}
           {sharedLabel ? (

@@ -3,8 +3,9 @@ from pydantic import BaseModel, ConfigDict
 from source.backend.api.schemas.accounts.account import AccountRead
 from source.backend.api.schemas.core.common import UtcDatetime
 from source.backend.bank_handlers import BankProvider
+from source.backend.exceptions import JobErrorCode
 from source.backend.models.accounts.account_share import SharePermission
-from source.backend.services.banking.sync_jobs import JobErrorCode, JobStatus
+from source.backend.services.banking.sync_jobs import JobStatus
 
 
 class CredentialCreate(BaseModel):
@@ -23,6 +24,8 @@ class CredentialRead(BaseModel):
     last_fetching_timestamp: UtcDatetime | None = None
     requires_two_factor_authentication: bool
     sync_enabled: bool
+    last_sync_error: str | None = None
+    last_sync_error_code: JobErrorCode | None = None
     shared_from: str | None = None
     share_permission: SharePermission | None = None
 

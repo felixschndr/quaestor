@@ -20,6 +20,7 @@ import {
 } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
 import {
+  hasSyncError,
   isManualBank,
   lastSyncedLabel,
   useDeleteCredential,
@@ -104,7 +105,32 @@ function BankHeader({ credential, bankTitle }: { credential: CredentialRead; ban
       <h1 className="text-foreground text-lg font-semibold">{bankTitle}</h1>
       {syncedLabel ? <p className="text-muted-foreground text-sm">{syncedLabel}</p> : null}
       <AutoSyncStatus credential={credential} />
+      <SyncErrorNotice credential={credential} />
     </section>
+  )
+}
+
+function SyncErrorNotice({ credential }: { credential: CredentialRead }) {
+  const { t } = useTranslation()
+  if (!hasSyncError(credential)) return null
+  const code = credential.last_sync_error_code
+  return (
+    <div
+      role="alert"
+      className="border-destructive/40 bg-destructive/10 flex w-full flex-col gap-1 rounded-lg border p-4 text-left"
+    >
+      <p className="text-destructive text-sm font-medium">{t('credentials.syncError.title')}</p>
+      <p className="text-muted-foreground text-xs">
+        {t(`credentials.syncError.reason.${code}`, {
+          defaultValue: t('credentials.syncError.reason.unknown'),
+        })}
+      </p>
+      {credential.last_sync_error ? (
+        <p className="text-muted-foreground text-xs break-words whitespace-pre-line italic">
+          {credential.last_sync_error}
+        </p>
+      ) : null}
+    </div>
   )
 }
 

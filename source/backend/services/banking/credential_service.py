@@ -15,6 +15,8 @@ from source.backend.exceptions import (
     MissingCredentialFieldError,
     PermissionDeniedError,
     ReauthenticationRequiredError,
+    error_code_for,
+    error_message_for,
 )
 from source.backend.helpers import apply_fields, utc_now
 from source.backend.logging_utils import get_logger
@@ -248,6 +250,29 @@ def sync_credential_object(
     is_cancelled: CancelCheck | None = None,
     reevaluate_two_factor_requirement: bool = False,
 ) -> SyncResult:
+    try:
+        result = _sync_credential_object(
+            credential=credential,
+            notify_two_factor_state=notify_two_factor_state,
+            is_cancelled=is_cancelled,
+            reevaluate_two_factor_requirement=reevaluate_two_factor_requirement,
+        )
+    except Exception as e:
+        credential.last_sync_error = error_message_for(e)
+        credential.last_sync_error_code = error_code_for(e)
+        raise
+
+    credential.last_sync_error = None
+    credential.last_sync_error_code = None
+    return result
+
+
+def _sync_credential_object(
+    credential: Credential,
+    notify_two_factor_state: TwoFactorStateCallback | None = None,
+    is_cancelled: CancelCheck | None = None,
+    reevaluate_two_factor_requirement: bool = False,
+) -> SyncResult:
     logger.info(f"Syncing {credential}")
     handler = credential.handler
     logger.debug(f"Using {type(handler).__name__} for {credential}")
@@ -307,11 +332,13 @@ def sync_all_due_credentials(db_session: Session) -> None:
     synced, skipped, failed = 0, 0, 0
     synced_users: dict[int, User] = {}
     synced_credentials: list[tuple[Credential, notification_engine.SyncSnapshot]] = []
+    failure_notifications: list[tuple[User, Notification]] = []
     for credential in credentials:
         if not credential.sync_enabled or not credential.is_syncable or credential.requires_two_factor_authentication:
             skipped += 1
             continue
 
+        already_failing = credential.last_sync_error_code is not None
         try:
             snapshot = notification_engine.capture_sync_snapshot(credential)
             sync_credential_object(credential=credential)
@@ -321,6 +348,10 @@ def sync_all_due_credentials(db_session: Session) -> None:
         except Exception:
             failed += 1
             logger.exception(f"Periodic sync failed for {credential}")
+            if not already_failing:
+                failure_notifications.append(
+                    (credential.user, notification_engine.credential_sync_failed_notification(credential))
+                )
     for user in synced_users.values():
         transfer_detection.detect_transfers_for_user(db_session=db_session, user=user)
         contract_detection_service.detect_contracts_for_user(db_session=db_session, user=user)
@@ -330,7 +361,7 @@ def sync_all_due_credentials(db_session: Session) -> None:
         for notification in notification_engine.collect_notifications(
             db_session=db_session, credential=credential, snapshot=snapshot
         )
-    ]
+    ] + failure_notifications
     db_session.commit()
 
     for user, notification in pending_notifications:

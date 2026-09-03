@@ -35,7 +35,7 @@ import {
 } from '@/lib/accountDisplayGroups'
 import { useCollapsedGroups } from '@/lib/collapsedGroups'
 import { useContracts } from '@/lib/contract'
-import type { SyncJob } from '@/lib/credentials'
+import { hasSyncError, type SyncJob } from '@/lib/credentials'
 import { cn } from '@/lib/utils'
 
 interface OverviewViewProps {
@@ -104,6 +104,7 @@ export function OverviewView({
       isStale(credential.last_fetching_timestamp),
   )
   const pendingInvitations = (user.account_share_invitations ?? []).length
+  const failedCredentials = user.credentials.filter(hasSyncError)
   const [settleKey, setSettleKey] = useState<number | null>(null)
   const lastBalance = useRef(user.balance)
   useEffect(() => {
@@ -128,13 +129,17 @@ export function OverviewView({
             aria-label={
               pendingInvitations > 0
                 ? t('accountShares.pendingInvitations', { count: pendingInvitations })
-                : t('settings.title')
+                : failedCredentials.length > 0
+                  ? t('credentials.syncErrorPending', { count: failedCredentials.length })
+                  : t('settings.title')
             }
             title={t('settings.title')}
             className="text-primary hover:text-primary/80 focus-visible:ring-ring group relative rounded-md p-2.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             <Settings className="size-5 transition-transform duration-300 ease-in-out group-hover:rotate-90" />
-            {pendingInvitations > 0 ? <WarningDot /> : null}
+            {pendingInvitations > 0 || failedCredentials.length > 0 ? (
+              <WarningDot className={failedCredentials.length > 0 ? 'bg-destructive' : undefined} />
+            ) : null}
           </Link>
           {hasAccounts ? <PrivacyToggle className="p-2.5" /> : null}
           {hasAccounts ? (

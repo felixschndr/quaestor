@@ -73,6 +73,17 @@ def capture_sync_snapshot(credential: Credential) -> SyncSnapshot:
     return SyncSnapshot(accounts=accounts)
 
 
+def credential_sync_failed_notification(credential: Credential) -> Notification:
+    language = credential.user.language
+    bank = credential.bank_name or credential.bank.value
+    return Notification(
+        title=notification_messages.translate(language, key="credential_sync_failed.title"),
+        body=notification_messages.translate(language, key="credential_sync_failed.body", bank=bank),
+        url=f"/settings/credentials/{credential.id}",
+        tag=f"credential-sync-failed-{credential.id}",
+    )
+
+
 def _rule_applies_to_account(rule: NotificationRule, account_id: int) -> bool:
     return not rule.account_ids or account_id in rule.account_ids
 

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from source.backend.bank_handlers import BankHandler, BankProvider, handler_for
 from source.backend.bank_handlers.base import BankSession, FetchedAccount
+from source.backend.exceptions import JobErrorCode
 from source.backend.helpers import get_key_of_transaction, index_transactions_for_matching, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
 
 class Credential(Base):
     __tablename__ = "credentials"
-    __repr_exclude__ = frozenset({"credentials", "session_state"})
+    __repr_exclude__ = frozenset({"credentials", "session_state", "last_sync_error"})
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
@@ -35,6 +36,10 @@ class Credential(Base):
     last_fetching_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     requires_two_factor_authentication: Mapped[bool] = mapped_column(default=False)
     sync_enabled: Mapped[bool] = mapped_column(default=True)
+    last_sync_error: Mapped[str | None] = mapped_column(nullable=True, default=None)
+    last_sync_error_code: Mapped[JobErrorCode | None] = mapped_column(
+        SQLEnum(JobErrorCode), nullable=True, default=None
+    )
 
     user: Mapped["User"] = relationship(back_populates="credentials")
     accounts: Mapped[List["Account"]] = relationship(back_populates="credential", cascade="all, delete-orphan")

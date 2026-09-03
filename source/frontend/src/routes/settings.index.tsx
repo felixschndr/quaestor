@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { useAuthMe, type AccountShareInvitation } from '@/lib/auth'
+import { hasSyncError } from '@/lib/credentials'
 import { useLogout } from '@/lib/user'
 import { useServerVersion, type VersionInfo } from '@/lib/version'
 import { SettingsIndexView } from '@/pages/settings.index'
@@ -33,6 +34,7 @@ function SettingsIndexPage() {
       onLogout={handleLogout}
       serverVersion={serverVersion}
       invitations={user?.account_share_invitations ?? []}
+      syncErrorCount={(user?.credentials ?? []).filter(hasSyncError).length}
     />
   )
 }
@@ -42,4 +44,5 @@ export interface SettingsIndexViewProps {
   onLogout: () => void
   serverVersion?: VersionInfo
   invitations?: AccountShareInvitation[]
+  syncErrorCount?: number
 }

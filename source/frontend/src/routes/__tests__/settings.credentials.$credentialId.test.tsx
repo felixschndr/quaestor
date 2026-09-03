@@ -101,6 +101,34 @@ describe('CredentialDetailView', () => {
     expect(screen.queryByText(/Last updated/)).not.toBeInTheDocument()
   })
 
+  it('explains the last sync failure with its reason and the raw bank message', () => {
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential({
+          last_fetching_timestamp: DATETIME_RECENT,
+          last_sync_error: 'Error during dialog initialization, PIN wrong?',
+          last_sync_error_code: 'invalid_credentials',
+        })}
+        onDeleted={vi.fn()}
+      />,
+    )
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Automatic sync failed')
+    expect(alert).toHaveTextContent('The bank rejected the login.')
+    expect(alert).toHaveTextContent('Error during dialog initialization, PIN wrong?')
+  })
+
+  it('shows no failure notice while the credential syncs fine', () => {
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential({ last_fetching_timestamp: DATETIME_RECENT })}
+        onDeleted={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('renders an empty-accounts hint when there are no accounts', () => {
     renderWithQuery(<CredentialDetailView credential={buildCredential()} onDeleted={vi.fn()} />)
     expect(

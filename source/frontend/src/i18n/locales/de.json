@@ -405,6 +405,20 @@
       "description": "Wir bestätigen deine Anmeldung und laden deine Konten und Transaktionen. Das kann einen Moment dauern, besonders beim ersten Sync — du musst nichts weiter tun."
     },
     "neverSynced": "Noch nie synchronisiert",
+    "syncErrorPending_one": "{{count}} Bankverbindung benötigt Aufmerksamkeit",
+    "syncErrorPending_other": "{{count}} Bankverbindungen benötigen Aufmerksamkeit",
+    "syncError": {
+      "title": "Automatische Synchronisierung fehlgeschlagen",
+      "rowHint": "$t(overview.syncFailed)",
+      "reason": {
+        "invalid_credentials": "Die Bank hat die Anmeldung abgelehnt. Bitte prüfe deine Zugangsdaten und verbinde die Bank neu.",
+        "unsupported_bank": "Diese Bank wird derzeit nicht unterstützt.",
+        "rate_limited": "Die Bank hat zu viele Anmeldeversuche blockiert. Versuche es später erneut.",
+        "redirect_url_not_allowed": "Die hinterlegte Redirect-URL ist bei der Bank nicht freigegeben.",
+        "application_not_activated": "Die Banking-Anwendung ist noch nicht freigeschaltet.",
+        "unknown": "Beim letzten automatischen Sync ist ein Fehler aufgetreten:"
+      }
+    },
     "autoSync": {
       "enabled_one": "Dieses Konto wird im {{hours}}-Stunden-Takt automatisch synchronisiert.",
       "enabled_other": "Diese Konten werden im {{hours}}-Stunden-Takt automatisch synchronisiert.",

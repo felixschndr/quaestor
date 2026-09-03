@@ -22,7 +22,7 @@ def test_credential_repr_contains_identifying_fields_but_not_secrets():
 
     assert representation == (
         f"<Credential(id=8, user_id=1, bank=fints, last_fetching_timestamp={fetched_at}, "
-        "requires_two_factor_authentication=False, sync_enabled=True)>"
+        "requires_two_factor_authentication=False, sync_enabled=True, last_sync_error_code=None)>"
     )
     assert VALID_PASSWORD not in representation
 

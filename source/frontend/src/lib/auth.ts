@@ -3,7 +3,12 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { redirect } from '@tanstack/react-router'
 import { api, ApiError } from './api'
 import { accountQueryKeys } from './accountHistory'
-import { SYNC_POLL_INTERVAL_MS, type SyncJob, type SyncJobStatus } from './credentials'
+import {
+  SYNC_POLL_INTERVAL_MS,
+  type SyncJob,
+  type SyncJobErrorCode,
+  type SyncJobStatus,
+} from './credentials'
 
 export interface AccountRead {
   id: number
@@ -25,6 +30,8 @@ export interface CredentialRead {
   last_fetching_timestamp: string | null
   requires_two_factor_authentication: boolean
   sync_enabled: boolean
+  last_sync_error?: string | null
+  last_sync_error_code?: SyncJobErrorCode | null
   shared_from?: string | null
   share_permission?: SharePermission | null
 }

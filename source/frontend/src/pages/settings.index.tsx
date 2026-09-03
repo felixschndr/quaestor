@@ -27,6 +27,7 @@ import type { AccountShareInvitation } from '@/lib/auth'
 import { useRespondToInvitation } from '@/lib/accountShares'
 import type { SettingsIndexViewProps } from '@/routes/settings.index'
 import { BackLink } from '@/components/back-link'
+import { WarningDot } from '@/components/warning-dot'
 
 type SettingsRoute =
   | '/settings/credentials'
@@ -45,6 +46,7 @@ export function SettingsIndexView({
   onLogout,
   serverVersion,
   invitations = [],
+  syncErrorCount = 0,
 }: SettingsIndexViewProps) {
   const { t } = useTranslation()
   const versionDescription =
@@ -77,7 +79,12 @@ export function SettingsIndexView({
             to="/settings/credentials"
             icon={CreditCard}
             label={t('credentials.title')}
-            description={t('settings.credentialsDescription')}
+            description={
+              syncErrorCount > 0
+                ? t('credentials.syncErrorPending', { count: syncErrorCount })
+                : t('settings.credentialsDescription')
+            }
+            warn={syncErrorCount > 0}
           />
         </ul>
 
@@ -220,6 +227,7 @@ function SettingsLink({
   description,
   highlight = false,
   destructive = false,
+  warn = false,
 }: {
   to: SettingsRoute
   icon: LucideIcon
@@ -227,12 +235,13 @@ function SettingsLink({
   description: string
   highlight?: boolean
   destructive?: boolean
+  warn?: boolean
 }) {
   return (
     <li className="border-border/40 border-t first:border-t-0">
       <Link
         to={to}
-        className="hover:bg-muted/60 flex items-center gap-3 rounded-md px-3 py-3 transition-colors"
+        className="hover:bg-muted/60 relative flex items-center gap-3 rounded-md px-3 py-3 transition-colors"
       >
         <Icon
           className={cn('size-5 shrink-0', destructive ? 'text-destructive' : 'text-primary')}
@@ -251,6 +260,7 @@ function SettingsLink({
           </span>
         </span>
         <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />
+        {warn ? <WarningDot className="bg-destructive" /> : null}
       </Link>
     </li>
   )

@@ -8,13 +8,7 @@ from enum import Enum
 from typing import ClassVar
 
 from source.backend.db import SessionLocal
-from source.backend.exceptions import (
-    BankRateLimitedError,
-    InvalidCredentialsError,
-    PSD2ApplicationNotActivatedError,
-    PSD2RedirectUrlNotAllowedError,
-    UnsupportedBankError,
-)
+from source.backend.exceptions import KNOWN_SYNC_ERROR_TYPES, JobErrorCode, error_code_for
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.base import format_repr
@@ -33,16 +27,6 @@ class JobStatus(str, Enum):
     AWAITING_DECOUPLED_APPROVAL = "awaiting_decoupled_approval"
     COMPLETED = "completed"
     FAILED = "failed"
-
-
-class JobErrorCode(str, Enum):
-    CANCELLED = "cancelled"
-    INVALID_CREDENTIALS = "invalid_credentials"
-    UNSUPPORTED_BANK = "unsupported_bank"
-    RATE_LIMITED = "rate_limited"
-    REDIRECT_URL_NOT_ALLOWED = "redirect_url_not_allowed"
-    APPLICATION_NOT_ACTIVATED = "application_not_activated"
-    UNKNOWN = "unknown"
 
 
 TERMINAL_JOB_STATUSSES = frozenset({JobStatus.COMPLETED, JobStatus.FAILED})
@@ -130,24 +114,17 @@ async def _run_sync(job: SyncJob) -> None:
 async def _apply_result_handling_errors(
     job: SyncJob, coroutine: "Coroutine[None, None, SyncResult]", log_label: str
 ) -> None:
-    error_codes = {
-        InvalidCredentialsError: JobErrorCode.INVALID_CREDENTIALS,
-        UnsupportedBankError: JobErrorCode.UNSUPPORTED_BANK,
-        BankRateLimitedError: JobErrorCode.RATE_LIMITED,
-        PSD2RedirectUrlNotAllowedError: JobErrorCode.REDIRECT_URL_NOT_ALLOWED,
-        PSD2ApplicationNotActivatedError: JobErrorCode.APPLICATION_NOT_ACTIVATED,
-    }
     try:
         result = await coroutine
-    except tuple(error_codes) as e:
+    except KNOWN_SYNC_ERROR_TYPES as e:
         if job.finished_at is None:
             logger.warning(f"{job} {log_label}: {e}")
-            _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=error_codes[type(e)])
+            _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=error_code_for(e))
         return
     except Exception as e:
         if job.finished_at is None:
             logger.exception(f"{job} {log_label}")
-            _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=JobErrorCode.UNKNOWN)
+            _mark_terminal(job=job, status=JobStatus.FAILED, error=str(e), error_code=error_code_for(e))
         return
     _apply_result(job=job, result=result)
 
