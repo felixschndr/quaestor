@@ -857,7 +857,7 @@ def _transaction_url(account: Account, transaction: Transaction | None) -> str:
     # A transaction that was never flushed has no id to link to, so fall back to its account.
     if transaction is None or transaction.id is None:
         return f"/account/{account.id}"
-    return f"/account/{account.id}/transactions/{transaction.id}"
+    return f"/transactions/{transaction.id}"
 
 
 def _search_url(
@@ -876,4 +876,4 @@ def _search_url(
         "text": text or None,
     }
     parameters = urlencode({key: value for key, value in query.items() if value is not None})
-    return f"/account/{account.id}/search?{parameters}"
+    return f"/search?{parameters}"

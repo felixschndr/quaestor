@@ -144,7 +144,7 @@ def test_transaction_rule_triggers_on_matching_new_transaction(
             notifications=notifications,
             title="Transaction booked",
             body=f"{ACCOUNT_IBAN}: -50,00 € · {NETFLIX}",
-            url=f"/account/{account_id}/transactions/{transaction.id}",
+            url=f"/transactions/{transaction.id}",
         )
     assert_log_contains(caplog, messages=["matched on", "Collected"])
 
@@ -190,7 +190,7 @@ def test_transaction_rule_respects_amount_bounds(session_factory: sessionmaker):
             notifications=notifications,
             title="Transaction booked",
             body=f"{ACCOUNT_IBAN}: -50,00 €",
-            url=f"/account/{account_id}/transactions/{in_range.id}",
+            url=f"/transactions/{in_range.id}",
         )
 
 
@@ -218,7 +218,7 @@ def test_transaction_rule_filters_by_category(session_factory: sessionmaker):
             notifications=notifications,
             title="Transaction booked",
             body=f"{ACCOUNT_IBAN}: -50,00 €",
-            url=f"/account/{account_id}/transactions/{groceries.id}",
+            url=f"/transactions/{groceries.id}",
         )
 
 
@@ -349,7 +349,7 @@ def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_f
             notifications=notifications,
             title="Expected transaction booked",
             body=f"{ACCOUNT_IBAN}: 50,00 € booked · Landlord",
-            url=f"/account/{account.id}/transactions/{booking.id}",
+            url=f"/transactions/{booking.id}",
         )
 
 
@@ -660,7 +660,7 @@ def test_duplicate_booking_notifies(session_factory: sessionmaker, caplog: pytes
             title="Possible duplicate booking",
             body=f"{ACCOUNT_IBAN}: -50,00 € · netflix booked twice within 3 days",
             url=(
-                f"/account/{account_id}/search?account_ids={account_id}&amount_from=-50.01"
+                f"/search?account_ids={account_id}&amount_from=-50.01"
                 f"&amount_to=-49.99&date_from={RECENT_DATE.isoformat()}"
                 f"&date_to={RECENT_DATE.isoformat()}&text=netflix"
             ),
@@ -742,7 +742,7 @@ def test_two_new_duplicates_notify_once(session_factory: sessionmaker):
             title="Possible duplicate booking",
             body=f"{ACCOUNT_IBAN}: -50,00 € · Netflix booked twice within 3 days",
             url=(
-                f"/account/{account_id}/search?account_ids={account_id}&amount_from=-50.01"
+                f"/search?account_ids={account_id}&amount_from=-50.01"
                 f"&amount_to=-49.99&date_from={RECENT_DATE.isoformat()}"
                 f"&date_to={RECENT_DATE.isoformat()}&text=Netflix"
             ),
@@ -990,7 +990,7 @@ def test_transaction_rule_without_content_omits_amount_and_other_party(session_f
             notifications=notifications,
             title="Transaction booked",
             body=account_label,
-            url=f"/account/{account_id}/transactions/{transaction.id}",
+            url=f"/transactions/{transaction.id}",
         )
 
 
@@ -1048,7 +1048,7 @@ def test_expected_transaction_rule_without_content_omits_amount(session_factory:
             notifications=notifications,
             title="Expected transaction booked",
             body=account_label,
-            url=f"/account/{account.id}/transactions/{booking.id}",
+            url=f"/transactions/{booking.id}",
         )
 
 
