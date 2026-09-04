@@ -415,3 +415,17 @@
     scroll-behavior: auto !important;
   }
 }
+
+@keyframes warning-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.4);
+  }
+}
+
+.warning-dot-pulse {
+  animation: warning-dot-pulse 4s ease-in-out infinite;
+}

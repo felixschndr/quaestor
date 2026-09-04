@@ -12,15 +12,7 @@ import { applyTheme, readStoredTheme } from './lib/theme'
 
 applyTheme(readStoredTheme())
 
-registerSW({
-  immediate: true,
-  onRegisteredSW(_swUrl, registration) {
-    if (!registration) return
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') registration.update()
-    })
-  },
-})
+registerSW({ immediate: true })
 
 const router = createRouter({
   routeTree,

@@ -22,3 +22,19 @@ export function useServerVersion() {
     refetchOnWindowFocus: true,
   })
 }
+
+const UPDATE_CHECK_MIN_GAP_MS = 60 * 60 * 1000
+let lastUpdateCheck = 0
+
+export async function checkForFrontendUpdate(): Promise<void> {
+  if (!('serviceWorker' in navigator) || !navigator.onLine) return
+  if (Date.now() - lastUpdateCheck < UPDATE_CHECK_MIN_GAP_MS) return
+  const registration = await navigator.serviceWorker.getRegistration()
+  if (!registration) return
+  try {
+    await registration.update()
+    lastUpdateCheck = Date.now()
+  } catch {
+    // Backend restarting mid-deploy; retry on the next foreground instead of waiting an hour.
+  }
+}

@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 
 import { useAuthMe } from '@/lib/auth'
+import { checkForFrontendUpdate } from '@/lib/version'
 import { useSync } from '@/components/sync-provider'
 import { OverviewView } from '@/pages'
 
@@ -11,6 +13,14 @@ export const Route = createFileRoute('/')({
 function OverviewPage() {
   const { data: user } = useAuthMe()
   const sync = useSync()
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void checkForFrontendUpdate()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 
   if (!user) return null // Root guard already redirected to /login on 401.
 
