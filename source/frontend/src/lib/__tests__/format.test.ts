@@ -8,6 +8,7 @@ import {
   formatDateTime,
   formatIban,
   transactionPartyName,
+  formatRelativeDate,
   formatRelativeDateTime,
   relativeDateKey,
   setDisplayCurrency,
@@ -158,6 +159,20 @@ describe('formatRelativeDateTime', () => {
     // would be "yesterday" — proving the zone shifts day and time together.
     setDisplayTimeZone('Europe/Berlin')
     expect(formatRelativeDateTime('2026-05-19T22:30:00Z', t, now)).toBe('Heute um 00:30 Uhr')
+  })
+})
+
+describe('formatRelativeDate', () => {
+  const today = new Date(2026, 4, 22) // May 22, 2026, local midnight
+
+  it.each([
+    [new Date(2026, 4, 28), 'in 6 days'],
+    [new Date(2026, 4, 23), 'tomorrow'],
+    [new Date(2026, 5, 5), 'in 2 weeks'],
+    [new Date(2026, 6, 22), 'in 2 months'],
+    [new Date(2026, 4, 16), '6 days ago'],
+  ])('renders %s as %s', (date, expected) => {
+    expect(formatRelativeDate(date, today)).toBe(expected)
   })
 })
 

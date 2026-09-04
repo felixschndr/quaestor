@@ -6,7 +6,12 @@ import { ArrowRight, ChevronRight } from 'lucide-react'
 import { CategoryAvatar } from '@/lib/categoryIcons'
 import { UPCOMING_CONTRACTS_KEY, useCollapsedGroups } from '@/lib/collapsedGroups'
 import { useContracts, type ContractRead } from '@/lib/contract'
-import { formatDateWithoutYear, formatMoney, relativeDateKey } from '@/lib/format'
+import {
+  formatDateWithoutYear,
+  formatMoney,
+  formatRelativeDate,
+  relativeDateKey,
+} from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const UPCOMING_LIMIT = 3
@@ -14,7 +19,7 @@ const UPCOMING_LIMIT = 3
 function dueLabel(
   contract: ContractRead,
   t: (key: string, options?: Record<string, unknown>) => string,
-  today?: Date,
+  { relative = false, today }: { relative?: boolean; today?: Date } = {},
 ): string {
   const [year, month, day] = contract.expected_next_date!.split('-').map(Number)
   const local = new Date(year, month - 1, day)
@@ -22,6 +27,8 @@ function dueLabel(
   const key = relativeDateKey(local, today)
   if (key === 'today') return t('account.today')
   if (key === 'tomorrow') return t('common.tomorrow')
+  // Collapsed there is no room for a full date, and "in 6 days" is what the glance is asking for.
+  if (relative) return formatRelativeDate(local, today)
   return t('common.onDate', { date: formatDateWithoutYear(local) })
 }
 
@@ -30,7 +37,7 @@ function CollapsedSummary({ contract }: { contract: ContractRead }) {
   return (
     <span className="ml-auto flex items-baseline gap-2 text-xs whitespace-nowrap">
       <span className={contract.is_overdue ? 'text-warning' : 'text-muted-foreground'}>
-        {dueLabel(contract, t)}
+        {dueLabel(contract, t, { relative: true })}
       </span>
       {contract.median_amount !== null ? (
         <span className="font-semibold tabular-nums">{formatMoney(contract.median_amount)}</span>

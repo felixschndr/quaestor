@@ -61,7 +61,9 @@ function RootComponent() {
   return (
     <>
       <SyncProvider>
-        <div className={showTabBar ? 'pb-20 sm:pb-0' : undefined}>
+        <div
+          className={showTabBar ? 'pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-0' : undefined}
+        >
           <Outlet />
         </div>
         {showTabBar ? <BottomTabBar /> : null}

@@ -1096,6 +1096,19 @@ describe('OverviewView upcoming contracts visibility', () => {
     await waitFor(() => expect(screen.queryByText('Netflix')).not.toBeInTheDocument())
   })
 
+  it('shows the due date relative to today while collapsed', async () => {
+    const due = new Date()
+    due.setDate(due.getDate() + 6)
+    const iso = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}`
+    mockApi({ contracts: [{ ...contract, expected_next_date: iso }] })
+    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
+
+    const trigger = await screen.findByRole('button', { name: /Due soon contracts/ })
+    await userEvent.click(trigger)
+
+    expect(trigger).toHaveTextContent('in 6 days')
+  })
+
   it('collapses the section and remembers it, like an account group', async () => {
     mockApi({ contracts: [contract] })
     render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))

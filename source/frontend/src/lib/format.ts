@@ -247,6 +247,22 @@ export function relativeDateKey(
   return null
 }
 
+// e.g. "in 6 days" / "in 2 weeks" / "in 3 months" (and the same backwards for past dates)
+export function formatRelativeDate(
+  date: Date,
+  today: Date = new Date(),
+  timeZone: string = RUNTIME_TIME_ZONE,
+): string {
+  const days = Math.round(
+    (zonedDayStartUtc(date, timeZone) - zonedDayStartUtc(today, timeZone)) / 86_400_000,
+  )
+  const formatter = new Intl.RelativeTimeFormat(activeLocale(), { numeric: 'auto' })
+  if (Math.abs(days) < 14) return formatter.format(days, 'day')
+  if (Math.abs(days) < 60) return formatter.format(Math.round(days / 7), 'week')
+  if (Math.abs(days) < 365) return formatter.format(Math.round(days / 30), 'month')
+  return formatter.format(Math.round(days / 365), 'year')
+}
+
 export function formatRelativeDateTime(
   d: Date | string,
   t: (key: string, options?: Record<string, unknown>) => string,

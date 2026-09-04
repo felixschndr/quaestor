@@ -28,7 +28,7 @@ export function BottomTabBar() {
   const accountId = accountMatch ? Number(accountMatch[1]) : null
 
   return (
-    <nav className="bg-background fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t pb-3 sm:hidden">
+    <nav className="bg-background fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
       {TABS.map(({ to, label, Icon, exact }) => (
         <Link
           key={to}
