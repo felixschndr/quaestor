@@ -413,6 +413,7 @@
         "invalid_credentials": "Die Bank hat die Anmeldung abgelehnt. Bitte prüfe deine Zugangsdaten und verbinde die Bank neu.",
         "unsupported_bank": "Diese Bank wird derzeit nicht unterstützt.",
         "rate_limited": "Die Bank hat zu viele Anmeldeversuche blockiert. Versuche es später erneut.",
+        "timeout": "Die Bank hat nicht geantwortet. Versuche es später erneut.",
         "redirect_url_not_allowed": "Die hinterlegte Redirect-URL ist bei der Bank nicht freigegeben.",
         "application_not_activated": "Die Banking-Anwendung ist noch nicht freigeschaltet.",
         "unknown": "Die Bank hat einen unerwarteten Fehler gemeldet:"

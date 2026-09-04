@@ -110,4 +110,4 @@ def test_validation_error_does_not_log_submitted_values(caplog: pytest.LogCaptur
         response = client.post("/submit", json={"age": "super-secret-value"})
 
     assert response.status_code == 422
-    assert "super-secret-value" not in caplog.text
+    assert_log_contains(caplog=caplog, message="super-secret-value", negate=True)

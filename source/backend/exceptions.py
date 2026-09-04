@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from enum import Enum
 
 
@@ -97,6 +98,10 @@ class BankRateLimitedError(Exception):
     pass
 
 
+class BankTimedOutError(Exception):
+    pass
+
+
 class PSD2ApplicationNotActivatedError(Exception):
     pass
 
@@ -130,6 +135,7 @@ class JobErrorCode(str, Enum):
     INVALID_CREDENTIALS = "invalid_credentials"
     UNSUPPORTED_BANK = "unsupported_bank"
     RATE_LIMITED = "rate_limited"
+    TIMEOUT = "timeout"
     REDIRECT_URL_NOT_ALLOWED = "redirect_url_not_allowed"
     APPLICATION_NOT_ACTIVATED = "application_not_activated"
     UNKNOWN = "unknown"
@@ -139,6 +145,7 @@ _ERROR_CODES_BY_EXCEPTION: dict[type[Exception], JobErrorCode] = {
     InvalidCredentialsError: JobErrorCode.INVALID_CREDENTIALS,
     UnsupportedBankError: JobErrorCode.UNSUPPORTED_BANK,
     BankRateLimitedError: JobErrorCode.RATE_LIMITED,
+    BankTimedOutError: JobErrorCode.TIMEOUT,
     PSD2RedirectUrlNotAllowedError: JobErrorCode.REDIRECT_URL_NOT_ALLOWED,
     PSD2ApplicationNotActivatedError: JobErrorCode.APPLICATION_NOT_ACTIVATED,
 }
@@ -149,14 +156,19 @@ def error_code_for(exc: Exception) -> JobErrorCode:
     return _ERROR_CODES_BY_EXCEPTION.get(type(exc)) or JobErrorCode.UNKNOWN
 
 
-def error_message_for(exc: BaseException) -> str:
-    messages: list[str] = []
+def exception_chain(exc: BaseException) -> Iterator[BaseException]:
     seen: set[int] = set()
     current: BaseException | None = exc
     while current is not None and id(current) not in seen:
         seen.add(id(current))
-        name = type(current).__name__
-        message = str(current)
-        messages.append(f"{name}: {message}" if message else name)
+        yield current
         current = current.__cause__ or current.__context__
+
+
+def error_message_for(exc: BaseException) -> str:
+    messages: list[str] = []
+    for cause in exception_chain(exc):
+        name = type(cause).__name__
+        message = str(cause)
+        messages.append(f"{name}: {message}" if message else name)
     return "\n".join(reversed(messages))

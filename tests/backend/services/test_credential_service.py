@@ -567,7 +567,7 @@ def test_create_generic_fints_credential_persists_blz(session_factory: sessionma
     assert credential.bank == BankProvider.FINTS
     assert credential.credentials == {"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": "70150000"}
     assert_log_contains(caplog, messages=["Created", "<Credential("])
-    assert BANK_PASSWORD not in caplog.text
+    assert_log_contains(caplog=caplog, message=BANK_PASSWORD, negate=True)
 
 
 def test_create_generic_fints_credential_rejects_a_duplicate(session_factory: sessionmaker):

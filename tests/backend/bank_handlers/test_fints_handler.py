@@ -1,9 +1,13 @@
-from dataclasses import dataclass
-from datetime import date
+import socket
+import threading
+from dataclasses import dataclass, replace
+from datetime import date, timedelta
 from decimal import Decimal
+from typing import Iterator
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
 from source.backend.bank_handlers import fints_handler as module
@@ -14,10 +18,13 @@ from source.backend.bank_handlers.fints_handler import (
     _try_configure_pushtan_mechanism,
 )
 from source.backend.exceptions import (
+    BankTimedOutError,
     InvalidCredentialsError,
+    JobErrorCode,
     ReauthenticationRequiredError,
     SyncCancelledError,
     UnsupportedBankError,
+    error_code_for,
 )
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
@@ -570,3 +577,61 @@ def test_get_transactions_resets_anchors_between_calls():
     session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE)
 
     assert len(session.get_balance_observations(FetchedAccount(name=ACCOUNT_IBAN))) == 1
+
+
+def test_client_attaches_a_session_that_defaults_a_timeout(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **_: MagicMock())
+
+    client = _fints_handler().client(user_id=BANK_USERNAME, pin=PIN)
+
+    sent: dict[str, object] = {}
+    monkeypatch.setattr(
+        target=requests.Session, name="request", value=lambda self, *args, **kwargs: sent.update(kwargs)
+    )
+    client.connection.session.request(method="POST", url="https://bank.example/fints")
+
+    assert sent["timeout"] == (module.FINTS_CONNECT_TIMEOUT.total_seconds(), module.FINTS_READ_TIMEOUT.total_seconds())
+
+
+@pytest.fixture
+def stalling_bank() -> Iterator[str]:
+    with socket.create_server(("127.0.0.1", 0)) as server:
+        server.settimeout(0.1)
+        accepted: list[socket.socket] = []
+        stop = threading.Event()
+
+        def stall() -> None:
+            while not stop.is_set():
+                try:
+                    connection, _ = server.accept()
+                except TimeoutError:
+                    continue
+                accepted.append(connection)
+
+        thread = threading.Thread(target=stall)
+        thread.start()
+        host, port = server.getsockname()
+        try:
+            yield f"http://{host}:{port}/fints"
+        finally:
+            stop.set()
+            thread.join()
+            for connection in accepted:
+                connection.close()
+
+
+def test_session_reports_a_bank_that_accepts_but_never_answers_as_a_timeout(
+    stalling_bank: str, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    monkeypatch.setattr(target=module, name="FINTS_READ_TIMEOUT", value=timedelta(seconds=1))
+    handler = FinTSHandler(
+        bank_info=replace(_FAKE_BANK_INFO, fints_url=stalling_bank),
+        credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD},
+    )
+
+    with pytest.raises(BankTimedOutError) as raised:
+        with handler.session():
+            pytest.fail("The session must not open against a bank that never answers")
+
+    assert error_code_for(raised.value) == JobErrorCode.TIMEOUT
+    assert_log_contains(caplog=caplog, message="did not respond")

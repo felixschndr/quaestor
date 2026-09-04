@@ -16,6 +16,7 @@ from tests.backend.conftest import (
     REWE,
     SECOND_AMOUNT,
     THIRD_AMOUNT,
+    assert_log_contains,
     create_credential,
     link_transactions_as_flow,
     make_transaction,
@@ -71,8 +72,7 @@ def test_categories_logs_with_user_object(
     with caplog.at_level(logging.DEBUG, logger="services.transactions.statistics_service"):
         http_client.get("/api/statistics/categories", params=[("account_ids", account_id)])
 
-    assert "category breakdown" in caplog.text
-    assert "<User(" in caplog.text
+    assert_log_contains(caplog=caplog, messages=["category breakdown", "<User("])
 
 
 def test_categories_respects_date_range(http_client: TestClient, session_factory: sessionmaker):

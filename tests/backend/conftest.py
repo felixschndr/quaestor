@@ -249,6 +249,10 @@ def current_totp(secret: str) -> str:
     return pyotp.TOTP(secret).now()
 
 
+def _record_text(record: logging.LogRecord) -> str:
+    return logging.Formatter().format(record)
+
+
 def assert_log_contains(
     caplog: pytest.LogCaptureFixture,
     message: str | None = None,
@@ -260,9 +264,9 @@ def assert_log_contains(
     if messages is None:
         messages = [message]
 
-    captured = [record.message for record in caplog.records]
+    captured = [_record_text(record) for record in caplog.records]
     for expected in messages:
-        present = any(expected in record.message for record in caplog.records)
+        present = any(expected in text for text in captured)
         if negate:
             assert not present, f"Expected no log record containing {expected!r}; captured: {captured}"
         else:

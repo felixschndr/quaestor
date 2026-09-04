@@ -26,7 +26,7 @@ def test_create_user_defaults_language_to_english_when_unset(
         assert user.language == "en"
 
     assert_log_contains(caplog, messages=["Created <User("])
-    assert "password_hash" not in caplog.text
+    assert_log_contains(caplog=caplog, message="password_hash", negate=True)
 
 
 def test_create_user_uses_configured_default_language(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):

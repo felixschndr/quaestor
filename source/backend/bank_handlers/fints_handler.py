@@ -6,6 +6,7 @@ from time import sleep
 from typing import Iterator, TypeVar, cast
 
 import fints_url
+import requests
 from fints.camt_parser import camt053_to_dict
 from fints.client import FinTS3PinTanClient, NeedTANResponse
 from fints.exceptions import FinTSClientPINError
@@ -24,10 +25,12 @@ from source.backend.bank_handlers.base import (
     TwoFactorStateCallback,
 )
 from source.backend.exceptions import (
+    BankTimedOutError,
     InvalidCredentialsError,
     ReauthenticationRequiredError,
     SyncCancelledError,
     UnsupportedBankError,
+    exception_chain,
 )
 from source.backend.helpers import get_key_of_transaction
 from source.backend.logging_utils import get_logger
@@ -41,11 +44,23 @@ logger = get_logger(__name__)
 Balance1._fields["date"].required = False  # pyright: ignore[reportAttributeAccessIssue]  # python-fints internal
 Balance2._fields["date"].required = False  # pyright: ignore[reportAttributeAccessIssue]  # python-fints internal
 
+FINTS_CONNECT_TIMEOUT = timedelta(seconds=10)
+FINTS_READ_TIMEOUT = timedelta(minutes=2)
 APPROVAL_TIMEOUT = timedelta(minutes=3)
 APPROVAL_POLL_INTERVAL = timedelta(seconds=2)
 PENDING_LOOKBACK = timedelta(days=14)
 
 T = TypeVar("T")
+
+
+class _TimeoutSession(requests.Session):
+    # python-fints posts without any timeout, so a bank that accepts the connection and then goes quiet hangs the sync
+    # thread forever
+    # Drop this once https://github.com/raphaelm/python-fints/pull/224 is released and pass timeout= instead
+    def request(self, *args: object, **kwargs: object) -> requests.Response:
+        timeout = (FINTS_CONNECT_TIMEOUT.total_seconds(), FINTS_READ_TIMEOUT.total_seconds())
+        kwargs.setdefault("timeout", timeout)  # noqa: FKA100
+        return super().request(*args, **kwargs)  # pyright: ignore[reportArgumentType]  # forwarded verbatim
 
 
 class _FinTSSession(BankSession):
@@ -208,7 +223,7 @@ class FinTSHandler(BankHandler):
     def client(self, user_id: str, pin: str) -> FinTS3PinTanClient:
         bank_identifier = self.bank_info.bank_identifier or self.credentials["blz"]
         server = self.bank_info.fints_url or _resolve_fints_url(bank_identifier)
-        return FinTS3PinTanClient(
+        client = FinTS3PinTanClient(
             bank_identifier=bank_identifier,
             user_id=user_id,
             pin=pin,
@@ -216,11 +231,17 @@ class FinTSHandler(BankHandler):
             product_id=self.FINTS_PRODUCT_ID,
             system_id=self.credentials.get("system_id"),
         )
+        client.connection.session = _TimeoutSession()
+        return client
 
     @contextmanager
     def session(self) -> Iterator[_FinTSSession]:
         bank_identifier = self.bank_info.bank_identifier or self.credentials.get("blz")
         logger.debug(f"Opening FinTS session for bank {bank_identifier}")
+        with _as_timed_out_on_unresponsive_bank(bank_identifier=bank_identifier):
+            yield from self._session()
+
+    def _session(self) -> Iterator[_FinTSSession]:
         client = self.client(user_id=self.credentials["username"], pin=self.credentials["password"])
         with _as_invalid_credentials_on_login_failure():
             _try_configure_pushtan_mechanism(client)
@@ -241,6 +262,21 @@ class FinTSHandler(BankHandler):
             # Persist the system_id after a successful session (it's None if the session failed).
             if client.system_id and client.system_id != "0":
                 bank_session.system_id = client.system_id
+
+
+@contextmanager
+def _as_timed_out_on_unresponsive_bank(bank_identifier: str | None) -> Iterator[None]:
+    # Wraps the caller's whole `with session()` body, so a stall during any request is caught, not just during login.
+    try:
+        yield
+    except Exception as e:
+        # python-fints buries every transport error in a "Authentication data wrong?" dialog error, so the real cause
+        # has to be dug out of the chain. Without that a bank that stopped answering looks like a wrong password.
+        if not any(isinstance(cause, requests.exceptions.Timeout) for cause in exception_chain(e)):
+            raise
+        message = f"The FinTS server of bank {bank_identifier} did not respond within {FINTS_READ_TIMEOUT}"
+        logger.warning(message)
+        raise BankTimedOutError(message) from e
 
 
 @contextmanager

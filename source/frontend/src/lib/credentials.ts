@@ -99,6 +99,7 @@ export type SyncJobErrorCode =
   | 'invalid_credentials'
   | 'unsupported_bank'
   | 'rate_limited'
+  | 'timeout'
   | 'redirect_url_not_allowed'
   | 'application_not_activated'
   | 'unknown'

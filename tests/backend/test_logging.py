@@ -57,7 +57,7 @@ def test_extra_is_omitted_for_non_debug_levels(caplog: pytest.LogCaptureFixture)
     logger.info("user created", extra={"password": VALID_PASSWORD})
 
     assert caplog.records[0].getMessage() == "user created"
-    assert VALID_PASSWORD not in caplog.text
+    assert_log_contains(caplog=caplog, message=VALID_PASSWORD, negate=True)
 
 
 def test_extra_is_appended_and_redacted_at_debug_level(caplog: pytest.LogCaptureFixture):
@@ -114,9 +114,8 @@ def test_request_middleware_redacts_password_and_auth_header(http_client: TestCl
         )
 
     assert response.status_code == 201
-    assert VALID_PASSWORD not in caplog.text
-    assert "leaktest" not in caplog.text
-    assert "[POST] [/api/auth/register] -> 201" in caplog.text
+    assert_log_contains(caplog=caplog, messages=[VALID_PASSWORD, "leaktest"], negate=True)
+    assert_log_contains(caplog=caplog, message="[POST] [/api/auth/register] -> 201")
 
 
 def test_request_summary_carries_session_label_on_endpoints_without_auth_dependency(
