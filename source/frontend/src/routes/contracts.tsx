@@ -257,6 +257,7 @@ function CreateContractDialog({ credentials }: { credentials: CredentialRead[] }
               value={category}
               onChange={setCategory}
               options={categoryOptions}
+              searchPlaceholder={t('search.filterPlaceholder')}
             />
           </div>
           <div className="flex justify-end gap-2">

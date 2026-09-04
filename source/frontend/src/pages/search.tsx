@@ -285,7 +285,7 @@ function SearchResults({
       <section aria-label={t('search.resultsHeading')} className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-primary text-sm font-semibold">
-            {t('search.resultsCount', { count: results.length })}
+            {t('common.transactionCount', { count: results.length })}
           </h2>
           <SortSelect
             ariaLabel={t('search.sortLabel')}

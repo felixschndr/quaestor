@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { usePopoverScroll } from '@/lib/use-popover-scroll'
+import { matchesQuery, PopoverSearchInput } from '@/components/ui/popover-search-input'
 import { handleSelectListArrowKeys } from '@/components/ui/select-list-keyboard'
 import {
   Popover,
@@ -26,6 +27,7 @@ export interface SingleSelectPopoverProps<T extends string> {
   value: T
   onChange: (next: T) => void
   placeholder?: string
+  searchPlaceholder?: string
   disabled?: boolean
   className?: string
   width?: 'full' | 'content'
@@ -39,17 +41,36 @@ export function SingleSelectPopover<T extends string>({
   value,
   onChange,
   placeholder,
+  searchPlaceholder,
   disabled,
   className,
   width = 'full',
   align = 'start',
 }: SingleSelectPopoverProps<T>) {
   const [open, setOpen] = useState(false)
-  const listRef = usePopoverScroll<HTMLUListElement>()
+  const [query, setQuery] = useState('')
+  const scrollRef = usePopoverScroll<HTMLUListElement>()
+  const listRef = useCallback(
+    (node: HTMLUListElement | null) => {
+      scrollRef(node)
+      const row = node?.querySelector<HTMLElement>('[data-selected]')
+      if (node && row) node.scrollTop = row.offsetTop - (node.clientHeight - row.offsetHeight) / 2
+    },
+    [scrollRef],
+  )
   const selected = options.find((option) => option.value === value) ?? null
+  const visibleOptions = query
+    ? options.filter((option) => matchesQuery(option.label, query))
+    : options
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setQuery('')
+      }}
+    >
       <PopoverTrigger
         id={id}
         type="button"
@@ -106,16 +127,25 @@ export function SingleSelectPopover<T extends string>({
         )}
         onKeyDown={handleSelectListArrowKeys}
       >
+        {searchPlaceholder ? (
+          <PopoverSearchInput
+            value={query}
+            placeholder={searchPlaceholder}
+            onChange={setQuery}
+            bordered={visibleOptions.length > 0}
+          />
+        ) : null}
         <ul
           ref={listRef}
           aria-label={ariaLabel}
-          className="max-h-72 overflow-y-auto overscroll-contain p-1"
+          className="relative max-h-72 overflow-y-auto overscroll-contain p-1"
         >
-          {options.map((option) => (
+          {visibleOptions.map((option) => (
             <li key={option.value}>
               <button
                 type="button"
                 data-select-row=""
+                data-selected={option.value === value ? '' : undefined}
                 onClick={() => {
                   onChange(option.value)
                   setOpen(false)

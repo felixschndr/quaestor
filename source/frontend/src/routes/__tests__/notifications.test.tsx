@@ -81,7 +81,7 @@ describe('NotificationLogView', () => {
       />,
     )
 
-    await userEvent.click(screen.getByRole('button', { name: 'Mark all as read' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Mark all read' }))
     expect(onMarkAllRead).toHaveBeenCalled()
 
     rerender(
@@ -92,7 +92,7 @@ describe('NotificationLogView', () => {
         retentionDays={14}
       />,
     )
-    expect(screen.queryByRole('button', { name: 'Mark all as read' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Mark all read' })).not.toBeInTheDocument()
   })
 
   it('explains the retention instead of the list when there is nothing yet', () => {

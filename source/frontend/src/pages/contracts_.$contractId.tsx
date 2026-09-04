@@ -48,7 +48,6 @@ export function ContractDetailView({
   const activeMembers = contract.members.filter(
     (member) => member.contract_assignment !== 'EXCLUDED',
   )
-  const outlierCount = activeMembers.filter((member) => member.is_outlier).length
   const lastPaymentDate = activeMembers[0]?.date ?? null
   const medianColor =
     contract.median_amount === null
@@ -134,12 +133,6 @@ export function ContractDetailView({
             median={contract.is_archived ? null : contract.median_amount}
             expectedNextDate={contract.is_archived ? null : contract.expected_next_date}
           />
-          {outlierCount > 0 ? (
-            <p className="text-warning flex items-center gap-1.5 text-xs">
-              <TriangleAlert className="size-3.5 shrink-0" />
-              {t('contracts.outlierNote', { count: outlierCount })}
-            </p>
-          ) : null}
         </section>
       ) : null}
 
@@ -207,7 +200,7 @@ export function ContractDetailView({
 
       <section className="flex flex-col gap-2">
         <h2 className="text-foreground text-sm font-semibold">
-          {t('contracts.members', { count: contract.members.length })}
+          {t('common.transactionCount', { count: contract.members.length })}
         </h2>
         {contract.members.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t('contracts.noMembers')}</p>
@@ -330,6 +323,7 @@ function ContractCategorySelect({
       disabled={pending}
       onChange={(next) => void change(next)}
       options={options}
+      searchPlaceholder={t('search.filterPlaceholder')}
     />
   )
 }

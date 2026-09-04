@@ -102,6 +102,8 @@
     "onDate": "am {{date}}",
     "searchTransactions": "Transaktionen durchsuchen",
     "transactions": "Transaktionen",
+    "transactionCount_one": "{{count}} Transaktion",
+    "transactionCount_other": "{{count}} Transaktionen",
     "unknown": "Unbekannt",
     "transactionLabel": {
       "SALARY": "Gehalt",
@@ -191,8 +193,7 @@
     },
     "upcoming": "Demnächst fällige Verträge",
     "trendRange": "im letzten Monat",
-    "contractsOverdue_one": "Verträge – {{count}} überfällig",
-    "contractsOverdue_other": "Verträge – {{count}} überfällig"
+    "contractsOverdue": "Verträge – {{count}} überfällig"
   },
   "account": {
     "lastUpdatedAt": "Zuletzt aktualisiert am {{date}}",
@@ -233,8 +234,6 @@
     "datePlaceholder": "Datum wählen",
     "error": "Suche fehlgeschlagen. Bitte erneut versuchen.",
     "resultsHeading": "Suchergebnisse",
-    "resultsCount": "{{count}} Transaktion",
-    "resultsCount_other": "{{count}} Transaktionen",
     "sortLabel": "Sortieren",
     "sortDateDesc": "Neueste zuerst",
     "sortDateAsc": "Älteste zuerst",
@@ -847,9 +846,8 @@
     "empty": "Noch keine Benachrichtigungen erhalten.",
     "unread": "ungelesen",
     "retention": "Benachrichtigungen werden nach {{days}} Tagen automatisch gelöscht.",
-    "unreadCount_one": "Benachrichtigungsverlauf – {{count}} ungelesen",
-    "unreadCount_other": "Benachrichtigungsverlauf – {{count}} ungelesen",
-    "markAllRead": "Alle als gelesen markieren"
+    "unreadCount": "Benachrichtigungsverlauf – {{count}} ungelesen",
+    "markAllRead": "Alle gelesen"
   },
   "note": {
     "placeholder": "Notiz hinzufügen …",
@@ -875,8 +873,6 @@
     "overdueBanner_weeks_other": "Die nächste Zahlung ist seit {{count}} Wochen überfällig. Ist der Vertrag noch aktiv?",
     "overdueBanner_months_one": "Die nächste Zahlung ist seit {{count}} Monat überfällig. Ist der Vertrag noch aktiv?",
     "overdueBanner_months_other": "Die nächste Zahlung ist seit {{count}} Monaten überfällig. Ist der Vertrag noch aktiv?",
-    "members_one": "{{count}} Transaktion",
-    "members_other": "{{count}} Transaktionen",
     "noMembers": "Noch keine Transaktionen zugeordnet.",
     "notFound": "Vertrag nicht gefunden.",
     "frequencyUnknown": "Unregelmäßig",
@@ -919,8 +915,6 @@
     "turnus": "Turnus",
     "expectedShort": "Erwartet",
     "paymentHistory": "Zahlungsverlauf",
-    "outlierNote_one": "{{count}} Ausreißer – fließt nicht in den Median ein",
-    "outlierNote_other": "{{count}} Ausreißer – fließen nicht in den Median ein",
     "lastPayment": "Letzte Zahlung",
     "archivedOn": "Archiviert am",
     "endDate": "Vertragsende",

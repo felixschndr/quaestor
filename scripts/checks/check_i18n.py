@@ -131,8 +131,6 @@ def report_duplicate_values(errors: list[str], messages_by_language: dict[str, d
     shared_keys = set.intersection(*(set(messages_by_language[language]) for language in languages))
     keys_by_values: dict[tuple[str, ...], list[str]] = {}
     for key in shared_keys:
-        if strip_plural(key) != key:
-            continue
         values = tuple(messages_by_language[language][key] for language in languages)
         keys_by_values.setdefault(values, []).append(key)  # noqa FKA100
     for values, keys in sorted(keys_by_values.items()):

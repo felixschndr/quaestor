@@ -460,6 +460,7 @@ function CategorySelect({
       disabled={pending}
       onChange={(next) => void change(next)}
       options={options}
+      searchPlaceholder={t('search.filterPlaceholder')}
     />
   )
 }

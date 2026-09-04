@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, Search } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { usePopoverScroll } from '@/lib/use-popover-scroll'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
+import { matchesQuery, PopoverSearchInput } from '@/components/ui/popover-search-input'
 import { handleSelectListArrowKeys } from '@/components/ui/select-list-keyboard'
 import { SelectAllHeader } from '@/components/ui/select-all-header'
 import {
@@ -52,7 +52,7 @@ export function MultiSelectPopover<T extends string>({
   const selectedSet = new Set(selected)
   const selectedCount = selected.length
   const visibleOptions = query
-    ? options.filter((option) => option.label.toLowerCase().includes(query.toLowerCase()))
+    ? options.filter((option) => matchesQuery(option.label, query))
     : options
 
   const toggle = (value: T) => {
@@ -89,22 +89,12 @@ export function MultiSelectPopover<T extends string>({
           />
         ) : null}
         {searchPlaceholder ? (
-          <div
-            className={cn('border-border/40 relative p-2', visibleOptions.length > 0 && 'border-b')}
-          >
-            <Search
-              className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2"
-              aria-hidden="true"
-            />
-            <Input
-              type="search"
-              inputMode="search"
-              value={query}
-              placeholder={searchPlaceholder}
-              onChange={(event) => setQuery(event.target.value)}
-              className="pl-8"
-            />
-          </div>
+          <PopoverSearchInput
+            value={query}
+            placeholder={searchPlaceholder}
+            onChange={setQuery}
+            bordered={visibleOptions.length > 0}
+          />
         ) : null}
         <ul
           ref={listRef}
