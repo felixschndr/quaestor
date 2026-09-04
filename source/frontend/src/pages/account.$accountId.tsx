@@ -244,6 +244,8 @@ export function AccountDetailView({
   const hasAnyTransactions = groups.length > 0
 
   const personalisedName = account.display_name?.trim() || null
+  const headerName = personalisedName ?? formatIban(account.name)
+  const showIban = formatIban(account.name) !== headerName || isIban(account.name)
   const isManual = isManualBank(bank)
   const canBookManually = isManual && isOwner
   const [addingTxn, setAddingTxn] = useState(false)
@@ -271,8 +273,13 @@ export function AccountDetailView({
       const name = nameRow.getBoundingClientRect()
       amount.style.setProperty('--dock-top', `${name.bottom - flow.height}px`)
       amount.style.setProperty('--dock-tx', `${name.right - flow.right}px`)
+      // Docked the amount is scaled to 0.5 from its bottom-right corner, so it
+      // occupies half its natural width — the name may keep the rest, minus a gap.
+      const free = name.width - flow.width / 2 - 12
+      nameRow.style.setProperty('--name-shrunk', `${Math.max(free, 96)}px`)
       const distance = Math.max(flow.bottom + window.scrollY - name.bottom, 1)
-      amount.style.setProperty('--dock-distance', `${distance}px`)
+      // On <main> so the name row inherits it too — it shrinks over the same range.
+      mainRef.current?.style.setProperty('--dock-distance', `${distance}px`)
       amount.classList.add('account-balance-dock')
     }
 
@@ -345,8 +352,8 @@ export function AccountDetailView({
           </header>
 
           <div ref={nameRowRef} className="mt-2 flex min-h-7 items-end">
-            <p className="text-foreground max-w-[55%] truncate text-xl leading-tight font-semibold">
-              {personalisedName ?? formatIban(account.name)}
+            <p className="text-foreground account-name-shrink max-w-[55%] truncate text-xl leading-tight font-semibold">
+              {headerName}
             </p>
           </div>
         </div>
@@ -357,11 +364,12 @@ export function AccountDetailView({
         style={{ paddingTop: 'calc(var(--account-header-height, 0px) + 8px)' }}
       >
         <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-          <IbanLabel id="account-balance-label" value={account.name} />
+          {showIban ? <IbanLabel id="account-balance-label" value={account.name} /> : null}
           {lastUpdated ? (
             <p
               className={cn(
                 'shrink-0 text-sm sm:text-right',
+                !showIban && 'sm:ml-auto',
                 syncWarn ? 'text-warning' : 'text-muted-foreground',
               )}
             >
@@ -372,7 +380,8 @@ export function AccountDetailView({
         <div
           ref={amountRef}
           role="group"
-          aria-labelledby="account-balance-label"
+          aria-labelledby={showIban ? 'account-balance-label' : undefined}
+          aria-label={showIban ? undefined : t('common.balance')}
           className="z-30 w-fit"
         >
           <BalanceDisplay

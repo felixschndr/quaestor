@@ -90,3 +90,31 @@ def test_partial_refund_keeps_both_legs_visible_and_badges_partial(session_facto
 
     assert analysis.hidden_ids == set()
     assert analysis.refund_status == {payment_id: "partially_refunded", partial_id: "refund"}
+
+
+def test_money_flow_hop_through_an_account_is_hidden_but_not_badged(session_factory: sessionmaker):
+    with session_factory() as session:
+        _, _, account = make_user_and_credential_and_account(session, name="Cash")
+        incoming = make_transaction(
+            session,
+            account_id=account.id,
+            amount=DEFAULT_AMOUNT,
+            category=TransactionCategory.REIMBURSEMENT,
+            date=OLDER_DATE,
+        )
+        passed_on = make_transaction(
+            session,
+            account_id=account.id,
+            amount=-DEFAULT_AMOUNT,
+            category=TransactionCategory.INVESTMENT,
+            date=LATEST_DATE,
+        )
+        session.flush()
+        link_transactions_as_flow(db_session=session, transactions=[incoming, passed_on])
+        session.commit()
+        incoming_id, passed_on_id = incoming.id, passed_on.id
+
+        analysis = flow_refunds.analyze(db_session=session)
+
+    assert analysis.hidden_ids == {incoming_id, passed_on_id}
+    assert analysis.refund_status == {}

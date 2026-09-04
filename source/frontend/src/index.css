@@ -243,6 +243,25 @@
   }
 }
 
+/* The balance docks into the name row on scroll, so the name only has to make
+   room for it once that starts. Unscrolled it gets the full width. */
+@keyframes account-name-shrink {
+  from {
+    max-width: 100%;
+  }
+  to {
+    max-width: var(--name-shrunk, 55%);
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  .account-name-shrink {
+    animation: account-name-shrink linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 var(--dock-distance, 100px);
+  }
+}
+
 @keyframes balance-settle {
   0% {
     color: var(--color-success);

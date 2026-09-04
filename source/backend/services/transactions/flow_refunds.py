@@ -1,3 +1,4 @@
+import datetime
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Iterable
@@ -17,11 +18,15 @@ class _Leg:
     id: int
     amount: float
     account_id: int
-    date: object
+    date: datetime.date
     remaining: float = 0.0
 
     def __post_init__(self) -> None:
         self.remaining = abs(self.amount)
+
+    @property
+    def booked(self) -> tuple[datetime.date, int]:
+        return self.date, self.id
 
 
 @dataclass
@@ -72,7 +77,7 @@ def _analyze_flow(legs: list[_Leg], analysis: FlowAnalysis) -> None:
                 continue
             candidates = sorted(
                 (out for out in outflows if (out.account_id == inflow.account_id) == same_account),
-                key=lambda out: (abs(out.remaining - inflow.remaining) > _EPS, out.id),
+                key=lambda out: (out.booked > inflow.booked, abs(out.remaining - inflow.remaining) > _EPS, out.id),
             )
             for outflow in candidates:
                 if inflow.remaining <= _EPS:
@@ -83,7 +88,7 @@ def _analyze_flow(legs: list[_Leg], analysis: FlowAnalysis) -> None:
                 applied = min(inflow.remaining, outflow.remaining)
                 inflow.remaining -= applied
                 outflow.remaining -= applied
-                if same_account:
+                if same_account and outflow.booked < inflow.booked:
                     refund_inflows.add(inflow.id)
                     covered_outflows[inflow.id].append(outflow.id)
 

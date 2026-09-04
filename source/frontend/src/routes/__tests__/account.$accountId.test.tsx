@@ -123,7 +123,7 @@ function renderView(pages: AccountHistoryPage[], opts: { hasNextPage?: boolean }
 describe('AccountDetailView', () => {
   it('renders the account name and current balance', () => {
     renderView([])
-    expect(screen.getAllByText(ACCOUNT_NAME_CHECKING)).toHaveLength(2)
+    expect(screen.getAllByText(ACCOUNT_NAME_CHECKING)).toHaveLength(1)
     expect(screen.getByText(money(TEST_BALANCE))).toBeInTheDocument()
   })
 
