@@ -2,7 +2,15 @@ import { describe, expect, it, vi } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 
 import { ApiError, NetworkError } from '@/lib/api'
-import { ensureAuthenticated, redirectIfAuthenticated, safeNext } from '@/lib/auth'
+import {
+  AUTO_SYNC_MAX_AGE_MS,
+  ensureAuthenticated,
+  redirectIfAuthenticated,
+  safeNext,
+  staleSyncCredentialIds,
+  type CredentialRead,
+  type UserRead,
+} from '@/lib/auth'
 
 describe('safeNext', () => {
   it.each([
@@ -18,6 +26,53 @@ describe('safeNext', () => {
     ['/account/42/transactions/7?from=overview', '/account/42/transactions/7?from=overview'],
   ])('safeNext(%j) → %j', (input, expected) => {
     expect(safeNext(input)).toBe(expected)
+  })
+})
+
+describe('staleSyncCredentialIds', () => {
+  const NOW = Date.parse('2026-09-04T12:00:00Z')
+  const JUST_SYNCED = new Date(NOW - AUTO_SYNC_MAX_AGE_MS / 2).toISOString()
+  const LONG_AGO = new Date(NOW - 2 * AUTO_SYNC_MAX_AGE_MS).toISOString()
+
+  function buildUser(credentials: Partial<CredentialRead>[]): UserRead {
+    return {
+      credentials: credentials.map((credential, index) => ({
+        id: index + 1,
+        bank: 'ing',
+        bank_name: null,
+        bank_icon: null,
+        accounts: [],
+        last_fetching_timestamp: LONG_AGO,
+        requires_two_factor_authentication: false,
+        sync_enabled: true,
+        ...credential,
+      })),
+    } as UserRead
+  }
+
+  it.each([
+    ['a credential synced long ago', {}, true],
+    ['a credential that was never synced', { last_fetching_timestamp: null }, true],
+    ['a credential synced just now', { last_fetching_timestamp: JUST_SYNCED }, false],
+    ['a credential with sync disabled', { sync_enabled: false }, false],
+    ['a manual credential', { bank: 'manual' }, false],
+    ['a credential needing a second factor', { requires_two_factor_authentication: true }, false],
+    [
+      'a credential shared with write permission',
+      { shared_from: 'Bob', share_permission: 'write' as const },
+      true,
+    ],
+    [
+      'a credential shared read-only',
+      { shared_from: 'Bob', share_permission: 'read' as const },
+      false,
+    ],
+  ])('%s is picked up: %j → %j', (_name, credential, expected) => {
+    expect(staleSyncCredentialIds(buildUser([credential]), NOW)).toEqual(expected ? [1] : [])
+  })
+
+  it('returns nothing without a user', () => {
+    expect(staleSyncCredentialIds(undefined, NOW)).toEqual([])
   })
 })
 

@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 
 import { BottomTabBar } from '@/components/bottom-tab-bar'
+import { SyncProvider } from '@/components/sync-provider'
 import { Button } from '@/components/ui/button'
 import { NetworkError } from '@/lib/api'
 import { authQueryKeys, ensureAuthenticated, useAuthMe, type UserRead } from '@/lib/auth'
@@ -59,10 +60,12 @@ function RootComponent() {
   const showTabBar = !NO_TAB_BAR_PREFIXES.some((p) => pathname.startsWith(p))
   return (
     <>
-      <div className={showTabBar ? 'pb-20 sm:pb-0' : undefined}>
-        <Outlet />
-      </div>
-      {showTabBar ? <BottomTabBar /> : null}
+      <SyncProvider>
+        <div className={showTabBar ? 'pb-20 sm:pb-0' : undefined}>
+          <Outlet />
+        </div>
+        {showTabBar ? <BottomTabBar /> : null}
+      </SyncProvider>
       <Toaster position="bottom-center" theme={resolved === 'DARK' ? 'dark' : 'light'} richColors />
     </>
   )

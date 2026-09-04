@@ -1,21 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 
-import { useGlobalSync } from '@/lib/auth'
+import { useAppSync } from '@/lib/auth'
 import { installSyncFetchMock, makeJob, wrapper } from '@/test/syncTestHelpers'
 
 afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('useGlobalSync', () => {
+describe('useAppSync', () => {
   it('starts a job per credential and polls status in one batched request', async () => {
     const { fetchMock } = installSyncFetchMock([
       makeJob({ credential_id: 1, job_id: 'j-1' }),
       makeJob({ credential_id: 2, job_id: 'j-2' }),
     ])
 
-    const { result } = renderHook(() => useGlobalSync(), { wrapper })
+    const { result } = renderHook(() => useAppSync(), { wrapper })
 
     await act(async () => {
       result.current.start()
@@ -30,13 +30,29 @@ describe('useGlobalSync', () => {
     )
   })
 
+  it('starts only the given credentials when ids are passed', async () => {
+    const { fetchMock } = installSyncFetchMock([makeJob({ credential_id: 7, job_id: 'j-7' })], {
+      global: false,
+    })
+
+    const { result } = renderHook(() => useAppSync(), { wrapper })
+
+    await act(async () => {
+      result.current.start([7])
+    })
+
+    await waitFor(() => expect(result.current.status).toBe('running'))
+    const posted = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
+    expect(posted.map(([u]) => String(u))).toEqual(['/api/credentials/7/sync'])
+  })
+
   it('serializes concurrent 2FA prompts into the queue', async () => {
     const { setJob } = installSyncFetchMock([
       makeJob({ credential_id: 1, job_id: 'j-1' }),
       makeJob({ credential_id: 2, job_id: 'j-2' }),
     ])
 
-    const { result } = renderHook(() => useGlobalSync(), { wrapper })
+    const { result } = renderHook(() => useAppSync(), { wrapper })
     await act(async () => {
       result.current.start()
     })
@@ -56,7 +72,7 @@ describe('useGlobalSync', () => {
       makeJob({ credential_id: 2, job_id: 'j-2' }),
     ])
 
-    const { result } = renderHook(() => useGlobalSync(), { wrapper })
+    const { result } = renderHook(() => useAppSync(), { wrapper })
     await act(async () => {
       result.current.start()
     })
@@ -74,7 +90,7 @@ describe('useGlobalSync', () => {
   it('transitions to done when all jobs reach a terminal state', async () => {
     const { setJob } = installSyncFetchMock([makeJob({ credential_id: 1, job_id: 'j-1' })])
 
-    const { result } = renderHook(() => useGlobalSync(), { wrapper })
+    const { result } = renderHook(() => useAppSync(), { wrapper })
     await act(async () => {
       result.current.start()
     })
