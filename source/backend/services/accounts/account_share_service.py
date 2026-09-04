@@ -17,9 +17,12 @@ class AccountShareNotFoundError(NotFoundError):
     pass
 
 
-def _permission_label(permission: SharePermission, language: str) -> str:
-    # Spelled out rather than built from the enum, so the i18n check can find the keys statically.
-    key = "account_share.permission.read" if permission is SharePermission.READ else "account_share.permission.write"
+def _permission_adverb(permission: SharePermission, language: str) -> str:
+    key = (
+        "account_share.permission_adverb.read"
+        if permission is SharePermission.READ
+        else "account_share.permission_adverb.write"
+    )
     return notification_messages.translate(language=language, key=key)
 
 
@@ -63,7 +66,7 @@ def share_account(
         share_id=share.id,
         owner=owner.display_name,
         account=account.display_label,
-        permission=_permission_label(permission=permission, language=recipient.language),
+        permission=_permission_adverb(permission=permission, language=recipient.language),
     )
     return share
 
@@ -81,7 +84,7 @@ def update_permission(db_session: Session, share: AccountShare, permission: Shar
         share_id=share.id,
         owner=share.account.credential.user.display_name,
         account=share.account.display_label,
-        permission=_permission_label(permission=permission, language=share.user.language),
+        permission=_permission_adverb(permission=permission, language=share.user.language),
     )
     return share
 

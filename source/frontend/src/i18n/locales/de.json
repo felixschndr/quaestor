@@ -186,7 +186,6 @@
     "synced": "Synchronisiert",
     "syncFailed": "Synchronisierung fehlgeschlagen",
     "syncProgress": "{{done}} von {{total}} Banken synchronisiert",
-    "staleSync": "{{bank}} wurde am {{date}} zuletzt synchronisiert",
     "privacy": {
       "hide": "Beträge ausblenden",
       "show": "Beträge einblenden"
@@ -945,7 +944,10 @@
     "invite": "Einladen",
     "pending": "Warten auf Antwort",
     "revoke": "Freigabe entziehen",
+    "revoked": "Freigabe entzogen",
+    "revokeFailed": "Die Freigabe konnte nicht entzogen werden",
     "leave": "Freigabe verlassen",
+    "leaveConfirm": "Wirklich verlassen?",
     "shared": "Einladung verschickt",
     "shareFailed": "Die Einladung konnte nicht verschickt werden",
     "sharedBy": "Freigegeben von {{owner}}",
@@ -957,8 +959,8 @@
       "description": "{{account}} ({{bank}}) · {{permission}}",
       "accept": "Annehmen",
       "decline": "Ablehnen",
-      "accepted": "{{account}} angenommen",
-      "declined": "{{account}} abgelehnt",
+      "accepted": "Freigabe „{{account}}“ angenommen",
+      "declined": "Freigabe „{{account}}“ abgelehnt",
       "respondFailed": "Die Antwort konnte nicht gespeichert werden"
     },
     "left": "Freigabe verlassen",

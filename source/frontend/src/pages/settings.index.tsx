@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
   Bell,
@@ -174,6 +174,7 @@ export function SettingsIndexView({
 
 function InvitationRow({ invitation }: { invitation: AccountShareInvitation }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const respond = useRespondToInvitation()
 
   const onRespond = async (accept: boolean) => {
@@ -184,6 +185,12 @@ function InvitationRow({ invitation }: { invitation: AccountShareInvitation }) {
           account: invitation.account_name,
         }),
       )
+      if (accept) {
+        await navigate({
+          to: '/settings/credentials/$credentialId',
+          params: { credentialId: String(invitation.credential_id) },
+        })
+      }
     } catch {
       toast.error(t('accountShares.invitation.respondFailed'))
     }
@@ -215,6 +222,7 @@ function InvitationRow({ invitation }: { invitation: AccountShareInvitation }) {
           onClick={() => void onRespond(true)}
         >
           <Check className="size-3.5" aria-hidden="true" />
+          <span className="hidden sm:inline">{t('accountShares.invitation.accept')}</span>
         </Button>
         <Button
           type="button"
@@ -226,6 +234,7 @@ function InvitationRow({ invitation }: { invitation: AccountShareInvitation }) {
           onClick={() => void onRespond(false)}
         >
           <X className="size-3.5" aria-hidden="true" />
+          <span className="hidden sm:inline">{t('accountShares.invitation.decline')}</span>
         </Button>
       </div>
     </li>
@@ -253,12 +262,15 @@ function SettingsLink({
     <li className="border-border/40 border-t first:border-t-0">
       <Link
         to={to}
-        className="hover:bg-muted/60 relative flex items-center gap-3 rounded-md px-3 py-3 transition-colors"
+        className="hover:bg-muted/60 flex items-center gap-3 rounded-md px-3 py-3 transition-colors"
       >
-        <Icon
-          className={cn('size-5 shrink-0', destructive ? 'text-destructive' : 'text-primary')}
-          aria-hidden="true"
-        />
+        <span className="relative size-5 shrink-0">
+          <Icon
+            className={cn('size-full', destructive ? 'text-destructive' : 'text-primary')}
+            aria-hidden="true"
+          />
+          {warn ? <WarningDot className="bg-destructive -top-1 -right-1" /> : null}
+        </span>
         <span className="flex flex-1 flex-col">
           <span className={cn('text-sm font-medium', destructive && 'text-destructive')}>
             {label}
@@ -272,7 +284,6 @@ function SettingsLink({
           </span>
         </span>
         <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />
-        {warn ? <WarningDot className="bg-destructive" /> : null}
       </Link>
     </li>
   )

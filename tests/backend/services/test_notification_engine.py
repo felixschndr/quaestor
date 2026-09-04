@@ -143,7 +143,7 @@ def test_transaction_rule_triggers_on_matching_new_transaction(
         assert_one_notification(
             notifications=notifications,
             title="Transaction booked",
-            body=f"{ACCOUNT_IBAN}: -50,00 € · {NETFLIX}",
+            body=f"“{ACCOUNT_IBAN}”: -50,00 € · {NETFLIX}",
             url=f"/transactions/{transaction.id}",
         )
     assert_log_contains(caplog, messages=["matched on", "Collected"])
@@ -189,7 +189,7 @@ def test_transaction_rule_respects_amount_bounds(session_factory: sessionmaker):
         assert_one_notification(
             notifications=notifications,
             title="Transaction booked",
-            body=f"{ACCOUNT_IBAN}: -50,00 €",
+            body=f"“{ACCOUNT_IBAN}”: -50,00 €",
             url=f"/transactions/{in_range.id}",
         )
 
@@ -217,7 +217,7 @@ def test_transaction_rule_filters_by_category(session_factory: sessionmaker):
         assert_one_notification(
             notifications=notifications,
             title="Transaction booked",
-            body=f"{ACCOUNT_IBAN}: -50,00 €",
+            body=f"“{ACCOUNT_IBAN}”: -50,00 €",
             url=f"/transactions/{groceries.id}",
         )
 
@@ -348,7 +348,7 @@ def test_expected_transaction_rule_triggers_when_expectation_is_booked(session_f
         assert_one_notification(
             notifications=notifications,
             title="Expected transaction booked",
-            body=f"{ACCOUNT_IBAN}: 50,00 € booked · Landlord",
+            body=f"“{ACCOUNT_IBAN}”: 50,00 € booked · Landlord",
             url=f"/transactions/{booking.id}",
         )
 
@@ -396,7 +396,7 @@ def test_balance_below_rule_triggers_on_downward_crossing(session_factory: sessi
     assert_one_notification(
         notifications=notifications,
         title="Balance below threshold",
-        body=f"{ACCOUNT_IBAN}: 10,00 € (threshold 20,00 €)",
+        body=f"“{ACCOUNT_IBAN}”: 10,00 € (threshold 20,00 €)",
         url=f"/account/{account_id}",
     )
     assert notifications[0].tag is not None  # balance alerts collapse via a tag
@@ -442,7 +442,7 @@ def test_balance_above_rule_triggers_on_upward_crossing(session_factory: session
     assert_one_notification(
         notifications=notifications,
         title="Balance above threshold",
-        body=f"{ACCOUNT_IBAN}: 50,00 € (threshold 20,00 €)",
+        body=f"“{ACCOUNT_IBAN}”: 50,00 € (threshold 20,00 €)",
         url=f"/account/{account_id}",
     )
 
@@ -658,7 +658,7 @@ def test_duplicate_booking_notifies(session_factory: sessionmaker, caplog: pytes
         assert_one_notification(
             notifications=notifications,
             title="Possible duplicate booking",
-            body=f"{ACCOUNT_IBAN}: -50,00 € · netflix booked twice within 3 days",
+            body=f"“{ACCOUNT_IBAN}”: -50,00 € · netflix booked twice within 3 days",
             url=(
                 f"/search?account_ids={account_id}&amount_from=-50.01"
                 f"&amount_to=-49.99&date_from={RECENT_DATE.isoformat()}"
@@ -740,7 +740,7 @@ def test_two_new_duplicates_notify_once(session_factory: sessionmaker):
         assert_one_notification(
             notifications=notifications,
             title="Possible duplicate booking",
-            body=f"{ACCOUNT_IBAN}: -50,00 € · Netflix booked twice within 3 days",
+            body=f"“{ACCOUNT_IBAN}”: -50,00 € · Netflix booked twice within 3 days",
             url=(
                 f"/search?account_ids={account_id}&amount_from=-50.01"
                 f"&amount_to=-49.99&date_from={RECENT_DATE.isoformat()}"
@@ -777,7 +777,7 @@ def test_contract_amount_increase_notifies(session_factory: sessionmaker, caplog
         assert_one_notification(
             notifications=notifications,
             title="Contract amount increased",
-            body=f"{ACCOUNT_IBAN}: Gym -3.500,00 € instead of -50,00 €",
+            body=f"“{ACCOUNT_IBAN}”: Gym -3.500,00 € instead of -50,00 €",
             url=f"/contracts/{credential.accounts[0].contracts[0].id}",
         )
         assert_log_contains(caplog, message="against a median of")
@@ -816,7 +816,7 @@ def test_incoming_contract_reports_a_bigger_payout(session_factory: sessionmaker
         assert_one_notification(
             notifications=notifications,
             title="Contract amount increased",
-            body=f"{ACCOUNT_IBAN}: Gym 3.500,00 € instead of 50,00 €",
+            body=f"“{ACCOUNT_IBAN}”: Gym 3.500,00 € instead of 50,00 €",
             url=f"/contracts/{credential.accounts[0].contracts[0].id}",
         )
 
@@ -838,7 +838,7 @@ def test_detected_contract_notifies(session_factory: sessionmaker, caplog: pytes
         assert_one_notification(
             notifications=notifications,
             title="New contract detected",
-            body=f"{ACCOUNT_IBAN}: Gym",
+            body=f"“{ACCOUNT_IBAN}”: Gym",
             url=f"/contracts/{contract.id}",
         )
     assert_log_contains(caplog, message="queued notification")
@@ -893,7 +893,7 @@ def test_upcoming_shortfall_notifies_when_balance_drops_below_due_payments(sessi
     assert_one_notification(
         notifications=notifications,
         title="Upcoming payments exceed balance",
-        body=f"{ACCOUNT_IBAN}: 20,00 € due within 7 days, only 10,00 € available",
+        body=f"“{ACCOUNT_IBAN}”: 20,00 € due within 7 days, only 10,00 € available",
         url=f"/account/{credential.accounts[0].id}",
     )
 
@@ -946,7 +946,7 @@ def test_upcoming_shortfall_honours_a_custom_lookahead(session_factory: sessionm
     assert_one_notification(
         notifications=notifications,
         title="Upcoming payments exceed balance",
-        body=f"{ACCOUNT_IBAN}: 20,00 € due within 30 days, only 10,00 € available",
+        body=f"“{ACCOUNT_IBAN}”: 20,00 € due within 30 days, only 10,00 € available",
         url=f"/account/{credential.accounts[0].id}",
     )
 
@@ -1116,7 +1116,7 @@ def test_sync_credential_triggers_notification_end_to_end(
         credential_service.sync_credential(db_session=db_session, credential_id=credential.id)
 
     assert len(sent_notifications) == 1
-    assert sent_notifications[0].body == f"{ACCOUNT_IBAN}: -50,00 € · Corner Shop"
+    assert sent_notifications[0].body == f"“{ACCOUNT_IBAN}”: -50,00 € · Corner Shop"
 
 
 # --- contract overdue trigger ----------------------------------------------
@@ -1157,7 +1157,7 @@ def test_overdue_contract_notifies_once_and_dedups(
         assert_one_notification(
             notifications=sent,
             title="Payment overdue",
-            body=f"{ACCOUNT_IBAN}: Gym overdue since {contract.expected_next_date.isoformat()}",
+            body=f"“{ACCOUNT_IBAN}”: Gym overdue since {contract.expected_next_date.isoformat()}",
             url=f"/contracts/{contract.id}",
         )
         assert contract.overdue_notified_at is not None
@@ -1267,7 +1267,7 @@ def test_ending_contract_notifies_once_within_lead_time(session_factory: session
         assert_one_notification(
             notifications=sent,
             title="Contract ending soon",
-            body=f"{ACCOUNT_IBAN}: Gym ends on {end_date.isoformat()}",
+            body=f"“{ACCOUNT_IBAN}”: Gym ends on {end_date.isoformat()}",
             url=f"/contracts/{contract.id}",
         )
         assert contract.ending_notified_at is not None
@@ -1337,7 +1337,7 @@ def test_charge_after_contract_end_notifies(session_factory: sessionmaker, caplo
         assert_one_notification(
             notifications=notifications,
             title="Charge after contract end",
-            body=f"{ACCOUNT_IBAN}: Gym charged -50,00 € after ending on {end_date.isoformat()}",
+            body=f"“{ACCOUNT_IBAN}”: Gym charged -50,00 € after ending on {end_date.isoformat()}",
             url=f"/contracts/{contract.id}",
         )
         assert_log_contains(caplog, message="booked after")
@@ -1388,6 +1388,6 @@ def test_notifications_are_rendered_in_recipient_language(session_factory: sessi
     assert_one_notification(
         notifications=notifications,
         title="Erwartete Transaktion gebucht",
-        body=f"{ACCOUNT_IBAN}: 50,00 € gebucht",
+        body=f"„{ACCOUNT_IBAN}“: 50,00 € gebucht",
         url=f"/account/{account.id}",
     )

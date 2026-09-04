@@ -845,7 +845,6 @@ describe('OverviewView hero extras', () => {
     expect(syncButton.querySelector('.bg-warning')).not.toBeNull()
     expect(document.querySelector('a[href="/account/9"] .bg-warning')).not.toBeNull()
     expect(document.querySelector('a[href="/account/8"] .bg-warning')).toBeNull()
-    expect(screen.getByText(/ing was last synced/).className).toMatch(/text-warning/)
   })
 
   it('stays silent about syncing while every bank is current', () => {
@@ -858,7 +857,6 @@ describe('OverviewView hero extras', () => {
     )
     const syncButton = screen.getByRole('button', { name: 'Sync all accounts' })
     expect(syncButton.querySelector('.bg-warning')).toBeNull()
-    expect(screen.queryByText(/was last synced/)).not.toBeInTheDocument()
   })
 
   it('leaves banks with syncing switched off out of the staleness check', () => {
@@ -882,7 +880,6 @@ describe('OverviewView hero extras', () => {
     const syncButton = screen.getByRole('button', { name: 'Sync all accounts' })
     expect(syncButton.querySelector('.bg-warning')).toBeNull()
     expect(document.querySelector('a[href="/account/9"] .bg-warning')).toBeNull()
-    expect(screen.queryByText(/was last synced/)).not.toBeInTheDocument()
   })
 })
 
@@ -1113,9 +1110,8 @@ describe('OverviewView upcoming contracts visibility', () => {
     await waitFor(() =>
       expect(screen.queryByRole('link', { name: /Netflix/ })).not.toBeInTheDocument(),
     )
-    // Collapsed, the header carries the most urgent payment instead of the link.
     expect(screen.queryByRole('link', { name: 'View all' })).not.toBeInTheDocument()
-    expect(trigger).toHaveTextContent('Netflix')
+    expect(trigger).not.toHaveTextContent('Netflix')
     expect(trigger).toHaveTextContent(money(-12.99))
     expect(window.localStorage.getItem('collapsedGroups')).toContain('upcomingContracts')
   })

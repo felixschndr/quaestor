@@ -407,3 +407,25 @@ def test_new_matching_payments_reactivate_an_archived_contract(session_factory: 
 
         session.refresh(contract)
         assert not contract.is_archived
+
+
+def test_contract_overdue_for_a_year_is_archived_automatically(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        _seed(
+            session,
+            account_id=account.id,
+            other_party=NETFLIX,
+            amount=-DEFAULT_AMOUNT,
+            day_offsets=[-800, -770, -740, -710],
+        )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        contract = session.query(Contract).one()
+        assert contract.is_archived
+        assert contract.end_date == OLDER_DATE + timedelta(days=-710)
+        assert_log_contains(caplog, message="Auto-archived <Contract(")

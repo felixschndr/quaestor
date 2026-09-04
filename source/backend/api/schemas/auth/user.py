@@ -90,6 +90,7 @@ class AccountShareInvitationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    credential_id: int
     account_name: str
     bank_name: str
     owner_name: str

@@ -77,6 +77,7 @@ class SharedCredentialView:
 @dataclass(frozen=True)
 class ShareInvitationView:
     id: int
+    credential_id: int
     account_name: str
     bank_name: str
     owner_name: str

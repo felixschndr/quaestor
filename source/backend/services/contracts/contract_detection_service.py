@@ -43,6 +43,7 @@ MEMBER_AMOUNT_MAX_RATIO = 3.0
 # Amount statistics (median/spread, and therefore outlier detection) are computed over only the most recent members, so
 # a sustained price change becomes the new normal instead of being flagged as an outlier forever.
 RECENT_AMOUNT_WINDOW = 6
+AUTO_ARCHIVE_OVERDUE = datetime.timedelta(days=365)
 
 ELIGIBLE_TRANSACTION_TYPES = frozenset(
     {
@@ -155,6 +156,7 @@ def detect_contracts_for_account(db_session: Session, account: Account) -> list[
     db_session.flush()
     for contract in account.contracts:
         recompute_contract_stats(contract)
+        _archive_if_long_overdue(contract)
     _delete_empty_detected_contracts(db_session=db_session, account=account)
     db_session.flush()
 
@@ -325,6 +327,18 @@ def recompute_contract_stats(contract: Contract) -> None:
     apply_contract_category_to_members(contract)
 
     logger.debug(f"Recomputed stats for {contract}")
+
+
+def _archive_if_long_overdue(contract: Contract) -> None:
+    if contract.is_archived:
+        return
+    if not contract.is_overdue_on(today=utc_now().date(), grace=AUTO_ARCHIVE_OVERDUE):
+        return
+    contract.is_archived = True
+    member_dates = [transaction.date for transaction in contract.members()]
+    if contract.end_date is None and member_dates:
+        contract.end_date = max(member_dates)
+    logger.info(f"Auto-archived {contract}; overdue since {contract.expected_next_date}")
 
 
 def apply_contract_category_to_members(contract: Contract) -> None:

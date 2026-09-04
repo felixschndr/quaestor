@@ -27,7 +27,7 @@ export function RowActions({
 
   if (confirming) {
     return (
-      <div className={cn('flex gap-1', className)}>
+      <div data-confirming="" className={cn('flex gap-1', className)}>
         <Button
           type="button"
           size={size}

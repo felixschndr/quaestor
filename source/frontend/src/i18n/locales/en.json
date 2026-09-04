@@ -186,7 +186,6 @@
     "synced": "Synced",
     "syncFailed": "Sync failed",
     "syncProgress": "{{done}} of {{total}} banks synced",
-    "staleSync": "{{bank}} was last synced {{date}}",
     "privacy": {
       "hide": "Hide amounts",
       "show": "Show amounts"
@@ -945,7 +944,10 @@
     "invite": "Invite",
     "pending": "Waiting for a response",
     "revoke": "Revoke the share",
+    "revoked": "Share revoked",
+    "revokeFailed": "The share could not be revoked",
     "leave": "Leave the share",
+    "leaveConfirm": "Really leave?",
     "shared": "Invitation sent",
     "shareFailed": "The invitation could not be sent",
     "sharedBy": "Shared by {{owner}}",
@@ -957,8 +959,8 @@
       "description": "{{account}} ({{bank}}) · {{permission}}",
       "accept": "Accept",
       "decline": "Decline",
-      "accepted": "Accepted {{account}}",
-      "declined": "Declined {{account}}",
+      "accepted": "Share “{{account}}” accepted",
+      "declined": "Share “{{account}}” declined",
       "respondFailed": "The response could not be saved"
     },
     "left": "Share left",

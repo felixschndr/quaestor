@@ -104,6 +104,7 @@ class User(Base):
         return [
             ShareInvitationView(
                 id=share.id,
+                credential_id=share.account.credential_id,
                 account_name=share.account.display_label,
                 bank_name=share.account.credential.bank_name or share.account.credential.bank.value,
                 owner_name=share.account.credential.user.display_name,

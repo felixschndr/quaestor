@@ -9,6 +9,7 @@ import { bankTitle, hasSyncError, lastSyncedLabel } from '@/lib/credentials'
 import { isSharedCredential } from '@/lib/accountShares'
 import type { SettingsCredentialsIndexViewProps } from '@/routes/settings.credentials.index'
 import { BackLink } from '@/components/back-link'
+import { WarningDot } from '@/components/warning-dot'
 
 export function SettingsCredentialsIndexView({ user }: SettingsCredentialsIndexViewProps) {
   const { t } = useTranslation()
@@ -82,11 +83,17 @@ function CredentialRow({ credential }: { credential: CredentialRead }) {
         params={{ credentialId: String(credential.id) }}
         className="hover:bg-muted/60 flex items-center gap-3 rounded-md px-3 py-3 transition-colors"
       >
-        <BankLogo
-          icon={credential.bank_icon}
-          name={title}
-          seed={credential.bank_name ?? credential.bank}
-        />
+        <span className="relative size-8 shrink-0">
+          <BankLogo
+            icon={credential.bank_icon}
+            name={title}
+            seed={credential.bank_name ?? credential.bank}
+            className="size-full"
+          />
+          {hasSyncError(credential) ? (
+            <WarningDot className="bg-destructive -top-1 -right-1" />
+          ) : null}
+        </span>
         <span className="flex flex-1 flex-col">
           <span className="text-sm font-medium">{title}</span>
           {hasSyncError(credential) ? (

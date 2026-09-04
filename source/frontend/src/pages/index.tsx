@@ -7,7 +7,7 @@ import { ChevronRight, Landmark, Search, Settings } from 'lucide-react'
 import { ContractIcon } from '@/components/contract-icon'
 import { StatsIcon } from '@/components/stats-icon'
 
-import { type CredentialRead, type UserRead } from '@/lib/auth'
+import { type UserRead } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { SyncButton } from '@/components/sync-button'
 import { Sparkline } from '@/components/sparkline'
@@ -21,7 +21,6 @@ import {
   formatMoney,
   formatFactorMultiplier,
   formatPercent,
-  formatRelativeDateTime,
   formatSignedMoney,
   isStale,
 } from '@/lib/format'
@@ -99,8 +98,8 @@ export function OverviewView({
   const overdueCount = (contracts ?? []).filter(
     (contract) => contract.is_overdue && visibleAccountIds.includes(contract.account_id),
   ).length
-  const staleCredentials = user.credentials.filter(
-    (credential): credential is CredentialRead & { last_fetching_timestamp: string } =>
+  const hasStaleSync = user.credentials.some(
+    (credential) =>
       credential.sync_enabled &&
       credential.last_fetching_timestamp !== null &&
       isStale(credential.last_fetching_timestamp),
@@ -167,7 +166,7 @@ export function OverviewView({
               succeededAt={syncSucceededAt}
               ariaLabel={t('overview.syncAll.aria')}
               className="p-2.5"
-              warn={staleCredentials.length > 0}
+              warn={hasStaleSync}
             />
           ) : null}
           {hasAccounts ? (
@@ -209,7 +208,7 @@ export function OverviewView({
       </header>
 
       {hasAccounts ? (
-        <section className="mx-auto flex w-fit max-w-full flex-col items-center gap-1">
+        <section className="flex flex-col items-center gap-1 px-2">
           <p
             key={settleKey}
             className={cn(
@@ -224,9 +223,6 @@ export function OverviewView({
               {t('overview.syncProgress', syncProgress)}
             </p>
           ) : null}
-          {staleCredentials.map((credential) => (
-            <StaleSyncLine key={credential.id} credential={credential} />
-          ))}
           <NetWorthTrend accountIds={visibleAccountIds} />
         </section>
       ) : null}
@@ -242,24 +238,6 @@ export function OverviewView({
         <EmptyState />
       )}
     </main>
-  )
-}
-
-function StaleSyncLine({
-  credential,
-}: {
-  credential: CredentialRead & { last_fetching_timestamp: string }
-}) {
-  const { t } = useTranslation()
-  const bank =
-    credential.bank_name ?? t(`banks.${credential.bank}.title`, { defaultValue: credential.bank })
-  return (
-    <p className="private-amount text-warning text-xs">
-      {t('overview.staleSync', {
-        bank,
-        date: formatRelativeDateTime(credential.last_fetching_timestamp, t),
-      })}
-    </p>
   )
 }
 
@@ -279,7 +257,7 @@ function NetWorthTrend({ accountIds }: { accountIds: number[] }) {
   return (
     <Link
       to="/stats"
-      className="focus-visible:ring-ring flex w-full min-w-[min(20rem,calc(100dvw-2rem))] flex-col items-center gap-0.5 rounded-md focus-visible:ring-2 focus-visible:outline-none"
+      className="focus-visible:ring-ring flex w-full flex-col items-center gap-0.5 rounded-md focus-visible:ring-2 focus-visible:outline-none"
     >
       <Sparkline
         values={series.map((point) => point.value)}

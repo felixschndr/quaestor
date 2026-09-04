@@ -25,6 +25,20 @@ function dueLabel(
   return t('common.onDate', { date: formatDateWithoutYear(local) })
 }
 
+function CollapsedSummary({ contract }: { contract: ContractRead }) {
+  const { t } = useTranslation()
+  return (
+    <span className="ml-auto flex items-baseline gap-2 text-xs whitespace-nowrap">
+      <span className={contract.is_overdue ? 'text-warning' : 'text-muted-foreground'}>
+        {dueLabel(contract, t)}
+      </span>
+      {contract.median_amount !== null ? (
+        <span className="font-semibold tabular-nums">{formatMoney(contract.median_amount)}</span>
+      ) : null}
+    </span>
+  )
+}
+
 export function UpcomingContracts({ accountIds }: { accountIds: number[] }) {
   const { t } = useTranslation()
   const { isCollapsed, toggle } = useCollapsedGroups()
@@ -48,7 +62,7 @@ export function UpcomingContracts({ accountIds }: { accountIds: number[] }) {
   return (
     <Collapsible.Root open={open} onOpenChange={() => toggle(UPCOMING_CONTRACTS_KEY)} asChild>
       <section>
-        <div className="flex items-center gap-2 pr-2">
+        <div className="flex items-center gap-2">
           <h2 className="min-w-0 flex-1">
             <Collapsible.Trigger className="group/collapsible focus-visible:ring-ring flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left focus-visible:ring-2 focus-visible:outline-none">
               <ChevronRight
@@ -58,32 +72,13 @@ export function UpcomingContracts({ accountIds }: { accountIds: number[] }) {
               <span className="text-muted-foreground shrink-0 text-xs font-semibold tracking-wide">
                 {t('overview.upcoming')}
               </span>
-              {open ? null : (
-                <span className="ml-auto flex min-w-0 items-baseline gap-2 text-xs">
-                  <span className="flex min-w-0 items-baseline gap-1">
-                    <span className="text-muted-foreground truncate">{next.name}</span>
-                    <span
-                      className={cn(
-                        'shrink-0',
-                        next.is_overdue ? 'text-warning' : 'text-muted-foreground',
-                      )}
-                    >
-                      {dueLabel(next, t)}
-                    </span>
-                  </span>
-                  {next.median_amount !== null ? (
-                    <span className="shrink-0 font-semibold tabular-nums">
-                      {formatMoney(next.median_amount)}
-                    </span>
-                  ) : null}
-                </span>
-              )}
+              {open ? null : <CollapsedSummary contract={next} />}
             </Collapsible.Trigger>
           </h2>
           {open ? (
             <Link
               to="/contracts"
-              className="text-primary hover:text-primary/80 focus-visible:ring-ring inline-flex shrink-0 items-center gap-1 rounded-md text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              className="text-primary hover:text-primary/80 focus-visible:ring-ring inline-flex shrink-0 items-center gap-1 rounded-md pr-2 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
             >
               {t('stats.contracts.viewAll')}
               <ArrowRight className="size-3.5" aria-hidden="true" />

@@ -32,6 +32,7 @@ import type { CredentialDetailViewProps } from '@/routes/settings.credentials.$c
 import { BackLink } from '@/components/back-link'
 import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
 import { RowActions } from '@/components/row-actions'
+import { cn } from '@/lib/utils'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import {
   isSharedCredential,
@@ -592,15 +593,15 @@ function LeaveShareControls({ accountId, note }: { accountId: number; note?: str
       <RowActions
         onDelete={onConfirm}
         deleting={leave.isPending}
-        confirmLabel={t('common.deleteConfirm')}
+        confirmLabel={t('accountShares.leaveConfirm')}
         className="shrink-0 gap-2"
         renderTrigger={(confirm) => (
           <Button
             type="button"
-            variant="ghost"
+            variant="destructive"
             size="sm"
             onClick={confirm}
-            className="text-destructive hover:text-destructive shrink-0"
+            className="shrink-0"
           >
             <Trash2 className="size-3.5" aria-hidden="true" />
             {t('accountShares.leave')}
@@ -669,6 +670,15 @@ function AccountShareSection({ accountId }: { accountId: number }) {
     }
   }
 
+  const onRevoke = async (shareId: number) => {
+    try {
+      await revoke.mutateAsync(shareId)
+      toast.success(t('accountShares.revoked'))
+    } catch {
+      toast.error(t('accountShares.revokeFailed'))
+    }
+  }
+
   const onShare = async () => {
     try {
       await share.mutateAsync({ user_id: Number(recipientId), permission })
@@ -692,13 +702,21 @@ function AccountShareSection({ accountId }: { accountId: number }) {
       ) : (
         <ul className="flex flex-col gap-2">
           {(shares.data ?? []).map((entry) => (
-            <li key={entry.id} className="flex h-8 items-center gap-2">
-              <span className="flex min-w-0 flex-1 items-baseline gap-2">
+            <li
+              key={entry.id}
+              className="flex min-h-8 flex-wrap items-center justify-end gap-2 has-[>[data-confirming]]:grid has-[>[data-confirming]]:grid-cols-[minmax(0,1fr)_auto] sm:flex sm:flex-nowrap sm:has-[>[data-confirming]]:flex"
+            >
+              <span
+                className={cn(
+                  'flex min-w-0 flex-1 items-baseline gap-2',
+                  entry.status === 'pending' && 'col-span-2 basis-full sm:basis-0',
+                )}
+              >
                 <span className="truncate text-sm">
                   {shareUserLabel({ id: entry.user_id, display_name: entry.display_name })}
                 </span>
                 {entry.status === 'pending' ? (
-                  <span className="text-warning shrink-0 text-xs">
+                  <span className="text-warning ml-auto shrink-0 text-sm sm:ml-0">
                     {t('accountShares.pending')}
                   </span>
                 ) : null}
@@ -711,11 +729,14 @@ function AccountShareSection({ accountId }: { accountId: number }) {
                 align="end"
                 disabled={updatePermission.isPending}
                 onChange={(next) => void onChangePermission(entry.id, next)}
+                className={cn(entry.status === 'pending' && 'flex-1 sm:flex-none')}
               />
               <RowActions
-                onDelete={() => revoke.mutateAsync(entry.id)}
+                onDelete={() => onRevoke(entry.id)}
                 deleting={revoke.isPending}
                 confirmLabel={t('common.deleteConfirm')}
+                size="default"
+                className="col-start-2"
                 renderTrigger={(confirm) => (
                   <Button
                     type="button"
@@ -736,7 +757,7 @@ function AccountShareSection({ accountId }: { accountId: number }) {
       {options.length === 0 ? (
         <p className="text-muted-foreground text-xs">{t('accountShares.noUsers')}</p>
       ) : (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <SingleSelectPopover
             ariaLabel={t('accountShares.selectUser')}
             options={options}
@@ -745,23 +766,27 @@ function AccountShareSection({ accountId }: { accountId: number }) {
             onChange={setRecipientId}
             className="flex-1"
           />
-          <SingleSelectPopover
-            ariaLabel={t('accountShares.permissionLabel')}
-            options={permissionOptions}
-            value={permission}
-            width="content"
-            align="end"
-            onChange={setPermission}
-          />
-          <Button
-            type="button"
-            variant="primary"
-            className="w-24"
-            disabled={!recipientId || share.isPending}
-            onClick={() => void onShare()}
-          >
-            {t('accountShares.invite')}
-          </Button>
+          {/* sm:contents dissolves this wrapper so the three controls stay on one row on desktop. */}
+          <div className="flex items-center gap-2 sm:contents">
+            <SingleSelectPopover
+              ariaLabel={t('accountShares.permissionLabel')}
+              options={permissionOptions}
+              value={permission}
+              width="content"
+              align="end"
+              onChange={setPermission}
+              className="flex-1 sm:flex-none"
+            />
+            <Button
+              type="button"
+              variant="primary"
+              className="w-24"
+              disabled={!recipientId || share.isPending}
+              onClick={() => void onShare()}
+            >
+              {t('accountShares.invite')}
+            </Button>
+          </div>
         </div>
       )}
     </div>
@@ -795,13 +820,7 @@ function DeleteAccountControls({
         confirmLabel={t('common.deleteConfirm')}
         className="gap-2"
         renderTrigger={(confirm) => (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={confirm}
-            className="text-destructive hover:text-destructive"
-          >
+          <Button type="button" variant="destructive" size="sm" onClick={confirm}>
             <Trash2 className="size-3.5" aria-hidden="true" />
             {t('common.deleteAccount')}
           </Button>

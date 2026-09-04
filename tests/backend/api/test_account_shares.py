@@ -62,18 +62,20 @@ def test_invitation_is_pending_until_answered(http_client: TestClient):
     login_as(http_client, user_name=SECOND_USER_NAME, password=VALID_PASSWORD)
     me = http_client.get("/api/auth/me").json()
     assert [invitation["id"] for invitation in me["account_share_invitations"]] == [share_id]
-    # Not accepted yet, so the account is invisible and untouchable.
     assert me["credentials"] == []
     assert http_client.get(f"/api/account/{account_id}/history").status_code == 404
 
 
 def test_accepted_share_shows_up_as_a_stand_in_credential(http_client: TestClient):
     account_id, share_id = _setup(http_client)
+    login_as(http_client, user_name=SECOND_USER_NAME, password=VALID_PASSWORD)
+    invited_credential_id = http_client.get("/api/auth/me").json()["account_share_invitations"][0]["credential_id"]
     _accept(http_client, share_id=share_id)
 
     me = http_client.get("/api/auth/me").json()
     assert me["account_share_invitations"] == []
     (credential,) = me["credentials"]
+    assert credential["id"] == invited_credential_id
     assert credential["shared_from"] == DISPLAY_NAME
     assert credential["share_permission"] == "write"
     assert credential["sync_enabled"] is True
@@ -241,6 +243,20 @@ def test_both_sides_are_notified_along_the_whole_lifecycle(
     http_client.delete(f"/api/account_shares/{share_id}")
     assert _titles(sent_notifications)[-1] == (SECOND_USER_NAME, "Share revoked")
     assert account_id > 0
+
+
+def test_permission_change_notification_names_the_share_and_the_new_permission(
+    http_client: TestClient, sent_notifications: list[tuple[str, Notification]]
+):
+    _, share_id = _setup(http_client, permission="read")
+    _accept(http_client, share_id=share_id)
+
+    login_as(http_client, user_name=USER_NAME, password=VALID_PASSWORD)
+    http_client.patch(f"/api/account_shares/{share_id}", json={"permission": "write"})
+
+    assert sent_notifications[-1][1].body == (
+        f"{DISPLAY_NAME} changed your share permissions for the account “{WALLET_ACCOUNT_NAME}” to read and write"
+    )
 
 
 def test_owner_is_notified_when_the_recipient_leaves(

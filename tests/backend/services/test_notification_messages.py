@@ -13,7 +13,7 @@ def test_translate_fills_placeholders():
         notification_messages.translate(
             "de", key="balance_below.body", account="Giro", amount="40,00 €", threshold="50,00 €"
         )
-        == "Giro: 40,00 € (Schwelle 50,00 €)"
+        == "„Giro“: 40,00 € (Schwelle 50,00 €)"
     )
 
 

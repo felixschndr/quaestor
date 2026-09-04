@@ -42,6 +42,7 @@ export type SharePermission = 'read' | 'write'
 
 export interface AccountShareInvitation {
   id: number
+  credential_id: number
   account_name: string
   bank_name: string
   owner_name: string
