@@ -177,7 +177,9 @@ def create_credential(
             select(Credential).where(Credential.user_id == user.id).where(Credential.bank == bank)
         ).all()
         if any(
-            existing_credential.credentials == validated_credentials for existing_credential in existing_credentials
+            {field: existing_credential.credentials.get(field) for field in validated_credentials}
+            == validated_credentials
+            for existing_credential in existing_credentials
         ):
             raise CredentialAlreadyExistsError(f"{user} already has a {bank.value} credential with the same login data")
     credential = Credential(user=user, bank=bank, credentials=validated_credentials)

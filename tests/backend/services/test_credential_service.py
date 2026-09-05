@@ -576,13 +576,15 @@ def test_create_generic_fints_credential_rejects_a_duplicate(session_factory: se
 
     with session_factory() as session:
         user = session.get(entity=User, ident=user_id)
-        credential_service.create_credential(session, user=user, bank=BankProvider.FINTS, credentials=credentials)
+        credential = credential_service.create_credential(
+            session, user=user, bank=BankProvider.FINTS, credentials=credentials
+        )
+        # A synced credential may carry other fields as well
+        credential.credentials = {**credential.credentials, "system_id": "abc123"}
         session.commit()
 
         with pytest.raises(CredentialAlreadyExistsError):
-            credential_service.create_credential(
-                session, user=user, bank=BankProvider.FINTS, credentials=dict(credentials)
-            )
+            credential_service.create_credential(session, user=user, bank=BankProvider.FINTS, credentials=credentials)
 
 
 def test_create_scalable_capital_credential_allows_a_second_attempt_after_the_first(

@@ -87,7 +87,7 @@ async def send_test(
     current_user: User = Depends(session_service.get_current_user_from_request),
 ) -> TestResult:
     notification = Notification(
-        title="Quaestor", body=notification_messages.translate(current_user.language, key="test.body")
+        title="App", body=notification_messages.translate(current_user.language, key="test.body")
     )
     result = await asyncio.to_thread(_notify_in_thread, current_user.id, notification)  # noqa FKA100
     logger.info(f"Sent test push: {result.delivered} delivered for {current_user}")

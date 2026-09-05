@@ -167,8 +167,7 @@ def test_get_project_repository_reads_the_repository_from_pyproject():
 
 
 def test_get_content_of_pyproject_toml_exposes_the_poetry_table():
-    content = get_content_of_pyproject_toml()
-    assert content["tool"]["poetry"]["name"] == "Quaestor"
+    assert get_content_of_pyproject_toml()["tool"]["poetry"]["name"] == get_project_name()
 
 
 def test_get_content_of_pyproject_toml_is_cached():

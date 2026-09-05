@@ -47,7 +47,7 @@ def test_a_notification_is_logged_even_without_a_push_subscription(
 def test_a_notification_without_a_target_is_logged_too(session_factory: sessionmaker, http_client: TestClient):
     user_id = register_and_login(http_client)
 
-    _log(session_factory, user_id=user_id, notification=Notification(title="Quaestor", body="Test push"))
+    _log(session_factory, user_id=user_id, notification=Notification(title="App", body="Test push"))
 
     assert http_client.get("/api/notification_log").json()[0]["url"] is None
 

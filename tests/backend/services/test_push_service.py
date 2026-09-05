@@ -7,7 +7,7 @@ from source.backend.services.notifications import push_service
 from tests.backend.conftest import FakeHttpResponse, assert_log_contains
 
 SUBSCRIPTION_INFO = {"endpoint": "https://push.example/abc", "keys": {"p256dh": "key", "auth": "auth"}}
-PAYLOAD = {"title": "Quaestor"}
+PAYLOAD = {"title": "App"}
 
 
 @pytest.fixture(autouse=True)
