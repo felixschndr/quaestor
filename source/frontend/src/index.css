@@ -5,6 +5,11 @@
 
 :root {
   --radius: 0.625rem;
+  --bottom-bar-height: 4.3125rem;
+}
+
+:root[data-platform='android'] {
+  --bottom-bar-height: 3.4375rem;
 }
 
 :root,

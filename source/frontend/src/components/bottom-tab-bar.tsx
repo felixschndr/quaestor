@@ -28,18 +28,18 @@ export function BottomTabBar() {
   const accountId = accountMatch ? Number(accountMatch[1]) : null
 
   return (
-    <nav className="bg-background fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
+    <nav className="bg-background fixed inset-x-0 bottom-0 z-40 grid h-[var(--bottom-bar-height)] grid-cols-4 border-t sm:hidden">
       {TABS.map(({ to, label, Icon, exact }) => (
         <Link
           key={to}
           to={to}
           search={to !== '/' && accountId ? { account_ids: [accountId] } : undefined}
           activeOptions={{ exact }}
-          className="text-muted-foreground focus-visible:ring-ring flex flex-col items-center gap-0.5 py-2 text-[11px] focus-visible:ring-2 focus-visible:outline-none"
+          className="text-muted-foreground focus-visible:ring-ring flex flex-col items-center gap-0.5 pt-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
           activeProps={{ className: 'text-primary' }}
         >
           <span className="relative">
-            <Icon className="size-5" />
+            <Icon className="size-5.5" />
             {to === '/contracts' && overdue ? (
               <span
                 className="bg-warning absolute -top-0.5 -right-1 size-2 rounded-full"

@@ -43,8 +43,8 @@ export default defineConfig({
         short_name: 'Quaestor',
         description:
           'Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts',
-        theme_color: '#0a0a0a',
-        background_color: '#0a0a0a',
+        theme_color: '#1e1e1e',
+        background_color: '#1e1e1e',
         display: 'standalone',
         start_url: '/',
         icons: [

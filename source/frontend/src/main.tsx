@@ -8,9 +8,11 @@ import './index.css'
 import './i18n'
 import { queryClient } from './lib/queryClient'
 import { routeTree } from './routeTree.gen'
+import { detectPlatform } from './lib/platform'
 import { applyTheme, readStoredTheme } from './lib/theme'
 
 applyTheme(readStoredTheme())
+document.documentElement.dataset.platform = detectPlatform()
 
 registerSW({ immediate: true })
 
