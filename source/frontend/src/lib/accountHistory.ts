@@ -63,7 +63,7 @@ export function findAccountInUser(
           bankName: credential.bank_name,
           bankIcon: credential.bank_icon,
           credentialId: credential.id,
-          lastFetchingTimestamp: credential.last_fetching_timestamp,
+          lastFetchingTimestamp: credential.last_successful_sync_timestamp,
           syncEnabled: credential.sync_enabled,
           sharePermission: credential.shared_from ? (credential.share_permission ?? 'read') : null,
           requiresTwoFactor: credential.requires_two_factor_authentication,

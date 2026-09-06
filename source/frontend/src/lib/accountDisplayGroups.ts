@@ -12,7 +12,7 @@ export interface AccountWithBank extends AccountRead {
 }
 
 function credentialStale(credential: CredentialRead): boolean {
-  return credential.sync_enabled && isStale(credential.last_fetching_timestamp)
+  return credential.sync_enabled && isStale(credential.last_successful_sync_timestamp)
 }
 
 export interface DisplayGroup {

@@ -1,17 +1,10 @@
-import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, type ReactNode } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { TwoFactorModal } from '@/components/two-factor-modal'
-import {
-  AUTO_SYNC_MAX_AGE_MS,
-  staleSyncCredentialIds,
-  useAppSync,
-  useAuthMe,
-  type UseAppSyncResult,
-  type UserRead,
-} from '@/lib/auth'
+import { useAppSync, useAuthMe, type UseAppSyncResult } from '@/lib/auth'
 import { bankTitle, hasSyncError } from '@/lib/credentials'
 import { toastSyncFailure } from '@/lib/syncToast'
 
@@ -29,31 +22,24 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
   const router = useRouter()
 
-  const userRef = useRef<UserRead | undefined>(user)
-  useEffect(() => {
-    userRef.current = user
-  }, [user])
-
   const toastedRef = useRef<Set<number>>(new Set())
-  const silencedRef = useRef<Set<number>>(new Set())
+  const unattendedRef = useRef(false)
 
-  const { start } = sync
-  const lastAutoSyncRef = useRef(0)
+  const { start: startSync } = sync
+  const start = useCallback(
+    (options?: { dueOnly?: boolean }) => {
+      unattendedRef.current = options?.dueOnly ?? false
+      startSync(options)
+    },
+    [startSync],
+  )
+
   const userId = user?.id
   useEffect(() => {
+    if (userId === undefined) return
     const autoSync = () => {
       if (document.visibilityState !== 'visible') return
-      const now = Date.now()
-      if (now - lastAutoSyncRef.current < AUTO_SYNC_MAX_AGE_MS) return
-      const credentialIds = staleSyncCredentialIds(userRef.current, now)
-      if (credentialIds.length === 0) return
-      lastAutoSyncRef.current = now
-      silencedRef.current = new Set(
-        (userRef.current?.credentials ?? [])
-          .filter((credential) => credentialIds.includes(credential.id) && hasSyncError(credential))
-          .map((credential) => credential.id),
-      )
-      start(credentialIds)
+      start({ dueOnly: true })
     }
     autoSync()
     document.addEventListener('visibilitychange', autoSync)
@@ -69,11 +55,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       if (
         job.status === 'failed' &&
         job.error_code !== 'cancelled' &&
-        !toastedRef.current.has(job.credential_id) &&
-        !silencedRef.current.has(job.credential_id)
+        !toastedRef.current.has(job.credential_id)
       ) {
-        toastedRef.current.add(job.credential_id)
         const credential = user?.credentials.find((c) => c.id === job.credential_id)
+        if (unattendedRef.current && credential && hasSyncError(credential)) continue
+        toastedRef.current.add(job.credential_id)
         toastSyncFailure({
           t,
           bank: bankTitle(t, credential?.bank ?? '', credential?.bank_name),
@@ -87,7 +73,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [sync.jobs, sync.status, user, t, router, start])
 
   return (
-    <SyncContext.Provider value={sync}>
+    <SyncContext.Provider value={{ ...sync, start }}>
       {children}
       <TwoFactorModal
         current2fa={sync.current2fa}

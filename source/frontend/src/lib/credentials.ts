@@ -230,8 +230,8 @@ export function deviceCodeFromAuthorizationUrl(
 
 export function lastSyncedLabel(t: TFunction, credential: CredentialRead): string | null {
   if (isManualBank(credential.bank)) return null
-  return credential.last_fetching_timestamp
-    ? `${t('common.lastUpdated')}: ${formatRelativeDateTime(credential.last_fetching_timestamp, t)}`
+  return credential.last_successful_sync_timestamp
+    ? `${t('common.lastUpdated')}: ${formatRelativeDateTime(credential.last_successful_sync_timestamp, t)}`
     : t('credentials.neverSynced')
 }
 

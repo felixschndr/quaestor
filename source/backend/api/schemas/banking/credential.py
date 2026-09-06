@@ -21,7 +21,7 @@ class CredentialRead(BaseModel):
     bank_name: str | None = None
     bank_icon: str | None = None
     accounts: list[AccountRead] = []
-    last_fetching_timestamp: UtcDatetime | None = None
+    last_successful_sync_timestamp: UtcDatetime | None = None
     requires_two_factor_authentication: bool
     sync_enabled: bool
     last_sync_error: str | None = None
@@ -45,6 +45,17 @@ class SyncJobRead(BaseModel):
     error_code: JobErrorCode | None = None
     authorization_url: str | None = None
     device_code: str | None = None
+
+    @classmethod
+    def for_viewer(cls: type["SyncJobRead"], job: object, *, owned: bool) -> "SyncJobRead":
+        # A job as the requesting user may see it.
+        # Someone syncing a credential shared with them gets the status but none of the owner's diagnostics
+        read = cls.model_validate(job)
+        if not owned:
+            read.error = None
+            read.authorization_url = None
+            read.device_code = None
+        return read
 
 
 class TwoFactorCode(BaseModel):

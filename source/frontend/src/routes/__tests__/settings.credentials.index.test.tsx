@@ -17,7 +17,7 @@ function buildCredential(overrides: Partial<CredentialRead>): CredentialRead {
     bank_name: null,
     bank_icon: null,
     accounts: [],
-    last_fetching_timestamp: null,
+    last_successful_sync_timestamp: null,
     requires_two_factor_authentication: false,
     sync_enabled: true,
     ...overrides,
@@ -68,7 +68,7 @@ describe('SettingsCredentialsIndexView', () => {
               bank: 'fints',
               bank_name: 'ING',
               bank_icon: '/static/banks/ing-diba.png',
-              last_fetching_timestamp: DATETIME_RECENT,
+              last_successful_sync_timestamp: DATETIME_RECENT,
             }),
           ],
         })}
@@ -83,11 +83,13 @@ describe('SettingsCredentialsIndexView', () => {
     expect(screen.getByText(/Last updated:/)).toBeInTheDocument()
   })
 
-  it('shows a "never synced" hint when there is no last_fetching_timestamp', () => {
+  it('shows a "never synced" hint when there is no last_successful_sync_timestamp', () => {
     render(
       <SettingsCredentialsIndexView
         user={buildUser({
-          credentials: [buildCredential({ id: 7, bank: 'fints', last_fetching_timestamp: null })],
+          credentials: [
+            buildCredential({ id: 7, bank: 'fints', last_successful_sync_timestamp: null }),
+          ],
         })}
       />,
     )
@@ -98,7 +100,9 @@ describe('SettingsCredentialsIndexView', () => {
     render(
       <SettingsCredentialsIndexView
         user={buildUser({
-          credentials: [buildCredential({ id: 7, bank: 'manual', last_fetching_timestamp: null })],
+          credentials: [
+            buildCredential({ id: 7, bank: 'manual', last_successful_sync_timestamp: null }),
+          ],
         })}
       />,
     )
@@ -114,7 +118,7 @@ describe('SettingsCredentialsIndexView', () => {
             buildCredential({
               id: 7,
               bank: 'fints',
-              last_fetching_timestamp: DATETIME_RECENT,
+              last_successful_sync_timestamp: DATETIME_RECENT,
               last_sync_error: 'the bank rejected the login',
               last_sync_error_code: 'invalid_credentials',
             }),

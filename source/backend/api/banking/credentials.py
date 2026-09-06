@@ -47,12 +47,7 @@ def list_credentials(
 
 
 def _job_read(job: sync_jobs.SyncJob, credential: Credential, user: User) -> SyncJobRead:
-    read = SyncJobRead.model_validate(job)
-    if credential.user_id != user.id:
-        read.error = None
-        read.authorization_url = None
-        read.device_code = None
-    return read
+    return SyncJobRead.for_viewer(job, owned=credential.user_id == user.id)
 
 
 @router.get("/sync", response_model=list[SyncJobRead])

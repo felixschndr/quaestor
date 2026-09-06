@@ -92,7 +92,7 @@ class User(Base):
                     accounts=[shared_account_view(share) for share in shares],
                     shared_from=credential.user.display_name,
                     share_permission=permission,
-                    last_fetching_timestamp=credential.last_fetching_timestamp,
+                    last_successful_sync_timestamp=credential.last_successful_sync_timestamp,
                     requires_two_factor_authentication=credential.requires_two_factor_authentication,
                     sync_enabled=credential.sync_enabled,
                 )

@@ -1101,7 +1101,9 @@ def test_sync_credential_triggers_notification_end_to_end(
 
     with session_factory() as db_session:
         user = make_user(db_session)
-        credential = make_credential(db_session, user_id=user.id, last_fetching_timestamp=LAST_FETCHING_TIMESTAMP)
+        credential = make_credential(
+            db_session, user_id=user.id, last_successful_sync_timestamp=LAST_FETCHING_TIMESTAMP
+        )
         account = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN)
         _make_notification_rule(
             db_session,

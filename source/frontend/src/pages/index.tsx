@@ -101,8 +101,8 @@ export function OverviewView({
   const hasStaleSync = user.credentials.some(
     (credential) =>
       credential.sync_enabled &&
-      credential.last_fetching_timestamp !== null &&
-      isStale(credential.last_fetching_timestamp),
+      credential.last_successful_sync_timestamp !== null &&
+      isStale(credential.last_successful_sync_timestamp),
   )
   const pendingInvitations = (user.account_share_invitations ?? []).length
   const failedCredentials = user.credentials.filter(hasSyncError)

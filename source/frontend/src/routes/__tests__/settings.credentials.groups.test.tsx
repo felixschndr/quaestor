@@ -61,7 +61,7 @@ function buildUser(): UserRead {
             is_market_valued: false,
           },
         ],
-        last_fetching_timestamp: null,
+        last_successful_sync_timestamp: null,
         requires_two_factor_authentication: false,
         sync_enabled: true,
       },

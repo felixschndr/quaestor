@@ -323,7 +323,7 @@ def test_start_sync_is_refused_for_a_manual_credential(http_client: TestClient):
 
     assert response.status_code == 403
     credential = next(c for c in http_client.get("/api/auth/me").json()["credentials"] if c["id"] == credential_id)
-    assert credential["last_fetching_timestamp"] is None
+    assert credential["last_successful_sync_timestamp"] is None
 
 
 def test_start_sync_returns_404_for_other_users_credential(http_client: TestClient):

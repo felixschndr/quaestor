@@ -38,7 +38,7 @@ export function installSyncFetchMock(
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     const method = (init?.method ?? 'GET').toUpperCase()
-    if (method === 'POST' && /\/sync$/.test(url)) {
+    if (method === 'POST' && /\/sync(\?|$)/.test(url)) {
       for (const job of initialJobs) store.set(job.credential_id, job)
       return jsonResponse(isGlobal ? initialJobs : initialJobs[0], 202)
     }

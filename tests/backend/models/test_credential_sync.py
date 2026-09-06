@@ -82,7 +82,7 @@ def test_sync_creates_new_account_with_balance_and_transactions(
         assert {tx.amount for tx in account.transactions} == {-DEFAULT_AMOUNT, DEFAULT_AMOUNT}
         expected_days = {RECENT_DATE, date(year=2026, month=5, day=1)}
         assert expected_days <= set(account.balance_at_date.keys())
-        assert credential.last_fetching_timestamp is not None
+        assert credential.last_successful_sync_timestamp is not None
 
 
 def test_sync_persists_system_id_reported_by_the_bank_session(session_factory: sessionmaker):
@@ -766,7 +766,7 @@ def test_sync_passes_a_plain_date_to_handlers_when_credential_was_synced_before(
 def test_sync_fetches_full_history_when_credential_was_never_synced(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
-        credential = make_credential(session, user_id=user.id, last_fetching_timestamp=None)
+        credential = make_credential(session, user_id=user.id, last_successful_sync_timestamp=None)
         session.commit()
         credential_id = credential.id
 

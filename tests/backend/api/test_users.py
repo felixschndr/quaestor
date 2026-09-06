@@ -1,3 +1,4 @@
+from datetime import timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -5,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from source.backend.bank_handlers import BankProvider
+from source.backend.helpers import utc_now
 from source.backend.logging_utils import NO_SESSION_LOG_LABEL
 from source.backend.services.banking import credential_service
 from source.backend.services.banking.credential_service import SyncResult, SyncStatus
@@ -286,6 +288,84 @@ def test_sync_starts_jobs_for_normal_and_2fa_credentials(
     for job in body:
         assert job["job_id"]
         assert job["status"] in {"running", "completed"}
+
+
+def test_due_only_sync_skips_a_credential_tried_within_the_gap(
+    http_client: TestClient,
+    session_factory: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+):
+    user_id = register_and_get_id(http_client)
+    with session_factory() as session:
+        just_tried = make_credential(session, user_id=user_id, last_sync_attempt_timestamp=utc_now())
+        long_ago = make_credential(
+            session,
+            user_id=user_id,
+            bank=BankProvider.FINTS,
+            last_sync_attempt_timestamp=utc_now() - credential_service.APP_OPEN_SYNC_MIN_GAP - timedelta(seconds=1),
+        )
+        never_tried = make_credential(session, user_id=user_id, bank=BankProvider.FINTS)
+        session.commit()
+        skipped_id, long_ago_id, never_tried_id = just_tried.id, long_ago.id, never_tried.id
+
+    sync_mock = MagicMock(return_value=SyncResult(status=SyncStatus.COMPLETED))
+    monkeypatch.setattr(target=credential_service, name="sync_credential", value=sync_mock)
+
+    response = http_client.post("/api/users/sync?due_only=true")
+
+    assert response.status_code == 202
+    started = sorted(job["credential_id"] for job in response.json())
+    assert started == sorted([long_ago_id, never_tried_id])
+    assert skipped_id not in started
+    assert_log_contains(caplog, message="App-open sync for <User(")
+    assert_log_contains(caplog, message="started 2 credential(s), skipped 1 tried within the last")
+
+
+def test_due_only_sync_skips_credentials_awaiting_two_factor(
+    http_client: TestClient,
+    session_factory: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    user_id = register_and_get_id(http_client)
+    with session_factory() as session:
+        unattended = make_credential(session, user_id=user_id)
+        make_credential(
+            session,
+            user_id=user_id,
+            bank=BankProvider.FINTS,
+            requires_two_factor_authentication=True,
+        )
+        session.commit()
+        unattended_id = unattended.id
+
+    sync_mock = MagicMock(return_value=SyncResult(status=SyncStatus.COMPLETED))
+    monkeypatch.setattr(target=credential_service, name="sync_credential", value=sync_mock)
+
+    response = http_client.post("/api/users/sync?due_only=true")
+
+    assert response.status_code == 202
+    assert [job["credential_id"] for job in response.json()] == [unattended_id]
+
+
+def test_sync_without_due_only_still_starts_a_credential_tried_a_moment_ago(
+    http_client: TestClient,
+    session_factory: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    user_id = register_and_get_id(http_client)
+    with session_factory() as session:
+        credential = make_credential(session, user_id=user_id, last_sync_attempt_timestamp=utc_now())
+        session.commit()
+        credential_id = credential.id
+
+    sync_mock = MagicMock(return_value=SyncResult(status=SyncStatus.COMPLETED))
+    monkeypatch.setattr(target=credential_service, name="sync_credential", value=sync_mock)
+
+    response = http_client.post("/api/users/sync")
+
+    assert response.status_code == 202
+    assert [job["credential_id"] for job in response.json()] == [credential_id]
 
 
 def test_sync_skips_credentials_with_sync_disabled(

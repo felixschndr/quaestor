@@ -455,7 +455,7 @@ def test_sync_reevaluates_two_factor_flag(
         session_factory,
         user_id=user_id,
         requires_two_factor_authentication=True,
-        last_fetching_timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
+        last_successful_sync_timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
         - timedelta(hours=hours_since_last_fetch),
     )
 

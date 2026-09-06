@@ -4,13 +4,11 @@ import { redirect } from '@tanstack/react-router'
 import { api, ApiError } from './api'
 import { accountQueryKeys } from './accountHistory'
 import {
-  isManualBank,
   SYNC_POLL_INTERVAL_MS,
   type SyncJob,
   type SyncJobErrorCode,
   type SyncJobStatus,
 } from './credentials'
-import { parseTimestamp } from './format'
 
 export interface AccountRead {
   id: number
@@ -29,7 +27,7 @@ export interface CredentialRead {
   bank_name: string | null
   bank_icon: string | null
   accounts: AccountRead[]
-  last_fetching_timestamp: string | null
+  last_successful_sync_timestamp: string | null
   requires_two_factor_authentication: boolean
   sync_enabled: boolean
   last_sync_error?: string | null
@@ -428,52 +426,28 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
 }
 
 export interface UseAppSyncResult extends Omit<UseGlobalSyncResult, 'start'> {
-  start: (credentialIds?: number[]) => void
+  start: (options?: { dueOnly?: boolean }) => void
 }
 
 export function useAppSync(): UseAppSyncResult {
-  const credentialIdsRef = useRef<number[] | null>(null)
-  const startJobs = useCallback(async () => {
-    const credentialIds = credentialIdsRef.current
-    if (credentialIds === null) return api<SyncJob[]>('/users/sync', { method: 'POST' })
-    const started = await Promise.allSettled(
-      credentialIds.map((id) => api<SyncJob>(`/credentials/${id}/sync`, { method: 'POST' })),
-    )
-    return started.filter((r) => r.status === 'fulfilled').map((r) => r.value)
-  }, [])
+  const dueOnlyRef = useRef(false)
+  const startJobs = useCallback(
+    async () =>
+      api<SyncJob[]>(`/users/sync${dueOnlyRef.current ? '?due_only=true' : ''}`, {
+        method: 'POST',
+      }),
+    [],
+  )
   const machine = useSyncMachine(startJobs, true)
   const { start: startMachine } = machine
   const start = useCallback(
-    (credentialIds?: number[]) => {
-      credentialIdsRef.current = credentialIds ?? null
+    (options?: { dueOnly?: boolean }) => {
+      dueOnlyRef.current = options?.dueOnly ?? false
       startMachine()
     },
     [startMachine],
   )
   return { ...machine, start }
-}
-
-/** How old a sync may get before the app refreshes it unattended. */
-export const AUTO_SYNC_MAX_AGE_MS = 10 * 60 * 1000
-
-/** Credentials that can be synced unattended and haven't been for {@link AUTO_SYNC_MAX_AGE_MS}. */
-export function staleSyncCredentialIds(
-  user: UserRead | undefined,
-  now: number = Date.now(),
-): number[] {
-  return (user?.credentials ?? [])
-    .filter(
-      (credential) =>
-        credential.sync_enabled &&
-        !isManualBank(credential.bank) &&
-        !credential.requires_two_factor_authentication &&
-        // Shared credentials need write permission; own ones carry no share info.
-        (credential.shared_from == null || credential.share_permission === 'write') &&
-        (!credential.last_fetching_timestamp ||
-          now - parseTimestamp(credential.last_fetching_timestamp).getTime() >=
-            AUTO_SYNC_MAX_AGE_MS),
-    )
-    .map((credential) => credential.id)
 }
 
 export type CredentialSyncStatus = GlobalSyncStatus

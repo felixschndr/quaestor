@@ -365,7 +365,8 @@ def make_credential(
     credentials: dict[str, str] | None = None,
     requires_two_factor_authentication: bool = False,
     sync_enabled: bool = True,
-    last_fetching_timestamp: datetime | None = None,
+    last_successful_sync_timestamp: datetime | None = None,
+    last_sync_attempt_timestamp: datetime | None = None,
 ) -> Credential:
     user = db_session.get(entity=User, ident=user_id)
     credential = Credential(
@@ -374,7 +375,8 @@ def make_credential(
         credentials=credentials if credentials is not None else _default_credentials_for(bank),
         requires_two_factor_authentication=requires_two_factor_authentication,
         sync_enabled=sync_enabled,
-        last_fetching_timestamp=last_fetching_timestamp,
+        last_successful_sync_timestamp=last_successful_sync_timestamp,
+        last_sync_attempt_timestamp=last_sync_attempt_timestamp,
     )
     db_session.add(credential)
     db_session.flush()
@@ -507,7 +509,7 @@ def persist_credential(
     credentials: dict[str, str] | None = None,
     requires_two_factor_authentication: bool = False,
     sync_enabled: bool = True,
-    last_fetching_timestamp: datetime | None = None,
+    last_successful_sync_timestamp: datetime | None = None,
 ) -> int:
     with session_factory() as db_session:
         credential = make_credential(
@@ -517,7 +519,7 @@ def persist_credential(
             credentials=credentials,
             requires_two_factor_authentication=requires_two_factor_authentication,
             sync_enabled=sync_enabled,
-            last_fetching_timestamp=last_fetching_timestamp,
+            last_successful_sync_timestamp=last_successful_sync_timestamp,
         )
         db_session.commit()
         return credential.id
@@ -581,15 +583,16 @@ def persist_transaction(
 
 
 def persist_credential_with_new_user(
-    session_factory: sessionmaker, last_fetching_timestamp: datetime | None = LAST_FETCHING_TIMESTAMP
+    session_factory: sessionmaker, last_successful_sync_timestamp: datetime | None = LAST_FETCHING_TIMESTAMP
 ) -> int:
-    """Create a fresh user and a credential owned by them, returning the credential id."""
     user = create_user(session_factory)
-    return persist_credential(session_factory, user_id=user.id, last_fetching_timestamp=last_fetching_timestamp)
+    return persist_credential(
+        session_factory, user_id=user.id, last_successful_sync_timestamp=last_successful_sync_timestamp
+    )
 
 
 def persist_account_with_new_user(session_factory: sessionmaker, balance: float = 0.0) -> int:
-    credential_id = persist_credential_with_new_user(session_factory, last_fetching_timestamp=None)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
     return persist_account(session_factory, credential_id=credential_id, balance=balance)
 
 

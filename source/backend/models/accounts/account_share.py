@@ -69,7 +69,7 @@ class SharedCredentialView:
     accounts: List[SharedAccountView]
     shared_from: str
     share_permission: SharePermission
-    last_fetching_timestamp: datetime | None
+    last_successful_sync_timestamp: datetime | None
     requires_two_factor_authentication: bool
     sync_enabled: bool
 

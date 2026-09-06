@@ -33,6 +33,7 @@ from source.backend.services.transactions import transfer_detection
 logger = get_logger(__name__)
 
 TWO_FACTOR_REEVALUATION_MIN_GAP = timedelta(hours=24)
+APP_OPEN_SYNC_MIN_GAP = timedelta(minutes=10)
 
 
 class SyncStatus(str, Enum):
@@ -252,6 +253,7 @@ def sync_credential_object(
     is_cancelled: CancelCheck | None = None,
     reevaluate_two_factor_requirement: bool = False,
 ) -> SyncResult:
+    credential.last_sync_attempt_timestamp = utc_now()
     try:
         result = _sync_credential_object(
             credential=credential,
@@ -292,7 +294,7 @@ def _sync_credential_object(
     handler.is_cancelled = is_cancelled
     handler.session_state = credential.session_state
 
-    previous_fetching_timestamp = credential.last_fetching_timestamp
+    previous_fetching_timestamp = credential.last_successful_sync_timestamp
 
     try:
         credential.sync(handler)
@@ -326,6 +328,16 @@ def _should_reevaluate_two_factor(previous_fetching_timestamp: datetime | None) 
     if previous_fetching_timestamp is None:
         return True
     return utc_now() - previous_fetching_timestamp >= TWO_FACTOR_REEVALUATION_MIN_GAP
+
+
+def should_sync_on_app_open(credential: Credential, now: datetime | None = None) -> bool:
+    if not credential.sync_enabled or not credential.is_syncable:
+        return False
+    if credential.requires_two_factor_authentication:
+        return False
+    if credential.last_sync_attempt_timestamp is None:
+        return True
+    return (now or utc_now()) - credential.last_sync_attempt_timestamp >= APP_OPEN_SYNC_MIN_GAP
 
 
 def sync_all_due_credentials(db_session: Session) -> None:

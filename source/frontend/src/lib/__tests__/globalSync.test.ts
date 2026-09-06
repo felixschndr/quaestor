@@ -30,20 +30,32 @@ describe('useAppSync', () => {
     )
   })
 
-  it('starts only the given credentials when ids are passed', async () => {
-    const { fetchMock } = installSyncFetchMock([makeJob({ credential_id: 7, job_id: 'j-7' })], {
-      global: false,
-    })
+  it('asks the server to pick the due credentials when started unattended', async () => {
+    const { fetchMock } = installSyncFetchMock([makeJob({ credential_id: 7, job_id: 'j-7' })])
 
     const { result } = renderHook(() => useAppSync(), { wrapper })
 
     await act(async () => {
-      result.current.start([7])
+      result.current.start({ dueOnly: true })
     })
 
     await waitFor(() => expect(result.current.status).toBe('running'))
     const posted = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
-    expect(posted.map(([u]) => String(u))).toEqual(['/api/credentials/7/sync'])
+    expect(posted.map(([u]) => String(u))).toEqual(['/api/users/sync?due_only=true'])
+  })
+
+  it('asks for every credential when the user started the sync', async () => {
+    const { fetchMock } = installSyncFetchMock([makeJob({ credential_id: 7, job_id: 'j-7' })])
+
+    const { result } = renderHook(() => useAppSync(), { wrapper })
+
+    await act(async () => {
+      result.current.start()
+    })
+
+    await waitFor(() => expect(result.current.status).toBe('running'))
+    const posted = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
+    expect(posted.map(([u]) => String(u))).toEqual(['/api/users/sync'])
   })
 
   it('serializes concurrent 2FA prompts into the queue', async () => {

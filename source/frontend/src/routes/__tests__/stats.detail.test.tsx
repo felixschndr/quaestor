@@ -35,7 +35,7 @@ vi.mock('@/lib/auth', () => ({
           bank: 'ing',
           bank_name: null,
           bank_icon: null,
-          last_fetching_timestamp: null,
+          last_successful_sync_timestamp: null,
           requires_two_factor_authentication: false,
           sync_enabled: true,
           accounts: [

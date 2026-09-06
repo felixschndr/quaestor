@@ -12,6 +12,7 @@ from source.backend.api.schemas.auth.user import UserRead, UserUpdate
 from source.backend.api.schemas.banking.credential import SyncJobRead
 from source.backend.db import get_session
 from source.backend.exceptions import InvalidCredentialsError, UserNotFoundError
+from source.backend.logging_utils import get_logger
 from source.backend.models.auth.user import User
 from source.backend.services.auth import (
     session_service,
@@ -20,6 +21,8 @@ from source.backend.services.auth import (
 )
 from source.backend.services.auth.password_service import hash_password, verify_password
 from source.backend.services.banking import credential_service, sync_jobs
+
+logger = get_logger(__name__)
 
 router = create_router()
 
@@ -157,16 +160,31 @@ def regenerate_two_factor_backup_codes(
 
 @router.post("/sync", response_model=list[SyncJobRead], status_code=202)
 async def sync_credentials(
+    due_only: bool = False,
     current_user: User = Depends(session_service.get_current_user_from_request),
     db_session: Session = Depends(get_session),
 ) -> list[SyncJobRead]:
-    credentials = credential_service.list_credentials(db_session, user=current_user)
+    credentials = (
+        credential_service.list_syncable_credentials(db_session=db_session, user=current_user)
+        if due_only
+        else credential_service.list_credentials(db_session, user=current_user)
+    )
     jobs = []
+    skipped = 0
     for credential in credentials:
-        if not credential.sync_enabled or not credential.is_syncable:
+        if due_only:
+            if not credential_service.should_sync_on_app_open(credential):
+                skipped += 1
+                continue
+        elif not credential.sync_enabled or not credential.is_syncable:
             continue
         job = await sync_jobs.start_sync(credential_id=credential.id)
-        jobs.append(SyncJobRead.model_validate(job))
+        jobs.append(SyncJobRead.for_viewer(job, owned=credential.user_id == current_user.id))
+    if due_only:
+        logger.info(
+            f"App-open sync for {current_user}: started {len(jobs)} credential(s), "
+            f"skipped {skipped} tried within the last {credential_service.APP_OPEN_SYNC_MIN_GAP}"
+        )
     return jobs
 
 

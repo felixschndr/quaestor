@@ -33,7 +33,8 @@ class Credential(Base):
     credentials: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)  # e.g., username, password, pin, ...
 
     session_state: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    last_fetching_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_successful_sync_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_sync_attempt_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     requires_two_factor_authentication: Mapped[bool] = mapped_column(default=False)
     sync_enabled: Mapped[bool] = mapped_column(default=True)
     last_sync_error: Mapped[str | None] = mapped_column(nullable=True, default=None)
@@ -72,11 +73,10 @@ class Credential(Base):
         by_name = {account.name: account for account in self.accounts}
 
         transactions_since = (
-            # Day 2: some PSD2 ASPSPs (e.g. PayPal) reject 1970-01-01 as "earlier than 1970" once it shifts across a
-            # timezone
+            # some PSD2 ASPSPs (e.g. PayPal) reject 1970-01-01 as "earlier than 1970" once it shifts across a timezone
             date(year=1970, month=1, day=2)
-            if self.last_fetching_timestamp is None
-            else self.last_fetching_timestamp.date()
+            if self.last_successful_sync_timestamp is None
+            else self.last_successful_sync_timestamp.date()
         )
         with handler.session() as bank:
             created_accounts, updated_accounts, created_transactions = self._sync_accounts_of_credential(
@@ -85,7 +85,7 @@ class Credential(Base):
                 by_name=by_name,
                 transactions_since=transactions_since,
             )
-        self.last_fetching_timestamp = utc_now()
+        self.last_successful_sync_timestamp = utc_now()
         system_id = getattr(bank, "system_id", None)
         if system_id:
             self.credentials = {**self.credentials, "system_id": system_id}

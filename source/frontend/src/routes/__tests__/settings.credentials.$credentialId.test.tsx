@@ -46,7 +46,7 @@ function buildCredential(overrides: Partial<CredentialRead> = {}): CredentialRea
     bank_name: null,
     bank_icon: null,
     accounts: [],
-    last_fetching_timestamp: null,
+    last_successful_sync_timestamp: null,
     requires_two_factor_authentication: false,
     sync_enabled: true,
     ...overrides,
@@ -78,7 +78,7 @@ describe('CredentialDetailView', () => {
         credential={buildCredential({
           bank: 'trade_republic',
           bank_icon: '/static/banks/trade-republic.png',
-          last_fetching_timestamp: DATETIME_RECENT,
+          last_successful_sync_timestamp: DATETIME_RECENT,
         })}
         onDeleted={vi.fn()}
       />,
@@ -88,7 +88,7 @@ describe('CredentialDetailView', () => {
     expect(screen.getByText(/Last updated:/)).toBeInTheDocument()
   })
 
-  it('says "never synced" when last_fetching_timestamp is null', () => {
+  it('says "never synced" when last_successful_sync_timestamp is null', () => {
     renderWithQuery(<CredentialDetailView credential={buildCredential()} onDeleted={vi.fn()} />)
     expect(screen.getByText('Never synced')).toBeInTheDocument()
   })
@@ -105,7 +105,7 @@ describe('CredentialDetailView', () => {
     renderWithQuery(
       <CredentialDetailView
         credential={buildCredential({
-          last_fetching_timestamp: DATETIME_RECENT,
+          last_successful_sync_timestamp: DATETIME_RECENT,
           last_sync_error: 'Error during dialog initialization, PIN wrong?',
           last_sync_error_code: 'invalid_credentials',
         })}
@@ -122,7 +122,7 @@ describe('CredentialDetailView', () => {
   it('shows no failure notice while the credential syncs fine', () => {
     renderWithQuery(
       <CredentialDetailView
-        credential={buildCredential({ last_fetching_timestamp: DATETIME_RECENT })}
+        credential={buildCredential({ last_successful_sync_timestamp: DATETIME_RECENT })}
         onDeleted={vi.fn()}
       />,
     )

@@ -376,7 +376,7 @@ def test_recipient_sees_the_owners_last_sync_timestamp(http_client: TestClient, 
     credential_id = http_client.get("/api/auth/me").json()["credentials"][0]["id"]
     with session_factory() as db_session:
         credential = db_session.get(entity=Credential, ident=credential_id)
-        credential.last_fetching_timestamp = datetime(
+        credential.last_successful_sync_timestamp = datetime(
             year=2026, month=8, day=30, hour=9, minute=30, tzinfo=timezone.utc
         )
         db_session.commit()
@@ -386,8 +386,8 @@ def test_recipient_sees_the_owners_last_sync_timestamp(http_client: TestClient, 
 
     (recipient_read,) = http_client.get("/api/auth/me").json()["credentials"]
 
-    assert recipient_read["last_fetching_timestamp"] == owner_read["last_fetching_timestamp"]
-    assert recipient_read["last_fetching_timestamp"] is not None
+    assert recipient_read["last_successful_sync_timestamp"] == owner_read["last_successful_sync_timestamp"]
+    assert recipient_read["last_successful_sync_timestamp"] is not None
 
 
 def test_read_only_recipient_may_not_sync_the_shared_credential(http_client: TestClient):
