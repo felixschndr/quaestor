@@ -25,6 +25,7 @@ import {
   NO_CODE_PLACEHOLDER,
   bankDisplayName,
   deviceCodeFromAuthorizationUrl,
+  isManualBank,
   isNoCodeAuthProvider,
   viaHandlerLabel,
 } from '@/lib/credentials'
@@ -245,6 +246,11 @@ function CredentialForm({
       createdId = created.id
     } catch (err) {
       handleCreateError(err, form.setError, t, bankTitle)
+      return
+    }
+
+    if (isManualBank(bank.provider)) {
+      onConnected(createdId)
       return
     }
 

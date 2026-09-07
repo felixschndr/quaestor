@@ -102,6 +102,17 @@ const DEUTSCHE_BANK: SupportedBank = {
   blzs: ['10070000', '12070000'],
 }
 
+const MANUAL_BANK: SupportedBank = {
+  provider: 'manual',
+  key: 'manual',
+  name: 'Manual account',
+  bic: null,
+  icon: '/static/banks/manual.png',
+  tested: true,
+  required_fields: [],
+  blzs: [],
+}
+
 let polledJob: SyncJob | null = null
 
 function pollBranch(url: string, init?: { method?: string }): Promise<Response> | null {
@@ -324,6 +335,47 @@ describe('NewCredentialFormView', () => {
 
     await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
     expect(onSyncFailed).not.toHaveBeenCalled()
+  })
+
+  it('creates a manual credential without starting a sync', async () => {
+    const user = userEvent.setup()
+    const fetchMock = globalThis.fetch as Mock
+    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+      if (url === '/api/credentials' && init?.method === 'POST') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 201,
+            body: {
+              id: 7,
+              bank: 'manual',
+              accounts: [],
+              last_successful_sync_timestamp: null,
+              requires_two_factor_authentication: false,
+              sync_enabled: true,
+            },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+    })
+    const onConnected = vi.fn()
+    const onSyncFailed = vi.fn()
+
+    renderWithQuery(
+      <NewCredentialFormView
+        bankKey="manual"
+        bank={MANUAL_BANK}
+        isLoading={false}
+        onCancel={vi.fn()}
+        onConnected={onConnected}
+        onSyncFailed={onSyncFailed}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => expect(onConnected).toHaveBeenCalledWith(7))
+    expect(onSyncFailed).not.toHaveBeenCalled()
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/sync'))).toBe(false)
   })
 
   it('deletes the credential when the user abandons the setup while the job is pending', async () => {
