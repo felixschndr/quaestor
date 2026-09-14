@@ -4,6 +4,7 @@ import {
   createRootRouteWithContext,
   useRouter,
   useRouterState,
+  type ErrorComponentProps,
 } from '@tanstack/react-router'
 import { Toaster } from 'sonner'
 import { Loader2, CloudOff, AlertTriangle } from 'lucide-react'
@@ -100,7 +101,7 @@ export function PageNotFoundScreen() {
   )
 }
 
-export function RootErrorScreen({ error, reset }: { error: Error; reset: () => void }) {
+export function RootErrorScreen({ error, reset }: ErrorComponentProps) {
   const { t } = useTranslation()
   const router = useRouter()
   const isOffline = error instanceof NetworkError
