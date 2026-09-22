@@ -38,6 +38,7 @@ type SettingsRoute =
   | '/settings/user/appearance'
   | '/settings/user/authentication'
   | '/settings/user/notifications'
+  | '/settings/user/categorization'
   | '/settings/user/api-keys'
   | '/settings/user/sessions'
   | '/settings/user/delete'
@@ -88,6 +89,12 @@ export function SettingsIndexView({
                 : t('settings.credentialsDescription')
             }
             warn={syncErrorCount > 0}
+          />
+          <SettingsLink
+            to="/settings/user/categorization"
+            icon={Tag}
+            label={t('categorization.title')}
+            description={t('categorization.description')}
           />
         </ul>
 

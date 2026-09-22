@@ -50,6 +50,14 @@ class ContractNotFoundError(NotFoundError):
     pass
 
 
+class CategoryRuleNotFoundError(NotFoundError):
+    pass
+
+
+class CustomCategoryNotFoundError(NotFoundError):
+    pass
+
+
 class ValidationError(Exception):
     pass
 

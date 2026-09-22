@@ -1,7 +1,7 @@
 from itertools import groupby
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import Boolean
+from sqlalchemy import JSON, Boolean
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -16,6 +16,9 @@ from source.backend.models.accounts.account_share import (
 )
 from source.backend.models.auth.theme import Theme
 from source.backend.models.base import Base
+from source.backend.models.transactions.category_rule import CategoryRule
+from source.backend.models.transactions.custom_category import CustomCategory
+from source.backend.models.transactions.transaction_category import CategorizationRules, CategoryGroup
 
 if TYPE_CHECKING:
     from source.backend.models.accounts.account_group import AccountGroup
@@ -43,6 +46,8 @@ class User(Base):
     two_factor_secret: Mapped[str | None] = mapped_column(String, nullable=True)
     two_factor_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     show_upcoming_contracts: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
+    # Default matchers (see TRANSACTION_CATEGORY_MAPPING) the user switched off
+    disabled_default_matchers: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
 
     credentials: Mapped[List["Credential"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[List["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -63,6 +68,25 @@ class User(Base):
         order_by="AccountGroup.position",
     )
     account_shares: Mapped[List["AccountShare"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    category_rules: Mapped[List["CategoryRule"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", order_by="CategoryRule.id.desc()"
+    )
+    custom_categories: Mapped[List["CustomCategory"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", order_by="CustomCategory.created_at"
+    )
+
+    @property
+    def custom_category_groups(self) -> dict[str, CategoryGroup]:
+        return {custom_category.key: custom_category.group for custom_category in self.custom_categories}
+
+    @property
+    def categorization_rules(self) -> CategorizationRules:
+        # The newest rule wins when several match
+        return CategorizationRules(
+            user_rules=tuple((rule.pattern, rule.category) for rule in self.category_rules),
+            disabled_default_matchers=frozenset(self.disabled_default_matchers),
+            custom_groups=self.custom_category_groups,
+        )
 
     @property
     def accepted_shares(self) -> list["AccountShare"]:
