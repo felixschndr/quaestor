@@ -23,6 +23,7 @@ from source.backend.models.transactions.custom_category import MAX_CUSTOM_CATEGO
 from source.backend.models.transactions.recurring_transaction import RecurringTransaction
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import (
+    GROUP_VALUES,
     TRANSACTION_CATEGORY_MAPPING,
     CategoryGroup,
     TransactionCategory,
@@ -34,8 +35,6 @@ from source.backend.services.transactions.category_rescan import recategorize_us
 logger = get_logger(__name__)
 
 MIN_PATTERN_LENGTH = 2
-
-_GROUP_VALUES = frozenset(group.value for group in CategoryGroup)
 
 
 @dataclass(frozen=True)
@@ -56,25 +55,25 @@ class VisibleCustomCategory:
 # --- Category keys -----------------------------------------------------------------------------------------------
 
 
-def require_assignable_category(category: str, owner: User, allow_unknown: bool = True) -> str:
-    # A transaction, contract or rule may carry a fixed category or a custom category of the account owner
+def require_assignable_category(category: str | None, owner: User, allow_unknown: bool = True) -> None:
+    # A transaction, contract or rule may carry a fixed category or a custom category of the account owner; None means
+    # no category was given
+    if category is None:
+        return
     if category == TransactionCategory.UNKNOWN and not allow_unknown:
         raise ValidationError("A category is required")
     if not is_known_category(category=category, custom_groups=owner.custom_category_groups):
         raise ValidationError(f"{category!r} is not a category of {owner}")
-    return category
 
 
-def require_category_selection(selection: Iterable[str], owner: User) -> list[str]:
+def require_category_selection(selection: Iterable[str], owner: User) -> None:
     unknown = [
         item
         for item in selection
-        if item not in _GROUP_VALUES
-        and not is_known_category(category=item, custom_groups=owner.custom_category_groups)
+        if item not in GROUP_VALUES and not is_known_category(category=item, custom_groups=owner.custom_category_groups)
     ]
     if unknown:
         raise ValidationError(f"Unknown categories: {', '.join(unknown)}")
-    return list(selection)
 
 
 def custom_category_groups_for_accounts(db_session: Session, account_ids: Iterable[int]) -> dict[str, CategoryGroup]:
@@ -135,11 +134,8 @@ def get_rule_for_user(user: User, rule_id: int) -> CategoryRule:
 
 
 def create_rule(db_session: Session, user: User, pattern: str, category: str) -> int:
-    rule = CategoryRule(
-        pattern=_valid_pattern(user=user, pattern=pattern),
-        category=require_assignable_category(category=category, owner=user, allow_unknown=False),
-        created_at=utc_now(),
-    )
+    require_assignable_category(category=category, owner=user, allow_unknown=False)
+    rule = CategoryRule(pattern=_valid_pattern(user=user, pattern=pattern), category=category, created_at=utc_now())
     user.category_rules.insert(0, rule)  # noqa: FKA100
     logger.info(f"Created {rule} for {user}")
     return _recategorize_and_commit(db_session=db_session, user=user)
@@ -148,7 +144,8 @@ def create_rule(db_session: Session, user: User, pattern: str, category: str) ->
 def update_rule(db_session: Session, user: User, rule_id: int, pattern: str, category: str) -> int:
     rule = get_rule_for_user(user=user, rule_id=rule_id)
     rule.pattern = _valid_pattern(user=user, pattern=pattern, rule_id=rule_id)
-    rule.category = require_assignable_category(category=category, owner=user, allow_unknown=False)
+    require_assignable_category(category=category, owner=user, allow_unknown=False)
+    rule.category = category
     logger.info(f"Updated {rule} for {user}")
     return _recategorize_and_commit(db_session=db_session, user=user)
 
@@ -202,11 +199,10 @@ def create_custom_category(db_session: Session, user: User, group: CategoryGroup
 def update_custom_category(db_session: Session, user: User, key: str, group: CategoryGroup, name: str) -> int:
     custom_category = get_custom_category_for_user(user=user, key=key)
     custom_category.name = _valid_custom_category_name(user=user, group=group, name=name, key=key)
-    group_changed = custom_category.group != group
     custom_category.group = group
     logger.info(f"Updated {custom_category} of {user}")
     # A new group can flip whether the category may match outgoing money
-    return _recategorize_and_commit(db_session=db_session, user=user) if group_changed else _commit(db_session)
+    return _recategorize_and_commit(db_session=db_session, user=user)
 
 
 def delete_custom_category(db_session: Session, user: User, key: str) -> int:
@@ -245,11 +241,6 @@ def _valid_custom_category_name(user: User, group: CategoryGroup, name: str, key
 
 
 # --- Shared ------------------------------------------------------------------------------------------------------
-
-
-def _commit(db_session: Session) -> int:
-    db_session.commit()
-    return 0
 
 
 def _recategorize_and_commit(db_session: Session, user: User) -> int:

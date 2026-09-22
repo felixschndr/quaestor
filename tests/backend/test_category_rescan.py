@@ -120,7 +120,7 @@ def test_rescan_logs_summary_at_info(session_factory: sessionmaker, account_id: 
 
     assert_log_contains(
         caplog,
-        messages=["Starting re-scan", "Re-scanned", "Category re-scan: checked 2, updated 1, still unknown 1"],
+        messages=["Starting re-scan", "Re-scanned", "Re-derived the categories of 1 transaction(s)"],
     )
 
 

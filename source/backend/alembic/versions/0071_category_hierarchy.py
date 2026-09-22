@@ -13,7 +13,6 @@ Create Date: 2026-09-15 14:00:00.000000
 """
 
 import json
-from collections.abc import Callable
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -89,83 +88,6 @@ _SELECTION_SUCCESSORS = {
     "ONLINE_SHOPPING": ("ONLINE_SHOPPING", "ELECTRONICS", "FURNISHING"),
 }
 
-# Downgrade: every new key back to the old category that held its matchers (or UNKNOWN when there was none)
-_PREDECESSOR = {
-    "PUBLIC_BENEFITS": "ALLOWANCE",
-    "RENTAL_INCOME": "SIDE_INCOME",
-    "PRIVATE_SALES": "SIDE_INCOME",
-    "OTHER_INCOME": "UNKNOWN",
-    "FOOD_DELIVERY": "RESTAURANTS",
-    "ELECTRICITY": "UTILITIES",
-    "HEATING": "UTILITIES",
-    "INTERNET_PHONE": "UTILITIES",
-    "BROADCASTING_FEE": "UTILITIES",
-    "OTHER_HOUSING": "UTILITIES",
-    "FURNISHING": "ONLINE_SHOPPING",
-    "PUBLIC_TRANSPORT": "TRAVEL",
-    "CAR": "TRAVEL",
-    "SHARING_TAXI": "TRAVEL",
-    "OTHER_MOBILITY": "TRAVEL",
-    "VACATION": "TRAVEL",
-    "PARKING": "FEES",
-    "EVENTS": "ENTERTAINMENT",
-    "GAMING": "ENTERTAINMENT",
-    "STREAMING": "SUBSCRIPTIONS",
-    "SOFTWARE_CLOUD": "SUBSCRIPTIONS",
-    "ELECTRONICS": "ONLINE_SHOPPING",
-    "PHARMACY": "PERSONAL_CARE",
-    "DOCTOR": "PERSONAL_CARE",
-    "HEALTH_INSURANCE": "FEES",
-    "OTHER_INSURANCE": "FEES",
-    "BANK_FEES": "FEES",
-    "TAXES": "FEES",
-    "LEGAL": "FEES",
-    "EDUCATION": "FEES",
-    "DONATION": "FEES",
-    "CHILDCARE": "UNKNOWN",
-    "POCKET_MONEY": "ALLOWANCE",
-    "OTHER_CHILDREN": "UNKNOWN",
-    "PET_SUPPLIES": "UNKNOWN",
-    "VET": "UNKNOWN",
-    "CREDIT_CARD_SETTLEMENT": "TRANSFER",
-}
-
-# Downgrade: the categories of each group as of this revision
-_GROUP_CATEGORIES = {
-    "INCOME": (
-        "SALARY",
-        "SIDE_INCOME",
-        "PENSION",
-        "ALLOWANCE",
-        "PUBLIC_BENEFITS",
-        "RENTAL_INCOME",
-        "INTEREST",
-        "PRIVATE_SALES",
-        "REIMBURSEMENT",
-        "OTHER_INCOME",
-    ),
-    "FOOD_AND_DRINK": ("SUPERMARKET", "RESTAURANTS", "FOOD_DELIVERY"),
-    "HOUSING": (
-        "RENT",
-        "ELECTRICITY",
-        "HEATING",
-        "INTERNET_PHONE",
-        "BROADCASTING_FEE",
-        "FURNISHING",
-        "OTHER_HOUSING",
-    ),
-    "MOBILITY": ("FUEL", "PUBLIC_TRANSPORT", "CAR", "PARKING", "SHARING_TAXI", "OTHER_MOBILITY"),
-    "LEISURE": ("VACATION", "FITNESS", "EVENTS", "STREAMING", "GAMING", "ENTERTAINMENT"),
-    "SHOPPING": ("ONLINE_SHOPPING", "CLOTHING", "ELECTRONICS", "SOFTWARE_CLOUD", "GIFTS"),
-    "HEALTH": ("DRUGSTORE", "PHARMACY", "DOCTOR", "PERSONAL_CARE"),
-    "INSURANCE": ("HEALTH_INSURANCE", "OTHER_INSURANCE"),
-    "FINANCES": ("BANK_FEES", "TAXES", "LEGAL", "EDUCATION", "DONATION", "FEES"),
-    "SAVINGS_AND_INVESTMENTS": ("SAVINGS", "INVESTMENT"),
-    "CHILDREN": ("CHILDCARE", "POCKET_MONEY", "OTHER_CHILDREN"),
-    "PETS": ("PET_SUPPLIES", "VET"),
-    "MISCELLANEOUS": ("WITHDRAWAL", "DEPOSIT", "TRANSFER", "CREDIT_CARD_SETTLEMENT"),
-}
-
 
 def _upgrade_selection(selection: list[str]) -> list[str]:
     if set(selection) >= _OLD_CATEGORIES:
@@ -174,18 +96,12 @@ def _upgrade_selection(selection: list[str]) -> list[str]:
     return list(dict.fromkeys(upgraded))
 
 
-def _downgrade_selection(selection: list[str]) -> list[str]:
-    categories = [category for item in selection for category in _GROUP_CATEGORIES.get(item, (item,))]
-    predecessors = [_PREDECESSOR[category] if category in _PREDECESSOR else category for category in categories]
-    return list(dict.fromkeys(predecessors))
-
-
-def _rewrite_notification_rules(connection: sa.Connection, rewrite: Callable[[list[str]], list[str]]) -> None:
+def _rewrite_notification_rules(connection: sa.Connection) -> None:
     rows = connection.execute(sa.text("SELECT id, categories FROM notification_rules")).all()
     updates = []
     for rule_id, raw in rows:
         selection = json.loads(raw) if raw else []
-        rewritten = rewrite(selection)
+        rewritten = _upgrade_selection(selection)
         if rewritten != selection:
             updates.append({"id": rule_id, "categories": json.dumps(rewritten)})
     if updates:
@@ -222,15 +138,8 @@ def upgrade() -> None:
         parameters={"retired": retired},
     )
     _remap_columns(connection=connection, mapping=_RETIRED)
-    _rewrite_notification_rules(connection=connection, rewrite=_upgrade_selection)
+    _rewrite_notification_rules(connection)
 
 
 def downgrade() -> None:
-    connection = op.get_bind()
-    _remap_columns(connection=connection, mapping=_PREDECESSOR)
-    for new, old in _PREDECESSOR.items():
-        connection.execute(
-            statement=sa.text("UPDATE contracts SET category = :old WHERE category = :new"),
-            parameters={"old": old, "new": new},
-        )
-    _rewrite_notification_rules(connection=connection, rewrite=_downgrade_selection)
+    pass

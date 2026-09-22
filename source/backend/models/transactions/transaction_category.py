@@ -33,84 +33,89 @@ class CategoryGroup(str, Enum):
 
 class TransactionCategory(str, Enum):
     # Declaration order is the display order within a group
-    SALARY = "SALARY"
-    SIDE_INCOME = "SIDE_INCOME"
-    PENSION = "PENSION"
-    ALLOWANCE = "ALLOWANCE"
-    PUBLIC_BENEFITS = "PUBLIC_BENEFITS"
-    RENTAL_INCOME = "RENTAL_INCOME"
-    INTEREST = "INTEREST"
-    PRIVATE_SALES = "PRIVATE_SALES"
-    REIMBURSEMENT = "REIMBURSEMENT"
-    OTHER_INCOME = "OTHER_INCOME"
+    _value_: str
+    group: CategoryGroup | None
 
-    SUPERMARKET = "SUPERMARKET"
-    RESTAURANTS = "RESTAURANTS"
-    FOOD_DELIVERY = "FOOD_DELIVERY"
+    def __new__(cls, value: str, group: CategoryGroup | None = None) -> "TransactionCategory":
+        member = str.__new__(cls, value)  # noqa: FKA100
+        member._value_ = value
+        member.group = group
+        return member
 
-    RENT = "RENT"
-    ELECTRICITY = "ELECTRICITY"
-    HEATING = "HEATING"
-    INTERNET_PHONE = "INTERNET_PHONE"
-    BROADCASTING_FEE = "BROADCASTING_FEE"
-    FURNISHING = "FURNISHING"
-    OTHER_HOUSING = "OTHER_HOUSING"
+    SALARY = "SALARY", CategoryGroup.INCOME
+    SIDE_INCOME = "SIDE_INCOME", CategoryGroup.INCOME
+    PENSION = "PENSION", CategoryGroup.INCOME
+    ALLOWANCE = "ALLOWANCE", CategoryGroup.INCOME
+    PUBLIC_BENEFITS = "PUBLIC_BENEFITS", CategoryGroup.INCOME
+    RENTAL_INCOME = "RENTAL_INCOME", CategoryGroup.INCOME
+    INTEREST = "INTEREST", CategoryGroup.INCOME
+    PRIVATE_SALES = "PRIVATE_SALES", CategoryGroup.INCOME
+    REIMBURSEMENT = "REIMBURSEMENT", CategoryGroup.INCOME
+    OTHER_INCOME = "OTHER_INCOME", CategoryGroup.INCOME
 
-    FUEL = "FUEL"
-    PUBLIC_TRANSPORT = "PUBLIC_TRANSPORT"
-    CAR = "CAR"
-    PARKING = "PARKING"
-    SHARING_TAXI = "SHARING_TAXI"
-    OTHER_MOBILITY = "OTHER_MOBILITY"
+    SUPERMARKET = "SUPERMARKET", CategoryGroup.FOOD_AND_DRINK
+    RESTAURANTS = "RESTAURANTS", CategoryGroup.FOOD_AND_DRINK
+    FOOD_DELIVERY = "FOOD_DELIVERY", CategoryGroup.FOOD_AND_DRINK
 
-    VACATION = "VACATION"
-    FITNESS = "FITNESS"
-    EVENTS = "EVENTS"
-    STREAMING = "STREAMING"
-    GAMING = "GAMING"
-    ENTERTAINMENT = "ENTERTAINMENT"
+    RENT = "RENT", CategoryGroup.HOUSING
+    ELECTRICITY = "ELECTRICITY", CategoryGroup.HOUSING
+    HEATING = "HEATING", CategoryGroup.HOUSING
+    INTERNET_PHONE = "INTERNET_PHONE", CategoryGroup.HOUSING
+    BROADCASTING_FEE = "BROADCASTING_FEE", CategoryGroup.HOUSING
+    FURNISHING = "FURNISHING", CategoryGroup.HOUSING
+    OTHER_HOUSING = "OTHER_HOUSING", CategoryGroup.HOUSING
 
-    ONLINE_SHOPPING = "ONLINE_SHOPPING"
-    CLOTHING = "CLOTHING"
-    ELECTRONICS = "ELECTRONICS"
-    SOFTWARE_CLOUD = "SOFTWARE_CLOUD"
-    GIFTS = "GIFTS"
+    FUEL = "FUEL", CategoryGroup.MOBILITY
+    PUBLIC_TRANSPORT = "PUBLIC_TRANSPORT", CategoryGroup.MOBILITY
+    CAR = "CAR", CategoryGroup.MOBILITY
+    PARKING = "PARKING", CategoryGroup.MOBILITY
+    SHARING_TAXI = "SHARING_TAXI", CategoryGroup.MOBILITY
+    OTHER_MOBILITY = "OTHER_MOBILITY", CategoryGroup.MOBILITY
 
-    DRUGSTORE = "DRUGSTORE"
-    PHARMACY = "PHARMACY"
-    DOCTOR = "DOCTOR"
-    PERSONAL_CARE = "PERSONAL_CARE"
+    VACATION = "VACATION", CategoryGroup.LEISURE
+    FITNESS = "FITNESS", CategoryGroup.LEISURE
+    EVENTS = "EVENTS", CategoryGroup.LEISURE
+    STREAMING = "STREAMING", CategoryGroup.LEISURE
+    GAMING = "GAMING", CategoryGroup.LEISURE
+    ENTERTAINMENT = "ENTERTAINMENT", CategoryGroup.LEISURE
 
-    HEALTH_INSURANCE = "HEALTH_INSURANCE"
-    OTHER_INSURANCE = "OTHER_INSURANCE"
+    ONLINE_SHOPPING = "ONLINE_SHOPPING", CategoryGroup.SHOPPING
+    CLOTHING = "CLOTHING", CategoryGroup.SHOPPING
+    ELECTRONICS = "ELECTRONICS", CategoryGroup.SHOPPING
+    SOFTWARE_CLOUD = "SOFTWARE_CLOUD", CategoryGroup.SHOPPING
+    GIFTS = "GIFTS", CategoryGroup.SHOPPING
 
-    BANK_FEES = "BANK_FEES"
-    TAXES = "TAXES"
-    LEGAL = "LEGAL"
-    EDUCATION = "EDUCATION"
-    DONATION = "DONATION"
-    FEES = "FEES"
+    DRUGSTORE = "DRUGSTORE", CategoryGroup.HEALTH
+    PHARMACY = "PHARMACY", CategoryGroup.HEALTH
+    DOCTOR = "DOCTOR", CategoryGroup.HEALTH
+    PERSONAL_CARE = "PERSONAL_CARE", CategoryGroup.HEALTH
 
-    SAVINGS = "SAVINGS"
-    INVESTMENT = "INVESTMENT"
+    HEALTH_INSURANCE = "HEALTH_INSURANCE", CategoryGroup.INSURANCE
+    OTHER_INSURANCE = "OTHER_INSURANCE", CategoryGroup.INSURANCE
 
-    CHILDCARE = "CHILDCARE"
-    POCKET_MONEY = "POCKET_MONEY"
-    OTHER_CHILDREN = "OTHER_CHILDREN"
+    BANK_FEES = "BANK_FEES", CategoryGroup.FINANCES
+    TAXES = "TAXES", CategoryGroup.FINANCES
+    LEGAL = "LEGAL", CategoryGroup.FINANCES
+    EDUCATION = "EDUCATION", CategoryGroup.FINANCES
+    DONATION = "DONATION", CategoryGroup.FINANCES
+    FEES = "FEES", CategoryGroup.FINANCES
 
-    PET_SUPPLIES = "PET_SUPPLIES"
-    VET = "VET"
+    SAVINGS = "SAVINGS", CategoryGroup.SAVINGS_AND_INVESTMENTS
+    INVESTMENT = "INVESTMENT", CategoryGroup.SAVINGS_AND_INVESTMENTS
 
-    WITHDRAWAL = "WITHDRAWAL"
-    DEPOSIT = "DEPOSIT"
-    TRANSFER = "TRANSFER"
-    CREDIT_CARD_SETTLEMENT = "CREDIT_CARD_SETTLEMENT"
+    CHILDCARE = "CHILDCARE", CategoryGroup.CHILDREN
+    POCKET_MONEY = "POCKET_MONEY", CategoryGroup.CHILDREN
+    OTHER_CHILDREN = "OTHER_CHILDREN", CategoryGroup.CHILDREN
+
+    PET_SUPPLIES = "PET_SUPPLIES", CategoryGroup.PETS
+    VET = "VET", CategoryGroup.PETS
+
+    WITHDRAWAL = "WITHDRAWAL", CategoryGroup.MISCELLANEOUS
+    DEPOSIT = "DEPOSIT", CategoryGroup.MISCELLANEOUS
+    TRANSFER = "TRANSFER", CategoryGroup.MISCELLANEOUS
+    CREDIT_CARD_SETTLEMENT = "CREDIT_CARD_SETTLEMENT", CategoryGroup.MISCELLANEOUS
 
     UNKNOWN = "UNKNOWN"
-
-    @property
-    def group(self) -> CategoryGroup | None:
-        return CATEGORY_GROUP.get(self)
 
     @classmethod
     def from_transaction(
@@ -174,96 +179,7 @@ class CategorizationRules:
 
 
 CATEGORIES_BY_GROUP: dict[CategoryGroup, tuple[TransactionCategory, ...]] = {
-    CategoryGroup.INCOME: (
-        TransactionCategory.SALARY,
-        TransactionCategory.SIDE_INCOME,
-        TransactionCategory.PENSION,
-        TransactionCategory.ALLOWANCE,
-        TransactionCategory.PUBLIC_BENEFITS,
-        TransactionCategory.RENTAL_INCOME,
-        TransactionCategory.INTEREST,
-        TransactionCategory.PRIVATE_SALES,
-        TransactionCategory.REIMBURSEMENT,
-        TransactionCategory.OTHER_INCOME,
-    ),
-    CategoryGroup.FOOD_AND_DRINK: (
-        TransactionCategory.SUPERMARKET,
-        TransactionCategory.RESTAURANTS,
-        TransactionCategory.FOOD_DELIVERY,
-    ),
-    CategoryGroup.HOUSING: (
-        TransactionCategory.RENT,
-        TransactionCategory.ELECTRICITY,
-        TransactionCategory.HEATING,
-        TransactionCategory.INTERNET_PHONE,
-        TransactionCategory.BROADCASTING_FEE,
-        TransactionCategory.FURNISHING,
-        TransactionCategory.OTHER_HOUSING,
-    ),
-    CategoryGroup.MOBILITY: (
-        TransactionCategory.FUEL,
-        TransactionCategory.PUBLIC_TRANSPORT,
-        TransactionCategory.CAR,
-        TransactionCategory.PARKING,
-        TransactionCategory.SHARING_TAXI,
-        TransactionCategory.OTHER_MOBILITY,
-    ),
-    CategoryGroup.LEISURE: (
-        TransactionCategory.VACATION,
-        TransactionCategory.FITNESS,
-        TransactionCategory.EVENTS,
-        TransactionCategory.STREAMING,
-        TransactionCategory.GAMING,
-        TransactionCategory.ENTERTAINMENT,
-    ),
-    CategoryGroup.SHOPPING: (
-        TransactionCategory.ONLINE_SHOPPING,
-        TransactionCategory.CLOTHING,
-        TransactionCategory.ELECTRONICS,
-        TransactionCategory.SOFTWARE_CLOUD,
-        TransactionCategory.GIFTS,
-    ),
-    CategoryGroup.HEALTH: (
-        TransactionCategory.DRUGSTORE,
-        TransactionCategory.PHARMACY,
-        TransactionCategory.DOCTOR,
-        TransactionCategory.PERSONAL_CARE,
-    ),
-    CategoryGroup.INSURANCE: (
-        TransactionCategory.HEALTH_INSURANCE,
-        TransactionCategory.OTHER_INSURANCE,
-    ),
-    CategoryGroup.FINANCES: (
-        TransactionCategory.BANK_FEES,
-        TransactionCategory.TAXES,
-        TransactionCategory.LEGAL,
-        TransactionCategory.EDUCATION,
-        TransactionCategory.DONATION,
-        TransactionCategory.FEES,
-    ),
-    CategoryGroup.SAVINGS_AND_INVESTMENTS: (
-        TransactionCategory.SAVINGS,
-        TransactionCategory.INVESTMENT,
-    ),
-    CategoryGroup.CHILDREN: (
-        TransactionCategory.CHILDCARE,
-        TransactionCategory.POCKET_MONEY,
-        TransactionCategory.OTHER_CHILDREN,
-    ),
-    CategoryGroup.PETS: (
-        TransactionCategory.PET_SUPPLIES,
-        TransactionCategory.VET,
-    ),
-    CategoryGroup.MISCELLANEOUS: (
-        TransactionCategory.WITHDRAWAL,
-        TransactionCategory.DEPOSIT,
-        TransactionCategory.TRANSFER,
-        TransactionCategory.CREDIT_CARD_SETTLEMENT,
-    ),
-}
-
-CATEGORY_GROUP: dict[TransactionCategory, CategoryGroup] = {
-    category: group for group, categories in CATEGORIES_BY_GROUP.items() for category in categories
+    group: tuple(category for category in TransactionCategory if category.group is group) for group in CategoryGroup
 }
 
 # Money can only come in for these groups, so their matchers ignore outgoing transactions
@@ -272,7 +188,7 @@ INCOMING_ONLY_GROUPS = frozenset({CategoryGroup.INCOME})
 
 def group_of(category: str, custom_groups: Mapping[str, CategoryGroup] | None = None) -> CategoryGroup | None:
     if category in _CATEGORY_VALUES:
-        return CATEGORY_GROUP.get(TransactionCategory(category))
+        return TransactionCategory(category).group
     return (custom_groups or {}).get(category)
 
 
@@ -292,7 +208,7 @@ def expand_category_selection(
     expanded: dict[str, None] = {}
     for item in selection:
         key = item.value if isinstance(item, Enum) else item
-        if key in _GROUP_VALUES:
+        if key in GROUP_VALUES:
             group = CategoryGroup(key)
             expanded.update(dict.fromkeys(category.value for category in CATEGORIES_BY_GROUP[group]))
             expanded.update(
@@ -303,7 +219,7 @@ def expand_category_selection(
     return list(expanded)
 
 
-_GROUP_VALUES = frozenset(group.value for group in CategoryGroup)
+GROUP_VALUES = frozenset(group.value for group in CategoryGroup)
 _CATEGORY_VALUES = frozenset(category.value for category in TransactionCategory)
 
 

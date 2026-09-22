@@ -196,7 +196,7 @@ def update_transaction(db_session: Session, account: Account, transaction: Trans
     reset_category = "category" in fields and requested_category is None
     if reset_category:
         fields.pop("category")
-    elif requested_category is not None:
+    else:
         categorization_service.require_assignable_category(category=requested_category, owner=account.credential.user)
     apply_fields(entity=transaction, fields=fields)
     if "category" in fields:
@@ -309,9 +309,8 @@ def create_manual_transaction(
         recurring_transaction_id=recurring_transaction_id,
     )
     if fields.get("category") is not None:
-        transaction.category = categorization_service.require_assignable_category(
-            category=fields["category"], owner=account.credential.user
-        )
+        categorization_service.require_assignable_category(category=fields["category"], owner=account.credential.user)
+        transaction.category = fields["category"]
         transaction.category_source = CategorySource.MANUAL
     else:
         transaction.category = TransactionCategory.from_transaction(transaction=transaction, rules=rules)

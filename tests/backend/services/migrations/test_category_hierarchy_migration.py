@@ -52,12 +52,10 @@ def _create_tables(conn: Connection) -> None:
     conn.execute(text("CREATE TABLE notification_rules (id INTEGER PRIMARY KEY, categories JSON)"))
 
 
-def _migrate(
-    direction: str, conn: Connection, load_migration: Callable[[int], ModuleType], monkeypatch: pytest.MonkeyPatch
-) -> None:
+def _upgrade(conn: Connection, load_migration: Callable[[int], ModuleType], monkeypatch: pytest.MonkeyPatch) -> None:
     migration = load_migration(REVISION)
     monkeypatch.setattr(target=migration, name="op", value=Operations(MigrationContext.configure(connection=conn)))
-    getattr(migration, direction)()
+    migration.upgrade()
 
 
 def _categories_of_rule(conn: Connection, rule_id: int) -> list[str]:
@@ -83,7 +81,7 @@ def test_retired_categories_move_to_their_successors(
         )
         conn.execute(text("INSERT INTO recurring_transactions (id, category) VALUES (1, 'UTILITIES'), (2, NULL)"))
 
-        _migrate(direction="upgrade", conn=conn, load_migration=load_migration, monkeypatch=monkeypatch)
+        _upgrade(conn=conn, load_migration=load_migration, monkeypatch=monkeypatch)
 
         assert conn.execute(text("SELECT id, category FROM contracts ORDER BY id")).all() == [(1, None), (2, "FITNESS")]
         assert conn.execute(text("SELECT id, category, category_source FROM transactions ORDER BY id")).all() == [
@@ -112,7 +110,7 @@ def test_notification_rules_keep_matching_what_they_matched_before(
             ],
         )
 
-        _migrate(direction="upgrade", conn=conn, load_migration=load_migration, monkeypatch=monkeypatch)
+        _upgrade(conn=conn, load_migration=load_migration, monkeypatch=monkeypatch)
 
         assert _categories_of_rule(conn=conn, rule_id=1) == [
             "INCOME",
@@ -141,24 +139,3 @@ def test_notification_rules_keep_matching_what_they_matched_before(
             "GAMING",
         ]
         assert _categories_of_rule(conn=conn, rule_id=3) == []
-
-
-def test_downgrade_folds_new_categories_back_into_the_old_ones(
-    monkeypatch: pytest.MonkeyPatch, load_migration: Callable[[int], ModuleType], migration_test_engine: Engine
-):
-    with migration_test_engine.begin() as conn:
-        _create_tables(conn)
-        conn.execute(text("INSERT INTO contracts (id, category) VALUES (1, 'STREAMING')"))
-        conn.execute(text("INSERT INTO transactions (id, category, category_source) VALUES (1, 'PARKING', 'AUTO')"))
-        conn.execute(text("INSERT INTO recurring_transactions (id, category) VALUES (1, 'VET')"))
-        conn.execute(
-            statement=text("INSERT INTO notification_rules (id, categories) VALUES (1, :categories)"),
-            parameters={"categories": json.dumps(["INSURANCE", "FUEL"])},
-        )
-
-        _migrate(direction="downgrade", conn=conn, load_migration=load_migration, monkeypatch=monkeypatch)
-
-        assert conn.execute(text("SELECT category FROM contracts")).scalar_one() == "SUBSCRIPTIONS"
-        assert conn.execute(text("SELECT category FROM transactions")).scalar_one() == "FEES"
-        assert conn.execute(text("SELECT category FROM recurring_transactions")).scalar_one() == "UNKNOWN"
-        assert _categories_of_rule(conn=conn, rule_id=1) == ["FEES", "FUEL"]

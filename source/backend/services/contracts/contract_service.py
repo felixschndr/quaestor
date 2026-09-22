@@ -25,8 +25,7 @@ def create_contract(db_session: Session, user: User, account_id: int, fields: di
     account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=user)
     account_service.require_owned_account(account=account, user=user)
     category = fields.get("category")
-    if category is not None:
-        categorization_service.require_assignable_category(category=category, owner=user)
+    categorization_service.require_assignable_category(category=category, owner=user)
     contract = Contract(
         account=account,
         name=fields["name"],
@@ -71,8 +70,7 @@ def update_contract(db_session: Session, user: User, contract_id: int, fields: d
     contract = get_contract_for_user(db_session=db_session, user=user, contract_id=contract_id)
     contract.name = fields["name"]
     if "category" in fields:
-        if fields["category"] is not None:
-            categorization_service.require_assignable_category(category=fields["category"], owner=user)
+        categorization_service.require_assignable_category(category=fields["category"], owner=user)
         category_changed = contract.category != fields["category"]
         contract.category = fields["category"]
         if category_changed:

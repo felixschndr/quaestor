@@ -21,32 +21,17 @@ BATCH_SIZE = 500
 def rescan_categories_sync() -> None:
     with SessionLocal() as db_session:
         logger.info(f"Starting re-scan of transactions categorised {CategorySource.AUTO.value}")
-        checked = updated = unknown = 0
         for user in db_session.scalars(select(User)).all():
-            user_checked, user_updated, user_unknown = _rescan(db_session=db_session, user=user)
-            checked += user_checked
-            updated += user_updated
-            unknown += user_unknown
+            recategorize_user_transactions(db_session=db_session, user=user)
         db_session.commit()
-        logger.info(
-            f"Category re-scan: checked {checked}, updated {updated}, "
-            f"still {TransactionCategory.UNKNOWN.value.lower()} {unknown}"
-        )
 
 
 def recategorize_user_transactions(db_session: Session, user: User) -> int:
-    # After the user changed their rules; the caller commits
-    _, updated, _ = _rescan(db_session=db_session, user=user)
-    logger.info(f"Re-derived the categories of {updated} transaction(s) of {user}")
-    return updated
-
-
-def _rescan(db_session: Session, user: User) -> tuple[int, int, int]:
     # Re-derive every automatically assigned category on the user's own accounts with their rules, so changed
     # matchers also fix transactions that were matched wrongly before. Manual, contract and system categories are left
-    # alone.
+    # alone. The caller commits.
     rules = user.categorization_rules
-    checked = updated = unknown = 0
+    updated = 0
     stmt = (
         select(Transaction)
         .join(Account, onclause=Transaction.account_id == Account.id)
@@ -56,10 +41,7 @@ def _rescan(db_session: Session, user: User) -> tuple[int, int, int]:
         .execution_options(yield_per=BATCH_SIZE)
     )
     for transaction in db_session.scalars(stmt):
-        checked += 1
         new_category = TransactionCategory.from_transaction(transaction=transaction, rules=rules, log_result=False)
-        if new_category == TransactionCategory.UNKNOWN:
-            unknown += 1
         if new_category != transaction.category:
             logger.info(
                 f"Re-scanned {format_transaction_for_categorization(transaction)} "
@@ -67,7 +49,8 @@ def _rescan(db_session: Session, user: User) -> tuple[int, int, int]:
             )
             transaction.category = new_category
             updated += 1
-    return checked, updated, unknown
+    logger.info(f"Re-derived the categories of {updated} transaction(s) of {user}")
+    return updated
 
 
 async def run_startup_rescan() -> None:

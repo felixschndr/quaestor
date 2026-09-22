@@ -156,7 +156,7 @@ class Credential(Base):
         bank_session: BankSession,
         fetched_account: FetchedAccount,
         transactions_since: date,
-        rules: CategorizationRules | None = None,
+        rules: CategorizationRules,
     ) -> int:
         fetched_transactions = bank_session.get_transactions(account=fetched_account, start_date=transactions_since)
 
@@ -211,7 +211,7 @@ class Credential(Base):
 
     @staticmethod
     def _add_pending_transactions(
-        account: Account, fetched_transactions: list[FetchedTransaction], rules: CategorizationRules | None = None
+        account: Account, fetched_transactions: list[FetchedTransaction], rules: CategorizationRules
     ) -> None:
         # Some banks (e.g. ING) keep a pending transaction in their pending list for days after its booking has
         # arrived, so taking that list at face value leaves the transaction on the account twice. The two
