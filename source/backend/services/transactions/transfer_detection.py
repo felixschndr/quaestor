@@ -11,6 +11,7 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
+from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.related_group import RelatedGroup
 from source.backend.models.transactions.related_link_source import RelatedLinkSource
 from source.backend.models.transactions.transaction import Transaction
@@ -139,6 +140,7 @@ def _link_transfer_pairs(db_session: Session, transactions: list[Transaction]) -
         best.related_link_source = RelatedLinkSource.DETECTED
         if best.account_id == outflow.account_id:
             best.category = TransactionCategory.REIMBURSEMENT
+            best.category_source = CategorySource.SYSTEM
         consumed_inflow_ids.add(best.id)
         created += 1
         logger.debug(

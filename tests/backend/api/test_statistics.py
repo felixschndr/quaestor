@@ -261,6 +261,25 @@ def test_categories_filter_restricts_results(http_client: TestClient, session_fa
     ]
 
 
+def test_categories_filter_accepts_a_group(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    with session_factory() as session:
+        make_transaction(session, account_id=account_id, amount=-THIRD_AMOUNT, category=TransactionCategory.FUEL)
+        make_transaction(session, account_id=account_id, amount=-SECOND_AMOUNT, category=TransactionCategory.PARKING)
+        make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.GIFTS)
+        session.commit()
+
+    response = http_client.get(
+        "/api/statistics/categories", params=[("account_ids", account_id), ("categories", "MOBILITY")]
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"category": "PARKING", "total": SECOND_AMOUNT},
+        {"category": "FUEL", "total": THIRD_AMOUNT},
+    ]
+
+
 def _seed_two_months(session_factory: sessionmaker, account_id: int) -> None:
     with session_factory() as session:
         make_transaction(session, account_id=account_id, amount=LARGE_AMOUNT, date=date(year=2026, month=1, day=31))
@@ -549,6 +568,7 @@ def test_net_worth_range_breaks_down_change_per_account(http_client: TestClient,
                         "other_party": None,
                         "transaction_type": None,
                         "category": "UNKNOWN",
+                        "category_source": "AUTO",
                         "note": None,
                         "pending": False,
                         "contract_id": None,

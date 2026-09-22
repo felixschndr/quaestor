@@ -12,6 +12,7 @@ export interface TransactionRead {
   other_party: string | null
   transaction_type: string | null
   category: string
+  category_source?: CategorySource
   note: string | null
   pending?: boolean
   contract_id?: number | null
@@ -19,6 +20,8 @@ export interface TransactionRead {
 }
 
 export type RefundStatus = 'refunded' | 'partially_refunded' | 'refund'
+
+export type CategorySource = 'AUTO' | 'MANUAL' | 'CONTRACT' | 'SYSTEM'
 
 export interface TransactionDetailRead extends TransactionRead {
   related_transactions: TransactionRead[]

@@ -5,7 +5,7 @@ import { CategoryMultiSelect } from '@/components/ui/category-multi-select'
 import { Label } from '@/components/ui/label'
 import { TypeMultiSelect } from '@/components/ui/type-multi-select'
 import { ScalarMultiSelect } from '@/components/ui/two-option-multi-select'
-import type { TransactionCategory, TransactionType } from '@/lib/transaction'
+import type { CategoryKey, TransactionType } from '@/lib/transaction'
 
 export type RelatedFilter = 'linked' | 'unlinked' | 'none'
 export type AttachmentFilter = 'with' | 'without' | 'none'
@@ -13,8 +13,8 @@ export type AttachmentFilter = 'with' | 'without' | 'none'
 const iconClass = 'text-muted-foreground size-4 shrink-0'
 
 export interface TransactionFilterFieldsProps {
-  selectedCategories: TransactionCategory[]
-  onCategoriesChange: (next: TransactionCategory[]) => void
+  selectedCategories: CategoryKey[]
+  onCategoriesChange: (next: CategoryKey[]) => void
   selectedTypes: TransactionType[]
   onTypesChange: (next: TransactionType[]) => void
   related?: RelatedFilter | undefined

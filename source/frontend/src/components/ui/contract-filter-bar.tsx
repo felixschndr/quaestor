@@ -14,7 +14,7 @@ import {
   type ContractOverdueFilter,
   type ContractStatusFilter,
 } from '@/lib/contract'
-import { FILTERABLE_CATEGORIES } from '@/lib/statistics'
+import { useCategoryCatalog } from '@/lib/categoryCatalog'
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
 import { AdvancedFilters } from '@/components/ui/advanced-filters'
 import { AmountRangeFields } from '@/components/ui/amount-range-fields'
@@ -34,6 +34,7 @@ export interface ContractFilterBarProps {
 
 function ContractFilterBar({ credentials, filters, onChange }: ContractFilterBarProps) {
   const { t } = useTranslation()
+  const catalog = useCategoryCatalog()
   const iconClass = 'text-muted-foreground size-4 shrink-0'
   const defaultIds = defaultAccountIds(credentials)
 
@@ -109,10 +110,8 @@ function ContractFilterBar({ credentials, filters, onChange }: ContractFilterBar
             <Label htmlFor="contract-filter-categories">{t('common.categories')}</Label>
             <CategoryMultiSelect
               id="contract-filter-categories"
-              selectedIds={shownOrAll(filters.categories, FILTERABLE_CATEGORIES)}
-              onChange={(next) =>
-                update('categories', normalize(next, FILTERABLE_CATEGORIES.length))
-              }
+              selectedIds={shownOrAll(filters.categories, catalog.allKeys)}
+              onChange={(next) => update('categories', normalize(next, catalog.allKeys.length))}
             />
           </div>
           <div className="flex flex-col gap-1.5">

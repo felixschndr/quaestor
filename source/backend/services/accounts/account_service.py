@@ -20,14 +20,19 @@ from source.backend.models.accounts.account_share import AccountShare, SharePerm
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.base import snapshot_columns
+from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.related_group import RelatedGroup
 from source.backend.models.transactions.related_link_source import RelatedLinkSource
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_attachment import TransactionAttachment
-from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.transaction_category import TransactionCategory, expand_category_selection
 from source.backend.models.transactions.transaction_type import TransactionType
+from source.backend.services.transactions import categorization_service
 
 logger = get_logger(__name__)
+
+# Editing any of these on a manual account can change what the matchers derive
+CATEGORIZATION_FIELDS = frozenset({"purpose", "other_party", "transaction_type"})
 
 
 def market_valued_account_ids_select() -> Select[tuple[int]]:
@@ -186,7 +191,22 @@ def update_transaction(db_session: Session, account: Account, transaction: Trans
     previous_amount = transaction.amount
     previous_date = transaction.date
     state_before_update = snapshot_columns(transaction)
+    # An explicit null category hands the transaction back to the matchers
+    requested_category = fields.get("category")
+    reset_category = "category" in fields and requested_category is None
+    if reset_category:
+        fields.pop("category")
+    elif requested_category is not None:
+        categorization_service.require_assignable_category(category=requested_category, owner=account.credential.user)
     apply_fields(entity=transaction, fields=fields)
+    if "category" in fields:
+        transaction.category_source = CategorySource.MANUAL
+    elif reset_category:
+        transaction.category_source = CategorySource.AUTO
+    if transaction.category_source == CategorySource.AUTO and (reset_category or CATEGORIZATION_FIELDS & set(fields)):
+        transaction.category = TransactionCategory.from_transaction(
+            transaction=transaction, rules=account.credential.user.categorization_rules
+        )
 
     amount_changed = "amount" in fields and transaction.amount != previous_amount
     date_changed = "date" in fields and transaction.date != previous_date
@@ -276,6 +296,8 @@ def create_manual_transaction(
 ) -> Transaction:
     _require_manual_account(account)
     _reject_future_date(fields["date"])
+    # Loaded before the transaction joins the account, so the lazy load cannot autoflush a half-built transaction
+    rules = account.credential.user.categorization_rules
     transaction = Transaction(
         account=account,
         amount=fields["amount"],
@@ -287,9 +309,12 @@ def create_manual_transaction(
         recurring_transaction_id=recurring_transaction_id,
     )
     if fields.get("category") is not None:
-        transaction.category = fields["category"]
+        transaction.category = categorization_service.require_assignable_category(
+            category=fields["category"], owner=account.credential.user
+        )
+        transaction.category_source = CategorySource.MANUAL
     else:
-        transaction.category = TransactionCategory.from_transaction(transaction=transaction)
+        transaction.category = TransactionCategory.from_transaction(transaction=transaction, rules=rules)
     account.balance = round(number=account.balance + transaction.amount, ndigits=2)
     db_session.add(transaction)
     db_session.flush()
@@ -576,7 +601,12 @@ def get_filtered_transactions_for_user(
     if transaction_types := filter_parameters.get("transaction_types"):
         query = query.where(Transaction.transaction_type.in_(transaction_types))
     if categories := filter_parameters.get("categories"):
-        query = query.where(Transaction.category.in_(categories))
+        custom_groups = categorization_service.custom_category_groups_for_accounts(
+            db_session=db_session, account_ids=account_ids
+        )
+        query = query.where(
+            Transaction.category.in_(expand_category_selection(selection=categories, custom_groups=custom_groups))
+        )
 
     if (linked := filter_parameters.get("linked")) is not None:
         if linked == "linked":

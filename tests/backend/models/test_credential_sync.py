@@ -11,6 +11,8 @@ from source.backend.bank_handlers.base import (
 )
 from source.backend.models.accounts.account_balance_snapshot import BalanceSnapshotSource
 from source.backend.models.banking.credential import Credential
+from source.backend.models.transactions.category_rule import CategoryRule
+from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
@@ -83,6 +85,30 @@ def test_sync_creates_new_account_with_balance_and_transactions(
         expected_days = {RECENT_DATE, date(year=2026, month=5, day=1)}
         assert expected_days <= set(account.balance_at_date.keys())
         assert credential.last_successful_sync_timestamp is not None
+
+
+def test_sync_categorizes_with_the_rules_of_the_credential_owner(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.user.category_rules.append(
+            CategoryRule(pattern="acme", category=TransactionCategory.SIDE_INCOME, created_at=LAST_FETCHING_TIMESTAMP)
+        )
+        session.commit()
+    handler = build_handler(
+        FakeBankSession(
+            accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
+            balances={ACCOUNT_IBAN: DEFAULT_AMOUNT},
+            transactions={ACCOUNT_IBAN: [create_fetched_transaction(amount=DEFAULT_AMOUNT, other_party=ACME)]},
+        )
+    )
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.sync(handler)
+        session.commit()
+
+        assert credential.accounts[0].transactions[0].category == TransactionCategory.SIDE_INCOME
 
 
 def test_sync_persists_system_id_reported_by_the_bank_session(session_factory: sessionmaker):

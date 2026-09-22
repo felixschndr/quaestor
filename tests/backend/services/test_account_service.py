@@ -13,6 +13,7 @@ from source.backend.exceptions import (
 from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
+from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.related_group import RelatedGroup
 from source.backend.models.transactions.related_link_source import RelatedLinkSource
 from source.backend.models.transactions.transaction import Transaction
@@ -28,6 +29,7 @@ from tests.backend.conftest import (
     REWE,
     SECOND_ACCOUNT_IBAN,
     SECOND_USER_NAME,
+    UNKNOWN_TRANSACTION_OTHER_PARTY,
     WALLET_ACCOUNT_NAME,
     assert_log_contains,
     link_transactions_as_related_group,
@@ -171,14 +173,19 @@ def test_create_manual_transaction_updates_balance_and_snapshots(
 
 
 @pytest.mark.parametrize(
-    argnames="extra_fields, expected_category",
+    argnames="extra_fields, expected_category, expected_source",
     argvalues=[
-        ({"category": TransactionCategory.GIFTS}, TransactionCategory.GIFTS),  # explicit category wins
-        ({}, TransactionCategory.SUPERMARKET),  # no category -> auto-categorised from other_party
+        # explicit category wins
+        ({"category": TransactionCategory.GIFTS}, TransactionCategory.GIFTS, CategorySource.MANUAL),
+        # no category -> auto-categorised from other_party
+        ({}, TransactionCategory.SUPERMARKET, CategorySource.AUTO),
     ],
 )
 def test_create_manual_transaction_resolves_category(
-    session_factory: sessionmaker, extra_fields: dict, expected_category: TransactionCategory
+    session_factory: sessionmaker,
+    extra_fields: dict,
+    expected_category: TransactionCategory,
+    expected_source: CategorySource,
 ):
     _, credential_id = _create_user_with_manual_credential(session_factory)
     with session_factory() as session:
@@ -194,6 +201,31 @@ def test_create_manual_transaction_resolves_category(
             fields={"amount": -19.99, "date": RECENT_DATE, "other_party": "REWE Markt", **extra_fields},
         )
         assert transaction.category == expected_category
+        assert transaction.category_source == expected_source
+
+
+def test_editing_the_counterparty_of_an_automatically_categorised_transaction_rematches_it(
+    session_factory: sessionmaker,
+):
+    _, credential_id = _create_user_with_manual_credential(session_factory)
+    with session_factory() as session:
+        account = make_account(session, credential_id=credential_id, name=WALLET_ACCOUNT_NAME, balance=1000.0)
+        transaction = make_transaction(session, account_id=account.id, other_party=UNKNOWN_TRANSACTION_OTHER_PARTY)
+        manual = make_transaction(
+            session,
+            account_id=account.id,
+            category=TransactionCategory.GIFTS,
+            category_source=CategorySource.MANUAL,
+        )
+        session.commit()
+
+        for edited in (transaction, manual):
+            account_service.update_transaction(
+                db_session=session, account=account, transaction=edited, fields={"other_party": REWE}
+            )
+
+        assert transaction.category == TransactionCategory.SUPERMARKET
+        assert manual.category == TransactionCategory.GIFTS
 
 
 def test_update_account_treats_explicit_null_balance_as_no_change(session_factory: sessionmaker):

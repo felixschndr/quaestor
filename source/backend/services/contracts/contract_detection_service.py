@@ -16,8 +16,15 @@ from source.backend.models.contracts.contract import OUTLIER_ABSOLUTE_FLOOR, Con
 from source.backend.models.contracts.contract_assignment import ContractAssignment
 from source.backend.models.contracts.contract_frequency import ContractFrequency
 from source.backend.models.contracts.contract_source import ContractSource
+from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.transaction import Transaction
-from source.backend.models.transactions.transaction_category import TransactionCategory, normalize_string
+from source.backend.models.transactions.transaction_category import (
+    CategorizationRules,
+    CategoryGroup,
+    TransactionCategory,
+    expand_category_selection,
+    normalize_string,
+)
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.contracts.contract_aggregators import INTERMEDIARIES, compute_fingerprint
 
@@ -56,16 +63,15 @@ ELIGIBLE_TRANSACTION_TYPES = frozenset(
     }
 )
 
-BLACKLISTED_CATEGORIES = frozenset(
-    {
-        TransactionCategory.SUPERMARKET,
-        TransactionCategory.DRUGSTORE,
-        TransactionCategory.RESTAURANTS,
-        TransactionCategory.CLOTHING,
-        TransactionCategory.GIFTS,
-        TransactionCategory.REIMBURSEMENT,
-    }
-)
+# A selection, so the custom categories of a blacklisted group are blacklisted as well
+BLACKLISTED_CATEGORIES = [
+    CategoryGroup.FOOD_AND_DRINK,
+    TransactionCategory.DRUGSTORE,
+    TransactionCategory.CLOTHING,
+    TransactionCategory.GIFTS,
+    TransactionCategory.REIMBURSEMENT,
+    TransactionCategory.PRIVATE_SALES,
+]
 
 
 def detect_contracts_for_user(db_session: Session, user: User) -> list[Contract]:
@@ -104,8 +110,15 @@ def detect_contracts_for_account(db_session: Session, account: Account) -> list[
             prior_member_ids[transaction.contract_id].add(transaction.id)
     _release_auto_assignments(db_session=db_session, account=account)
     eligible = _get_eligible_transactions(db_session=db_session, account=account)
+    blacklisted_categories = frozenset(
+        expand_category_selection(
+            selection=BLACKLISTED_CATEGORIES, custom_groups=account.credential.user.custom_category_groups
+        )
+    )
     groups = _group_by_fingerprint(
-        eligible, suppressed_intermediaries=_get_connected_intermediaries(db_session=db_session, account=account)
+        eligible,
+        suppressed_intermediaries=_get_connected_intermediaries(db_session=db_session, account=account),
+        blacklisted_categories=blacklisted_categories,
     )
     logger.debug(
         f"Contract detection on {account}: {len(eligible)} eligible transaction(s) in {len(groups)} fingerprint group(s)"
@@ -191,14 +204,13 @@ def _get_connected_intermediaries(db_session: Session, account: Account) -> set[
 
 
 def _group_by_fingerprint(
-    transactions: list[Transaction], suppressed_intermediaries: set[str]
+    transactions: list[Transaction], suppressed_intermediaries: set[str], blacklisted_categories: frozenset[str]
 ) -> dict[tuple[str, str], list[Transaction]]:
     groups: dict[tuple[str, str], list[Transaction]] = defaultdict(list)
     for transaction in transactions:
-        contract_category = TransactionCategory.from_transaction(transaction=transaction, log_result=False)
-        if contract_category in BLACKLISTED_CATEGORIES:
+        if transaction.category in blacklisted_categories:
             logger.debug(
-                f"Skipping blacklisted other party '{transaction.other_party}' for contract detection since it is in a blacklisted category ({contract_category})"
+                f"Skipping blacklisted other party '{transaction.other_party}' for contract detection since it is in a blacklisted category ({transaction.category})"
             )
             continue
         fingerprint = compute_fingerprint(transaction)
@@ -341,12 +353,25 @@ def _archive_if_long_overdue(contract: Contract) -> None:
     logger.info(f"Auto-archived {contract}; overdue since {contract.expected_next_date}")
 
 
-def apply_contract_category_to_members(contract: Contract) -> None:
+def apply_contract_category_to_members(contract: Contract, override_manual: bool = False) -> None:
+    # Only an explicit user action may overwrite a category the user set on a member
+    for transaction in contract.members():
+        if transaction.category_source != CategorySource.MANUAL or override_manual:
+            apply_contract_category(contract=contract, transaction=transaction)
+
+
+def apply_contract_category(contract: Contract, transaction: Transaction) -> None:
     if contract.category in (None, TransactionCategory.UNKNOWN):
         return
-    for transaction in contract.members():
-        if transaction.category != contract.category:
-            transaction.category = contract.category
+    transaction.category = contract.category
+    transaction.category_source = CategorySource.CONTRACT
+
+
+def release_contract_category(transaction: Transaction, rules: CategorizationRules) -> None:
+    if transaction.category_source != CategorySource.CONTRACT:
+        return
+    transaction.category_source = CategorySource.AUTO
+    transaction.category = TransactionCategory.from_transaction(transaction=transaction, rules=rules, log_result=False)
 
 
 def _median_absolute_deviation(values: list[float]) -> float:
@@ -354,8 +379,8 @@ def _median_absolute_deviation(values: list[float]) -> float:
     return median([abs(value - center) for value in values])
 
 
-def _dominant_category(members: list[Transaction]) -> TransactionCategory | None:
-    counts: dict[TransactionCategory, int] = defaultdict(int)
+def _dominant_category(members: list[Transaction]) -> str | None:
+    counts: dict[str, int] = defaultdict(int)
     for transaction in members:
         if transaction.category != TransactionCategory.UNKNOWN:
             counts[transaction.category] += 1
@@ -365,10 +390,12 @@ def _dominant_category(members: list[Transaction]) -> TransactionCategory | None
 
 
 def _release_auto_assignments(db_session: Session, account: Account) -> None:
+    rules = account.credential.user.categorization_rules
     for transaction in account.transactions:
         if transaction.contract_assignment == ContractAssignment.AUTO:
             transaction.contract_id = None
             transaction.contract_assignment = None
+            release_contract_category(transaction=transaction, rules=rules)
     db_session.flush()
 
 

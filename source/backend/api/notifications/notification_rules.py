@@ -20,7 +20,6 @@ from source.backend.models.notifications.notification_rule import (
     NotificationRule,
     NotificationTrigger,
 )
-from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.auth import session_service
 from source.backend.services.notifications import notification_rule_service
@@ -80,7 +79,7 @@ class UpcomingShortfallRuleIn(_RuleInBase):
 class TransactionRuleIn(_RuleInBase):
     trigger: Literal["transaction"]
     other_party_contains: str | None = None
-    categories: list[TransactionCategory]
+    categories: list[str]
     types: list[TransactionType]
     min_amount: float | None = None
     max_amount: float | None = None
@@ -121,7 +120,7 @@ class RuleRead(BaseModel):
     trigger: NotificationTrigger
     account_ids: list[int]
     other_party_contains: str | None = None
-    categories: list[TransactionCategory] = []
+    categories: list[str] = []
     types: list[TransactionType] = []
     min_amount: float | None = None
     max_amount: float | None = None

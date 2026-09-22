@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { Fragment, useCallback, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -18,6 +18,8 @@ export interface SingleSelectOption<T extends string> {
   value: T
   label: string
   leading?: React.ReactNode
+  // Consecutive options with the same group are listed under a heading
+  group?: string
 }
 
 export interface SingleSelectPopoverProps<T extends string> {
@@ -140,36 +142,57 @@ export function SingleSelectPopover<T extends string>({
           aria-label={ariaLabel}
           className="relative max-h-72 overflow-y-auto overscroll-contain p-1"
         >
-          {visibleOptions.map((option) => (
-            <li key={option.value}>
-              <button
-                type="button"
-                data-select-row=""
-                data-selected={option.value === value ? '' : undefined}
-                onClick={() => {
-                  onChange(option.value)
-                  setOpen(false)
-                }}
-                className="hover:bg-muted/60 focus-visible:bg-muted/60 flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-3 text-left text-sm outline-none"
-              >
-                {option.leading}
-                <span
-                  className={cn('flex-1', width === 'content' ? 'whitespace-nowrap' : 'truncate')}
+          {visibleOptions.map((option, index) => (
+            <Fragment key={option.value}>
+              <GroupHeading option={option} previous={visibleOptions[index - 1]} />
+              <li>
+                <button
+                  type="button"
+                  data-select-row=""
+                  data-selected={option.value === value ? '' : undefined}
+                  onClick={() => {
+                    onChange(option.value)
+                    setOpen(false)
+                  }}
+                  className="hover:bg-muted/60 focus-visible:bg-muted/60 flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-3 text-left text-sm outline-none"
                 >
-                  {option.label}
-                </span>
-                <Check
-                  className={cn(
-                    'text-primary size-4 shrink-0',
-                    option.value !== value && 'invisible',
-                  )}
-                  aria-hidden="true"
-                />
-              </button>
-            </li>
+                  {option.leading}
+                  <span
+                    className={cn('flex-1', width === 'content' ? 'whitespace-nowrap' : 'truncate')}
+                  >
+                    {option.label}
+                  </span>
+                  <Check
+                    className={cn(
+                      'text-primary size-4 shrink-0',
+                      option.value !== value && 'invisible',
+                    )}
+                    aria-hidden="true"
+                  />
+                </button>
+              </li>
+            </Fragment>
           ))}
         </ul>
       </PopoverContent>
     </Popover>
+  )
+}
+
+export function GroupHeading({
+  option,
+  previous,
+  children,
+}: {
+  option: { group?: string }
+  previous?: { group?: string }
+  children?: React.ReactNode
+}) {
+  if (!option.group || option.group === previous?.group) return null
+  return (
+    <li className="text-muted-foreground flex items-center gap-3 px-2 pt-3 pb-1 text-xs font-medium">
+      <span className="flex-1 truncate">{option.group}</span>
+      {children}
+    </li>
   )
 }

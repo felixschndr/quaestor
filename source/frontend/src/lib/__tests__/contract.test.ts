@@ -33,7 +33,7 @@ function makeContract(overrides: Partial<ContractRead> = {}): ContractRead {
 const netflix = makeContract({
   id: 1,
   account_id: 10,
-  category: 'SUBSCRIPTIONS',
+  category: 'STREAMING',
   median_amount: -12.99,
   frequency: 'MONTHLY',
 })

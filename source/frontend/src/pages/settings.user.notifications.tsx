@@ -35,6 +35,7 @@ import { AccountMultiSelect } from '@/components/ui/account-multi-select'
 import { FilterHeading } from '@/components/ui/filter-heading'
 import { MultiSelectPopover, multiSelectTriggerLabel } from '@/components/ui/multi-select-popover'
 import { CategoryMultiSelect } from '@/components/ui/category-multi-select'
+import { useCategoryCatalog, type CategoryCatalog } from '@/lib/categoryCatalog'
 import { TypeMultiSelect } from '@/components/ui/type-multi-select'
 import {
   Dialog,
@@ -50,10 +51,11 @@ import { formatMoney } from '@/lib/format'
 import { readApiErrorMessage } from '@/lib/apiError'
 import { sendTestNotification } from '@/lib/push'
 import { detectPlatform, isStandalone } from '@/lib/platform'
-import { FILTERABLE_CATEGORIES, RUNWAY_EXCLUDED_CATEGORIES } from '@/lib/statistics'
+import { RUNWAY_EXCLUDED_CATEGORIES } from '@/lib/statistics'
 import {
+  expandCategorySelection,
   TRANSACTION_TYPES,
-  type TransactionCategory,
+  type CategoryKey,
   type TransactionType,
 } from '@/lib/transaction'
 import {
@@ -291,6 +293,7 @@ function RuleRow({
   onEdit: () => void
 }) {
   const { t } = useTranslation()
+  const catalog = useCategoryCatalog()
   const update = useUpdateNotificationRule()
   const remove = useDeleteNotificationRule()
   const Icon =
@@ -326,7 +329,7 @@ function RuleRow({
       />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-sm font-medium">{ruleTitle(rule, t)}</span>
-        {ruleSummaryLines(rule, t, accountNameById, allAccountIds).map((line) => (
+        {ruleSummaryLines(rule, t, accountNameById, allAccountIds, catalog).map((line) => (
           <span key={line.label} className="text-muted-foreground text-xs">
             <span className="text-foreground/70 font-medium">{line.label}:</span> {line.value}
           </span>
@@ -381,7 +384,7 @@ interface RuleFormModel {
   name: string
   account_ids: number[]
   other_party_contains: string
-  categories: TransactionCategory[]
+  categories: CategoryKey[]
   types: TransactionType[]
   min_amount: number | undefined
   max_amount: number | undefined
@@ -395,7 +398,7 @@ interface RuleFormModel {
 interface RuleDefaults {
   trigger: NotificationTrigger
   accountIds: number[]
-  categories: TransactionCategory[]
+  categories: CategoryKey[]
   types: TransactionType[]
 }
 
@@ -435,7 +438,8 @@ function modelFromRule(
   }
   if (rule?.trigger === 'transaction') {
     base.other_party_contains = rule.other_party_contains ?? ''
-    base.categories = rule.categories
+    // Stored selections may name whole groups
+    base.categories = expandCategorySelection(rule.categories)
     base.types = rule.types
     base.min_amount = rule.min_amount ?? undefined
     base.max_amount = rule.max_amount ?? undefined
@@ -518,6 +522,7 @@ function RuleDialog({
   const settings = useAppSettings().data
   const triggerDefaultDays = settings?.trigger_default_days ?? {}
   const defaultDigestWeekday = settings?.default_digest_weekday ?? 6
+  const catalog = useCategoryCatalog()
   const triggerOptions = useMemo(
     () =>
       NOTIFICATION_TRIGGERS.map((trigger) => ({
@@ -532,7 +537,7 @@ function RuleDialog({
       {
         trigger: triggerOptions[0].value,
         accountIds: allAccountIds,
-        categories: [...FILTERABLE_CATEGORIES],
+        categories: catalog.allKeys,
         types: [...TRANSACTION_TYPES],
       },
       triggerDefaultDays,
@@ -829,6 +834,7 @@ function ruleSummaryLines(
   t: TFunction,
   accountNameById: Map<number, string>,
   allAccountIds: number[],
+  catalog: CategoryCatalog,
 ): { label: string; value: string }[] {
   const lines: { label: string; value: string }[] = []
 
@@ -852,9 +858,9 @@ function ruleSummaryLines(
     lines.push({
       label: t('common.categories'),
       value: describeSelection(
-        rule.categories,
-        FILTERABLE_CATEGORIES.length,
-        (category) => t(`common.transactionLabel.${category}`),
+        expandCategorySelection(rule.categories, catalog.custom),
+        catalog.allKeys.length,
+        catalog.label,
         t('common.allCategories'),
       ),
     })

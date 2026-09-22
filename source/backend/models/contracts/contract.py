@@ -11,7 +11,6 @@ from source.backend.models.contracts.contract_assignment import ContractAssignme
 from source.backend.models.contracts.contract_frequency import ContractFrequency
 from source.backend.models.contracts.contract_source import ContractSource
 from source.backend.models.transactions.transaction import Transaction
-from source.backend.models.transactions.transaction_category import TransactionCategory
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
@@ -53,7 +52,7 @@ class Contract(Base):
     name: Mapped[str] = mapped_column(String)
     note: Mapped[str | None] = mapped_column(String, nullable=True)
     fingerprint: Mapped[str | None] = mapped_column(String, nullable=True)  # matching key
-    category: Mapped[TransactionCategory | None] = mapped_column(SQLEnum(TransactionCategory), nullable=True)
+    category: Mapped[str | None] = mapped_column(String, nullable=True)
     source: Mapped[ContractSource] = mapped_column(SQLEnum(ContractSource))
 
     median_amount: Mapped[float | None] = mapped_column(Float, nullable=True)

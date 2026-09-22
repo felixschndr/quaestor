@@ -18,7 +18,7 @@ from source.backend.models.notifications.notification_rule import (
     NotificationRule,
     NotificationTrigger,
 )
-from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.transaction_category import CategoryGroup, TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.banking import credential_service
 from source.backend.services.notifications import (
@@ -220,6 +220,27 @@ def test_transaction_rule_filters_by_category(session_factory: sessionmaker):
             body=f"“{ACCOUNT_IBAN}”: -50,00 €",
             url=f"/transactions/{groceries.id}",
         )
+
+
+def test_transaction_rule_with_a_selected_group_matches_its_categories(session_factory: sessionmaker):
+    with session_factory() as db_session:
+        credential, account_id = _account_with_notification_rule(
+            db_session,
+            trigger=NotificationTrigger.TRANSACTION,
+            categories=[CategoryGroup.FOOD_AND_DRINK.value],
+            types=ALL_TYPES,
+        )
+        snapshot = notification_engine.capture_sync_snapshot(credential)
+        make_transaction(
+            db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.RESTAURANTS
+        )
+        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.FUEL)
+
+        notifications = notification_engine.collect_notifications(
+            db_session=db_session, credential=credential, snapshot=snapshot
+        )
+
+        assert len(notifications) == 1
 
 
 def test_disabled_rule_never_triggers(session_factory: sessionmaker):

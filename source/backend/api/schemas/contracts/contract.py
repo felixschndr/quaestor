@@ -8,19 +8,18 @@ from source.backend.models.contracts.contract import Contract
 from source.backend.models.contracts.contract_assignment import ContractAssignment
 from source.backend.models.contracts.contract_frequency import ContractFrequency
 from source.backend.models.contracts.contract_source import ContractSource
-from source.backend.models.transactions.transaction_category import TransactionCategory
 
 
 class ContractCreate(BaseModel):
     name: str
     account_id: int
-    category: TransactionCategory | None = None
+    category: str | None = None
     frequency: ContractFrequency | None = None
 
 
 class ContractUpdate(BaseModel):
     name: str | None = None
-    category: TransactionCategory | None = None
+    category: str | None = None
     note: str | None = None
     frequency: ContractFrequency | None = None
     end_date: datetime.date | None = None
@@ -39,7 +38,7 @@ class ContractRead(BaseModel):
     account_id: int
     name: str
     note: str | None = None
-    category: TransactionCategory | None
+    category: str | None
     source: ContractSource
     median_amount: float | None
     frequency: ContractFrequency | None

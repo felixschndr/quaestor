@@ -14,6 +14,7 @@ from source.backend.models.transactions.recurrence_frequency import RecurrenceFr
 from source.backend.models.transactions.recurring_transaction import RecurringTransaction
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.services.accounts import account_service
+from source.backend.services.transactions import categorization_service
 
 logger = get_logger(__name__)
 
@@ -85,10 +86,16 @@ def list_recurring_transactions(db_session: Session, account: Account) -> list[R
     return rules
 
 
+def _require_category(account: Account, category: str | None) -> None:
+    if category is not None:
+        categorization_service.require_assignable_category(category=category, owner=account.credential.user)
+
+
 def create_recurring_transaction(
     db_session: Session, account: Account, fields: dict, book_immediately: bool
 ) -> RecurringTransaction:
     account_service._require_manual_account(account)
+    _require_category(account=account, category=fields.get("category"))
     today = date.today()
     rule = RecurringTransaction(
         account=account,
@@ -129,6 +136,7 @@ def update_recurring_transaction(
         or fields.get("day_of_month") != rule.day_of_month
         or fields.get("day_of_week") != rule.day_of_week
     )
+    _require_category(account=account, category=fields.get("category"))
     state_before_update = snapshot_columns(rule)
     rule.amount = fields["amount"]
     rule.purpose = fields.get("purpose")

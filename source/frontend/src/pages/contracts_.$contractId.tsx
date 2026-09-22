@@ -12,7 +12,7 @@ import {
   type ContractMemberRead,
 } from '@/lib/contract'
 import { formatDate, formatDateWithoutYear, formatMoney, transactionPartyName } from '@/lib/format'
-import { type TransactionCategory } from '@/lib/transaction'
+import { type CategoryKey } from '@/lib/transaction'
 import { ContractTimeline } from '@/components/contract-timeline'
 import { ContractStatusBadge } from '@/components/contract-status-badge'
 import { NoteEditor } from '@/components/note-editor'
@@ -298,14 +298,14 @@ function ContractCategorySelect({
   category,
   onChange,
 }: {
-  category: TransactionCategory | null
-  onChange: (category: TransactionCategory) => Promise<unknown>
+  category: CategoryKey | null
+  onChange: (category: CategoryKey) => Promise<unknown>
 }) {
   const { t } = useTranslation()
   const [pending, setPending] = useState(false)
   const options = useCategoryOptions()
 
-  const change = async (next: TransactionCategory) => {
+  const change = async (next: CategoryKey) => {
     setPending(true)
     try {
       await onChange(next)
@@ -319,7 +319,7 @@ function ContractCategorySelect({
   return (
     <SingleSelectPopover
       ariaLabel={t('common.category')}
-      value={(category ?? 'UNKNOWN') as TransactionCategory}
+      value={(category ?? 'UNKNOWN') as CategoryKey}
       disabled={pending}
       onChange={(next) => void change(next)}
       options={options}

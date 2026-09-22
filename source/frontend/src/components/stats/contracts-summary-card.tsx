@@ -5,14 +5,14 @@ import { ArrowRight, Repeat } from 'lucide-react'
 import { sumContractsForPeriod, useContracts, type ContractCostPeriod } from '@/lib/contract'
 import { formatMoney } from '@/lib/format'
 import { ChartCard } from '@/components/stats/chart-card'
-import type { TransactionCategory } from '@/lib/transaction'
+import type { CategoryKey } from '@/lib/transaction'
 
 export function ContractsSummaryCard({
   accountIds,
   categories,
 }: {
   accountIds: number[]
-  categories: TransactionCategory[]
+  categories: CategoryKey[]
 }) {
   const { t } = useTranslation()
   const { data } = useContracts()

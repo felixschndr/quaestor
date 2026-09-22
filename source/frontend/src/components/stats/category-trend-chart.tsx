@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatMoney, formatPercent } from '@/lib/format'
 import type { CategoryTrendSlice, StatsDirection } from '@/lib/statistics'
+import { useCategoryCatalog } from '@/lib/categoryCatalog'
 
 const ON_PAR_THRESHOLD = 0.05
 
@@ -23,6 +24,7 @@ export function CategoryTrendChart({
   onDrillBaseline,
 }: CategoryTrendChartProps) {
   const { t } = useTranslation()
+  const catalog = useCategoryCatalog()
   const cell = 'border-border/60 border-b py-2'
 
   return (
@@ -59,7 +61,7 @@ export function CategoryTrendChart({
                 className={cn(onDrill && 'group cursor-pointer')}
               >
                 <td className={cn(cell, hover, 'text-foreground rounded-l-md pr-2 pl-2')}>
-                  {t(`common.transactionLabel.${slice.category}`)}
+                  {catalog.label(slice.category)}
                 </td>
                 <td
                   className={cn(

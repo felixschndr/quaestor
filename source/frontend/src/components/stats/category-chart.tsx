@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ChevronLeft } from 'lucide-react'
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 
 import { cn } from '@/lib/utils'
@@ -11,7 +12,14 @@ import {
   type CategorySlice,
   type ChartType,
 } from '@/lib/statistics'
-import type { TransactionCategory } from '@/lib/transaction'
+import { useCategoryCatalog, type CategoryCatalog } from '@/lib/categoryCatalog'
+import {
+  expandCategorySelection,
+  isCategoryGroup,
+  type CategoryGroup,
+  type CategoryKey,
+} from '@/lib/transaction'
+import { Button } from '@/components/ui/button'
 import { TOOLTIP_STYLE } from './chartTheme'
 import { HorizontalDrillBarChart, type DrillBarRow } from './horizontal-drill-bar-chart'
 
@@ -31,8 +39,9 @@ export interface CategoryChartProps {
   slices: CategorySlice[]
   chartType: ChartType
   hidden: ReadonlySet<string>
-  onToggleHidden: (category: TransactionCategory | 'OTHER') => void
-  onDrill?: (categories: TransactionCategory[]) => void
+  // Keys are group keys on the overview and category keys inside an opened group
+  onToggleHidden: (key: CategoryKey | CategoryGroup | 'OTHER') => void
+  onDrill?: (categories: CategoryKey[]) => void
 }
 
 function CategoryTooltip({
@@ -128,6 +137,21 @@ function renderPieLabel(props: {
   )
 }
 
+type ChartKey = CategoryKey | CategoryGroup | 'OTHER'
+
+// Sums the categories per group; a category without a group (UNKNOWN) stays on its own
+function groupSlices(
+  slices: CategorySlice[],
+  groupOf: CategoryCatalog['groupOf'],
+): { key: CategoryKey | CategoryGroup; total: number }[] {
+  const totals = new Map<CategoryKey | CategoryGroup, number>()
+  for (const slice of slices) {
+    const key = groupOf(slice.category) ?? slice.category
+    totals.set(key, (totals.get(key) ?? 0) + slice.total)
+  }
+  return [...totals].map(([key, total]) => ({ key, total: Math.round(total * 100) / 100 }))
+}
+
 export function CategoryChart({
   slices,
   chartType,
@@ -136,64 +160,100 @@ export function CategoryChart({
   onDrill,
 }: CategoryChartProps) {
   const { t } = useTranslation()
-  const toggle = (category: string) => onToggleHidden(category as TransactionCategory | 'OTHER')
+  const catalog = useCategoryCatalog()
+  const [openGroup, setOpenGroup] = useState<CategoryGroup | null>(null)
+  const toggle = (key: string) => onToggleHidden(key as ChartKey)
+  const colorOf = (key: string) => sliceColor(key, catalog.custom)
+  const activeGroup =
+    openGroup && slices.some((slice) => catalog.groupOf(slice.category) === openGroup)
+      ? openGroup
+      : null
 
-  const data: CategoryChartDatum[] = useMemo(
-    () =>
-      slices.map((slice) => ({
-        category: slice.category,
-        label: t(`common.transactionLabel.${slice.category}`),
-        value: slice.total,
-      })),
-    [slices, t],
-  )
+  const data: CategoryChartDatum[] = useMemo(() => {
+    const entries = activeGroup
+      ? slices
+          .filter((slice) => catalog.groupOf(slice.category) === activeGroup)
+          .map((slice) => ({ key: slice.category, total: slice.total }))
+      : groupSlices(slices, catalog.groupOf)
+    return entries
+      .map((entry) => ({
+        category: entry.key,
+        label: catalog.label(entry.key),
+        value: entry.total,
+      }))
+      .sort((a, b) => b.value - a.value)
+  }, [slices, activeGroup, catalog])
+
+  const categoriesOf = (keys: string[]): CategoryKey[] =>
+    expandCategorySelection(keys, catalog.custom)
+  // A group opens its categories; a category (or the ungrouped UNKNOWN) drills into the search
+  const drill = (keys: string[]) => {
+    if (keys.length === 1 && isCategoryGroup(keys[0])) {
+      setOpenGroup(keys[0])
+      return
+    }
+    onDrill?.(categoriesOf(keys))
+  }
+  const canDrill = !activeGroup || Boolean(onDrill)
+
+  const header = activeGroup ? (
+    <div className="flex items-center gap-2 pb-2 text-sm">
+      <Button type="button" variant="ghost" size="sm" onClick={() => setOpenGroup(null)}>
+        <ChevronLeft className="size-4" aria-hidden="true" />
+        {t('common.allCategories')}
+      </Button>
+      <span className="text-muted-foreground" aria-hidden="true">
+        /
+      </span>
+      <span className="font-medium">{t(`common.transactionLabel.${activeGroup}`)}</span>
+    </div>
+  ) : null
 
   if (chartType === 'pie') {
     const pieData: PieDatum[] = aggregateTopN(data, MAX_PIE_SLICES, t('stats.other')).map(
-      (datum) => ({ ...datum, color: sliceColor(datum.category) }),
+      (datum) => ({ ...datum, color: colorOf(datum.category) }),
     )
     const visible = pieData.filter((datum) => !hidden.has(datum.category))
     const total = visible.reduce((sum, datum) => sum + datum.value, 0)
     const shown = new Set(pieData.map((datum) => datum.category))
-    const otherCategories = data
+    const otherKeys = data
       .filter((datum) => !shown.has(datum.category))
-      .map((datum) => datum.category as TransactionCategory)
+      .map((datum) => datum.category)
     return (
-      <div className="h-72 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={visible}
-              dataKey="value"
-              nameKey="label"
-              outerRadius="75%"
-              stroke="none"
-              labelLine={false}
-              label={renderPieLabel}
-              animationDuration={PIE_ANIMATION_MS}
-              className={cn(onDrill && 'cursor-pointer')}
-              onClick={
-                onDrill
-                  ? (_, index) => {
-                      const datum = visible[index]
-                      if (!datum) return
-                      onDrill(
-                        datum.category === 'OTHER'
-                          ? otherCategories
-                          : [datum.category as TransactionCategory],
-                      )
-                    }
-                  : undefined
-              }
-            >
-              {visible.map((datum) => (
-                <Cell key={datum.category} fill={datum.color} />
-              ))}
-            </Pie>
-            <Tooltip content={<CategoryTooltip total={total} />} />
-            <Legend content={<PieLegend data={pieData} hidden={hidden} onToggle={toggle} />} />
-          </PieChart>
-        </ResponsiveContainer>
+      <div className="w-full">
+        {header}
+        <div className="h-72 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={visible}
+                dataKey="value"
+                nameKey="label"
+                outerRadius="75%"
+                stroke="none"
+                labelLine={false}
+                label={renderPieLabel}
+                animationDuration={PIE_ANIMATION_MS}
+                className={cn(canDrill && 'cursor-pointer')}
+                onClick={
+                  canDrill
+                    ? (_, index) => {
+                        const datum = visible[index]
+                        if (!datum) return
+                        drill(datum.category === 'OTHER' ? otherKeys : [datum.category])
+                      }
+                    : undefined
+                }
+              >
+                {visible.map((datum) => (
+                  <Cell key={datum.category} fill={datum.color} />
+                ))}
+              </Pie>
+              <Tooltip content={<CategoryTooltip total={total} />} />
+              <Legend content={<PieLegend data={pieData} hidden={hidden} onToggle={toggle} />} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     )
   }
@@ -207,16 +267,19 @@ export function CategoryChart({
     .filter((datum) => !hidden.has(datum.category))
     .reduce((sum, datum) => sum + datum.value, 0)
   return (
-    <HorizontalDrillBarChart
-      rows={rows}
-      hidden={hidden}
-      labelOf={(category) => t(`common.transactionLabel.${category}`)}
-      colorOf={(key) => sliceColor(key as TransactionCategory)}
-      maxChars={18}
-      axisWidth={130}
-      tooltip={<CategoryTooltip total={total} />}
-      onToggleHidden={toggle}
-      onDrill={onDrill ? (key) => onDrill([key as TransactionCategory]) : undefined}
-    />
+    <div className="w-full">
+      {header}
+      <HorizontalDrillBarChart
+        rows={rows}
+        hidden={hidden}
+        labelOf={catalog.label}
+        colorOf={colorOf}
+        maxChars={18}
+        axisWidth={130}
+        tooltip={<CategoryTooltip total={total} />}
+        onToggleHidden={toggle}
+        onDrill={canDrill ? (key) => drill([key]) : undefined}
+      />
+    </div>
   )
 }

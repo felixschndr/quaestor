@@ -19,7 +19,7 @@ import {
   type ContractFrequency,
   type ContractRead,
 } from '@/lib/contract'
-import { TRANSACTION_CATEGORIES, type TransactionCategory } from '@/lib/transaction'
+import { type CategoryKey } from '@/lib/transaction'
 import { useCategoryOptions } from '@/lib/categoryIcons'
 import { useFrequencyOptions } from '@/lib/contractFrequencyIcons'
 import { ContractCostOverview } from '@/components/contract-cost-overview'
@@ -39,6 +39,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { oneOrMany } from '@/lib/searchParams'
+import { categoryListParam } from '@/lib/transactionSearchParams'
 
 const numberList = oneOrMany(z.coerce.number())
 
@@ -56,7 +57,7 @@ const contractFiltersSchema = z.object({
   account_ids: numberList.optional(),
   amount_from: z.coerce.number().optional(),
   amount_to: z.coerce.number().optional(),
-  categories: oneOrMany(z.enum(TRANSACTION_CATEGORIES)).optional(),
+  categories: categoryListParam.optional(),
   frequencies: oneOrMany(z.enum(CONTRACT_FREQUENCY_FILTERS)).optional(),
   overdue: oneOrMany(z.enum(CONTRACT_OVERDUE_FILTERS)).optional(),
   status: oneOrMany(z.enum(CONTRACT_STATUS_FILTERS)).optional(),
@@ -178,7 +179,7 @@ function CreateContractDialog({ credentials }: { credentials: CredentialRead[] }
   const [accountId, setAccountId] = useState<number | null>(null)
   // 'NONE' is the "irregular" choice
   const [frequency, setFrequency] = useState<ContractFrequency | 'NONE'>('NONE')
-  const [category, setCategory] = useState<TransactionCategory>('UNKNOWN')
+  const [category, setCategory] = useState<CategoryKey>('UNKNOWN')
   const categoryOptions = useCategoryOptions()
   const frequencyOptions = useFrequencyOptions()
 

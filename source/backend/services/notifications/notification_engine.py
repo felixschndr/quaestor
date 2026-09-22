@@ -26,7 +26,7 @@ from source.backend.models.notifications.notification_rule import (
     NotificationTrigger,
 )
 from source.backend.models.transactions.transaction import Transaction
-from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.transaction_category import TransactionCategory, expand_category_selection
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.notifications import (
     notification_messages,
@@ -837,7 +837,12 @@ def _transaction_matches(rule: NotificationRule, transaction: Transaction) -> bo
         if needle not in (transaction.other_party or "").lower():
             return False
 
-    if not _selection_matches(value=transaction.category.value, selected=rule.categories, all_values=_ALL_CATEGORIES):
+    custom_groups = transaction.account.credential.user.custom_category_groups
+    if not _selection_matches(
+        value=transaction.category,
+        selected=expand_category_selection(selection=rule.categories, custom_groups=custom_groups),
+        all_values=[*_ALL_CATEGORIES, *custom_groups],
+    ):
         return False
 
     type_value = transaction.transaction_type.value if transaction.transaction_type is not None else None

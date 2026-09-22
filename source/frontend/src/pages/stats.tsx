@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { TransactionFilterFields } from '@/components/ui/transaction-filter-fields'
 import { CategoryChart } from '@/components/stats/category-chart'
+import { useCategoryCatalog } from '@/lib/categoryCatalog'
 import { CategoryTrendChart } from '@/components/stats/category-trend-chart'
 import { CashflowChart } from '@/components/stats/cashflow-chart'
 import { ChartCard } from '@/components/stats/chart-card'
@@ -22,17 +23,12 @@ import { NetSavingsChart } from '@/components/stats/net-savings-chart'
 import { NetWorthChart } from '@/components/stats/net-worth-chart'
 import { SegmentedToggle } from '@/components/stats/segmented-toggle'
 import { TransactionCountChart } from '@/components/stats/transaction-count-chart'
-import {
-  TRANSACTION_TYPES,
-  type TransactionCategory,
-  type TransactionType,
-} from '@/lib/transaction'
+import { TRANSACTION_TYPES, type CategoryKey, type TransactionType } from '@/lib/transaction'
 import {
   baselineDateRange,
   baselineRangeDescriptor,
   DATE_RANGE_PRESETS,
   defaultStatsDateRange,
-  FILTERABLE_CATEGORIES,
   DEFAULT_TREND_PERIODS,
   matchingPreset,
   monthDateRange,
@@ -58,7 +54,7 @@ import {
 import { defaultAccountIds } from '@/lib/accounts'
 import { useScrollRestoration } from '@/lib/useScrollRestoration'
 import type { TransactionSortKey } from '@/lib/transactionSearchParams'
-import type { StatsViewProps, StatsViewState } from '@/routes/stats'
+import type { ChartKey, StatsViewProps, StatsViewState } from '@/routes/stats'
 
 export function StatsView({
   credentials,
@@ -70,6 +66,7 @@ export function StatsView({
   onOpenBalance,
 }: StatsViewProps) {
   const { t } = useTranslation()
+  const catalog = useCategoryCatalog()
   useScrollRestoration('stats')
   const defaultIds = defaultAccountIds(credentials)
   const defaults = defaultStatsDateRange()
@@ -100,7 +97,8 @@ export function StatsView({
     total: trendRange.unit === 'days' ? trendRange.totalDays : trendRange.periods * trendRange.len,
   })
   const direction: StatsDirection = search.direction ?? 'OUTGOING'
-  const selectedCategories: TransactionCategory[] = search.categories ?? [...FILTERABLE_CATEGORIES]
+  const allCategories = catalog.allKeys
+  const selectedCategories: CategoryKey[] = search.categories ?? allCategories
   const selectedTypes: TransactionType[] = search.transaction_types ?? [...TRANSACTION_TYPES]
   const hiddenCategories = search.hidden_categories ?? []
   const hiddenParties = search.hidden_parties ?? []
@@ -125,7 +123,7 @@ export function StatsView({
     filters.date_from !== defaults.date_from ||
     filters.date_to !== defaults.date_to ||
     direction !== 'OUTGOING' ||
-    selectedCategories.length !== FILTERABLE_CATEGORIES.length ||
+    selectedCategories.length !== allCategories.length ||
     selectedTypes.length !== TRANSACTION_TYPES.length ||
     hiddenCategories.length > 0 ||
     hiddenParties.length > 0
@@ -134,7 +132,7 @@ export function StatsView({
       accountIds: defaultIds,
       filters: defaults,
       direction: 'OUTGOING',
-      categories: [...FILTERABLE_CATEGORIES],
+      categories: allCategories,
       transactionTypes: [...TRANSACTION_TYPES],
       hiddenCategories: [],
       hiddenParties: [],
@@ -148,9 +146,9 @@ export function StatsView({
   const updateTrendPeriods = (next: number) => sync({ trendPeriods: next })
   const updateCountGroup = (next: TransactionCountsGroupBy) => sync({ countGroup: next })
   const updateDirection = (next: StatsDirection) => sync({ direction: next })
-  const updateCategories = (next: TransactionCategory[]) => sync({ categories: next })
+  const updateCategories = (next: CategoryKey[]) => sync({ categories: next })
   const updateTypes = (next: TransactionType[]) => sync({ transactionTypes: next })
-  const toggleHiddenCategory = (category: TransactionCategory | 'OTHER') =>
+  const toggleHiddenCategory = (category: ChartKey) =>
     sync({
       hiddenCategories: hiddenCategories.includes(category)
         ? hiddenCategories.filter((entry) => entry !== category)
@@ -164,7 +162,7 @@ export function StatsView({
     })
 
   const categoriesParam =
-    selectedCategories.length === FILTERABLE_CATEGORIES.length ? [] : selectedCategories
+    selectedCategories.length === allCategories.length ? [] : selectedCategories
   const typesParam = selectedTypes.length === TRANSACTION_TYPES.length ? [] : selectedTypes
   const typeFilters: StatsTypeFilters = { transaction_types: typesParam }
 
@@ -182,7 +180,7 @@ export function StatsView({
   const drillSort: TransactionSortKey = direction === 'INCOMING' ? 'amount_desc' : 'amount_asc'
 
   const openSearch = (extra: {
-    categories?: TransactionCategory[]
+    categories?: CategoryKey[]
     text?: string
     dateFrom?: string
     dateTo?: string
@@ -204,7 +202,7 @@ export function StatsView({
     openSearch({ dateFrom: from, dateTo: to, direction: monthDirection })
   }
 
-  const openBaselineSearch = (category: TransactionCategory) => {
+  const openBaselineSearch = (category: CategoryKey) => {
     const range = baselineDateRange(
       filters.date_from ?? defaults.date_from,
       filters.date_to ?? defaults.date_to,
@@ -224,7 +222,7 @@ export function StatsView({
   const openNetWorthSearch = () =>
     onOpenSearch({ accountIds, dateFrom: filters.date_from, dateTo: filters.date_to })
 
-  const openRunwaySearch = (runwayCategories: TransactionCategory[]) =>
+  const openRunwaySearch = (runwayCategories: CategoryKey[]) =>
     onOpenSearch({
       accountIds,
       dateFrom: filters.date_from,
@@ -428,12 +426,8 @@ export function StatsView({
                 <CategoryTrendChart
                   slices={categoryTrend.data ?? []}
                   direction={direction}
-                  onDrill={(category) =>
-                    openSearch({ categories: [category as TransactionCategory] })
-                  }
-                  onDrillBaseline={(category) =>
-                    openBaselineSearch(category as TransactionCategory)
-                  }
+                  onDrill={(category) => openSearch({ categories: [category as CategoryKey] })}
+                  onDrillBaseline={(category) => openBaselineSearch(category as CategoryKey)}
                 />
               </div>
             ) : (

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
 import { accountQueryKeys, type TransactionRead } from './accountHistory'
-import type { TransactionCategory } from './transaction'
+import type { CategoryKey } from './transaction'
 
 export const CONTRACT_FREQUENCIES = [
   'WEEKLY',
@@ -24,7 +24,7 @@ export interface ContractRead {
   account_id: number
   name: string
   note: string | null
-  category: TransactionCategory | null
+  category: CategoryKey | null
   source: ContractSource
   median_amount: number | null
   frequency: ContractFrequency | null
@@ -56,7 +56,7 @@ export interface ContractFilters {
   account_ids?: number[]
   amount_from?: number
   amount_to?: number
-  categories?: TransactionCategory[]
+  categories?: CategoryKey[]
   frequencies?: ContractFrequencyFilter[]
   overdue?: ContractOverdueFilter[]
   status?: ContractStatusFilter[]
@@ -145,13 +145,13 @@ export function hasActiveContractFilters(filters: ContractFilters): boolean {
 export interface ContractCreatePayload {
   name: string
   account_id: number
-  category?: TransactionCategory | null
+  category?: CategoryKey | null
   frequency?: ContractFrequency | null
 }
 
 export interface ContractUpdatePayload {
   name: string
-  category?: TransactionCategory | null
+  category?: CategoryKey | null
   note?: string | null
   frequency?: ContractFrequency | null
   end_date?: string | null

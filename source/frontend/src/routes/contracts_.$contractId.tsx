@@ -9,7 +9,7 @@ import {
   type ContractDetailRead,
   type ContractFrequency,
 } from '@/lib/contract'
-import { type TransactionCategory } from '@/lib/transaction'
+import { type CategoryKey } from '@/lib/transaction'
 import { ContractDetailView } from '@/pages/contracts_.$contractId'
 import { NotFound } from '@/components/not-found'
 
@@ -82,7 +82,7 @@ export interface ContractDetailViewProps {
   contract: ContractDetailRead
   isDeleting?: boolean
   onRename: (name: string) => Promise<unknown>
-  onChangeCategory: (category: TransactionCategory) => Promise<unknown>
+  onChangeCategory: (category: CategoryKey) => Promise<unknown>
   onChangeFrequency: (frequency: ContractFrequency | null) => Promise<unknown>
   onChangeEndDate: (endDate: string | null) => Promise<unknown>
   onSaveNote: (note: string | null) => Promise<unknown>

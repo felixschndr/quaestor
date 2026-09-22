@@ -14,7 +14,12 @@ import {
   type CategoryChartDatum,
   type MonthlyCashflow,
 } from '@/lib/statistics'
-import { TRANSACTION_CATEGORIES } from '@/lib/transaction'
+import {
+  CATEGORIES_BY_GROUP,
+  CATEGORY_GROUPS,
+  expandCategorySelection,
+  TRANSACTION_CATEGORIES,
+} from '@/lib/transaction'
 
 describe('buildStatsQueryString', () => {
   it('emits one account_ids entry per id', () => {
@@ -157,8 +162,8 @@ describe('aggregateTopN', () => {
 })
 
 describe('sliceColor', () => {
-  it('keys the color on the category, not on its rank', () => {
-    expect(sliceColor('SUPERMARKET')).not.toBe(sliceColor('RENT'))
+  it('keys the color on the group, not on its rank', () => {
+    expect(sliceColor('FOOD_AND_DRINK')).not.toBe(sliceColor('HOUSING'))
   })
 
   it('uses a neutral gray for the OTHER bucket', () => {
@@ -171,22 +176,31 @@ describe('sliceColor', () => {
     }
   })
 
-  it('keeps the twelve most common expense categories visually distinct', () => {
-    const common = [
-      'RENT',
-      'UTILITIES',
-      'SUPERMARKET',
-      'ONLINE_SHOPPING',
-      'RESTAURANTS',
-      'FUEL',
-      'SUBSCRIPTIONS',
-      'ENTERTAINMENT',
-      'TRAVEL',
-      'FITNESS',
-      'CLOTHING',
-      'DRUGSTORE',
-    ] as const
-    expect(new Set(common.map((category) => sliceColor(category))).size).toBe(common.length)
+  it('gives every group a color and keeps the first twelve visually distinct', () => {
+    for (const group of CATEGORY_GROUPS) {
+      expect(sliceColor(group)).toMatch(/^var\(--chart-/)
+    }
+    const colors = CATEGORY_GROUPS.slice(0, 12).map((group) => sliceColor(group))
+    expect(new Set(colors).size).toBe(colors.length)
+  })
+
+  it('colours a custom category after the fixed categories of its group', () => {
+    const custom = [
+      { key: 'CUSTOM_00000001', group: 'PETS' as const },
+      { key: 'CUSTOM_00000002', group: 'PETS' as const },
+    ]
+    const colors = [...CATEGORIES_BY_GROUP.PETS, ...custom.map((category) => category.key)].map(
+      (key) => sliceColor(key, custom),
+    )
+    expect(new Set(colors).size).toBe(colors.length)
+    expect(sliceColor('CUSTOM_FFFFFFFF', custom)).toBe('var(--chart-other)')
+  })
+
+  it('keeps the categories of one group visually distinct', () => {
+    for (const group of CATEGORY_GROUPS) {
+      const colors = CATEGORIES_BY_GROUP[group].map((category) => sliceColor(category))
+      expect(new Set(colors).size).toBe(colors.length)
+    }
   })
 })
 
@@ -311,5 +325,23 @@ describe('runwayYearsMonths', () => {
 
   it('is exact on whole-year boundaries', () => {
     expect(runwayYearsMonths(24)).toEqual({ years: 2, months: 0 })
+  })
+})
+
+describe('expandCategorySelection', () => {
+  const custom = [{ key: 'CUSTOM_0A1B2C3D' as const, group: 'PETS' as const }]
+
+  it('expands a group to its fixed and custom categories and keeps custom keys', () => {
+    expect(expandCategorySelection(['PETS', 'SALARY', 'CUSTOM_DEADBEEF'], custom)).toEqual([
+      'PET_SUPPLIES',
+      'VET',
+      'CUSTOM_0A1B2C3D',
+      'SALARY',
+      'CUSTOM_DEADBEEF',
+    ])
+  })
+
+  it('drops retired keys', () => {
+    expect(expandCategorySelection(['TRAVEL', 'FUEL'])).toEqual(['FUEL'])
   })
 })

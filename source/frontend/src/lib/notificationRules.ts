@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { api } from './api'
 import { useInvalidatingMutation } from './mutation'
-import type { TransactionCategory, TransactionType } from './transaction'
+import { expandCategorySelection, type CategoryKey, type TransactionType } from './transaction'
 
 export const NOTIFICATION_TRIGGERS = [
   'expected_transaction',
@@ -89,7 +89,7 @@ export interface UpcomingShortfallRule extends RuleBase {
 export interface TransactionRule extends RuleBase {
   trigger: 'transaction'
   other_party_contains: string | null
-  categories: TransactionCategory[]
+  categories: CategoryKey[]
   types: TransactionType[]
   min_amount: number | null
   max_amount: number | null
@@ -133,7 +133,7 @@ export function ruleSignature(rule: NotificationRule | NotificationRuleDraft): s
       trigger: rule.trigger,
       accounts,
       other_party_contains: rule.other_party_contains ?? null,
-      categories: [...rule.categories].sort(),
+      categories: expandCategorySelection(rule.categories).sort(),
       types: [...rule.types].sort(),
       min_amount: rule.min_amount ?? null,
       max_amount: rule.max_amount ?? null,

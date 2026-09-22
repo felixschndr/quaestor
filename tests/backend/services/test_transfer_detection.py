@@ -7,6 +7,7 @@ from source.backend.bank_handlers import BankProvider
 from source.backend.models.accounts.account import Account
 from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot, BalanceSnapshotSource
 from source.backend.models.auth.user import User
+from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.related_link_source import RelatedLinkSource
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
@@ -156,6 +157,7 @@ def test_same_account_pair_is_linked_as_reimbursement(session_factory: sessionma
         _assert_linked([out_transaction, in_transaction])
         assert out_transaction.category != TransactionCategory.REIMBURSEMENT
         assert in_transaction.category == TransactionCategory.REIMBURSEMENT
+        assert in_transaction.category_source == CategorySource.SYSTEM
 
 
 def test_prefers_a_different_account_over_the_same_account(session_factory: sessionmaker):

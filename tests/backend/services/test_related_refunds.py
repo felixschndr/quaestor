@@ -19,7 +19,11 @@ def test_returned_payment_and_retry_hides_the_reversed_pair_and_badges_it(sessio
     with session_factory() as session:
         _, _, account = make_user_and_credential_and_account(session, name="Cash")
         returned = make_transaction(
-            session, account_id=account.id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.TRAVEL, date=OLDER_DATE
+            session,
+            account_id=account.id,
+            amount=-DEFAULT_AMOUNT,
+            category=TransactionCategory.VACATION,
+            date=OLDER_DATE,
         )
         reimbursement = make_transaction(
             session,
@@ -32,7 +36,7 @@ def test_returned_payment_and_retry_hides_the_reversed_pair_and_badges_it(sessio
             session,
             account_id=account.id,
             amount=-DEFAULT_AMOUNT,
-            category=TransactionCategory.TRAVEL,
+            category=TransactionCategory.VACATION,
             date=LATEST_DATE,
         )
         session.flush()

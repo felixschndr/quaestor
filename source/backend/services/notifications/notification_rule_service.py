@@ -13,6 +13,7 @@ from source.backend.models.notifications.notification_rule import (
     NotificationTrigger,
 )
 from source.backend.services.accounts import account_service
+from source.backend.services.transactions import categorization_service
 
 logger = get_logger(__name__)
 
@@ -51,6 +52,7 @@ def get_rule_for_user(db_session: Session, rule_id: int, user: User) -> Notifica
 
 def create_rule(db_session: Session, user: User, fields: dict) -> NotificationRule:
     account_service.resolve_owned_account_ids(db_session=db_session, user=user, account_ids=fields["account_ids"])
+    categorization_service.require_category_selection(selection=fields.get("categories") or [], owner=user)
     rule = NotificationRule(user_id=user.id, **fields)
     db_session.add(rule)
     db_session.commit()
@@ -60,6 +62,7 @@ def create_rule(db_session: Session, user: User, fields: dict) -> NotificationRu
 
 def update_rule(db_session: Session, user: User, rule: NotificationRule, fields: dict) -> NotificationRule:
     account_service.resolve_owned_account_ids(db_session=db_session, user=user, account_ids=fields["account_ids"])
+    categorization_service.require_category_selection(selection=fields.get("categories") or [], owner=user)
     state_before_update = snapshot_columns(rule)
     apply_fields(entity=rule, fields=fields)
     db_session.commit()

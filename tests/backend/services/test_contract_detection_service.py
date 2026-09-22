@@ -9,7 +9,8 @@ from source.backend.bank_handlers import BankProvider
 from source.backend.models.contracts.contract import Contract
 from source.backend.models.contracts.contract_assignment import ContractAssignment
 from source.backend.models.contracts.contract_frequency import ContractFrequency
-from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.category_source import CategorySource
+from source.backend.models.transactions.transaction_category import CategorizationRules, TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.contracts import contract_detection_service
 from source.backend.services.contracts.contract_detection_service import (
@@ -37,6 +38,7 @@ def _seed(
     amount: float,
     day_offsets: list[int],
     purpose: str | None = None,
+    category: TransactionCategory = TransactionCategory.UNKNOWN,
 ) -> None:
     for offset in day_offsets:
         make_transaction(
@@ -45,6 +47,7 @@ def _seed(
             amount=amount,
             other_party=other_party,
             purpose=purpose,
+            category=category,
             date=OLDER_DATE + timedelta(days=offset),
             transaction_type=TransactionType.OUTGOING if amount < 0 else TransactionType.INCOMING,
         )
@@ -182,6 +185,7 @@ def test_blacklisted_other_party_does_not_form_a_contract(session_factory: sessi
             other_party="EDEKA Markt Mueller",
             amount=-DEFAULT_AMOUNT,
             day_offsets=[0, 30, 60],
+            category=TransactionCategory.SUPERMARKET,
         )
         session.commit()
 
@@ -347,7 +351,7 @@ def test_contract_category_is_applied_to_newly_detected_members(session_factory:
                 other_party=NETFLIX,
                 date=OLDER_DATE + timedelta(days=offset),
                 transaction_type=TransactionType.OUTGOING,
-                category=TransactionCategory.SUBSCRIPTIONS,
+                category=TransactionCategory.STREAMING,
             )
         session.commit()
 
@@ -357,6 +361,52 @@ def test_contract_category_is_applied_to_newly_detected_members(session_factory:
         members = contract.members()
         assert len(members) == 4
         assert {member.category for member in members} == {TransactionCategory.ENTERTAINMENT}
+        assert {member.category_source for member in members} == {CategorySource.CONTRACT}
+
+
+def test_detection_keeps_a_category_the_user_set_on_a_member(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        contract = make_contract(
+            session, account_id=account.id, name=NETFLIX, category=TransactionCategory.ENTERTAINMENT
+        )
+        contract.fingerprint = "party:netflix:out"
+        members = [
+            make_transaction(
+                session,
+                account_id=account.id,
+                amount=-DEFAULT_AMOUNT,
+                other_party=NETFLIX,
+                date=OLDER_DATE + timedelta(days=offset),
+                transaction_type=TransactionType.OUTGOING,
+            )
+            for offset in (0, 30, 60, 90)
+        ]
+        members[0].category = TransactionCategory.GIFTS
+        members[0].category_source = CategorySource.MANUAL
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        assert members[0].category == TransactionCategory.GIFTS
+        assert {member.category for member in members[1:]} == {TransactionCategory.ENTERTAINMENT}
+
+
+def test_a_transaction_released_from_a_contract_gets_its_matched_category_back(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        transaction = make_transaction(
+            session,
+            account_id=account.id,
+            other_party=NETFLIX,
+            category=TransactionCategory.GIFTS,
+            category_source=CategorySource.CONTRACT,
+        )
+
+        contract_detection_service.release_contract_category(transaction=transaction, rules=CategorizationRules())
+
+        assert transaction.category == TransactionCategory.STREAMING
+        assert transaction.category_source == CategorySource.AUTO
 
 
 def test_excluded_transaction_is_not_re_added(session_factory: sessionmaker):

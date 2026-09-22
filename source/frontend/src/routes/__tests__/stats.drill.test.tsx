@@ -1,6 +1,6 @@
 import { cloneElement, type ReactElement } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('recharts', async (importOriginal) => {
@@ -112,13 +112,20 @@ async function renderAndGetArrows(search: Partial<StatsSearchParams>) {
   }
 }
 
+// The "By category" bar first lists groups: its arrow opens the group, the category's arrow then drills
+async function drillIntoFuel(arrows: NodeListOf<Element>) {
+  fireEvent.click(arrows[0])
+  expect(await screen.findByText('Mobility')).toBeInTheDocument()
+  fireEvent.click(document.querySelectorAll('.stats-drill-arrow[role="button"]')[0])
+}
+
 describe('StatsView drill-in carries the active filters', () => {
   it('passes the clicked category plus the active type filter', async () => {
     const { onOpenSearch, arrows } = await renderAndGetArrows({
       transaction_types: ['FEES'],
     })
 
-    fireEvent.click(arrows[0]) // the "By category" bar
+    await drillIntoFuel(arrows)
 
     const drill = onOpenSearch.mock.calls.at(-1)?.[0]
     expect(drill.categories).toEqual(['FUEL'])
@@ -158,7 +165,7 @@ describe('StatsView drill-in carries the active filters', () => {
   it('drops market-valued depot accounts from the drill so its list sums to the stat', async () => {
     const { onOpenSearch, arrows } = await renderAndGetArrows({ account_ids: [42, 99] })
 
-    fireEvent.click(arrows[0]) // the "By category" bar
+    await drillIntoFuel(arrows)
 
     expect(onOpenSearch.mock.calls.at(-1)?.[0].accountIds).toEqual([42])
   })

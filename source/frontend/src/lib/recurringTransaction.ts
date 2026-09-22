@@ -4,7 +4,7 @@ import { api } from './api'
 import { accountQueryKeys } from './accountHistory'
 import { authQueryKeys } from './auth'
 import { useInvalidatingMutation } from './mutation'
-import type { TransactionCategory, TransactionType } from './transaction'
+import type { CategoryKey, TransactionType } from './transaction'
 
 export const RECURRENCE_FREQUENCIES = ['MONTHLY', 'WEEKLY'] as const
 
@@ -17,7 +17,7 @@ export interface RecurringTransactionRead {
   purpose: string | null
   other_party: string | null
   transaction_type: TransactionType | null
-  category: TransactionCategory | null
+  category: CategoryKey | null
   note: string | null
   frequency: RecurrenceFrequency
   day_of_month: number | null
@@ -30,7 +30,7 @@ export interface RecurringTransactionCreatePayload {
   purpose?: string | null
   other_party?: string | null
   transaction_type?: TransactionType | null
-  category?: TransactionCategory | null
+  category?: CategoryKey | null
   note?: string | null
   frequency: RecurrenceFrequency
   day_of_month?: number | null

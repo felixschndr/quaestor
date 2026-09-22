@@ -26,10 +26,10 @@ from source.backend.models.accounts.account import Account
 from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot
 from source.backend.models.auth.user import User
 from source.backend.models.transactions.transaction import Transaction
-from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.transaction_category import CategoryGroup, expand_category_selection
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.accounts import account_service
-from source.backend.services.transactions import related_refunds
+from source.backend.services.transactions import categorization_service, related_refunds
 
 logger = get_logger(__name__)
 
@@ -37,7 +37,8 @@ DEFAULT_TOP_OTHER_PARTIES_LIMIT = 15
 
 DEFAULT_TREND_BASELINE_PERIOD_COUNT = 6
 
-RUNWAY_EXCLUDED_CATEGORIES = [TransactionCategory.INVESTMENT, TransactionCategory.SAVINGS]
+# A selection, so custom categories in the group are excluded as well
+RUNWAY_EXCLUDED_CATEGORIES = [CategoryGroup.SAVINGS_AND_INVESTMENTS.value]
 
 
 @dataclass
@@ -52,9 +53,9 @@ def _base_conditions(
     account_ids: list[int],
     date_from: datetime.date | None,
     date_to: datetime.date | None,
-    categories: list[TransactionCategory],
+    categories: list[str],
     transaction_types: list[TransactionType] | None = None,
-    exclude_categories: list[TransactionCategory] | None = None,
+    exclude_categories: list[str] | None = None,
 ) -> list[ColumnElement[bool]]:
     # Depot/fund accounts carry the asset side of every buy as a mirror booking (e.g. Trade Republic books a
     # purchase on both the cash account AND the position), so counting them would double every investment.
@@ -71,10 +72,16 @@ def _base_conditions(
         conditions.append(Transaction.date >= date_from)
     if date_to is not None:
         conditions.append(Transaction.date <= date_to)
-    if categories:
-        conditions.append(Transaction.category.in_(categories))
-    if exclude_categories:
-        conditions.append(Transaction.category.notin_(exclude_categories))
+    if categories or exclude_categories:
+        custom_groups = categorization_service.custom_category_groups_for_accounts(
+            db_session=db_session, account_ids=account_ids
+        )
+        if categories:
+            selected = expand_category_selection(selection=categories, custom_groups=custom_groups)
+            conditions.append(Transaction.category.in_(selected))
+        if exclude_categories:
+            excluded = expand_category_selection(selection=exclude_categories, custom_groups=custom_groups)
+            conditions.append(Transaction.category.notin_(excluded))
     if transaction_types:
         conditions.append(Transaction.transaction_type.in_(transaction_types))
     return conditions
@@ -129,7 +136,7 @@ def category_breakdown(
     date_from: datetime.date | None,
     date_to: datetime.date | None,
     direction: StatisticsDirection,
-    categories: list[TransactionCategory],
+    categories: list[str],
     transaction_types: list[TransactionType] | None = None,
 ) -> list[CategorySlice]:
     accessible_account_ids = account_service.resolve_accessible_account_ids(
@@ -168,11 +175,11 @@ def category_trend(
     date_from: datetime.date,
     date_to: datetime.date,
     direction: StatisticsDirection,
-    categories: list[TransactionCategory],
+    categories: list[str],
     baseline_windows: int = DEFAULT_TREND_BASELINE_PERIOD_COUNT,
     transaction_types: list[TransactionType] | None = None,
 ) -> list[CategoryTrendSlice]:
-    def breakdown(window_from: datetime.date, window_to: datetime.date) -> dict[TransactionCategory, float]:
+    def breakdown(window_from: datetime.date, window_to: datetime.date) -> dict[str, float]:
         slices = category_breakdown(
             db_session=db_session,
             user=user,
@@ -217,7 +224,7 @@ def monthly_cashflow(
     account_ids: list[int],
     date_from: datetime.date | None,
     date_to: datetime.date | None,
-    categories: list[TransactionCategory],
+    categories: list[str],
     transaction_types: list[TransactionType] | None = None,
 ) -> list[MonthlyCashflow]:
     accessible_account_ids = account_service.resolve_accessible_account_ids(
@@ -261,7 +268,7 @@ def monthly_net_savings(
     account_ids: list[int],
     date_from: datetime.date | None,
     date_to: datetime.date | None,
-    categories: list[TransactionCategory],
+    categories: list[str],
     transaction_types: list[TransactionType] | None = None,
 ) -> list[MonthlyNetSavings]:
     cashflow = monthly_cashflow(
@@ -296,7 +303,7 @@ def transaction_counts(
     account_ids: list[int],
     date_from: datetime.date | None,
     date_to: datetime.date | None,
-    categories: list[TransactionCategory],
+    categories: list[str],
     group_by: TransactionCountsGroupBy,
     transaction_types: list[TransactionType] | None = None,
 ) -> list[TransactionCountBucket]:
@@ -337,7 +344,7 @@ def top_other_parties(
     date_from: datetime.date | None,
     date_to: datetime.date | None,
     direction: StatisticsDirection,
-    categories: list[TransactionCategory],
+    categories: list[str],
     transaction_types: list[TransactionType] | None = None,
     limit: int = DEFAULT_TOP_OTHER_PARTIES_LIMIT,
 ) -> list[OtherPartySlice]:

@@ -21,7 +21,8 @@ import { buildAccountLookup, type AccountWithBank } from '@/lib/accountDisplayGr
 import { AccountLabel } from '@/components/AccountLabel'
 import { type CredentialRead } from '@/lib/auth'
 import { formatDate, transactionPartyName } from '@/lib/format'
-import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES, useTransaction } from '@/lib/transaction'
+import { TRANSACTION_TYPES, useTransaction } from '@/lib/transaction'
+import { useCategoryCatalog } from '@/lib/categoryCatalog'
 import { useSearchTransactions, type TransactionFilters } from '@/lib/transactionSearch'
 import {
   SORT_COMPARATORS,
@@ -153,7 +154,8 @@ function SearchForm({
   onReset?: () => void
 }) {
   const { t } = useTranslation()
-  const selectedCategories = draft.categories ?? [...TRANSACTION_CATEGORIES]
+  const allCategories = useCategoryCatalog().allKeys
+  const selectedCategories = draft.categories ?? allCategories
   const selectedTypes = draft.transaction_types ?? [...TRANSACTION_TYPES]
 
   return (
@@ -208,7 +210,7 @@ function SearchForm({
           idPrefix="search"
           selectedCategories={selectedCategories}
           onCategoriesChange={(next) =>
-            onUpdate('categories', next.length === TRANSACTION_CATEGORIES.length ? undefined : next)
+            onUpdate('categories', next.length === allCategories.length ? undefined : next)
           }
           selectedTypes={selectedTypes}
           onTypesChange={(next) =>

@@ -58,20 +58,23 @@ describe('charts render with real recharts', () => {
       />,
     )
 
-    await userEvent.click(screen.getByRole('button', { name: 'Fuel' }))
-    expect(onToggleHidden).toHaveBeenCalledWith('FUEL')
+    await userEvent.click(screen.getByRole('button', { name: 'Mobility' }))
+    expect(onToggleHidden).toHaveBeenCalledWith('MOBILITY')
   })
   it('CategoryChart keeps hidden categories in the legend as pressed-off toggles', () => {
     render(
       <CategoryChart
         slices={[{ category: 'FUEL', total: 10 }]}
         chartType="pie"
-        hidden={new Set(['FUEL'])}
+        hidden={new Set(['MOBILITY'])}
         onToggleHidden={vi.fn()}
       />,
     )
 
-    expect(screen.getByRole('button', { name: 'Fuel' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Mobility' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
   })
   it('CashflowChart', () => {
     expect(() =>

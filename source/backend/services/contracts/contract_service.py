@@ -11,9 +11,12 @@ from source.backend.models.contracts.contract_source import ContractSource
 from source.backend.services.accounts import account_service
 from source.backend.services.contracts.contract_aggregators import compute_fingerprint
 from source.backend.services.contracts.contract_detection_service import (
+    apply_contract_category,
     apply_contract_category_to_members,
     recompute_contract_stats,
+    release_contract_category,
 )
+from source.backend.services.transactions import categorization_service
 
 logger = get_logger(__name__)
 
@@ -21,10 +24,13 @@ logger = get_logger(__name__)
 def create_contract(db_session: Session, user: User, account_id: int, fields: dict) -> Contract:
     account = account_service.get_account_for_user(db_session=db_session, account_id=account_id, user=user)
     account_service.require_owned_account(account=account, user=user)
+    category = fields.get("category")
+    if category is not None:
+        categorization_service.require_assignable_category(category=category, owner=user)
     contract = Contract(
         account=account,
         name=fields["name"],
-        category=fields.get("category"),
+        category=category,
         frequency=fields.get("frequency"),
         source=ContractSource.MANUAL,
         created_at=utc_now(),
@@ -65,10 +71,12 @@ def update_contract(db_session: Session, user: User, contract_id: int, fields: d
     contract = get_contract_for_user(db_session=db_session, user=user, contract_id=contract_id)
     contract.name = fields["name"]
     if "category" in fields:
+        if fields["category"] is not None:
+            categorization_service.require_assignable_category(category=fields["category"], owner=user)
         category_changed = contract.category != fields["category"]
         contract.category = fields["category"]
         if category_changed:
-            apply_contract_category_to_members(contract)
+            apply_contract_category_to_members(contract=contract, override_manual=True)
     if "note" in fields:
         contract.note = fields["note"]
     if "frequency" in fields:
@@ -109,6 +117,7 @@ def assign_transaction_to_contract(db_session: Session, user: User, contract_id:
             contract.fingerprint = f"{fingerprint.key}:manual-{contract.id}"
     db_session.flush()
     recompute_contract_stats(contract)
+    apply_contract_category(contract=contract, transaction=transaction)
     if previous_contract is not None:
         recompute_contract_stats(previous_contract)
     db_session.commit()
@@ -123,6 +132,7 @@ def remove_transaction(db_session: Session, user: User, contract_id: int, transa
     )
     transaction.contract_assignment = ContractAssignment.EXCLUDED
     transaction.contract_id = None
+    release_contract_category(transaction=transaction, rules=contract.account.credential.user.categorization_rules)
     db_session.flush()
     recompute_contract_stats(contract)
     db_session.commit()

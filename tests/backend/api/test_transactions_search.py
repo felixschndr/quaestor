@@ -188,6 +188,7 @@ def test_search_only_returns_selected_accounts(http_client: TestClient, session_
         ([("date_from", "2026-04-01"), ("date_to", "2026-04-30")], {"salary"}),
         ([("transaction_types", "OUTGOING")], {"rewe", "atm"}),
         ([("categories", "WITHDRAWAL")], {"atm"}),
+        ([("categories", "FOOD_AND_DRINK")], {"rewe"}),  # a group stands for all of its categories
     ],
 )
 def test_search_filters_match_expected_transactions(
@@ -248,28 +249,30 @@ def test_search_returns_empty_when_no_match(http_client: TestClient, session_fac
     assert response.json() == []
 
 
-@pytest.mark.parametrize(
-    argnames="param, value",
-    argvalues=[
-        ("transaction_types", "NOT_A_REAL_TYPE"),
-        ("categories", "NOT_A_REAL_CATEGORY"),
-    ],
-)
-def test_search_rejects_unknown_enum_value(
-    http_client: TestClient,
-    session_factory: sessionmaker,
-    param: str,
-    value: str,
-):
+def test_search_rejects_unknown_transaction_type(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
     response = http_client.get(
         "/api/transactions/search",
-        params=[("account_ids", account_id), (param, value)],
+        params=[("account_ids", account_id), ("transaction_types", "NOT_A_REAL_TYPE")],
     )
 
     assert response.status_code == 422
+
+
+def test_search_for_an_unknown_category_finds_nothing(http_client: TestClient, session_factory: sessionmaker):
+    # Category keys include custom categories, so an unknown key (e.g. of a deleted category) just matches nothing
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    _seed_three_transactions(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.get(
+        "/api/transactions/search",
+        params=[("account_ids", account_id), ("categories", "NOT_A_REAL_CATEGORY")],
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 def test_search_rejects_account_owned_by_a_different_user(http_client: TestClient, session_factory: sessionmaker):

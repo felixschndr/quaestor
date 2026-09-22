@@ -72,7 +72,7 @@ CREDENTIAL_OVERRIDES: dict[BankProvider, dict[str, str]] = {
 RECURRING_SPECS = [
     ("ACME Inc.", 2500.00, TransactionType.INCOMING, TransactionCategory.SALARY, "Monthly salary", 3, 5),
     ("Landlord Ltd.", -780.00, TransactionType.OUTGOING, TransactionCategory.RENT, "Rent", 3, 3),
-    ("Spotify", -9.99, TransactionType.OUTGOING, TransactionCategory.SUBSCRIPTIONS, "Premium", 3, -20),
+    ("Spotify", -9.99, TransactionType.OUTGOING, TransactionCategory.STREAMING, "Premium", 3, -20),
 ]
 
 ONE_OFF_SPECS = [
@@ -88,7 +88,7 @@ CASH_SPECS = [
     (-12.40, "Bakery Müller", "Bread and rolls", TransactionCategory.SUPERMARKET, 11),
     (-8.50, "Cafe Central", "Coffee with mum", TransactionCategory.RESTAURANTS, 9),
     (-35.00, "Flea market", "Vinyl records", TransactionCategory.ENTERTAINMENT, 6),
-    (-15.00, "Taxi", "Ride home", TransactionCategory.TRAVEL, 4),
+    (-15.00, "Taxi", "Ride home", TransactionCategory.SHARING_TAXI, 4),
     (-20.00, "Birthday card", "Present for Bob", TransactionCategory.GIFTS, 2),
 ]
 
@@ -140,7 +140,7 @@ def _seed_expected(session: Session, account: Account) -> None:
         other_party="City Utilities",
         date=TODAY + timedelta(days=4),
         transaction_type=TransactionType.OUTGOING,
-        category=TransactionCategory.UTILITIES,
+        category=TransactionCategory.ELECTRICITY,
         pending=True,
         expected=True,
         match_tolerance_percent=10,
@@ -301,7 +301,7 @@ def fill_db_with_testdata() -> None:
             account_id=accounts[0].id,
             name="Gym",
             source=ContractSource.MANUAL,
-            category=TransactionCategory.SUBSCRIPTIONS,
+            category=TransactionCategory.FITNESS,
             frequency=ContractFrequency.MONTHLY,
             interval_days=ContractFrequency.MONTHLY.interval_days,
         )
@@ -314,7 +314,7 @@ def fill_db_with_testdata() -> None:
                 other_party="FitLife Gym",
                 date=TODAY - timedelta(days=30 * month + 20),
                 transaction_type=TransactionType.OUTGOING,
-                category=TransactionCategory.SUBSCRIPTIONS,
+                category=TransactionCategory.FITNESS,
             )
             membership_fee.contract_id = gym.id
             membership_fee.contract_assignment = ContractAssignment.MANUAL

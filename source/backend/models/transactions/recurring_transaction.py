@@ -9,7 +9,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from source.backend.models.base import Base
 from source.backend.models.transactions.recurrence_frequency import RecurrenceFrequency
 from source.backend.models.transactions.transaction import Transaction
-from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 
 if TYPE_CHECKING:
@@ -29,7 +28,7 @@ class RecurringTransaction(Base):
     purpose: Mapped[str | None] = mapped_column(String, nullable=True)
     other_party: Mapped[str | None] = mapped_column(String, nullable=True)
     transaction_type: Mapped[TransactionType | None] = mapped_column(SQLEnum(TransactionType), nullable=True)
-    category: Mapped[TransactionCategory | None] = mapped_column(SQLEnum(TransactionCategory), nullable=True)
+    category: Mapped[str | None] = mapped_column(String, nullable=True)
     note: Mapped[str | None] = mapped_column(String, nullable=True)
 
     frequency: Mapped[RecurrenceFrequency] = mapped_column(SQLEnum(RecurrenceFrequency))

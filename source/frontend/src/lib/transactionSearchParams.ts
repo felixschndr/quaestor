@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from './transaction'
+import { expandCategorySelection, TRANSACTION_TYPES } from './transaction'
 import { oneOrMany } from './searchParams'
 import type { TransactionRead } from './accountHistory'
 
@@ -27,6 +27,11 @@ export const SORT_COMPARATORS: Record<
   amount_abs_asc: (a, b) => Math.abs(a.amount) - Math.abs(b.amount) || a.id - b.id,
 }
 
+// Tolerant on purpose: a group expands to its categories and a retired key from an old link is dropped
+export const categoryListParam = oneOrMany(z.string()).transform((values) =>
+  expandCategorySelection(values),
+)
+
 export const transactionSearchParamsSchema = z.object({
   text: z.string().optional(),
   amount_from: z.coerce.number().optional(),
@@ -34,7 +39,7 @@ export const transactionSearchParamsSchema = z.object({
   date_from: z.string().optional(),
   date_to: z.string().optional(),
   transaction_types: oneOrMany(z.enum(TRANSACTION_TYPES)).optional(),
-  categories: oneOrMany(z.enum(TRANSACTION_CATEGORIES)).optional(),
+  categories: categoryListParam.optional(),
   linked: z.enum(['linked', 'unlinked', 'none']).optional(),
   has_attachment: z.enum(['with', 'without', 'none']).optional(),
   account_ids: oneOrMany(z.coerce.number()).optional(),

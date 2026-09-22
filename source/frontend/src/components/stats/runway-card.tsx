@@ -16,7 +16,7 @@ import {
   type StatsFilters,
   type StatsTypeFilters,
 } from '@/lib/statistics'
-import type { TransactionCategory } from '@/lib/transaction'
+import type { CategoryKey } from '@/lib/transaction'
 import type { TFunction } from 'i18next'
 
 function formatRunway(months: number | null, t: TFunction): string {
@@ -40,10 +40,10 @@ export function RunwayCard({
   credentials: CredentialRead[]
   accountIds: number[]
   filters: StatsFilters
-  categories: TransactionCategory[]
+  categories: CategoryKey[]
   typeFilters: StatsTypeFilters
   enabled: boolean
-  onViewTransactions?: (categories: TransactionCategory[]) => void
+  onViewTransactions?: (categories: CategoryKey[]) => void
   onViewBalance?: () => void
 }) {
   const { t, i18n } = useTranslation()

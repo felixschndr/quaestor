@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
+from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from tests.backend.conftest import (
     OLDER_DATE,
@@ -192,6 +193,23 @@ def test_changing_contract_category_reassigns_member_transactions(
     assert updated.status_code == 200
     detail = http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}").json()
     assert detail["category"] == "FITNESS"
+    assert detail["category_source"] == "CONTRACT"
+
+
+def test_changing_contract_category_overrides_a_category_the_user_set_on_a_member(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    transaction_id = persist_transaction(session_factory, account_id=account_id)
+    contract = _create_contract(http_client, account_id=account_id)
+    http_client.post(f"/api/contracts/{contract['id']}/transactions", json={"transaction_id": transaction_id})
+    http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"category": "GIFTS"})
+
+    http_client.patch(f"/api/contracts/{contract['id']}", json={"name": "Gym", "category": "ENTERTAINMENT"})
+
+    detail = http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}").json()
+    assert detail["category"] == "ENTERTAINMENT"
+    assert detail["category_source"] == "CONTRACT"
 
 
 def test_assigning_transaction_to_categorised_contract_applies_its_category(
@@ -199,7 +217,10 @@ def test_assigning_transaction_to_categorised_contract_applies_its_category(
 ):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(
-        session_factory, account_id=account_id, category=TransactionCategory.ONLINE_SHOPPING
+        session_factory,
+        account_id=account_id,
+        category=TransactionCategory.ONLINE_SHOPPING,
+        category_source=CategorySource.MANUAL,
     )
     contract = _create_contract(http_client, account_id=account_id)
 

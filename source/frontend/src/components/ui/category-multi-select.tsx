@@ -4,12 +4,12 @@ import { useTranslation } from 'react-i18next'
 
 import { MultiSelectPopover, multiSelectTriggerLabel } from '@/components/ui/multi-select-popover'
 import { useCategoryOptions } from '@/lib/categoryIcons'
-import type { TransactionCategory } from '@/lib/transaction'
+import type { CategoryKey } from '@/lib/transaction'
 
 export interface CategoryMultiSelectProps {
   id?: string
-  selectedIds: TransactionCategory[]
-  onChange: (next: TransactionCategory[]) => void
+  selectedIds: CategoryKey[]
+  onChange: (next: CategoryKey[]) => void
   className?: string
 }
 

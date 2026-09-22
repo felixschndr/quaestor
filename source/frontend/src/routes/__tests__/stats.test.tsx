@@ -39,8 +39,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 import { useState } from 'react'
 
-import { FILTERABLE_CATEGORIES } from '@/lib/statistics'
-import { TRANSACTION_TYPES } from '@/lib/transaction'
+import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from '@/lib/transaction'
 import { StatsView } from '@/pages/stats'
 import { type StatsSearchParams, type StatsViewState } from '@/routes/stats'
 import { ACCOUNT_NAME_GIRO } from '@/test/constants'
@@ -79,7 +78,7 @@ function toSearch(next: StatsViewState): StatsSearchParams {
     transaction_types:
       next.transactionTypes.length === TRANSACTION_TYPES.length ? undefined : next.transactionTypes,
     categories:
-      next.categories.length === FILTERABLE_CATEGORIES.length ? undefined : next.categories,
+      next.categories.length === TRANSACTION_CATEGORIES.length ? undefined : next.categories,
   }
 }
 

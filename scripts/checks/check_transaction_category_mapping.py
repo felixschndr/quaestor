@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-# Every matcher in TRANSACTION_TYPE_MAPPING must already be in normalized form and unique across all categories
+# Every matcher in TRANSACTION_CATEGORY_MAPPING must already be in normalized form and sorted per category. A matcher may
+# only appear in a second category when its first category is incoming-only, otherwise the second one is unreachable.
+# Every category (except UNKNOWN) belongs to exactly one group.
 
 from __future__ import annotations
 
@@ -11,46 +13,55 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from source.backend.models.transactions.transaction_category import (
+    CATEGORIES_BY_GROUP,
+    CATEGORY_GROUP,
+    INCOMING_ONLY_GROUPS,
     TRANSACTION_CATEGORY_MAPPING,
+    TransactionCategory,
     normalize_string,
 )
 
 
 def main() -> int:
-    not_normalized: list[tuple[str, str, str]] = []
-    unsorted_categories: dict[str, list[list[str]]] = defaultdict(list)
-    seen: dict[str, list[str]] = defaultdict(list)
+    errors: list[str] = []
+    seen: dict[str, list[TransactionCategory]] = defaultdict(list)
     for category, matchers in TRANSACTION_CATEGORY_MAPPING.items():
+        if matchers != sorted(matchers):
+            errors.append(
+                f"The matchers of {category.name} are not sorted\n\tCurrent:\t{matchers}\n\tShould be:\t{sorted(matchers)}"
+            )
         for matcher in matchers:
-            matchers_sorted = sorted(matchers)
-            if matchers != matchers_sorted:
-                unsorted_categories[category] = [matchers, matchers_sorted]
             normalized = normalize_string(matcher)
             if normalized != matcher:
-                not_normalized.append((category.name, matcher, normalized))
-            seen[matcher].append(category.name)
+                errors.append(f"[{category.name}] matcher {matcher!r} must be normalized to {normalized!r}")
+            seen[matcher].append(category)
 
-    duplicates = {matcher: categories for matcher, categories in seen.items() if len(categories) > 1}
+    for matcher, categories in sorted(seen.items()):
+        if len(categories) == 1:
+            continue
+        first, *rest = categories
+        if (
+            len(rest) > 1
+            or CATEGORY_GROUP[first] not in INCOMING_ONLY_GROUPS
+            or CATEGORY_GROUP[rest[0]] in INCOMING_ONLY_GROUPS
+        ):
+            errors.append(
+                f"Matcher {matcher!r} appears in {', '.join(category.name for category in categories)}; a duplicate is "
+                "only allowed once, with the first category incoming-only and the second one not"
+            )
 
-    if not not_normalized and not duplicates and not unsorted_categories:
-        return 0
+    grouped = [category for categories in CATEGORIES_BY_GROUP.values() for category in categories]
+    for category in TransactionCategory:
+        occurrences = grouped.count(category)
+        if category is TransactionCategory.UNKNOWN:
+            if occurrences:
+                errors.append("UNKNOWN must not belong to a group")
+        elif occurrences != 1:
+            errors.append(f"{category.name} must belong to exactly one group (found {occurrences})")
 
-    if not_normalized:
-        print("TRANSACTION_TYPE_MAPPING entries must already be normalized:")
-        for category_name, raw, normalized in not_normalized:
-            print(f"  [{category_name}] {raw!r} → {normalized!r}")
-
-    if duplicates:
-        print("TRANSACTION_TYPE_MAPPING entries must be unique across categories:")
-        for matcher, categories in sorted(duplicates.items()):
-            print(f"  {matcher!r} appears in: {', '.join(categories)}")
-
-    if unsorted_categories:
-        print("TRANSACTION_TYPE_MAPPING entries must be sorted across categories:")
-        for category, values in unsorted_categories.items():
-            print(f"The category {category} is not sorted\n\tCurrent:\t{values[0]}\n\tShould be:\t{values[1]}")
-
-    return 1
+    for error in errors:
+        print(error)
+    return 1 if errors else 0
 
 
 if __name__ == "__main__":

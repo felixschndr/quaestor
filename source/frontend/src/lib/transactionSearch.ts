@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import { api } from './api'
 import type { TransactionRead } from './accountHistory'
-import type { TransactionCategory, TransactionType } from './transaction'
+import type { CategoryKey, TransactionType } from './transaction'
 import { accountScopedParams } from '@/lib/searchParams'
 
 export interface TransactionFilters {
@@ -12,7 +12,7 @@ export interface TransactionFilters {
   date_from?: string // ISO yyyy-mm-dd
   date_to?: string
   transaction_types?: TransactionType[]
-  categories?: TransactionCategory[]
+  categories?: CategoryKey[]
   linked?: 'linked' | 'unlinked' | 'none'
   has_attachment?: 'with' | 'without' | 'none'
 }

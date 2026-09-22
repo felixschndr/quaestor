@@ -3,7 +3,6 @@ import datetime
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from source.backend.models.transactions.recurrence_frequency import RecurrenceFrequency
-from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 
 
@@ -12,7 +11,7 @@ class _RecurringTransactionFields(BaseModel):
     purpose: str | None = None
     other_party: str | None = None
     transaction_type: TransactionType | None = None
-    category: TransactionCategory | None = None
+    category: str | None = None
     note: str | None = None
 
     frequency: RecurrenceFrequency
@@ -51,7 +50,7 @@ class RecurringTransactionRead(BaseModel):
     purpose: str | None
     other_party: str | None
     transaction_type: TransactionType | None
-    category: TransactionCategory | None
+    category: str | None
     note: str | None
     frequency: RecurrenceFrequency
     day_of_month: int | None

@@ -17,7 +17,12 @@ import {
 import { api } from './api'
 import type { TransactionRead } from './accountHistory'
 import {
-  TRANSACTION_CATEGORIES,
+  CATEGORIES_BY_GROUP,
+  CATEGORY_GROUP_OF,
+  CATEGORY_GROUPS,
+  isCategoryGroup,
+  type CategoryGroup,
+  type CategoryKey,
   type TransactionCategory,
   type TransactionType,
 } from './transaction'
@@ -40,17 +45,17 @@ export interface StatsTypeFilters {
   transaction_types?: TransactionType[]
 }
 
-export const FILTERABLE_CATEGORIES: TransactionCategory[] = [...TRANSACTION_CATEGORIES]
-
-export const RUNWAY_EXCLUDED_CATEGORIES: TransactionCategory[] = ['INVESTMENT', 'SAVINGS']
+export const RUNWAY_EXCLUDED_CATEGORIES: CategoryKey[] = [
+  ...CATEGORIES_BY_GROUP.SAVINGS_AND_INVESTMENTS,
+]
 
 export interface CategorySlice {
-  category: TransactionCategory
+  category: CategoryKey
   total: number
 }
 
 export interface CategoryTrendSlice {
-  category: TransactionCategory
+  category: CategoryKey
   current: number
   baseline: number
 }
@@ -268,19 +273,19 @@ export function buildStatsQueryString(
   accountIds: number[],
   filters: StatsFilters,
   extra: Record<string, string | number | string[] | undefined> = {},
-  categories: TransactionCategory[] = [],
+  categories: CategoryKey[] = [],
 ): string {
   return accountScopedParams(accountIds, { categories, ...filters, ...extra }).toString()
 }
 
 const sortedIds = (accountIds: number[]) => [...accountIds].sort((a, b) => a - b)
-const sortedCategories = (categories: TransactionCategory[]) => [...categories].sort()
+const sortedCategories = (categories: CategoryKey[]) => [...categories].sort()
 
 function useStats<T>(args: {
   path: string
   accountIds: number[]
   filters: StatsFilters
-  categories?: TransactionCategory[]
+  categories?: CategoryKey[]
   typeFilters?: StatsTypeFilters
   extra?: Record<string, string | number | string[] | undefined>
   enabled?: boolean
@@ -320,7 +325,7 @@ export function useCategoryStats(
   accountIds: number[],
   filters: StatsFilters,
   direction: StatsDirection,
-  categories: TransactionCategory[],
+  categories: CategoryKey[],
   typeFilters: StatsTypeFilters = {},
   enabled: boolean = true,
 ) {
@@ -343,7 +348,7 @@ export function useCategoryTrendStats(
   accountIds: number[],
   filters: StatsFilters,
   direction: StatsDirection,
-  categories: TransactionCategory[],
+  categories: CategoryKey[],
   baselineWindows: number,
   typeFilters: StatsTypeFilters = {},
   enabled: boolean = true,
@@ -362,7 +367,7 @@ export function useCategoryTrendStats(
 export function useCashflowStats(
   accountIds: number[],
   filters: StatsFilters,
-  categories: TransactionCategory[],
+  categories: CategoryKey[],
   typeFilters: StatsTypeFilters = {},
   enabled: boolean = true,
 ) {
@@ -379,7 +384,7 @@ export function useCashflowStats(
 export function useNetSavingsStats(
   accountIds: number[],
   filters: StatsFilters,
-  categories: TransactionCategory[],
+  categories: CategoryKey[],
   typeFilters: StatsTypeFilters = {},
   enabled: boolean = true,
 ) {
@@ -397,7 +402,7 @@ export function useOtherPartyStats(
   accountIds: number[],
   filters: StatsFilters,
   direction: StatsDirection,
-  categories: TransactionCategory[],
+  categories: CategoryKey[],
   typeFilters: StatsTypeFilters = {},
   enabled: boolean = true,
 ) {
@@ -415,7 +420,7 @@ export function useOtherPartyStats(
 export function useTransactionCountStats(
   accountIds: number[],
   filters: StatsFilters,
-  categories: TransactionCategory[],
+  categories: CategoryKey[],
   typeFilters: StatsTypeFilters,
   groupBy: TransactionCountsGroupBy,
   enabled: boolean = true,
@@ -491,10 +496,10 @@ export function fillTransactionCountBuckets(
   return buckets.map(at)
 }
 
-// One datum of the category chart. `category` is the enum value, or the
+// One datum of the category chart. `category` is a category or group key, or the
 // 'OTHER' sentinel for the aggregated tail of the pie.
 export interface CategoryChartDatum {
-  category: TransactionCategory | 'OTHER'
+  category: CategoryKey | CategoryGroup | 'OTHER'
   label: string
   value: number
 }
@@ -523,36 +528,17 @@ export function paletteColor(index: number): string {
   return CHART_PALETTE[index % CHART_PALETTE.length]
 }
 
-const CATEGORY_COLORS: Record<TransactionCategory, string> = {
-  SALARY: CHART_PALETTE[2],
-  ALLOWANCE: CHART_PALETTE[10],
-  PENSION: CHART_PALETTE[4],
-  SIDE_INCOME: CHART_PALETTE[9],
-  REIMBURSEMENT: CHART_PALETTE[0],
-  INTEREST: CHART_PALETTE[6],
-  INVESTMENT: CHART_PALETTE[3],
-  RENT: CHART_PALETTE[0],
-  UTILITIES: CHART_PALETTE[9],
-  SUPERMARKET: CHART_PALETTE[2],
-  ONLINE_SHOPPING: CHART_PALETTE[1],
-  RESTAURANTS: CHART_PALETTE[11],
-  FUEL: CHART_PALETTE[5],
-  SUBSCRIPTIONS: CHART_PALETTE[6],
-  ENTERTAINMENT: CHART_PALETTE[3],
-  TRAVEL: CHART_PALETTE[4],
-  FITNESS: CHART_PALETTE[10],
-  CLOTHING: CHART_PALETTE[8],
-  DRUGSTORE: CHART_PALETTE[7],
-  PERSONAL_CARE: CHART_PALETTE[3],
-  GIFTS: CHART_PALETTE[8],
-  FEES: CHART_PALETTE[5],
-  SAVINGS: CHART_PALETTE[4],
-  WITHDRAWAL: CHART_PALETTE[11],
-  DEPOSIT: CHART_PALETTE[10],
-  TRANSFER: CHART_PALETTE[0],
-  UNKNOWN: OTHER_COLOR,
-}
-
-export function sliceColor(category: TransactionCategory | 'OTHER'): string {
-  return category === 'OTHER' ? OTHER_COLOR : CATEGORY_COLORS[category]
+// A group gets its own palette slot; a category is coloured by its position within its group (custom ones after the
+// fixed ones), so the categories of one opened group stay distinguishable.
+export function sliceColor(
+  key: string,
+  customCategories: readonly { key: string; group: CategoryGroup }[] = [],
+): string {
+  if (isCategoryGroup(key)) return paletteColor(CATEGORY_GROUPS.indexOf(key))
+  const group = CATEGORY_GROUP_OF[key as TransactionCategory]
+  if (group) return paletteColor(CATEGORIES_BY_GROUP[group].indexOf(key as TransactionCategory))
+  const custom = customCategories.find((category) => category.key === key)
+  if (!custom) return OTHER_COLOR
+  const siblings = customCategories.filter((category) => category.group === custom.group)
+  return paletteColor(CATEGORIES_BY_GROUP[custom.group].length + siblings.indexOf(custom))
 }

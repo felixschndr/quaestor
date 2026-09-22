@@ -24,7 +24,7 @@ def _transaction_rule_payload(account_id: int, **overrides: Any) -> dict:
         "trigger": "transaction",
         "account_ids": [account_id],
         "other_party_contains": NETFLIX,
-        "categories": ["SUBSCRIPTIONS"],
+        "categories": ["STREAMING", "HOUSING"],
         "types": ["OUTGOING"],
         "min_amount": -DEFAULT_AMOUNT,
         "max_amount": -1.0,
@@ -85,7 +85,7 @@ def test_create_transaction_rule_round_trips_criteria(http_client: TestClient, s
     created = http_client.post("/api/notification_rules", json=_transaction_rule_payload(account_id)).json()
 
     assert created["trigger"] == "transaction"
-    assert created["categories"] == ["SUBSCRIPTIONS"]
+    assert created["categories"] == ["STREAMING", "HOUSING"]
     assert created["types"] == ["OUTGOING"]
     assert created["other_party_contains"] == NETFLIX
     assert created["min_amount"] == -DEFAULT_AMOUNT

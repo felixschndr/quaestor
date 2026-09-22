@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { matchesQuery, PopoverSearchInput } from '@/components/ui/popover-search-input'
 import { handleSelectListArrowKeys } from '@/components/ui/select-list-keyboard'
 import { SelectAllHeader } from '@/components/ui/select-all-header'
+import { GroupHeading } from '@/components/ui/single-select-popover'
 import {
   Popover,
   PopoverContent,
@@ -20,6 +21,8 @@ export interface MultiSelectOption<T extends string> {
   value: T
   label: string
   leading?: React.ReactNode
+  // Consecutive options with the same group are listed under a heading that toggles the whole group
+  group?: string
 }
 
 export interface MultiSelectPopoverProps<T extends string> {
@@ -55,11 +58,26 @@ export function MultiSelectPopover<T extends string>({
     ? options.filter((option) => matchesQuery(option.label, query))
     : options
 
-  const toggle = (value: T) => {
+  const toggle = (values: T[], checked: boolean) => {
     const next = new Set(selectedSet)
-    if (next.has(value)) next.delete(value)
-    else next.add(value)
+    for (const value of values) {
+      if (checked) next.add(value)
+      else next.delete(value)
+    }
     onChange(options.map((option) => option.value).filter((value) => next.has(value)))
+  }
+  const groupState = (group: string) => {
+    const members = options.filter((option) => option.group === group)
+    const selectedMembers = members.filter((option) => selectedSet.has(option.value)).length
+    return {
+      values: members.map((option) => option.value),
+      checked:
+        selectedMembers === members.length
+          ? true
+          : selectedMembers > 0
+            ? ('indeterminate' as const)
+            : false,
+    }
   }
 
   return (
@@ -101,24 +119,37 @@ export function MultiSelectPopover<T extends string>({
           aria-label={ariaLabel}
           className="max-h-72 overflow-y-auto overscroll-contain p-1"
         >
-          {visibleOptions.map((option) => {
+          {visibleOptions.map((option, index) => {
             const checkboxId = `${checkboxIdPrefix}-${option.value}`
+            const group = option.group ? groupState(option.group) : null
             return (
-              <li key={option.value}>
-                <label
-                  htmlFor={checkboxId}
-                  className="hover:bg-muted/60 has-focus-visible:bg-muted/60 flex cursor-pointer items-center gap-3 rounded-md px-2 py-3 text-sm"
-                >
-                  {option.leading}
-                  <span className="flex-1 truncate">{option.label}</span>
-                  <Checkbox
-                    id={checkboxId}
-                    data-select-row=""
-                    checked={selectedSet.has(option.value)}
-                    onCheckedChange={() => toggle(option.value)}
-                  />
-                </label>
-              </li>
+              <Fragment key={option.value}>
+                <GroupHeading option={option} previous={visibleOptions[index - 1]}>
+                  {group ? (
+                    <Checkbox
+                      aria-label={option.group}
+                      data-select-row=""
+                      checked={group.checked}
+                      onCheckedChange={() => toggle(group.values, group.checked !== true)}
+                    />
+                  ) : null}
+                </GroupHeading>
+                <li>
+                  <label
+                    htmlFor={checkboxId}
+                    className="hover:bg-muted/60 has-focus-visible:bg-muted/60 flex cursor-pointer items-center gap-3 rounded-md px-2 py-3 text-sm"
+                  >
+                    {option.leading}
+                    <span className="flex-1 truncate">{option.label}</span>
+                    <Checkbox
+                      id={checkboxId}
+                      data-select-row=""
+                      checked={selectedSet.has(option.value)}
+                      onCheckedChange={() => toggle([option.value], !selectedSet.has(option.value))}
+                    />
+                  </label>
+                </li>
+              </Fragment>
             )
           })}
         </ul>

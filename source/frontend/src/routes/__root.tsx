@@ -14,6 +14,7 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { BottomTabBar } from '@/components/bottom-tab-bar'
 import { NotFound } from '@/components/not-found'
 import { SyncProvider } from '@/components/sync-provider'
+import { CategoryCatalogProvider } from '@/lib/categoryCatalog'
 import { Button } from '@/components/ui/button'
 import { NetworkError } from '@/lib/api'
 import { authQueryKeys, ensureAuthenticated, useAuthMe, type UserRead } from '@/lib/auth'
@@ -63,12 +64,14 @@ function RootComponent() {
   const showTabBar = !NO_TAB_BAR_PREFIXES.some((p) => pathname.startsWith(p))
   return (
     <>
-      <SyncProvider>
-        <div className={showTabBar ? 'pb-[var(--bottom-bar-height)] sm:pb-0' : undefined}>
-          <Outlet />
-        </div>
-        {showTabBar ? <BottomTabBar /> : null}
-      </SyncProvider>
+      <CategoryCatalogProvider enabled={Boolean(userId)}>
+        <SyncProvider>
+          <div className={showTabBar ? 'pb-[var(--bottom-bar-height)] sm:pb-0' : undefined}>
+            <Outlet />
+          </div>
+          {showTabBar ? <BottomTabBar /> : null}
+        </SyncProvider>
+      </CategoryCatalogProvider>
       <Toaster position="bottom-center" theme={resolved === 'DARK' ? 'dark' : 'light'} richColors />
     </>
   )

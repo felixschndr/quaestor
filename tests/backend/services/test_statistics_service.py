@@ -9,6 +9,7 @@ from source.backend.models.accounts.account_balance_snapshot import (
     BalanceSnapshotSource,
 )
 from source.backend.models.auth.user import User
+from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.services.transactions import statistics_service
 from tests.backend.conftest import (
@@ -205,6 +206,7 @@ def test_net_worth_range_reports_before_after_and_transactions(session_factory: 
             "other_party": None,
             "transaction_type": None,
             "category": TransactionCategory.UNKNOWN,
+            "category_source": CategorySource.AUTO,
             "note": None,
             "pending": False,
             "contract_id": None,

@@ -14,6 +14,7 @@ from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
 from source.backend.models.base import Base
 from source.backend.models.transactions.transaction import Transaction
+from source.backend.models.transactions.transaction_category import CategorizationRules
 from source.backend.services.banking import bank_catalog
 
 logger = get_logger(__name__)
@@ -107,6 +108,7 @@ class Credential(Base):
         updated_accounts = 0
         created_transactions = 0
         claimed_account_ids: set[int] = set()
+        rules = self.user.categorization_rules
 
         for fetched_account in bank_session.get_accounts():
             # Prefer matching by the stable external id
@@ -137,6 +139,7 @@ class Credential(Base):
                 bank_session=bank_session,
                 fetched_account=fetched_account,
                 transactions_since=transactions_since,
+                rules=rules,
             )
 
             market_value_history = bank_session.get_market_value_history(fetched_account)
@@ -153,6 +156,7 @@ class Credential(Base):
         bank_session: BankSession,
         fetched_account: FetchedAccount,
         transactions_since: date,
+        rules: CategorizationRules | None = None,
     ) -> int:
         fetched_transactions = bank_session.get_transactions(account=fetched_account, start_date=transactions_since)
 
@@ -190,21 +194,25 @@ class Credential(Base):
                     existing_transactions[reference] = matched
                 continue
 
-            transaction = Transaction.from_fetched(fetched_transaction)
+            transaction = Transaction.from_fetched(fetched_transaction=fetched_transaction, rules=rules)
             account.transactions.append(transaction)
             existing_transactions[key] = transaction
             if reference:
                 existing_transactions[reference] = transaction
             created_transactions += 1
 
-        Credential._add_pending_transactions(account=account, fetched_transactions=fetched_pending_transactions)
+        Credential._add_pending_transactions(
+            account=account, fetched_transactions=fetched_pending_transactions, rules=rules
+        )
         Credential._match_expected_transactions(account=account)
         return created_transactions
 
     _TOLERANCE_FOR_EXACT_COMPARISON = 0.005
 
     @staticmethod
-    def _add_pending_transactions(account: Account, fetched_transactions: list[FetchedTransaction]) -> None:
+    def _add_pending_transactions(
+        account: Account, fetched_transactions: list[FetchedTransaction], rules: CategorizationRules | None = None
+    ) -> None:
         # Some banks (e.g. ING) keep a pending transaction in their pending list for days after its booking has
         # arrived, so taking that list at face value leaves the transaction on the account twice. The two
         # never share a key (the bank might rewrite purpose and other_party on booking) so match them on the
@@ -220,7 +228,9 @@ class Credential(Base):
                 and abs(booking.date - fetched_transaction.date) <= PENDING_BOOKED_MATCH_WINDOW
             ]
             if not candidates:
-                account.transactions.append(Transaction.from_fetched(fetched_transaction))
+                account.transactions.append(
+                    Transaction.from_fetched(fetched_transaction=fetched_transaction, rules=rules)
+                )
                 continue
             booking = min(candidates, key=lambda candidate: abs(candidate.date - fetched_transaction.date))
             unclaimed_bookings.remove(booking)

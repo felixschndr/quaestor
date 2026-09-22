@@ -2,25 +2,36 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { z } from 'zod'
 
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
+import { useCategoryCatalog } from '@/lib/categoryCatalog'
 import { defaultAccountIds, sameAccountSelection } from '@/lib/accounts'
 import {
+  CATEGORY_GROUPS,
+  isCustomCategoryKey,
   TRANSACTION_CATEGORIES,
   TRANSACTION_TYPES,
-  type TransactionCategory,
+  type CategoryGroup,
+  type CategoryKey,
   type TransactionType,
 } from '@/lib/transaction'
 import {
-  FILTERABLE_CATEGORIES,
   type ChartType,
   type StatsDirection,
   type StatsFilters,
   type TransactionCountsGroupBy,
 } from '@/lib/statistics'
 import { StatsView } from '@/pages/stats'
-import type { TransactionSortKey } from '@/lib/transactionSearchParams'
+import { categoryListParam, type TransactionSortKey } from '@/lib/transactionSearchParams'
 import { oneOrMany } from '@/lib/searchParams'
 
-const hiddenCategorySchema = z.enum([...TRANSACTION_CATEGORIES, 'OTHER'] as const)
+export type ChartKey = CategoryKey | CategoryGroup | 'OTHER'
+
+const CHART_KEYS: readonly string[] = [...TRANSACTION_CATEGORIES, ...CATEGORY_GROUPS, 'OTHER']
+const isChartKey = (key: string) => CHART_KEYS.includes(key) || isCustomCategoryKey(key)
+
+// Unknown keys (e.g. retired categories in an old link) are dropped instead of failing the whole page
+const hiddenCategorySchema = oneOrMany(z.string()).transform(
+  (keys) => keys.filter(isChartKey) as ChartKey[],
+)
 
 const searchParamsSchema = z.object({
   date_from: z.string().optional(),
@@ -31,8 +42,8 @@ const searchParamsSchema = z.object({
   direction: z.enum(['INCOMING', 'OUTGOING']).optional(),
   transaction_types: oneOrMany(z.enum(TRANSACTION_TYPES)).optional(),
   account_ids: oneOrMany(z.coerce.number()).optional(),
-  categories: oneOrMany(z.enum(TRANSACTION_CATEGORIES)).optional(),
-  hidden_categories: oneOrMany(hiddenCategorySchema).optional(),
+  categories: categoryListParam.optional(),
+  hidden_categories: hiddenCategorySchema.optional(),
   hidden_parties: oneOrMany(z.coerce.string()).optional(),
 })
 
@@ -47,6 +58,7 @@ function StatsPage() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const { data: user } = useAuthMe()
+  const catalog = useCategoryCatalog()
 
   if (!user) return null // root guard already redirected on 401
 
@@ -73,7 +85,7 @@ function StatsPage() {
                 ? undefined
                 : next.transactionTypes,
             categories:
-              next.categories.length === FILTERABLE_CATEGORIES.length ? undefined : next.categories,
+              next.categories.length === catalog.allKeys.length ? undefined : next.categories,
             hidden_categories: next.hiddenCategories.length ? next.hiddenCategories : undefined,
             hidden_parties: next.hiddenParties.length ? next.hiddenParties : undefined,
           },
@@ -123,9 +135,9 @@ export interface StatsViewState {
   countGroup: TransactionCountsGroupBy
   trendPeriods: number
   direction: StatsDirection
-  categories: TransactionCategory[]
+  categories: CategoryKey[]
   transactionTypes: TransactionType[]
-  hiddenCategories: Array<TransactionCategory | 'OTHER'>
+  hiddenCategories: ChartKey[]
   hiddenParties: string[]
 }
 
@@ -134,7 +146,7 @@ export interface StatsDrilldown {
   dateFrom?: string
   dateTo?: string
   direction?: StatsDirection
-  categories?: TransactionCategory[]
+  categories?: CategoryKey[]
   text?: string
   transactionTypes?: TransactionType[]
   sort?: TransactionSortKey

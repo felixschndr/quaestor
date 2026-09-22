@@ -8,6 +8,7 @@ from source.backend.api.schemas.transactions.transaction import TransactionDetai
 from source.backend.models.accounts.account import Account
 from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot, BalanceSnapshotSource
 from source.backend.models.banking.credential import Credential
+from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
@@ -16,6 +17,7 @@ from tests.backend.conftest import (
     DEFAULT_AMOUNT,
     DEFAULT_BALANCE,
     INTRUDER_USER_NAME,
+    REWE,
     SECOND_USER_NAME,
     USER_NAME,
     WALLET_ACCOUNT_NAME,
@@ -385,10 +387,31 @@ def test_update_transaction_sets_category(http_client: TestClient, session_facto
 
     assert response.status_code == 200
     assert response.json()["category"] == "SUPERMARKET"
+    assert response.json()["category_source"] == "MANUAL"
     with session_factory() as session:
         stored = session.get(entity=Transaction, ident=transaction_id)
         assert stored is not None
         assert stored.category == TransactionCategory.SUPERMARKET
+        assert stored.category_source == CategorySource.MANUAL
+
+
+def test_update_transaction_with_null_category_resets_it_to_the_matched_one(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    transaction_id = persist_transaction(
+        session_factory=session_factory,
+        account_id=account_id,
+        other_party=REWE,
+        category=TransactionCategory.GIFTS,
+        category_source=CategorySource.MANUAL,
+    )
+
+    response = http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"category": None})
+
+    assert response.status_code == 200
+    assert response.json()["category"] == "SUPERMARKET"
+    assert response.json()["category_source"] == "AUTO"
 
 
 def test_update_transaction_rejects_unknown_category(http_client: TestClient, session_factory: sessionmaker):

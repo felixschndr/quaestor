@@ -11,11 +11,10 @@ import { Switch } from '@/components/ui/switch'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { FormField } from '@/components/form-field'
 import {
-  TRANSACTION_CATEGORIES,
   TRANSACTION_TYPES,
   useCreateTransaction,
   useUpdateTransaction,
-  type TransactionCategory,
+  type CategoryKey,
   type TransactionPatch,
   type TransactionType,
 } from '@/lib/transaction'
@@ -27,6 +26,7 @@ import {
   type RecurringTransactionRead,
 } from '@/lib/recurringTransaction'
 import type { TransactionRead } from '@/lib/accountHistory'
+import { useCategoryOptions } from '@/lib/categoryIcons'
 import { formatAmountForInput, todayIso } from '@/lib/format'
 
 const MONTH_DAYS = Array.from({ length: 31 }, (_, index) => index + 1)
@@ -48,6 +48,7 @@ export function ManualTransactionForm({
   onDone,
 }: ManualTransactionFormProps) {
   const { t } = useTranslation()
+  const categoryOptions = useCategoryOptions()
   const isRecurringEdit = mode === 'edit' && !!recurringTransaction
   const seed = recurringTransaction ?? transaction
   const [date, setDate] = useState(transaction?.date ?? todayIso())
@@ -58,8 +59,8 @@ export function ManualTransactionForm({
   const [txnType, setTxnType] = useState<TransactionType | ''>(
     (seed?.transaction_type as TransactionType | undefined) ?? '',
   )
-  const [category, setCategory] = useState<TransactionCategory | ''>(
-    (seed?.category as TransactionCategory | undefined) ?? '',
+  const [category, setCategory] = useState<CategoryKey | ''>(
+    (seed?.category as CategoryKey | undefined) ?? '',
   )
   const [note, setNote] = useState(seed?.note ?? '')
 
@@ -277,13 +278,7 @@ export function ManualTransactionForm({
             ariaLabel={t('common.category')}
             value={category}
             onChange={setCategory}
-            options={[
-              { value: '', label: t('common.any') },
-              ...TRANSACTION_CATEGORIES.map((cat) => ({
-                value: cat,
-                label: t(`common.transactionLabel.${cat}`),
-              })),
-            ]}
+            options={[{ value: '', label: t('common.any') }, ...categoryOptions]}
           />
         </FormField>
       </div>
