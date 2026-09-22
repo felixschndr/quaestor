@@ -170,18 +170,17 @@ describe('TransactionDetailView', () => {
     expect(labels).toContain('Supermarket')
   })
 
-  it('sorts categories alphabetically by their localised label, pinning UNKNOWN last', async () => {
+  it('lists categories under their group headings, pinning UNKNOWN last', async () => {
     const user = userEvent.setup()
     renderView()
     await user.click(screen.getByLabelText('Category'))
     const list = await screen.findByRole('list', { name: 'Category' })
-    const labels = within(list)
-      .getAllByRole('button')
-      .map((option) => option.textContent ?? '')
-    const labelsExceptLast = labels.slice(0, -1)
-    const sorted = [...labelsExceptLast].sort((a, b) => a.localeCompare(b))
-    expect(labelsExceptLast).toEqual(sorted)
-    expect(labels[labels.length - 1]).toBe('Unknown')
+    const entries = within(list)
+      .getAllByRole('listitem')
+      .map((item) => item.textContent ?? '')
+    expect(entries.slice(0, 3)).toEqual(['Income', 'Salary', 'Side income'])
+    expect(entries.indexOf('Food & drink')).toBe(entries.indexOf('Other income') + 1)
+    expect(entries[entries.length - 1]).toBe('Unknown')
   })
 
   it('calls onChangeCategory when the user picks a new category', async () => {
@@ -189,6 +188,26 @@ describe('TransactionDetailView', () => {
     const { onChangeCategory } = renderView({ category: 'SUPERMARKET' })
     await selectFromPopover(user, 'Category', 'Restaurants')
     expect(onChangeCategory).toHaveBeenCalledWith('RESTAURANTS')
+  })
+
+  it('offers resetting a manually set category to the automatic one', async () => {
+    const user = userEvent.setup()
+    const { onChangeCategory } = renderView({ category_source: 'MANUAL' })
+    await user.click(screen.getByRole('button', { name: 'Reset' }))
+    expect(onChangeCategory).toHaveBeenCalledWith(null)
+  })
+
+  it('shows the rule section next to the category select', () => {
+    renderView(
+      { category_source: 'MANUAL' },
+      { ruleSection: <button type="button">Create rule</button> },
+    )
+    expect(screen.getByRole('button', { name: 'Create rule' })).toBeInTheDocument()
+  })
+
+  it('hides the reset for an automatically assigned category', () => {
+    renderView({ category_source: 'AUTO' })
+    expect(screen.queryByRole('button', { name: 'Reset' })).not.toBeInTheDocument()
   })
 
   const memberTransaction: TransactionRead = {

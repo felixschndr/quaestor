@@ -20,7 +20,7 @@ def test_transaction_repr_contains_identifying_fields():
     assert repr(transaction) == (
         f"<Transaction(id=99, account_id=42, amount={-DEFAULT_AMOUNT}, purpose=Coffee, "
         "date=2026-04-29, other_party=Café, transaction_type=OUTGOING, "
-        "category=UNKNOWN, note=Birthday gift, pending=None, bank_reference=None, expected=None, "
+        "category=UNKNOWN, category_source=None, note=Birthday gift, pending=None, bank_reference=None, expected=None, "
         "match_tolerance_percent=None, related_group_id=None, "
         "transfer_original_type=None, transfer_relink_blocked=None, related_link_source=None, recurring_transaction_id=None, "
         "contract_id=None, contract_assignment=None)>"

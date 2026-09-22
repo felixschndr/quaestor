@@ -24,7 +24,7 @@ from source.backend.api.core import i18n, settings, version
 from source.backend.api.core.exception_handlers import register_exception_handlers
 from source.backend.api.core.openapi import API_DESCRIPTION
 from source.backend.api.notifications import notification_log, notification_rules, push
-from source.backend.api.transactions import statistics, transactions
+from source.backend.api.transactions import categorization, statistics, transactions
 from source.backend.constants import API_PREFIX
 from source.backend.db import SessionLocal, close_engine, log_database_location
 from source.backend.helpers import (
@@ -297,6 +297,7 @@ for api_object in [
     account_shares,
     api_keys,
     auth,
+    categorization,
     contracts,
     credentials,
     i18n,

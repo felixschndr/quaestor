@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowDownLeft, ArrowUpRight, CircleHelp, Unlink } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, CircleHelp, RotateCcw, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { TransactionRead } from '@/lib/accountHistory'
@@ -16,7 +16,8 @@ import {
   isIban,
 } from '@/lib/format'
 import { CategoryAvatar, useCategoryOptions } from '@/lib/categoryIcons'
-import { type TransactionCategory } from '@/lib/transaction'
+import { useCategoryCatalog } from '@/lib/categoryCatalog'
+import { type CategoryKey } from '@/lib/transaction'
 import { NoteEditor } from '@/components/note-editor'
 import { AccountLabel } from '@/components/AccountLabel'
 import { Button } from '@/components/ui/button'
@@ -59,12 +60,14 @@ export function TransactionDetailView({
   onSaveNote,
   onChangeCategory,
   onUnlink,
+  ruleSection,
   contractSection,
   attachmentsSection,
   linkSection,
   linkConfirmSection,
 }: TransactionDetailViewProps) {
   const { t } = useTranslation()
+  const catalog = useCategoryCatalog()
   const negative = transaction.amount < 0
 
   return (
@@ -85,11 +88,13 @@ export function TransactionDetailView({
         >
           {formatMoney(transaction.amount)}
         </p>
-        <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
+        <p className="text-muted-foreground flex flex-col items-center gap-1.5 text-sm sm:flex-row">
           <span>{formatDate(transaction.date)}</span>
           {transaction.transaction_type ? (
             <>
-              <span aria-hidden="true">·</span>
+              <span aria-hidden="true" className="hidden sm:inline">
+                ·
+              </span>
               <TypeBadge transactionType={transaction.transaction_type} />
             </>
           ) : null}
@@ -119,12 +124,16 @@ export function TransactionDetailView({
         </DetailRow>
         <DetailRow label={t('common.category')}>
           {transaction.pending || !canWrite ? (
-            <span className="text-sm">{t(`common.transactionLabel.${transaction.category}`)}</span>
+            <span className="text-sm">{catalog.label(transaction.category)}</span>
           ) : (
             <CategorySelect
-              value={transaction.category as TransactionCategory}
+              value={transaction.category as CategoryKey}
+              manual={transaction.category_source === 'MANUAL'}
+              includeCustom={canUnlink}
               onChange={onChangeCategory}
-            />
+            >
+              {ruleSection}
+            </CategorySelect>
           )}
         </DetailRow>
         {relatedTransactions.length > 0 || linkSection ? (
@@ -504,16 +513,22 @@ function TypeBadge({ transactionType }: { transactionType: string }) {
 
 function CategorySelect({
   value,
+  manual,
+  includeCustom,
   onChange,
+  children,
 }: {
-  value: TransactionCategory
-  onChange: (category: TransactionCategory) => Promise<unknown>
+  value: CategoryKey
+  manual: boolean
+  includeCustom?: boolean
+  onChange: (category: CategoryKey | null) => Promise<unknown>
+  children?: React.ReactNode
 }) {
   const { t } = useTranslation()
   const [pending, setPending] = useState(false)
-  const options = useCategoryOptions()
+  const options = useCategoryOptions({ includeCustom })
 
-  const change = async (next: TransactionCategory) => {
+  const change = async (next: CategoryKey | null) => {
     setPending(true)
     try {
       await onChange(next)
@@ -525,13 +540,39 @@ function CategorySelect({
   }
 
   return (
-    <SingleSelectPopover
-      ariaLabel={t('common.category')}
-      value={value}
-      disabled={pending}
-      onChange={(next) => void change(next)}
-      options={options}
-      searchPlaceholder={t('search.filterPlaceholder')}
-    />
+    // On a phone the dropdown takes the first line and the buttons share the second one
+    <div className="flex flex-wrap items-center gap-2">
+      <SingleSelectPopover
+        ariaLabel={t('common.category')}
+        value={value}
+        disabled={pending}
+        onChange={(next) => void change(next)}
+        options={options}
+        searchPlaceholder={t('search.filterPlaceholder')}
+        className="w-full sm:w-auto sm:flex-1"
+      />
+      {/* Equal halves on a phone; from tablet width on the grid dissolves back into the row */}
+      <div
+        className={cn(
+          'grid w-full gap-2 sm:contents',
+          manual && children ? 'grid-cols-2' : 'grid-cols-1',
+        )}
+      >
+        {manual ? (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={() => void change(null)}
+            className="min-w-0 sm:flex-none"
+          >
+            {/* Both buttons share one line on a phone, so the icons only show from tablet width on */}
+            <RotateCcw className="hidden size-4 sm:block" aria-hidden="true" />
+            {t('transaction.categoryReset')}
+          </Button>
+        ) : null}
+        {children ? <span className="flex min-w-0 sm:ml-auto sm:flex-none">{children}</span> : null}
+      </div>
+    </div>
   )
 }

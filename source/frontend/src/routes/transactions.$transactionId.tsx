@@ -1,7 +1,7 @@
-import { type ReactNode, useRef } from 'react'
+import { type ReactNode, useRef, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeftRight, Download, Paperclip, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeftRight, Download, Paperclip, Plus, SquarePen, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
@@ -14,7 +14,7 @@ import {
   useTransactionById,
   useUpdateTransaction,
   useUnlinkRelated,
-  type TransactionCategory,
+  type CategoryKey,
 } from '@/lib/transaction'
 import { useAuthMe } from '@/lib/auth'
 import { useContracts, useSetTransactionContract } from '@/lib/contract'
@@ -27,6 +27,9 @@ import {
 import { useAppSettings } from '@/lib/settings'
 import { ApiError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { CategoryRuleForm } from '@/components/category-rule-form'
+import { useCategoryCatalog } from '@/lib/categoryCatalog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import {
   DetailRow,
@@ -118,6 +121,11 @@ function TransactionDetailPage() {
       onChangeCategory={(category) => update.mutateAsync({ category })}
       onUnlink={(transaction) =>
         unlink.mutateAsync({ accountId: transaction.account_id, transactionId: transaction.id })
+      }
+      ruleSection={
+        isOwner && query.data.category_source === 'MANUAL' && query.data.other_party?.trim() ? (
+          <CreateRuleFromTransaction transaction={query.data} />
+        ) : undefined
       }
       contractSection={
         query.data.pending || !isOwner ? undefined : <ContractSection transaction={query.data} />
@@ -417,12 +425,49 @@ export interface TransactionDetailViewProps {
   canWrite?: boolean
   canUnlink?: boolean
   onSaveNote: (note: string | null) => Promise<unknown>
-  onChangeCategory: (category: TransactionCategory) => Promise<unknown>
+  onChangeCategory: (category: CategoryKey | null) => Promise<unknown>
   onUnlink: (transaction: TransactionRead) => Promise<unknown>
+  // Offered next to a manually set category
+  ruleSection?: ReactNode
   contractSection?: ReactNode
   attachmentsSection?: ReactNode
   linkSection?: ReactNode
   linkConfirmSection?: ReactNode
+}
+
+function CreateRuleFromTransaction({ transaction }: { transaction: TransactionRead }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const catalog = useCategoryCatalog()
+  const category = transaction.category as CategoryKey
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" className="w-full sm:w-auto">
+          <SquarePen className="hidden size-4 sm:block" aria-hidden="true" />
+          {t('categorization.createFromTransaction')}
+        </Button>
+      </PopoverTrigger>
+      {/* Flush with the right edge of the content area; on a phone the width leaves 8px on either side, so the
+          collision padding centres it */}
+      <PopoverContent
+        align="end"
+        collisionPadding={8}
+        className="flex w-[calc(100vw-1rem)] flex-col gap-3 sm:w-[32rem]"
+      >
+        <CategoryRuleForm
+          stacked
+          initialPattern={transaction.other_party ?? ''}
+          initialCategory={category}
+          hint={(picked) =>
+            t('categorization.createFromTransactionHint', { category: catalog.label(picked) })
+          }
+          onDone={() => setOpen(false)}
+        />
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 function ContractSection({ transaction }: { transaction: TransactionRead }) {

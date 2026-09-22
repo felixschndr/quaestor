@@ -7,11 +7,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from source.backend import main
+from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.transactions import category_rescan
 from source.backend.services.transactions.category_rescan import run_startup_rescan as real_run_startup_rescan
 from tests.backend.conftest import (
+    REWE,
     UNKNOWN_TRANSACTION_OTHER_PARTY,
     assert_log_contains,
     persist_account_with_new_user,
@@ -19,27 +22,42 @@ from tests.backend.conftest import (
 )
 
 
-def test_rescan_updates_unknown_transactions_that_now_match(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
-):
+@pytest.fixture
+def account_id(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch) -> int:
     monkeypatch.setattr(target=category_rescan, name="SessionLocal", value=session_factory)
-    account_id = persist_account_with_new_user(session_factory)
-    matchable_id = persist_transaction(
-        session_factory=session_factory,
-        account_id=account_id,
-        category=TransactionCategory.UNKNOWN,
-        other_party="REWE Markt",
+    return persist_account_with_new_user(session_factory)
+
+
+def _category_of(session_factory: sessionmaker, transaction_id: int) -> TransactionCategory:
+    with session_factory() as session:
+        return session.get(entity=Transaction, ident=transaction_id).category
+
+
+def test_rescan_updates_unknown_transactions_that_now_match(session_factory: sessionmaker, account_id: int):
+    transaction_id = persist_transaction(
+        session_factory=session_factory, account_id=account_id, category=TransactionCategory.UNKNOWN, other_party=REWE
     )
 
-    category_rescan.rescan_unknown_categories_sync()
+    category_rescan.rescan_categories_sync()
 
-    with session_factory() as session:
-        assert session.get(entity=Transaction, ident=matchable_id).category == TransactionCategory.SUPERMARKET
+    assert (
+        _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SUPERMARKET
+    )
 
 
-def test_rescan_leaves_truly_unknown_transactions_alone(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(target=category_rescan, name="SessionLocal", value=session_factory)
-    account_id = persist_account_with_new_user(session_factory)
+def test_rescan_rederives_automatic_categories_that_no_longer_match(session_factory: sessionmaker, account_id: int):
+    transaction_id = persist_transaction(
+        session_factory=session_factory, account_id=account_id, category=TransactionCategory.DRUGSTORE, other_party=REWE
+    )
+
+    category_rescan.rescan_categories_sync()
+
+    assert (
+        _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SUPERMARKET
+    )
+
+
+def test_rescan_leaves_truly_unknown_transactions_alone(session_factory: sessionmaker, account_id: int):
     transaction_id = persist_transaction(
         session_factory=session_factory,
         account_id=account_id,
@@ -47,40 +65,49 @@ def test_rescan_leaves_truly_unknown_transactions_alone(session_factory: session
         other_party=UNKNOWN_TRANSACTION_OTHER_PARTY,
     )
 
-    category_rescan.rescan_unknown_categories_sync()
+    category_rescan.rescan_categories_sync()
 
-    with session_factory() as session:
-        assert session.get(entity=Transaction, ident=transaction_id).category == TransactionCategory.UNKNOWN
+    assert _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.UNKNOWN
 
 
-def test_rescan_does_not_overwrite_non_unknown_transactions(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    argnames="category_source", argvalues=[CategorySource.MANUAL, CategorySource.CONTRACT, CategorySource.SYSTEM]
+)
+def test_rescan_does_not_touch_categories_that_did_not_come_from_the_matchers(
+    session_factory: sessionmaker, account_id: int, category_source: CategorySource
 ):
-    monkeypatch.setattr(target=category_rescan, name="SessionLocal", value=session_factory)
-    account_id = persist_account_with_new_user(session_factory)
-    manually_set_id = persist_transaction(
+    transaction_id = persist_transaction(
         session_factory=session_factory,
         account_id=account_id,
         category=TransactionCategory.DRUGSTORE,
-        other_party="REWE Markt",
+        category_source=category_source,
+        other_party=REWE,
     )
 
-    category_rescan.rescan_unknown_categories_sync()
+    category_rescan.rescan_categories_sync()
 
-    with session_factory() as session:
-        assert session.get(entity=Transaction, ident=manually_set_id).category == TransactionCategory.DRUGSTORE
+    assert _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.DRUGSTORE
 
 
-def test_rescan_logs_summary_at_info(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-):
-    monkeypatch.setattr(target=category_rescan, name="SessionLocal", value=session_factory)
-    account_id = persist_account_with_new_user(session_factory)
-    persist_transaction(
+def test_rescan_matches_linked_transfers_on_the_type_the_bank_reported(session_factory: sessionmaker, account_id: int):
+    transaction_id = persist_transaction(
         session_factory=session_factory,
         account_id=account_id,
-        category=TransactionCategory.UNKNOWN,
-        other_party="REWE Markt",
+        category=TransactionCategory.SAVINGS,
+        transaction_type=TransactionType.TRANSFER_IN,
+    )
+    with session_factory() as session:
+        session.get(entity=Transaction, ident=transaction_id).transfer_original_type = TransactionType.DEPOSIT
+        session.commit()
+
+    category_rescan.rescan_categories_sync()
+
+    assert _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SAVINGS
+
+
+def test_rescan_logs_summary_at_info(session_factory: sessionmaker, account_id: int, caplog: pytest.LogCaptureFixture):
+    persist_transaction(
+        session_factory=session_factory, account_id=account_id, category=TransactionCategory.UNKNOWN, other_party=REWE
     )
     persist_transaction(
         session_factory=session_factory,
@@ -89,7 +116,7 @@ def test_rescan_logs_summary_at_info(
         other_party=UNKNOWN_TRANSACTION_OTHER_PARTY,
     )
 
-    category_rescan.rescan_unknown_categories_sync()
+    category_rescan.rescan_categories_sync()
 
     assert_log_contains(
         caplog,
@@ -103,7 +130,7 @@ def test_run_startup_rescan_logs_exception_instead_of_crashing(
     def category_rescan_mock() -> None:
         raise RuntimeError("Something went wrong.")
 
-    monkeypatch.setattr(target=category_rescan, name="rescan_unknown_categories_sync", value=category_rescan_mock)
+    monkeypatch.setattr(target=category_rescan, name="rescan_categories_sync", value=category_rescan_mock)
 
     asyncio.run(real_run_startup_rescan())
 

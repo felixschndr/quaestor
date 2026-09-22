@@ -33,6 +33,7 @@ from source.backend.models.base import Base
 from source.backend.models.contracts.contract import Contract
 from source.backend.models.contracts.contract_frequency import ContractFrequency
 from source.backend.models.contracts.contract_source import ContractSource
+from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.related_group import RelatedGroup
 from source.backend.models.transactions.related_link_source import RelatedLinkSource
 from source.backend.models.transactions.transaction import Transaction
@@ -421,6 +422,7 @@ def make_transaction(
     pending: bool = False,
     expected: bool = False,
     match_tolerance_percent: int | None = None,
+    category_source: CategorySource = CategorySource.AUTO,
 ) -> Transaction:
     account = db_session.get(entity=Account, ident=account_id)
     transaction = Transaction(
@@ -431,6 +433,7 @@ def make_transaction(
         date=date,
         transaction_type=transaction_type,
         category=category,
+        category_source=category_source,
         note=note,
         pending=pending,
         expected=expected,
@@ -561,6 +564,7 @@ def persist_transaction(
     pending: bool = False,
     expected: bool = False,
     match_tolerance_percent: int | None = None,
+    category_source: CategorySource = CategorySource.AUTO,
 ) -> int:
     """Persist a transaction through its own committed session and return its id."""
     with session_factory() as db_session:
@@ -577,6 +581,7 @@ def persist_transaction(
             pending=pending,
             expected=expected,
             match_tolerance_percent=match_tolerance_percent,
+            category_source=category_source,
         )
         db_session.commit()
         return transaction.id

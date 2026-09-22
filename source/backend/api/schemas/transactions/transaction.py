@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from source.backend.models.transactions.transaction_category import TransactionCategory
+from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.transaction_type import TransactionType
 
 StatisticsLinked = Literal["linked", "unlinked", "none"]
@@ -27,7 +27,8 @@ class TransactionRead(BaseModel):
     date: datetime.date
     other_party: str | None
     transaction_type: TransactionType | None
-    category: TransactionCategory
+    category: str
+    category_source: CategorySource = CategorySource.AUTO
     note: str | None
     pending: bool
     contract_id: int | None = None
@@ -52,7 +53,8 @@ class TransactionDetailRead(TransactionRead):
 
 class TransactionUpdate(BaseModel):
     note: str | None = None
-    category: TransactionCategory | None = None
+    # An explicit null resets the category to the automatically matched one
+    category: str | None = None
     amount: float | None = None
     date: datetime.date | None = None
     purpose: str | None = None
@@ -66,7 +68,7 @@ class TransactionCreate(BaseModel):
     purpose: str | None = None
     other_party: str | None = None
     transaction_type: TransactionType | None = None
-    category: TransactionCategory | None = None
+    category: str | None = None
     note: str | None = None
 
 
@@ -83,7 +85,8 @@ class TransactionSearchQuery(BaseModel):
     date_from: datetime.date | None = None
     date_to: datetime.date | None = None
     transaction_types: list[TransactionType] = Field(default_factory=list)
-    categories: list[TransactionCategory] = Field(default_factory=list)
+    # Category keys and group keys; a group stands for all of its categories
+    categories: list[str] = Field(default_factory=list)
     linked: StatisticsLinked | None = None
     has_attachment: HasAttachment | None = None
 
