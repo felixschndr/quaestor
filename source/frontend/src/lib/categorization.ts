@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { api } from './api'
+import { readApiErrorMessage } from './apiError'
 import { accountQueryKeys } from './accountHistory'
 import { contractQueryKeys } from './contract'
 import { statisticsQueryKeys } from './statistics'
@@ -30,7 +31,6 @@ export interface DefaultMatcherRead {
 export interface CategorizationRead {
   rules: CategoryRuleRead[]
   default_matchers: DefaultMatcherRead[]
-  // How many transactions the change re-categorized
   recategorized: number
 }
 
@@ -43,7 +43,6 @@ export interface CustomCategoryRead {
   key: CategoryKey
   group: CategoryGroup
   name: string
-  // False for a category of someone who shares an account with the user
   owned: boolean
 }
 
@@ -77,7 +76,6 @@ export function useCustomCategories(options?: { enabled?: boolean }) {
   })
 }
 
-// Every change may re-categorize transactions, so everything that shows categories is refetched
 function useCategorizationMutation<TVars, TData extends { recategorized: number }>(
   mutationFn: (variables: TVars) => Promise<TData>,
   cacheKey: readonly unknown[] = categorizationQueryKeys.all,
@@ -87,6 +85,9 @@ function useCategorizationMutation<TVars, TData extends { recategorized: number 
     mutationFn,
     onSuccess: (data) => {
       queryClient.setQueryData(cacheKey, data)
+      if (cacheKey !== categorizationQueryKeys.all) {
+        queryClient.invalidateQueries({ queryKey: categorizationQueryKeys.all, exact: true })
+      }
       if (data.recategorized === 0) return
       for (const queryKey of [
         accountQueryKeys.all,
@@ -148,29 +149,27 @@ export function useUpdateCustomCategory() {
 }
 
 export function useDeleteCustomCategory() {
-  const queryClient = useQueryClient()
-  const mutation = useCategorizationMutation(
+  return useCategorizationMutation(
     (key: CategoryKey) =>
       api<CustomCategoriesRead>(`/categorization/custom-categories/${key}`, { method: 'DELETE' }),
     categorizationQueryKeys.customCategories,
   )
-  // Deleting also removes the rules that assigned the category
-  return {
-    ...mutation,
-    mutateAsync: async (key: CategoryKey) => {
-      const result = await mutation.mutateAsync(key)
-      await queryClient.invalidateQueries({ queryKey: categorizationQueryKeys.all, exact: true })
-      return result
-    },
-  }
 }
 
 export function useReportCategorizationChange() {
   const { t } = useTranslation()
-  return (result: { recategorized: number }, success: string) =>
-    toast.success(
-      result.recategorized > 0
-        ? `${success} · ${t('categorization.recategorized', { count: result.recategorized })}`
-        : success,
-    )
+  return async (change: Promise<{ recategorized: number }>, success: string) => {
+    try {
+      const { recategorized } = await change
+      toast.success(
+        recategorized > 0
+          ? `${success} · ${t('categorization.recategorized', { count: recategorized })}`
+          : success,
+      )
+      return true
+    } catch (err) {
+      toast.error(readApiErrorMessage(err, t))
+      return false
+    }
+  }
 }

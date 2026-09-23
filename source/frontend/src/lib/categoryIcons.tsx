@@ -168,42 +168,24 @@ export const CATEGORY_ICONS: Record<TransactionCategory | CategoryGroup, LucideI
   UNKNOWN: CircleHelp,
 }
 
-const TONES = {
-  emerald: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-  orange: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
-  amber: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-  sky: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
-  fuchsia: 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400',
-  violet: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
-  rose: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
-  slate: 'bg-slate-500/15 text-slate-600 dark:text-slate-400',
-  teal: 'bg-teal-500/15 text-teal-600 dark:text-teal-400',
-  cyan: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
-  pink: 'bg-pink-500/15 text-pink-600 dark:text-pink-400',
-  lime: 'bg-lime-500/15 text-lime-600 dark:text-lime-400',
-  blue: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-  none: 'bg-muted text-muted-foreground',
-} as const
-
-// A category is tinted by its group
-export const GROUP_TONES: Record<CategoryGroup, keyof typeof TONES> = {
-  INCOME: 'emerald',
-  FOOD_AND_DRINK: 'orange',
-  HOUSING: 'amber',
-  MOBILITY: 'sky',
-  LEISURE: 'fuchsia',
-  SHOPPING: 'violet',
-  HEALTH: 'rose',
-  INSURANCE: 'slate',
-  FINANCES: 'teal',
-  SAVINGS_AND_INVESTMENTS: 'cyan',
-  CHILDREN: 'pink',
-  PETS: 'lime',
-  MISCELLANEOUS: 'blue',
+export const GROUP_TONES: Record<CategoryGroup, string> = {
+  INCOME: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  FOOD_AND_DRINK: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
+  HOUSING: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  MOBILITY: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+  LEISURE: 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400',
+  SHOPPING: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+  HEALTH: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+  INSURANCE: 'bg-slate-500/15 text-slate-600 dark:text-slate-400',
+  FINANCES: 'bg-teal-500/15 text-teal-600 dark:text-teal-400',
+  SAVINGS_AND_INVESTMENTS: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
+  CHILDREN: 'bg-pink-500/15 text-pink-600 dark:text-pink-400',
+  PETS: 'bg-lime-500/15 text-lime-600 dark:text-lime-400',
+  MISCELLANEOUS: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
 }
 
-// Grouped in display order with the user's own custom categories after the fixed ones, UNKNOWN last. Custom categories
-// are left out where only the fixed ones may be assigned (a transaction on an account shared with the user).
+const NO_TONE = 'bg-muted text-muted-foreground'
+
 export function useCategoryOptions({
   includeCustom = true,
 }: { includeCustom?: boolean } = {}): SingleSelectOption<CategoryKey>[] {
@@ -237,7 +219,6 @@ export function CategoryAvatar({
   iconClassName?: string
 }) {
   const group = useCategoryCatalog().groupOf(category)
-  // A custom category shows the icon of its group
   const Icon =
     CATEGORY_ICONS[category as keyof typeof CATEGORY_ICONS] ??
     (group ? CATEGORY_ICONS[group] : CircleHelp)
@@ -245,7 +226,7 @@ export function CategoryAvatar({
     <span
       className={cn(
         'flex size-14 shrink-0 items-center justify-center rounded-full',
-        TONES[group ? GROUP_TONES[group] : 'none'],
+        group ? GROUP_TONES[group] : NO_TONE,
         className,
       )}
     >

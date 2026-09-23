@@ -28,7 +28,6 @@ export type ChartKey = CategoryKey | CategoryGroup | 'OTHER'
 const CHART_KEYS: readonly string[] = [...TRANSACTION_CATEGORIES, ...CATEGORY_GROUPS, 'OTHER']
 const isChartKey = (key: string) => CHART_KEYS.includes(key) || isCustomCategoryKey(key)
 
-// Unknown keys (e.g. retired categories in an old link) are dropped instead of failing the whole page
 const hiddenCategorySchema = oneOrMany(z.string()).transform(
   (keys) => keys.filter(isChartKey) as ChartKey[],
 )

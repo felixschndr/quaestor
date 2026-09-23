@@ -46,7 +46,6 @@ class User(Base):
     two_factor_secret: Mapped[str | None] = mapped_column(String, nullable=True)
     two_factor_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     show_upcoming_contracts: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
-    # Default matchers (see TRANSACTION_CATEGORY_MAPPING) the user switched off
     disabled_default_matchers: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
 
     credentials: Mapped[List["Credential"]] = relationship(back_populates="user", cascade="all, delete-orphan")

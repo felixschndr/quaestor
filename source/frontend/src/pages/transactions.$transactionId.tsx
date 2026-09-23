@@ -540,7 +540,6 @@ function CategorySelect({
   }
 
   return (
-    // On a phone the dropdown takes the first line and the buttons share the second one
     <div className="flex flex-wrap items-center gap-2">
       <SingleSelectPopover
         ariaLabel={t('common.category')}
@@ -551,28 +550,31 @@ function CategorySelect({
         searchPlaceholder={t('search.filterPlaceholder')}
         className="w-full sm:w-auto sm:flex-1"
       />
-      {/* Equal halves on a phone; from tablet width on the grid dissolves back into the row */}
-      <div
-        className={cn(
-          'grid w-full gap-2 sm:contents',
-          manual && children ? 'grid-cols-2' : 'grid-cols-1',
-        )}
-      >
-        {manual ? (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={pending}
-            onClick={() => void change(null)}
-            className="min-w-0 sm:flex-none"
-          >
-            {/* Both buttons share one line on a phone, so the icons only show from tablet width on */}
-            <RotateCcw className="hidden size-4 sm:block" aria-hidden="true" />
-            {t('transaction.categoryReset')}
-          </Button>
-        ) : null}
-        {children ? <span className="flex min-w-0 sm:ml-auto sm:flex-none">{children}</span> : null}
-      </div>
+      {/* Without buttons this row must not exist at all, it would only add its gap */}
+      {manual || children ? (
+        <div
+          className={cn(
+            'grid w-full gap-2 sm:contents',
+            manual && children ? 'grid-cols-2' : 'grid-cols-1',
+          )}
+        >
+          {manual ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending}
+              onClick={() => void change(null)}
+              className="min-w-0 sm:flex-none"
+            >
+              <RotateCcw className="hidden size-4 sm:block" aria-hidden="true" />
+              {t('transaction.categoryReset')}
+            </Button>
+          ) : null}
+          {children ? (
+            <span className="flex min-w-0 sm:ml-auto sm:flex-none">{children}</span>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }

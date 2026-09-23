@@ -22,7 +22,6 @@ def new_custom_category_key() -> str:
 
 
 class CustomCategory(Base):
-    # A user-defined subcategory of one of the fixed groups; stored on transactions by its key
     __tablename__ = "custom_categories"
     __table_args__ = (
         UniqueConstraint("user_id", "group", "name", name="uq_custom_categories_user_group_name"),  # noqa: FKA100

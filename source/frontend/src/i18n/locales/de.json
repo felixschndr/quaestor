@@ -1032,7 +1032,7 @@
     "patternPlaceholder": "z. B. Kleinanzeigen",
     "addRule": "Regel hinzufügen",
     "createFromTransaction": "Regel erstellen",
-    "createFromTransactionHint": "Buchungen, die diesen Suchbegriff enthalten, bekommen die Kategorie „{{category}}“ — auch bestehende, sofern ihre Kategorie automatisch vergeben wurde. Manuell gesetzte bleiben unverändert.",
+    "createFromTransactionHint": "Buchungen, die diesen Suchbegriff enthalten, bekommen die Kategorie „{{category}}“ (auch bestehende, sofern ihre Kategorie automatisch vergeben wurde; manuell gesetzte bleiben unverändert).",
     "saved": "Regel gespeichert",
     "deleted": "Regel gelöscht",
     "recategorized_one": "{{count}} Buchung neu zugeordnet",

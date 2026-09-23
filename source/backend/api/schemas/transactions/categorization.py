@@ -25,7 +25,6 @@ class DefaultMatcherRead(BaseModel):
 class CategorizationRead(BaseModel):
     rules: list[CategoryRuleRead]
     default_matchers: list[DefaultMatcherRead]
-    # How many transactions a change re-categorized; 0 on a plain read
     recategorized: int = 0
 
 
@@ -45,13 +44,11 @@ class CustomCategoryRead(BaseModel):
     key: str
     group: CategoryGroup
     name: str
-    # False for a category of someone who shares an account with the user
     owned: bool
 
 
 class CustomCategoriesRead(BaseModel):
     custom_categories: list[CustomCategoryRead]
-    # How many transactions a change re-categorized; 0 on a plain read
     recategorized: int = 0
 
 

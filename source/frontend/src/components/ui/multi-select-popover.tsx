@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { matchesQuery, PopoverSearchInput } from '@/components/ui/popover-search-input'
 import { handleSelectListArrowKeys } from '@/components/ui/select-list-keyboard'
 import { SelectAllHeader } from '@/components/ui/select-all-header'
-import { GroupHeading } from '@/components/ui/single-select-popover'
+import { GroupHeading, type SingleSelectOption } from '@/components/ui/single-select-popover'
 import {
   Popover,
   PopoverContent,
@@ -17,13 +17,7 @@ import {
   popoverTriggerClassName,
 } from '@/components/ui/popover'
 
-export interface MultiSelectOption<T extends string> {
-  value: T
-  label: string
-  leading?: React.ReactNode
-  // Consecutive options with the same group are listed under a heading that toggles the whole group
-  group?: string
-}
+export type MultiSelectOption<T extends string> = SingleSelectOption<T>
 
 export interface MultiSelectPopoverProps<T extends string> {
   id?: string

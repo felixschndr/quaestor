@@ -52,12 +52,7 @@ class VisibleCustomCategory:
     owned: bool
 
 
-# --- Category keys -----------------------------------------------------------------------------------------------
-
-
 def require_assignable_category(category: str | None, owner: User, allow_unknown: bool = True) -> None:
-    # A transaction, contract or rule may carry a fixed category or a custom category of the account owner; None means
-    # no category was given
     if category is None:
         return
     if category == TransactionCategory.UNKNOWN and not allow_unknown:
@@ -77,7 +72,6 @@ def require_category_selection(selection: Iterable[str], owner: User) -> None:
 
 
 def custom_category_groups_for_accounts(db_session: Session, account_ids: Iterable[int]) -> dict[str, CategoryGroup]:
-    # The custom categories that can appear on these accounts: those of their owners
     rows = db_session.execute(
         select(CustomCategory.key, CustomCategory.group)  # noqa: FKA100
         .join(Credential, onclause=Credential.user_id == CustomCategory.user_id)
@@ -89,7 +83,6 @@ def custom_category_groups_for_accounts(db_session: Session, account_ids: Iterab
 
 
 def list_visible_custom_categories(db_session: Session, user: User) -> list[VisibleCustomCategory]:
-    # The user's own custom categories plus those of everyone who shares an account with them
     sharing_owner_ids = (
         select(Credential.user_id)
         .join(Account, onclause=Account.credential_id == Credential.id)
@@ -111,9 +104,6 @@ def list_visible_custom_categories(db_session: Session, user: User) -> list[Visi
         )
         for custom_category in custom_categories
     ]
-
-
-# --- Rules -------------------------------------------------------------------------------------------------------
 
 
 def list_default_matchers(user: User) -> list[DefaultMatcher]:
@@ -175,9 +165,6 @@ def _valid_pattern(user: User, pattern: str, rule_id: int | None = None) -> str:
     return normalized
 
 
-# --- Custom categories -------------------------------------------------------------------------------------------
-
-
 def get_custom_category_for_user(user: User, key: str) -> CustomCategory:
     custom_category = next((custom for custom in user.custom_categories if custom.key == key), None)
     if custom_category is None:
@@ -201,13 +188,11 @@ def update_custom_category(db_session: Session, user: User, key: str, group: Cat
     custom_category.name = _valid_custom_category_name(user=user, group=group, name=name, key=key)
     custom_category.group = group
     logger.info(f"Updated {custom_category} of {user}")
-    # A new group can flip whether the category may match outgoing money
     return _recategorize_and_commit(db_session=db_session, user=user)
 
 
 def delete_custom_category(db_session: Session, user: User, key: str) -> int:
     custom_category = get_custom_category_for_user(user=user, key=key)
-    # Whatever the category held becomes uncategorized; the re-scan below gives the automatic ones a category again
     fallback = TransactionCategory.UNKNOWN.value
     owned_accounts = select(Account.id).join(Credential).where(Credential.user_id == user.id)
     for model in (Transaction, RecurringTransaction, Contract):
@@ -238,9 +223,6 @@ def _valid_custom_category_name(user: User, group: CategoryGroup, name: str, key
     ):
         raise ConflictError(f"{user} already has a category {stripped!r} in {group.value}")
     return stripped
-
-
-# --- Shared ------------------------------------------------------------------------------------------------------
 
 
 def _recategorize_and_commit(db_session: Session, user: User) -> int:

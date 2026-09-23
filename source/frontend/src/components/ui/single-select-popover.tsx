@@ -18,7 +18,6 @@ export interface SingleSelectOption<T extends string> {
   value: T
   label: string
   leading?: React.ReactNode
-  // Consecutive options with the same group are listed under a heading
   group?: string
 }
 

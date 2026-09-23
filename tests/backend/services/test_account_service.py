@@ -175,9 +175,7 @@ def test_create_manual_transaction_updates_balance_and_snapshots(
 @pytest.mark.parametrize(
     argnames="extra_fields, expected_category, expected_source",
     argvalues=[
-        # explicit category wins
         ({"category": TransactionCategory.GIFTS}, TransactionCategory.GIFTS, CategorySource.MANUAL),
-        # no category -> auto-categorised from other_party
         ({}, TransactionCategory.SUPERMARKET, CategorySource.AUTO),
     ],
 )

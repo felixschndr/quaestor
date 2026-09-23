@@ -15,7 +15,6 @@ logger = get_logger(__name__)
 
 
 class CategoryGroup(str, Enum):
-    # Declaration order is the display order
     INCOME = "INCOME"
     FOOD_AND_DRINK = "FOOD_AND_DRINK"
     HOUSING = "HOUSING"
@@ -32,7 +31,6 @@ class CategoryGroup(str, Enum):
 
 
 class TransactionCategory(str, Enum):
-    # Declaration order is the display order within a group
     _value_: str
     group: CategoryGroup | None
 
@@ -124,7 +122,6 @@ class TransactionCategory(str, Enum):
         rules: "CategorizationRules | None" = None,
         log_result: bool = True,
     ) -> str:
-        # A category key: a member of this enum, or the key of a user's custom category their rule assigns
         matched = cls._match(transaction=transaction, rules=rules or CategorizationRules())
         category = matched.value if isinstance(matched, TransactionCategory) else matched
         if log_result:
@@ -143,7 +140,6 @@ class TransactionCategory(str, Enum):
 
         haystacks = [normalize_string(str(field)) for field in (transaction.purpose, transaction.other_party) if field]
 
-        # A rule the user set up beats everything but a refund the bank flagged
         for pattern, category in rules.user_rules:
             if direction_allows(
                 category=category, amount=transaction.amount, custom_groups=rules.custom_groups
@@ -171,10 +167,8 @@ class TransactionCategory(str, Enum):
 
 @dataclass(frozen=True)
 class CategorizationRules:
-    # A user's own (pattern, category key) rules, highest priority first
     user_rules: tuple[tuple[str, str], ...] = ()
     disabled_default_matchers: frozenset[str] = frozenset()
-    # The group of each of the user's custom categories
     custom_groups: Mapping[str, CategoryGroup] = field(default_factory=dict)
 
 
@@ -203,7 +197,6 @@ def is_known_category(category: str, custom_groups: Mapping[str, CategoryGroup] 
 def expand_category_selection(
     selection: Iterable[str], custom_groups: Mapping[str, CategoryGroup] | None = None
 ) -> list[str]:
-    # A selected group stands for all of its categories, including custom ones; keys nobody knows are dropped
     custom_groups = custom_groups or {}
     expanded: dict[str, None] = {}
     for item in selection:

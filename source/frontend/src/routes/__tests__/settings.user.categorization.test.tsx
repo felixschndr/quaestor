@@ -131,7 +131,6 @@ describe('SettingsCategorizationView', () => {
     renderWithQuery(<SettingsCategorizationView />)
 
     const supermarket = (await screen.findByText('Supermarket')).closest('details') as HTMLElement
-    // A category with an own rule starts open
     expect(supermarket).toHaveAttribute('open')
     expect(
       within(supermarket)
@@ -163,7 +162,6 @@ describe('SettingsCategorizationView', () => {
 
     const supermarket = (await screen.findByText('Supermarket')).closest('details') as HTMLElement
     expect(supermarket).not.toHaveAttribute('open')
-    // Alphabetical by category name
     expect(
       [...document.querySelectorAll('details summary span:not([class*="ml-auto"])')]
         .map((heading) => heading.textContent)
@@ -232,13 +230,13 @@ describe('SettingsCategorizationView', () => {
       within(row)
         .getAllByRole('term')
         .map((term) => term.textContent),
-    ).toEqual(['Category name', 'Group'])
+      // The name carries a short label for phones next to the long one
+    ).toEqual(['NameCategory name', 'Group'])
     expect(within(row).getByRole('button', { name: 'Delete' })).toBeInTheDocument()
     const list = row.closest('ul') as HTMLElement
     const names = within(list)
       .getAllByRole('definition')
       .map((definition) => definition.textContent)
-    // Own categories only, sorted by name
     expect(names).toEqual(['Bio-Laden', 'Food & drink', 'Zooladen', 'Pets'])
   })
 

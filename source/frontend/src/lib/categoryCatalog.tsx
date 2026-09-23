@@ -32,37 +32,28 @@ export function CategoryCatalogProvider({
   )
 }
 
-export interface CategoryCatalog {
-  // Every custom category the user can see: their own and those of people sharing an account with them
-  custom: readonly CustomCategoryRead[]
-  label: (key: string) => string
-  groupOf: (key: string) => CategoryGroup | undefined
-  // The fixed categories plus the user's own custom ones: everything a filter can select
-  allKeys: CategoryKey[]
-  // Categories of a group in display order: the fixed ones, then the user's own custom ones by name
-  categoriesOf: (group: CategoryGroup, includeCustom?: boolean) => CategoryKey[]
-}
+export type CategoryCatalog = ReturnType<typeof useCategoryCatalog>
 
-export function useCategoryCatalog(): CategoryCatalog {
+export function useCategoryCatalog() {
   const custom = useContext(CustomCategoriesContext)
   const { t, i18n } = useTranslation()
   return useMemo(() => {
     const byKey = new Map(custom.map((category) => [category.key as string, category]))
-    // Alphabetical, so a custom category is easy to find in a list of them
     const owned = [...custom]
       .filter((category) => category.owned)
       .sort((a, b) => a.name.localeCompare(b.name, i18n.language))
     return {
       custom,
-      label: (key) =>
+      owned,
+      label: (key: string): string =>
         byKey.get(key)?.name ??
         t(`common.transactionLabel.${key}`, { defaultValue: t('common.unknown') }),
-      groupOf: (key) =>
+      groupOf: (key: string): CategoryGroup | undefined =>
         isCategoryGroup(key)
           ? key
           : (CATEGORY_GROUP_OF[key as TransactionCategory] ?? byKey.get(key)?.group),
       allKeys: [...TRANSACTION_CATEGORIES, ...owned.map((category) => category.key)],
-      categoriesOf: (group, includeCustom = true) => [
+      categoriesOf: (group: CategoryGroup, includeCustom = true): CategoryKey[] => [
         ...CATEGORIES_BY_GROUP[group],
         ...(includeCustom
           ? owned.filter((category) => category.group === group).map((category) => category.key)

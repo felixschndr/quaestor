@@ -112,7 +112,6 @@ async function renderAndGetArrows(search: Partial<StatsSearchParams>) {
   }
 }
 
-// The "By category" bar first lists groups: its arrow opens the group, the category's arrow then drills
 async function drillIntoFuel(arrows: NodeListOf<Element>) {
   fireEvent.click(arrows[0])
   expect(await screen.findByText('Mobility')).toBeInTheDocument()

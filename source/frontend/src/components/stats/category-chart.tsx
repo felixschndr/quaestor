@@ -39,7 +39,6 @@ export interface CategoryChartProps {
   slices: CategorySlice[]
   chartType: ChartType
   hidden: ReadonlySet<string>
-  // Keys are group keys on the overview and category keys inside an opened group
   onToggleHidden: (key: CategoryKey | CategoryGroup | 'OTHER') => void
   onDrill?: (categories: CategoryKey[]) => void
 }
@@ -139,7 +138,6 @@ function renderPieLabel(props: {
 
 type ChartKey = CategoryKey | CategoryGroup | 'OTHER'
 
-// Sums the categories per group; a category without a group (UNKNOWN) stays on its own
 function groupSlices(
   slices: CategorySlice[],
   groupOf: CategoryCatalog['groupOf'],
@@ -184,15 +182,12 @@ export function CategoryChart({
       .sort((a, b) => b.value - a.value)
   }, [slices, activeGroup, catalog])
 
-  const categoriesOf = (keys: string[]): CategoryKey[] =>
-    expandCategorySelection(keys, catalog.custom)
-  // A group opens its categories; a category (or the ungrouped UNKNOWN) drills into the search
   const drill = (keys: string[]) => {
     if (keys.length === 1 && isCategoryGroup(keys[0])) {
       setOpenGroup(keys[0])
       return
     }
-    onDrill?.(categoriesOf(keys))
+    onDrill?.(expandCategorySelection(keys, catalog.custom))
   }
   const canDrill = !activeGroup || Boolean(onDrill)
 

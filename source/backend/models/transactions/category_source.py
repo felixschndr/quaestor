@@ -2,7 +2,6 @@ from enum import Enum
 
 
 class CategorySource(str, Enum):
-    # Derived from the matchers; re-derived whenever they change
     AUTO = "AUTO"
     MANUAL = "MANUAL"
     CONTRACT = "CONTRACT"

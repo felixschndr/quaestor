@@ -173,5 +173,3 @@ export const CATEGORIES_BY_GROUP: Record<CategoryGroup, readonly TransactionCate
     'CREDIT_CARD_SETTLEMENT',
   ],
 }
-
-export const INCOMING_ONLY_GROUPS: readonly CategoryGroup[] = ['INCOME']

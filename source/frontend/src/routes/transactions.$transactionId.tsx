@@ -427,7 +427,6 @@ export interface TransactionDetailViewProps {
   onSaveNote: (note: string | null) => Promise<unknown>
   onChangeCategory: (category: CategoryKey | null) => Promise<unknown>
   onUnlink: (transaction: TransactionRead) => Promise<unknown>
-  // Offered next to a manually set category
   ruleSection?: ReactNode
   contractSection?: ReactNode
   attachmentsSection?: ReactNode
@@ -449,8 +448,6 @@ function CreateRuleFromTransaction({ transaction }: { transaction: TransactionRe
           {t('categorization.createFromTransaction')}
         </Button>
       </PopoverTrigger>
-      {/* Flush with the right edge of the content area; on a phone the width leaves 8px on either side, so the
-          collision padding centres it */}
       <PopoverContent
         align="end"
         collisionPadding={8}

@@ -36,7 +36,6 @@ export type TransactionType = (typeof TRANSACTION_TYPES)[number]
 import {
   CATEGORIES_BY_GROUP,
   CATEGORY_GROUPS,
-  INCOMING_ONLY_GROUPS,
   TRANSACTION_CATEGORIES,
   type CategoryGroup,
   type TransactionCategory,
@@ -44,13 +43,11 @@ import {
 export {
   CATEGORIES_BY_GROUP,
   CATEGORY_GROUPS,
-  INCOMING_ONLY_GROUPS,
   TRANSACTION_CATEGORIES,
   type CategoryGroup,
   type TransactionCategory,
 }
 
-// A category as stored on a transaction: a fixed one, or the key of a user's custom category
 export type CategoryKey = TransactionCategory | `CUSTOM_${string}`
 
 export function isCustomCategoryKey(value: string): value is `CUSTOM_${string}` {
@@ -67,8 +64,6 @@ export function isCategoryGroup(value: string): value is CategoryGroup {
   return (CATEGORY_GROUPS as readonly string[]).includes(value)
 }
 
-// A group stands for all of its categories, including the given custom ones; values that are neither a category nor a
-// custom key (e.g. a retired key from an old link) are dropped
 export function expandCategorySelection(
   values: readonly string[],
   customCategories: readonly { key: CategoryKey; group: CategoryGroup }[] = [],
@@ -117,7 +112,6 @@ export function useTransactionById(transactionId: number) {
 
 export interface TransactionPatch {
   note?: string | null
-  // null hands the category back to the automatic matching
   category?: CategoryKey | null
   // Manual-account-only fields
   amount?: number

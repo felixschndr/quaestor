@@ -45,9 +45,8 @@ export interface StatsTypeFilters {
   transaction_types?: TransactionType[]
 }
 
-export const RUNWAY_EXCLUDED_CATEGORIES: CategoryKey[] = [
-  ...CATEGORIES_BY_GROUP.SAVINGS_AND_INVESTMENTS,
-]
+export const RUNWAY_EXCLUDED_CATEGORIES: readonly CategoryKey[] =
+  CATEGORIES_BY_GROUP.SAVINGS_AND_INVESTMENTS
 
 export interface CategorySlice {
   category: CategoryKey
@@ -496,8 +495,6 @@ export function fillTransactionCountBuckets(
   return buckets.map(at)
 }
 
-// One datum of the category chart. `category` is a category or group key, or the
-// 'OTHER' sentinel for the aggregated tail of the pie.
 export interface CategoryChartDatum {
   category: CategoryKey | CategoryGroup | 'OTHER'
   label: string
@@ -528,8 +525,6 @@ export function paletteColor(index: number): string {
   return CHART_PALETTE[index % CHART_PALETTE.length]
 }
 
-// A group gets its own palette slot; a category is coloured by its position within its group (custom ones after the
-// fixed ones), so the categories of one opened group stay distinguishable.
 export function sliceColor(
   key: string,
   customCategories: readonly { key: string; group: CategoryGroup }[] = [],

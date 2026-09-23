@@ -37,7 +37,6 @@ class Transaction(Base):
     date: Mapped[datetime.date] = mapped_column(Date)
     other_party: Mapped[str | None] = mapped_column(String, nullable=True)
     transaction_type: Mapped[TransactionType | None] = mapped_column(SQLEnum(TransactionType), nullable=True)
-    # A TransactionCategory value or the key of a custom category of the account owner
     category: Mapped[str] = mapped_column(
         String, default=TransactionCategory.UNKNOWN.value, server_default=TransactionCategory.UNKNOWN.value
     )

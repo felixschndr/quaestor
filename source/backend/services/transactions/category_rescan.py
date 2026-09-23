@@ -27,9 +27,6 @@ def rescan_categories_sync() -> None:
 
 
 def recategorize_user_transactions(db_session: Session, user: User) -> int:
-    # Re-derive every automatically assigned category on the user's own accounts with their rules, so changed
-    # matchers also fix transactions that were matched wrongly before. Manual, contract and system categories are left
-    # alone. The caller commits.
     rules = user.categorization_rules
     updated = 0
     stmt = (

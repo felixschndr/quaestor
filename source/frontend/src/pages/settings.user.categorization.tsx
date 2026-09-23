@@ -1,7 +1,6 @@
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
-import { toast } from 'sonner'
 
 import { CategoryRuleForm } from '@/components/category-rule-form'
 import { Button } from '@/components/ui/button'
@@ -13,7 +12,6 @@ import { RowActions } from '@/components/row-actions'
 import { ListSkeleton } from '@/components/list-skeleton'
 import { QueryStates } from '@/components/query-states'
 import { SettingsSubPage } from '@/components/settings/settings-section'
-import { readApiErrorMessage } from '@/lib/apiError'
 import { CategoryAvatar } from '@/lib/categoryIcons'
 import { matchesQuery } from '@/components/ui/popover-search-input'
 import {
@@ -30,7 +28,6 @@ import {
 } from '@/lib/categorization'
 import { useCategoryCatalog } from '@/lib/categoryCatalog'
 import { CATEGORY_GROUPS, type CategoryGroup, type CategoryKey } from '@/lib/transaction'
-import { cn } from '@/lib/utils'
 
 export function SettingsCategorizationView() {
   const { t } = useTranslation()
@@ -70,7 +67,6 @@ function RulesSection({
   const catalog = useCategoryCatalog()
   const [query, setQuery] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
-  // A category with own rules starts open; the default rules alone are far too many to show at once
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(
     () => new Set(rules.map((rule) => rule.category)),
   )
@@ -81,7 +77,6 @@ function RulesSection({
   const visibleMatchers = matchers.filter((matcher) =>
     matchesSearch(matcher.pattern, matcher.category),
   )
-  // One group per category, alphabetically by its name; own rules come first because they win
   const byCategory = [
     ...new Set([
       ...visibleRules.map((rule) => rule.category),
@@ -175,12 +170,9 @@ function RulesSection({
 }
 
 function CustomCategoriesSection() {
-  const { t, i18n } = useTranslation()
-  const catalog = useCategoryCatalog()
+  const { t } = useTranslation()
+  const { owned } = useCategoryCatalog()
   const [editingKey, setEditingKey] = useState<CategoryKey | null>(null)
-  const owned = [...catalog.custom]
-    .filter((category) => category.owned)
-    .sort((a, b) => a.name.localeCompare(b.name, i18n.language))
 
   return (
     <section className="flex flex-col gap-3">
@@ -236,17 +228,16 @@ function CustomCategoryForm({
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
-    try {
-      const payload = { group, name: name.trim() }
-      const result = category
-        ? await update.mutateAsync({ key: category.key, ...payload })
-        : await create.mutateAsync(payload)
-      report(result, t('categorization.customSaved'))
-      if (!category) setName('')
-      onDone?.()
-    } catch (err) {
-      toast.error(readApiErrorMessage(err, t))
-    }
+    const payload = { group, name: name.trim() }
+    const saved = await report(
+      category
+        ? update.mutateAsync({ key: category.key, ...payload })
+        : create.mutateAsync(payload),
+      t('categorization.customSaved'),
+    )
+    if (!saved) return
+    if (!category) setName('')
+    onDone?.()
   }
 
   return (
@@ -299,26 +290,21 @@ function CustomCategoryRow({
   const remove = useDeleteCustomCategory()
   const report = useReportCategorizationChange()
 
-  const onDelete = async () => {
-    try {
-      report(await remove.mutateAsync(category.key), t('categorization.customDeleted'))
-    } catch (err) {
-      toast.error(readApiErrorMessage(err, t))
-    }
-  }
+  const onDelete = () => report(remove.mutateAsync(category.key), t('categorization.customDeleted'))
 
   return (
     <li className="border-border/40 flex items-center gap-3 border-t p-3 first:border-t-0">
       <CategoryAvatar category={category.key} className="size-8" iconClassName="size-4" />
-      <LabelledRow
-        entries={[
-          { label: t('categorization.customName'), value: category.name },
-          {
-            label: t('categorization.customGroup'),
-            value: t(`common.transactionLabel.${category.group}`),
-          },
-        ]}
-      />
+      <dl className="grid min-w-0 flex-1 grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+        <dt className="text-muted-foreground self-center">
+          {/* The long label eats the width a phone needs for the name itself */}
+          <span className="sm:hidden">{t('common.name')}</span>
+          <span className="hidden sm:inline">{t('categorization.customName')}</span>
+        </dt>
+        <dd className="truncate text-sm">{category.name}</dd>
+        <dt className="text-muted-foreground self-center">{t('categorization.customGroup')}</dt>
+        <dd className="truncate text-sm">{t(`common.transactionLabel.${category.group}`)}</dd>
+      </dl>
       <RowActions
         onEdit={onEdit}
         onDelete={onDelete}
@@ -334,13 +320,7 @@ function RuleRow({ rule, onEdit }: { rule: CategoryRuleRead; onEdit: () => void 
   const remove = useDeleteCategoryRule()
   const report = useReportCategorizationChange()
 
-  const onDelete = async () => {
-    try {
-      report(await remove.mutateAsync(rule.id), t('categorization.deleted'))
-    } catch (err) {
-      toast.error(readApiErrorMessage(err, t))
-    }
-  }
+  const onDelete = () => report(remove.mutateAsync(rule.id), t('categorization.deleted'))
 
   return (
     <li className="flex items-center gap-3 py-1.5">
@@ -359,16 +339,11 @@ function DefaultMatcherRow({ matcher }: { matcher: DefaultMatcherRead }) {
   const toggle = useToggleDefaultMatcher()
   const report = useReportCategorizationChange()
 
-  const onToggle = async (enabled: boolean) => {
-    try {
-      report(
-        await toggle.mutateAsync({ pattern: matcher.pattern, disabled: !enabled }),
-        t('categorization.saved'),
-      )
-    } catch (err) {
-      toast.error(readApiErrorMessage(err, t))
-    }
-  }
+  const onToggle = (enabled: boolean) =>
+    report(
+      toggle.mutateAsync({ pattern: matcher.pattern, disabled: !enabled }),
+      t('categorization.saved'),
+    )
 
   return (
     <li className="flex items-center gap-3 py-1.5">
@@ -380,23 +355,5 @@ function DefaultMatcherRow({ matcher }: { matcher: DefaultMatcherRead }) {
         onCheckedChange={(enabled) => void onToggle(enabled)}
       />
     </li>
-  )
-}
-
-// Each value gets its own label, so a row stays readable without knowing the column order
-function LabelledRow({
-  entries,
-}: {
-  entries: { label: string; value: string; monospace?: boolean }[]
-}) {
-  return (
-    <dl className="grid min-w-0 flex-1 grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
-      {entries.map((entry) => (
-        <Fragment key={entry.label}>
-          <dt className="text-muted-foreground self-center">{entry.label}</dt>
-          <dd className={cn('truncate text-sm', entry.monospace && 'font-mono')}>{entry.value}</dd>
-        </Fragment>
-      ))}
-    </dl>
   )
 }

@@ -11,13 +11,11 @@ if TYPE_CHECKING:
 
 
 class CategoryRule(Base):
-    # A user's own matcher: transactions whose purpose or counterparty contains the pattern get the category
     __tablename__ = "category_rules"
     __table_args__ = (UniqueConstraint("user_id", "pattern", name="uq_category_rules_user_pattern"),)  # noqa: FKA100
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    # Stored normalized, like the default matchers
     pattern: Mapped[str] = mapped_column(String)
     category: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

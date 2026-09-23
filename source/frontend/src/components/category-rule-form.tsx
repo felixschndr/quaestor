@@ -1,12 +1,10 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
-import { readApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 import { useCategoryOptions } from '@/lib/categoryIcons'
 import {
@@ -28,9 +26,7 @@ export function CategoryRuleForm({
   rule?: CategoryRuleRead
   initialPattern?: string
   initialCategory?: CategoryKey
-  // Rendered above the fields; it follows the category that is currently picked
   hint?: (category: CategoryKey) => ReactNode
-  // Side by side by default; stacked where the form sits in a narrow container
   stacked?: boolean
   onDone?: () => void
 }) {
@@ -46,17 +42,14 @@ export function CategoryRuleForm({
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
-    try {
-      const payload = { pattern: pattern.trim(), category }
-      const result = rule
-        ? await update.mutateAsync({ id: rule.id, ...payload })
-        : await create.mutateAsync(payload)
-      report(result, t('categorization.saved'))
-      if (!rule) setPattern('')
-      onDone?.()
-    } catch (err) {
-      toast.error(readApiErrorMessage(err, t))
-    }
+    const payload = { pattern: pattern.trim(), category }
+    const saved = await report(
+      rule ? update.mutateAsync({ id: rule.id, ...payload }) : create.mutateAsync(payload),
+      t('categorization.saved'),
+    )
+    if (!saved) return
+    if (!rule) setPattern('')
+    onDone?.()
   }
 
   return (
@@ -87,7 +80,6 @@ export function CategoryRuleForm({
             searchPlaceholder={t('search.filterPlaceholder')}
           />
         </div>
-        {/* In the popover both buttons split the width on a phone */}
         <div className={cn('gap-2', stacked && onDone ? 'grid grid-cols-2 sm:flex' : 'flex')}>
           <Button
             type="submit"

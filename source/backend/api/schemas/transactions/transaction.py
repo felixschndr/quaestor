@@ -53,7 +53,6 @@ class TransactionDetailRead(TransactionRead):
 
 class TransactionUpdate(BaseModel):
     note: str | None = None
-    # An explicit null resets the category to the automatically matched one
     category: str | None = None
     amount: float | None = None
     date: datetime.date | None = None
@@ -85,7 +84,6 @@ class TransactionSearchQuery(BaseModel):
     date_from: datetime.date | None = None
     date_to: datetime.date | None = None
     transaction_types: list[TransactionType] = Field(default_factory=list)
-    # Category keys and group keys; a group stands for all of its categories
     categories: list[str] = Field(default_factory=list)
     linked: StatisticsLinked | None = None
     has_attachment: HasAttachment | None = None

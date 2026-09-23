@@ -31,7 +31,6 @@ from source.backend.services.transactions import categorization_service
 
 logger = get_logger(__name__)
 
-# Editing any of these on a manual account can change what the matchers derive
 CATEGORIZATION_FIELDS = frozenset({"purpose", "other_party", "transaction_type"})
 
 
@@ -191,7 +190,6 @@ def update_transaction(db_session: Session, account: Account, transaction: Trans
     previous_amount = transaction.amount
     previous_date = transaction.date
     state_before_update = snapshot_columns(transaction)
-    # An explicit null category hands the transaction back to the matchers
     requested_category = fields.get("category")
     reset_category = "category" in fields and requested_category is None
     if reset_category:

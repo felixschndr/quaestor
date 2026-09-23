@@ -77,7 +77,6 @@ _GROUPS = (
     "MISCELLANEOUS",
 )
 
-# Every category that inherited matchers from an old one
 _SELECTION_SUCCESSORS = {
     "TRAVEL": ("VACATION", "CAR", "PUBLIC_TRANSPORT", "SHARING_TAXI", "OTHER_MOBILITY"),
     "SUBSCRIPTIONS": ("STREAMING", "SOFTWARE_CLOUD"),

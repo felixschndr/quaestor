@@ -37,7 +37,6 @@ DEFAULT_TOP_OTHER_PARTIES_LIMIT = 15
 
 DEFAULT_TREND_BASELINE_PERIOD_COUNT = 6
 
-# A selection, so custom categories in the group are excluded as well
 RUNWAY_EXCLUDED_CATEGORIES = [CategoryGroup.SAVINGS_AND_INVESTMENTS.value]
 
 

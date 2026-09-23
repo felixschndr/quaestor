@@ -1032,7 +1032,7 @@
     "patternPlaceholder": "e.g. Kleinanzeigen",
     "addRule": "Add rule",
     "createFromTransaction": "Create rule",
-    "createFromTransactionHint": "Transactions containing this search term get the category “{{category}}” — existing ones too, as long as their category was assigned automatically. Manually set ones stay as they are.",
+    "createFromTransactionHint": "Transactions containing this search term get the category “{{category}}” (existing ones too, as long as their category was assigned automatically; manually set ones stay as they are).",
     "saved": "Rule saved",
     "deleted": "Rule deleted",
     "recategorized_one": "{{count}} transaction recategorized",

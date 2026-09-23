@@ -63,7 +63,6 @@ ELIGIBLE_TRANSACTION_TYPES = frozenset(
     }
 )
 
-# A selection, so the custom categories of a blacklisted group are blacklisted as well
 BLACKLISTED_CATEGORIES = [
     CategoryGroup.FOOD_AND_DRINK,
     TransactionCategory.DRUGSTORE,
@@ -354,7 +353,6 @@ def _archive_if_long_overdue(contract: Contract) -> None:
 
 
 def apply_contract_category_to_members(contract: Contract, override_manual: bool = False) -> None:
-    # Only an explicit user action may overwrite a category the user set on a member
     for transaction in contract.members():
         if transaction.category_source != CategorySource.MANUAL or override_manual:
             apply_contract_category(contract=contract, transaction=transaction)

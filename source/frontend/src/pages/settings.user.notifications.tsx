@@ -438,7 +438,6 @@ function modelFromRule(
   }
   if (rule?.trigger === 'transaction') {
     base.other_party_contains = rule.other_party_contains ?? ''
-    // Stored selections may name whole groups
     base.categories = expandCategorySelection(rule.categories)
     base.types = rule.types
     base.min_amount = rule.min_amount ?? undefined

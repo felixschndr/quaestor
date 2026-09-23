@@ -51,12 +51,10 @@ from tests.backend.conftest import (
         ("PayPal Europe", "Ihr Einkauf bei IONOS", TransactionCategory.SOFTWARE_CLOUD),
         ("VISA PAYPAL *NABU CASA", None, TransactionCategory.SOFTWARE_CLOUD),
         (None, "Google Workspace", TransactionCategory.SOFTWARE_CLOUD),
-        # Housing
         ("Alte Leipziger Lebensversicherung", "Lastschrift Mieten 03/2026", TransactionCategory.RENT),
         ("VATTENFALL EUROPE SALES", "Strom Abschlag", TransactionCategory.ELECTRICITY),
         ("Vodafone GmbH", "Rechnung", TransactionCategory.INTERNET_PHONE),
         ("Rundfunk ARD, ZDF, DRadio", None, TransactionCategory.BROADCASTING_FEE),
-        # Mobility / travel
         ("VW Leasing GmbH", "RATE", TransactionCategory.CAR),
         ("VISA TUEV SUED AUTO SERVICE", None, TransactionCategory.CAR),
         (None, "TUV", TransactionCategory.CAR),
@@ -70,12 +68,10 @@ from tests.backend.conftest import (
         (None, "Sparen", TransactionCategory.SAVINGS),
         # Fitness
         ("Fit-in FitnessClubs GmbH", None, TransactionCategory.FITNESS),
-        # Shopping
         ("VISA AMZN MKTP DE*DN0HZ32V5", None, TransactionCategory.ONLINE_SHOPPING),
         ("VISA KLEINANZEIGEN.DE", None, TransactionCategory.ONLINE_SHOPPING),
         ("VISA APPLE STORE", None, TransactionCategory.ELECTRONICS),
         ("VISA HFB ECO IKEA 551", None, TransactionCategory.FURNISHING),
-        # Food and drink
         ("VISA SCHECK-IN CENTER", None, TransactionCategory.SUPERMARKET),
         ("VISA ERNST LEBENSMITTELGMBH", None, TransactionCategory.SUPERMARKET),
         ("VISA DOENER EXPRESS", None, TransactionCategory.RESTAURANTS),
@@ -91,12 +87,10 @@ from tests.backend.conftest import (
         ("VISA JACK  JONES KARLSRUHE", None, TransactionCategory.CLOTHING),
         ("VISA MEWAN FRISEURSTUDIO", None, TransactionCategory.PERSONAL_CARE),
         ("VISA BLUME 2000 SE", None, TransactionCategory.GIFTS),
-        # Leisure
         ("VISA PAYPAL *STEAM GAMES", None, TransactionCategory.GAMING),
         ("PayPal Europe S.a.r.l. et Cie S.C.A", "Ihr Einkauf bei Nintendo", TransactionCategory.GAMING),
         ("VISA KARLSRUHER BAEDERGESEL", None, TransactionCategory.ENTERTAINMENT),
         ("VISA STUDENTENZENTRUM Z10", None, TransactionCategory.RESTAURANTS),
-        # Finances, insurance
         ("GoCardless Ltd", "GCNTGPQ", TransactionCategory.FEES),
         ("Stadt Karlsruhe", "503016420621/Bewohnerparkausweis", TransactionCategory.PARKING),
         ("VISA DEUTSCHE POST AG", None, TransactionCategory.FEES),
@@ -108,7 +102,6 @@ from tests.backend.conftest import (
         ("Finanzamt Karlsruhe", "Einkommensteuer 2025", TransactionCategory.TAXES),
         ("UNICEF", "Spende", TransactionCategory.DONATION),
         (None, "Kreditkartenabrechnung 09/2026", TransactionCategory.CREDIT_CARD_SETTLEMENT),
-        # Children and pets
         ("Kita Sonnenschein", "Betreuungsbeitrag", TransactionCategory.CHILDCARE),
         ("Fressnapf", None, TransactionCategory.PET_SUPPLIES),
         ("Tierarztpraxis Dr. Huf", None, TransactionCategory.VET),
@@ -124,7 +117,6 @@ from tests.backend.conftest import (
 def test_from_transaction_matches_other_party_and_purpose(
     other_party: str | None, purpose: str | None, expected: TransactionCategory
 ):
-    # Income categories only ever match money coming in
     amount = AMOUNT if expected.group in INCOMING_ONLY_GROUPS else -AMOUNT
     fetched = create_fetched_transaction(amount=amount, other_party=other_party, purpose=purpose)
 

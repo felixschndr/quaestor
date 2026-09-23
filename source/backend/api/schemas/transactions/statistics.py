@@ -22,7 +22,6 @@ class DailyNetWorthQuery(NetWorthQuery):
 
 
 class StatisticsQuery(NetWorthQuery):
-    # Category keys and group keys; a group stands for all of its categories
     categories: list[str] = Field(default_factory=list)
     transaction_types: list[TransactionType] = Field(default_factory=list)
 
