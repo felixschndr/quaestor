@@ -29,7 +29,10 @@ _DFS_TIMEZONE = ZoneInfo("Europe/Berlin")
 _VORGANG_TO_TRANSACTION_TYPE: dict[str, TransactionType] = {
     "Einzahlung": TransactionType.DEPOSIT,
     "Auszahlung": TransactionType.REMOVAL,
+    "Fondsswitch/Out": TransactionType.SWAP,
+    "Fondsswitch/In": TransactionType.SWAP,
 }
+_OUTGOING_VORGAENGE = frozenset({"Auszahlung", "Fondsswitch/Out"})
 
 
 class _DFSSession(BankSession):
@@ -56,12 +59,8 @@ class _DFSSession(BankSession):
 
     def get_transactions(self, account: FetchedAccount, start_date: date) -> list[FetchedTransaction]:
         self._fetch()
-        transactions = [
-            transaction
-            for transaction in self._accounts.get(account.name, {}).get("transactions", [])  # noqa: FKA100
-            if transaction.date >= start_date
-        ]
-        logger.debug(f"DFS returned {len(transactions)} transaction(s) for {account.name} since {start_date}")
+        transactions = self._accounts.get(account.name, {}).get("transactions", [])  # noqa: FKA100
+        logger.debug(f"DFS returned {len(transactions)} transaction(s) for {account.name}")
         return transactions
 
     def get_market_value_history(self, account: FetchedAccount) -> list[BalanceObservation]:
@@ -116,7 +115,8 @@ class _DFSSession(BankSession):
         if fund_name not in self._accounts:
             return  # defensive: skip rows that name an unknown fund
         vorgang: str = raw_transaction.get("vorgang") or ""
-        sign = -1 if vorgang == "Auszahlung" else 1
+        sign = -1 if vorgang in _OUTGOING_VORGAENGE else 1
+        raw_anteile = raw_transaction.get("anteile")
         self._accounts[fund_name]["transactions"].append(
             FetchedTransaction(
                 amount=sign * float(raw_transaction["betrag"]),
@@ -124,11 +124,11 @@ class _DFSSession(BankSession):
                 date=epoch_ms_to_date(raw_transaction["belegdatum"], tz=_DFS_TIMEZONE),
                 other_party="Deutsche Flugsicherung GmbH",
                 transaction_type=_VORGANG_TO_TRANSACTION_TYPE.get(vorgang),
+                pending=raw_anteile is None,
             )
         )
-        raw_anteile = raw_transaction.get("anteile")
         if raw_anteile is None:
-            return  # freshly booked contributions have no units/price yet; a later sync fills them in
+            return  # a later sync fills in the units
         kaufdatum = epoch_ms_to_date(
             raw_transaction.get("kaufdatum") or raw_transaction["belegdatum"], tz=_DFS_TIMEZONE
         )

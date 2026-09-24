@@ -1,4 +1,4 @@
-"""Move DFS transactions to the day DFS booked them
+"""Move DFS transactions to the day DFS booked them and turn unsettled fund switches into pending ones
 
 DFS sends each day as midnight German time, which was read as UTC and so landed on the previous day. Syncs now read
 it as German time; without moving the stored transactions, the next sync would add every fetched one again under its
@@ -24,7 +24,9 @@ def upgrade() -> None:
     # Only what DFS delivered; expected and recurring transactions carry a date the user picked
     op.get_bind().execute(
         sa.text(
-            "UPDATE transactions SET date = date(date, '+1 day') "
+            "UPDATE transactions SET "
+            "date = date(date, '+1 day'), "
+            "pending = CASE WHEN amount = 0 THEN 1 ELSE pending END "
             "WHERE expected = 0 "
             "AND recurring_transaction_id IS NULL "
             "AND account_id IN ("

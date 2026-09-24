@@ -143,15 +143,14 @@ def test_get_transactions_groups_rows_by_fund_and_maps_einzahlung(monkeypatch: p
     ]
 
 
-def test_transactions_are_filtered_by_start_date(monkeypatch: pytest.MonkeyPatch):
+def test_transactions_ignore_the_start_date(monkeypatch: pytest.MonkeyPatch):
     patch_session(monkeypatch=monkeypatch, fake=FakeSession())
     session = dfs_session()
 
-    # RECENT_DATE > OLDER_DATE — pick a start_date strictly between them
-    between = date.fromordinal(OLDER_DATE.toordinal() + 1)
-    transactions = session.get_transactions(FetchedAccount(name="Stock A"), start_date=between)
+    # A fund switch settles later under its original date, so older rows must still arrive
+    transactions = session.get_transactions(FetchedAccount(name="Stock A"), start_date=LATEST_DATE)
 
-    assert [t.date for t in transactions] == [RECENT_DATE]
+    assert sorted(t.date for t in transactions) == [OLDER_DATE, RECENT_DATE]
 
 
 def test_remote_data_is_only_fetched_once(monkeypatch: pytest.MonkeyPatch):
@@ -250,7 +249,7 @@ def test_transactions_naming_unknown_fund_are_skipped(monkeypatch: pytest.Monkey
     assert "Ghost Fund" not in {account.name for account in session.get_accounts()}
 
 
-def test_transactions_without_anteile_are_recorded_but_move_no_units(monkeypatch: pytest.MonkeyPatch):
+def test_transactions_without_anteile_are_pending_and_move_no_units(monkeypatch: pytest.MonkeyPatch):
     transactions = json.loads(json.dumps(TRANSACTIONS))
     transactions["daten"]["grid"]["dataSource"].append(
         {
@@ -265,10 +264,38 @@ def test_transactions_without_anteile_are_recorded_but_move_no_units(monkeypatch
     session = dfs_session()
 
     transactions = session.get_transactions(FetchedAccount(name="Stock A"), start_date=OLDER_DATE)
-    assert any(t.amount == 5.0 and t.date == LATEST_DATE for t in transactions)
+    assert [(t.amount, t.date, t.pending) for t in transactions if t.date == LATEST_DATE] == [(5.0, LATEST_DATE, True)]
+    assert not any(t.pending for t in transactions if t.date != LATEST_DATE)
     # No unit move added, so the value history is unchanged (still 3 -> 4 units).
     history = session.get_market_value_history(FetchedAccount(name="Stock A"))
     assert [observation.amount for observation in history] == [105.0, 60.0, 400.0]
+
+
+def test_a_fund_switch_out_is_a_swap_that_takes_money_and_units_out(monkeypatch: pytest.MonkeyPatch):
+    transactions = json.loads(json.dumps(TRANSACTIONS))
+    transactions["daten"]["grid"]["dataSource"].append(
+        {
+            "anlage": "Stock A",
+            "belegdatum": str(LATEST_DATE_MS),
+            "anteile": "2",
+            "betrag": "200",
+            "modell": "",
+            "kurs": "100",
+            "kaufdatum": str(LATEST_DATE_MS),
+            "vorgang": "Fondsswitch/Out",
+            "lohnart": "",
+        }
+    )
+    patch_session(monkeypatch=monkeypatch, fake=FakeSession(transactions_data=transactions))
+    session = dfs_session()
+
+    transactions = session.get_transactions(FetchedAccount(name="Stock A"), start_date=OLDER_DATE)
+    assert [(t.amount, t.transaction_type) for t in transactions if t.date == LATEST_DATE] == [
+        (-200.0, TransactionType.SWAP)
+    ]
+    # 4 units before the switch, 2 after, priced at 100 on LATEST_DATE
+    history = session.get_market_value_history(FetchedAccount(name="Stock A"))
+    assert history[-1].amount == 200.0
 
 
 def test_get_market_value_history_logs_debug_summary(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
