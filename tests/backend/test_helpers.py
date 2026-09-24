@@ -1,6 +1,7 @@
 import asyncio
-from datetime import date
+from datetime import date, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -95,7 +96,12 @@ def test_key_matches_between_transaction_and_fetched_transaction():
 @pytest.mark.parametrize(argnames="epoch_input", argvalues=[1700000000000, "1700000000000"])
 def test_epoch_ms_to_date_accepts_int_and_str(epoch_input: str | int):
     # 1700000000000 ms = 2023-11-14 22:13:20 UTC
-    assert epoch_ms_to_date(epoch_input) == date(year=2023, month=11, day=14)
+    assert epoch_ms_to_date(epoch_input, tz=timezone.utc) == date(year=2023, month=11, day=14)
+
+
+def test_epoch_ms_to_date_reads_local_midnight_as_that_day():
+    # 1777413600000 ms = 2026-04-29 00:00 in Berlin, but still 2026-04-28 in UTC
+    assert epoch_ms_to_date(1777413600000, tz=ZoneInfo("Europe/Berlin")) == date(year=2026, month=4, day=29)
 
 
 @pytest.mark.parametrize(

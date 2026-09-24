@@ -3,7 +3,7 @@ import functools
 import hashlib
 import tomllib
 from collections.abc import Callable
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from email.utils import parseaddr
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -72,8 +72,9 @@ def format_transaction_for_categorization(transaction: "FetchedTransaction | Tra
     return f"<{transaction.__class__.__name__}({id_insert}amount={transaction.amount}, purpose={transaction.purpose}, other_party={transaction.other_party}, transaction_type={transaction.transaction_type})>"
 
 
-def epoch_ms_to_date(value: str | int) -> date:
-    return datetime.fromtimestamp(timestamp=int(value) / 1000, tz=timezone.utc).date()
+def epoch_ms_to_date(value: str | int, tz: tzinfo) -> date:
+    # A bank that sends a day as local midnight lands on the previous day in any zone west of its own
+    return datetime.fromtimestamp(timestamp=int(value) / 1000, tz=tz).date()
 
 
 def format_amount(amount: float, currency: str = "EUR") -> str:

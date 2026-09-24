@@ -17,45 +17,45 @@
             "dataSource": [
                 {
                     "anlage": "Stock A",
-                    "belegdatum": "1777500000000",
+                    "belegdatum": "1777413600000",
                     "anteile": "1",
                     "betrag": "10",
                     "modell": "",
                     "kurs": "15",
-                    "kaufdatum": "1777500000000",
+                    "kaufdatum": "1777413600000",
                     "vorgang": "Einzahlung",
                     "lohnart": "AG-Beitrag laufend"
                 },
                 {
                     "anlage": "Stock B",
-                    "belegdatum": "1777500000000",
+                    "belegdatum": "1777413600000",
                     "anteile": "2",
                     "betrag": "20",
                     "modell": "",
                     "kurs": "25",
-                    "kaufdatum": "1777500000000",
+                    "kaufdatum": "1777413600000",
                     "vorgang": "Einzahlung",
                     "lohnart": "AG-Beitrag laufend"
                 },
                 {
                     "anlage": "Stock A",
-                    "belegdatum": "1774908000000",
+                    "belegdatum": "1774821600000",
                     "anteile": "3",
                     "betrag": "30",
                     "modell": "",
                     "kurs": "35",
-                    "kaufdatum": "1774908000000",
+                    "kaufdatum": "1774821600000",
                     "vorgang": "Einzahlung",
                     "lohnart": "AG-Beitrag laufend"
                 },
                 {
                     "anlage": "Stock B",
-                    "belegdatum": "1774908000000",
+                    "belegdatum": "1774821600000",
                     "anteile": "4",
                     "betrag": "40",
                     "modell": "",
                     "kurs": "45",
-                    "kaufdatum": "1774908000000",
+                    "kaufdatum": "1774821600000",
                     "vorgang": "Einzahlung",
                     "lohnart": "AG-Beitrag laufend"
                 }

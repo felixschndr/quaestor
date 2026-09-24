@@ -232,12 +232,12 @@ def test_transactions_naming_unknown_fund_are_skipped(monkeypatch: pytest.Monkey
     transactions["daten"]["grid"]["dataSource"].append(
         {
             "anlage": "Ghost Fund",
-            "belegdatum": "1777500000000",
+            "belegdatum": "1777413600000",
             "anteile": "1",
             "betrag": "99",
             "modell": "",
             "kurs": "1",
-            "kaufdatum": "1777500000000",
+            "kaufdatum": "1777413600000",
             "vorgang": "Einzahlung",
             "lohnart": "AG-Beitrag laufend",
         }

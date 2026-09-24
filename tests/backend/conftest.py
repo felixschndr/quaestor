@@ -1,10 +1,11 @@
 import logging
 from contextlib import contextmanager
 from datetime import date as _date
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Iterator
 from unittest.mock import AsyncMock, MagicMock
+from zoneinfo import ZoneInfo
 
 import pyotp
 import pytest
@@ -99,7 +100,10 @@ REWE = "Rewe"
 
 
 def date_to_epoch_ms(day: _date) -> int:
-    return int(datetime(year=day.year, month=day.month, day=day.day, tzinfo=timezone.utc).timestamp() * 1000)
+    # Midnight German time, like DFS sends it
+    return int(
+        datetime(year=day.year, month=day.month, day=day.day, tzinfo=ZoneInfo("Europe/Berlin")).timestamp() * 1000
+    )
 
 
 OLDER_DATE_MS = date_to_epoch_ms(OLDER_DATE)

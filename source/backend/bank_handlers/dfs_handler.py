@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from datetime import date
 from typing import Any, Iterator
+from zoneinfo import ZoneInfo
 
 from requests import HTTPError
 from requests.exceptions import JSONDecodeError
@@ -21,6 +22,9 @@ from source.backend.rest_api_client import RestAPIClient
 
 logger = get_logger(__name__)
 
+
+# DFS sends every day as midnight German time
+_DFS_TIMEZONE = ZoneInfo("Europe/Berlin")
 
 _VORGANG_TO_TRANSACTION_TYPE: dict[str, TransactionType] = {
     "Einzahlung": TransactionType.DEPOSIT,
@@ -117,7 +121,7 @@ class _DFSSession(BankSession):
             FetchedTransaction(
                 amount=sign * float(raw_transaction["betrag"]),
                 purpose=raw_transaction.get("lohnart"),
-                date=epoch_ms_to_date(raw_transaction["belegdatum"]),
+                date=epoch_ms_to_date(raw_transaction["belegdatum"], tz=_DFS_TIMEZONE),
                 other_party="Deutsche Flugsicherung GmbH",
                 transaction_type=_VORGANG_TO_TRANSACTION_TYPE.get(vorgang),
             )
@@ -125,7 +129,9 @@ class _DFSSession(BankSession):
         raw_anteile = raw_transaction.get("anteile")
         if raw_anteile is None:
             return  # freshly booked contributions have no units/price yet; a later sync fills them in
-        kaufdatum = epoch_ms_to_date(raw_transaction.get("kaufdatum") or raw_transaction["belegdatum"])
+        kaufdatum = epoch_ms_to_date(
+            raw_transaction.get("kaufdatum") or raw_transaction["belegdatum"], tz=_DFS_TIMEZONE
+        )
         anteile = sign * parse_german_decimal(raw_anteile)
         self._accounts[fund_name]["units_moves"].append((kaufdatum, anteile))
 
@@ -147,7 +153,7 @@ class _DFSSession(BankSession):
         if not kurs_series:
             logger.debug(f"No price series for {name}; skipping value history")
             return []
-        prices = [(epoch_ms_to_date(epoch_ms), float(kurs)) for epoch_ms, kurs in kurs_series]
+        prices = [(epoch_ms_to_date(epoch_ms, tz=_DFS_TIMEZONE), float(kurs)) for epoch_ms, kurs in kurs_series]
         observations = build_daily_market_value_history(moves=units_moves, prices=prices, extra_days=transaction_days)
         logger.debug(
             f"DFS valued {name}: {len(observations)} daily snapshot(s) from {len(units_moves)} contribution(s)"
