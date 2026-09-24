@@ -100,6 +100,20 @@ class Account(Base):
             )
         logger.debug(f"Recorded {len(observations)} market-value snapshot(s) for {self}")
 
+    def close_sold_position(self) -> None:
+        # Keeps the value history and ends it at 0 today
+        today = date.today()
+        snapshot = self.balance_at_date.get(today)
+        if snapshot is None:
+            self.balance_at_date[today] = AccountBalanceSnapshot(
+                date=today, balance=0.0, source=BalanceSnapshotSource.MARKET_VALUED
+            )
+        else:
+            snapshot.balance = 0.0
+            snapshot.source = BalanceSnapshotSource.MARKET_VALUED
+        self.balance = 0.0
+        logger.info(f"{self} is no longer held; set it to 0")
+
     def record_balance_observations(self, observations: list[BalanceObservation]) -> None:
         # Persist bank-reported balances as ground-truth anchors. They are kept across recomputes
         # (unlike COMPUTED snapshots) and re-ground the backward walk in update_balance_at_date.

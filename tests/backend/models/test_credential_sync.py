@@ -10,6 +10,7 @@ from source.backend.bank_handlers.base import (
     FetchedAccount,
     FetchedTransaction,
 )
+from source.backend.models.accounts.account import Account
 from source.backend.models.accounts.account_balance_snapshot import BalanceSnapshotSource
 from source.backend.models.banking.credential import Credential
 from source.backend.models.transactions.category_rule import CategoryRule
@@ -1009,3 +1010,61 @@ def test_incomplete_history_accounts_keep_anchors_but_skip_the_transaction_walk(
         snapshots = account.balance_at_date
         assert set(snapshots) == {anchor_day}
         assert snapshots[anchor_day].source == BalanceSnapshotSource.BANK_REPORTED
+
+
+def _position_and_cash_handler(include_position: bool) -> MagicMock:
+    position = FetchedAccount(name="ACME Corp", external_id=ACME)
+    cash = FetchedAccount(name=ACCOUNT_IBAN, external_id=ACCOUNT_IBAN)
+    return build_handler(
+        FakeBankSession(
+            accounts=[position, cash] if include_position else [cash],
+            balances={ACME: 4200.0, ACCOUNT_IBAN: DEFAULT_AMOUNT},
+            transactions={},
+            observations={ACCOUNT_IBAN: [BalanceObservation(date=RECENT_DATE, amount=DEFAULT_AMOUNT)]},
+            market_values={ACME: [BalanceObservation(date=RECENT_DATE, amount=4200.0)]},
+        )
+    )
+
+
+def _sync(session_factory: sessionmaker, credential_id: int, handler: MagicMock) -> None:
+    with session_factory() as session:
+        session.get(entity=Credential, ident=credential_id).sync(handler)
+        session.commit()
+
+
+def _accounts_by_external_id(session: Session, credential_id: int) -> dict[str | None, Account]:
+    return {account.external_id: account for account in session.get(entity=Credential, ident=credential_id).accounts}
+
+
+def test_sync_sets_a_sold_position_to_zero(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
+    credential_id = persist_credential_with_new_user(session_factory)
+    _sync(session_factory, credential_id=credential_id, handler=_position_and_cash_handler(include_position=True))
+
+    _sync(session_factory, credential_id=credential_id, handler=_position_and_cash_handler(include_position=False))
+
+    with session_factory() as session:
+        accounts = _accounts_by_external_id(session, credential_id=credential_id)
+        position = accounts[ACME]
+        assert position.balance == 0.0
+        assert position.is_hidden is False
+        assert position.balance_at_date[RECENT_DATE].balance == 4200.0
+        assert position.balance_at_date[date.today()].balance == 0.0
+        assert position.balance_at_date[date.today()].source == BalanceSnapshotSource.MARKET_VALUED
+        assert accounts[ACCOUNT_IBAN].balance == DEFAULT_AMOUNT
+    assert_log_contains(caplog, message="is no longer held; set it to 0")
+
+
+def test_sync_keeps_an_account_that_is_not_a_position_when_the_bank_omits_it(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    cash_only = _position_and_cash_handler(include_position=False)
+    _sync(session_factory, credential_id=credential_id, handler=cash_only)
+
+    _sync(
+        session_factory,
+        credential_id=credential_id,
+        handler=build_handler(FakeBankSession(accounts=[], balances={}, transactions={})),
+    )
+
+    with session_factory() as session:
+        cash = _accounts_by_external_id(session, credential_id=credential_id)[ACCOUNT_IBAN]
+        assert cash.balance == DEFAULT_AMOUNT

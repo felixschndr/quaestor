@@ -161,6 +161,11 @@ class Credential(Base):
             else:
                 account.record_balance_observations(fetched.balance_observations)
                 account.recompute_balances_at_date()
+
+        for account in self.accounts:
+            # Banks list only held positions, so a missing one was sold
+            if id(account) not in claimed_account_ids and account.is_market_valued and account.balance != 0:
+                account.close_sold_position()
         return created_accounts, updated_accounts, created_transactions
 
     @staticmethod
