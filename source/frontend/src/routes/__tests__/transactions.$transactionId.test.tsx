@@ -257,6 +257,27 @@ describe('TransactionDetailView', () => {
     ).toBe(false)
   })
 
+  const secondMember: TransactionRead = { ...memberTransaction, id: 100, account_id: 56 }
+
+  it('confirms the unlink of a pair in place without a menu since there is nothing to choose', async () => {
+    const user = userEvent.setup()
+    const { onUnlink } = renderView({ related_transactions: [memberTransaction] })
+    await user.click(screen.getByRole('button', { name: 'Remove link' }))
+    expect(screen.queryByRole('list', { name: 'Remove link' })).toBeNull()
+    expect(onUnlink).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    expect(onUnlink).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }))
+  })
+
+  it('keeps a pair linked when its in-place confirmation is cancelled', async () => {
+    const user = userEvent.setup()
+    const { onUnlink } = renderView({ related_transactions: [memberTransaction] })
+    await user.click(screen.getByRole('button', { name: 'Remove link' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Remove link' })).toBeInTheDocument()
+    expect(onUnlink).not.toHaveBeenCalled()
+  })
+
   async function openUnlinkMenu(user: ReturnType<typeof userEvent.setup>) {
     await user.click(screen.getByRole('button', { name: 'Remove link' }))
     return screen.findByRole('list', { name: 'Remove link' })
@@ -264,21 +285,21 @@ describe('TransactionDetailView', () => {
 
   it('offers one unlink menu listing every related transaction instead of a control per row', async () => {
     const user = userEvent.setup()
-    renderView({ related_transactions: [memberTransaction] })
+    renderView({ related_transactions: [memberTransaction, secondMember] })
     expect(screen.getAllByRole('button', { name: 'Remove link' })).toHaveLength(1)
 
     const menu = await openUnlinkMenu(user)
 
-    expect(within(menu).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(menu).getAllByRole('listitem')).toHaveLength(3)
     expect(within(menu).getByText(ACCOUNT_NAME_GIRO)).toBeInTheDocument()
-    expect(within(menu).getByText(ACCOUNT_NAME_SAVINGS)).toBeInTheDocument()
+    expect(within(menu).getAllByText(ACCOUNT_NAME_SAVINGS)).toHaveLength(2)
   })
 
   it('asks for confirmation and removes the addressed member from the group', async () => {
     const user = userEvent.setup()
-    const { onUnlink } = renderView({ related_transactions: [memberTransaction] })
+    const { onUnlink } = renderView({ related_transactions: [memberTransaction, secondMember] })
     const menu = await openUnlinkMenu(user)
-    const item = within(menu).getByText(ACCOUNT_NAME_SAVINGS).closest('li')!
+    const item = within(menu).getAllByText(ACCOUNT_NAME_SAVINGS)[0].closest('li')!
     await user.click(within(item).getByRole('button', { name: new RegExp(ACCOUNT_NAME_SAVINGS) }))
     expect(onUnlink).not.toHaveBeenCalled()
     await user.click(within(item).getByRole('button', { name: 'Remove' }))
@@ -287,9 +308,9 @@ describe('TransactionDetailView', () => {
 
   it('does not remove when the confirmation is cancelled', async () => {
     const user = userEvent.setup()
-    const { onUnlink } = renderView({ related_transactions: [memberTransaction] })
+    const { onUnlink } = renderView({ related_transactions: [memberTransaction, secondMember] })
     const menu = await openUnlinkMenu(user)
-    const item = within(menu).getByText(ACCOUNT_NAME_SAVINGS).closest('li')!
+    const item = within(menu).getAllByText(ACCOUNT_NAME_SAVINGS)[0].closest('li')!
     await user.click(within(item).getByRole('button', { name: new RegExp(ACCOUNT_NAME_SAVINGS) }))
     await user.click(within(item).getByRole('button', { name: 'Cancel' }))
     expect(within(item).queryByRole('button', { name: 'Remove' })).toBeNull()

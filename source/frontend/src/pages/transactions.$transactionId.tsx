@@ -271,6 +271,55 @@ function UnlinkMenu({
     }
   }
 
+  const label = (
+    <>
+      <Unlink className="size-4" aria-hidden="true" />
+      <span className="sm:hidden">{t('transaction.removeFromRelatedShort')}</span>
+      <span className="hidden sm:inline">{t('transaction.removeFromRelated')}</span>
+    </>
+  )
+
+  const confirmButtons = (transaction: TransactionRead) => (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant="destructive"
+        disabled={pending}
+        onClick={() => void remove(transaction)}
+      >
+        {t('transaction.removeFromRelatedShort')}
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={pending}
+        onClick={() => setConfirmingId(null)}
+      >
+        {t('common.cancel')}
+      </Button>
+    </>
+  )
+
+  // A pair has only one link to remove, so there is nothing to choose: confirm in place and unlink this side
+  const current = members.length === 2 ? members.find((member) => member.isCurrent) : undefined
+  if (current) {
+    return confirmingId === current.transaction.id ? (
+      <div className="flex gap-2">{confirmButtons(current.transaction)}</div>
+    ) : (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        aria-label={t('transaction.removeFromRelated')}
+        onClick={() => setConfirmingId(current.transaction.id)}
+      >
+        {label}
+      </Button>
+    )
+  }
+
   return (
     <Popover
       open={open}
@@ -286,9 +335,7 @@ function UnlinkMenu({
           size="sm"
           aria-label={t('transaction.removeFromRelated')}
         >
-          <Unlink className="size-4" aria-hidden="true" />
-          <span className="sm:hidden">{t('transaction.removeFromRelatedShort')}</span>
-          <span className="hidden sm:inline">{t('transaction.removeFromRelated')}</span>
+          {label}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 max-w-[calc(100vw-1rem)] p-1">
@@ -317,24 +364,7 @@ function UnlinkMenu({
               </button>
               {confirmingId === member.transaction.id ? (
                 <div className="grid grid-cols-2 gap-2 px-1 pb-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    disabled={pending}
-                    onClick={() => void remove(member.transaction)}
-                  >
-                    {t('transaction.removeFromRelatedShort')}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={pending}
-                    onClick={() => setConfirmingId(null)}
-                  >
-                    {t('common.cancel')}
-                  </Button>
+                  {confirmButtons(member.transaction)}
                 </div>
               ) : null}
             </li>
