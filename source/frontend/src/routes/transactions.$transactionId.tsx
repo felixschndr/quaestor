@@ -1,7 +1,7 @@
 import { type ReactNode, useRef, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeftRight, Download, Paperclip, Plus, SquarePen, Trash2 } from 'lucide-react'
+import { ArrowLeftRight, Download, Paperclip, Plus, SquarePen, Trash2, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
@@ -467,7 +467,7 @@ function CreateRuleFromTransaction({ transaction }: { transaction: TransactionRe
   )
 }
 
-function ContractSection({ transaction }: { transaction: TransactionRead }) {
+export function ContractSection({ transaction }: { transaction: TransactionRead }) {
   const { t } = useTranslation()
   const { data: contracts } = useContracts()
   const setContract = useSetTransactionContract()
@@ -518,32 +518,47 @@ function ContractSection({ transaction }: { transaction: TransactionRead }) {
 
   return (
     <DetailRow label={t('contracts.contract')} align="start">
-      <div className="flex w-full flex-col gap-1.5">
+      <div className="flex w-full flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
         <SingleSelectPopover
           id="assign-contract"
+          className="sm:flex-1"
           ariaLabel={t('contracts.contract')}
           value={currentId === null ? '' : String(currentId)}
+          placeholder={t('contracts.noContract')}
           disabled={setContract.isPending}
           onChange={onChange}
-          options={[
-            { value: '', label: t('contracts.noContract') },
-            ...candidates.map((contract) => ({
-              value: String(contract.id),
-              label: contract.name,
-            })),
-          ]}
+          options={candidates.map((contract) => ({
+            value: String(contract.id),
+            label: contract.name,
+          }))}
         />
-        {assigned ? (
-          <Link
-            to="/contracts/$contractId"
-            params={{ contractId: String(assigned.id) }}
-            className="text-primary hover:text-primary/80 -mx-1 self-start rounded-md px-1 py-0.5 text-sm transition-colors"
-          >
-            {assigned.frequency
-              ? t(`contracts.frequency.${assigned.frequency}`)
-              : t('contracts.frequencyUnknown')}
-            {assigned.median_amount !== null ? ` · ${formatMoney(assigned.median_amount)}` : ''}
-          </Link>
+        {currentId !== null ? (
+          <div className="flex items-center justify-between gap-2 sm:shrink-0 sm:justify-start">
+            {assigned ? (
+              <Link
+                to="/contracts/$contractId"
+                params={{ contractId: String(assigned.id) }}
+                className="text-primary hover:text-primary/80 -mx-1 rounded-md px-1 py-0.5 text-sm whitespace-nowrap transition-colors sm:mx-0"
+              >
+                {assigned.frequency
+                  ? t(`contracts.frequency.${assigned.frequency}`)
+                  : t('contracts.frequencyUnknown')}
+                {assigned.median_amount !== null ? ` · ${formatMoney(assigned.median_amount)}` : ''}
+              </Link>
+            ) : null}
+            <Button
+              type="button"
+              size="icon-sm"
+              className="size-8"
+              variant="outline"
+              aria-label={t('contracts.removeFromContract')}
+              title={t('contracts.removeFromContract')}
+              disabled={setContract.isPending}
+              onClick={() => onChange('')}
+            >
+              <Unlink className="size-4" aria-hidden="true" />
+            </Button>
+          </div>
         ) : null}
       </div>
     </DetailRow>

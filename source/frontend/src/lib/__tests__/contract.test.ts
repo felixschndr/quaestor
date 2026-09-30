@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { createElement, type ReactNode } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { act, renderHook } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { transactionQueryKeys } from '@/lib/transaction'
 import {
   contractAmountForPeriod,
+  useSetTransactionContract,
   filterContracts,
   hasActiveContractFilters,
   monthsOverdue,
@@ -246,5 +251,26 @@ describe('sumContractsForPeriod', () => {
 
   it('is zero for an empty list', () => {
     expect(sumContractsForPeriod([], 'MONTHLY')).toBe(0)
+  })
+})
+
+describe('useSetTransactionContract', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('refetches the transaction detail so removing a contract shows up there', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 200 })))
+    const client = new QueryClient()
+    client.setQueryData(transactionQueryKeys.byId(5), { id: 5, contract_id: 3 })
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client }, children)
+    const { result } = renderHook(() => useSetTransactionContract(), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync({ transactionId: 5, fromContractId: 3, toContractId: null })
+    })
+
+    expect(client.getQueryState(transactionQueryKeys.byId(5))?.isInvalidated).toBe(true)
   })
 })

@@ -932,6 +932,7 @@
     "noContract": "No contract",
     "assigned": "Added to contract",
     "removed": "Removed from contract",
+    "removeFromContract": "Remove from contract",
     "createToAssign": "No contracts on this account — create one first.",
     "frequency": {
       "WEEKLY": "$t(common.weekly)",

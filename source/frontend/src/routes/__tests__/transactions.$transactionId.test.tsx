@@ -8,12 +8,22 @@ import type { TransactionDetailRead, TransactionRead } from '@/lib/accountHistor
 
 vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
+const contractMocks = vi.hoisted(() => ({ setContract: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('@/lib/contract', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/contract')>()),
+  useContracts: () => ({
+    data: [{ id: 3, account_id: 42, name: 'Netflix', frequency: 'MONTHLY', median_amount: -12.99 }],
+  }),
+  useSetTransactionContract: () => ({ mutateAsync: contractMocks.setContract, isPending: false }),
+}))
+
 import {
   TransactionDetailView,
   otherPartyLabelKey,
   transferPartnerLabel,
 } from '@/pages/transactions.$transactionId'
 import {
+  ContractSection,
   compareRelatedTransactions,
   type RelatedTransactionView,
 } from '@/routes/transactions.$transactionId'
@@ -565,5 +575,39 @@ describe('compareRelatedTransactions', () => {
     const ordered = [reversal, debit].sort(compareRelatedTransactions)
 
     expect(ordered.map((m) => m.transaction.id)).toEqual([5054, 5109])
+  })
+})
+
+describe('ContractSection', () => {
+  const assignedTransaction = buildTransaction({ contract_id: 3 })
+
+  it('offers only contracts in the dropdown, removing goes through the unlink button', async () => {
+    const user = userEvent.setup()
+    render(<ContractSection transaction={assignedTransaction} />)
+    await user.click(screen.getByLabelText('Contract'))
+    const list = await screen.findByRole('list', { name: 'Contract' })
+    expect(
+      within(list)
+        .getAllByRole('button')
+        .map((option) => option.textContent),
+    ).toEqual(['Netflix'])
+  })
+
+  it('removes the transaction from its contract right away via the unlink button', async () => {
+    contractMocks.setContract.mockClear()
+    const user = userEvent.setup()
+    render(<ContractSection transaction={assignedTransaction} />)
+    await user.click(screen.getByRole('button', { name: 'Remove from contract' }))
+    expect(contractMocks.setContract).toHaveBeenCalledWith({
+      transactionId: assignedTransaction.id,
+      fromContractId: 3,
+      toContractId: null,
+    })
+  })
+
+  it('shows no unlink button when the transaction has no contract', () => {
+    render(<ContractSection transaction={buildTransaction({ contract_id: null })} />)
+    expect(screen.getByLabelText('Contract')).toHaveTextContent('No contract')
+    expect(screen.queryByRole('button', { name: 'Remove from contract' })).toBeNull()
   })
 })

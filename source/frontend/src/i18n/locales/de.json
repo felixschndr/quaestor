@@ -932,6 +932,7 @@
     "noContract": "Kein Vertrag",
     "assigned": "Zum Vertrag hinzugefügt",
     "removed": "Vom Vertrag entfernt",
+    "removeFromContract": "Vom Vertrag entfernen",
     "createToAssign": "Auf diesem Konto gibt es keine Verträge – lege zuerst einen an.",
     "frequency": {
       "WEEKLY": "$t(common.weekly)",
