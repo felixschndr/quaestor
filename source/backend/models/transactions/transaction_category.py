@@ -1,3 +1,4 @@
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
@@ -143,7 +144,7 @@ class TransactionCategory(str, Enum):
         for pattern, category in rules.user_rules:
             if direction_allows(
                 category=category, amount=transaction.amount, custom_groups=rules.custom_groups
-            ) and any(pattern in haystack for haystack in haystacks):
+            ) and any(pattern_matches(pattern=pattern, haystack=haystack) for haystack in haystacks):
                 return category
 
         # Transfer detection overwrites the type of a linked leg, so match on the type the bank reported
@@ -158,7 +159,7 @@ class TransactionCategory(str, Enum):
                 continue
             for matcher in matchers:
                 if matcher not in rules.disabled_default_matchers and any(
-                    matcher in haystack for haystack in haystacks
+                    pattern_matches(pattern=matcher, haystack=haystack) for haystack in haystacks
                 ):
                     return category
 
@@ -380,6 +381,16 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
     TransactionCategory.CREDIT_CARD_SETTLEMENT: ["kreditkartenabrechnung"],
     TransactionCategory.TRANSFER: ["umbuchung", "umgebucht"],
 }
+
+
+# Short patterns like "db" turn up inside random references ("CBYM9Z1VDB7Z"), so they only match as a whole word.
+WHOLE_WORD_MAX_LENGTH = 3
+
+
+def pattern_matches(pattern: str, haystack: str) -> bool:
+    if len(pattern) > WHOLE_WORD_MAX_LENGTH:
+        return pattern in haystack
+    return re.search(pattern=rf"(?<!\w){re.escape(pattern)}(?!\w)", string=haystack) is not None
 
 
 def normalize_string(input_string: str) -> str:
