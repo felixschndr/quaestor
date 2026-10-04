@@ -8,13 +8,13 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.14"
-sqlalchemy = "^2.0.54"
-fastapi = "^0.141.1"
+sqlalchemy = "^2.1.1"
+fastapi = "^0.142.2"
 pydantic = "^2.13.5"
 alembic = "^1.20.0"
-uvicorn = ">=0.53.0,<0.54"
+uvicorn = ">=0.54.0,<0.55"
 sqlcipher3 = ">=0.5.4,<0.7.0"
-python-dotenv = "^1.2.3"
+python-dotenv = "^1.2.4"
 requests = "^2.33.1"
 fints = "^5.0.0"
 fints-url = "^0.7"
