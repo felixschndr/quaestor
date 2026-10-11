@@ -163,6 +163,35 @@ def test_sync_all_due_credentials_counts_synced_skipped_failed(
     assert {syncable, failing} == set(synced_ids)
 
 
+@pytest.mark.parametrize(
+    argnames=("bank", "credentials"),
+    argvalues=[
+        (BankProvider.SCALABLE_CAPITAL, {}),
+        (BankProvider.TRADE_REPUBLIC, {"phone": PHONE_NUMBER, "pin": PIN}),
+    ],
+)
+def test_sync_all_due_credentials_keeps_an_unattended_2fa_session_alive(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, bank: BankProvider, credentials: dict[str, str]
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(
+        session_factory,
+        user_id=user_id,
+        bank=bank,
+        credentials=credentials,
+        requires_two_factor_authentication=True,
+    )
+    sync = MagicMock(return_value=credential_service.SyncResult(status=credential_service.SyncStatus.COMPLETED))
+    monkeypatch.setattr(target=credential_service, name="sync_credential_object", value=sync)
+
+    with session_factory() as session:
+        credential_service.sync_all_due_credentials(db_session=session)
+
+    sync.assert_called_once()
+    assert sync.call_args.kwargs["credential"].id == credential_id
+    assert sync.call_args.kwargs["start_interactive_challenge"] is False
+
+
 def test_sync_credential_loads_by_id_and_returns_completed_for_handler_without_2fa(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):

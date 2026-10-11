@@ -366,6 +366,7 @@ class TradeRepublicHandler(BankHandler):
         "pin": (FieldRule(name="pin_four_digits", regex=r"^\d{4}$", description="be exactly 4 digits"),),
     }
     WHITESPACE_STRIPPED_FIELDS = frozenset({"phone"})
+    RESUMES_SESSION_UNATTENDED = True
 
     def begin_two_factor_challenge(self, credential_id: int) -> TwoFactorChallenge:
         token, expires_at = trade_republic_login.start(
