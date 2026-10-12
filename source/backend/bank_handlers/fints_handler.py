@@ -51,6 +51,9 @@ APPROVAL_POLL_INTERVAL = timedelta(seconds=2)
 PENDING_LOOKBACK = timedelta(days=14)
 FETCH_CHUNK_LENGTH = timedelta(days=30)
 
+# Deutsche Bank advertises MT940 (HIKAZS) but only answers transaction requests via CAMT (#158)
+DEUTSCHE_BANK_FINTS_URL = "https://fints.deutsche-bank.de"
+
 T = TypeVar("T")
 
 
@@ -156,7 +159,9 @@ class _FinTSSession(BankSession):
     def _fetch_raw_transactions(
         self, sepa_account: SEPAAccount, start_date: date, end_date: date, include_pending: bool
     ) -> list | tuple | NeedTANResponse:
-        if self._client.bpd.find_segment_first("HIKAZS") is not None:
+        supports_mt940 = self._client.bpd.find_segment_first("HIKAZS") is not None
+        is_deutsche_bank = self._client.connection.url.rstrip("/") == DEUTSCHE_BANK_FINTS_URL
+        if supports_mt940 and not is_deutsche_bank:
             return self._client.get_transactions(
                 sepa_account, start_date=start_date, end_date=end_date, include_pending=include_pending
             )

@@ -372,6 +372,28 @@ def test_session_uses_camt_xml_for_banks_without_mt940(monkeypatch: pytest.Monke
     assert not transactions[0].pending
 
 
+@pytest.mark.usefixtures("single_fetch_chunk")
+def test_session_uses_camt_xml_for_deutsche_bank_despite_mt940(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        target=module,
+        name="camt053_to_dict",
+        value=lambda stream: [{"amount": MagicMock(amount=DEFAULT_AMOUNT), "purpose": "x", "date": RECENT_DATE}],
+    )
+
+    client = MagicMock()
+    client.connection.url = f"{module.DEUTSCHE_BANK_FINTS_URL}/"  # bpd mock advertises HIKAZS
+    client.get_transactions_xml.return_value = ([b"<booked/>"], [None])
+
+    session = module._FinTSSession(client=client)
+    session._account_mapping = {ACCOUNT_IBAN: MagicMock(iban=ACCOUNT_IBAN)}
+
+    transactions = session.get_transactions(account=module.FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE)
+
+    assert client.get_transactions_xml.call_count == 2
+    assert client.get_transactions.call_count == 0
+    assert len(transactions) == 1
+
+
 def test_date_ranges_splits_history_into_gapless_chunks_up_to_today():
     ranges = module._date_ranges(OLDER_DATE)
 
