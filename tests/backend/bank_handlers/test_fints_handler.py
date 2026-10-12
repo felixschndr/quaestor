@@ -165,7 +165,7 @@ def test_configure_pushtan_selects_tan_medium_when_required():
     client.get_tan_mechanisms.return_value = {
         "942": _FakeMechanism(name="pushTAN", description_required="MUST"),
     }
-    client.get_tan_media.return_value = iter([medium])
+    client.get_tan_media.return_value = (object(), [medium])
 
     _try_configure_pushtan_mechanism(client)
 
@@ -177,7 +177,7 @@ def test_configure_pushtan_raises_when_medium_required_but_none_returned(caplog:
     client.get_tan_mechanisms.return_value = {
         "942": _FakeMechanism(name="pushTAN", description_required="MUST"),
     }
-    client.get_tan_media.return_value = iter([])
+    client.get_tan_media.return_value = (object(), [])
 
     with pytest.raises(ReauthenticationRequiredError, match="requires a TAN medium"):
         _try_configure_pushtan_mechanism(client)

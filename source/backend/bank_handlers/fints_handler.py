@@ -327,7 +327,7 @@ def _try_configure_pushtan_mechanism(client: FinTS3PinTanClient) -> None:
     client.set_tan_mechanism(sec_func)
     description_required = getattr(mechanism, "description_required", None)
     if description_required is not None and str(description_required) == "MUST":
-        media = list(client.get_tan_media() or [])
+        _, media = client.get_tan_media() or (None, [])
         if not media:
             error_message = "Bank requires a TAN medium for pushTAN but none was returned"
             logger.warning(error_message)
