@@ -34,6 +34,7 @@ from tests.backend.conftest import (
     DEFAULT_AMOUNT,
     DEFAULT_BALANCE,
     LAST_FETCHING_TIMESTAMP,
+    OLDER_DATE,
     PIN,
     RECENT_DATE,
     SECOND_ACCOUNT_IBAN,
@@ -54,6 +55,12 @@ _FAKE_BANK_INFO = BankInfo(
     bank_identifier="50010517",
     fints_url="https://fints.ing.de/fints/",
 )
+
+
+@pytest.fixture
+def single_fetch_chunk(monkeypatch: pytest.MonkeyPatch) -> None:
+    # For tests that count requests: one request per fetch, no matter how far today is from the test dates
+    monkeypatch.setattr(target=module, name="FETCH_CHUNK_LENGTH", value=timedelta(days=100 * 365))
 
 
 def _fints_handler(blz: str = "66050101") -> FinTSHandler:
@@ -286,6 +293,7 @@ def test_resolve_decoupled_raises_when_non_decoupled(caplog: pytest.LogCaptureFi
     assert_log_contains(caplog, message="Bank requested a non-decoupled TAN")
 
 
+@pytest.mark.usefixtures("single_fetch_chunk")
 def test_session_resolves_tan_responses_from_get_transactions(monkeypatch: pytest.MonkeyPatch):
     # Sparkasse triggers a second TAN prompt on get_transactions (PSD2 for old reads).
     # Verify the session unwraps NeedTANResponse and polls until the bank returns data.
@@ -339,6 +347,7 @@ def test_parse_camt_if_needed_includes_pending_and_skips_none_streams(monkeypatc
     assert [transaction.data for transaction in result] == [{"stream": b"booked"}, {"stream": b"pending"}]
 
 
+@pytest.mark.usefixtures("single_fetch_chunk")
 def test_session_uses_camt_xml_for_banks_without_mt940(monkeypatch: pytest.MonkeyPatch):
     # e.g. Volksbank
     monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
@@ -361,6 +370,17 @@ def test_session_uses_camt_xml_for_banks_without_mt940(monkeypatch: pytest.Monke
     assert client.get_transactions.call_count == 0
     assert len(transactions) == 1
     assert not transactions[0].pending
+
+
+def test_date_ranges_splits_history_into_gapless_chunks_up_to_today():
+    ranges = module._date_ranges(OLDER_DATE)
+
+    assert ranges[0][0] == OLDER_DATE
+    assert ranges[-1][1] == date.today()
+    for (_, previous_end), (next_start, _) in zip(ranges, ranges[1:]):
+        assert next_start == previous_end + timedelta(days=1)
+    for chunk_start, chunk_end in ranges:
+        assert chunk_end - chunk_start < module.FETCH_CHUNK_LENGTH
 
 
 def test_session_captures_system_id_after_successful_use(monkeypatch: pytest.MonkeyPatch):
@@ -542,6 +562,7 @@ def _statement_with_opening(amount: float, txn_day: date, opening_balance: float
     return [_fake_mt940_transaction(amount=amount, txn_date=txn_day, opening=opening)]
 
 
+@pytest.mark.usefixtures("single_fetch_chunk")
 def test_get_transactions_accumulates_opening_anchor_from_both_fetches():
     session = _session_with_mapped_account()
     booked_opening_day = LAST_FETCHING_TIMESTAMP.date()
@@ -565,6 +586,7 @@ def test_get_transactions_accumulates_opening_anchor_from_both_fetches():
     ]
 
 
+@pytest.mark.usefixtures("single_fetch_chunk")
 def test_get_transactions_resets_anchors_between_calls():
     # Two get_transactions calls (e.g. two syncs) must not let anchors pile up across calls.
     session = _session_with_mapped_account()
