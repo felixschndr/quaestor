@@ -608,6 +608,11 @@
     "updateAvailable": "An update is available",
     "checkFailed": "Couldn't check for updates"
   },
+  "offlineCache": {
+    "title": "Keep data on this device",
+    "description": "If the server can't be reached, you can still view the data you loaded last, but not change it. It's stored unencrypted in the browser and deleted when you log out.",
+    "banner": "Server unreachable. You're seeing the data you loaded last; changes aren't possible right now."
+  },
   "sessions": {
     "ip": "IP",
     "unknownUserAgent": "Unknown device",

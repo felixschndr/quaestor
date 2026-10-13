@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
 import { authQueryKeys, type Theme, type UserRead } from './auth'
+import { clearOfflineCache } from './offlineCache'
 import { sessionQueryKeys } from './sessions'
 
 export interface UserUpdatePayload {
@@ -79,7 +80,8 @@ export function useLogout() {
     mutationFn: () => api<void>('/auth/logout', { method: 'POST' }),
     onSuccess: () => {
       queryClient.setQueryData(authQueryKeys.me, null)
-      queryClient.removeQueries({ queryKey: authQueryKeys.me })
+      queryClient.removeQueries()
+      void clearOfflineCache()
     },
   })
 }

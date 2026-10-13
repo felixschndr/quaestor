@@ -608,6 +608,11 @@
     "updateAvailable": "Ein Update ist verfügbar",
     "checkFailed": "Update-Prüfung fehlgeschlagen"
   },
+  "offlineCache": {
+    "title": "Daten auf diesem Gerät speichern",
+    "description": "Ist der Server nicht erreichbar, kannst du die zuletzt geladenen Daten weiter ansehen, aber nicht ändern. Sie liegen unverschlüsselt im Browser und werden beim Abmelden gelöscht.",
+    "banner": "Server nicht erreichbar. Du siehst den zuletzt geladenen Stand, Änderungen sind gerade nicht möglich."
+  },
   "sessions": {
     "ip": "IP",
     "unknownUserAgent": "Unbekanntes Gerät",

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useForm, type UseFormReturn } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { TwoFactorSetup } from '@/components/two-factor-setup'
+import { OfflineCacheToggle } from '@/components/offline-cache-toggle'
+import { setOfflineCacheEnabled, suggestOfflineCache } from '@/lib/offlineCache'
 import { ApiError } from '@/lib/api'
 import {
   evaluatePassword,
@@ -42,8 +45,12 @@ export function LoginPageContent({
   const [mode, setMode] = useState<Mode>('login')
   const [inTwoFactorStep, setInTwoFactorStep] = useState(false)
   const { data: settings } = useAppSettings()
+  const queryClient = useQueryClient()
+  const [keepOffline, setKeepOffline] = useState(suggestOfflineCache)
 
   const handleSuccess = () => {
+    // The choice only counts once logged in, so a failed login leaves the device undecided
+    void setOfflineCacheEnabled(queryClient, keepOffline)
     onSuccess(safeNext(next))
   }
 
@@ -74,6 +81,10 @@ export function LoginPageContent({
         </p>
       ) : (
         <RegisterForm onSuccess={handleSuccess} />
+      )}
+
+      {inTwoFactorStep ? null : (
+        <OfflineCacheToggle checked={keepOffline} onCheckedChange={setKeepOffline} />
       )}
     </main>
   )

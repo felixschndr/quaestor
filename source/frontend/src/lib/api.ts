@@ -1,4 +1,5 @@
 import { readCsrfToken } from './csrf'
+import { reportServerReachable, SERVER_UNREACHABLE_STATUSES } from './offlineCache'
 
 export class ApiError extends Error {
   status: number
@@ -73,8 +74,14 @@ export async function api<T = unknown>(path: string, options: RequestOptions = {
     })
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') throw err
+    if (err instanceof TypeError) reportServerReachable(false)
     throw new NetworkError(err)
   }
+  if (SERVER_UNREACHABLE_STATUSES.has(res.status)) {
+    reportServerReachable(false)
+    throw new NetworkError(new Error(`Server unreachable (HTTP ${res.status})`))
+  }
+  reportServerReachable(true)
 
   const isJson = res.headers.get('content-type')?.includes('application/json')
   const data = isJson ? await res.json().catch(() => null) : await res.text().catch(() => null)

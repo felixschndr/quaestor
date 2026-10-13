@@ -10,6 +10,7 @@ import { queryClient } from './lib/queryClient'
 import { routeTree } from './routeTree.gen'
 import { detectPlatform } from './lib/platform'
 import { applyTheme, readStoredTheme } from './lib/theme'
+import { startOfflineCache } from './lib/offlineCache'
 
 applyTheme(readStoredTheme())
 document.documentElement.dataset.platform = detectPlatform()
@@ -32,10 +33,15 @@ declare module '@tanstack/react-router' {
 const rootEl = document.getElementById('root')
 if (!rootEl) throw new Error('Root element not found')
 
-createRoot(rootEl).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  </StrictMode>,
-)
+// Restore before the first render: the router's auth check needs the cached user while the server is unreachable
+void startOfflineCache(queryClient)
+  .catch(() => {})
+  .finally(() =>
+    createRoot(rootEl).render(
+      <StrictMode>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </StrictMode>,
+    ),
+  )
