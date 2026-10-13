@@ -146,6 +146,7 @@ class JobErrorCode(str, Enum):
     TIMEOUT = "timeout"
     REDIRECT_URL_NOT_ALLOWED = "redirect_url_not_allowed"
     APPLICATION_NOT_ACTIVATED = "application_not_activated"
+    REAUTHENTICATION_REQUIRED = "reauthentication_required"
     UNKNOWN = "unknown"
 
 
@@ -156,6 +157,7 @@ _ERROR_CODES_BY_EXCEPTION: dict[type[Exception], JobErrorCode] = {
     BankTimedOutError: JobErrorCode.TIMEOUT,
     PSD2RedirectUrlNotAllowedError: JobErrorCode.REDIRECT_URL_NOT_ALLOWED,
     PSD2ApplicationNotActivatedError: JobErrorCode.APPLICATION_NOT_ACTIVATED,
+    ReauthenticationRequiredError: JobErrorCode.REAUTHENTICATION_REQUIRED,
 }
 KNOWN_SYNC_ERROR_TYPES: tuple[type[Exception], ...] = tuple(_ERROR_CODES_BY_EXCEPTION)
 
