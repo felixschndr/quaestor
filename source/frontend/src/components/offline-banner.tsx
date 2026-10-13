@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useSyncExternalStore } from 'react'
+import { useLayoutEffect, useRef, useSyncExternalStore, type ReactNode } from 'react'
 import { onlineManager } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { CloudOff } from 'lucide-react'
@@ -9,9 +9,7 @@ export const OFFLINE_BANNER_RESIZE_EVENT = 'offline-banner-resize'
 // sticky headers move down by it instead of hiding it.
 export function OfflineBanner() {
   const { t } = useTranslation()
-  const online = useSyncExternalStore(onlineManager.subscribe.bind(onlineManager), () =>
-    onlineManager.isOnline(),
-  )
+  const online = !useIsOffline()
   const ref = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
@@ -41,5 +39,20 @@ export function OfflineBanner() {
       <CloudOff className="size-4 shrink-0" aria-hidden="true" />
       <span>{t('offlineCache.banner')}</span>
     </div>
+  )
+}
+
+export function useIsOffline(): boolean {
+  return !useSyncExternalStore(onlineManager.subscribe.bind(onlineManager), () =>
+    onlineManager.isOnline(),
+  )
+}
+
+export function ReadOnlyWhileOffline({ children }: { children: ReactNode }) {
+  const offline = useIsOffline()
+  return (
+    <fieldset disabled={offline} className="contents">
+      {children}
+    </fieldset>
   )
 }

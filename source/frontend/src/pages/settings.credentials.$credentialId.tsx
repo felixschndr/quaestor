@@ -29,6 +29,7 @@ import { useAppSettings } from '@/lib/settings'
 import { formatDecimal, formatMoney } from '@/lib/format'
 import type { CredentialDetailViewProps } from '@/routes/settings.credentials.$credentialId'
 import { BackLink } from '@/components/back-link'
+import { ReadOnlyWhileOffline } from '@/components/offline-banner'
 import { NotFound } from '@/components/not-found'
 import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
 import { RowActions } from '@/components/row-actions'
@@ -67,23 +68,25 @@ export function CredentialDetailView({ credential, onDeleted }: CredentialDetail
 
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
-      <header className="flex items-center gap-2">
-        <BackLink to="/settings/credentials" label={t('credentials.detail.backToList')} />
-      </header>
+      <ReadOnlyWhileOffline>
+        <header className="flex items-center gap-2">
+          <BackLink to="/settings/credentials" label={t('credentials.detail.backToList')} />
+        </header>
 
-      {isSharedCredential(credential) ? (
-        <>
-          <BankHeader credential={credential} bankTitle={bankTitle} />
-          <SharedAccountsSection credential={credential} />
-        </>
-      ) : (
-        <>
-          <BankHeader credential={credential} bankTitle={bankTitle} />
-          <SyncSettingsSection credential={credential} />
-          <AccountsSection credential={credential} />
-          <DangerZone credential={credential} bankTitle={bankTitle} onDeleted={onDeleted} />
-        </>
-      )}
+        {isSharedCredential(credential) ? (
+          <>
+            <BankHeader credential={credential} bankTitle={bankTitle} />
+            <SharedAccountsSection credential={credential} />
+          </>
+        ) : (
+          <>
+            <BankHeader credential={credential} bankTitle={bankTitle} />
+            <SyncSettingsSection credential={credential} />
+            <AccountsSection credential={credential} />
+            <DangerZone credential={credential} bankTitle={bankTitle} onDeleted={onDeleted} />
+          </>
+        )}
+      </ReadOnlyWhileOffline>
     </main>
   )
 }

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { CheckCheck } from 'lucide-react'
 
 import { BackLink } from '@/components/back-link'
+import { ReadOnlyWhileOffline } from '@/components/offline-banner'
 import { Button } from '@/components/ui/button'
 import { formatRelativeDateTime } from '@/lib/format'
 import type { NotificationLogEntry } from '@/lib/notificationLog'
@@ -25,10 +26,12 @@ export function NotificationLogView({
           {t('notificationLog.title')}
         </h1>
         {hasUnread ? (
-          <Button type="button" variant="primary" size="sm" onClick={onMarkAllRead}>
-            <CheckCheck className="size-3.5" aria-hidden="true" />
-            {t('notificationLog.markAllRead')}
-          </Button>
+          <ReadOnlyWhileOffline>
+            <Button type="button" variant="primary" size="sm" onClick={onMarkAllRead}>
+              <CheckCheck className="size-3.5" aria-hidden="true" />
+              {t('notificationLog.markAllRead')}
+            </Button>
+          </ReadOnlyWhileOffline>
         ) : null}
       </header>
 

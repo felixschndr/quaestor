@@ -7,8 +7,9 @@ import i18n from 'i18next'
 
 import '@/i18n'
 
-import { OfflineBanner } from '@/components/offline-banner'
+import { OfflineBanner, ReadOnlyWhileOffline } from '@/components/offline-banner'
 import { OfflineCacheSetting } from '@/components/offline-cache-toggle'
+import { NoteEditor } from '@/components/note-editor'
 import { authQueryKeys } from '@/lib/auth'
 import { isOfflineCacheEnabled } from '@/lib/offlineCache'
 
@@ -56,5 +57,35 @@ describe('OfflineBanner', () => {
     act(() => onlineManager.setOnline(false))
 
     expect(screen.getByRole('status')).toHaveTextContent('Server unreachable')
+  })
+})
+
+describe('ReadOnlyWhileOffline', () => {
+  it('disables the controls inside while offline, but not links', () => {
+    render(
+      <ReadOnlyWhileOffline>
+        <button type="button">Delete</button>
+        <a href="/account/3">Account</a>
+      </ReadOnlyWhileOffline>,
+    )
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled()
+
+    act(() => onlineManager.setOnline(false))
+
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
+    expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account/3')
+  })
+})
+
+describe('NoteEditor offline', () => {
+  it('stays greyed out and does not open for editing', async () => {
+    onlineManager.setOnline(false)
+    render(<NoteEditor remoteNote="Urlaub" onSave={vi.fn()} />)
+    const note = screen.getByRole('button', { name: 'Edit note' })
+    expect(note).toHaveAttribute('aria-disabled', 'true')
+
+    await userEvent.click(note)
+
+    expect(screen.queryByRole('textbox')).toBeNull()
   })
 })

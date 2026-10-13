@@ -37,6 +37,7 @@ import {
   transferPartnerLabel,
 } from '@/pages/transactions.$transactionId'
 import { NotFound } from '@/components/not-found'
+import { useIsOffline } from '@/components/offline-banner'
 
 const searchParamsSchema = z.object({
   link_account_id: z.coerce.number().optional(),
@@ -161,6 +162,28 @@ function LinkStartSection({
   transactionId: number
 }) {
   const { t } = useTranslation()
+  const offline = useIsOffline()
+  const label = (
+    <>
+      <ArrowLeftRight className="size-4" aria-hidden="true" />
+      <span className="sm:hidden">{t('common.add')}</span>
+      <span className="hidden sm:inline">{t('common.addTransaction')}</span>
+    </>
+  )
+  // A link isn't reached by the page's offline fieldset, so it turns into a disabled button itself
+  if (offline) {
+    return (
+      <Button
+        disabled
+        variant="outline"
+        size="sm"
+        className="self-start"
+        aria-label={t('common.addTransaction')}
+      >
+        {label}
+      </Button>
+    )
+  }
   return (
     <Button asChild variant="outline" size="sm" className="self-start">
       <Link
@@ -168,9 +191,7 @@ function LinkStartSection({
         search={{ link_account_id: accountId, link_transaction_id: transactionId }}
         aria-label={t('common.addTransaction')}
       >
-        <ArrowLeftRight className="size-4" aria-hidden="true" />
-        <span className="sm:hidden">{t('common.add')}</span>
-        <span className="hidden sm:inline">{t('common.addTransaction')}</span>
+        {label}
       </Link>
     </Button>
   )

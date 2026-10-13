@@ -97,6 +97,7 @@ const mutateAsync = vi.fn().mockResolvedValue(undefined)
 
 beforeEach(() => {
   mutateAsync.mockClear()
+  globalThis.fetch = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
   mockedDelete.mockReturnValue({ mutateAsync, isPending: false } as unknown as ReturnType<
     typeof useDeleteRecurringTransaction
   >)

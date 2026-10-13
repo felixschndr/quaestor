@@ -66,6 +66,7 @@ export function SettingsSessionsView({ user }: SettingsSessionsViewProps) {
   return (
     <SettingsSubPage
       title={t('settings.sessions')}
+      usableOffline={<OfflineCacheSetting />}
       headerExtra={
         otherSessionCount > 0 ? (
           <RowActions
@@ -104,7 +105,6 @@ export function SettingsSessionsView({ user }: SettingsSessionsViewProps) {
           ))}
         </ul>
       </QueryStates>
-      <OfflineCacheSetting />
     </SettingsSubPage>
   )
 }

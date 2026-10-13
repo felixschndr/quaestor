@@ -1,24 +1,30 @@
 import { BackLink } from '@/components/back-link'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ReadOnlyWhileOffline } from '@/components/offline-banner'
 
 export function SettingsSubPage({
   title,
   headerExtra,
   children,
+  usableOffline,
 }: {
   title: string
   headerExtra?: React.ReactNode
   children: React.ReactNode
+  usableOffline?: React.ReactNode
 }) {
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-8 p-4">
-      <header className="flex items-center gap-2">
-        <BackLink to="/settings" />
-        <h1 className="text-foreground flex-1 text-lg font-semibold">{title}</h1>
-        {headerExtra}
-      </header>
-      {children}
+      <ReadOnlyWhileOffline>
+        <header className="flex items-center gap-2">
+          <BackLink to="/settings" />
+          <h1 className="text-foreground flex-1 text-lg font-semibold">{title}</h1>
+          {headerExtra}
+        </header>
+        {children}
+      </ReadOnlyWhileOffline>
+      {usableOffline}
     </main>
   )
 }

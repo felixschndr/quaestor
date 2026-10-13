@@ -58,6 +58,7 @@ function scrollTo(y: number) {
 
 beforeEach(() => {
   mockUseExpectedTransactions.mockReturnValue({ data: undefined })
+  globalThis.fetch = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
   scrollTo(0)
 })
 

@@ -34,7 +34,7 @@ import { isManualBank } from '@/lib/credentials'
 import { presetDateRange, useNetWorthStats } from '@/lib/statistics'
 import { Sparkline } from '@/components/sparkline'
 import { CopyButton } from '@/components/copy-button'
-import { OFFLINE_BANNER_RESIZE_EVENT } from '@/components/offline-banner'
+import { OFFLINE_BANNER_RESIZE_EVENT, ReadOnlyWhileOffline } from '@/components/offline-banner'
 import { EXPECTED_TRANSACTIONS_KEY, useCollapsedGroups } from '@/lib/collapsedGroups'
 import { cn } from '@/lib/utils'
 import { AmountInput } from '@/components/ui/amount-input'
@@ -384,82 +384,85 @@ export function AccountDetailView({
             </p>
           ) : null}
         </div>
-        <div
-          ref={amountRef}
-          role="group"
-          aria-labelledby={showIban ? 'account-balance-label' : undefined}
-          aria-label={showIban ? undefined : t('common.balance')}
-          className="z-30 w-fit"
-        >
-          <BalanceDisplay
-            account={account}
-            isManual={canBookManually}
-            overrideValue={sparklineValue}
-          />
-        </div>
-        <AccountSparkline accountId={account.id} onActiveDayChange={setSparklineValue} />
-        {canBookManually ? (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setAddingTxn((prev) => !prev)}
-            >
-              <Plus className="size-3.5" aria-hidden="true" />
-              {t('common.addTransaction')}
-            </Button>
-          </div>
-        ) : !isManual && canWrite ? (
-          <ExpectedAddHeaderButton
-            accountId={account.id}
-            onToggle={() => setAddingExpected((prev) => !prev)}
-          />
-        ) : null}
-
-        <div className="mt-4 flex flex-col gap-6">
-          {canBookManually && addingTxn ? (
-            <ManualTransactionForm
-              accountId={account.id}
-              mode="create"
-              onDone={() => setAddingTxn(false)}
-            />
-          ) : null}
-
-          {!isManual && addingExpected ? (
-            <ExpectedTransactionForm
-              accountId={account.id}
-              onDone={() => setAddingExpected(false)}
-            />
-          ) : null}
-
-          {isManual && canWrite ? <RecurringTransactionsList accountId={account.id} /> : null}
-
-          {!isManual && canWrite ? (
-            <ExpectedTransactionsList
-              accountId={account.id}
-              onAdd={() => setAddingExpected((prev) => !prev)}
-            />
-          ) : null}
-
-          {hasAnyTransactions ? (
-            <TransactionGroupList
-              accountId={account.id}
-              groups={groups}
-              today={today}
+        {/* Below the IBAN: copying it keeps working offline */}
+        <ReadOnlyWhileOffline>
+          <div
+            ref={amountRef}
+            role="group"
+            aria-labelledby={showIban ? 'account-balance-label' : undefined}
+            aria-label={showIban ? undefined : t('common.balance')}
+            className="z-30 w-fit"
+          >
+            <BalanceDisplay
+              account={account}
               isManual={canBookManually}
-              isMarketValued={account.is_market_valued}
+              overrideValue={sparklineValue}
             />
-          ) : isLoading ? (
-            <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
-          ) : (
-            <p className="text-muted-foreground text-sm">{t('account.empty')}</p>
-          )}
-
-          {hasNextPage ? (
-            <InfiniteScrollSentinel onIntersect={onLoadMore} isFetching={isFetchingNextPage} />
+          </div>
+          <AccountSparkline accountId={account.id} onActiveDayChange={setSparklineValue} />
+          {canBookManually ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setAddingTxn((prev) => !prev)}
+              >
+                <Plus className="size-3.5" aria-hidden="true" />
+                {t('common.addTransaction')}
+              </Button>
+            </div>
+          ) : !isManual && canWrite ? (
+            <ExpectedAddHeaderButton
+              accountId={account.id}
+              onToggle={() => setAddingExpected((prev) => !prev)}
+            />
           ) : null}
-        </div>
+
+          <div className="mt-4 flex flex-col gap-6">
+            {canBookManually && addingTxn ? (
+              <ManualTransactionForm
+                accountId={account.id}
+                mode="create"
+                onDone={() => setAddingTxn(false)}
+              />
+            ) : null}
+
+            {!isManual && addingExpected ? (
+              <ExpectedTransactionForm
+                accountId={account.id}
+                onDone={() => setAddingExpected(false)}
+              />
+            ) : null}
+
+            {isManual && canWrite ? <RecurringTransactionsList accountId={account.id} /> : null}
+
+            {!isManual && canWrite ? (
+              <ExpectedTransactionsList
+                accountId={account.id}
+                onAdd={() => setAddingExpected((prev) => !prev)}
+              />
+            ) : null}
+
+            {hasAnyTransactions ? (
+              <TransactionGroupList
+                accountId={account.id}
+                groups={groups}
+                today={today}
+                isManual={canBookManually}
+                isMarketValued={account.is_market_valued}
+              />
+            ) : isLoading ? (
+              <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
+            ) : (
+              <p className="text-muted-foreground text-sm">{t('account.empty')}</p>
+            )}
+
+            {hasNextPage ? (
+              <InfiniteScrollSentinel onIntersect={onLoadMore} isFetching={isFetchingNextPage} />
+            ) : null}
+          </div>
+        </ReadOnlyWhileOffline>
       </div>
     </main>
   )

@@ -2,6 +2,7 @@ import { RefreshCw } from 'lucide-react'
 
 import { SuccessCheck, useSuccessCheck } from '@/components/sync-check'
 import { WarningDot } from '@/components/warning-dot'
+import { useIsOffline } from '@/components/offline-banner'
 import { cn } from '@/lib/utils'
 
 export interface SyncButtonProps {
@@ -24,12 +25,13 @@ export function SyncButton({
   warn = false,
 }: SyncButtonProps) {
   const { mounted: checkMounted, open: checkOpen } = useSuccessCheck(succeededAt)
+  const offline = useIsOffline()
 
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled || checkMounted}
+      disabled={disabled || checkMounted || offline}
       aria-label={ariaLabel}
       title={ariaLabel}
       className={cn(
