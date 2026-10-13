@@ -272,6 +272,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
     TransactionCategory.FOOD_DELIVERY: ["lieferando", "uber eats", "wolt"],
     TransactionCategory.VACATION: [
         "airbnb",
+        "booking com",
         "holiday inn",
         "hotel",
         "lufthansa",
@@ -343,7 +344,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
     TransactionCategory.PERSONAL_CARE: ["barber", "friseur", "rituals", "waxing"],
     TransactionCategory.CLOTHING: ["bijou brigitte", "deichmann", "jack jones", "new yorker", "zalando"],
     TransactionCategory.GIFTS: ["blume 2000", "geburtstag", "geschenk", "gutschein", "schenkung"],
-    TransactionCategory.EVENTS: ["eventim", "fest", "theater"],
+    TransactionCategory.EVENTS: ["eventim", "fest", "getyourguide", "theater"],
     TransactionCategory.GAMING: ["g2a com", "nintendo", "spiele pyramide", "steam games", "steampowered"],
     TransactionCategory.ENTERTAINMENT: [
         "ausgehen",
