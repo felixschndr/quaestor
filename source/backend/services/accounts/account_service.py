@@ -411,8 +411,11 @@ def link_related(db_session: Session, transaction: Transaction, counterpart: Tra
     related_group = _resolve_target_related_group(
         db_session=db_session, transaction=transaction, counterpart=counterpart
     )
+    market_valued = market_valued_ids(
+        db_session=db_session, account_ids=[transaction.account_id, counterpart.account_id]
+    )
     for leg in (transaction, counterpart):
-        _add_to_related_group(leg=leg, related_group=related_group)
+        _add_to_related_group(leg=leg, related_group=related_group, market_valued_account_ids=market_valued)
 
     db_session.commit()
     logger.info(f"Linked {transaction} and {counterpart} into related group {related_group}")
@@ -461,11 +464,12 @@ def _merge_related_group(db_session: Session, source: RelatedGroup, target: Rela
     db_session.delete(source)
 
 
-def _add_to_related_group(leg: Transaction, related_group: RelatedGroup) -> None:
+def _add_to_related_group(leg: Transaction, related_group: RelatedGroup, market_valued_account_ids: set[int]) -> None:
     if leg.related_group_id == related_group.id:
         return
-    leg.transfer_original_type = leg.transaction_type
-    leg.transaction_type = TransactionType.TRANSFER_OUT if leg.amount < 0 else TransactionType.TRANSFER_IN
+    if leg.account_id not in market_valued_account_ids:
+        leg.transfer_original_type = leg.transaction_type
+        leg.transaction_type = TransactionType.TRANSFER_OUT if leg.amount < 0 else TransactionType.TRANSFER_IN
     leg.related_group = related_group
     leg.related_link_source = RelatedLinkSource.MANUAL
     leg.transfer_relink_blocked = False

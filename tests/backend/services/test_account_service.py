@@ -11,6 +11,7 @@ from source.backend.exceptions import (
     TransactionNotFoundError,
 )
 from source.backend.models.accounts.account import Account
+from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot, BalanceSnapshotSource
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.models.transactions.category_source import CategorySource
@@ -476,6 +477,37 @@ def test_filter_transactions(
         )
 
         assert [t.id for t in filtered_transactions] == expected_ids
+
+
+def test_link_related_keeps_the_type_of_a_depot_leg(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        credential = make_credential(session, user_id=user.id, bank=BankProvider.TRADE_REPUBLIC)
+        cash_account = make_account(session, credential_id=credential.id, name=ACCOUNT_IBAN)
+        depot_account = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN)
+        session.add(
+            AccountBalanceSnapshot(
+                account_id=depot_account.id,
+                date=date(year=2026, month=1, day=1),
+                balance=AMOUNT,
+                source=BalanceSnapshotSource.MARKET_VALUED,
+            )
+        )
+        cash_buy = make_transaction(
+            session, account_id=cash_account.id, amount=AMOUNT * -1, transaction_type=TransactionType.BUY
+        )
+        depot_buy = make_transaction(
+            session, account_id=depot_account.id, amount=AMOUNT * -1, transaction_type=TransactionType.BUY
+        )
+        session.flush()
+
+        account_service.link_related(db_session=session, transaction=cash_buy, counterpart=depot_buy)
+
+        assert cash_buy.transaction_type == TransactionType.TRANSFER_OUT
+        assert cash_buy.transfer_original_type == TransactionType.BUY
+        assert depot_buy.transaction_type == TransactionType.BUY
+        assert depot_buy.transfer_original_type is None
+        assert depot_buy.related_group_id == cash_buy.related_group_id
 
 
 def test_unlink_related_clears_both_sides_and_restores_types(

@@ -114,6 +114,35 @@ def test_cash_and_position_transactions_are_routed_to_the_right_account(monkeypa
     ]
 
 
+def test_transactions_are_imported_oldest_first_although_the_timeline_comes_newest_first(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    rows = [
+        {
+            "timestamp": "2026-05-13T15:00:00.000+0000",
+            "date": "2026-05-13",
+            "type": "Buy",
+            "value": -600.0,
+            "note": ETF_NAME,
+            "isin": ISIN,
+        },
+        {
+            "timestamp": "2026-05-13T09:00:00.000+0000",
+            "date": "2026-05-13",
+            "type": "Deposit",
+            "value": 1000.0,
+            "note": PERSON_NAME,
+            "isin": None,
+        },
+    ]
+    _patch_pytr(monkeypatch=monkeypatch, rows=rows, captured={})
+    session = _session()
+
+    cash = session.get_transactions(FetchedAccount(name=ACCOUNT_IBAN), start_date=date(year=2026, month=1, day=1))
+
+    assert [t.transaction_type for t in cash] == [TransactionType.DEPOSIT, TransactionType.BUY]
+
+
 def test_position_trades_also_appear_in_the_cash_account(monkeypatch: pytest.MonkeyPatch):
     rows = [
         {"date": "2026-05-13", "type": "Deposit", "value": 1000.0, "note": PERSON_NAME, "isin": None},

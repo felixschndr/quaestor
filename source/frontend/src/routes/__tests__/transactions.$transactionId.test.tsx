@@ -8,13 +8,23 @@ import type { TransactionDetailRead, TransactionRead } from '@/lib/accountHistor
 
 vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
+const contractMocks = vi.hoisted(() => ({ setContract: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('@/lib/contract', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/contract')>()),
+  useContracts: () => ({
+    data: [{ id: 3, account_id: 42, name: 'Netflix', frequency: 'MONTHLY', median_amount: -12.99 }],
+  }),
+  useSetTransactionContract: () => ({ mutateAsync: contractMocks.setContract, isPending: false }),
+}))
+
 import {
   TransactionDetailView,
   otherPartyLabelKey,
   transferPartnerLabel,
 } from '@/pages/transactions.$transactionId'
 import {
-  compareRelatedTransactions,
+  ContractSection,
+  orderRelatedTransactions,
   type RelatedTransactionView,
 } from '@/routes/transactions.$transactionId'
 import {
@@ -23,6 +33,7 @@ import {
   AMOUNT_L,
   AMOUNT_M,
   AMOUNT_XL,
+  DATE_BROKER_FUNDING,
   DATE_BROKER_SETTLE,
   DATE_RECENT,
   DATE_SAME_DAY_TRANSFER,
@@ -257,6 +268,16 @@ describe('TransactionDetailView', () => {
     ).toBe(false)
   })
 
+  const secondMember: TransactionRead = { ...memberTransaction, id: 100, account_id: 56 }
+
+  it('removes the link of a pair right away since there is nothing to choose', async () => {
+    const user = userEvent.setup()
+    const { onUnlink } = renderView({ related_transactions: [memberTransaction] })
+    await user.click(screen.getByRole('button', { name: 'Remove link' }))
+    expect(screen.queryByRole('list', { name: 'Remove link' })).toBeNull()
+    expect(onUnlink).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }))
+  })
+
   async function openUnlinkMenu(user: ReturnType<typeof userEvent.setup>) {
     await user.click(screen.getByRole('button', { name: 'Remove link' }))
     return screen.findByRole('list', { name: 'Remove link' })
@@ -264,36 +285,23 @@ describe('TransactionDetailView', () => {
 
   it('offers one unlink menu listing every related transaction instead of a control per row', async () => {
     const user = userEvent.setup()
-    renderView({ related_transactions: [memberTransaction] })
+    renderView({ related_transactions: [memberTransaction, secondMember] })
     expect(screen.getAllByRole('button', { name: 'Remove link' })).toHaveLength(1)
 
     const menu = await openUnlinkMenu(user)
 
-    expect(within(menu).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(menu).getAllByRole('listitem')).toHaveLength(3)
     expect(within(menu).getByText(ACCOUNT_NAME_GIRO)).toBeInTheDocument()
-    expect(within(menu).getByText(ACCOUNT_NAME_SAVINGS)).toBeInTheDocument()
+    expect(within(menu).getAllByText(ACCOUNT_NAME_SAVINGS)).toHaveLength(2)
   })
 
-  it('asks for confirmation and removes the addressed member from the group', async () => {
+  it('removes the picked member from the group right away', async () => {
     const user = userEvent.setup()
-    const { onUnlink } = renderView({ related_transactions: [memberTransaction] })
+    const { onUnlink } = renderView({ related_transactions: [memberTransaction, secondMember] })
     const menu = await openUnlinkMenu(user)
-    const item = within(menu).getByText(ACCOUNT_NAME_SAVINGS).closest('li')!
+    const item = within(menu).getAllByText(ACCOUNT_NAME_SAVINGS)[0].closest('li')!
     await user.click(within(item).getByRole('button', { name: new RegExp(ACCOUNT_NAME_SAVINGS) }))
-    expect(onUnlink).not.toHaveBeenCalled()
-    await user.click(within(item).getByRole('button', { name: 'Remove' }))
     expect(onUnlink).toHaveBeenCalledWith(memberTransaction)
-  })
-
-  it('does not remove when the confirmation is cancelled', async () => {
-    const user = userEvent.setup()
-    const { onUnlink } = renderView({ related_transactions: [memberTransaction] })
-    const menu = await openUnlinkMenu(user)
-    const item = within(menu).getByText(ACCOUNT_NAME_SAVINGS).closest('li')!
-    await user.click(within(item).getByRole('button', { name: new RegExp(ACCOUNT_NAME_SAVINGS) }))
-    await user.click(within(item).getByRole('button', { name: 'Cancel' }))
-    expect(within(item).queryByRole('button', { name: 'Remove' })).toBeNull()
-    expect(onUnlink).not.toHaveBeenCalled()
   })
 
   it('hides the remove control while linking is in progress', () => {
@@ -470,7 +478,7 @@ describe('TransactionDetailView — note auto-save', () => {
   })
 })
 
-describe('compareRelatedTransactions', () => {
+describe('orderRelatedTransactions', () => {
   const relatedTransaction = (over: {
     id: number
     date: string
@@ -503,7 +511,7 @@ describe('compareRelatedTransactions', () => {
       isMarketValued: true,
     })
 
-    const ordered = [depotIn, cashOut, personalOut, cashIn].sort(compareRelatedTransactions)
+    const ordered = orderRelatedTransactions([depotIn, cashOut, personalOut, cashIn])
 
     expect(ordered.map((m) => m.transaction.id)).toEqual([4750, 5145, 5146, 5147])
   })
@@ -522,9 +530,70 @@ describe('compareRelatedTransactions', () => {
       accountId: 20,
     })
 
-    const ordered = [cashIn, personalOut].sort(compareRelatedTransactions)
+    const ordered = orderRelatedTransactions([cashIn, personalOut])
 
     expect(ordered.map((m) => m.transaction.id)).toEqual([2, 1])
+  })
+
+  it('spends money on an account only after it arrived there, whatever the booking order', () => {
+    // Giro receives 2X and forwards X to savings, savings funds the broker, the broker buys (booked before the deposit)
+    const giroIn = relatedTransaction({
+      id: 10548,
+      date: DATE_BROKER_FUNDING,
+      amount: 2 * AMOUNT_XL,
+      accountId: 25,
+    })
+    const giroOut = relatedTransaction({
+      id: 10549,
+      date: DATE_BROKER_FUNDING,
+      amount: -AMOUNT_XL,
+      accountId: 25,
+    })
+    const savingsIn = relatedTransaction({
+      id: 10485,
+      date: DATE_BROKER_FUNDING,
+      amount: AMOUNT_XL,
+      accountId: 24,
+    })
+    const savingsOut = relatedTransaction({
+      id: 10578,
+      date: DATE_BROKER_SETTLE,
+      amount: -AMOUNT_L,
+      accountId: 24,
+    })
+    const cashBuy = relatedTransaction({
+      id: 10603,
+      date: DATE_BROKER_SETTLE,
+      amount: -AMOUNT_M,
+      accountId: 20,
+    })
+    const cashIn = relatedTransaction({
+      id: 10604,
+      date: DATE_BROKER_SETTLE,
+      amount: AMOUNT_L,
+      accountId: 20,
+    })
+    const depotIn = relatedTransaction({
+      id: 10605,
+      date: DATE_BROKER_SETTLE,
+      amount: AMOUNT_M,
+      accountId: 21,
+      isMarketValued: true,
+    })
+
+    const ordered = orderRelatedTransactions([
+      depotIn,
+      cashIn,
+      cashBuy,
+      savingsOut,
+      savingsIn,
+      giroOut,
+      giroIn,
+    ])
+
+    expect(ordered.map((m) => m.transaction.id)).toEqual([
+      10548, 10549, 10485, 10578, 10604, 10603, 10605,
+    ])
   })
 
   it('orders same-account legs in booking order, debit before its later reversal', () => {
@@ -541,8 +610,42 @@ describe('compareRelatedTransactions', () => {
       accountId: 24,
     })
 
-    const ordered = [reversal, debit].sort(compareRelatedTransactions)
+    const ordered = orderRelatedTransactions([reversal, debit])
 
     expect(ordered.map((m) => m.transaction.id)).toEqual([5054, 5109])
+  })
+})
+
+describe('ContractSection', () => {
+  const assignedTransaction = buildTransaction({ contract_id: 3 })
+
+  it('offers only contracts in the dropdown, removing goes through the unlink button', async () => {
+    const user = userEvent.setup()
+    render(<ContractSection transaction={assignedTransaction} />)
+    await user.click(screen.getByLabelText('Contract'))
+    const list = await screen.findByRole('list', { name: 'Contract' })
+    expect(
+      within(list)
+        .getAllByRole('button')
+        .map((option) => option.textContent),
+    ).toEqual(['Netflix'])
+  })
+
+  it('removes the transaction from its contract right away via the unlink button', async () => {
+    contractMocks.setContract.mockClear()
+    const user = userEvent.setup()
+    render(<ContractSection transaction={assignedTransaction} />)
+    await user.click(screen.getByRole('button', { name: 'Remove from contract' }))
+    expect(contractMocks.setContract).toHaveBeenCalledWith({
+      transactionId: assignedTransaction.id,
+      fromContractId: 3,
+      toContractId: null,
+    })
+  })
+
+  it('shows no unlink button when the transaction has no contract', () => {
+    render(<ContractSection transaction={buildTransaction({ contract_id: null })} />)
+    expect(screen.getByLabelText('Contract')).toHaveTextContent('No contract')
+    expect(screen.queryByRole('button', { name: 'Remove from contract' })).toBeNull()
   })
 })

@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
 import { accountQueryKeys, type TransactionRead } from './accountHistory'
-import type { CategoryKey } from './transaction'
+import { transactionQueryKeys, type CategoryKey } from './transaction'
+import { transactionSearchQueryKeys } from './transactionSearch'
 
 export const CONTRACT_FREQUENCIES = [
   'WEEKLY',
@@ -234,6 +235,8 @@ export function useSetTransactionContract() {
     onSuccess: (_updated, { fromContractId, toContractId }) => {
       queryClient.invalidateQueries({ queryKey: contractQueryKeys.list })
       queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.all })
+      queryClient.invalidateQueries({ queryKey: transactionSearchQueryKeys.all })
       if (fromContractId !== null)
         queryClient.invalidateQueries({ queryKey: contractQueryKeys.detail(fromContractId) })
       if (toContractId !== null)

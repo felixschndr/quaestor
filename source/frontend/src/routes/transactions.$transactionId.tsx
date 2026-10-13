@@ -1,7 +1,7 @@
 import { type ReactNode, useRef, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeftRight, Download, Paperclip, Plus, SquarePen, Trash2 } from 'lucide-react'
+import { ArrowLeftRight, Download, Paperclip, Plus, SquarePen, Trash2, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
@@ -89,12 +89,12 @@ function TransactionDetailPage() {
 
   const relatedTransactions: RelatedTransactionView[] =
     query.data.related_transactions.length > 0
-      ? [
+      ? orderRelatedTransactions([
           toRelatedTransaction(query.data, found, true),
           ...query.data.related_transactions.map((member) =>
             toRelatedTransaction(member, findAccountInUser(user, member.account_id), false),
           ),
-        ].sort(compareRelatedTransactions)
+        ])
       : []
 
   const linkSource =
@@ -393,25 +393,48 @@ export interface RelatedTransactionView {
   isAccessible: boolean
 }
 
-// Order a group the way the money travels: by date, then non-depot accounts before the market-valued depot
-// (the terminal asset side), then a sign rule, then id. So a broker buy reads deposit-in -> cash-out ->
-// depot-in. The sign rule only applies across accounts: the two legs of a single transfer live on different
-// accounts, so the source outflow precedes the destination inflow (out first). Within one account the legs
-// arrive in provider order, so id (ascending = booking order) decides — e.g. a debit before its later
-// reversal, even though the reversal is an inflow.
-export function compareRelatedTransactions(
-  a: RelatedTransactionView,
-  b: RelatedTransactionView,
-): number {
-  const outLast = (m: RelatedTransactionView) => (m.transaction.amount < 0 ? 1 : 0)
-  const sameAccount = a.transaction.account_id === b.transaction.account_id
-  const signRank = sameAccount ? 0 : outLast(b) - outLast(a)
-  return (
-    a.transaction.date.localeCompare(b.transaction.date) ||
-    Number(a.isMarketValued) - Number(b.isMarketValued) ||
-    signRank ||
-    a.transaction.id - b.transaction.id
+// Order a group the way the money travels. A transfer (an outflow and an inflow of the same amount on different
+// accounts) leaves its source before it arrives, and money that arrived from another member is only spent after it
+// arrived, even if the provider booked the spending first (Trade Republic books a buy before the deposit funding it).
+// Everything else goes by date, non-depot accounts before the market-valued depot (the terminal asset side), then id
+// (= booking order, e.g. a debit before its later reversal).
+export function orderRelatedTransactions(
+  members: RelatedTransactionView[],
+): RelatedTransactionView[] {
+  const isTransfer = (out: RelatedTransactionView, into: RelatedTransactionView) =>
+    out.transaction.account_id !== into.transaction.account_id &&
+    out.transaction.amount < 0 &&
+    out.transaction.amount === -into.transaction.amount &&
+    out.transaction.date <= into.transaction.date
+  const predecessors = new Map(members.map((member) => [member, new Set<RelatedTransactionView>()]))
+  for (const into of members) {
+    const sources = members.filter((out) => isTransfer(out, into))
+    if (sources.length === 0) continue
+    sources.forEach((out) => predecessors.get(into)!.add(out))
+    for (const spent of members) {
+      const spentAfterArrival =
+        spent.transaction.account_id === into.transaction.account_id &&
+        spent.transaction.amount < 0 &&
+        spent.transaction.date === into.transaction.date
+      if (spentAfterArrival) predecessors.get(spent)!.add(into)
+    }
+  }
+
+  const remaining = [...members].sort(
+    (a, b) =>
+      a.transaction.date.localeCompare(b.transaction.date) ||
+      Number(a.isMarketValued) - Number(b.isMarketValued) ||
+      a.transaction.id - b.transaction.id,
   )
+  const ordered: RelatedTransactionView[] = []
+  while (remaining.length > 0) {
+    const ready = remaining.findIndex((member) =>
+      [...predecessors.get(member)!].every((predecessor) => ordered.includes(predecessor)),
+    )
+    // Money going back and forth between the same accounts can leave nothing ready; then fall back to the plain order
+    ordered.push(...remaining.splice(Math.max(ready, 0), 1))
+  }
+  return ordered
 }
 
 export interface TransactionDetailViewProps {
@@ -467,7 +490,7 @@ function CreateRuleFromTransaction({ transaction }: { transaction: TransactionRe
   )
 }
 
-function ContractSection({ transaction }: { transaction: TransactionRead }) {
+export function ContractSection({ transaction }: { transaction: TransactionRead }) {
   const { t } = useTranslation()
   const { data: contracts } = useContracts()
   const setContract = useSetTransactionContract()
@@ -518,32 +541,47 @@ function ContractSection({ transaction }: { transaction: TransactionRead }) {
 
   return (
     <DetailRow label={t('contracts.contract')} align="start">
-      <div className="flex w-full flex-col gap-1.5">
+      <div className="flex w-full flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
         <SingleSelectPopover
           id="assign-contract"
+          className="sm:flex-1"
           ariaLabel={t('contracts.contract')}
           value={currentId === null ? '' : String(currentId)}
+          placeholder={t('contracts.noContract')}
           disabled={setContract.isPending}
           onChange={onChange}
-          options={[
-            { value: '', label: t('contracts.noContract') },
-            ...candidates.map((contract) => ({
-              value: String(contract.id),
-              label: contract.name,
-            })),
-          ]}
+          options={candidates.map((contract) => ({
+            value: String(contract.id),
+            label: contract.name,
+          }))}
         />
-        {assigned ? (
-          <Link
-            to="/contracts/$contractId"
-            params={{ contractId: String(assigned.id) }}
-            className="text-primary hover:text-primary/80 -mx-1 self-start rounded-md px-1 py-0.5 text-sm transition-colors"
-          >
-            {assigned.frequency
-              ? t(`contracts.frequency.${assigned.frequency}`)
-              : t('contracts.frequencyUnknown')}
-            {assigned.median_amount !== null ? ` · ${formatMoney(assigned.median_amount)}` : ''}
-          </Link>
+        {currentId !== null ? (
+          <div className="flex items-center justify-between gap-2 sm:shrink-0 sm:justify-start">
+            {assigned ? (
+              <Link
+                to="/contracts/$contractId"
+                params={{ contractId: String(assigned.id) }}
+                className="text-primary hover:text-primary/80 -mx-1 rounded-md px-1 py-0.5 text-sm whitespace-nowrap transition-colors sm:mx-0"
+              >
+                {assigned.frequency
+                  ? t(`contracts.frequency.${assigned.frequency}`)
+                  : t('contracts.frequencyUnknown')}
+                {assigned.median_amount !== null ? ` · ${formatMoney(assigned.median_amount)}` : ''}
+              </Link>
+            ) : null}
+            <Button
+              type="button"
+              size="icon-sm"
+              className="size-8"
+              variant="outline"
+              aria-label={t('contracts.removeFromContract')}
+              title={t('contracts.removeFromContract')}
+              disabled={setContract.isPending}
+              onClick={() => onChange('')}
+            >
+              <Unlink className="size-4" aria-hidden="true" />
+            </Button>
+          </div>
         ) : null}
       </div>
     </DetailRow>

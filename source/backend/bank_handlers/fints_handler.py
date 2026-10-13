@@ -49,6 +49,10 @@ FINTS_READ_TIMEOUT = timedelta(minutes=2)
 APPROVAL_TIMEOUT = timedelta(minutes=3)
 APPROVAL_POLL_INTERVAL = timedelta(seconds=2)
 PENDING_LOOKBACK = timedelta(days=14)
+FETCH_CHUNK_LENGTH = timedelta(days=30)
+
+# Deutsche Bank advertises MT940 (HIKAZS) but only answers transaction requests via CAMT (#158)
+DEUTSCHE_BANK_FINTS_URL = "https://fints.deutsche-bank.de"
 
 T = TypeVar("T")
 
@@ -123,15 +127,20 @@ class _FinTSSession(BankSession):
     def _fetch_transactions(
         self, sepa_account: SEPAAccount, start_date: date, include_pending: bool
     ) -> list[FetchedTransaction]:
-        raw_transactions = _parse_camt_if_needed(
-            self._resolve(
-                self._fetch_raw_transactions(sepa_account, start_date=start_date, include_pending=include_pending)
-            ),
-            include_pending=include_pending,
-        )
-        self._balance_observations.setdefault(sepa_account.iban, []).extend(  # noqa: FKA100
-            _extract_balance_observations(raw_transactions)
-        )
+        raw_transactions = []
+        for chunk_start, chunk_end in _date_ranges(start_date):
+            chunk_transactions = _parse_camt_if_needed(
+                self._resolve(
+                    self._fetch_raw_transactions(
+                        sepa_account, start_date=chunk_start, end_date=chunk_end, include_pending=include_pending
+                    )
+                ),
+                include_pending=include_pending,
+            )
+            self._balance_observations.setdefault(sepa_account.iban, []).extend(  # noqa: FKA100
+                _extract_balance_observations(chunk_transactions)
+            )
+            raw_transactions += chunk_transactions
         transactions = []
         for raw_transaction in raw_transactions:
             data = raw_transaction.data
@@ -148,11 +157,15 @@ class _FinTSSession(BankSession):
         return transactions
 
     def _fetch_raw_transactions(
-        self, sepa_account: SEPAAccount, start_date: date, include_pending: bool
+        self, sepa_account: SEPAAccount, start_date: date, end_date: date, include_pending: bool
     ) -> list | tuple | NeedTANResponse:
-        if self._client.bpd.find_segment_first("HIKAZS") is not None:
-            return self._client.get_transactions(sepa_account, start_date=start_date, include_pending=include_pending)
-        return self._client.get_transactions_xml(sepa_account, start_date=start_date)
+        supports_mt940 = self._client.bpd.find_segment_first("HIKAZS") is not None
+        is_deutsche_bank = self._client.connection.url.rstrip("/") == DEUTSCHE_BANK_FINTS_URL
+        if supports_mt940 and not is_deutsche_bank:
+            return self._client.get_transactions(
+                sepa_account, start_date=start_date, end_date=end_date, include_pending=include_pending
+            )
+        return self._client.get_transactions_xml(sepa_account, start_date=start_date, end_date=end_date)
 
     def _resolve(self, response: T) -> T:
         return _resolve_decoupled(
@@ -161,6 +174,17 @@ class _FinTSSession(BankSession):
             notify_two_factor_state=self._notify_two_factor_state,
             is_cancelled=self._is_cancelled,
         )
+
+
+def _date_ranges(start_date: date) -> list[tuple[date, date]]:
+    today = date.today()
+    ranges = []
+    chunk_start = start_date
+    while chunk_start <= today:
+        chunk_end = min(chunk_start + FETCH_CHUNK_LENGTH - timedelta(days=1), today)
+        ranges.append((chunk_start, chunk_end))
+        chunk_start = chunk_end + timedelta(days=1)
+    return ranges
 
 
 def _parse_camt_if_needed(result: object, include_pending: bool) -> list:
@@ -327,7 +351,7 @@ def _try_configure_pushtan_mechanism(client: FinTS3PinTanClient) -> None:
     client.set_tan_mechanism(sec_func)
     description_required = getattr(mechanism, "description_required", None)
     if description_required is not None and str(description_required) == "MUST":
-        media = list(client.get_tan_media() or [])
+        _, media = client.get_tan_media() or (None, [])
         if not media:
             error_message = "Bank requires a TAN medium for pushTAN but none was returned"
             logger.warning(error_message)

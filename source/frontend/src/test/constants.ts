@@ -47,6 +47,7 @@ export const TODAY_RECURRING = new Date(2026, 6, 1) // "today" for recurring-sch
 
 export const DATE_OLDER = '2026-05-10'
 export const DATE_NEXT_RUN = '2026-07-15'
+export const DATE_BROKER_FUNDING = '2026-07-15'
 export const DATE_BROKER_SETTLE = '2026-07-16'
 export const DATE_SAME_DAY_TRANSFER = '2026-08-11'
 export const DATE_RANGE_END = '2026-01-10'

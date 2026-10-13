@@ -255,7 +255,6 @@ function UnlinkMenu({
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [pending, setPending] = useState(false)
 
   const remove = async (transaction: TransactionRead) => {
@@ -267,18 +266,36 @@ function UnlinkMenu({
       toast.error(t('transaction.unlinkFailed'))
     } finally {
       setPending(false)
-      setConfirmingId(null)
     }
   }
 
+  const label = (
+    <>
+      <Unlink className="size-4" aria-hidden="true" />
+      <span className="sm:hidden">{t('transaction.removeFromRelatedShort')}</span>
+      <span className="hidden sm:inline">{t('transaction.removeFromRelated')}</span>
+    </>
+  )
+
+  // A pair has only one link to remove, so there is nothing to choose: unlinking this side dissolves it
+  const current = members.length === 2 ? members.find((member) => member.isCurrent) : undefined
+  if (current) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        aria-label={t('transaction.removeFromRelated')}
+        disabled={pending}
+        onClick={() => void remove(current.transaction)}
+      >
+        {label}
+      </Button>
+    )
+  }
+
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (!next) setConfirmingId(null)
-      }}
-    >
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -286,24 +303,18 @@ function UnlinkMenu({
           size="sm"
           aria-label={t('transaction.removeFromRelated')}
         >
-          <Unlink className="size-4" aria-hidden="true" />
-          <span className="sm:hidden">{t('transaction.removeFromRelatedShort')}</span>
-          <span className="hidden sm:inline">{t('transaction.removeFromRelated')}</span>
+          {label}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 max-w-[calc(100vw-1rem)] p-1">
         <ul aria-label={t('transaction.removeFromRelated')} className="flex flex-col">
           {members.map((member) => (
-            <li key={member.transaction.id} className="flex flex-col gap-2 p-1">
+            <li key={member.transaction.id} className="p-1">
               <button
                 type="button"
-                aria-expanded={confirmingId === member.transaction.id}
-                onClick={() =>
-                  setConfirmingId((current) =>
-                    current === member.transaction.id ? null : member.transaction.id,
-                  )
-                }
-                className="hover:bg-muted/60 focus-visible:bg-muted/60 flex w-full cursor-pointer items-center rounded-md px-2 py-1.5 text-left outline-none"
+                disabled={pending}
+                onClick={() => void remove(member.transaction)}
+                className="hover:bg-muted/60 focus-visible:bg-muted/60 flex w-full cursor-pointer items-center rounded-md px-2 py-1.5 text-left outline-none disabled:pointer-events-none disabled:opacity-50"
               >
                 <span className="min-w-0 text-sm">
                   <span className="block truncate">
@@ -315,28 +326,6 @@ function UnlinkMenu({
                   </span>
                 </span>
               </button>
-              {confirmingId === member.transaction.id ? (
-                <div className="grid grid-cols-2 gap-2 px-1 pb-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    disabled={pending}
-                    onClick={() => void remove(member.transaction)}
-                  >
-                    {t('transaction.removeFromRelatedShort')}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={pending}
-                    onClick={() => setConfirmingId(null)}
-                  >
-                    {t('common.cancel')}
-                  </Button>
-                </div>
-              ) : null}
             </li>
           ))}
         </ul>

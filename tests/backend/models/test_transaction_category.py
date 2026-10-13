@@ -58,6 +58,8 @@ from tests.backend.conftest import (
         (None, "TUV", TransactionCategory.CAR),
         ("Deutsche Bahn AG", "Ticket", TransactionCategory.PUBLIC_TRANSPORT),
         (None, "DB Vertrieb GmbH", TransactionCategory.PUBLIC_TRANSPORT),
+        # A short matcher like "db" must not hit inside a random reference
+        ("eBay", "CBYM9Z1VDB7ZPFEQPQ", TransactionCategory.ONLINE_SHOPPING),
         ("Marriott Hotel Berlin", None, TransactionCategory.VACATION),
         ("VISA ARAL STATION", None, TransactionCategory.FUEL),
         ("VISA BFT TANKSTELLE DER EFA", None, TransactionCategory.FUEL),
@@ -277,6 +279,15 @@ def test_the_first_matching_user_rule_wins():
     fetched = create_fetched_transaction(other_party="REWE Markt")
 
     assert TransactionCategory.from_transaction(transaction=fetched, rules=rules) == TransactionCategory.GIFTS
+
+
+def test_a_short_user_rule_only_matches_a_whole_word():
+    rules = CategorizationRules(user_rules=(("vbk", TransactionCategory.PUBLIC_TRANSPORT),))
+    ticket = create_fetched_transaction(other_party="VBK Verkehrsbetriebe")
+    reference = create_fetched_transaction(other_party=PERSON_NAME, purpose="X7VBK2Q")
+
+    assert TransactionCategory.from_transaction(transaction=ticket, rules=rules) == TransactionCategory.PUBLIC_TRANSPORT
+    assert TransactionCategory.from_transaction(transaction=reference, rules=rules) == TransactionCategory.UNKNOWN
 
 
 def test_a_bank_flagged_refund_beats_a_user_rule():
