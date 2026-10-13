@@ -39,6 +39,29 @@ function linkifyNote(text: string): ReactNode[] {
   return nodes
 }
 
+function caretOffsetFromPoint(container: HTMLElement, x: number, y: number): number | null {
+  let node: Node | null = null
+  let offset = 0
+  if ('caretPositionFromPoint' in document) {
+    const position = document.caretPositionFromPoint(x, y)
+    if (position) {
+      node = position.offsetNode
+      offset = position.offset
+    }
+  } else if ('caretRangeFromPoint' in document) {
+    const range = (document as Document).caretRangeFromPoint(x, y)
+    if (range) {
+      node = range.startContainer
+      offset = range.startOffset
+    }
+  }
+  if (!node || !container.contains(node)) return null
+  const range = document.createRange()
+  range.setStart(container, 0)
+  range.setEnd(node, offset)
+  return range.toString().length
+}
+
 export function NoteEditor({
   remoteNote,
   onSave,
@@ -50,6 +73,7 @@ export function NoteEditor({
   const [draft, setDraft] = useState(remoteNote)
   const [editing, setEditing] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const caretRef = useRef<number | null>(null)
 
   const status = useDebouncedAutoSave({
     value: draft,
@@ -62,8 +86,9 @@ export function NoteEditor({
     const textarea = textareaRef.current
     if (!textarea) return
     textarea.focus()
-    const end = textarea.value.length
-    textarea.setSelectionRange(end, end)
+    const caret = Math.min(caretRef.current ?? Infinity, textarea.value.length)
+    caretRef.current = null
+    textarea.setSelectionRange(caret, caret)
   }, [editing])
 
   if (!editing) {
@@ -73,7 +98,16 @@ export function NoteEditor({
           role="button"
           tabIndex={0}
           aria-label={t('note.edit')}
-          onClick={() => setEditing(true)}
+          onClick={(event) => {
+            if (draft.length > 0) {
+              caretRef.current = caretOffsetFromPoint(
+                event.currentTarget,
+                event.clientX,
+                event.clientY,
+              )
+            }
+            setEditing(true)
+          }}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault()
