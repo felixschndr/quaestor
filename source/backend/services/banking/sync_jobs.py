@@ -43,6 +43,7 @@ class SyncJob:
     expires_at: datetime | None = None
     authorization_url: str | None = None
     device_code: str | None = None
+    options: tuple[str, ...] | None = None
     error: str | None = None
     error_code: JobErrorCode | None = None
     started_at: datetime = field(default_factory=utc_now)
@@ -181,6 +182,7 @@ def _apply_result(job: SyncJob, result: SyncResult) -> None:
         job.expires_at = result.expires_at
         job.authorization_url = result.authorization_url
         job.device_code = result.device_code
+        job.options = result.options
         logger.info(f"{job} awaiting 2FA")
     else:
         _mark_terminal(job=job, status=JobStatus.COMPLETED)

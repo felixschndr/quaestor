@@ -121,6 +121,7 @@ export interface SyncJob {
   error_code: SyncJobErrorCode | null
   authorization_url?: string | null
   device_code?: string | null
+  options?: string[] | null
 }
 
 export function useStartSync() {

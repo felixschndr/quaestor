@@ -9,6 +9,8 @@ export const TEST_TOTP_SECRET = 'JBSWY3DPEHPK3PXP'
 
 export const DEVICE_CODE = 'ABCD-EFGH'
 export const SECOND_DEVICE_CODE = 'WXYZ-1234'
+export const TAN_MEDIUM = 'iPhone Alice'
+export const SECOND_TAN_MEDIUM = 'iPhone Bob'
 export const AUTHORIZATION_URL = 'https://secure.scalable.capital/activate'
 export const AUTHORIZATION_URL_WITH_CODE = `${AUTHORIZATION_URL}?user_code=${DEVICE_CODE}`
 

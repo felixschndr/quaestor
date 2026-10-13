@@ -206,6 +206,7 @@ export interface Current2FA {
   kind: 'awaiting_2fa' | 'confirming' | 'awaiting_decoupled_approval'
   authorizationUrl?: string | null
   deviceCode?: string | null
+  options?: string[] | null
 }
 
 export interface UseGlobalSyncResult {
@@ -394,6 +395,7 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
             : 'awaiting_2fa',
       authorizationUrl: job.authorization_url ?? null,
       deviceCode: job.device_code ?? null,
+      options: job.options ?? null,
     }
   }, [current2faId, jobs, credentialDisplay])
 

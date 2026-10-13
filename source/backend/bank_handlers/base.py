@@ -17,6 +17,7 @@ class TwoFactorChallenge:
     expires_at: datetime
     authorization_url: str | None = None
     device_code: str | None = None
+    options: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
