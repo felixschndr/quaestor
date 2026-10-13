@@ -114,7 +114,6 @@ class BankHandler(ABC):
     CREDENTIAL_FIELDS: tuple[str, ...]
     FIELD_RULES: dict[str, tuple[FieldRule, ...]] = {}
     WHITESPACE_STRIPPED_FIELDS: frozenset[str] = frozenset()
-    # Resumes a 2FA login from session_state without prompting the user
     RESUMES_SESSION_UNATTENDED: bool = False
 
     session_state: dict | None = None
