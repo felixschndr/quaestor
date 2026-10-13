@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
@@ -752,8 +753,13 @@ def test_sync_all_due_credentials_starts_no_interactive_challenge(
         credential_service.sync_all_due_credentials(db_session=session)
 
     start_login.assert_not_called()
-    assert _stored_credential(session_factory, credential_id=credential_id).requires_two_factor_authentication is False
-    assert_log_contains(caplog, message="requires re-authentication; nobody is around to start it")
+    stored = _stored_credential(session_factory, credential_id=credential_id)
+    assert stored.requires_two_factor_authentication is False
+    assert stored.last_sync_error_code == JobErrorCode.REAUTHENTICATION_REQUIRED
+    failures = [record for record in caplog.records if "Periodic sync failed" in record.getMessage()]
+    assert len(failures) == 1
+    assert failures[0].levelno == logging.WARNING
+    assert failures[0].exc_info is None
 
 
 def test_confirm_two_factor_keeps_the_new_login_when_the_first_sync_fails(

@@ -396,7 +396,6 @@ class TradeRepublicHandler(BankHandler):
             except Exception:
                 resumed = False
             if not resumed:
-                logger.info("Trade Republic websession could not be resumed; 2FA re-authentication required")
                 raise ReauthenticationRequiredError(
                     "Trade Republic websession expired; 2FA re-authentication required."
                 )

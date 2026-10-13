@@ -333,9 +333,7 @@ def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest
     assert calls == [{"challenge_token": CHALLENGE_TOKEN, "credential_id": 7, "code": TWO_FACTOR_CODE}]
 
 
-def test_session_without_resumable_websession_requires_reauthentication(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-):
+def test_session_without_resumable_websession_requires_reauthentication(monkeypatch: pytest.MonkeyPatch):
     class _FakeApi:
         def __init__(self, **kwargs: object) -> None:
             pass
@@ -347,12 +345,9 @@ def test_session_without_resumable_websession_requires_reauthentication(
     handler = _handler()
     handler.session_state = {"cookies": "stale-cookie"}
 
-    with caplog.at_level(logging.INFO):
-        with pytest.raises(ReauthenticationRequiredError, match="2FA re-authentication required"):
-            with handler.session():
-                pass
-
-    assert_log_contains(caplog, message="Trade Republic websession could not be resumed")
+    with pytest.raises(ReauthenticationRequiredError, match="2FA re-authentication required"):
+        with handler.session():
+            pass
 
 
 def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.MonkeyPatch):

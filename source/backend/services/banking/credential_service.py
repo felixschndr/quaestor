@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, object_session
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
 from source.backend.bank_handlers.base import CancelCheck, TwoFactorStateCallback
 from source.backend.exceptions import (
+    KNOWN_SYNC_ERROR_TYPES,
     CredentialAlreadyExistsError,
     CredentialNotFoundError,
     InvalidCredentialFieldError,
@@ -336,7 +337,6 @@ def _sync_credential_object(
         credential.sync(handler)
     except ReauthenticationRequiredError:
         if not start_interactive_challenge:
-            logger.warning(f"{credential} requires re-authentication; nobody is around to start it")
             raise
         challenge = handler.begin_two_factor_challenge(credential_id=credential.id)
         if challenge is None:
@@ -413,14 +413,17 @@ def sync_all_due_credentials(db_session: Session) -> None:
             synced += 1
             synced_users[credential.user_id] = credential.user
             synced_credentials.append((credential, snapshot))
-        except Exception:
+        except Exception as e:
             failed += 1
             _persist_session_state_of_failed_sync(
                 db_session=db_session,
                 credential=credential,
                 kept_fields=("session_state", "last_sync_error", "last_sync_error_code"),
             )
-            logger.exception(f"Periodic sync failed for {credential}")
+            if isinstance(e, KNOWN_SYNC_ERROR_TYPES):
+                logger.warning(f"Periodic sync failed for {credential}: {e}")
+            else:
+                logger.exception(f"Periodic sync failed for {credential}")
             if not already_failing:
                 failure_notifications.append(
                     (credential.user, notification_engine.credential_sync_failed_notification(credential))
