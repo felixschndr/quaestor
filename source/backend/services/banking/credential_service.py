@@ -14,6 +14,7 @@ from source.backend.exceptions import (
     CredentialAlreadyExistsError,
     CredentialNotFoundError,
     InvalidCredentialFieldError,
+    JobErrorCode,
     MissingCredentialFieldError,
     PermissionDeniedError,
     ReauthenticationRequiredError,
@@ -382,6 +383,8 @@ def should_sync_on_app_open(credential: Credential, now: datetime | None = None)
 
 def _is_due_for_periodic_sync(credential: Credential) -> bool:
     if not credential.sync_enabled or not credential.is_syncable:
+        return False
+    if credential.last_sync_error_code == JobErrorCode.REAUTHENTICATION_REQUIRED:
         return False
     handler_class = BANKS_BY_NAME[credential.bank.value].handler
     return not credential.requires_two_factor_authentication or handler_class.RESUMES_SESSION_UNATTENDED

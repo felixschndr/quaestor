@@ -403,6 +403,7 @@ class TradeRepublicHandler(BankHandler):
             logger.debug("Trade Republic websession resumed")
             yield _TradeRepublicSession(trade_republic_client)
 
+            trade_republic_client.save_websession()
             self.session_state = {"cookies": cookies_path.read_text()}
         finally:
             cookies_path.unlink(missing_ok=True)

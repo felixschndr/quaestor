@@ -193,6 +193,30 @@ def test_sync_all_due_credentials_keeps_an_unattended_2fa_session_alive(
     assert sync.call_args.kwargs["start_interactive_challenge"] is False
 
 
+def test_sync_all_due_credentials_skips_a_credential_awaiting_reauthentication(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(
+        session_factory,
+        user_id=user_id,
+        bank=BankProvider.TRADE_REPUBLIC,
+        credentials={"phone": PHONE_NUMBER, "pin": PIN},
+        requires_two_factor_authentication=True,
+    )
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.last_sync_error_code = JobErrorCode.REAUTHENTICATION_REQUIRED
+        session.commit()
+    sync = MagicMock()
+    monkeypatch.setattr(target=credential_service, name="sync_credential_object", value=sync)
+
+    with session_factory() as session:
+        credential_service.sync_all_due_credentials(db_session=session)
+
+    sync.assert_not_called()
+
+
 def test_sync_credential_loads_by_id_and_returns_completed_for_handler_without_2fa(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):

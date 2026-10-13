@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -348,6 +349,30 @@ def test_session_without_resumable_websession_requires_reauthentication(monkeypa
     with pytest.raises(ReauthenticationRequiredError, match="2FA re-authentication required"):
         with handler.session():
             pass
+
+
+def test_session_persists_the_cookies_refreshed_during_the_sync(monkeypatch: pytest.MonkeyPatch):
+    class _RefreshingClient:
+        def __init__(self, cookies_path: Path) -> None:
+            self.cookies_path = cookies_path
+
+        def resume_websession(self) -> bool:
+            return True
+
+        def save_websession(self) -> None:
+            self.cookies_path.write_text("refreshed-cookie")
+
+    def build_client(phone_no: str, pin: str, cookies_path: Path) -> _RefreshingClient:
+        return _RefreshingClient(cookies_path=cookies_path)
+
+    monkeypatch.setattr(target=trade_republic_login, name="build_client", value=build_client)
+    handler = _handler()
+    handler.session_state = {"cookies": "login-cookie"}
+
+    with handler.session():
+        pass
+
+    assert handler.session_state == {"cookies": "refreshed-cookie"}
 
 
 def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.MonkeyPatch):
