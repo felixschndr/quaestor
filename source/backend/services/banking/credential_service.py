@@ -380,6 +380,13 @@ def should_sync_on_app_open(credential: Credential, now: datetime | None = None)
     return (now or utc_now()) - credential.last_sync_attempt_timestamp >= APP_OPEN_SYNC_MIN_GAP
 
 
+def _is_due_for_periodic_sync(credential: Credential) -> bool:
+    if not credential.sync_enabled or not credential.is_syncable:
+        return False
+    handler_class = BANKS_BY_NAME[credential.bank.value].handler
+    return not credential.requires_two_factor_authentication or handler_class.RESUMES_SESSION_UNATTENDED
+
+
 def sync_all_due_credentials(db_session: Session) -> None:
     logger.info("Starting periodic sync of all due credentials")
     credentials = list(db_session.scalars(select(Credential)))
@@ -388,7 +395,7 @@ def sync_all_due_credentials(db_session: Session) -> None:
     synced_credentials: list[tuple[Credential, notification_engine.SyncSnapshot]] = []
     failure_notifications: list[tuple[User, Notification]] = []
     for credential in credentials:
-        if not credential.sync_enabled or not credential.is_syncable or credential.requires_two_factor_authentication:
+        if not _is_due_for_periodic_sync(credential):
             skipped += 1
             continue
 

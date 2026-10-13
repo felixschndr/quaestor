@@ -114,6 +114,7 @@ class BankHandler(ABC):
     CREDENTIAL_FIELDS: tuple[str, ...]
     FIELD_RULES: dict[str, tuple[FieldRule, ...]] = {}
     WHITESPACE_STRIPPED_FIELDS: frozenset[str] = frozenset()
+    RESUMES_SESSION_UNATTENDED: bool = False
 
     session_state: dict | None = None
 
