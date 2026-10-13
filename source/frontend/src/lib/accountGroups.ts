@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
 import { authQueryKeys } from './auth'
@@ -34,11 +34,14 @@ export const accountGroupQueryKeys = {
   layout: ['account_groups', 'layout'] as const,
 }
 
-export function useAccountGroupLayout() {
-  return useQuery({
+export const accountGroupLayoutQuery = () =>
+  queryOptions({
     queryKey: accountGroupQueryKeys.layout,
     queryFn: () => api<AccountGroupLayout>('/account_groups/layout'),
   })
+
+export function useAccountGroupLayout() {
+  return useQuery(accountGroupLayoutQuery())
 }
 
 export function usePutAccountGroupLayout() {

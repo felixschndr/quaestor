@@ -21,6 +21,7 @@ import { NetworkError } from '@/lib/api'
 import { authQueryKeys, ensureAuthenticated, useAuthMe, type UserRead } from '@/lib/auth'
 import { ensureAppSettings } from '@/lib/settings'
 import { autoSubscribe } from '@/lib/push'
+import { useOfflineWarmUp } from '@/lib/offlineWarmup'
 import { consumeClickedNotification } from '@/lib/notificationLog'
 import { readStoredTheme, useResolvedTheme } from '@/lib/theme'
 import { setDisplayCurrency } from '@/lib/format'
@@ -55,6 +56,7 @@ function RootComponent() {
   if (user?.currency) setDisplayCurrency(user.currency)
   const userId = user?.id
   const queryClient = useQueryClient()
+  useOfflineWarmUp(userId)
   useEffect(() => {
     if (userId) void autoSubscribe()
   }, [userId])

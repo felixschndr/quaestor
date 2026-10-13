@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { queryOptions, useQuery } from '@tanstack/react-query'
 
 import { api } from './api'
 import { accountQueryKeys } from './accountHistory'
@@ -48,11 +48,14 @@ export const recurringQueryKeys = {
   list: (accountId: number) => ['account', accountId, 'recurring'] as const,
 }
 
-export function useRecurringTransactions(accountId: number) {
-  return useQuery({
+export const recurringTransactionsQuery = (accountId: number) =>
+  queryOptions({
     queryKey: recurringQueryKeys.list(accountId),
     queryFn: () => api<RecurringTransactionRead[]>(`/account/${accountId}/recurring-transactions`),
   })
+
+export function useRecurringTransactions(accountId: number) {
+  return useQuery(recurringTransactionsQuery(accountId))
 }
 
 export function useCreateRecurringTransaction(accountId: number) {

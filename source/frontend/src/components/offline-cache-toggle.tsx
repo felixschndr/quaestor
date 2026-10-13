@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Switch } from '@/components/ui/switch'
 import { isOfflineCacheEnabled, setOfflineCacheEnabled } from '@/lib/offlineCache'
+import { warmUp } from '@/lib/offlineWarmup'
 
 export function OfflineCacheToggle({
   checked,
@@ -32,9 +33,10 @@ export function OfflineCacheToggle({
 export function OfflineCacheSetting() {
   const queryClient = useQueryClient()
   const [enabled, setEnabled] = useState(isOfflineCacheEnabled)
-  const change = (next: boolean) => {
+  const change = async (next: boolean) => {
     setEnabled(next)
-    void setOfflineCacheEnabled(queryClient, next)
+    await setOfflineCacheEnabled(queryClient, next)
+    if (next) await warmUp(queryClient)
   }
-  return <OfflineCacheToggle checked={enabled} onCheckedChange={change} />
+  return <OfflineCacheToggle checked={enabled} onCheckedChange={(next) => void change(next)} />
 }

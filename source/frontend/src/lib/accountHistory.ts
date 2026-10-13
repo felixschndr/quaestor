@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { infiniteQueryOptions, useInfiniteQuery } from '@tanstack/react-query'
 
 import { api } from './api'
 import type { AccountRead, SharePermission, UserRead } from './auth'
@@ -111,8 +111,8 @@ export function groupTransactionsByDate(pages: AccountHistoryPage[]): AccountHis
     .sort((a, b) => b.date.localeCompare(a.date))
 }
 
-export function useAccountHistory(accountId: number) {
-  return useInfiniteQuery({
+export const accountHistoryQuery = (accountId: number) =>
+  infiniteQueryOptions({
     queryKey: accountQueryKeys.history(accountId),
     queryFn: ({ pageParam }) =>
       api<AccountHistoryPage>(`/account/${accountId}/history?page=${pageParam}`),
@@ -123,4 +123,7 @@ export function useAccountHistory(accountId: number) {
       return lastPage.page + 1
     },
   })
+
+export function useAccountHistory(accountId: number) {
+  return useInfiniteQuery(accountHistoryQuery(accountId))
 }

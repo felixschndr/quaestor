@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { queryOptions, useQuery } from '@tanstack/react-query'
 
 import { api } from './api'
 import { authQueryKeys } from './auth'
@@ -17,11 +17,14 @@ export const sessionQueryKeys = {
   list: (userId: number) => ['users', userId, 'sessions'] as const,
 }
 
-export function useSessions(userId: number) {
-  return useQuery({
+export const sessionsQuery = (userId: number) =>
+  queryOptions({
     queryKey: sessionQueryKeys.list(userId),
     queryFn: () => api<SessionRead[]>(`/users/${userId}/sessions`),
   })
+
+export function useSessions(userId: number) {
+  return useQuery(sessionsQuery(userId))
 }
 
 export function useRevokeSession(userId: number) {

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { queryOptions, useQuery } from '@tanstack/react-query'
 
 import { api } from './api'
 import { useInvalidatingMutation } from './mutation'
@@ -19,11 +19,14 @@ export const apiKeyQueryKeys = {
   list: ['api-keys'] as const,
 }
 
-export function useApiKeys() {
-  return useQuery({
+export const apiKeysQuery = () =>
+  queryOptions({
     queryKey: apiKeyQueryKeys.list,
     queryFn: () => api<ApiKeyRead[]>('/api_keys'),
   })
+
+export function useApiKeys() {
+  return useQuery(apiKeysQuery())
 }
 
 export function useCreateApiKey() {

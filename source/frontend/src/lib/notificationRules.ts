@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { queryOptions, useQuery } from '@tanstack/react-query'
 
 import { api } from './api'
 import { useInvalidatingMutation } from './mutation'
@@ -199,11 +199,14 @@ export const notificationRuleQueryKeys = {
   list: ['notification-rules'] as const,
 }
 
-export function useNotificationRules() {
-  return useQuery({
+export const notificationRulesQuery = () =>
+  queryOptions({
     queryKey: notificationRuleQueryKeys.list,
     queryFn: () => api<NotificationRule[]>('/notification_rules'),
   })
+
+export function useNotificationRules() {
+  return useQuery(notificationRulesQuery())
 }
 
 export function useCreateNotificationRule() {
