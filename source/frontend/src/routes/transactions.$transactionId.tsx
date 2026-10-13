@@ -89,12 +89,12 @@ function TransactionDetailPage() {
 
   const relatedTransactions: RelatedTransactionView[] =
     query.data.related_transactions.length > 0
-      ? [
+      ? orderRelatedTransactions([
           toRelatedTransaction(query.data, found, true),
           ...query.data.related_transactions.map((member) =>
             toRelatedTransaction(member, findAccountInUser(user, member.account_id), false),
           ),
-        ].sort(compareRelatedTransactions)
+        ])
       : []
 
   const linkSource =
@@ -393,25 +393,48 @@ export interface RelatedTransactionView {
   isAccessible: boolean
 }
 
-// Order a group the way the money travels: by date, then non-depot accounts before the market-valued depot
-// (the terminal asset side), then a sign rule, then id. So a broker buy reads deposit-in -> cash-out ->
-// depot-in. The sign rule only applies across accounts: the two legs of a single transfer live on different
-// accounts, so the source outflow precedes the destination inflow (out first). Within one account the legs
-// arrive in provider order, so id (ascending = booking order) decides — e.g. a debit before its later
-// reversal, even though the reversal is an inflow.
-export function compareRelatedTransactions(
-  a: RelatedTransactionView,
-  b: RelatedTransactionView,
-): number {
-  const outLast = (m: RelatedTransactionView) => (m.transaction.amount < 0 ? 1 : 0)
-  const sameAccount = a.transaction.account_id === b.transaction.account_id
-  const signRank = sameAccount ? 0 : outLast(b) - outLast(a)
-  return (
-    a.transaction.date.localeCompare(b.transaction.date) ||
-    Number(a.isMarketValued) - Number(b.isMarketValued) ||
-    signRank ||
-    a.transaction.id - b.transaction.id
+// Order a group the way the money travels. A transfer (an outflow and an inflow of the same amount on different
+// accounts) leaves its source before it arrives, and money that arrived from another member is only spent after it
+// arrived, even if the provider booked the spending first (Trade Republic books a buy before the deposit funding it).
+// Everything else goes by date, non-depot accounts before the market-valued depot (the terminal asset side), then id
+// (= booking order, e.g. a debit before its later reversal).
+export function orderRelatedTransactions(
+  members: RelatedTransactionView[],
+): RelatedTransactionView[] {
+  const isTransfer = (out: RelatedTransactionView, into: RelatedTransactionView) =>
+    out.transaction.account_id !== into.transaction.account_id &&
+    out.transaction.amount < 0 &&
+    out.transaction.amount === -into.transaction.amount &&
+    out.transaction.date <= into.transaction.date
+  const predecessors = new Map(members.map((member) => [member, new Set<RelatedTransactionView>()]))
+  for (const into of members) {
+    const sources = members.filter((out) => isTransfer(out, into))
+    if (sources.length === 0) continue
+    sources.forEach((out) => predecessors.get(into)!.add(out))
+    for (const spent of members) {
+      const spentAfterArrival =
+        spent.transaction.account_id === into.transaction.account_id &&
+        spent.transaction.amount < 0 &&
+        spent.transaction.date === into.transaction.date
+      if (spentAfterArrival) predecessors.get(spent)!.add(into)
+    }
+  }
+
+  const remaining = [...members].sort(
+    (a, b) =>
+      a.transaction.date.localeCompare(b.transaction.date) ||
+      Number(a.isMarketValued) - Number(b.isMarketValued) ||
+      a.transaction.id - b.transaction.id,
   )
+  const ordered: RelatedTransactionView[] = []
+  while (remaining.length > 0) {
+    const ready = remaining.findIndex((member) =>
+      [...predecessors.get(member)!].every((predecessor) => ordered.includes(predecessor)),
+    )
+    // Money going back and forth between the same accounts can leave nothing ready; then fall back to the plain order
+    ordered.push(...remaining.splice(Math.max(ready, 0), 1))
+  }
+  return ordered
 }
 
 export interface TransactionDetailViewProps {

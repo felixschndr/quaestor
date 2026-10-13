@@ -232,7 +232,7 @@ class _TradeRepublicSession(BankSession):
         exporter = TransactionExporter(lang="en", date_with_time=False, decimal_localization=False)
         date_field, type_field, value_field, note_field, isin_field = exporter.fields()[0:5]
 
-        for raw_event in timeline.events:
+        for raw_event in sorted(timeline.events, key=lambda event: event.get("timestamp", "")):  # noqa: FKA100
             for row in exporter.from_event(Event.from_dict(raw_event)):
                 value = row[value_field]
                 if value is None:

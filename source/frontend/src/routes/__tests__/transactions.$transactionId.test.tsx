@@ -24,7 +24,7 @@ import {
 } from '@/pages/transactions.$transactionId'
 import {
   ContractSection,
-  compareRelatedTransactions,
+  orderRelatedTransactions,
   type RelatedTransactionView,
 } from '@/routes/transactions.$transactionId'
 import {
@@ -33,6 +33,7 @@ import {
   AMOUNT_L,
   AMOUNT_M,
   AMOUNT_XL,
+  DATE_BROKER_FUNDING,
   DATE_BROKER_SETTLE,
   DATE_RECENT,
   DATE_SAME_DAY_TRANSFER,
@@ -477,7 +478,7 @@ describe('TransactionDetailView — note auto-save', () => {
   })
 })
 
-describe('compareRelatedTransactions', () => {
+describe('orderRelatedTransactions', () => {
   const relatedTransaction = (over: {
     id: number
     date: string
@@ -510,7 +511,7 @@ describe('compareRelatedTransactions', () => {
       isMarketValued: true,
     })
 
-    const ordered = [depotIn, cashOut, personalOut, cashIn].sort(compareRelatedTransactions)
+    const ordered = orderRelatedTransactions([depotIn, cashOut, personalOut, cashIn])
 
     expect(ordered.map((m) => m.transaction.id)).toEqual([4750, 5145, 5146, 5147])
   })
@@ -529,9 +530,70 @@ describe('compareRelatedTransactions', () => {
       accountId: 20,
     })
 
-    const ordered = [cashIn, personalOut].sort(compareRelatedTransactions)
+    const ordered = orderRelatedTransactions([cashIn, personalOut])
 
     expect(ordered.map((m) => m.transaction.id)).toEqual([2, 1])
+  })
+
+  it('spends money on an account only after it arrived there, whatever the booking order', () => {
+    // Giro receives 2X and forwards X to savings, savings funds the broker, the broker buys (booked before the deposit)
+    const giroIn = relatedTransaction({
+      id: 10548,
+      date: DATE_BROKER_FUNDING,
+      amount: 2 * AMOUNT_XL,
+      accountId: 25,
+    })
+    const giroOut = relatedTransaction({
+      id: 10549,
+      date: DATE_BROKER_FUNDING,
+      amount: -AMOUNT_XL,
+      accountId: 25,
+    })
+    const savingsIn = relatedTransaction({
+      id: 10485,
+      date: DATE_BROKER_FUNDING,
+      amount: AMOUNT_XL,
+      accountId: 24,
+    })
+    const savingsOut = relatedTransaction({
+      id: 10578,
+      date: DATE_BROKER_SETTLE,
+      amount: -AMOUNT_L,
+      accountId: 24,
+    })
+    const cashBuy = relatedTransaction({
+      id: 10603,
+      date: DATE_BROKER_SETTLE,
+      amount: -AMOUNT_M,
+      accountId: 20,
+    })
+    const cashIn = relatedTransaction({
+      id: 10604,
+      date: DATE_BROKER_SETTLE,
+      amount: AMOUNT_L,
+      accountId: 20,
+    })
+    const depotIn = relatedTransaction({
+      id: 10605,
+      date: DATE_BROKER_SETTLE,
+      amount: AMOUNT_M,
+      accountId: 21,
+      isMarketValued: true,
+    })
+
+    const ordered = orderRelatedTransactions([
+      depotIn,
+      cashIn,
+      cashBuy,
+      savingsOut,
+      savingsIn,
+      giroOut,
+      giroIn,
+    ])
+
+    expect(ordered.map((m) => m.transaction.id)).toEqual([
+      10548, 10549, 10485, 10578, 10604, 10603, 10605,
+    ])
   })
 
   it('orders same-account legs in booking order, debit before its later reversal', () => {
@@ -548,7 +610,7 @@ describe('compareRelatedTransactions', () => {
       accountId: 24,
     })
 
-    const ordered = [reversal, debit].sort(compareRelatedTransactions)
+    const ordered = orderRelatedTransactions([reversal, debit])
 
     expect(ordered.map((m) => m.transaction.id)).toEqual([5054, 5109])
   })
