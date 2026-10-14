@@ -279,6 +279,31 @@ def test_sync_credential_object_records_the_failure_and_clears_it_on_the_next_su
         assert credential.last_sync_error_code is None
 
 
+def test_unattended_sync_credential_keeps_the_reauthentication_error_without_starting_a_challenge(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
+
+    def failing_sync(self: Credential, handler: BankHandler) -> None:
+        raise ReauthenticationRequiredError("websession expired")
+
+    challenge = MagicMock()
+    monkeypatch.setattr(target=Credential, name="sync", value=failing_sync)
+    monkeypatch.setattr(target=BankHandler, name="begin_two_factor_challenge", value=challenge)
+
+    with session_factory() as session:
+        with pytest.raises(ReauthenticationRequiredError):
+            credential_service.sync_credential(
+                db_session=session, credential_id=credential_id, start_interactive_challenge=False
+            )
+
+    challenge.assert_not_called()
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        assert credential.last_sync_error_code == JobErrorCode.REAUTHENTICATION_REQUIRED
+
+
 def test_sync_credential_object_records_a_failure_raised_while_starting_the_2fa_challenge(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):

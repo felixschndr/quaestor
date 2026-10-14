@@ -37,7 +37,10 @@ def _reset_state() -> Iterator[None]:
 def patch_sync(monkeypatch: pytest.MonkeyPatch) -> PatchSync:
     def patch(outcome: SyncOutcome) -> None:
         def _runner(
-            credential_id: int, notify_two_factor_state: object = None, is_cancelled: object = None
+            credential_id: int,
+            notify_two_factor_state: object = None,
+            is_cancelled: object = None,
+            start_interactive_challenge: bool = True,
         ) -> SyncResult:
             if isinstance(outcome, Exception):
                 raise outcome
@@ -273,6 +276,7 @@ def test_cancel_aborts_a_blocking_sync_and_keeps_cancelled_status(monkeypatch: p
         credential_id: int,
         notify_two_factor_state: Callable[[bool], None] | None = None,
         is_cancelled: Callable[[], bool] | None = None,
+        start_interactive_challenge: bool = True,
     ) -> SyncResult:
         if notify_two_factor_state is not None:
             notify_two_factor_state(True)  # -> awaiting_decoupled_approval
