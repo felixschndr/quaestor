@@ -63,8 +63,11 @@ ALLOW_MISSING_FRONTEND_ENV = "ALLOW_MISSING_FRONTEND"
 
 LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(session)s] [%(name)s] %(message)s"
 NOISY_LIBRARY_LOGGERS = ("fints", "mt940")
+DEFAULT_LOG_LEVEL = logging.INFO
 
 load_dotenv()
+
+LOG_LEVEL = os.environ.get(key="LOG_LEVEL", default=DEFAULT_LOG_LEVEL)
 
 
 STARTUP_BACKGROUND_TASKS = (
@@ -135,12 +138,11 @@ def _route_third_party_loggers_to_root() -> None:
 
 
 def setup_logging() -> None:
-    log_level = os.environ.get(key="LOG_LEVEL", default="INFO")
     logging.basicConfig(  # pyright: ignore[reportCallIssue]
         stream=sys.stdout,
         format=LOG_FORMAT,
         encoding="utf-8",
-        level=log_level,
+        level=LOG_LEVEL,
         force=True,
     )
     tz = ZoneInfo(i18n_service.get_display_timezone())
@@ -150,8 +152,8 @@ def setup_logging() -> None:
         handler.setFormatter(formatter)
         handler.addFilter(_RenameUvicornError())
     for name in NOISY_LIBRARY_LOGGERS:
-        logging.getLogger(name).setLevel(logging.INFO)
-    logger.debug(f"Logging configured at level {log_level}")
+        logging.getLogger(name).setLevel(max(DEFAULT_LOG_LEVEL, logging.root.level))
+    logger.debug(f"Logging configured at level {LOG_LEVEL}")
 
 
 def log_startup_version() -> None:

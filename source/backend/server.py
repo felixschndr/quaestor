@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import timedelta
 
@@ -41,7 +42,7 @@ def uvicorn_options() -> dict:
 
 def run() -> None:
     options = uvicorn_options()
-    uvicorn.run(app, **options)
+    uvicorn.run(app, log_level=logging.root.level, **options)
 
 
 if __name__ == "__main__":

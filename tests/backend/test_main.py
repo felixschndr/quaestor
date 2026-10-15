@@ -216,3 +216,25 @@ def test_periodic_scheduler_runs_its_job_and_logs_crashes(
 
     job.assert_called_once_with()
     assert_log_contains(caplog, message=error_message)
+
+
+@pytest.mark.parametrize(
+    argnames="configured_level,expected_library_level",
+    argvalues=[("DEBUG", logging.INFO), ("INFO", logging.INFO), ("WARNING", logging.WARNING)],
+)
+def test_setup_logging_never_makes_noisy_libraries_louder_than_configured(
+    monkeypatch: pytest.MonkeyPatch, configured_level: str, expected_library_level: int
+):
+    root = logging.getLogger()
+    saved_handlers, saved_level = list(root.handlers), root.level
+    saved_library_levels = {name: logging.getLogger(name).level for name in main.NOISY_LIBRARY_LOGGERS}
+    monkeypatch.setattr(target=main, name="LOG_LEVEL", value=configured_level)
+    try:
+        main.setup_logging()
+        for name in main.NOISY_LIBRARY_LOGGERS:
+            assert logging.getLogger(name).level == expected_library_level
+    finally:
+        root.handlers[:] = saved_handlers
+        root.setLevel(saved_level)
+        for name, level in saved_library_levels.items():
+            logging.getLogger(name).setLevel(level)

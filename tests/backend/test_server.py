@@ -1,4 +1,5 @@
 import datetime
+import logging
 import socket
 import threading
 import time
@@ -22,6 +23,7 @@ from tests.backend.conftest import VALID_PASSWORD, assert_log_contains
 
 
 def test_run_invokes_uvicorn_with_resolved_options(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(target=logging.root, name="level", value=logging.WARNING)
     uvicorn_run = MagicMock()
     monkeypatch.setattr(target=server.uvicorn, name="run", value=uvicorn_run)
     fake_options = {"host": "0.0.0.0", "port": 1234, "proxy_headers": True, "forwarded_allow_ips": "*"}  # nosec B104
@@ -29,7 +31,7 @@ def test_run_invokes_uvicorn_with_resolved_options(monkeypatch: pytest.MonkeyPat
 
     server.run()
 
-    uvicorn_run.assert_called_once_with(main.app, **fake_options)
+    uvicorn_run.assert_called_once_with(main.app, log_level=logging.WARNING, **fake_options)
 
 
 def test_uvicorn_options_defaults_to_http(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):

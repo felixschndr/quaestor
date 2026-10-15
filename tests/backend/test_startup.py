@@ -6,7 +6,12 @@ from pathlib import Path
 
 from source.backend.helpers import get_project_version, get_root_path_of_repository
 
-_ENV_FOR_FRESH_DATA_DIR = {"DATABASE_ENCRYPTION_KEY": "test-key", "PORT": "0", "ALLOW_MISSING_FRONTEND": "true"}
+_ENV_FOR_FRESH_DATA_DIR = {
+    "DATABASE_ENCRYPTION_KEY": "test-key",
+    "PORT": "0",
+    "ALLOW_MISSING_FRONTEND": "true",
+    "LOG_LEVEL": "INFO",
+}
 
 _EXPECTED_STARTUP_LOGS = (
     f"Starting Quaestor {get_project_version()}",
