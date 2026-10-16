@@ -393,7 +393,9 @@ def _is_due_for_periodic_sync(credential: Credential) -> bool:
     if credential.last_sync_error_code == JobErrorCode.REAUTHENTICATION_REQUIRED:
         return False
     handler_class = BANKS_BY_NAME[credential.bank.value].handler
-    return not credential.requires_two_factor_authentication or handler_class.RESUMES_SESSION_UNATTENDED
+    return not credential.requires_two_factor_authentication or handler_class.resumes_session_unattended(
+        credential.session_state
+    )
 
 
 def sync_all_due_credentials(db_session: Session) -> None:

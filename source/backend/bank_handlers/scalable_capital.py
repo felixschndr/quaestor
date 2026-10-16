@@ -383,7 +383,10 @@ def _share_moves_by_isin(raw_transactions: list[dict]) -> dict[str, list[tuple[d
 
 class ScalableCapitalHandler(BankHandler):
     CREDENTIAL_FIELDS: tuple[str, ...] = ()
-    RESUMES_SESSION_UNATTENDED = True
+
+    @classmethod
+    def resumes_session_unattended(cls: type["ScalableCapitalHandler"], session_state: dict | None) -> bool:
+        return True
 
     def begin_two_factor_challenge(self, credential_id: int) -> TwoFactorChallenge:
         ensure_cli_binary_available()

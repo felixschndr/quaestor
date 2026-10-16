@@ -1,8 +1,12 @@
 import asyncio
+import base64
+import json
 import tempfile
+import time
 from collections import defaultdict
 from contextlib import asynccontextmanager, contextmanager
 from datetime import date, datetime, timezone
+from http.cookiejar import LoadError, MozillaCookieJar
 from pathlib import Path
 from typing import AsyncIterator, Iterator, TypedDict
 
@@ -60,6 +64,33 @@ _LABEL_TO_TRANSACTION_TYPE: dict[str, TransactionType] = {
     "Transfer (Inbound)": TransactionType.TRANSFER_IN,
     "Transfer (Outbound)": TransactionType.TRANSFER_OUT,
 }
+
+
+def _refresh_token_expiry(session_state: dict | None) -> int | None:
+    # The tr_refresh JWT lives 24 h from the 2FA login; refreshing the websession never renews it
+    cookies = (session_state or {}).get("cookies")
+    if not cookies:
+        return None
+    with tempfile.NamedTemporaryFile("w", suffix=".txt") as temp_file:
+        temp_file.write(cookies)
+        temp_file.flush()
+        cookie_jar = MozillaCookieJar(temp_file.name)
+        try:
+            cookie_jar.load(ignore_discard=True, ignore_expires=True)
+        except LoadError as e:
+            logger.warning(f"Could not parse the stored Trade Republic cookies: {e}")
+            return None
+    refresh_tokens = [cookie.value for cookie in cookie_jar if cookie.name == "tr_refresh"]
+    if not refresh_tokens or refresh_tokens[0] is None:
+        logger.warning('Stored Trade Republic cookies hold no "tr_refresh" token')
+        return None
+    try:
+        payload = refresh_tokens[0].split(".")[1]
+        padded = payload + "=" * (-len(payload) % 4)
+        return int(json.loads(base64.urlsafe_b64decode(s=padded))["exp"])
+    except (IndexError, KeyError, TypeError, ValueError) as e:
+        logger.warning(f'Could not read the expiry of the Trade Republic "tr_refresh" token: {e!r}')
+        return None
 
 
 def _project_savings_plans(plans: list[dict], isin: str) -> list[FetchedTransaction]:
@@ -366,7 +397,12 @@ class TradeRepublicHandler(BankHandler):
         "pin": (FieldRule(name="pin_four_digits", regex=r"^\d{4}$", description="be exactly 4 digits"),),
     }
     WHITESPACE_STRIPPED_FIELDS = frozenset({"phone"})
-    RESUMES_SESSION_UNATTENDED = True
+
+    @classmethod
+    def resumes_session_unattended(cls: type["TradeRepublicHandler"], session_state: dict | None) -> bool:
+        # Past this, resuming needs a fresh 2FA login, so don't even try (and don't report a failure)
+        expires_at = _refresh_token_expiry(session_state)
+        return expires_at is None or expires_at > time.time()
 
     def begin_two_factor_challenge(self, credential_id: int) -> TwoFactorChallenge:
         token, expires_at = trade_republic_login.start(
@@ -403,7 +439,6 @@ class TradeRepublicHandler(BankHandler):
             logger.debug("Trade Republic websession resumed")
             yield _TradeRepublicSession(trade_republic_client)
 
-            trade_republic_client.save_websession()
             self.session_state = {"cookies": cookies_path.read_text()}
         finally:
             cookies_path.unlink(missing_ok=True)

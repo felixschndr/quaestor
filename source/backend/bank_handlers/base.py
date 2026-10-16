@@ -114,9 +114,11 @@ class BankHandler(ABC):
     CREDENTIAL_FIELDS: tuple[str, ...]
     FIELD_RULES: dict[str, tuple[FieldRule, ...]] = {}
     WHITESPACE_STRIPPED_FIELDS: frozenset[str] = frozenset()
-    RESUMES_SESSION_UNATTENDED: bool = False
-
     session_state: dict | None = None
+
+    @classmethod
+    def resumes_session_unattended(cls: type["BankHandler"], session_state: dict | None) -> bool:
+        return False
 
     def __init__(self, bank_info: "BankInfo", credentials: dict[str, str]):
         self.bank_info = bank_info

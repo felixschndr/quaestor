@@ -217,6 +217,29 @@ def test_sync_all_due_credentials_skips_a_credential_awaiting_reauthentication(
     sync.assert_not_called()
 
 
+def test_sync_all_due_credentials_skips_an_unattended_2fa_session_that_can_no_longer_be_resumed(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    persist_credential(
+        session_factory,
+        user_id=user_id,
+        bank=BankProvider.TRADE_REPUBLIC,
+        credentials={"phone": PHONE_NUMBER, "pin": PIN},
+        requires_two_factor_authentication=True,
+    )
+    monkeypatch.setattr(
+        target=TradeRepublicHandler, name="resumes_session_unattended", value=classmethod(lambda cls, state: False)
+    )
+    sync = MagicMock()
+    monkeypatch.setattr(target=credential_service, name="sync_credential_object", value=sync)
+
+    with session_factory() as session:
+        credential_service.sync_all_due_credentials(db_session=session)
+
+    sync.assert_not_called()
+
+
 def test_sync_credential_loads_by_id_and_returns_completed_for_handler_without_2fa(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):

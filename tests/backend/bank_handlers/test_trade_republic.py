@@ -1,7 +1,9 @@
 import asyncio
+import base64
+import json
 import logging
+import time
 from datetime import date, datetime, timedelta
-from pathlib import Path
 
 import pytest
 
@@ -351,28 +353,46 @@ def test_session_without_resumable_websession_requires_reauthentication(monkeypa
             pass
 
 
-def test_session_persists_the_cookies_refreshed_during_the_sync(monkeypatch: pytest.MonkeyPatch):
-    class _RefreshingClient:
-        def __init__(self, cookies_path: Path) -> None:
-            self.cookies_path = cookies_path
+def _cookies_with_refresh_token(token: str) -> dict:
+    return {"cookies": f"# Netscape HTTP Cookie File\napi.traderepublic.com\tFALSE\t/\tTRUE\t0\ttr_refresh\t{token}\n"}
 
-        def resume_websession(self) -> bool:
-            return True
 
-        def save_websession(self) -> None:
-            self.cookies_path.write_text("refreshed-cookie")
+def _jwt(exp: float) -> str:
+    payload = base64.urlsafe_b64encode(json.dumps({"exp": int(exp)}).encode()).decode().rstrip("=")
+    return f"header.{payload}.signature"
 
-    def build_client(phone_no: str, pin: str, cookies_path: Path) -> _RefreshingClient:
-        return _RefreshingClient(cookies_path=cookies_path)
 
-    monkeypatch.setattr(target=trade_republic_login, name="build_client", value=build_client)
-    handler = _handler()
-    handler.session_state = {"cookies": "login-cookie"}
+@pytest.mark.parametrize(
+    argnames=("session_state", "expected"),
+    argvalues=[
+        (_cookies_with_refresh_token(_jwt(exp=time.time() + 3600)), True),
+        (_cookies_with_refresh_token(_jwt(exp=time.time() - 60)), False),
+        (None, True),
+    ],
+)
+def test_resumes_session_unattended_until_the_refresh_token_expires(session_state: dict | None, expected: bool):
+    assert TradeRepublicHandler.resumes_session_unattended(session_state) is expected
 
-    with handler.session():
-        pass
 
-    assert handler.session_state == {"cookies": "refreshed-cookie"}
+@pytest.mark.parametrize(
+    argnames=("session_state", "log_message"),
+    argvalues=[
+        (
+            _cookies_with_refresh_token("not-a-jwt"),
+            'Could not read the expiry of the Trade Republic "tr_refresh" token',
+        ),
+        (
+            {"cookies": "# Netscape HTTP Cookie File\napi.traderepublic.com\tFALSE\t/\tTRUE\t0\ttr_session\tvalue\n"},
+            'Stored Trade Republic cookies hold no "tr_refresh" token',
+        ),
+        ({"cookies": "not a cookie file"}, "Could not parse the stored Trade Republic cookies"),
+    ],
+)
+def test_resumes_session_unattended_warns_and_tries_anyway_when_the_expiry_is_unreadable(
+    session_state: dict, log_message: str, caplog: pytest.LogCaptureFixture
+):
+    assert TradeRepublicHandler.resumes_session_unattended(session_state) is True
+    assert_log_contains(caplog, message=log_message)
 
 
 def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.MonkeyPatch):
