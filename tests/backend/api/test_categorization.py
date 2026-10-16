@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
@@ -7,6 +8,7 @@ from source.backend.models.transactions.transaction_category import TRANSACTION_
 from tests.backend.conftest import (
     INTRUDER_USER_NAME,
     REWE,
+    assert_log_contains,
     persist_transaction,
     register_and_login,
     setup_account,
@@ -37,7 +39,7 @@ def test_get_lists_no_rules_and_every_default_matcher(http_client: TestClient, s
 
 
 def test_creating_a_rule_normalizes_it_and_recategorizes_only_automatic_transactions(
-    http_client: TestClient, session_factory: sessionmaker
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     automatic = persist_transaction(
@@ -58,16 +60,18 @@ def test_creating_a_rule_normalizes_it_and_recategorizes_only_automatic_transact
 
     assert [(rule["pattern"], rule["category"]) for rule in body["rules"]] == [("rewe maerkt", "GIFTS")]
     assert body["recategorized"] == 0
-    body = http_client.put(
-        f"{URL}/rules/{body['rules'][0]['id']}", json={"pattern": "rewe markt", "category": "GIFTS"}
-    ).json()
+    rule_id = body["rules"][0]["id"]
+    body = http_client.put(f"{URL}/rules/{rule_id}", json={"pattern": "rewe markt", "category": "GIFTS"}).json()
     assert body["recategorized"] == 1
+    assert_log_contains(
+        caplog=caplog, messages=["Created <CategoryRule(id=None", f"Updated <CategoryRule(id={rule_id}"]
+    )
     assert _category_of(session_factory=session_factory, transaction_id=automatic) == TransactionCategory.GIFTS
     assert _category_of(session_factory=session_factory, transaction_id=manual) == TransactionCategory.RESTAURANTS
 
 
 def test_deleting_a_rule_hands_its_transactions_back_to_the_default_matchers(
-    http_client: TestClient, session_factory: sessionmaker
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id, other_party=REWE)
@@ -77,6 +81,7 @@ def test_deleting_a_rule_hands_its_transactions_back_to_the_default_matchers(
     body = http_client.delete(f"{URL}/rules/{rule['id']}").json()
 
     assert body["rules"] == []
+    assert_log_contains(caplog=caplog, message=f"Deleted <CategoryRule(id={rule['id']}")
     assert (
         _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SUPERMARKET
     )
@@ -108,7 +113,9 @@ def test_a_rule_needs_a_real_pattern_and_category(http_client: TestClient, sessi
     assert http_client.post(f"{URL}/rules", json={"pattern": REWE, "category": "INCOME"}).status_code == 422
 
 
-def test_rules_of_another_user_are_not_accessible(http_client: TestClient, session_factory: sessionmaker):
+def test_rules_of_another_user_are_not_accessible(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     setup_account(http_client=http_client, session_factory=session_factory)
     rule = _create_rule(http_client=http_client)["rules"][0]
 
@@ -117,10 +124,11 @@ def test_rules_of_another_user_are_not_accessible(http_client: TestClient, sessi
     assert http_client.get(URL).json()["rules"] == []
     assert http_client.delete(f"{URL}/rules/{rule['id']}").status_code == 404
     assert http_client.put(f"{URL}/rules/{rule['id']}", json={"pattern": REWE, "category": "FUEL"}).status_code == 404
+    assert_log_contains(caplog=caplog, message=f"attempted to access category rule {rule['id']} which is not theirs")
 
 
 def test_disabling_a_default_matcher_recategorizes_and_can_be_undone(
-    http_client: TestClient, session_factory: sessionmaker
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(
@@ -135,12 +143,14 @@ def test_disabling_a_default_matcher_recategorizes_and_can_be_undone(
     assert body["recategorized"] == 1
     assert {"pattern": "rewe", "category": "SUPERMARKET", "disabled": True} in body["default_matchers"]
     assert _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.UNKNOWN
+    assert_log_contains(caplog=caplog, message="Disabled the default matcher 'rewe' for <User(id=1")
 
     http_client.put(f"{URL}/default-matchers", json={"pattern": "rewe", "disabled": False})
 
     assert (
         _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SUPERMARKET
     )
+    assert_log_contains(caplog=caplog, message="Enabled the default matcher 'rewe' for <User(id=1")
 
 
 def test_only_default_matchers_can_be_disabled(http_client: TestClient, session_factory: sessionmaker):

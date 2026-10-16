@@ -91,7 +91,8 @@ def test_create_without_immediate_booking_schedules_only(
         assert rule.next_run_date == _d("2026-06-28")
         assert account.balance == DEFAULT_BALANCE  # nothing booked yet
         assert account.transactions == []
-        assert_log_contains(caplog, messages=["Created", "booked today:"])
+        assert_log_contains(caplog, message=f"Created <RecurringTransaction(id={rule.id}")
+        assert_log_contains(caplog, message=")>; next run 2026-06-28 (booked today: False)")
 
 
 def test_create_with_immediate_booking_books_today_and_schedules_next(
@@ -150,7 +151,7 @@ def test_book_due_books_a_due_occurrence_and_advances_cursor(
 
     with session_factory() as session:
         recurring_transaction_service.book_due_recurring_transactions(session)
-        assert_log_contains(caplog, message="due recurring transaction(s) across")
+        assert_log_contains(caplog, message="Booked 1 due recurring transaction(s) across 1 rule(s)")
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
@@ -212,7 +213,9 @@ def test_book_due_clamps_day_of_month_to_february(session_factory: sessionmaker,
         assert _d("2026-02-28") in booked_dates
 
 
-def test_update_amount_only_keeps_the_next_run_date(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+def test_update_amount_only_keeps_the_next_run_date(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
     account_id = persist_manual_account_with_new_user(session_factory)
     with session_factory() as session:
@@ -235,10 +238,11 @@ def test_update_amount_only_keeps_the_next_run_date(session_factory: sessionmake
         )
         assert updated.amount == -75.0
         assert updated.next_run_date == _d("2026-06-28")  # unchanged
+        assert_log_contains(caplog, message=f"Updated Recurringtransaction: amount: {-DEFAULT_AMOUNT} → -75.0 (")
 
 
 def test_update_schedule_recomputes_next_run_and_clears_other_day(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))  # a Saturday
     account_id = persist_manual_account_with_new_user(session_factory)
@@ -264,6 +268,13 @@ def test_update_schedule_recomputes_next_run_and_clears_other_day(
         assert updated.day_of_month is None
         assert updated.day_of_week == 0
         assert updated.next_run_date == _d("2026-06-08")  # next Monday on/after today
+        assert_log_contains(
+            caplog,
+            message=(
+                "Updated Recurringtransaction: frequency: MONTHLY → WEEKLY, day_of_month: 28 → None, "
+                "day_of_week: None → 0, next_run_date: 2026-06-28 → 2026-06-08 ("
+            ),
+        )
 
 
 def test_update_unknown_rule_raises(
@@ -280,7 +291,7 @@ def test_update_unknown_rule_raises(
                 recurring_transaction_id=999999,
                 fields={"amount": 1.0, "frequency": RecurrenceFrequency.WEEKLY, "day_of_week": 0},
             )
-        assert_log_contains(caplog, message="Recurring transaction 999999 not found for")
+        assert_log_contains(caplog, message=f"Recurring transaction 999999 not found for <Account(id={account_id}")
 
 
 def test_delete_detaches_booked_transactions_and_removes_rule(
@@ -304,7 +315,7 @@ def test_delete_detaches_booked_transactions_and_removes_rule(
         recurring_transaction_service.delete_recurring_transaction(
             db_session=session, account=account, recurring_transaction_id=rule_id
         )
-        assert_log_contains(caplog, message="Deleted recurring transaction")
+        assert_log_contains(caplog, message=f"Deleted recurring transaction {rule_id} from <Account(id={account_id}")
 
     with session_factory() as session:
         assert session.get(entity=RecurringTransaction, ident=rule_id) is None

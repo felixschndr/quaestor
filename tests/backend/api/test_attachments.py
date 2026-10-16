@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from source.backend.services.transactions import attachment_service
 from tests.backend.conftest import (
     INTRUDER_USER_NAME,
+    assert_log_contains,
     persist_transaction,
     register_and_login,
     setup_account,
@@ -19,7 +20,9 @@ def _upload(http_client: TestClient, account_id: int, transaction_id: int, name:
     )
 
 
-def test_upload_list_download_delete_roundtrip(http_client: TestClient, session_factory: sessionmaker):
+def test_upload_list_download_delete_roundtrip(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
 
@@ -34,6 +37,7 @@ def test_upload_list_download_delete_roundtrip(http_client: TestClient, session_
     attachment_id = upload.json()[0]["id"]
     assert upload.json()[0]["filename"] == "receipt.pdf"
     assert upload.json()[0]["size"] == len(b"%PDF-1.4 hello")
+    assert_log_contains(caplog=caplog, message=f"Added <TransactionAttachment(id={attachment_id}")
 
     listing = http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}/attachments")
     assert [a["id"] for a in listing.json()] == [attachment_id]
@@ -46,6 +50,21 @@ def test_upload_list_download_delete_roundtrip(http_client: TestClient, session_
     deleted = http_client.delete(f"/api/account/{account_id}/transactions/{transaction_id}/attachments/{attachment_id}")
     assert deleted.status_code == 204
     assert http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}/attachments").json() == []
+    assert_log_contains(
+        caplog=caplog, message=f"Deleted attachment 'receipt.pdf' from <Transaction(id={transaction_id}"
+    )
+
+
+def test_unknown_attachment_is_not_found(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
+
+    response = http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}/attachments/999")
+
+    assert response.status_code == 404
+    assert_log_contains(caplog=caplog, message=f"Attachment 999 not found on <Transaction(id={transaction_id}")
 
 
 def test_upload_to_pending_transaction_is_rejected(http_client: TestClient, session_factory: sessionmaker):

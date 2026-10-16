@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
@@ -11,6 +12,7 @@ from tests.backend.conftest import (
     SECOND_DISPLAY_NAME,
     SECOND_USER_NAME,
     VALID_PASSWORD,
+    assert_log_contains,
     login_as,
     make_transaction,
     persist_transaction,
@@ -35,7 +37,9 @@ def _category_of(session_factory: sessionmaker, transaction_id: int) -> str:
         return session.get(entity=Transaction, ident=transaction_id).category
 
 
-def test_a_custom_category_is_listed_with_its_group(http_client: TestClient, session_factory: sessionmaker):
+def test_a_custom_category_is_listed_with_its_group(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     setup_account(http_client=http_client, session_factory=session_factory)
 
     key = _create(http_client=http_client, name="  Bio-Laden  ")
@@ -44,6 +48,22 @@ def test_a_custom_category_is_listed_with_its_group(http_client: TestClient, ses
     assert http_client.get(URL).json()["custom_categories"] == [
         {"key": key, "group": "FOOD_AND_DRINK", "name": BIO_SHOP, "owned": True}
     ]
+    assert_log_contains(caplog=caplog, message=f"Created <CustomCategory(key={key}")
+
+
+def test_a_custom_category_can_be_renamed_and_moved_to_another_group(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    setup_account(http_client=http_client, session_factory=session_factory)
+    key = _create(http_client=http_client)
+
+    response = http_client.put(f"{URL}/{key}", json={"group": "SHOPPING", "name": "Unverpackt"})
+
+    assert response.status_code == 200
+    assert response.json()["custom_categories"] == [
+        {"key": key, "group": "SHOPPING", "name": "Unverpackt", "owned": True}
+    ]
+    assert_log_contains(caplog=caplog, message=f"Updated <CustomCategory(key={key}")
 
 
 def test_a_custom_category_name_is_unique_within_its_group(http_client: TestClient, session_factory: sessionmaker):
@@ -104,7 +124,7 @@ def test_a_rule_can_assign_a_custom_category(http_client: TestClient, session_fa
 
 
 def test_deleting_a_custom_category_leaves_its_transactions_uncategorized(
-    http_client: TestClient, session_factory: sessionmaker
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     key = _create(http_client=http_client)
@@ -129,6 +149,7 @@ def test_deleting_a_custom_category_leaves_its_transactions_uncategorized(
     response = http_client.delete(f"{URL}/{key}")
 
     assert response.status_code == 200
+    assert_log_contains(caplog=caplog, message=f"Deleted <CustomCategory(key={key}")
     assert response.json()["custom_categories"] == []
     assert _category_of(session_factory=session_factory, transaction_id=manual) == TransactionCategory.UNKNOWN
     assert _category_of(session_factory=session_factory, transaction_id=ruled) == TransactionCategory.UNKNOWN
@@ -136,7 +157,9 @@ def test_deleting_a_custom_category_leaves_its_transactions_uncategorized(
     assert http_client.get("/api/notification_rules").json()[-1]["categories"] == ["FUEL"]
 
 
-def test_custom_categories_of_another_user_cannot_be_changed(http_client: TestClient, session_factory: sessionmaker):
+def test_custom_categories_of_another_user_cannot_be_changed(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     setup_account(http_client=http_client, session_factory=session_factory)
     key = _create(http_client=http_client)
 
@@ -146,6 +169,7 @@ def test_custom_categories_of_another_user_cannot_be_changed(http_client: TestCl
     assert http_client.put(f"{URL}/{key}", json={"group": "SHOPPING", "name": "x"}).status_code == 404
     assert http_client.delete(f"{URL}/{key}").status_code == 404
     assert http_client.post("/api/categorization/rules", json={"pattern": "abc", "category": key}).status_code == 422
+    assert_log_contains(caplog=caplog, message=f"attempted to access custom category {key} which is not theirs")
 
 
 def test_a_shared_user_sees_and_may_assign_the_owners_custom_categories(http_client: TestClient):

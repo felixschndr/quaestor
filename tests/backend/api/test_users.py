@@ -11,6 +11,7 @@ from source.backend.logging_utils import NO_SESSION_LOG_LABEL
 from source.backend.services.banking import credential_service
 from source.backend.services.banking.credential_service import SyncResult, SyncStatus
 from tests.backend.conftest import (
+    DISPLAY_NAME,
     NEW_VALID_PASSWORD,
     SECOND_USER_NAME,
     USER_NAME,
@@ -32,11 +33,12 @@ def test_update_user_changes_display_name(http_client: TestClient, caplog: pytes
 
     assert response.status_code == 200
     assert response.json()["display_name"] == "Renamed"
+    assert_log_contains(caplog=caplog, message=f"Updated User: display_name: {DISPLAY_NAME} → Renamed")
     updated = next(record for record in caplog.records if "Updated User" in record.getMessage())
     assert updated.session not in (None, NO_SESSION_LOG_LABEL)
 
 
-def test_update_user_changes_user_name(http_client: TestClient):
+def test_update_user_changes_user_name(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     user_id = register_and_get_id(http_client)
 
     response = http_client.patch(f"/api/users/{user_id}", json={"user_name": SECOND_USER_NAME})
@@ -45,6 +47,13 @@ def test_update_user_changes_user_name(http_client: TestClient):
     assert response.json()["user_name"] == SECOND_USER_NAME
     assert login_as(http_client, user_name=SECOND_USER_NAME, password=VALID_PASSWORD).status_code == 200
     assert login_as(http_client, user_name=USER_NAME, password=VALID_PASSWORD).status_code == 401
+    assert_log_contains(
+        caplog=caplog,
+        messages=[
+            f"Updated User: user_name: {USER_NAME} → {SECOND_USER_NAME}",
+            f'User with the user_name "{USER_NAME}" not found',
+        ],
+    )
 
 
 def test_update_user_normalises_new_user_name(http_client: TestClient):
@@ -492,7 +501,10 @@ def test_revoke_other_users_session_returns_404(http_client: TestClient, caplog:
     response = http_client.delete(f"/api/users/{other_user_id}/sessions/{first_user_session_id}")
 
     assert response.status_code == 404
-    assert_log_contains(caplog, message="which does not belong to them")
+    assert_log_contains(
+        caplog=caplog,
+        message=f"attempted to revoke session {first_user_session_id} which does not belong to them",
+    )
 
 
 def test_revoke_session_for_other_user_id_returns_404(http_client: TestClient):

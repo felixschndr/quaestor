@@ -145,6 +145,34 @@ def test_complete_translates_http_error_into_invalid_two_factor(
     assert_log_contains(caplog, message="Invalid 2FA code for credential 1")
 
 
+@pytest.mark.parametrize(
+    argnames="complete_side_effect, expected_exception, expected_log",
+    argvalues=[
+        (
+            ValueError("Too many requests"),
+            BankRateLimitedError,
+            "Trade Republic rate limited the login for credential 1",
+        ),
+        (ValueError("code mismatch"), InvalidTwoFactorError, "Invalid 2FA code for credential 1: code mismatch"),
+    ],
+)
+def test_complete_translates_value_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    complete_side_effect: Exception,
+    expected_exception: type[Exception],
+    expected_log: str,
+):
+    cookie_paths = _patch_successful_client(monkeypatch, complete_side_effect=complete_side_effect)
+    token, _ = module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
+
+    with pytest.raises(expected_exception):
+        module.complete(challenge_token=token, credential_id=1, code=TWO_FACTOR_CODE)
+
+    assert not cookie_paths[0].exists()
+    assert_log_contains(caplog, message=expected_log)
+
+
 def test_expired_challenge_is_cleaned_up_and_rejected(monkeypatch: pytest.MonkeyPatch):
     cookie_paths = _patch_successful_client(monkeypatch)
     token, _ = module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)

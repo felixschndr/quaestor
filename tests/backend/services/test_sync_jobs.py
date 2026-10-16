@@ -69,7 +69,7 @@ def patch_confirm(monkeypatch: pytest.MonkeyPatch) -> PatchConfirm:
 def test_start_sync_creates_a_job_that_runs_to_completion(patch_sync: PatchSync, caplog: pytest.LogCaptureFixture):
     patch_sync(SyncResult(status=SyncStatus.COMPLETED))
 
-    async def scenario():
+    async def scenario() -> SyncJob:
         job = await sync_jobs.start_sync(credential_id=42)
         assert job.credential_id == 42
         assert sync_jobs.get_job_by_id(job.job_id) is job
@@ -80,16 +80,17 @@ def test_start_sync_creates_a_job_that_runs_to_completion(patch_sync: PatchSync,
                 break
             await asyncio.sleep(0)
         assert job.status == JobStatus.COMPLETED
+        return job
 
-    asyncio.run(scenario())
+    job = asyncio.run(scenario())
 
-    assert_log_contains(caplog, messages=["started", "completed"])
+    assert_log_contains(caplog, messages=[f"<SyncJob(job_id={job.job_id}, ", ")> started", ")> completed"])
 
 
 def test_start_sync_marks_job_failed_on_exception(patch_sync: PatchSync, caplog: pytest.LogCaptureFixture):
     patch_sync(RuntimeError("Something went wrong"))
 
-    async def scenario():
+    async def scenario() -> SyncJob:
         job = await sync_jobs.start_sync(credential_id=42)
         for _ in range(50):
             if job.finished_at is not None:
@@ -98,10 +99,11 @@ def test_start_sync_marks_job_failed_on_exception(patch_sync: PatchSync, caplog:
         assert job.status == JobStatus.FAILED
         assert "Something went wrong" in (job.error or "")
         assert job.error_code == JobErrorCode.UNKNOWN  # unexpected failures are tagged UNKNOWN
+        return job
 
-    asyncio.run(scenario())
+    job = asyncio.run(scenario())
 
-    assert_log_contains(caplog, message="failed")
+    assert_log_contains(caplog, messages=[f"<SyncJob(job_id={job.job_id}, ", ")> failed"])
 
 
 def test_start_sync_tags_invalid_credentials_with_error_code(patch_sync: PatchSync, caplog: pytest.LogCaptureFixture):
@@ -265,7 +267,24 @@ def test_cancel_marks_awaiting_job_failed(patch_sync: PatchSync, caplog: pytest.
     assert job.status == JobStatus.FAILED
     assert job.error_code == JobErrorCode.CANCELLED
     assert job.challenge_token is None
-    assert_log_contains(caplog, message="cancelled")
+    assert_log_contains(caplog, messages=[f"<SyncJob(job_id={job.job_id}, ", ")> cancelled"])
+
+
+def test_decoupled_state_update_errors_are_logged(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
+    async def failing_update(job: SyncJob, awaiting: bool) -> None:  # noqa: ASYNC124
+        raise RuntimeError("state update broke")
+
+    monkeypatch.setattr(target=sync_jobs, name="_update_decoupled_state", value=failing_update)
+    job = SyncJob(job_id="decoupled", credential_id=42)
+    expected_log = "decoupled-state update awaiting=True raised: RuntimeError('state update broke')"
+
+    async def scenario() -> None:
+        sync_jobs._make_two_factor_state_notifier(job)(True)
+        await _wait_until(lambda: any(expected_log in record.getMessage() for record in caplog.records))
+
+    asyncio.run(scenario())
+
+    assert_log_contains(caplog, message=expected_log)
 
 
 def test_cancel_aborts_a_blocking_sync_and_keeps_cancelled_status(monkeypatch: pytest.MonkeyPatch):

@@ -106,7 +106,7 @@ def test_rescan_matches_linked_transfers_on_the_type_the_bank_reported(session_f
 
 
 def test_rescan_logs_summary_at_info(session_factory: sessionmaker, account_id: int, caplog: pytest.LogCaptureFixture):
-    persist_transaction(
+    rewe_id = persist_transaction(
         session_factory=session_factory, account_id=account_id, category=TransactionCategory.UNKNOWN, other_party=REWE
     )
     persist_transaction(
@@ -119,8 +119,13 @@ def test_rescan_logs_summary_at_info(session_factory: sessionmaker, account_id: 
     category_rescan.rescan_categories_sync()
 
     assert_log_contains(
-        caplog,
-        messages=["Starting re-scan", "Re-scanned", "Re-derived the categories of 1 transaction(s)"],
+        caplog=caplog,
+        messages=[
+            "Starting re-scan of transactions categorised AUTO",
+            f"Re-scanned <Transaction(id={rewe_id}",
+            ")> from UNKNOWN to SUPERMARKET",
+            "Re-derived the categories of 1 transaction(s) of <User(id=1",
+        ],
     )
 
 
@@ -134,7 +139,7 @@ def test_run_startup_rescan_logs_exception_instead_of_crashing(
 
     asyncio.run(real_run_startup_rescan())
 
-    assert_log_contains(caplog, message="Startup category re-scan crashed")
+    assert_log_contains(caplog=caplog, message="Startup category re-scan crashed")
 
 
 def test_app_startup_schedules_category_rescan(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):

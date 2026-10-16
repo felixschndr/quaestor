@@ -72,7 +72,7 @@ def test_categories_logs_with_user_object(
     with caplog.at_level(logging.DEBUG, logger="services.transactions.statistics_service"):
         http_client.get("/api/statistics/categories", params=[("account_ids", account_id)])
 
-    assert_log_contains(caplog=caplog, messages=["category breakdown", "<User("])
+    assert_log_contains(caplog=caplog, message="Computed OUTGOING category breakdown (2 categories) for <User(id=1,")
 
 
 def test_categories_respects_date_range(http_client: TestClient, session_factory: sessionmaker):

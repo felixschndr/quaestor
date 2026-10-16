@@ -32,7 +32,8 @@ def test_register_returns_created_user_and_sets_session_cookie(
     assert body["display_name"] == DISPLAY_NAME
     assert body["balance"] == 0.0
     assert COOKIE_NAME in response.cookies
-    assert_log_contains(caplog, message="Registered")
+    assert_log_contains(caplog=caplog, message=f"Registered <User(id={body['id']},")
+    assert_log_contains(caplog=caplog, message="Created session <UserSession(id=1, user_id")
 
 
 def test_register_rejects_duplicate_user_name(http_client: TestClient):
@@ -93,7 +94,7 @@ def test_register_rejects_invalid_password(http_client: TestClient, password: st
     assert response.status_code == 422
 
 
-def test_login_succeeds_with_correct_credentials(http_client: TestClient):
+def test_login_succeeds_with_correct_credentials(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     register(http_client, user_name=USER_NAME)
 
     response = http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
@@ -101,6 +102,7 @@ def test_login_succeeds_with_correct_credentials(http_client: TestClient):
     assert response.status_code == 200
     assert response.json()["user_name"] == USER_NAME
     assert COOKIE_NAME in response.cookies
+    assert_log_contains(caplog=caplog, message="Created session <UserSession(id=2, user_id")
 
 
 def test_login_fails_with_wrong_password(http_client_logged_out: TestClient):
@@ -110,10 +112,11 @@ def test_login_fails_with_wrong_password(http_client_logged_out: TestClient):
     assert "set-cookie" not in response.headers
 
 
-def test_login_fails_for_unknown_user(http_client: TestClient):
+def test_login_fails_for_unknown_user(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     response = http_client.post("/api/auth/login", json={"user_name": SECOND_USER_NAME, "password": VALID_PASSWORD})
 
     assert response.status_code == 401
+    assert_log_contains(caplog=caplog, message=f'User with the user_name "{SECOND_USER_NAME}" not found')
 
 
 def _set_cookie_attributes(response: TestClient) -> dict[str, str]:

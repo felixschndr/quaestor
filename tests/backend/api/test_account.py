@@ -21,6 +21,7 @@ from tests.backend.conftest import (
     SECOND_USER_NAME,
     USER_NAME,
     WALLET_ACCOUNT_NAME,
+    assert_log_contains,
     create_credential,
     create_manual_credential,
     link_transactions_as_related_group,
@@ -178,13 +179,17 @@ def test_update_account_rejects_overlong_display_name(http_client: TestClient, s
     assert response.status_code == 422
 
 
-def test_update_account_accepts_display_name_at_max_length(http_client: TestClient, session_factory: sessionmaker):
+def test_update_account_accepts_display_name_at_max_length(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    max_length_name = "x" * 150
 
-    response = http_client.patch(f"/api/account/{account_id}", json={"display_name": "x" * 150})
+    response = http_client.patch(f"/api/account/{account_id}", json={"display_name": max_length_name})
 
     assert response.status_code == 200
-    assert response.json()["display_name"] == "x" * 150
+    assert response.json()["display_name"] == max_length_name
+    assert_log_contains(caplog, message=f"Updated Account: display_name: None → {max_length_name} (")
 
 
 def test_update_account_display_name_alone_leaves_balance_factor_untouched(
@@ -315,10 +320,14 @@ def test_pending_flag_is_exposed_in_transaction_read(http_client: TestClient, se
     assert response.json()["pending"] is True
 
 
-def test_update_transaction_persists_note(http_client: TestClient, session_factory: sessionmaker):
+def test_update_transaction_persists_note(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
     http_client.patch(f"/api/account/{account_id}/transactions/{transaction_id}", json={"note": "Persisted"})
+
+    assert_log_contains(caplog, message="Updated Transaction: note: None → Persisted (")
 
     with session_factory() as session:
         stored = session.get(entity=Transaction, ident=transaction_id)
@@ -687,7 +696,7 @@ def test_update_account_balance_rejected_for_non_manual_account(http_client: Tes
 
 
 def test_update_transaction_amount_shifts_manual_account_balance(
-    http_client: TestClient, session_factory: sessionmaker
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
     register(http_client)
     credential_id = create_manual_credential(http_client)
@@ -711,6 +720,9 @@ def test_update_transaction_amount_shifts_manual_account_balance(
     assert response.json()["amount"] == -25.0
     with session_factory() as session:
         assert session.get(entity=Account, ident=account_id).balance == 75.0
+    assert_log_contains(
+        caplog, message="Updated Transaction: amount: -10.0 → -25.0, purpose: None → actually pricier ("
+    )
 
 
 def test_update_transaction_rejects_financial_fields_for_non_manual_account(

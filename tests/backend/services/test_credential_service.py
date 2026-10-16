@@ -128,7 +128,7 @@ def test_delete_credential_logs_the_deletion(session_factory: sessionmaker, capl
         credential = session.get(entity=Credential, ident=credential_id)
         credential_service.delete_credential(db_session=session, credential=credential)
 
-    assert_log_contains(caplog, messages=["Deleted", "<Credential("])
+    assert_log_contains(caplog, message=f"Deleted <Credential(id={credential_id}")
 
 
 def test_sync_all_due_credentials_counts_synced_skipped_failed(
@@ -204,7 +204,8 @@ def test_sync_credential_loads_by_id_and_returns_completed_for_handler_without_2
 
     assert result.status == credential_service.SyncStatus.COMPLETED
     assert result.challenge_token is None
-    assert_log_contains(caplog, messages=["Syncing", "Synced"])
+    assert_log_contains(caplog, message=f"Syncing <Credential(id={credential_id}")
+    assert_log_contains(caplog, message=f"Synced <Credential(id={credential_id}")
 
 
 def test_sync_credential_object_for_handler_without_2fa_calls_credential_sync(
@@ -632,6 +633,23 @@ def test_sync_credential_persists_the_rotated_session_state_but_not_the_partial_
     assert stored.last_sync_error is None
 
 
+def test_persist_session_state_of_failed_sync_logs_when_the_commit_fails(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        monkeypatch.setattr(target=session, name="commit", value=MagicMock(side_effect=RuntimeError("database locked")))
+
+        credential_service._persist_session_state_of_failed_sync(db_session=session, credential=credential)
+
+    assert_log_contains(
+        caplog, message=f"Could not persist the session state of the failed sync of <Credential(id={credential_id}"
+    )
+
+
 class _LockWithSideEffects:
     def __init__(self, on_acquire: Callable[[], None], on_release: Callable[[], None]):
         self._on_acquire = on_acquire
@@ -792,7 +810,7 @@ def test_create_generic_fints_credential_persists_blz(session_factory: sessionma
 
     assert credential.bank == BankProvider.FINTS
     assert credential.credentials == {"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": "70150000"}
-    assert_log_contains(caplog, messages=["Created", "<Credential("])
+    assert_log_contains(caplog, message=f"Created <Credential(id={credential.id}")
     assert_log_contains(caplog=caplog, message=BANK_PASSWORD, negate=True)
 
 
@@ -863,7 +881,7 @@ def test_sync_all_due_credentials_logs_exception_per_failure(
     with session_factory() as session:
         credential_service.sync_all_due_credentials(db_session=session)
 
-    assert_log_contains(caplog, messages=["Periodic sync failed", f"id={failing}"])
+    assert_log_contains(caplog, message=f"Periodic sync failed for <Credential(id={failing}")
 
 
 _ENABLE_BANKING_APP = {

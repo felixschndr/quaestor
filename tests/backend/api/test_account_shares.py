@@ -23,6 +23,7 @@ from tests.backend.conftest import (
     USER_NAME,
     VALID_PASSWORD,
     WALLET_ACCOUNT_NAME,
+    assert_log_contains,
     create_credential,
     login_as,
     make_account,
@@ -56,11 +57,12 @@ def _accept(http_client: TestClient, share_id: int) -> None:
     assert http_client.post(f"/api/account_shares/{share_id}/accept").status_code == 204
 
 
-def test_invitation_is_pending_until_answered(http_client: TestClient):
+def test_invitation_is_pending_until_answered(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     account_id, share_id = _setup(http_client)
 
     login_as(http_client, user_name=SECOND_USER_NAME, password=VALID_PASSWORD)
     me = http_client.get("/api/auth/me").json()
+    assert_log_contains(caplog, message=f"invited <User(id={me['id']}, ")
     assert [invitation["id"] for invitation in me["account_share_invitations"]] == [share_id]
     assert me["credentials"] == []
     assert http_client.get(f"/api/account/{account_id}/history").status_code == 404
@@ -83,11 +85,12 @@ def test_accepted_share_shows_up_as_a_stand_in_credential(http_client: TestClien
     assert http_client.get(f"/api/account/{account_id}/history").status_code == 200
 
 
-def test_declining_removes_the_invitation(http_client: TestClient):
-    _, share_id = _setup(http_client)
+def test_declining_removes_the_invitation(http_client: TestClient, caplog: pytest.LogCaptureFixture):
+    account_id, share_id = _setup(http_client)
 
     login_as(http_client, user_name=SECOND_USER_NAME, password=VALID_PASSWORD)
     assert http_client.post(f"/api/account_shares/{share_id}/decline").status_code == 204
+    assert_log_contains(caplog, message=f"declined the share of <Account(id={account_id}, ")
 
     assert http_client.get("/api/auth/me").json()["account_share_invitations"] == []
     assert http_client.post(f"/api/account_shares/{share_id}/accept").status_code == 404
@@ -136,7 +139,7 @@ def test_shared_account_counts_towards_the_recipients_balance(http_client: TestC
     assert http_client.get("/api/auth/me").json()["balance"] == DEFAULT_BALANCE
 
 
-def test_owner_can_change_the_permission_and_revoke(http_client: TestClient):
+def test_owner_can_change_the_permission_and_revoke(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     account_id, share_id = _setup(http_client, permission="read")
     _accept(http_client, share_id=share_id)
 
@@ -147,14 +150,25 @@ def test_owner_can_change_the_permission_and_revoke(http_client: TestClient):
     )
     assert http_client.delete(f"/api/account_shares/{share_id}").status_code == 204
     assert http_client.get(f"/api/account_shares/account/{account_id}").json() == []
+    assert_log_contains(
+        caplog,
+        messages=[f"Set <AccountShare(id={share_id}, ", f"Revoked the share of <Account(id={account_id}, "],
+    )
 
 
-def test_recipient_can_leave_a_share(http_client: TestClient):
+def test_recipient_can_leave_a_share(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     account_id, share_id = _setup(http_client)
     _accept(http_client, share_id=share_id)
 
     assert http_client.delete(f"/api/account_shares/account/{account_id}/mine").status_code == 204
     assert http_client.get("/api/auth/me").json()["credentials"] == []
+    assert_log_contains(
+        caplog,
+        messages=[
+            f"accepted the share of <Account(id={account_id}, ",
+            f"left the share of <Account(id={account_id}, ",
+        ],
+    )
 
 
 def test_only_the_owner_manages_shares(http_client: TestClient):
@@ -191,7 +205,7 @@ def test_owner_still_sees_the_share_after_it_was_accepted(http_client: TestClien
     assert [(entry["id"], entry["status"]) for entry in shares] == [(share_id, "accepted")]
 
 
-def test_recipient_keeps_their_own_name_and_balance_factor(http_client: TestClient):
+def test_recipient_keeps_their_own_name_and_balance_factor(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     account_id, share_id = _setup(http_client)
     http_client.patch(
         f"/api/account/{account_id}", json={"balance": DEFAULT_BALANCE, "display_name": WALLET_ACCOUNT_NAME}
@@ -209,6 +223,7 @@ def test_recipient_keeps_their_own_name_and_balance_factor(http_client: TestClie
     assert account["display_name"] == RECIPIENT_ACCOUNT_NAME
     assert account["balance_factor"] == 50
     assert me["balance"] == DEFAULT_BALANCE / 2
+    assert_log_contains(caplog, message=f"Updated <AccountShare(id={share_id}, ")
 
 
 def test_recipient_settings_do_not_touch_the_owners_account(http_client: TestClient):
@@ -399,7 +414,9 @@ def test_read_only_recipient_may_not_sync_the_shared_credential(http_client: Tes
     assert http_client.post(f"/api/credentials/{credential_id}/sync").status_code == 403
 
 
-def test_related_transactions_on_foreign_accounts_stay_hidden(http_client: TestClient):
+def test_related_transactions_on_foreign_accounts_stay_hidden(
+    http_client: TestClient, caplog: pytest.LogCaptureFixture
+):
     account_id, share_id = _setup(http_client, permission="read")
     private_account_id = setup_manual_account(http_client)
     shared_transaction_id = http_client.post(
@@ -422,6 +439,7 @@ def test_related_transactions_on_foreign_accounts_stay_hidden(http_client: TestC
 
     assert detail["related_transactions"] == []
     assert http_client.get(f"/api/transactions/{private_transaction_id}").status_code == 404
+    assert_log_contains(caplog, message=f"attempted to access <Transaction(id={private_transaction_id}, ")
 
 
 def test_pending_share_hands_out_no_balance(http_client: TestClient):

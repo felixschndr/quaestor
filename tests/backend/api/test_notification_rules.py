@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
+from source.backend.services.notifications.notification_rule_service import DEFAULT_RULES
 from tests.backend.conftest import DEFAULT_AMOUNT, DEFAULT_BALANCE, NETFLIX, assert_log_contains, setup_account
 
 
@@ -41,8 +42,9 @@ def test_create_and_list_balance_rule(
     response = http_client.post("/api/notification_rules", json=_balance_rule_payload(account_id))
 
     assert response.status_code == 201
-    assert_log_contains(caplog, messages=["Created", "<NotificationRule(", "default notification rules for"])
     created = response.json()
+    assert_log_contains(caplog, message=f"Created {len(DEFAULT_RULES)} default notification rules for <User(id=1")
+    assert_log_contains(caplog, message=f"Created <NotificationRule(id={created['id']}")
     assert created["trigger"] == "balance_threshold"
     assert created["threshold"] == DEFAULT_BALANCE
     assert created["direction"] == "below"
@@ -105,7 +107,13 @@ def test_update_rule(http_client: TestClient, session_factory: sessionmaker, cap
     assert updated["threshold"] == 42.0
     assert not updated["enabled"]
     assert updated["name"] == "Updated"
-    assert_log_contains(caplog, message="Updated Notificationrule: enabled: True → False")
+    assert_log_contains(
+        caplog,
+        message=(
+            "Updated Notificationrule: enabled: True → False, name: Low balance → Updated, "
+            f"threshold: {DEFAULT_BALANCE} → 42.0 ("
+        ),
+    )
 
 
 def test_delete_rule(http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
@@ -115,7 +123,7 @@ def test_delete_rule(http_client: TestClient, session_factory: sessionmaker, cap
 
     assert http_client.delete(f"/api/notification_rules/{rule_id}").status_code == 204
     assert rule_id not in [rule["id"] for rule in http_client.get("/api/notification_rules").json()]
-    assert_log_contains(caplog, message="Deleted notification rule")
+    assert_log_contains(caplog, message=f"Deleted notification rule {rule_id}")
 
 
 def test_create_rule_with_empty_accounts_means_all(http_client: TestClient, session_factory: sessionmaker):

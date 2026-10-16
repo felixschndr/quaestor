@@ -61,10 +61,11 @@ def test_notify_user_delivers_to_all_subscriptions(
         result = notification_service.notify_user(
             db_session=db_session, user=user, notification=Notification(title="t", body="b")
         )
+        assert_log_contains(caplog, message=f"Notified <User(id={user.id}")
+        assert_log_contains(caplog, message=": NotificationResult(delivered=2, pruned=0, failed=0, error=None)")
 
     assert result.delivered == 2
     assert result.pruned == 0 and result.failed == 0
-    assert_log_contains(caplog, message="Notified")
 
 
 def test_the_push_payload_carries_the_log_entry_id_so_a_click_can_mark_it_read(
@@ -114,10 +115,10 @@ def test_notify_user_prunes_expired_subscriptions(
         )
 
         remaining = list(db_session.scalars(select(PushSubscription).where(PushSubscription.user_id == user.id)))
+        assert_log_contains(caplog, message=f"Pruned 1 expired push subscription(s) for <User(id={user.id}")
 
     assert result.delivered == 1
     assert result.pruned == 1
-    assert_log_contains(caplog, messages=["Pruned", "expired push subscription(s)"])
     assert [subscription.endpoint for subscription in remaining] == ["https://push.example/live"]
 
 

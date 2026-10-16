@@ -97,6 +97,7 @@ def test_log_http_requests_uses_correct_log_level(
 
     record = next(r for r in caplog.records if "-> {}".format(status_code) in r.message)
     assert record.levelname == expected_loglevel
+    assert_log_contains(caplog=caplog, message=f"[POST] [/api/something] -> {status_code}")
 
 
 @pytest.mark.anyio

@@ -15,6 +15,7 @@ from tests.backend.conftest import (
     LARGE_AMOUNT,
     REWE,
     SECOND_AMOUNT,
+    assert_log_contains,
     create_credential,
     link_transactions_as_related_group,
     make_transaction,
@@ -424,7 +425,9 @@ def test_get_by_id_resolves_transaction_and_returns_account(http_client: TestCli
     assert response.json()["account_id"] == account_id
 
 
-def test_get_by_id_hides_foreign_transaction(http_client: TestClient, session_factory: sessionmaker):
+def test_get_by_id_hides_foreign_transaction(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
@@ -432,3 +435,14 @@ def test_get_by_id_hides_foreign_transaction(http_client: TestClient, session_fa
     response = http_client.get(f"/api/transactions/{ids['salary']}")
 
     assert response.status_code == 404
+    assert_log_contains(caplog, message=f"attempted to access <Transaction(id={ids['salary']}, ")
+
+
+def test_get_by_id_returns_404_for_unknown_transaction(http_client: TestClient, caplog: pytest.LogCaptureFixture):
+    register_and_login(http_client)
+
+    response = http_client.get("/api/transactions/999999")
+
+    assert response.status_code == 404
+    # Exact match: the 404 handler's own log line merely contains this text.
+    assert "Transaction with the ID 999999 not found" in caplog.messages

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import timedelta
 
 import pytest
@@ -30,6 +31,9 @@ from tests.backend.conftest import (
     make_transaction,
     make_user,
 )
+
+# Captured before the autouse fixture replaces it with a mock.
+REAL_RUN_STARTUP_DETECTION = transfer_detection.run_startup_detection
 
 
 def _assert_linked(transactions: list[Transaction]) -> None:
@@ -71,7 +75,11 @@ def test_detects_a_simple_transfer_and_links_them(session_factory: sessionmaker,
         session.flush()
 
         assert created == 1
-        assert_log_contains(caplog, message="Transfer detection for")
+        assert_log_contains(
+            caplog=caplog,
+            message="1 new transfer pair(s), 0 new mirror pair(s), 0 refund(s) linked to a payment, "
+            "0 leg(s) chained into existing related groups, 0 broker leg(s) chained",
+        )
         assert out_transaction.transaction_type == TransactionType.TRANSFER_OUT
         assert in_transaction.transaction_type == TransactionType.TRANSFER_IN
         _assert_linked([out_transaction, in_transaction])
@@ -642,7 +650,11 @@ def test_chains_a_new_leg_onto_an_existing_related_groups_open_end(
 
         transfer_detection.detect_transfers_for_user(db_session=session, user=user)
 
-        assert_log_contains(caplog, message="chained into existing related groups")
+        assert_log_contains(
+            caplog=caplog,
+            message="0 new transfer pair(s), 0 new mirror pair(s), 0 refund(s) linked to a payment, "
+            "1 leg(s) chained into existing related groups, 0 broker leg(s) chained",
+        )
         assert arrival.related_group_id is not None
         assert arrival.transaction_type == TransactionType.TRANSFER_IN
         assert arrival.transfer_original_type == TransactionType.INCOMING
@@ -1023,7 +1035,9 @@ def test_does_not_chain_a_broker_leg_of_a_different_amount(session_factory: sess
         assert other_buy.related_group_id is None
 
 
-def test_startup_detection_links_across_all_users(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+def test_startup_detection_links_across_all_users(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     # The startup backfill opens its own session per SessionLocal, iterates every user, and commits.
     monkeypatch.setattr(target=transfer_detection, name="SessionLocal", value=session_factory)
     with session_factory() as session:
@@ -1047,7 +1061,23 @@ def test_startup_detection_links_across_all_users(session_factory: sessionmaker,
 
     transfer_detection.detect_transfers_for_all_users()
 
+    assert_log_contains(caplog=caplog, message="Running transfer detection for 1 user(s)")
     with session_factory() as session:
         out_related_group = session.get(entity=Transaction, ident=out_id).related_group_id
         assert out_related_group is not None
         assert out_related_group == session.get(entity=Transaction, ident=in_id).related_group_id
+
+
+def test_run_startup_detection_logs_exception_instead_of_crashing(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    def detect_transfers_for_all_users_mock() -> None:
+        raise RuntimeError("Something went wrong.")
+
+    monkeypatch.setattr(
+        target=transfer_detection, name="detect_transfers_for_all_users", value=detect_transfers_for_all_users_mock
+    )
+
+    asyncio.run(REAL_RUN_STARTUP_DETECTION())
+
+    assert_log_contains(caplog=caplog, message="Startup transfer detection backfill crashed")

@@ -84,7 +84,7 @@ def test_get_account_raises_when_id_unknown(session_factory: sessionmaker, caplo
     with session_factory() as session:
         with pytest.raises(AccountNotFoundError, match="not found"):
             account_service.get_account(db_session=session, account_id=99999)
-        assert_log_contains(caplog, message="not found")
+        assert_log_contains(caplog, message="Account with the ID 99999 not found")
 
 
 def _create_user_with_manual_credential(session_factory: sessionmaker) -> tuple[int, int]:
@@ -111,6 +111,7 @@ def test_create_manual_account_persists_account_with_caller_owned_credential(
             balance_factor=100,
         )
         account_id = account.id
+        assert_log_contains(caplog, message=f"Created manual <Account(id={account_id}, ")
 
     with session_factory() as session:
         loaded = session.get(entity=Account, ident=account_id)
@@ -118,7 +119,6 @@ def test_create_manual_account_persists_account_with_caller_owned_credential(
         assert loaded.credential_id == credential_id
         assert loaded.name == WALLET_ACCOUNT_NAME
         assert loaded.balance == 123.45
-    assert_log_contains(caplog, messages=["Created manual <Account("])
 
 
 def test_create_manual_account_rejects_credential_of_non_manual_bank(session_factory: sessionmaker):
@@ -166,7 +166,9 @@ def test_create_manual_transaction_updates_balance_and_snapshots(
         assert transaction.id is not None
         assert account.balance == 75.0
         assert account.balance_at_date[RECENT_DATE].balance == 75.0
-        assert_log_contains(caplog, messages=["Created manual", "new balance"])
+        assert_log_contains(
+            caplog, messages=[f"Created manual <Transaction(id={transaction.id}, ", ")>; new balance 75.0"]
+        )
 
     with session_factory() as session:
         user = session.get(entity=User, ident=user_id)
@@ -288,7 +290,9 @@ def test_delete_transaction_restores_balance(session_factory: sessionmaker, capl
         transaction = session.get(entity=Transaction, ident=transaction_id)
         account_service.delete_transaction(db_session=session, account=account, transaction=transaction)
         assert account.balance == 200.0
-        assert_log_contains(caplog, messages=["Deleted manual", "new balance"])
+        assert_log_contains(
+            caplog, messages=[f"Deleted manual <Transaction(id={transaction_id}, ", ")>; new balance 200.0"]
+        )
 
     with session_factory() as session:
         assert session.get(entity=Transaction, ident=transaction_id) is None
@@ -306,6 +310,7 @@ def test_delete_account_only_works_for_manual_credential(
         session.commit()
         real_account_id = real_account.id
         manual_account_id = manual_account.id
+        manual_credential_id = manual_credential.id
 
     with session_factory() as session:
         with pytest.raises(PermissionDeniedError, match="manual"):
@@ -315,7 +320,13 @@ def test_delete_account_only_works_for_manual_credential(
 
     with session_factory() as session:
         account_service.delete_account(db_session=session, account=session.get(entity=Account, ident=manual_account_id))
-        assert_log_contains(caplog, messages=["Deleted last manual account on", "Deleted manual"])
+        assert_log_contains(
+            caplog,
+            messages=[
+                f"Deleted last manual account on <Credential(id={manual_credential_id}, ",
+                f"Deleted manual <Account(id={manual_account_id}, ",
+            ],
+        )
 
     with session_factory() as session:
         assert session.get(entity=Account, ident=manual_account_id) is None
@@ -531,7 +542,7 @@ def test_unlink_related_clears_both_sides_and_restores_types(
 
         account_service.unlink_related(db_session=session, transaction=out_transaction)
 
-        assert_log_contains(caplog, messages=["Unlinked <Transaction(", "from related group"])
+        assert_log_contains(caplog, message=f"Unlinked <Transaction(id={out_transaction.id}, ")
         assert out_transaction.related_group_id is None
         assert in_transaction.related_group_id is None
         assert out_transaction.transfer_relink_blocked is True
@@ -577,7 +588,13 @@ def test_get_transaction_for_account_rejects_unknown_and_foreign_transactions(
             account_service.get_transaction_for_account(
                 db_session=session, account=account, transaction_id=foreign_transaction_id
             )
-        assert_log_contains(caplog, messages=["Transaction with the ID 99999 not found", "does not belong to"])
+        assert_log_contains(
+            caplog,
+            messages=[
+                "Transaction with the ID 99999 not found",
+                f"does not belong to <Account(id={account_ids[0]}, ",
+            ],
+        )
 
 
 def test_link_related_links_both_legs(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
@@ -596,7 +613,7 @@ def test_link_related_links_both_legs(session_factory: sessionmaker, caplog: pyt
 
         account_service.link_related(db_session=session, transaction=out_transaction, counterpart=in_transaction)
 
-        assert_log_contains(caplog, messages=["Linked <Transaction(", "and <Transaction(", "into related group"])
+        assert_log_contains(caplog, message=f"Linked <Transaction(id={out_transaction.id}, ")
         assert out_transaction.related_group_id is not None
         assert out_transaction.related_group_id == in_transaction.related_group_id
         assert out_transaction.transaction_type == TransactionType.TRANSFER_OUT

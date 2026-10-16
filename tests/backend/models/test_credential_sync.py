@@ -638,10 +638,10 @@ def test_sync_resolves_expected_within_tolerance_and_moves_note(
         booked=[_booked_transaction(amount=-DEFAULT_AMOUNT, day=5)],
     )
 
-    assert_log_contains(caplog, messages=["Resolved", "expected transaction(s) on"])
-
     with session_factory() as session:
-        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        account = session.get(entity=Credential, ident=credential_id).accounts[0]
+        assert_log_contains(caplog, message=f"Resolved 1 expected transaction(s) on <Account(id={account.id}")
+        transactions = account.transactions
         assert len(transactions) == 1
         booking = transactions[0]
         assert not booking.expected

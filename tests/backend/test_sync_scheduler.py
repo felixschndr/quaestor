@@ -30,7 +30,11 @@ def test_invalid_interval_falls_back_to_default(monkeypatch: pytest.MonkeyPatch,
 
     assert sync_scheduler._sync_interval() == sync_scheduler.DEFAULT_SYNC_INTERVAL
 
-    assert_log_contains(caplog, message="falling back to")
+    assert_log_contains(
+        caplog,
+        message=f"Invalid {sync_scheduler.SYNC_INTERVAL_HOURS_ENV_VARIABLE_NAME}='not-a-number'; "
+        "falling back to 12:00:00",
+    )
 
 
 def test_app_startup_schedules_periodic_sync(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):

@@ -17,6 +17,7 @@ from tests.backend.conftest import (
     PIN,
     SECOND_USER_NAME,
     TWO_FACTOR_CODE,
+    assert_log_contains,
     create_credential,
     create_manual_credential,
     register,
@@ -164,7 +165,7 @@ def test_get_credential_returns_own_credential(http_client: TestClient):
     assert response.json()["id"] == credential_id
 
 
-def test_update_credential_changes_credentials(http_client: TestClient):
+def test_update_credential_changes_credentials(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
 
@@ -175,6 +176,9 @@ def test_update_credential_changes_credentials(http_client: TestClient):
 
     assert response.status_code == 200
     assert response.json()["id"] == credential_id
+    # The secret credentials column is excluded from the update description, so nothing is reported as changed
+    assert_log_contains(caplog, message=f"No changes to Credential <Credential(id={credential_id}")
+    assert_log_contains(caplog=caplog, messages=["renamed", BANK_PASSWORD], negate=True)
 
 
 def test_delete_credential_removes_it(http_client: TestClient):
@@ -389,7 +393,9 @@ def test_submit_two_factor_returns_422_when_job_not_awaiting_two_factor(
     assert response.status_code == 422
 
 
-def test_get_sync_job_returns_404_for_other_users_credential(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+def test_get_sync_job_returns_404_for_other_users_credential(
+    http_client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     register(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
     monkeypatch.setattr(
@@ -400,6 +406,7 @@ def test_get_sync_job_returns_404_for_other_users_credential(http_client: TestCl
     register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
     assert http_client.get(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
+    assert_log_contains(caplog, message=f"attempted to sync <Credential(id={credential_id}")
 
 
 def test_list_sync_jobs_returns_only_own_jobs(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
@@ -438,7 +445,7 @@ def test_cancel_unknown_sync_job_returns_404(http_client: TestClient):
 
 
 def test_cancel_sync_job_returns_404_for_other_users_credential(
-    http_client: TestClient, monkeypatch: pytest.MonkeyPatch
+    http_client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     register(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]
@@ -450,6 +457,7 @@ def test_cancel_sync_job_returns_404_for_other_users_credential(
     register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
     assert http_client.delete(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
+    assert_log_contains(caplog, message=f"attempted to sync <Credential(id={credential_id}")
 
 
 def test_sync_job_polling_reports_terminal_state(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):

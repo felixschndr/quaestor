@@ -46,7 +46,11 @@ def test_downloads_when_browser_missing(
     asyncio.run(playwright_browser.ensure_chromium_installed())
 
     download.assert_awaited_once()
-    assert_log_contains(caplog, message="downloading")
+    assert_log_contains(
+        caplog,
+        message=f"Playwright chromium browser not found at {missing}; downloading it into "
+        f"{playwright_browser.PLAYWRIGHT_BROWSERS_PATH}. This happens only once and may take a moment ...",
+    )
     assert_log_contains(caplog, message="downloaded successfully")
 
 

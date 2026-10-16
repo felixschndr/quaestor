@@ -237,7 +237,7 @@ def test_resolve_decoupled_invokes_notifier_on_enter_and_exit(monkeypatch: pytes
     assert calls == [True, False]
 
 
-def test_resolve_decoupled_aborts_when_cancelled(monkeypatch: pytest.MonkeyPatch):
+def test_resolve_decoupled_aborts_when_cancelled(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
     monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
 
     pending = MagicMock(spec=module.NeedTANResponse)
@@ -260,6 +260,7 @@ def test_resolve_decoupled_aborts_when_cancelled(monkeypatch: pytest.MonkeyPatch
 
     assert client.send_tan.call_count == 1
     assert calls == [True, False]
+    assert_log_contains(caplog, message="pushTAN wait cancelled by user; aborting sync")
 
 
 def test_resolve_decoupled_notifies_false_even_when_polling_raises(

@@ -114,18 +114,24 @@ def test_complete_reads_back_config_dir_as_session_state(
     assert not config_dir.exists()
 
 
-def test_complete_rejects_unknown_token():
+def test_complete_rejects_unknown_token(caplog: pytest.LogCaptureFixture):
     with pytest.raises(InvalidTwoFactorError, match="Unknown or expired"):
         module.complete(challenge_token="no-such-token", credential_id=1)  # nosec B106
 
+    assert_log_contains(caplog, message="Unknown or expired login challenge for credential 1. Start the sync again.")
 
-def test_complete_rejects_token_issued_for_other_credential(monkeypatch: pytest.MonkeyPatch):
+
+def test_complete_rejects_token_issued_for_other_credential(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE])
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
     token, *_ = module.start(credential_id=1)
 
     with pytest.raises(InvalidTwoFactorError):
         module.complete(challenge_token=token, credential_id=2)
+
+    assert_log_contains(caplog, message="Unknown or expired login challenge for credential 2. Start the sync again.")
 
 
 def test_complete_raises_when_process_exited_nonzero(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
@@ -140,7 +146,9 @@ def test_complete_raises_when_process_exited_nonzero(monkeypatch: pytest.MonkeyP
     assert module._pending_logins == {}
 
 
-def test_complete_times_out_when_browser_step_is_not_finished_yet(monkeypatch: pytest.MonkeyPatch):
+def test_complete_times_out_when_browser_step_is_not_finished_yet(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     monkeypatch.setattr(
         target=module, name="DURATION_TO_WAIT_FOR_PROCESS_ON_COMPLETE", value=timedelta(milliseconds=10)
     )
@@ -151,6 +159,7 @@ def test_complete_times_out_when_browser_step_is_not_finished_yet(monkeypatch: p
     with pytest.raises(InvalidTwoFactorError, match="has not finished yet"):
         module.complete(challenge_token=token, credential_id=1)
 
+    assert_log_contains(caplog, message="Login for credential 1 has not finished yet in the browser; try again.")
     # The pending login must survive a "not finished yet" timeout so a later retry can still find it.
     assert token in module._pending_logins
 
@@ -169,6 +178,7 @@ def test_expired_challenge_is_cleaned_up_and_rejected(
             module.complete(challenge_token=token, credential_id=1)
 
     assert_log_contains(caplog, message="Cleaned up 1 expired pending login(s)")
+    assert_log_contains(caplog, message="Unknown or expired login challenge for credential 1. Start the sync again.")
     assert module._pending_logins == {}
     assert not config_dir.exists()
 

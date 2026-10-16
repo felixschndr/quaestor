@@ -146,7 +146,8 @@ def test_transaction_rule_triggers_on_matching_new_transaction(
             body=f"“{ACCOUNT_IBAN}”: -50,00 € · {NETFLIX}",
             url=f"/transactions/{transaction.id}",
         )
-    assert_log_contains(caplog, messages=["matched on", "Collected"])
+        assert_log_contains(caplog, message=f"matched on <Account(id={account_id}")
+        assert_log_contains(caplog, message=f"Collected 1 notification(s) from <Credential(id={credential.id}")
 
 
 def test_transaction_rule_does_not_trigger_when_sender_does_not_match(session_factory: sessionmaker):
@@ -581,7 +582,11 @@ def test_weekly_digest_reports_the_previous_week(
         body="Spent 20,00 € · Received 50,00 € · 2 transactions\n100 % / 10,00 € more spending than last week",
         url="/stats?date_from=2026-07-13&date_to=2026-07-19",
     )
-    assert_log_contains(caplog, messages=["Evaluating digest rules for", "digest for 2026-07-13..2026-07-19"])
+    assert_log_contains(caplog, message="Evaluating digest rules for 1 user(s)")
+    assert_log_contains(
+        caplog,
+        message=": digest for 2026-07-13..2026-07-19: RangeSummary(income=50.0, expenses=20.0, count=2)",
+    )
 
 
 def test_weekly_digest_excludes_investing_and_saving(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
@@ -722,7 +727,7 @@ def test_duplicate_booking_notifies(session_factory: sessionmaker, caplog: pytes
         credential, account_id = _account_with_notification_rule(
             db_session, trigger=NotificationTrigger.DUPLICATE_TRANSACTION
         )
-        make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party=NETFLIX)
+        original = make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party=NETFLIX)
         snapshot = notification_engine.capture_sync_snapshot(credential)
         make_transaction(db_session, account_id=account_id, amount=-DEFAULT_AMOUNT, other_party="netflix")
 
@@ -740,7 +745,7 @@ def test_duplicate_booking_notifies(session_factory: sessionmaker, caplog: pytes
                 f"&date_to={RECENT_DATE.isoformat()}&text=netflix"
             ),
         )
-        assert_log_contains(caplog, message="looks like a duplicate of")
+        assert_log_contains(caplog, message=f"looks like a duplicate of <Transaction(id={original.id}")
 
 
 def test_duplicate_outside_the_window_is_quiet(session_factory: sessionmaker):
@@ -855,7 +860,7 @@ def test_contract_amount_increase_notifies(session_factory: sessionmaker, caplog
             body=f"“{ACCOUNT_IBAN}”: Gym -3.500,00 € instead of -50,00 €",
             url=f"/contracts/{credential.accounts[0].contracts[0].id}",
         )
-        assert_log_contains(caplog, message="against a median of")
+        assert_log_contains(caplog, message=f"charged {-LARGE_AMOUNT} against a median of {-DEFAULT_AMOUNT}")
 
 
 def test_contract_amount_within_usual_spread_is_quiet(session_factory: sessionmaker):
@@ -916,7 +921,7 @@ def test_detected_contract_notifies(session_factory: sessionmaker, caplog: pytes
             body=f"“{ACCOUNT_IBAN}”: Gym",
             url=f"/contracts/{contract.id}",
         )
-    assert_log_contains(caplog, message="queued notification")
+        assert_log_contains(caplog, message=f"Newly detected <Contract(id={contract.id}")
 
 
 def test_detected_contract_without_a_rule_is_quiet(session_factory: sessionmaker):
@@ -1149,8 +1154,9 @@ def test_dispatch_sends_each_notification_to_the_user(
             notifications=[Notification(title="a", body="b"), Notification(title="c", body="d")],
         )
 
+        assert_log_contains(caplog, message=f"Dispatching 2 notification(s) to <User(id={user.id}")
+
     assert [notification.title for notification in sent] == ["a", "c"]
-    assert_log_contains(caplog, message="Dispatching")
 
 
 def test_sync_credential_triggers_notification_end_to_end(
@@ -1238,8 +1244,9 @@ def test_overdue_contract_notifies_once_and_dedups(
             url=f"/contracts/{contract.id}",
         )
         assert contract.overdue_notified_at is not None
+        assert_log_contains(caplog, message="Evaluating overdue contracts for 1 user(s)")
         assert_log_contains(
-            caplog, messages=["Evaluating overdue contracts for", "is overdue (expected", "queued notification"]
+            caplog, message=f"is overdue (expected {contract.expected_next_date.isoformat()}); queued notification"
         )
 
         # A second run on the same overdue episode must not notify again.
@@ -1326,7 +1333,9 @@ def test_overdue_flag_resets_once_payment_arrives(session_factory: sessionmaker,
 # --- contract ending trigger -----------------------------------------------
 
 
-def test_ending_contract_notifies_once_within_lead_time(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+def test_ending_contract_notifies_once_within_lead_time(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     sent = _capture_sent(monkeypatch)
     with session_factory() as db_session:
         user, credential, account = make_user_and_credential_and_account(db_session)
@@ -1348,6 +1357,10 @@ def test_ending_contract_notifies_once_within_lead_time(session_factory: session
             url=f"/contracts/{contract.id}",
         )
         assert contract.ending_notified_at is not None
+        assert_log_contains(caplog, message="Evaluating ending contracts for 1 user(s)")
+        assert_log_contains(
+            caplog, message=f"ends on {end_date.isoformat()} (within {ENDING_LEAD.days}d); queued notification"
+        )
 
         # A second daily run must not notify again for the same end date.
         notification_engine.evaluate_ending_contracts(db_session=db_session, today=_TODAY)
@@ -1372,7 +1385,9 @@ def test_ending_contract_beyond_lead_time_is_quiet(session_factory: sessionmaker
     assert sent == []
 
 
-def test_ending_contract_honours_a_custom_lead_time(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+def test_ending_contract_honours_a_custom_lead_time(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     sent = _capture_sent(monkeypatch)
     with session_factory() as db_session:
         user, credential, account = make_user_and_credential_and_account(db_session)
@@ -1383,13 +1398,15 @@ def test_ending_contract_honours_a_custom_lead_time(session_factory: sessionmake
             account_ids=[account.id],
             days=3,
         )
-        make_contract(db_session, account_id=account.id, end_date=_TODAY + timedelta(days=2))
+        end_date = _TODAY + timedelta(days=2)
+        make_contract(db_session, account_id=account.id, end_date=end_date)
         db_session.commit()
 
         notification_engine.evaluate_ending_contracts(db_session=db_session, today=_TODAY)
 
     # Two days out is within the default lead of 14, but the rule's own lead is three.
     assert len(sent) == 1
+    assert_log_contains(caplog, message=f"ends on {end_date.isoformat()} (within 3d); queued notification")
 
 
 # --- charged after contract end trigger ------------------------------------
@@ -1417,7 +1434,7 @@ def test_charge_after_contract_end_notifies(session_factory: sessionmaker, caplo
             body=f"“{ACCOUNT_IBAN}”: Gym charged -50,00 € after ending on {end_date.isoformat()}",
             url=f"/contracts/{contract.id}",
         )
-        assert_log_contains(caplog, message="booked after")
+        assert_log_contains(caplog, message=f"booked after <Contract(id={contract.id}")
 
 
 def test_charge_before_contract_end_is_quiet(session_factory: sessionmaker):

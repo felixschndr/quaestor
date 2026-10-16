@@ -34,7 +34,7 @@ def test_create_and_list_contract(
     assert created["category"] == "FITNESS"
     assert created["source"] == "MANUAL"
     assert created["members"] == []
-    assert_log_contains(caplog, messages=["Created manual", "<Contract("])
+    assert_log_contains(caplog, message=f"Created manual <Contract(id={created['id']}, ")
 
     listed = http_client.get("/api/contracts").json()
     assert [contract["id"] for contract in listed] == [created["id"]]

@@ -68,9 +68,9 @@ def test_detects_monthly_series_as_contract(session_factory: sessionmaker, caplo
         assert len(contract.members()) == 4
         assert contract.median_amount == -DEFAULT_AMOUNT
         assert contract.expected_next_date == OLDER_DATE + timedelta(days=120)
-        assert_log_contains(
-            caplog, messages=["Detected new <Contract(", "1 recurring and 1 newly created contract(s) detected"]
-        )
+        assert_log_contains(caplog, message=f"Detected new <Contract(id={contract.id}")
+        assert_log_contains(caplog, message=f"Contract detection on <Account(id={account.id}")
+        assert_log_contains(caplog, message=")>: 1 recurring and 1 newly created contract(s) detected")
 
 
 def test_detects_biweekly_series(session_factory: sessionmaker):
@@ -440,7 +440,9 @@ def test_startup_detection_logs_and_swallows_a_crash(monkeypatch: pytest.MonkeyP
     assert_log_contains(caplog, message="Startup contract detection backfill crashed")
 
 
-def test_new_matching_payments_reactivate_an_archived_contract(session_factory: sessionmaker):
+def test_new_matching_payments_reactivate_an_archived_contract(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     with session_factory() as session:
         account = make_account_with_new_user(session)
         _seed(session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=[0, 30, 60, 90])
@@ -457,6 +459,7 @@ def test_new_matching_payments_reactivate_an_archived_contract(session_factory: 
 
         session.refresh(contract)
         assert not contract.is_archived
+        assert_log_contains(caplog, message=f"Reactivated archived <Contract(id={contract.id}")
 
 
 def test_contract_overdue_for_a_year_is_archived_automatically(
@@ -478,4 +481,5 @@ def test_contract_overdue_for_a_year_is_archived_automatically(
         contract = session.query(Contract).one()
         assert contract.is_archived
         assert contract.end_date == OLDER_DATE + timedelta(days=-710)
-        assert_log_contains(caplog, message="Auto-archived <Contract(")
+        assert_log_contains(caplog, message=f"Auto-archived <Contract(id={contract.id}")
+        assert_log_contains(caplog, message=f")>; overdue since {contract.expected_next_date}")
