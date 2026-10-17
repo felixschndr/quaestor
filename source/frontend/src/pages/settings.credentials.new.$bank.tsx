@@ -279,13 +279,13 @@ function CredentialForm({
     }
   }
 
-  const handleNoCodeConfirm = async () => {
+  const submitWithoutTyping = async (value: string) => {
     if (!activeJob) return
     try {
       await confirm2fa.mutateAsync({
         credentialId: activeJob.credentialId,
         jobId: activeJob.jobId,
-        code: NO_CODE_PLACEHOLDER,
+        code: value,
       })
     } catch {
       toast.error(t('credentials.twoFactor.failed'))
@@ -326,6 +326,27 @@ function CredentialForm({
     )
   }
 
+  if (showCodeForm && job?.options?.length) {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="text-muted-foreground text-sm">
+          {t('sync.twoFactor.tanMediumDescription', { bank: bankTitle })}
+        </p>
+        {job.options.map((option) => (
+          <Button
+            key={option}
+            type="button"
+            variant="outline"
+            disabled={confirm2fa.isPending}
+            onClick={() => void submitWithoutTyping(option)}
+          >
+            {option}
+          </Button>
+        ))}
+      </div>
+    )
+  }
+
   if (showCodeForm && noCodeRequired) {
     const authorizationUrl = job?.authorization_url ?? null
     return (
@@ -338,7 +359,7 @@ function CredentialForm({
           authorizationUrl={authorizationUrl}
           deviceCode={job?.device_code ?? deviceCodeFromAuthorizationUrl(authorizationUrl)}
           pending={confirm2fa.isPending}
-          onConfirm={() => void handleNoCodeConfirm()}
+          onConfirm={() => void submitWithoutTyping(NO_CODE_PLACEHOLDER)}
         />
       </div>
     )

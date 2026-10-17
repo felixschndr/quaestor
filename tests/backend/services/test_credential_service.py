@@ -7,7 +7,8 @@ import pytest
 from sqlalchemy.orm import object_session, sessionmaker
 
 from source.backend.bank_handlers import BankProvider
-from source.backend.bank_handlers.base import BankHandler
+from source.backend.bank_handlers.base import BankHandler, TwoFactorChallenge
+from source.backend.bank_handlers.fints_handler import FinTSHandler
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 from source.backend.exceptions import (
     CredentialAlreadyExistsError,
@@ -18,6 +19,7 @@ from source.backend.exceptions import (
     MissingCredentialFieldError,
     ReauthenticationRequiredError,
 )
+from source.backend.helpers import utc_now
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.services.banking import credential_service, scalable_capital_login, trade_republic_login
@@ -342,7 +344,7 @@ def test_sync_credential_object_records_a_failure_raised_while_starting_the_2fa_
         raise KeyError("application_id")
 
     monkeypatch.setattr(target=Credential, name="sync", value=failing_sync)
-    monkeypatch.setattr(target=BankHandler, name="begin_two_factor_challenge", value=failing_challenge)
+    monkeypatch.setattr(target=FinTSHandler, name="begin_two_factor_challenge", value=failing_challenge)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -642,6 +644,31 @@ def test_sync_credential_object_for_handler_with_2fa_starts_2fa_when_reauth_requ
     assert result.expires_at == expires_at
     start_login.assert_called_once_with(credential_id=credential_id, phone_no=PHONE_NUMBER, pin=PIN)
     assert_log_contains(caplog, message="requires 2FA re-authentication; started interactive challenge")
+
+
+def test_sync_credential_object_with_option_challenge_keeps_background_syncs_enabled(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
+    options = ("first device", "second device")
+
+    def failing_sync(self: Credential, handler: BankHandler) -> None:
+        raise ReauthenticationRequiredError("pick a TAN medium")
+
+    def option_challenge(self: BankHandler, credential_id: int) -> TwoFactorChallenge:
+        return TwoFactorChallenge(challenge_token=CHALLENGE_TOKEN, expires_at=utc_now(), options=options)
+
+    monkeypatch.setattr(target=Credential, name="sync", value=failing_sync)
+    monkeypatch.setattr(target=FinTSHandler, name="begin_two_factor_challenge", value=option_challenge)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        result = credential_service.sync_credential_object(credential=credential)
+        assert credential.requires_two_factor_authentication is False
+
+    assert result.status == credential_service.SyncStatus.TWO_FACTOR_REQUIRED
+    assert result.options == options
 
 
 def test_confirm_two_factor_completes_login_and_syncs_credential(

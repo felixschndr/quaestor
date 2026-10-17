@@ -23,6 +23,7 @@ from source.backend.exceptions import (
     JobErrorCode,
     ReauthenticationRequiredError,
     SyncCancelledError,
+    TanMediumSelectionRequiredError,
     UnsupportedBankError,
     error_code_for,
 )
@@ -30,7 +31,6 @@ from tests.backend.conftest import (
     ACCOUNT_IBAN,
     BANK_PASSWORD,
     BANK_USERNAME,
-    CHALLENGE_TOKEN,
     DEFAULT_AMOUNT,
     DEFAULT_BALANCE,
     LAST_FETCHING_TIMESTAMP,
@@ -38,7 +38,8 @@ from tests.backend.conftest import (
     PIN,
     RECENT_DATE,
     SECOND_ACCOUNT_IBAN,
-    TWO_FACTOR_CODE,
+    SECOND_TAN_MEDIUM,
+    TAN_MEDIUM,
     assert_log_contains,
 )
 
@@ -167,7 +168,7 @@ def test_configure_pushtan_skips_silently_when_no_mechanisms_at_all():
 
 
 def test_configure_pushtan_selects_tan_medium_when_required():
-    medium = object()
+    medium = MagicMock(tan_medium_name=TAN_MEDIUM)
     client = MagicMock()
     client.get_tan_mechanisms.return_value = {
         "942": _FakeMechanism(name="pushTAN", description_required="MUST"),
@@ -177,6 +178,55 @@ def test_configure_pushtan_selects_tan_medium_when_required():
     _try_configure_pushtan_mechanism(client)
 
     client.set_tan_medium.assert_called_once_with(medium)
+
+
+def _client_with_tan_media(names: tuple[str, ...]) -> tuple[MagicMock, list[MagicMock]]:
+    client = MagicMock()
+    client.get_tan_mechanisms.return_value = {"942": _FakeMechanism(name="pushTAN", description_required="MUST")}
+    media = [MagicMock(tan_medium_name=name) for name in names]
+    client.get_tan_media.return_value = (object(), media)
+    return client, media
+
+
+def test_configure_pushtan_selects_stored_tan_medium_among_several():
+    client, media = _client_with_tan_media(names=(TAN_MEDIUM, SECOND_TAN_MEDIUM))
+
+    _try_configure_pushtan_mechanism(client, tan_medium=SECOND_TAN_MEDIUM)
+
+    client.set_tan_medium.assert_called_once_with(media[1])
+
+
+@pytest.mark.parametrize(argnames="stored_tan_medium", argvalues=[None, "removed device"])
+def test_configure_pushtan_asks_to_pick_when_several_media_and_none_stored_matches(stored_tan_medium: str | None):
+    client, _ = _client_with_tan_media(names=(TAN_MEDIUM, SECOND_TAN_MEDIUM))
+
+    with pytest.raises(TanMediumSelectionRequiredError) as raised:
+        _try_configure_pushtan_mechanism(client, tan_medium=stored_tan_medium)
+
+    assert raised.value.media_names == (TAN_MEDIUM, SECOND_TAN_MEDIUM)
+    client.set_tan_medium.assert_not_called()
+
+
+def test_handler_offers_tan_media_as_challenge_and_stores_the_pick(monkeypatch: pytest.MonkeyPatch):
+    client, media = _client_with_tan_media(names=(TAN_MEDIUM, SECOND_TAN_MEDIUM))
+    monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
+    handler = _fints_handler()
+
+    with pytest.raises(TanMediumSelectionRequiredError):
+        with handler.session():
+            pass
+    challenge = handler.begin_two_factor_challenge(credential_id=1)
+    assert challenge is not None
+    assert challenge.options == (TAN_MEDIUM, SECOND_TAN_MEDIUM)
+
+    handler = _fints_handler()
+    handler.session_state = handler.complete_two_factor_challenge(
+        challenge_token=challenge.challenge_token, credential_id=1, code=SECOND_TAN_MEDIUM
+    )
+    client.init_tan_response = "no-tan-needed"
+    with handler.session():
+        pass
+    client.set_tan_medium.assert_called_once_with(media[1])
 
 
 def test_configure_pushtan_raises_when_medium_required_but_none_returned(caplog: pytest.LogCaptureFixture):
@@ -490,13 +540,6 @@ def test_bank_info_required_fields_reflects_handler_credential_fields():
 
 def test_fints_handler_offers_no_out_of_band_two_factor_challenge():
     assert _fints_handler().begin_two_factor_challenge(credential_id=1) is None
-
-
-def test_fints_handler_complete_two_factor_challenge_is_not_supported():
-    with pytest.raises(NotImplementedError):
-        _fints_handler().complete_two_factor_challenge(
-            challenge_token=CHALLENGE_TOKEN, credential_id=1, code=TWO_FACTOR_CODE
-        )
 
 
 @dataclass

@@ -54,6 +54,7 @@ class SyncResult:
     expires_at: datetime | None = None
     authorization_url: str | None = None
     device_code: str | None = None
+    options: tuple[str, ...] | None = None
 
 
 def list_credentials(db_session: Session, user: User) -> list[Credential]:
@@ -351,13 +352,15 @@ def _sync_credential_object(
         if challenge is None:
             raise
         logger.info(f"{credential} requires 2FA re-authentication; started interactive challenge")
-        credential.requires_two_factor_authentication = True
+        if challenge.options is None:
+            credential.requires_two_factor_authentication = True
         return SyncResult(
             status=SyncStatus.TWO_FACTOR_REQUIRED,
             challenge_token=challenge.challenge_token,
             expires_at=challenge.expires_at,
             authorization_url=challenge.authorization_url,
             device_code=challenge.device_code,
+            options=challenge.options,
         )
     finally:
         credential.session_state = handler.session_state

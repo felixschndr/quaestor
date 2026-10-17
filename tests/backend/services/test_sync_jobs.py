@@ -129,7 +129,12 @@ def test_start_sync_tags_invalid_credentials_with_error_code(patch_sync: PatchSy
 
 def test_start_sync_holds_awaiting_two_factor(patch_sync: PatchSync, caplog: pytest.LogCaptureFixture):
     expires = utc_now() + timedelta(minutes=5)
-    patch_sync(SyncResult(status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN, expires_at=expires))
+    options = ("first device", "second device")
+    patch_sync(
+        SyncResult(
+            status=SyncStatus.TWO_FACTOR_REQUIRED, challenge_token=CHALLENGE_TOKEN, expires_at=expires, options=options
+        )
+    )
 
     async def scenario():
         job = await sync_jobs.start_sync(credential_id=42)
@@ -140,6 +145,7 @@ def test_start_sync_holds_awaiting_two_factor(patch_sync: PatchSync, caplog: pyt
         assert job.status == JobStatus.AWAITING_TWO_FACTOR
         assert job.challenge_token == CHALLENGE_TOKEN
         assert job.expires_at == expires
+        assert job.options == options
         assert job.finished_at is None  # awaiting_2fa is not terminal
 
     asyncio.run(scenario())
