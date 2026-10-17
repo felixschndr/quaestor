@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from source.backend.bank_handlers import BankProvider
+from source.backend.exceptions import JobErrorCode
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import NO_SESSION_LOG_LABEL
 from source.backend.services.banking import credential_service
@@ -357,6 +358,33 @@ def test_due_only_sync_skips_credentials_awaiting_two_factor(
     assert [job["credential_id"] for job in response.json()] == [unattended_id]
 
 
+def test_due_only_sync_resumes_trade_republic_without_an_interactive_challenge(
+    http_client: TestClient,
+    session_factory: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    user_id = register_and_get_id(http_client)
+    with session_factory() as session:
+        resumable = make_credential(
+            session, user_id=user_id, bank=BankProvider.TRADE_REPUBLIC, requires_two_factor_authentication=True
+        )
+        awaiting_reauthentication = make_credential(
+            session, user_id=user_id, bank=BankProvider.TRADE_REPUBLIC, requires_two_factor_authentication=True
+        )
+        awaiting_reauthentication.last_sync_error_code = JobErrorCode.REAUTHENTICATION_REQUIRED
+        session.commit()
+        resumable_id = resumable.id
+
+    sync_mock = MagicMock(return_value=SyncResult(status=SyncStatus.COMPLETED))
+    monkeypatch.setattr(target=credential_service, name="sync_credential", value=sync_mock)
+
+    response = http_client.post("/api/users/sync?due_only=true")
+
+    assert response.status_code == 202
+    assert [job["credential_id"] for job in response.json()] == [resumable_id]
+    assert sync_mock.call_args.kwargs["start_interactive_challenge"] is False
+
+
 def test_sync_without_due_only_still_starts_a_credential_tried_a_moment_ago(
     http_client: TestClient,
     session_factory: sessionmaker,
@@ -375,6 +403,7 @@ def test_sync_without_due_only_still_starts_a_credential_tried_a_moment_ago(
 
     assert response.status_code == 202
     assert [job["credential_id"] for job in response.json()] == [credential_id]
+    assert sync_mock.call_args.kwargs["start_interactive_challenge"] is True
 
 
 def test_sync_skips_credentials_with_sync_disabled(

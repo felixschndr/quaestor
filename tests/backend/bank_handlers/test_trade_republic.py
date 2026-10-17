@@ -1,5 +1,8 @@
 import asyncio
+import base64
+import json
 import logging
+import time
 from datetime import date, datetime, timedelta
 
 import pytest
@@ -333,9 +336,7 @@ def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest
     assert calls == [{"challenge_token": CHALLENGE_TOKEN, "credential_id": 7, "code": TWO_FACTOR_CODE}]
 
 
-def test_session_without_resumable_websession_requires_reauthentication(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-):
+def test_session_without_resumable_websession_requires_reauthentication(monkeypatch: pytest.MonkeyPatch):
     class _FakeApi:
         def __init__(self, **kwargs: object) -> None:
             pass
@@ -347,12 +348,51 @@ def test_session_without_resumable_websession_requires_reauthentication(
     handler = _handler()
     handler.session_state = {"cookies": "stale-cookie"}
 
-    with caplog.at_level(logging.INFO):
-        with pytest.raises(ReauthenticationRequiredError, match="2FA re-authentication required"):
-            with handler.session():
-                pass
+    with pytest.raises(ReauthenticationRequiredError, match="2FA re-authentication required"):
+        with handler.session():
+            pass
 
-    assert_log_contains(caplog, message="Trade Republic websession could not be resumed")
+
+def _cookies_with_refresh_token(token: str) -> dict:
+    return {"cookies": f"# Netscape HTTP Cookie File\napi.traderepublic.com\tFALSE\t/\tTRUE\t0\ttr_refresh\t{token}\n"}
+
+
+def _jwt(exp: float) -> str:
+    payload = base64.urlsafe_b64encode(json.dumps({"exp": int(exp)}).encode()).decode().rstrip("=")
+    return f"header.{payload}.signature"
+
+
+@pytest.mark.parametrize(
+    argnames=("session_state", "expected"),
+    argvalues=[
+        (_cookies_with_refresh_token(_jwt(exp=time.time() + 3600)), True),
+        (_cookies_with_refresh_token(_jwt(exp=time.time() - 60)), False),
+        (None, True),
+    ],
+)
+def test_resumes_session_unattended_until_the_refresh_token_expires(session_state: dict | None, expected: bool):
+    assert TradeRepublicHandler.resumes_session_unattended(session_state) is expected
+
+
+@pytest.mark.parametrize(
+    argnames=("session_state", "log_message"),
+    argvalues=[
+        (
+            _cookies_with_refresh_token("not-a-jwt"),
+            'Could not read the expiry of the Trade Republic "tr_refresh" token',
+        ),
+        (
+            {"cookies": "# Netscape HTTP Cookie File\napi.traderepublic.com\tFALSE\t/\tTRUE\t0\ttr_session\tvalue\n"},
+            'Stored Trade Republic cookies hold no "tr_refresh" token',
+        ),
+        ({"cookies": "not a cookie file"}, "Could not parse the stored Trade Republic cookies"),
+    ],
+)
+def test_resumes_session_unattended_warns_and_tries_anyway_when_the_expiry_is_unreadable(
+    session_state: dict, log_message: str, caplog: pytest.LogCaptureFixture
+):
+    assert TradeRepublicHandler.resumes_session_unattended(session_state) is True
+    assert_log_contains(caplog, message=log_message)
 
 
 def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.MonkeyPatch):

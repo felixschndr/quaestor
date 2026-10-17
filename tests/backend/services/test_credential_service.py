@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
@@ -192,6 +193,53 @@ def test_sync_all_due_credentials_keeps_an_unattended_2fa_session_alive(
     assert sync.call_args.kwargs["start_interactive_challenge"] is False
 
 
+def test_sync_all_due_credentials_skips_a_credential_awaiting_reauthentication(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(
+        session_factory,
+        user_id=user_id,
+        bank=BankProvider.TRADE_REPUBLIC,
+        credentials={"phone": PHONE_NUMBER, "pin": PIN},
+        requires_two_factor_authentication=True,
+    )
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.last_sync_error_code = JobErrorCode.REAUTHENTICATION_REQUIRED
+        session.commit()
+    sync = MagicMock()
+    monkeypatch.setattr(target=credential_service, name="sync_credential_object", value=sync)
+
+    with session_factory() as session:
+        credential_service.sync_all_due_credentials(db_session=session)
+
+    sync.assert_not_called()
+
+
+def test_sync_all_due_credentials_skips_an_unattended_2fa_session_that_can_no_longer_be_resumed(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    persist_credential(
+        session_factory,
+        user_id=user_id,
+        bank=BankProvider.TRADE_REPUBLIC,
+        credentials={"phone": PHONE_NUMBER, "pin": PIN},
+        requires_two_factor_authentication=True,
+    )
+    monkeypatch.setattr(
+        target=TradeRepublicHandler, name="resumes_session_unattended", value=classmethod(lambda cls, state: False)
+    )
+    sync = MagicMock()
+    monkeypatch.setattr(target=credential_service, name="sync_credential_object", value=sync)
+
+    with session_factory() as session:
+        credential_service.sync_all_due_credentials(db_session=session)
+
+    sync.assert_not_called()
+
+
 def test_sync_credential_loads_by_id_and_returns_completed_for_handler_without_2fa(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
@@ -253,6 +301,31 @@ def test_sync_credential_object_records_the_failure_and_clears_it_on_the_next_su
 
         assert credential.last_sync_error is None
         assert credential.last_sync_error_code is None
+
+
+def test_unattended_sync_credential_keeps_the_reauthentication_error_without_starting_a_challenge(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
+
+    def failing_sync(self: Credential, handler: BankHandler) -> None:
+        raise ReauthenticationRequiredError("websession expired")
+
+    challenge = MagicMock()
+    monkeypatch.setattr(target=Credential, name="sync", value=failing_sync)
+    monkeypatch.setattr(target=BankHandler, name="begin_two_factor_challenge", value=challenge)
+
+    with session_factory() as session:
+        with pytest.raises(ReauthenticationRequiredError):
+            credential_service.sync_credential(
+                db_session=session, credential_id=credential_id, start_interactive_challenge=False
+            )
+
+    challenge.assert_not_called()
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        assert credential.last_sync_error_code == JobErrorCode.REAUTHENTICATION_REQUIRED
 
 
 def test_sync_credential_object_records_a_failure_raised_while_starting_the_2fa_challenge(
@@ -770,8 +843,13 @@ def test_sync_all_due_credentials_starts_no_interactive_challenge(
         credential_service.sync_all_due_credentials(db_session=session)
 
     start_login.assert_not_called()
-    assert _stored_credential(session_factory, credential_id=credential_id).requires_two_factor_authentication is False
-    assert_log_contains(caplog, message="requires re-authentication; nobody is around to start it")
+    stored = _stored_credential(session_factory, credential_id=credential_id)
+    assert stored.requires_two_factor_authentication is False
+    assert stored.last_sync_error_code == JobErrorCode.REAUTHENTICATION_REQUIRED
+    failures = [record for record in caplog.records if "Periodic sync failed" in record.getMessage()]
+    assert len(failures) == 1
+    assert failures[0].levelno == logging.WARNING
+    assert failures[0].exc_info is None
 
 
 def test_confirm_two_factor_keeps_the_new_login_when_the_first_sync_fails(

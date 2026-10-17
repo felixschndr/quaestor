@@ -468,6 +468,7 @@
         "timeout": "Die Bank hat nicht geantwortet. Versuche es später erneut.",
         "redirect_url_not_allowed": "Die hinterlegte Redirect-URL ist bei der Bank nicht freigegeben.",
         "application_not_activated": "Die Banking-Anwendung ist noch nicht freigeschaltet.",
+        "reauthentication_required": "Die Anmeldung bei der Bank ist abgelaufen. Bitte synchronisiere manuell und bestätige die Anmeldung erneut.",
         "unknown": "Die Bank hat einen unerwarteten Fehler gemeldet:"
       }
     },

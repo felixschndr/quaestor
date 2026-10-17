@@ -468,6 +468,7 @@
         "timeout": "The bank did not respond. Please try again later.",
         "redirect_url_not_allowed": "The configured redirect URL is not allowed by the bank.",
         "application_not_activated": "The banking application is not activated yet.",
+        "reauthentication_required": "The bank login has expired. Please sync manually and confirm the login again.",
         "unknown": "The bank reported an unexpected error:"
       }
     },

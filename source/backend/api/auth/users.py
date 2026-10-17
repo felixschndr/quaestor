@@ -178,7 +178,7 @@ async def sync_credentials(
                 continue
         elif not credential.sync_enabled or not credential.is_syncable:
             continue
-        job = await sync_jobs.start_sync(credential_id=credential.id)
+        job = await sync_jobs.start_sync(credential_id=credential.id, start_interactive_challenge=not due_only)
         jobs.append(SyncJobRead.for_viewer(job, owned=credential.user_id == current_user.id))
     if due_only:
         logger.info(

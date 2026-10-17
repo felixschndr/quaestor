@@ -94,7 +94,7 @@ async def _job_to_continue(credential_id: int) -> "SyncJob | None":
     return None
 
 
-async def start_sync(credential_id: int) -> SyncJob:
+async def start_sync(credential_id: int, start_interactive_challenge: bool = True) -> SyncJob:
     _cleanup_old_jobs()
     running = await _job_to_continue(credential_id)
     if running is not None:
@@ -102,17 +102,17 @@ async def start_sync(credential_id: int) -> SyncJob:
     job = SyncJob(job_id=secrets.token_urlsafe(16), credential_id=credential_id)
     _jobs[job.job_id] = job
     logger.info(f"{job} started")
-    _spawn(_run_sync(job))
+    _spawn(_run_sync(job=job, start_interactive_challenge=start_interactive_challenge))
     # Yield once so the background task gets a chance to start before we return.
     await asyncio.sleep(0)
     return job
 
 
-async def _run_sync(job: SyncJob) -> None:
+async def _run_sync(job: SyncJob, start_interactive_challenge: bool = True) -> None:
     notify_two_factor_state = _make_two_factor_state_notifier(job)
     is_cancelled = lambda: job.finished_at is not None  # noqa: E731
     coroutine = asyncio.to_thread(  # noqa FKA100
-        _sync_in_thread, job.credential_id, notify_two_factor_state, is_cancelled
+        _sync_in_thread, job.credential_id, notify_two_factor_state, is_cancelled, start_interactive_challenge
     )
     await _apply_result_handling_errors(job=job, coroutine=coroutine, log_label="failed")
 
@@ -162,6 +162,7 @@ def _sync_in_thread(
     credential_id: int,
     notify_two_factor_state: "Callable[[bool], None] | None" = None,
     is_cancelled: "Callable[[], bool] | None" = None,
+    start_interactive_challenge: bool = True,
 ) -> SyncResult:
     with SessionLocal() as db_session:
         return credential_service.sync_credential(
@@ -169,6 +170,7 @@ def _sync_in_thread(
             credential_id=credential_id,
             notify_two_factor_state=notify_two_factor_state,
             is_cancelled=is_cancelled,
+            start_interactive_challenge=start_interactive_challenge,
         )
 
 

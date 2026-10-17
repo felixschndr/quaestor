@@ -102,6 +102,7 @@ export type SyncJobErrorCode =
   | 'timeout'
   | 'redirect_url_not_allowed'
   | 'application_not_activated'
+  | 'reauthentication_required'
   | 'unknown'
 
 export function hasSyncError(credential: CredentialRead): boolean {

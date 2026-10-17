@@ -10,9 +10,11 @@ from sqlalchemy.orm import Session, object_session
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
 from source.backend.bank_handlers.base import CancelCheck, TwoFactorStateCallback
 from source.backend.exceptions import (
+    KNOWN_SYNC_ERROR_TYPES,
     CredentialAlreadyExistsError,
     CredentialNotFoundError,
     InvalidCredentialFieldError,
+    JobErrorCode,
     MissingCredentialFieldError,
     PermissionDeniedError,
     ReauthenticationRequiredError,
@@ -222,6 +224,7 @@ def sync_credential(
     credential_id: int,
     notify_two_factor_state: TwoFactorStateCallback | None = None,
     is_cancelled: CancelCheck | None = None,
+    start_interactive_challenge: bool = True,
 ) -> SyncResult:
     logger.debug(f"Sync requested for credential {credential_id}")
     with _sync_lock(credential_id):
@@ -233,9 +236,16 @@ def sync_credential(
                 notify_two_factor_state=notify_two_factor_state,
                 is_cancelled=is_cancelled,
                 reevaluate_two_factor_requirement=True,
+                start_interactive_challenge=start_interactive_challenge,
             )
         except Exception:
-            _persist_session_state_of_failed_sync(db_session=db_session, credential=credential)
+            # Nobody watches an unattended sync's job, so keep its error on the credential instead.
+            kept_fields = (
+                ("session_state",)
+                if start_interactive_challenge
+                else ("session_state", "last_sync_error", "last_sync_error_code")
+            )
+            _persist_session_state_of_failed_sync(db_session=db_session, credential=credential, kept_fields=kept_fields)
             raise
         return _finalize_sync(db_session=db_session, credential=credential, snapshot=snapshot, result=result)
 
@@ -336,7 +346,6 @@ def _sync_credential_object(
         credential.sync(handler)
     except ReauthenticationRequiredError:
         if not start_interactive_challenge:
-            logger.warning(f"{credential} requires re-authentication; nobody is around to start it")
             raise
         challenge = handler.begin_two_factor_challenge(credential_id=credential.id)
         if challenge is None:
@@ -371,9 +380,7 @@ def _should_reevaluate_two_factor(previous_fetching_timestamp: datetime | None) 
 
 
 def should_sync_on_app_open(credential: Credential, now: datetime | None = None) -> bool:
-    if not credential.sync_enabled or not credential.is_syncable:
-        return False
-    if credential.requires_two_factor_authentication:
+    if not _is_due_for_periodic_sync(credential):
         return False
     if credential.last_sync_attempt_timestamp is None:
         return True
@@ -383,8 +390,12 @@ def should_sync_on_app_open(credential: Credential, now: datetime | None = None)
 def _is_due_for_periodic_sync(credential: Credential) -> bool:
     if not credential.sync_enabled or not credential.is_syncable:
         return False
+    if credential.last_sync_error_code == JobErrorCode.REAUTHENTICATION_REQUIRED:
+        return False
     handler_class = BANKS_BY_NAME[credential.bank.value].handler
-    return not credential.requires_two_factor_authentication or handler_class.RESUMES_SESSION_UNATTENDED
+    return not credential.requires_two_factor_authentication or handler_class.resumes_session_unattended(
+        credential.session_state
+    )
 
 
 def sync_all_due_credentials(db_session: Session) -> None:
@@ -413,14 +424,17 @@ def sync_all_due_credentials(db_session: Session) -> None:
             synced += 1
             synced_users[credential.user_id] = credential.user
             synced_credentials.append((credential, snapshot))
-        except Exception:
+        except Exception as e:
             failed += 1
             _persist_session_state_of_failed_sync(
                 db_session=db_session,
                 credential=credential,
                 kept_fields=("session_state", "last_sync_error", "last_sync_error_code"),
             )
-            logger.exception(f"Periodic sync failed for {credential}")
+            if isinstance(e, KNOWN_SYNC_ERROR_TYPES):
+                logger.warning(f"Periodic sync failed for {credential}: {e}")
+            else:
+                logger.exception(f"Periodic sync failed for {credential}")
             if not already_failing:
                 failure_notifications.append(
                     (credential.user, notification_engine.credential_sync_failed_notification(credential))
