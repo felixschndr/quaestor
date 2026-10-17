@@ -326,7 +326,7 @@
     "appearanceDescription": "Sprache, Währung, Erscheinungsbild und Übersicht",
     "authentication": "Authentifizierung",
     "authenticationDescription": "Passwort und Zwei-Faktor-Authentifizierung",
-    "sessions": "Sitzungen",
+    "sessions": "Sitzungen und Offline-Modus",
     "sessionsDescription": "Geräte, die angemeldet sind",
     "credentialsDescription": "Banken hinzufügen, bearbeiten oder entfernen",
     "serverVersionDescription": "Aktuelle und neueste verfügbare Version",
@@ -939,7 +939,8 @@
     "assigned": "Zum Vertrag hinzugefügt",
     "removed": "Vom Vertrag entfernt",
     "removeFromContract": "Vom Vertrag entfernen",
-    "createToAssign": "Auf diesem Konto gibt es keine Verträge – lege zuerst einen an.",
+    "createToAssign": "Auf diesem Konto gibt es keine Verträge – lege zuerst einen an",
+    "noneOnAccount": "Auf diesem Konto gibt es keine Verträge",
     "frequency": {
       "WEEKLY": "$t(common.weekly)",
       "BIWEEKLY": "Zweiwöchentlich",

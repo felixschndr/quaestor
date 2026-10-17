@@ -513,6 +513,7 @@ function CreateRuleFromTransaction({ transaction }: { transaction: TransactionRe
 
 export function ContractSection({ transaction }: { transaction: TransactionRead }) {
   const { t } = useTranslation()
+  const offline = useIsOffline()
   const { data: contracts } = useContracts()
   const setContract = useSetTransactionContract()
 
@@ -531,6 +532,13 @@ export function ContractSection({ transaction }: { transaction: TransactionRead 
   }
 
   if (candidates.length === 0 && currentId === null) {
+    if (offline) {
+      return (
+        <DetailRow label={t('contracts.contract')}>
+          <span className="text-muted-foreground text-sm">{t('contracts.noneOnAccount')}</span>
+        </DetailRow>
+      )
+    }
     return (
       <DetailRow label={t('contracts.contract')}>
         <Link

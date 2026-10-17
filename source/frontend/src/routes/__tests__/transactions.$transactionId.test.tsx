@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { onlineManager } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
@@ -647,5 +648,15 @@ describe('ContractSection', () => {
     render(<ContractSection transaction={buildTransaction({ contract_id: null })} />)
     expect(screen.getByLabelText('Contract')).toHaveTextContent('No contract')
     expect(screen.queryByRole('button', { name: 'Remove from contract' })).toBeNull()
+  })
+
+  it('drops the create link while offline when the account has no contracts', () => {
+    onlineManager.setOnline(false)
+    render(
+      <ContractSection transaction={buildTransaction({ account_id: 99, contract_id: null })} />,
+    )
+    expect(screen.getByText('No contracts on this account')).toHaveClass('text-muted-foreground')
+    expect(screen.queryByRole('link')).toBeNull()
+    onlineManager.setOnline(true)
   })
 })
