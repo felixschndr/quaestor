@@ -249,7 +249,7 @@
     "contractsOverdue": "Verträge – {{count}} überfällig"
   },
   "account": {
-    "lastUpdatedAt": "Zuletzt aktualisiert am {{date}}",
+    "lastUpdatedAt": "Zuletzt aktualisiert {{date}}",
     "sync": {
       "aria": "Konto synchronisieren"
     },
@@ -262,6 +262,7 @@
     "yesterday": "Gestern",
     "dayBeforeYesterday": "Vorgestern",
     "dateTimeAt": "{{day}} um {{time}} Uhr",
+    "onDay": "am {{day}}",
     "tomorrow": "Geplant für morgen",
     "dayAfterTomorrow": "Geplant für übermorgen",
     "future": "Geplant für {{date}}",

@@ -380,7 +380,9 @@ export function AccountDetailView({
                 syncWarn ? 'text-warning' : 'text-muted-foreground',
               )}
             >
-              {t('account.lastUpdatedAt', { date: formatRelativeDateTime(lastUpdated, t, today) })}
+              {t('account.lastUpdatedAt', {
+                date: formatRelativeDateTime(lastUpdated, t, today, true),
+              })}
             </p>
           ) : null}
         </div>

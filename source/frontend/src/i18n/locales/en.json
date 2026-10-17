@@ -262,6 +262,7 @@
     "yesterday": "Yesterday",
     "dayBeforeYesterday": "Day before yesterday",
     "dateTimeAt": "{{day}} at {{time}}",
+    "onDay": "on {{day}}",
     "tomorrow": "Scheduled for tomorrow",
     "dayAfterTomorrow": "Scheduled for the day after tomorrow",
     "future": "Scheduled for {{date}}",

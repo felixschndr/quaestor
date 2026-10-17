@@ -267,17 +267,27 @@ export function formatRelativeDateTime(
   d: Date | string,
   t: (key: string, options?: Record<string, unknown>) => string,
   now: Date = new Date(),
+  inSentence = false,
 ): string {
   const date = parseTimestamp(d)
   const relativeKey = relativeDateKey(date, now, displayTimeZone)
-  const dayLabel =
-    relativeKey === 'today' || relativeKey === 'yesterday' || relativeKey === 'dayBeforeYesterday'
-      ? t(`account.${relativeKey}`)
-      : new Intl.DateTimeFormat(activeLocale(), {
-          weekday: 'long',
-          day: '2-digit',
-          month: 'long',
-          timeZone: displayTimeZone,
-        }).format(date)
+  let dayLabel: string
+  if (
+    relativeKey === 'today' ||
+    relativeKey === 'yesterday' ||
+    relativeKey === 'dayBeforeYesterday'
+  ) {
+    dayLabel = t(`account.${relativeKey}`)
+    if (inSentence)
+      dayLabel = dayLabel.charAt(0).toLocaleLowerCase(activeLocale()) + dayLabel.slice(1)
+  } else {
+    dayLabel = new Intl.DateTimeFormat(activeLocale(), {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      timeZone: displayTimeZone,
+    }).format(date)
+    if (inSentence) dayLabel = t('account.onDay', { day: dayLabel })
+  }
   return t('account.dateTimeAt', { day: dayLabel, time: formatTime(date) })
 }

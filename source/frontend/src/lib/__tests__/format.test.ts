@@ -153,6 +153,14 @@ describe('formatRelativeDateTime', () => {
     )
   })
 
+  it.each([
+    ['2026-05-20T08:30:00Z', 'heute um 08:30 Uhr'],
+    ['2026-05-10T08:30:00Z', 'am Sonntag, 10. Mai um 08:30 Uhr'],
+  ])('renders %s mid-sentence as %s', (iso, expected) => {
+    setDisplayTimeZone('UTC')
+    expect(formatRelativeDateTime(iso, t, now, true)).toBe(expected)
+  })
+
   it('classifies the day and renders the time in the configured display zone', () => {
     // 22:30 UTC on the 19th is 00:30 on the 20th in Berlin. Relative to 14:00
     // Berlin on the 20th that is the *same* day ("today"), whereas in UTC it
