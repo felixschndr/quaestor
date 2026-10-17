@@ -162,15 +162,8 @@ describe('TransactionDetailView', () => {
     expect(dashes.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('renders the translated transaction type alongside an icon', () => {
+  it('shows only the date in the header, not the transaction type', () => {
     renderView({ transaction_type: 'OUTGOING' })
-    expect(screen.getByText('Outgoing')).toBeInTheDocument()
-  })
-
-  it('omits the type segment in the header when transaction_type is null', () => {
-    renderView({ transaction_type: null })
-    // The type is shown next to the date in the header; with no type we drop the
-    // segment entirely rather than rendering a placeholder, but the date remains.
     expect(screen.queryByText('Outgoing')).not.toBeInTheDocument()
     expect(screen.getByText(/May 20, 2026/)).toBeInTheDocument()
   })

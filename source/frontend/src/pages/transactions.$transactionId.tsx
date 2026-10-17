@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowDownLeft, ArrowUpRight, CircleHelp, RotateCcw, Unlink } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, RotateCcw, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { TransactionRead } from '@/lib/accountHistory'
-import { TRANSACTION_TYPE_ICONS } from '@/lib/transactionTypeIcons'
 import {
   formatDate,
   formatDateCompact,
@@ -90,17 +89,7 @@ export function TransactionDetailView({
           >
             {formatMoney(transaction.amount)}
           </p>
-          <p className="text-muted-foreground flex flex-col items-center gap-1.5 text-sm sm:flex-row">
-            <span>{formatDate(transaction.date)}</span>
-            {transaction.transaction_type ? (
-              <>
-                <span aria-hidden="true" className="hidden sm:inline">
-                  ·
-                </span>
-                <TypeBadge transactionType={transaction.transaction_type} />
-              </>
-            ) : null}
-          </p>
+          <p className="text-muted-foreground text-sm">{formatDate(transaction.date)}</p>
           {transaction.pending ? (
             <p className="bg-muted text-muted-foreground rounded-full px-3 py-1 text-xs font-medium">
               {t('transaction.pendingHint')}
@@ -498,18 +487,6 @@ export function DetailRow({
       <dt className="text-muted-foreground cursor-default text-sm">{label}</dt>
       <dd className="text-sm break-words">{children}</dd>
     </div>
-  )
-}
-
-function TypeBadge({ transactionType }: { transactionType: string }) {
-  const { t } = useTranslation()
-  const Icon =
-    TRANSACTION_TYPE_ICONS[transactionType as keyof typeof TRANSACTION_TYPE_ICONS] ?? CircleHelp
-  return (
-    <span className="inline-flex items-center gap-2">
-      <Icon className="text-muted-foreground size-4" aria-hidden="true" />
-      <span className="text-sm">{t(`common.transactionLabel.${transactionType}`)}</span>
-    </span>
   )
 }
 
