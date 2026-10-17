@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -61,19 +61,24 @@ export const categorizationQueryKeys = {
   customCategories: ['categorization', 'custom-categories'] as const,
 }
 
-export function useCategorization() {
-  return useQuery({
+export const categorizationQuery = () =>
+  queryOptions({
     queryKey: categorizationQueryKeys.all,
     queryFn: () => api<CategorizationRead>('/categorization'),
   })
+
+export function useCategorization() {
+  return useQuery(categorizationQuery())
 }
 
-export function useCustomCategories(options?: { enabled?: boolean }) {
-  return useQuery({
+export const customCategoriesQuery = () =>
+  queryOptions({
     queryKey: categorizationQueryKeys.customCategories,
     queryFn: () => api<CustomCategoriesRead>('/categorization/custom-categories'),
-    enabled: options?.enabled ?? true,
   })
+
+export function useCustomCategories(options?: { enabled?: boolean }) {
+  return useQuery({ ...customCategoriesQuery(), enabled: options?.enabled ?? true })
 }
 
 function useCategorizationMutation<TVars, TData extends { recategorized: number }>(

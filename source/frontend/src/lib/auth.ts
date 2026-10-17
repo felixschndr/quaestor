@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import {
+  onlineManager,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query'
 import { redirect } from '@tanstack/react-router'
-import { api, ApiError } from './api'
+import { api, ApiError, NetworkError } from './api'
+import { clearOfflineCache } from './offlineCache'
 import { accountQueryKeys } from './accountHistory'
 import {
   SYNC_POLL_INTERVAL_MS,
@@ -79,6 +86,8 @@ export const authQueryKeys = {
   passwordRequirements: ['auth', 'password_requirements'] as const,
 }
 
+const ME_RECHECK_INTERVAL_MS = 30_000
+
 const meQueryOptions = {
   queryKey: authQueryKeys.me,
   queryFn: () => api<UserRead>('/auth/me'),
@@ -101,10 +110,16 @@ export async function ensureAuthenticated(args: {
   search: string
 }): Promise<void> {
   if (args.pathname === '/login') return
+  const { queryClient } = args
   try {
-    await args.queryClient.ensureQueryData(meQueryOptions)
+    if (onlineManager.isOnline() || queryClient.getQueryData(authQueryKeys.me) === undefined) {
+      await queryClient.query({ ...meQueryOptions, staleTime: ME_RECHECK_INTERVAL_MS })
+    }
   } catch (err) {
+    if (err instanceof NetworkError && queryClient.getQueryData(authQueryKeys.me)) return
     if (err instanceof ApiError && err.status === 401) {
+      queryClient.removeQueries()
+      await clearOfflineCache()
       throw redirect({
         to: '/login',
         search: { next: args.pathname + (args.search ?? '') },

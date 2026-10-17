@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { queryOptions, useQuery } from '@tanstack/react-query'
 
 import { api } from './api'
 import { useInvalidatingMutation } from './mutation'
@@ -29,11 +29,14 @@ export const expectedQueryKeys = {
   list: (accountId: number) => ['account', accountId, 'expected'] as const,
 }
 
-export function useExpectedTransactions(accountId: number) {
-  return useQuery({
+export const expectedTransactionsQuery = (accountId: number) =>
+  queryOptions({
     queryKey: expectedQueryKeys.list(accountId),
     queryFn: () => api<ExpectedTransactionRead[]>(`/account/${accountId}/expected-transactions`),
   })
+
+export function useExpectedTransactions(accountId: number) {
+  return useQuery(expectedTransactionsQuery(accountId))
 }
 
 export function useCreateExpectedTransaction(accountId: number) {

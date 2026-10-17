@@ -490,4 +490,36 @@ describe('LoginPageContent', () => {
     ).toBeInTheDocument()
     expect(screen.queryByLabelText('Display name')).not.toBeInTheDocument()
   })
+
+  it.each([
+    [true, 'on'],
+    [false, 'off'],
+  ])('stores the offline choice (kept: %s) only once the login succeeded', async (keep, stored) => {
+    const user = userEvent.setup()
+    window.localStorage.removeItem('offlineCache')
+    ;(globalThis.fetch as Mock).mockImplementation((url: string) =>
+      url === '/api/auth/login'
+        ? Promise.resolve(
+            jsonResponse({
+              status: 200,
+              body: { id: 1, user_name: 'alice', display_name: 'Alice', language: 'en' },
+            }),
+          )
+        : Promise.reject(new Error(`unexpected fetch: ${url}`)),
+    )
+    const onSuccess = vi.fn()
+
+    renderWithQuery(<LoginPageContent next={undefined} onSuccess={onSuccess} />)
+    const toggle = screen.getByRole('switch', { name: 'Keep data on this device' })
+    expect(toggle).toBeChecked()
+    if (!keep) await user.click(toggle)
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Password'), 'wonderland-1234!')
+    expect(window.localStorage.getItem('offlineCache')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1))
+    expect(window.localStorage.getItem('offlineCache')).toBe(stored)
+  })
 })

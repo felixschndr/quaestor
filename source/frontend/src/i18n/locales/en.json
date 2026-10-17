@@ -326,7 +326,7 @@
     "appearanceDescription": "Language, currency, theme and overview",
     "authentication": "Authentication",
     "authenticationDescription": "Password and two-factor authentication",
-    "sessions": "Sessions",
+    "sessions": "Sessions and offline mode",
     "sessionsDescription": "Devices that are signed in",
     "credentialsDescription": "Add, edit or remove banks",
     "serverVersionDescription": "Current and latest available version",
@@ -607,6 +607,11 @@
     "upToDate": "Your server is up to date",
     "updateAvailable": "An update is available",
     "checkFailed": "Couldn't check for updates"
+  },
+  "offlineCache": {
+    "title": "Keep data on this device",
+    "description": "If the server can't be reached, you can still view the data you loaded last, but not change it. It's stored unencrypted in the browser and deleted when you log out.",
+    "banner": "Server unreachable. You're seeing the data you loaded last; changes aren't possible right now."
   },
   "sessions": {
     "ip": "IP",
@@ -934,7 +939,8 @@
     "assigned": "Added to contract",
     "removed": "Removed from contract",
     "removeFromContract": "Remove from contract",
-    "createToAssign": "No contracts on this account — create one first.",
+    "createToAssign": "No contracts on this account — create one first",
+    "noneOnAccount": "No contracts on this account",
     "frequency": {
       "WEEKLY": "$t(common.weekly)",
       "BIWEEKLY": "Biweekly",

@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { BackLink } from '@/components/back-link'
+import { ReadOnlyWhileOffline } from '@/components/offline-banner'
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
 import { defaultAccountIds } from '@/lib/accounts'
 import {
@@ -134,7 +135,9 @@ function ContractsPage() {
         <BackLink to="/" />
         <h1 className="text-foreground text-lg font-semibold">{t('contracts.title')}</h1>
         <div className="ml-auto">
-          <CreateContractDialog credentials={credentials} />
+          <ReadOnlyWhileOffline>
+            <CreateContractDialog credentials={credentials} />
+          </ReadOnlyWhileOffline>
         </div>
       </header>
 

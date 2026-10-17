@@ -168,6 +168,7 @@ These fire on your phone even when the app is not running. Each rule _can_ hide 
 ### App
 
 - **Installable** as a progressive web app (PWA) on desktop and phone
+  - Holds data (if wanted) offline for access when your server is not accessible
 - **Multi-language** interface (English & German (add an issue for another requested language))
 - **Light & dark mode**
 

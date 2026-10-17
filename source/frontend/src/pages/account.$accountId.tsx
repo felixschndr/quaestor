@@ -34,6 +34,7 @@ import { isManualBank } from '@/lib/credentials'
 import { presetDateRange, useNetWorthStats } from '@/lib/statistics'
 import { Sparkline } from '@/components/sparkline'
 import { CopyButton } from '@/components/copy-button'
+import { OFFLINE_BANNER_RESIZE_EVENT, ReadOnlyWhileOffline } from '@/components/offline-banner'
 import { EXPECTED_TRANSACTIONS_KEY, useCollapsedGroups } from '@/lib/collapsedGroups'
 import { cn } from '@/lib/utils'
 import { AmountInput } from '@/components/ui/amount-input'
@@ -295,16 +296,22 @@ export function AccountDetailView({
       measure()
     }
     window.addEventListener('resize', onResize)
+    // The docked amount sits at a measured viewport position, which the offline banner shifts
+    window.addEventListener(OFFLINE_BANNER_RESIZE_EVENT, measure)
     return () => {
       observer.disconnect()
       window.removeEventListener('resize', onResize)
+      window.removeEventListener(OFFLINE_BANNER_RESIZE_EVENT, measure)
       amount.classList.remove('account-balance-dock')
     }
   }, [])
 
   return (
     <main ref={mainRef} className="flex min-h-full flex-col">
-      <div ref={stickyHeaderRef} className="bg-background fixed top-0 right-0 left-0 z-20">
+      <div
+        ref={stickyHeaderRef}
+        className="bg-background fixed top-[var(--offline-banner-height,0px)] right-0 left-0 z-20"
+      >
         <div className="mx-auto flex w-full max-w-page flex-col px-4 pt-4 pb-3">
           <header className="flex items-center justify-between gap-2 pr-2">
             <BackLink to="/" label={t('common.overview')} showLabel />
@@ -377,82 +384,85 @@ export function AccountDetailView({
             </p>
           ) : null}
         </div>
-        <div
-          ref={amountRef}
-          role="group"
-          aria-labelledby={showIban ? 'account-balance-label' : undefined}
-          aria-label={showIban ? undefined : t('common.balance')}
-          className="z-30 w-fit"
-        >
-          <BalanceDisplay
-            account={account}
-            isManual={canBookManually}
-            overrideValue={sparklineValue}
-          />
-        </div>
-        <AccountSparkline accountId={account.id} onActiveDayChange={setSparklineValue} />
-        {canBookManually ? (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setAddingTxn((prev) => !prev)}
-            >
-              <Plus className="size-3.5" aria-hidden="true" />
-              {t('common.addTransaction')}
-            </Button>
-          </div>
-        ) : !isManual && canWrite ? (
-          <ExpectedAddHeaderButton
-            accountId={account.id}
-            onToggle={() => setAddingExpected((prev) => !prev)}
-          />
-        ) : null}
-
-        <div className="mt-4 flex flex-col gap-6">
-          {canBookManually && addingTxn ? (
-            <ManualTransactionForm
-              accountId={account.id}
-              mode="create"
-              onDone={() => setAddingTxn(false)}
-            />
-          ) : null}
-
-          {!isManual && addingExpected ? (
-            <ExpectedTransactionForm
-              accountId={account.id}
-              onDone={() => setAddingExpected(false)}
-            />
-          ) : null}
-
-          {isManual && canWrite ? <RecurringTransactionsList accountId={account.id} /> : null}
-
-          {!isManual && canWrite ? (
-            <ExpectedTransactionsList
-              accountId={account.id}
-              onAdd={() => setAddingExpected((prev) => !prev)}
-            />
-          ) : null}
-
-          {hasAnyTransactions ? (
-            <TransactionGroupList
-              accountId={account.id}
-              groups={groups}
-              today={today}
+        {/* Below the IBAN: copying it keeps working offline */}
+        <ReadOnlyWhileOffline>
+          <div
+            ref={amountRef}
+            role="group"
+            aria-labelledby={showIban ? 'account-balance-label' : undefined}
+            aria-label={showIban ? undefined : t('common.balance')}
+            className="z-30 w-fit"
+          >
+            <BalanceDisplay
+              account={account}
               isManual={canBookManually}
-              isMarketValued={account.is_market_valued}
+              overrideValue={sparklineValue}
             />
-          ) : isLoading ? (
-            <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
-          ) : (
-            <p className="text-muted-foreground text-sm">{t('account.empty')}</p>
-          )}
-
-          {hasNextPage ? (
-            <InfiniteScrollSentinel onIntersect={onLoadMore} isFetching={isFetchingNextPage} />
+          </div>
+          <AccountSparkline accountId={account.id} onActiveDayChange={setSparklineValue} />
+          {canBookManually ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setAddingTxn((prev) => !prev)}
+              >
+                <Plus className="size-3.5" aria-hidden="true" />
+                {t('common.addTransaction')}
+              </Button>
+            </div>
+          ) : !isManual && canWrite ? (
+            <ExpectedAddHeaderButton
+              accountId={account.id}
+              onToggle={() => setAddingExpected((prev) => !prev)}
+            />
           ) : null}
-        </div>
+
+          <div className="mt-4 flex flex-col gap-6">
+            {canBookManually && addingTxn ? (
+              <ManualTransactionForm
+                accountId={account.id}
+                mode="create"
+                onDone={() => setAddingTxn(false)}
+              />
+            ) : null}
+
+            {!isManual && addingExpected ? (
+              <ExpectedTransactionForm
+                accountId={account.id}
+                onDone={() => setAddingExpected(false)}
+              />
+            ) : null}
+
+            {isManual && canWrite ? <RecurringTransactionsList accountId={account.id} /> : null}
+
+            {!isManual && canWrite ? (
+              <ExpectedTransactionsList
+                accountId={account.id}
+                onAdd={() => setAddingExpected((prev) => !prev)}
+              />
+            ) : null}
+
+            {hasAnyTransactions ? (
+              <TransactionGroupList
+                accountId={account.id}
+                groups={groups}
+                today={today}
+                isManual={canBookManually}
+                isMarketValued={account.is_market_valued}
+              />
+            ) : isLoading ? (
+              <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
+            ) : (
+              <p className="text-muted-foreground text-sm">{t('account.empty')}</p>
+            )}
+
+            {hasNextPage ? (
+              <InfiniteScrollSentinel onIntersect={onLoadMore} isFetching={isFetchingNextPage} />
+            ) : null}
+          </div>
+        </ReadOnlyWhileOffline>
       </div>
     </main>
   )
@@ -654,7 +664,9 @@ function DateHeader({
   return (
     <header
       className="bg-background sticky z-[1] grid grid-cols-[1fr_auto] items-baseline gap-2 py-1"
-      style={{ top: 'calc(var(--account-header-height, 0px) - 2px)' }}
+      style={{
+        top: 'calc(var(--offline-banner-height, 0px) + var(--account-header-height, 0px) - 2px)',
+      }}
     >
       <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">{label}</h2>
       {endOfDayBalance !== null ? (

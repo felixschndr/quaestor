@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
 import { authQueryKeys, type Theme, type UserRead } from './auth'
+import { clearOfflineCache } from './offlineCache'
 import { sessionQueryKeys } from './sessions'
 
 export interface UserUpdatePayload {
@@ -28,20 +29,26 @@ interface SupportedCurrencies {
   currencies: string[]
 }
 
-export function useSupportedLanguages() {
-  return useQuery({
+export const supportedLanguagesQuery = () =>
+  queryOptions({
     queryKey: userQueryKeys.languages,
     queryFn: () => api<SupportedLanguages>('/i18n/languages'),
     staleTime: Infinity,
   })
+
+export function useSupportedLanguages() {
+  return useQuery(supportedLanguagesQuery())
 }
 
-export function useSupportedCurrencies() {
-  return useQuery({
+export const supportedCurrenciesQuery = () =>
+  queryOptions({
     queryKey: userQueryKeys.currencies,
     queryFn: () => api<SupportedCurrencies>('/i18n/currencies'),
     staleTime: Infinity,
   })
+
+export function useSupportedCurrencies() {
+  return useQuery(supportedCurrenciesQuery())
 }
 
 /**
@@ -79,7 +86,8 @@ export function useLogout() {
     mutationFn: () => api<void>('/auth/logout', { method: 'POST' }),
     onSuccess: () => {
       queryClient.setQueryData(authQueryKeys.me, null)
-      queryClient.removeQueries({ queryKey: authQueryKeys.me })
+      queryClient.removeQueries()
+      void clearOfflineCache()
     },
   })
 }

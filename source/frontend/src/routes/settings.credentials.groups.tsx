@@ -7,6 +7,7 @@ import { BackLink } from '@/components/back-link'
 import { useAccountGroupLayout } from '@/lib/accountGroups'
 import { useAuthMe } from '@/lib/auth'
 import { GroupsEditorView, buildAccountLookup } from '@/pages/settings.credentials.groups'
+import { ReadOnlyWhileOffline } from '@/components/offline-banner'
 
 export const Route = createFileRoute('/settings/credentials/groups')({
   component: GroupsEditorPage,
@@ -30,7 +31,9 @@ function GroupsEditorPage() {
       {layoutQuery.isLoading || !layoutQuery.data ? (
         <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
       ) : (
-        <GroupsEditorView layout={layoutQuery.data} accountLookup={accountLookup} />
+        <ReadOnlyWhileOffline>
+          <GroupsEditorView layout={layoutQuery.data} accountLookup={accountLookup} />
+        </ReadOnlyWhileOffline>
       )}
     </main>
   )

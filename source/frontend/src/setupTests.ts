@@ -1,5 +1,11 @@
 import '@testing-library/jest-dom/vitest'
 
+import { afterEach } from 'vitest'
+
+import { reportServerReachable } from '@/lib/offlineCache'
+
+afterEach(() => reportServerReachable(true))
+
 window.scrollTo = () => {}
 document.addEventListener('click', (event) => {
   const target = event.target instanceof Element ? event.target.closest('a[href]') : null

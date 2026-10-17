@@ -54,7 +54,7 @@ export function BankPickerView({
 
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
-      <div className="bg-background sticky top-0 z-10 -mx-4 -mt-4 -mb-3 flex flex-col gap-6 px-4 pt-4 pb-3">
+      <div className="bg-background sticky top-[var(--offline-banner-height,0px)] z-10 -mx-4 -mt-4 -mb-3 flex flex-col gap-6 px-4 pt-4 pb-3">
         <header className="flex items-center gap-2">
           <BackLink to="/settings/credentials" />
           <h1 className="text-foreground text-lg font-semibold">{t('credentials.pickerTitle')}</h1>

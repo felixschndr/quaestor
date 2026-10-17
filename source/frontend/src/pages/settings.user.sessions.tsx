@@ -18,6 +18,7 @@ import { useLogout } from '@/lib/user'
 import { formatDateTime } from '@/lib/format'
 import type { SettingsSessionsViewProps } from '@/routes/settings.user.sessions'
 import { SettingsSubPage } from '@/components/settings/settings-section'
+import { OfflineCacheSetting } from '@/components/offline-cache-toggle'
 
 export function SettingsSessionsView({ user }: SettingsSessionsViewProps) {
   const { t } = useTranslation()
@@ -65,6 +66,7 @@ export function SettingsSessionsView({ user }: SettingsSessionsViewProps) {
   return (
     <SettingsSubPage
       title={t('settings.sessions')}
+      usableOffline={<OfflineCacheSetting />}
       headerExtra={
         otherSessionCount > 0 ? (
           <RowActions

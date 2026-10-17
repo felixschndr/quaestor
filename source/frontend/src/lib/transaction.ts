@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  onlineManager,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query'
 
 import { api } from './api'
 import {
@@ -104,10 +110,50 @@ export function useTransaction(
 }
 
 export function useTransactionById(transactionId: number) {
+  const queryClient = useQueryClient()
   return useQuery({
     queryKey: transactionQueryKeys.byId(transactionId),
     queryFn: () => api<TransactionDetailRead>(`/transactions/${transactionId}`),
+    placeholderData: () =>
+      onlineManager.isOnline() ? undefined : findCachedTransaction(queryClient, transactionId),
   })
+}
+
+function findCachedTransaction(
+  queryClient: QueryClient,
+  transactionId: number,
+): TransactionDetailRead | undefined {
+  for (const query of queryClient.getQueryCache().getAll()) {
+    const isSearch = query.queryKey[0] === transactionSearchQueryKeys.all[0]
+    const candidates = isSearch
+      ? asTransactions(query.state.data)
+      : transactionsIn(query.state.data)
+    const found = candidates.find((transaction) => transaction.id === transactionId)
+    if (found) return { related_transactions: [], ...found }
+  }
+  return undefined
+}
+
+// Every list named like one in the API responses: account history pages, statistics, contracts, money flows
+function transactionsIn(value: unknown): TransactionRead[] {
+  if (Array.isArray(value)) return value.flatMap(transactionsIn)
+  if (typeof value !== 'object' || value === null) return []
+  return Object.entries(value).flatMap(([key, child]) =>
+    key === 'transactions' || key === 'related_transactions'
+      ? asTransactions(child)
+      : transactionsIn(child),
+  )
+}
+
+function asTransactions(value: unknown): TransactionRead[] {
+  if (!Array.isArray(value)) return []
+  return value.filter(
+    (item): item is TransactionRead =>
+      typeof item?.id === 'number' &&
+      typeof item.account_id === 'number' &&
+      typeof item.amount === 'number' &&
+      typeof item.date === 'string',
+  )
 }
 
 export interface TransactionPatch {

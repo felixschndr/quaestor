@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import {
+  type QueryClient,
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 
 import { api } from './api'
 
@@ -17,11 +23,14 @@ export const notificationLogQueryKeys = {
   all: ['notification_log'] as const,
 }
 
-export function useNotificationLog() {
-  return useQuery({
+export const notificationLogQuery = () =>
+  queryOptions({
     queryKey: notificationLogQueryKeys.all,
     queryFn: () => api<NotificationLogEntry[]>('/notification_log'),
   })
+
+export function useNotificationLog() {
+  return useQuery(notificationLogQuery())
 }
 
 export function useMarkNotificationRead() {

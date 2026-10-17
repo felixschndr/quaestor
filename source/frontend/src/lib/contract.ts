@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from './api'
 import { accountQueryKeys, type TransactionRead } from './accountHistory'
@@ -164,19 +164,25 @@ export const contractQueryKeys = {
   detail: (contractId: number) => ['contracts', contractId] as const,
 }
 
-export function useContracts(includeArchived = false) {
-  return useQuery({
+export const contractsQuery = (includeArchived = false) =>
+  queryOptions({
     queryKey: includeArchived ? [...contractQueryKeys.list, 'archived'] : contractQueryKeys.list,
     queryFn: () =>
       api<ContractRead[]>(includeArchived ? '/contracts?include_archived=true' : '/contracts'),
   })
+
+export function useContracts(includeArchived = false) {
+  return useQuery(contractsQuery(includeArchived))
 }
 
-export function useContract(contractId: number) {
-  return useQuery({
+export const contractQuery = (contractId: number) =>
+  queryOptions({
     queryKey: contractQueryKeys.detail(contractId),
     queryFn: () => api<ContractDetailRead>(`/contracts/${contractId}`),
   })
+
+export function useContract(contractId: number) {
+  return useQuery(contractQuery(contractId))
 }
 
 export function useCreateContract() {

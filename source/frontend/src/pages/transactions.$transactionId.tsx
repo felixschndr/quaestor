@@ -29,6 +29,7 @@ import type {
   TransactionDetailViewProps,
 } from '@/routes/transactions.$transactionId'
 import { BackLink } from '@/components/back-link'
+import { ReadOnlyWhileOffline } from '@/components/offline-banner'
 import { EmptyValue } from '@/components/empty-value'
 
 export function otherPartyLabelKey(amount: number): string {
@@ -72,114 +73,116 @@ export function TransactionDetailView({
 
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-8 p-4">
-      <header className="flex items-center">
-        <BackLink to="/account/$accountId" params={{ accountId: String(accountId) }}>
-          {accountName ?? t('common.back')}
-        </BackLink>
-      </header>
+      <ReadOnlyWhileOffline>
+        <header className="flex items-center">
+          <BackLink to="/account/$accountId" params={{ accountId: String(accountId) }}>
+            {accountName ?? t('common.back')}
+          </BackLink>
+        </header>
 
-      <section className="flex min-h-[18vh] flex-col items-center justify-center gap-4">
-        <CategoryAvatar category={transaction.category} />
-        <p
-          className={cn(
-            'text-4xl font-bold tracking-tight tabular-nums',
-            negative ? 'text-destructive' : 'text-success',
-          )}
-        >
-          {formatMoney(transaction.amount)}
-        </p>
-        <p className="text-muted-foreground flex flex-col items-center gap-1.5 text-sm sm:flex-row">
-          <span>{formatDate(transaction.date)}</span>
-          {transaction.transaction_type ? (
-            <>
-              <span aria-hidden="true" className="hidden sm:inline">
-                ·
-              </span>
-              <TypeBadge transactionType={transaction.transaction_type} />
-            </>
-          ) : null}
-        </p>
-        {transaction.pending ? (
-          <p className="bg-muted text-muted-foreground rounded-full px-3 py-1 text-xs font-medium">
-            {t('transaction.pendingHint')}
+        <section className="flex min-h-[18vh] flex-col items-center justify-center gap-4">
+          <CategoryAvatar category={transaction.category} />
+          <p
+            className={cn(
+              'text-4xl font-bold tracking-tight tabular-nums',
+              negative ? 'text-destructive' : 'text-success',
+            )}
+          >
+            {formatMoney(transaction.amount)}
           </p>
-        ) : null}
-      </section>
+          <p className="text-muted-foreground flex flex-col items-center gap-1.5 text-sm sm:flex-row">
+            <span>{formatDate(transaction.date)}</span>
+            {transaction.transaction_type ? (
+              <>
+                <span aria-hidden="true" className="hidden sm:inline">
+                  ·
+                </span>
+                <TypeBadge transactionType={transaction.transaction_type} />
+              </>
+            ) : null}
+          </p>
+          {transaction.pending ? (
+            <p className="bg-muted text-muted-foreground rounded-full px-3 py-1 text-xs font-medium">
+              {t('transaction.pendingHint')}
+            </p>
+          ) : null}
+        </section>
 
-      {linkConfirmSection}
+        {linkConfirmSection}
 
-      <dl className="grid grid-cols-[fit-content(5rem)_minmax(0,1fr)] gap-x-4 sm:grid-cols-[fit-content(11rem)_minmax(0,1fr)]">
-        <DetailRow label={t(otherPartyLabelKey(transaction.amount))}>
-          {transaction.other_party?.trim() || <EmptyValue />}
-        </DetailRow>
-        <DetailRow
-          label={
-            <>
-              <span className="sm:hidden">{t('common.purposeShort')}</span>
-              <span className="hidden sm:inline">{t('common.purpose')}</span>
-            </>
-          }
-        >
-          {transaction.purpose?.trim() || <EmptyValue />}
-        </DetailRow>
-        <DetailRow label={t('common.category')}>
-          {transaction.pending || !canWrite ? (
-            <span className="text-sm">{catalog.label(transaction.category)}</span>
-          ) : (
-            <CategorySelect
-              value={transaction.category as CategoryKey}
-              manual={transaction.category_source === 'MANUAL'}
-              includeCustom={canUnlink}
-              onChange={onChangeCategory}
-            >
-              {ruleSection}
-            </CategorySelect>
-          )}
-        </DetailRow>
-        {relatedTransactions.length > 0 || linkSection ? (
-          <RelatedSection
-            members={relatedTransactions}
-            onUnlink={onUnlink}
-            linkAction={linkSection}
-            canUnlink={canUnlink && !linking}
-          />
-        ) : null}
-        <DetailRow label={t('common.account')}>
-          {accountName?.trim() ? (
-            <AccountLabel
-              icon={bankIcon ?? null}
-              bankName={bankName}
-              accountName={accountName}
-              iconClassName="size-5 rounded-[5px]"
-              nameClassName="text-sm break-words"
-              label={
-                <Link
-                  to="/account/$accountId"
-                  params={{ accountId: String(accountId) }}
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  {isIban(accountName) ? formatIban(accountName) : accountName}
-                </Link>
-              }
-            />
-          ) : (
-            <EmptyValue />
-          )}
-        </DetailRow>
-        {contractSection}
-        {attachmentsSection}
-        {transaction.pending ? null : (
-          <DetailRow label={t('common.note')} align="start">
-            {canWrite ? (
-              <NoteEditor remoteNote={transaction.note ?? ''} onSave={onSaveNote} />
+        <dl className="grid grid-cols-[fit-content(5rem)_minmax(0,1fr)] gap-x-4 sm:grid-cols-[fit-content(11rem)_minmax(0,1fr)]">
+          <DetailRow label={t(otherPartyLabelKey(transaction.amount))}>
+            {transaction.other_party?.trim() || <EmptyValue />}
+          </DetailRow>
+          <DetailRow
+            label={
+              <>
+                <span className="sm:hidden">{t('common.purposeShort')}</span>
+                <span className="hidden sm:inline">{t('common.purpose')}</span>
+              </>
+            }
+          >
+            {transaction.purpose?.trim() || <EmptyValue />}
+          </DetailRow>
+          <DetailRow label={t('common.category')}>
+            {transaction.pending || !canWrite ? (
+              <span className="text-sm">{catalog.label(transaction.category)}</span>
             ) : (
-              <span className="text-sm break-words">
-                {transaction.note?.trim() || <EmptyValue />}
-              </span>
+              <CategorySelect
+                value={transaction.category as CategoryKey}
+                manual={transaction.category_source === 'MANUAL'}
+                includeCustom={canUnlink}
+                onChange={onChangeCategory}
+              >
+                {ruleSection}
+              </CategorySelect>
             )}
           </DetailRow>
-        )}
-      </dl>
+          {relatedTransactions.length > 0 || linkSection ? (
+            <RelatedSection
+              members={relatedTransactions}
+              onUnlink={onUnlink}
+              linkAction={linkSection}
+              canUnlink={canUnlink && !linking}
+            />
+          ) : null}
+          <DetailRow label={t('common.account')}>
+            {accountName?.trim() ? (
+              <AccountLabel
+                icon={bankIcon ?? null}
+                bankName={bankName}
+                accountName={accountName}
+                iconClassName="size-5 rounded-[5px]"
+                nameClassName="text-sm break-words"
+                label={
+                  <Link
+                    to="/account/$accountId"
+                    params={{ accountId: String(accountId) }}
+                    className="text-primary hover:text-primary/80 transition-colors"
+                  >
+                    {isIban(accountName) ? formatIban(accountName) : accountName}
+                  </Link>
+                }
+              />
+            ) : (
+              <EmptyValue />
+            )}
+          </DetailRow>
+          {contractSection}
+          {attachmentsSection}
+          {transaction.pending ? null : (
+            <DetailRow label={t('common.note')} align="start">
+              {canWrite ? (
+                <NoteEditor remoteNote={transaction.note ?? ''} onSave={onSaveNote} />
+              ) : (
+                <span className="text-sm break-words">
+                  {transaction.note?.trim() || <EmptyValue />}
+                </span>
+              )}
+            </DetailRow>
+          )}
+        </dl>
+      </ReadOnlyWhileOffline>
     </main>
   )
 }

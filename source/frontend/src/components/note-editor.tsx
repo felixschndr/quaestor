@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useIsOffline } from '@/components/offline-banner'
 import { useDebouncedAutoSave, type AutoSaveStatus } from '@/hooks/useDebouncedAutoSave'
+import { cn } from '@/lib/utils'
 
 const NOTE_URL_PATTERN =
   /(https?:\/\/[^\s]+|(?<![@\w/.])(?:[a-z0-9][a-z0-9-]*\.)+[a-z]{2,}(?:\/[^\s]*)?)/gi
@@ -72,6 +74,7 @@ export function NoteEditor({
   const { t } = useTranslation()
   const [draft, setDraft] = useState(remoteNote)
   const [editing, setEditing] = useState(false)
+  const offline = useIsOffline()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const caretRef = useRef<number | null>(null)
 
@@ -96,9 +99,11 @@ export function NoteEditor({
       <div className="flex flex-col gap-1.5">
         <div
           role="button"
-          tabIndex={0}
+          tabIndex={offline ? -1 : 0}
           aria-label={t('note.edit')}
+          aria-disabled={offline || undefined}
           onClick={(event) => {
+            if (offline) return
             if (draft.length > 0) {
               caretRef.current = caretOffsetFromPoint(
                 event.currentTarget,
@@ -109,12 +114,15 @@ export function NoteEditor({
             setEditing(true)
           }}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
+            if (!offline && (event.key === 'Enter' || event.key === ' ')) {
               event.preventDefault()
               setEditing(true)
             }
           }}
-          className="border-input hover:border-ring min-h-16 w-full cursor-text rounded-lg border bg-transparent px-2.5 py-1.5 text-base lg:text-sm whitespace-pre-wrap transition-colors dark:bg-input/30"
+          className={cn(
+            'border-input min-h-16 w-full rounded-lg border bg-transparent px-2.5 py-1.5 text-base lg:text-sm whitespace-pre-wrap transition-colors dark:bg-input/30',
+            offline ? 'opacity-50' : 'hover:border-ring cursor-text',
+          )}
         >
           {draft.length === 0 ? (
             <span className="text-muted-foreground">{t('note.placeholder')}</span>
