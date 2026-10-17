@@ -112,7 +112,17 @@ export function TransactionDetailView({
 
         <dl className="grid grid-cols-[fit-content(5rem)_minmax(0,1fr)] gap-x-4 sm:grid-cols-[fit-content(11rem)_minmax(0,1fr)]">
           <DetailRow label={t(otherPartyLabelKey(transaction.amount))}>
-            {transaction.other_party?.trim() || <EmptyValue />}
+            {transaction.other_party?.trim() ? (
+              <Link
+                to="/search"
+                search={{ text: transaction.other_party.trim() }}
+                className="text-primary hover:text-primary/80 transition-colors"
+              >
+                {transaction.other_party.trim()}
+              </Link>
+            ) : (
+              <EmptyValue />
+            )}
           </DetailRow>
           <DetailRow
             label={

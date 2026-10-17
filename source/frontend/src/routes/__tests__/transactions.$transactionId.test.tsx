@@ -148,6 +148,14 @@ describe('TransactionDetailView', () => {
     expect(screen.getByText(/May 20, 2026/)).toBeInTheDocument()
   })
 
+  it('links the other party to a search for it', () => {
+    renderView()
+    expect(screen.getByRole('link', { name: PARTY_SUPERMARKET })).toHaveAttribute(
+      'href',
+      `/search?text=${PARTY_SUPERMARKET}`,
+    )
+  })
+
   it('falls back to the em-dash placeholder when other_party / purpose are missing', () => {
     renderView({ other_party: null, purpose: '   ' })
     const dashes = screen.getAllByText('—')
