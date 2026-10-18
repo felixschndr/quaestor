@@ -184,6 +184,25 @@ describe('groupTransactionsByDate', () => {
     expect(groups[0].endOfDayBalance).toBeNull()
   })
 
+  it('adds pending transactions to the balance from their day on', () => {
+    const groups = groupTransactionsByDate([
+      makePage({
+        transactions: [
+          makeTransaction({ id: 1, date: DATE_TODAY, amount: -AMOUNT_S, pending: true }),
+          makeTransaction({ id: 2, date: DATE_YESTERDAY, amount: -AMOUNT_M, pending: true }),
+          makeTransaction({ id: 3, date: DATE_YESTERDAY, amount: AMOUNT_L }),
+          makeTransaction({ id: 4, date: DATE_MID_MONTH, amount: AMOUNT_L }),
+        ],
+        balance_at_date: { [DATE_YESTERDAY]: 1000, [DATE_MID_MONTH]: 500 },
+      }),
+    ])
+    expect(groups.map((g) => g.endOfDayBalance)).toEqual([
+      1000 - AMOUNT_M - AMOUNT_S,
+      1000 - AMOUNT_M,
+      500,
+    ])
+  })
+
   it('returns an empty list when there are no pages', () => {
     expect(groupTransactionsByDate([])).toEqual([])
   })

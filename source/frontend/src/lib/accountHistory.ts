@@ -103,12 +103,22 @@ export function groupTransactionsByDate(pages: AccountHistoryPage[]): AccountHis
       group.transactions.push(transaction)
     }
   }
+  let lastBooked: number | null = null
+  let pendingSum = 0
   return Array.from(groups.values())
-    .map((group) => ({
-      ...group,
-      endOfDayBalance: balanceByDate.get(group.date) ?? group.endOfDayBalance,
-    }))
-    .sort((a, b) => b.date.localeCompare(a.date))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((group) => {
+      const booked = balanceByDate.get(group.date) ?? null
+      const pendingToday = group.transactions.filter((t) => t.pending)
+      if (booked !== null) lastBooked = booked
+      pendingSum += pendingToday.reduce((sum, t) => sum + t.amount, 0)
+      let endOfDayBalance = booked
+      if (booked !== null) endOfDayBalance = booked + pendingSum
+      else if (pendingToday.length > 0 && lastBooked !== null)
+        endOfDayBalance = lastBooked + pendingSum
+      return { ...group, endOfDayBalance }
+    })
+    .reverse()
 }
 
 export const accountHistoryQuery = (accountId: number) =>
