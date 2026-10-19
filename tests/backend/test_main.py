@@ -1,10 +1,11 @@
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
+import websockets
 from fastapi import Request
 from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -219,23 +220,48 @@ def test_periodic_scheduler_runs_its_job_and_logs_crashes(
     assert_log_contains(caplog, message=error_message)
 
 
+@pytest.fixture
+def restore_logging() -> Iterator[None]:
+    root = logging.getLogger()
+    saved_handlers, saved_level = list(root.handlers), root.level
+    saved_library_levels = {name: logging.getLogger(name).level for name in main.NOISY_LIBRARY_LOGGERS}
+    yield
+    root.handlers[:] = saved_handlers
+    root.setLevel(saved_level)
+    for name, level in saved_library_levels.items():
+        logging.getLogger(name).setLevel(level)
+
+
 @pytest.mark.parametrize(
     argnames="configured_level,expected_library_level",
     argvalues=[("DEBUG", logging.INFO), ("INFO", logging.INFO), ("WARNING", logging.WARNING)],
 )
+@pytest.mark.usefixtures("restore_logging")
 def test_setup_logging_never_makes_noisy_libraries_louder_than_configured(
     monkeypatch: pytest.MonkeyPatch, configured_level: str, expected_library_level: int
 ):
-    root = logging.getLogger()
-    saved_handlers, saved_level = list(root.handlers), root.level
-    saved_library_levels = {name: logging.getLogger(name).level for name in main.NOISY_LIBRARY_LOGGERS}
     monkeypatch.setattr(target=main, name="LOG_LEVEL", value=configured_level)
-    try:
-        main.setup_logging()
-        for name in main.NOISY_LIBRARY_LOGGERS:
-            assert logging.getLogger(name).level == expected_library_level
-    finally:
-        root.handlers[:] = saved_handlers
-        root.setLevel(saved_level)
-        for name, level in saved_library_levels.items():
-            logging.getLogger(name).setLevel(level)
+    main.setup_logging()
+    for name in main.NOISY_LIBRARY_LOGGERS:
+        assert logging.getLogger(name).level == expected_library_level
+
+
+@pytest.mark.usefixtures("restore_logging")
+def test_debug_logging_does_not_leak_websocket_handshake_cookies(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    secret_cookie = "tr_session=secret-session-cookie"  # nosec B105
+    monkeypatch.setattr(target=main, name="LOG_LEVEL", value="DEBUG")
+    main.setup_logging()
+    logging.getLogger().addHandler(caplog.handler)
+    caplog.handler.setLevel(logging.DEBUG)
+
+    async def handshake() -> None:
+        async with websockets.serve(lambda connection: connection.wait_closed(), host="127.0.0.1", port=0) as server:
+            port = server.sockets[0].getsockname()[1]
+            async with websockets.connect(f"ws://127.0.0.1:{port}", additional_headers={"Cookie": secret_cookie}):
+                pass
+
+    asyncio.run(handshake())
+
+    assert secret_cookie not in caplog.text

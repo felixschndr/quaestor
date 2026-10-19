@@ -67,8 +67,13 @@ SENSITIVE_KEY_FRAGMENTS = frozenset(
         "apikey",
         "private_key",
         "encryption_key",
+        "backup_code",
+        "otpauth",
+        "qr_code",
     }
 )
+
+SENSITIVE_EXACT_KEYS = frozenset({"code"})
 
 # Whitelist: only these request/response headers are logged verbatim
 SAFE_HTTP_HEADERS = frozenset(
@@ -88,7 +93,7 @@ SAFE_HTTP_HEADERS = frozenset(
 
 def _key_is_sensitive(key: str) -> bool:
     lowered = key.lower()
-    return any(fragment in lowered for fragment in SENSITIVE_KEY_FRAGMENTS)
+    return lowered in SENSITIVE_EXACT_KEYS or any(fragment in lowered for fragment in SENSITIVE_KEY_FRAGMENTS)
 
 
 def redact(data: Any) -> Any:
