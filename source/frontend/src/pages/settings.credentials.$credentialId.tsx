@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -18,6 +18,7 @@ import {
   type AccountUpdatePayload,
 } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
+import { SyncButton } from '@/components/sync-button'
 import {
   hasSyncError,
   isManualBank,
@@ -49,7 +50,13 @@ import {
 
 const AUTOSAVE_DEBOUNCE_MS = 600
 
-export function CredentialDetailView({ credential, onDeleted }: CredentialDetailViewProps) {
+export function CredentialDetailView({
+  credential,
+  onDeleted,
+  onSyncClick,
+  syncBusy = false,
+  syncSucceededAt = null,
+}: CredentialDetailViewProps) {
   const { t } = useTranslation()
   const bankTitle = credential
     ? (credential.bank_name ??
@@ -69,8 +76,18 @@ export function CredentialDetailView({ credential, onDeleted }: CredentialDetail
   return (
     <main className="mx-auto flex min-h-full max-w-page flex-col gap-6 p-4">
       <ReadOnlyWhileOffline>
-        <header className="flex items-center gap-2">
+        <header className="flex items-center justify-between gap-2">
           <BackLink to="/settings/credentials" label={t('credentials.detail.backToList')} />
+          {onSyncClick && !isSharedCredential(credential) && !isManualBank(credential.bank) ? (
+            <SyncButton
+              onClick={onSyncClick}
+              spinning={syncBusy}
+              disabled={syncBusy}
+              succeededAt={syncSucceededAt}
+              ariaLabel={t('credentials.detail.syncAria')}
+              className="-mr-2.5 p-2.5"
+            />
+          ) : null}
         </header>
 
         {isSharedCredential(credential) ? (
@@ -80,7 +97,11 @@ export function CredentialDetailView({ credential, onDeleted }: CredentialDetail
           </>
         ) : (
           <>
-            <BankHeader credential={credential} bankTitle={bankTitle} />
+            <BankHeader
+              credential={credential}
+              bankTitle={bankTitle}
+              onSyncClick={syncBusy ? undefined : onSyncClick}
+            />
             <SyncSettingsSection credential={credential} />
             <AccountsSection credential={credential} />
             <DangerZone credential={credential} bankTitle={bankTitle} onDeleted={onDeleted} />
@@ -91,9 +112,35 @@ export function CredentialDetailView({ credential, onDeleted }: CredentialDetail
   )
 }
 
-function BankHeader({ credential, bankTitle }: { credential: CredentialRead; bankTitle: string }) {
+function BankHeader({
+  credential,
+  bankTitle,
+  onSyncClick,
+}: {
+  credential: CredentialRead
+  bankTitle: string
+  onSyncClick?: () => void
+}) {
   const { t } = useTranslation()
-  const syncedLabel = lastSyncedLabel(t, credential)
+  const syncedLabel =
+    onSyncClick &&
+    !isManualBank(credential.bank) &&
+    credential.last_successful_sync_timestamp === null ? (
+      <Trans
+        i18nKey="credentials.neverSyncedSyncNow"
+        components={{
+          sync: (
+            <button
+              type="button"
+              onClick={onSyncClick}
+              className="text-primary cursor-pointer hover:underline"
+            />
+          ),
+        }}
+      />
+    ) : (
+      lastSyncedLabel(t, credential)
+    )
   return (
     <section className="flex flex-col items-center gap-2 text-center">
       <BankLogo

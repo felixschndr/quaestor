@@ -93,6 +93,44 @@ describe('CredentialDetailView', () => {
     expect(screen.getByText('Never synced')).toBeInTheDocument()
   })
 
+  it('offers a sync button even before the first sync produced any accounts', async () => {
+    const onSyncClick = vi.fn()
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential()}
+        onDeleted={vi.fn()}
+        onSyncClick={onSyncClick}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Sync bank connection' }))
+    expect(onSyncClick).toHaveBeenCalledOnce()
+  })
+
+  it('turns "never synced" into a "sync now" link', async () => {
+    const onSyncClick = vi.fn()
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential()}
+        onDeleted={vi.fn()}
+        onSyncClick={onSyncClick}
+      />,
+    )
+    expect(screen.getByText(/Never synced,/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'sync now' }))
+    expect(onSyncClick).toHaveBeenCalledOnce()
+  })
+
+  it('has no sync button on a manual credential', () => {
+    renderWithQuery(
+      <CredentialDetailView
+        credential={buildCredential({ bank: 'manual' })}
+        onDeleted={vi.fn()}
+        onSyncClick={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Sync bank connection' })).not.toBeInTheDocument()
+  })
+
   it('drops the sync caption entirely on a manual credential', () => {
     renderWithQuery(
       <CredentialDetailView credential={buildCredential({ bank: 'manual' })} onDeleted={vi.fn()} />,
