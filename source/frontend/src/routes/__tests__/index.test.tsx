@@ -126,6 +126,12 @@ describe('OverviewView', () => {
     expect(screen.getByRole('link', { name: 'Connect your first bank' })).toBeInTheDocument()
   })
 
+  it('offers the sync button for a connected bank whose first sync never produced accounts', () => {
+    render_(buildUser({ credentials: [{ ...buildCredential(), accounts: [] }] }))
+    expect(screen.getByText('No accounts yet')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sync all accounts' })).toBeInTheDocument()
+  })
+
   it('shows the empty state and a CTA linking to /settings/credentials when there are no accounts', () => {
     render_(buildUser({ credentials: [] }))
     expect(screen.getByText('No accounts yet')).toBeInTheDocument()
