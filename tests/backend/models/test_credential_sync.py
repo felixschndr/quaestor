@@ -796,36 +796,37 @@ def test_sync_tolerance_zero_requires_exact_amount(session_factory: sessionmaker
         assert sum(tx.expected for tx in transactions) == 0
 
 
-def test_sync_appends_expected_note_when_booking_already_has_one(session_factory: sessionmaker):
+def test_sync_does_not_match_a_booking_that_resolved_an_expectation_in_an_earlier_sync(
+    session_factory: sessionmaker,
+):
     credential_id = persist_credential_with_new_user(session_factory)
+    seed_account_with_expectation(
+        session_factory=session_factory, credential_id=credential_id, amount=-DEFAULT_AMOUNT, tolerance=0
+    )
+    booked = [_booked_transaction(amount=-DEFAULT_AMOUNT, day=5)]
+    sync_with_booked(session_factory=session_factory, credential_id=credential_id, booked=booked)
+
     with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name=ACCOUNT_IBAN)
+        account = session.get(entity=Credential, ident=credential_id).accounts[0]
         make_transaction(
             session,
             account_id=account.id,
             amount=-DEFAULT_AMOUNT,
             date=OLDER_DATE,
-            note="from grandma",
+            note="second expectation",
             pending=True,
             expected=True,
             match_tolerance_percent=0,
         )
-        make_transaction(
-            session,
-            account_id=account.id,
-            amount=-DEFAULT_AMOUNT,
-            date=date(year=2026, month=5, day=7),
-            other_party=ACME,
-            note="bank note",
-        )
         session.commit()
 
-    sync_with_booked(session_factory=session_factory, credential_id=credential_id, booked=[])
+    sync_with_booked(session_factory=session_factory, credential_id=credential_id, booked=booked)
 
     with session_factory() as session:
         transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
-        assert len(transactions) == 1
-        assert transactions[0].note == "bank note\nfrom grandma"
+        assert len(transactions) == 2  # the booking keeps only its first expectation, the second waits
+        booking = next(tx for tx in transactions if not tx.expected)
+        assert booking.note == "expected note"
 
 
 def test_sync_does_not_match_a_booking_that_predates_the_expectation(session_factory: sessionmaker):
@@ -836,13 +837,6 @@ def test_sync_does_not_match_a_booking_that_predates_the_expectation(session_fac
             session,
             account_id=account.id,
             amount=-DEFAULT_AMOUNT,
-            date=date(year=2026, month=2, day=15),
-            other_party=ACME,
-        )
-        make_transaction(
-            session,
-            account_id=account.id,
-            amount=-DEFAULT_AMOUNT,
             date=OLDER_DATE,
             pending=True,
             expected=True,
@@ -850,7 +844,10 @@ def test_sync_does_not_match_a_booking_that_predates_the_expectation(session_fac
         )
         session.commit()
 
-    sync_with_booked(session_factory=session_factory, credential_id=credential_id, booked=[])
+    booking = create_fetched_transaction(
+        amount=-DEFAULT_AMOUNT, purpose="booked", date=date(year=2026, month=2, day=15), other_party=ACME
+    )
+    sync_with_booked(session_factory=session_factory, credential_id=credential_id, booked=[booking])
 
     with session_factory() as session:
         transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions

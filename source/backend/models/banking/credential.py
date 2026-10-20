@@ -187,7 +187,7 @@ class Credential(Base):
         existing_transactions = index_transactions_for_matching(
             transaction for transaction in account.transactions if not transaction.expected
         )
-        created_transactions = 0
+        new_transactions: list[Transaction] = []
         fetched_pending_transactions = []
 
         for fetched_transaction in fetched_transactions:
@@ -213,13 +213,13 @@ class Credential(Base):
             existing_transactions[key] = transaction
             if reference:
                 existing_transactions[reference] = transaction
-            created_transactions += 1
+            new_transactions.append(transaction)
 
         Credential._add_pending_transactions(
             account=account, fetched_transactions=fetched_pending_transactions, rules=rules
         )
-        Credential._match_expected_transactions(account=account)
-        return created_transactions
+        Credential._match_expected_transactions(account=account, booked_transactions=new_transactions)
+        return len(new_transactions)
 
     _TOLERANCE_FOR_EXACT_COMPARISON = 0.005
 
@@ -254,12 +254,10 @@ class Credential(Base):
             )
 
     @staticmethod
-    def _match_expected_transactions(account: Account) -> None:
+    def _match_expected_transactions(account: Account, booked_transactions: list[Transaction]) -> None:
         expected_transactions = [t for t in account.transactions if t.expected]
         if not expected_transactions:
             return
-
-        booked_transactions = [t for t in account.transactions if not t.pending and not t.expected]
 
         consumed_transaction_ids: set[int] = set()
         matched_expected_transactions = 0
@@ -289,9 +287,7 @@ class Credential(Base):
             if not candidates:
                 continue
             best_match = min(candidates, key=lambda b: (abs(b.amount - expected_transaction.amount), b.date, b.id or 0))
-            Credential._carry_over_expected_note(
-                booked_transaction=best_match, expected_transaction=expected_transaction
-            )
+            best_match.note = expected_transaction.note
             best_match.matched_expected_id = expected_transaction.id
             consumed_transaction_ids.add(id(best_match))
             account.transactions.remove(expected_transaction)
@@ -299,13 +295,3 @@ class Credential(Base):
 
         if matched_expected_transactions:
             logger.info(f"Resolved {matched_expected_transactions} expected transaction(s) on {account}")
-
-    @staticmethod
-    def _carry_over_expected_note(booked_transaction: Transaction, expected_transaction: Transaction) -> None:
-        if not expected_transaction.note:
-            return
-        booked_transaction.note = (
-            expected_transaction.note
-            if not booked_transaction.note
-            else f"{booked_transaction.note}\n{expected_transaction.note}"
-        )
