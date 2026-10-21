@@ -81,7 +81,8 @@ def _analyze_related_group(legs: list[_Leg], analysis: RelatedGroupAnalysis) -> 
     refund_inflows: set[int] = set()
     covered_outflows: dict[int, list[int]] = defaultdict(list)
 
-    for same_account in (True, False):
+    # Exact cross-account transfers go first, else a same-account debit swallows the transfer that topped the account up
+    for same_account in (False, True):
         for inflow in inflows:
             if inflow.remaining <= _EPS:
                 continue

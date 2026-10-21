@@ -125,6 +125,24 @@ def test_money_flow_hop_through_an_account_is_hidden_but_not_badged(session_fact
     assert analysis.refund_status == {}
 
 
+def test_transfer_topping_up_an_account_after_a_debit_is_not_a_refund(session_factory: sessionmaker):
+    with session_factory() as session:
+        _, credential, checking = make_user_and_credential_and_account(session, name="Checking")
+        savings = make_account(session, credential_id=credential.id, name="Savings")
+        spent = make_transaction(session, account_id=checking.id, amount=-DEFAULT_AMOUNT, date=OLDER_DATE)
+        withdrawn = make_transaction(session, account_id=savings.id, amount=-DEFAULT_AMOUNT, date=LATEST_DATE)
+        topped_up = make_transaction(session, account_id=checking.id, amount=DEFAULT_AMOUNT, date=LATEST_DATE)
+        session.flush()
+        link_transactions_as_related_group(db_session=session, transactions=[spent, withdrawn, topped_up])
+        session.commit()
+        withdrawn_id, topped_up_id = withdrawn.id, topped_up.id
+
+        analysis = related_refunds.analyze(db_session=session)
+
+    assert analysis.hidden_ids == {withdrawn_id, topped_up_id}
+    assert analysis.refund_status == {}
+
+
 def test_merchant_credit_booked_before_the_purchase_is_badged(session_factory: sessionmaker):
     with session_factory() as session:
         _, _, account = make_user_and_credential_and_account(session, name="Credit card")
