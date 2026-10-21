@@ -21,6 +21,7 @@ import { NoteEditor } from '@/components/note-editor'
 import { AccountLabel } from '@/components/AccountLabel'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { RefundBadge } from '@/components/ui/refund-badge'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { cn } from '@/lib/utils'
 import type {
@@ -80,7 +81,14 @@ export function TransactionDetailView({
         </header>
 
         <section className="flex min-h-[18vh] flex-col items-center justify-center gap-4">
-          <CategoryAvatar category={transaction.category} />
+          <span className="relative">
+            <CategoryAvatar category={transaction.category} />
+            {transaction.refund_status ? (
+              <span className="bg-background absolute -top-1 -right-6 flex rounded-full">
+                <RefundBadge status={transaction.refund_status} />
+              </span>
+            ) : null}
+          </span>
           <p
             className={cn(
               'text-4xl font-bold tracking-tight tabular-nums',

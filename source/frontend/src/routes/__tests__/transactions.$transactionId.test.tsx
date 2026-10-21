@@ -118,6 +118,16 @@ describe('TransactionDetailView', () => {
     expect(amount.className).toMatch(/text-destructive/)
   })
 
+  it('badges a refunded transaction', () => {
+    renderView({ refund_status: 'refunded' })
+    expect(screen.getByText('Refunded')).toBeInTheDocument()
+  })
+
+  it('shows no refund badge for an unrefunded transaction', () => {
+    renderView()
+    expect(screen.queryByText('Refunded')).toBeNull()
+  })
+
   it('shows a positive amount in the success color', () => {
     renderView({ amount: AMOUNT_XL })
     const amount = screen.getByText(money(AMOUNT_XL))
