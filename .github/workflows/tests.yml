@@ -46,4 +46,4 @@ jobs:
 
       - name: Run frontend tests
         working-directory: source/frontend
-        run: pnpm test
+        run: pnpm test:coverage
