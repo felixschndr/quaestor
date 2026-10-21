@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.services.transactions import related_refunds
 from tests.backend.conftest import (
+    ACME,
     DEFAULT_AMOUNT,
     LATEST_DATE,
     OLDER_DATE,
@@ -122,3 +123,33 @@ def test_money_flow_hop_through_an_account_is_hidden_but_not_badged(session_fact
 
     assert analysis.hidden_ids == {incoming_id, passed_on_id}
     assert analysis.refund_status == {}
+
+
+def test_merchant_credit_booked_before_the_purchase_is_badged(session_factory: sessionmaker):
+    with session_factory() as session:
+        _, _, account = make_user_and_credential_and_account(session, name="Credit card")
+        credit = make_transaction(
+            session,
+            account_id=account.id,
+            amount=DEFAULT_AMOUNT,
+            other_party=ACME,
+            category=TransactionCategory.REIMBURSEMENT,
+            date=OLDER_DATE,
+        )
+        purchase = make_transaction(
+            session,
+            account_id=account.id,
+            amount=-DEFAULT_AMOUNT,
+            other_party=ACME,
+            category=TransactionCategory.ONLINE_SHOPPING,
+            date=LATEST_DATE,
+        )
+        session.flush()
+        link_transactions_as_related_group(db_session=session, transactions=[credit, purchase])
+        session.commit()
+        credit_id, purchase_id = credit.id, purchase.id
+
+        analysis = related_refunds.analyze(db_session=session)
+
+    assert analysis.hidden_ids == {credit_id, purchase_id}
+    assert analysis.refund_status == {purchase_id: "refunded", credit_id: "refund"}
