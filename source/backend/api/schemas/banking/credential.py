@@ -45,6 +45,7 @@ class SyncJobRead(BaseModel):
     error_code: JobErrorCode | None = None
     authorization_url: str | None = None
     device_code: str | None = None
+    options: list[str] | None = None
 
     @classmethod
     def for_viewer(cls: type["SyncJobRead"], job: object, *, owned: bool) -> "SyncJobRead":
@@ -55,6 +56,7 @@ class SyncJobRead(BaseModel):
             read.error = None
             read.authorization_url = None
             read.device_code = None
+            read.options = None
         return read
 
 

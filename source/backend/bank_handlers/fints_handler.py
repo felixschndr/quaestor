@@ -1,3 +1,4 @@
+import secrets
 import time
 from contextlib import contextmanager
 from dataclasses import replace
@@ -22,6 +23,7 @@ from source.backend.bank_handlers.base import (
     CancelCheck,
     FetchedAccount,
     FetchedTransaction,
+    TwoFactorChallenge,
     TwoFactorStateCallback,
 )
 from source.backend.exceptions import (
@@ -29,10 +31,11 @@ from source.backend.exceptions import (
     InvalidCredentialsError,
     ReauthenticationRequiredError,
     SyncCancelledError,
+    TanMediumSelectionRequiredError,
     UnsupportedBankError,
     exception_chain,
 )
-from source.backend.helpers import get_key_of_transaction
+from source.backend.helpers import get_key_of_transaction, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.transactions.transaction_type import TransactionType
 
@@ -48,6 +51,7 @@ FINTS_CONNECT_TIMEOUT = timedelta(seconds=10)
 FINTS_READ_TIMEOUT = timedelta(minutes=2)
 APPROVAL_TIMEOUT = timedelta(minutes=3)
 APPROVAL_POLL_INTERVAL = timedelta(seconds=2)
+TAN_MEDIUM_SELECTION_TIMEOUT = timedelta(minutes=15)
 PENDING_LOOKBACK = timedelta(days=14)
 FETCH_CHUNK_LENGTH = timedelta(days=30)
 
@@ -237,6 +241,8 @@ class FinTSHandler(BankHandler):
     # Generic/public product ID from the python-fints GitHub repo.
     FINTS_PRODUCT_ID = "6151256F3D4F9975B877BD4A2"
 
+    _tan_media_to_pick_from: tuple[str, ...] | None = None
+
     @classmethod
     def credential_fields(cls: type["FinTSHandler"], bank_info: BankInfo) -> tuple[str, ...]:
         # If the BankInfo doesn't pin a BLZ (e.g., Sparkasse, where every regional bank
@@ -268,7 +274,11 @@ class FinTSHandler(BankHandler):
     def _session(self) -> Iterator[_FinTSSession]:
         client = self.client(user_id=self.credentials["username"], pin=self.credentials["password"])
         with _as_invalid_credentials_on_login_failure():
-            _try_configure_pushtan_mechanism(client)
+            try:
+                _try_configure_pushtan_mechanism(client, tan_medium=(self.session_state or {}).get("tan_medium"))
+            except TanMediumSelectionRequiredError as e:
+                self._tan_media_to_pick_from = e.media_names
+                raise
         with client:
             with _as_invalid_credentials_on_login_failure():
                 client.init_tan_response = _resolve_decoupled(
@@ -286,6 +296,18 @@ class FinTSHandler(BankHandler):
             # Persist the system_id after a successful session (it's None if the session failed).
             if client.system_id and client.system_id != "0":
                 bank_session.system_id = client.system_id
+
+    def begin_two_factor_challenge(self, credential_id: int) -> TwoFactorChallenge | None:
+        if self._tan_media_to_pick_from is None:
+            return None
+        return TwoFactorChallenge(
+            challenge_token=secrets.token_urlsafe(16),
+            expires_at=utc_now() + TAN_MEDIUM_SELECTION_TIMEOUT,
+            options=self._tan_media_to_pick_from,
+        )
+
+    def complete_two_factor_challenge(self, challenge_token: str, credential_id: int, code: str) -> dict:
+        return {"tan_medium": code}
 
 
 @contextmanager
@@ -332,8 +354,8 @@ def _resolve_fints_url(bank_code: str) -> str:
     return url
 
 
-def _try_configure_pushtan_mechanism(client: FinTS3PinTanClient) -> None:
-    # Select the pushTAN mechanism if the bank advertises one. Otherwise no-op:
+def _try_configure_pushtan_mechanism(client: FinTS3PinTanClient, tan_medium: str | None = None) -> None:
+    # Select the pushTAN mechanism if the bank advertises one. Otherwise, no-op:
     # many banks don't require a TAN for read-only operations.
     client.fetch_tan_mechanisms()
     mechanisms = client.get_tan_mechanisms()
@@ -356,7 +378,11 @@ def _try_configure_pushtan_mechanism(client: FinTS3PinTanClient) -> None:
             error_message = "Bank requires a TAN medium for pushTAN but none was returned"
             logger.warning(error_message)
             raise ReauthenticationRequiredError(error_message)
-        client.set_tan_medium(media[0])
+        names = tuple(medium.tan_medium_name for medium in media if medium.tan_medium_name)
+        picked = next((medium for medium in media if medium.tan_medium_name == tan_medium), None)
+        if picked is None and len(names) > 1:
+            raise TanMediumSelectionRequiredError(media_names=names)
+        client.set_tan_medium(picked or media[0])
 
 
 def _resolve_decoupled(

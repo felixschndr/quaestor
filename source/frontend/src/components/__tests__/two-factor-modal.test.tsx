@@ -13,6 +13,8 @@ import {
   AUTHORIZATION_URL_WITH_CODE,
   DEVICE_CODE,
   SECOND_DEVICE_CODE,
+  SECOND_TAN_MEDIUM,
+  TAN_MEDIUM,
 } from '@/test/constants'
 
 beforeAll(async () => {
@@ -37,6 +39,27 @@ describe('TwoFactorModal', () => {
   it('renders nothing when current2fa is null', () => {
     renderModal({ current2fa: null })
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('offers one button per TAN medium and submits the picked one', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderModal({
+      current2fa: {
+        credentialId: 1,
+        jobId: 'j',
+        bank: 'fints',
+        bankName: 'Deutsche Bank',
+        bankIcon: null,
+        kind: 'awaiting_2fa',
+        options: [TAN_MEDIUM, SECOND_TAN_MEDIUM],
+      },
+      onSubmit,
+    })
+    expect(screen.getByText('Choose a device for Deutsche Bank')).toBeVisible()
+    expect(screen.queryByLabelText('Code')).toBeNull()
+    expect(screen.getByRole('button', { name: TAN_MEDIUM })).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: SECOND_TAN_MEDIUM }))
+    expect(onSubmit).toHaveBeenCalledWith(SECOND_TAN_MEDIUM)
   })
 
   it('renders code-entry form for awaiting_2fa', async () => {

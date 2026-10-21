@@ -15,7 +15,13 @@ import { NewCredentialFormView } from '@/pages/settings.credentials.new.$bank'
 import { NO_CODE_PLACEHOLDER } from '@/lib/credentials'
 import type { SupportedBank, SyncJob } from '@/lib/credentials'
 import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
-import { AUTHORIZATION_URL_WITH_CODE, DATETIME_FAR_FUTURE, DEVICE_CODE } from '@/test/constants'
+import {
+  AUTHORIZATION_URL_WITH_CODE,
+  DATETIME_FAR_FUTURE,
+  DEVICE_CODE,
+  SECOND_TAN_MEDIUM,
+  TAN_MEDIUM,
+} from '@/test/constants'
 
 const ING_BANK: SupportedBank = {
   provider: 'ing',
@@ -1308,9 +1314,66 @@ describe('NewCredentialFormView', () => {
             }),
           )
         }
+        if (
+          url === `/api/credentials/${credentialId}/sync/${jobId}/2fa` &&
+          init?.method === 'POST'
+        ) {
+          return Promise.resolve(
+            jsonResponse({
+              status: 202,
+              body: {
+                job_id: jobId,
+                credential_id: credentialId,
+                status: 'confirming_2fa',
+                expires_at: null,
+                error: null,
+              },
+            }),
+          )
+        }
         return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
       })
     }
+
+    it('offers one button per TAN medium and submits the picked one', async () => {
+      const user = userEvent.setup()
+      const fetchMock = globalThis.fetch as Mock
+      mockBackend(fetchMock, 13, 'job-spk')
+
+      renderWithQuery(
+        <NewCredentialFormView
+          bankKey="66050101"
+          bank={SPARKASSE_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={vi.fn()}
+          onSyncFailed={vi.fn()}
+        />,
+      )
+
+      await user.type(screen.getByLabelText('Username'), 'bankuser')
+      await user.type(screen.getByLabelText('Password'), 'secret-password')
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+      await waitForFirstPoll()
+      await pushJob({
+        job_id: 'job-spk',
+        credential_id: 13,
+        status: 'awaiting_2fa',
+        expires_at: DATETIME_FAR_FUTURE,
+        error: null,
+        options: [TAN_MEDIUM, SECOND_TAN_MEDIUM],
+      })
+
+      await user.click(await screen.findByRole('button', { name: SECOND_TAN_MEDIUM }))
+
+      expect(screen.getByRole('button', { name: TAN_MEDIUM })).toBeInTheDocument()
+      expect(screen.queryByLabelText('Code')).not.toBeInTheDocument()
+      const confirmCall = fetchMock.mock.calls.find(
+        ([url, init]) => url === '/api/credentials/13/sync/job-spk/2fa' && init?.method === 'POST',
+      )!
+      expect(JSON.parse(confirmCall[1].body)).toEqual({ code: SECOND_TAN_MEDIUM })
+    })
 
     it('shows the approval message when the sync reports awaiting_decoupled_approval', async () => {
       const user = userEvent.setup()

@@ -90,6 +90,12 @@ class ReauthenticationRequiredError(Exception):
     pass
 
 
+class TanMediumSelectionRequiredError(ReauthenticationRequiredError):
+    def __init__(self, media_names: tuple[str, ...]):
+        super().__init__(f"The bank offers several TAN media, the user has to pick one: {', '.join(media_names)}")
+        self.media_names = media_names
+
+
 class InvalidCredentialsError(Exception):
     pass
 

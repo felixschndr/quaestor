@@ -655,7 +655,9 @@
       "authorizeNoCodeTitle": "Bei {{bank}} anmelden",
       "authorizeNoCodeDescription": "Melde dich über den folgenden Link bei {{bank}} an und bestätige hier, sobald du fertig bist. Kein Code nötig.",
       "verifyCodeLabel": "Prüfe, ob dieser Code mit dem auf der Anmeldeseite übereinstimmt",
-      "authorizeNoCodeConfirm": "Ich habe die Anmeldung abgeschlossen"
+      "authorizeNoCodeConfirm": "Ich habe die Anmeldung abgeschlossen",
+      "tanMediumTitle": "Gerät für {{bank}} auswählen",
+      "tanMediumDescription": "Bei {{bank}} sind mehrere Geräte für die Freigabe registriert. Wähle das Gerät, auf dem du Anfragen bestätigen möchtest. Wir merken uns die Auswahl."
     },
     "skipped": "{{bank}} übersprungen.",
     "failed": "{{bank}} konnte nicht synchronisiert werden.",

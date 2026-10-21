@@ -57,10 +57,10 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
   const deviceCode =
     current2fa?.deviceCode ?? deviceCodeFromAuthorizationUrl(current2fa?.authorizationUrl)
 
-  const handleNoCodeConfirm = async () => {
+  const submitWithoutTyping = async (value: string) => {
     setSubmitting(true)
     try {
-      await onSubmit(NO_CODE_PLACEHOLDER)
+      await onSubmit(value)
     } finally {
       setSubmitting(false)
     }
@@ -96,6 +96,31 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
               <Loader2 className="size-6 animate-spin text-primary" aria-hidden="true" />
             </div>
           </>
+        ) : current2fa?.kind === 'awaiting_2fa' && current2fa.options?.length ? (
+          <div className="flex flex-col gap-4">
+            <DialogHeader>
+              <BankLogo
+                icon={current2fa.bankIcon}
+                name={bankLabel}
+                seed={current2fa.bankName ?? current2fa.bank}
+                className="mx-auto size-12"
+              />
+              <DialogTitle>{t('sync.twoFactor.tanMediumTitle', { bank: bankLabel })}</DialogTitle>
+              <DialogDescription>
+                {t('sync.twoFactor.tanMediumDescription', { bank: bankLabel })}
+              </DialogDescription>
+            </DialogHeader>
+            {current2fa.options.map((option) => (
+              <Button
+                key={option}
+                variant="outline"
+                disabled={submitting}
+                onClick={() => void submitWithoutTyping(option)}
+              >
+                {option}
+              </Button>
+            ))}
+          </div>
         ) : current2fa?.kind === 'awaiting_2fa' && noCodeRequired ? (
           <div className="flex flex-col gap-4">
             <DialogHeader>
@@ -117,7 +142,7 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
               authorizationUrl={current2fa.authorizationUrl}
               deviceCode={deviceCode}
               pending={submitting}
-              onConfirm={() => void handleNoCodeConfirm()}
+              onConfirm={() => void submitWithoutTyping(NO_CODE_PLACEHOLDER)}
             />
           </div>
         ) : current2fa?.kind === 'awaiting_2fa' ? (

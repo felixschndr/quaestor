@@ -655,7 +655,9 @@
       "authorizeNoCodeTitle": "Sign in to {{bank}}",
       "authorizeNoCodeDescription": "Sign in at {{bank}} via the link below, then confirm here once you're done. No code needed.",
       "verifyCodeLabel": "Verify this code matches the one shown on the sign-in page",
-      "authorizeNoCodeConfirm": "I've completed the login"
+      "authorizeNoCodeConfirm": "I've completed the login",
+      "tanMediumTitle": "Choose a device for {{bank}}",
+      "tanMediumDescription": "Several approval devices are registered with {{bank}}. Choose the device you want to confirm requests on. We'll remember your choice."
     },
     "skipped": "{{bank}} skipped.",
     "failed": "{{bank}} couldn't be synced.",
