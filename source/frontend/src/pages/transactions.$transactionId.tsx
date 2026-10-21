@@ -449,19 +449,23 @@ function RelatedTimelineRow({
               {account}
             </Link>
           )}
-          {showAmount || details ? (
-            <span className="text-muted-foreground truncate text-xs">
-              {showAmount ? (
-                <span
-                  className={cn('tabular-nums', incoming ? 'text-success' : 'text-destructive')}
-                >
-                  {formatMoney(transaction.amount)}
-                </span>
-              ) : null}
-              {showAmount && details ? ' · ' : null}
-              {details}
-            </span>
-          ) : null}
+          <span className="text-muted-foreground truncate text-xs">
+            {showAmount ? (
+              <span className={cn('tabular-nums', incoming ? 'text-success' : 'text-destructive')}>
+                {formatMoney(transaction.amount)}
+              </span>
+            ) : (
+              <DirectionIcon
+                className={cn(
+                  'inline size-3.5 align-text-bottom',
+                  incoming ? 'text-success' : 'text-destructive',
+                )}
+                aria-label={t(incoming ? 'transaction.incoming' : 'transaction.outgoing')}
+              />
+            )}
+            {showAmount && details ? ' · ' : null}
+            {details}
+          </span>
         </div>
       </div>
     </li>

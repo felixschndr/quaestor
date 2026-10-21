@@ -322,6 +322,20 @@ describe('TransactionDetailView', () => {
     expect(screen.getByText('ACME Corp · Invoice 42')).toBeInTheDocument()
   })
 
+  it('shows the direction icon in place of amounts that differ only in sign', () => {
+    renderView({ related_transactions: [memberTransaction] })
+    const row = screen.getByRole('link', { name: new RegExp(ACCOUNT_NAME_SAVINGS) }).closest('li')!
+    expect(within(row).queryByText(new RegExp(String(AMOUNT_M)))).toBeNull()
+    expect(within(row).getAllByLabelText('Incoming')).toHaveLength(2)
+  })
+
+  it('shows the amounts when they differ', () => {
+    renderView({ related_transactions: [{ ...memberTransaction, amount: AMOUNT_M / 2 }] })
+    const row = screen.getByRole('link', { name: new RegExp(ACCOUNT_NAME_SAVINGS) }).closest('li')!
+    expect(within(row).getByText(new RegExp(String(AMOUNT_M / 2)))).toBeInTheDocument()
+    expect(within(row).getAllByLabelText('Incoming')).toHaveLength(1)
+  })
+
   it('omits the details line when a member has no other party or purpose', () => {
     renderView({
       related_transactions: [{ ...memberTransaction, other_party: null, purpose: null }],
