@@ -447,11 +447,13 @@ describe('StatsView with a fixed today', () => {
           dateFrom: '2026-05-01',
           dateTo: '2026-05-31',
           direction: 'OUTGOING',
+          sort: 'amount_asc',
         }),
         expect.objectContaining({
           dateFrom: '2026-05-01',
           dateTo: '2026-05-31',
           direction: 'INCOMING',
+          sort: 'amount_desc',
         }),
       ])
     })

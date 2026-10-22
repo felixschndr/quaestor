@@ -177,7 +177,8 @@ export function StatsView({
   )
   const cashAccountIds = accountIds.filter((id) => !marketValued.has(id))
 
-  const drillSort: TransactionSortKey = direction === 'INCOMING' ? 'amount_desc' : 'amount_asc'
+  const drillSort = (drillDirection: StatsDirection): TransactionSortKey =>
+    drillDirection === 'INCOMING' ? 'amount_desc' : 'amount_asc'
 
   const openSearch = (extra: {
     categories?: CategoryKey[]
@@ -193,7 +194,7 @@ export function StatsView({
       direction,
       transactionTypes: typesParam,
       categories: categoriesParam,
-      sort: drillSort,
+      sort: drillSort(extra.direction ?? direction),
       ...extra,
     })
 
@@ -215,7 +216,7 @@ export function StatsView({
       direction,
       transactionTypes: typesParam,
       categories: [category],
-      sort: drillSort,
+      sort: drillSort(direction),
     })
   }
 
