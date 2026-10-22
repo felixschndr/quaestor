@@ -1,6 +1,7 @@
 import datetime
 from dataclasses import dataclass
 from statistics import fmean
+from typing import cast
 
 from sqlalchemy import ColumnElement, case, func, select
 from sqlalchemy.orm import Session
@@ -375,7 +376,7 @@ def top_other_parties(
         .limit(limit)
     ).all()
     slices = [
-        OtherPartySlice(other_party=other_party, total=round(number=abs(amount), ndigits=2))
+        OtherPartySlice(other_party=cast(str, other_party), total=round(number=abs(amount), ndigits=2))
         for other_party, amount in rows
     ]
     logger.debug(f"Computed top {len(slices)} {direction} other parties for {user}")

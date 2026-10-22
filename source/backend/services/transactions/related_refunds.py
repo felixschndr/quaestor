@@ -1,7 +1,7 @@
 import datetime
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Iterable
+from typing import Iterable, cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -52,7 +52,7 @@ def analyze(db_session: Session, related_group_ids: set[int] | None = None) -> R
 
     legs_by_related_group: dict[int, list[_Leg]] = defaultdict(list)
     for transaction_id, related_group_id, amount, account_id, date, other_party in db_session.execute(query):
-        legs_by_related_group[related_group_id].append(
+        legs_by_related_group[cast(int, related_group_id)].append(
             _Leg(id=transaction_id, amount=amount, account_id=account_id, date=date, other_party=other_party)
         )
 
