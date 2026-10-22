@@ -34,7 +34,7 @@ logger = get_logger(__name__)
 CATEGORIZATION_FIELDS = frozenset({"purpose", "other_party", "transaction_type"})
 
 
-def market_valued_account_ids_select() -> Select[tuple[int]]:
+def market_valued_account_ids_select() -> Select[int]:
     return (
         select(AccountBalanceSnapshot.account_id)
         .where(AccountBalanceSnapshot.source == BalanceSnapshotSource.MARKET_VALUED)
@@ -73,7 +73,7 @@ DEFAULT_DAYS_PER_PAGE = 30
 MAX_DAYS_PER_PAGE = 365
 
 
-def owned_account_ids_select(user_id: int) -> Select[tuple[int]]:
+def owned_account_ids_select(user_id: int) -> Select[int]:
     return (
         select(Account.id)
         .join(Credential, onclause=Account.credential_id == Credential.id)
@@ -81,7 +81,7 @@ def owned_account_ids_select(user_id: int) -> Select[tuple[int]]:
     )
 
 
-def accessible_account_ids_select(user_id: int) -> Select[tuple[int]]:
+def accessible_account_ids_select(user_id: int) -> Select[int]:
     shared = (
         select(AccountShare.account_id)
         .where(AccountShare.user_id == user_id)
@@ -538,9 +538,7 @@ def get_history_page(
     return transactions, balance_at_date, total_days
 
 
-def _resolve_account_ids(
-    db_session: Session, user: User, account_ids: list[int], scope: Select[tuple[int]]
-) -> list[int]:
+def _resolve_account_ids(db_session: Session, user: User, account_ids: list[int], scope: Select[int]) -> list[int]:
     if not account_ids:
         return []
     resolved = set(
