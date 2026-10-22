@@ -69,7 +69,7 @@ export function AccountLabel({ account }: { account: AccountWithBank }) {
           x {formatFactorMultiplier(account.balance_factor / 100)}
         </span>
       ) : null}
-      {account.is_hidden ? <ArchivedBadge /> : null}
+      {account.is_archived ? <ArchivedBadge /> : null}
     </span>
   )
 }

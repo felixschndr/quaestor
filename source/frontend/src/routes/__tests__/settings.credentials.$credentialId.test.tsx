@@ -53,7 +53,7 @@ function buildAccount(overrides: Partial<AccountRead> = {}): AccountRead {
     display_name: null,
     balance: AMOUNT_XL,
     balance_factor: 100,
-    is_hidden: false,
+    is_archived: false,
     include_by_default: true,
     is_market_valued: false,
     ...overrides,
@@ -642,7 +642,7 @@ describe('CredentialDetailView — sync settings', () => {
         credential={{
           ...credential,
           sync_enabled: false,
-          accounts: [buildAccount({ id: 1, is_hidden: true, include_by_default: false })],
+          accounts: [buildAccount({ id: 1, is_archived: true, include_by_default: false })],
         }}
         onDeleted={vi.fn()}
       />,
@@ -689,7 +689,7 @@ describe('CredentialDetailView — account toggles', () => {
   const credential = buildCredential({ accounts: [buildAccount({ id: 1 })] })
 
   it.each([
-    ['Archive', { is_hidden: true }],
+    ['Archive', { is_archived: true }],
     ['Select by default', { include_by_default: false }],
   ])('saves "%s" right away', async (label, payload) => {
     const user = userEvent.setup()
@@ -1077,7 +1077,7 @@ describe('CredentialDetailView — an account shared with me', () => {
 
     expect(screen.getByText('Archived')).toBeInTheDocument()
     await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Saved'))
-    expect(bodyOf('PATCH', MINE_URL)).toEqual({ is_hidden: true })
+    expect(bodyOf('PATCH', MINE_URL)).toEqual({ is_archived: true })
   })
 
   it.each([

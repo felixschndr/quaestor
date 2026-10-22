@@ -61,13 +61,13 @@ def test_user_balance_scales_each_account_by_its_balance_factor(session_factory:
         assert user.balance == 400.0 + 200.0 * 0.5 + 999.0 * 0.0
 
 
-def test_user_balance_excludes_hidden_accounts(session_factory: sessionmaker):
+def test_user_balance_excludes_archived_accounts(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
         credential = make_credential(session, user_id=user.id)
         make_account(session, credential_id=credential.id, name="visible", balance=DEFAULT_BALANCE, balance_factor=100)
         make_account(
-            session, credential_id=credential.id, name="hidden", balance=500.0, balance_factor=100, is_hidden=True
+            session, credential_id=credential.id, name="archived", balance=500.0, balance_factor=100, is_archived=True
         )
         session.commit()
 

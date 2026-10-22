@@ -424,7 +424,7 @@ def make_account(
     display_name: str | None = None,
     balance: float = 0.0,
     balance_factor: int = 100,
-    is_hidden: bool = False,
+    is_archived: bool = False,
 ) -> Account:
     credential = db_session.get(entity=Credential, ident=credential_id)
     account = Account(
@@ -434,7 +434,7 @@ def make_account(
         display_name=display_name,
         balance=balance,
         balance_factor=balance_factor,
-        is_hidden=is_hidden,
+        is_archived=is_archived,
     )
     db_session.add(account)
     db_session.flush()
@@ -567,7 +567,7 @@ def persist_account(
     display_name: str | None = None,
     balance: float = 0.0,
     balance_factor: int = 100,
-    is_hidden: bool = False,
+    is_archived: bool = False,
 ) -> int:
     with session_factory() as db_session:
         account = make_account(
@@ -577,7 +577,7 @@ def persist_account(
             display_name=display_name,
             balance=balance,
             balance_factor=balance_factor,
-            is_hidden=is_hidden,
+            is_archived=is_archived,
         )
         db_session.commit()
         return account.id

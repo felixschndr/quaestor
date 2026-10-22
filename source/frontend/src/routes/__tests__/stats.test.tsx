@@ -92,7 +92,7 @@ const credentials: CredentialRead[] = [
         balance: 0,
         balance_factor: 100,
         display_name: null,
-        is_hidden: false,
+        is_archived: false,
         include_by_default: true,
         is_market_valued: false,
       },

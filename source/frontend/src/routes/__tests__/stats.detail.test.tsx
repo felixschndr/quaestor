@@ -69,7 +69,7 @@ vi.mock('@/lib/auth', () => ({
                   display_name: null,
                   balance: 130,
                   balance_factor: 100,
-                  is_hidden: false,
+                  is_archived: false,
                   include_by_default: true,
                 },
                 {
@@ -78,7 +78,7 @@ vi.mock('@/lib/auth', () => ({
                   display_name: null,
                   balance: 500,
                   balance_factor: 150,
-                  is_hidden: false,
+                  is_archived: false,
                   include_by_default: true,
                 },
                 {
@@ -87,7 +87,7 @@ vi.mock('@/lib/auth', () => ({
                   display_name: null,
                   balance: 0,
                   balance_factor: 100,
-                  is_hidden: true,
+                  is_archived: true,
                   include_by_default: true,
                 },
                 {
@@ -96,7 +96,7 @@ vi.mock('@/lib/auth', () => ({
                   display_name: null,
                   balance: 0,
                   balance_factor: 100,
-                  is_hidden: true,
+                  is_archived: true,
                   include_by_default: true,
                 },
               ],

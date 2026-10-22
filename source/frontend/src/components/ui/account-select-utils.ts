@@ -16,11 +16,13 @@ export function groupAccounts(
 }
 
 function moveArchivedLast(groups: AccountGroup[]): AccountGroup[] {
-  const archived = groups.flatMap((group) => group.accounts.filter((account) => account.is_hidden))
+  const archived = groups.flatMap((group) =>
+    group.accounts.filter((account) => account.is_archived),
+  )
   const active = groups
     .map((group) => ({
       ...group,
-      accounts: group.accounts.filter((account) => !account.is_hidden),
+      accounts: group.accounts.filter((account) => !account.is_archived),
     }))
     .filter((group) => group.accounts.length > 0)
   if (archived.length === 0) return active

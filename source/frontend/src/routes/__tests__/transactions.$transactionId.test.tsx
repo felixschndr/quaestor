@@ -824,7 +824,7 @@ describe('TransactionDetailPage', () => {
       display_name: ACCOUNT_NAME_GIRO,
       balance: AMOUNT_XL,
       balance_factor: 100,
-      is_hidden: false,
+      is_archived: false,
       include_by_default: true,
       is_market_valued: false,
       ...overrides,

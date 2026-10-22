@@ -151,9 +151,9 @@ class Credential(Base):
             claimed_account_ids.add(id(account))
             account.transaction_history_incomplete = fetched_account.transaction_history_incomplete
             if fetched_account.is_closed and account.balance != 0:
-                account.is_hidden = True
+                account.is_archived = True
             elif account.is_market_valued and account.balance == 0 and fetched.balance != 0:
-                account.is_hidden = False
+                account.is_archived = False
             account.balance = fetched.balance
 
             created_transactions += self._sync_transactions_of_account(

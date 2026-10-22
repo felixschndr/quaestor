@@ -93,7 +93,7 @@ export function useRespondToInvitation() {
 export interface ShareSettingsPayload {
   display_name?: string | null
   balance_factor?: number
-  is_hidden?: boolean
+  is_archived?: boolean
   include_by_default?: boolean
 }
 

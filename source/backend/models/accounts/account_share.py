@@ -38,7 +38,7 @@ class AccountShare(Base):
     status: Mapped[ShareStatus] = mapped_column(SQLEnum(ShareStatus), default=ShareStatus.PENDING)
     display_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
     balance_factor: Mapped[float] = mapped_column(Float, default=100.0, server_default="100.0")
-    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     include_by_default: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     group_id: Mapped[int | None] = mapped_column(ForeignKey("account_groups.id", ondelete="SET NULL"), nullable=True)
     position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
@@ -55,7 +55,7 @@ class SharedAccountView:
     display_name: str | None
     balance: float
     balance_factor: float
-    is_hidden: bool
+    is_archived: bool
     include_by_default: bool
     is_market_valued: bool
 
@@ -92,7 +92,7 @@ def shared_account_view(share: AccountShare) -> SharedAccountView:
         display_name=share.display_name,
         balance=account.balance,
         balance_factor=share.balance_factor,
-        is_hidden=share.is_hidden,
+        is_archived=share.is_archived,
         include_by_default=share.include_by_default,
         is_market_valued=account.is_market_valued,
     )

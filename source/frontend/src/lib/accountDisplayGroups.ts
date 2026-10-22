@@ -43,7 +43,7 @@ export function buildDisplayGroups(
   layout: AccountGroupLayout | undefined,
   showArchived: (account: AccountRead) => boolean = () => false,
 ): DisplayGroup[] {
-  const isVisible = (account: AccountRead) => !account.is_hidden || showArchived(account)
+  const isVisible = (account: AccountRead) => !account.is_archived || showArchived(account)
   const usesCustomLayout = !!layout && layout.groups.length > 0
   if (!usesCustomLayout) {
     return [...user.credentials]

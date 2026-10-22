@@ -23,7 +23,7 @@ export interface AccountRead {
   display_name: string | null
   balance: number
   balance_factor: number
-  is_hidden: boolean
+  is_archived: boolean
   include_by_default: boolean
   is_market_valued: boolean
 }

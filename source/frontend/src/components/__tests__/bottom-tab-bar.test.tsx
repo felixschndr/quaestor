@@ -42,7 +42,7 @@ const credential: CredentialRead = {
       display_name: null,
       balance: 0,
       balance_factor: 100,
-      is_hidden: false,
+      is_archived: false,
       include_by_default: true,
       is_market_valued: false,
     },
@@ -52,7 +52,7 @@ const credential: CredentialRead = {
       display_name: null,
       balance: 0,
       balance_factor: 100,
-      is_hidden: true,
+      is_archived: true,
       include_by_default: true,
       is_market_valued: false,
     },
@@ -119,7 +119,7 @@ describe('BottomTabBar', () => {
     await waitFor(() => expect(overdueDot()).not.toBeNull())
   })
 
-  it('ignores overdue contracts of hidden accounts and contracts on schedule', async () => {
+  it('ignores overdue contracts of archived accounts and contracts on schedule', async () => {
     mockApi([
       { account_id: HIDDEN_ACCOUNT_ID, is_overdue: true },
       { account_id: VISIBLE_ACCOUNT_ID, is_overdue: false },

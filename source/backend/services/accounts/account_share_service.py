@@ -143,7 +143,7 @@ def get_own_share(user: User, account_id: int) -> AccountShare:
 
 
 def update_own_settings(db_session: Session, share: AccountShare, fields: dict) -> AccountShare:
-    for name in ("balance_factor", "is_hidden", "include_by_default"):
+    for name in ("balance_factor", "is_archived", "include_by_default"):
         if fields.get(name) is not None:
             setattr(share, name, fields[name])
     if "display_name" in fields:

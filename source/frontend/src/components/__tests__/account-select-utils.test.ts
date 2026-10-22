@@ -12,7 +12,7 @@ function account(id: number, name: string): AccountRead {
     display_name: null,
     balance: 0,
     balance_factor: 100,
-    is_hidden: false,
+    is_archived: false,
     include_by_default: true,
     is_market_valued: false,
   }
@@ -56,8 +56,8 @@ describe('groupAccounts', () => {
   it('moves archived accounts into a trailing archived group', () => {
     const [ing, dkb] = credentials
     const withArchived: CredentialRead[] = [
-      { ...ing, accounts: [ing.accounts[0], { ...ing.accounts[1], is_hidden: true }] },
-      { ...dkb, accounts: [{ ...dkb.accounts[0], is_hidden: true }] },
+      { ...ing, accounts: [ing.accounts[0], { ...ing.accounts[1], is_archived: true }] },
+      { ...dkb, accounts: [{ ...dkb.accounts[0], is_archived: true }] },
     ]
 
     const groups = groupAccounts(withArchived)

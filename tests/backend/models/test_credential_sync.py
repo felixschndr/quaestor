@@ -1043,7 +1043,7 @@ def test_sync_sets_a_sold_position_to_zero(session_factory: sessionmaker, caplog
         accounts = _accounts_by_external_id(session, credential_id=credential_id)
         position = accounts[ACME]
         assert position.balance == 0.0
-        assert position.is_hidden is True
+        assert position.is_archived is True
         assert position.balance_at_date[RECENT_DATE].balance == 4200.0
         assert position.balance_at_date[date.today()].balance == 0.0
         assert position.balance_at_date[date.today()].source == BalanceSnapshotSource.MARKET_VALUED
@@ -1070,7 +1070,7 @@ def test_sync_archives_a_newly_found_sold_out_position(session_factory: sessionm
 
     with session_factory() as session:
         position = _accounts_by_external_id(session, credential_id=credential_id)[ACME]
-        assert position.is_hidden is True
+        assert position.is_archived is True
         assert position.balance_at_date[RECENT_DATE].balance == 4200.0
 
 
@@ -1083,7 +1083,7 @@ def test_sync_archives_a_held_position_once_the_bank_reports_it_sold(session_fac
     _sync(session_factory, credential_id=credential_id, handler=_closed_position_handler(balance=0.0, is_closed=True))
 
     with session_factory() as session:
-        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_hidden is True
+        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived is True
 
 
 def test_sync_keeps_a_sold_position_the_user_unarchived(session_factory: sessionmaker):
@@ -1091,13 +1091,13 @@ def test_sync_keeps_a_sold_position_the_user_unarchived(session_factory: session
     sold = _closed_position_handler(balance=0.0, is_closed=True)
     _sync(session_factory, credential_id=credential_id, handler=sold)
     with session_factory() as session:
-        _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_hidden = False
+        _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived = False
         session.commit()
 
     _sync(session_factory, credential_id=credential_id, handler=sold)
 
     with session_factory() as session:
-        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_hidden is False
+        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived is False
 
 
 def test_sync_unarchives_a_sold_position_that_is_bought_again(session_factory: sessionmaker):
@@ -1109,7 +1109,7 @@ def test_sync_unarchives_a_sold_position_that_is_bought_again(session_factory: s
     )
 
     with session_factory() as session:
-        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_hidden is False
+        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived is False
 
 
 def test_sync_keeps_a_held_position_the_user_archived(session_factory: sessionmaker):
@@ -1117,13 +1117,13 @@ def test_sync_keeps_a_held_position_the_user_archived(session_factory: sessionma
     held = _closed_position_handler(balance=4200.0, is_closed=False)
     _sync(session_factory, credential_id=credential_id, handler=held)
     with session_factory() as session:
-        _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_hidden = True
+        _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived = True
         session.commit()
 
     _sync(session_factory, credential_id=credential_id, handler=held)
 
     with session_factory() as session:
-        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_hidden is True
+        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived is True
 
 
 def test_sync_keeps_an_account_that_is_not_a_position_when_the_bank_omits_it(session_factory: sessionmaker):

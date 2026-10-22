@@ -458,26 +458,26 @@ function AccountRow({
   const effectiveBalance = (account.balance * effectiveFactor) / 100
   const factorInputId = `account-${account.id}-balance-factor`
   const nameInputId = `account-${account.id}-display-name`
-  const hiddenInputId = `account-${account.id}-is-hidden`
+  const archivedInputId = `account-${account.id}-is-archived`
 
-  // is_hidden saves on every click (no debounce — it's a single boolean, no
+  // is_archived saves on every click (no debounce — it's a single boolean, no
   // burst of edits to coalesce). Optimistic local state so the checkbox flips
   // instantly while the PATCH is in flight; reverts on failure. The
   // setState-during-render pattern keeps local state in sync with the prop
   // without an effect (which would trigger an eslint cascading-renders error).
-  const [hidden, setHidden] = useState(account.is_hidden)
-  const [lastHiddenProp, setLastHiddenProp] = useState(account.is_hidden)
-  if (account.is_hidden !== lastHiddenProp) {
-    setLastHiddenProp(account.is_hidden)
-    setHidden(account.is_hidden)
+  const [archived, setArchived] = useState(account.is_archived)
+  const [lastArchivedProp, setLastArchivedProp] = useState(account.is_archived)
+  if (account.is_archived !== lastArchivedProp) {
+    setLastArchivedProp(account.is_archived)
+    setArchived(account.is_archived)
   }
-  const onHiddenChange = async (next: boolean) => {
-    setHidden(next)
+  const onArchivedChange = async (next: boolean) => {
+    setArchived(next)
     try {
-      await mutateAsync({ accountId: account.id, is_hidden: next })
+      await mutateAsync({ accountId: account.id, is_archived: next })
       toast.success(t('common.saved'))
     } catch {
-      setHidden(account.is_hidden)
+      setArchived(account.is_archived)
       toast.error(t('credentials.detail.saveFailed'))
     }
   }
@@ -506,7 +506,7 @@ function AccountRow({
         <div className="flex min-w-0 flex-col">
           <span className="flex min-w-0 items-center gap-2">
             <span className="text-foreground truncate text-base font-medium">{cardTitle}</span>
-            {hidden ? <ArchivedBadge size="md" /> : null}
+            {archived ? <ArchivedBadge size="md" /> : null}
           </span>
           {cardSubtitle ? (
             <span className="text-muted-foreground truncate text-xs">{cardSubtitle}</span>
@@ -578,15 +578,18 @@ function AccountRow({
         )}
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor={hiddenInputId} className="flex cursor-pointer items-center gap-2 text-sm">
+          <label
+            htmlFor={archivedInputId}
+            className="flex cursor-pointer items-center gap-2 text-sm"
+          >
             <Checkbox
-              id={hiddenInputId}
-              checked={hidden}
-              onCheckedChange={(checked) => void onHiddenChange(checked === true)}
+              id={archivedInputId}
+              checked={archived}
+              onCheckedChange={(checked) => void onArchivedChange(checked === true)}
             />
-            <span>{t('credentials.detail.hide')}</span>
+            <span>{t('credentials.detail.archive')}</span>
           </label>
-          <p className="text-muted-foreground text-xs">{t('credentials.detail.hideHint')}</p>
+          <p className="text-muted-foreground text-xs">{t('credentials.detail.archiveHint')}</p>
         </div>
 
         <div className="flex flex-col gap-1.5">

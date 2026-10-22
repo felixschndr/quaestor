@@ -18,9 +18,10 @@ export function BottomTabBar() {
   const { t } = useTranslation()
   const { data: user } = useAuthMe()
   const { data: contracts } = useContracts()
-  // Non-hidden account ids, mirrors the overview overdue badge.
+  // Non-archived account ids, mirrors the overview overdue badge.
   const visible = new Set(
-    user?.credentials.flatMap((c) => c.accounts.filter((a) => !a.is_hidden).map((a) => a.id)) ?? [],
+    user?.credentials.flatMap((c) => c.accounts.filter((a) => !a.is_archived).map((a) => a.id)) ??
+      [],
   )
   const overdue = (contracts ?? []).some((c) => c.is_overdue && visible.has(c.account_id))
   const pathname = useRouterState({ select: (s) => s.location.pathname })

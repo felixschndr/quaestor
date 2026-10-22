@@ -69,7 +69,7 @@ export function OverviewView({
   const visibleAccountIds = useMemo(
     () =>
       user.credentials.flatMap((credential) =>
-        credential.accounts.filter((account) => !account.is_hidden).map((account) => account.id),
+        credential.accounts.filter((account) => !account.is_archived).map((account) => account.id),
       ),
     [user],
   )

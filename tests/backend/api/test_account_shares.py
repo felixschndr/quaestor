@@ -395,18 +395,18 @@ def test_recipient_keeps_their_own_overview_preferences(http_client: TestClient)
 
     http_client.patch(
         f"/api/account_shares/account/{account_id}/mine",
-        json={"is_hidden": True, "include_by_default": False},
+        json={"is_archived": True, "include_by_default": False},
     )
 
     me = http_client.get("/api/auth/me").json()
     (account,) = me["credentials"][0]["accounts"]
-    assert account["is_hidden"] is True
+    assert account["is_archived"] is True
     assert account["include_by_default"] is False
     assert me["balance"] == 0.0
 
     login_as(http_client, user_name=USER_NAME, password=VALID_PASSWORD)
     (owned,) = http_client.get("/api/auth/me").json()["credentials"][0]["accounts"]
-    assert owned["is_hidden"] is False
+    assert owned["is_archived"] is False
     assert owned["include_by_default"] is True
 
 

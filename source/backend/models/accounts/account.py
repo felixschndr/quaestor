@@ -44,7 +44,7 @@ class Account(Base):
     display_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
     balance: Mapped[float] = mapped_column(Float, default=0.0)
     balance_factor: Mapped[float] = mapped_column(Float, default=100.0)
-    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     include_by_default: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     # The bank doesn't report every balance movement as a transaction (e.g. PayPal's automatic bank funding); balance
     # history comes from bank-reported anchors only.
@@ -112,7 +112,7 @@ class Account(Base):
             snapshot.balance = 0.0
             snapshot.source = BalanceSnapshotSource.MARKET_VALUED
         self.balance = 0.0
-        self.is_hidden = True
+        self.is_archived = True
         logger.info(f"{self} is no longer held --> set it to 0 and archived it")
 
     def record_balance_observations(self, observations: list[BalanceObservation]) -> None:
