@@ -1,25 +1,31 @@
-import { describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { MockInstance } from 'vitest'
+import { toast } from 'sonner'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-    ...rest
-  }: { to: string; children: React.ReactNode } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
-    <a href={to} {...rest}>
-      {children}
-    </a>
-  ),
-  useCanGoBack: () => false,
-  useRouter: () => ({ history: { back: () => {}, push: () => {} } }),
-  createFileRoute: () => () => ({}),
-}))
+import '@/i18n'
 
-import { __testing } from '@/pages/settings.credentials.groups'
+vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
+
+import { GroupsEditorView, __testing } from '@/pages/settings.credentials.groups'
+import { Route } from '@/routes/settings.credentials.groups'
 import type { AccountGroupLayout } from '@/lib/accountGroups'
-import type { UserRead } from '@/lib/auth'
-import { buildUser as buildBaseUser } from './-settingsUserTestHelpers'
-import { ACCOUNT_NAME_DAY, GROUP_NAME_SAVINGS } from '@/test/constants'
+import type { AccountRead, UserRead } from '@/lib/auth'
+import {
+  buildUser as buildBaseUser,
+  jsonResponse,
+  renderWithQuery,
+  renderWithQueryWrapper,
+} from './-settingsUserTestHelpers'
+import {
+  ACCOUNT_NAME_CHECKING,
+  ACCOUNT_NAME_DAY,
+  ACCOUNT_NAME_GIRO,
+  ACCOUNT_NAME_SAVINGS,
+  GROUP_NAME_SAVINGS,
+  SHARE_OWNER_NAME,
+} from '@/test/constants'
 
 const {
   moveAccount,
@@ -42,7 +48,7 @@ function buildUser(): UserRead {
         accounts: [
           {
             id: 1,
-            name: 'Giro',
+            name: ACCOUNT_NAME_GIRO,
             display_name: null,
             balance: 100,
             balance_factor: 100,
@@ -114,6 +120,16 @@ describe('moveAccount', () => {
   it('returns the layout unchanged when the drop target is unknown', () => {
     expect(moveAccount(sampleLayout, 1, 'mystery-target')).toBe(sampleLayout)
   })
+
+  it('inserts before an account hovered in the ungrouped bucket', () => {
+    const layout: AccountGroupLayout = {
+      groups: [{ id: 1, name: 'A', accounts: [{ id: 10 }] }],
+      ungrouped: [{ id: 20 }, { id: 30 }],
+    }
+    const next = moveAccount(layout, 10, 'account-30')
+    expect(next.groups[0].accounts).toEqual([])
+    expect(next.ungrouped.map((a) => a.id)).toEqual([20, 10, 30])
+  })
 })
 
 describe('parseTargetContainer', () => {
@@ -129,6 +145,10 @@ describe('parseTargetContainer', () => {
 
   it('returns null for unknown drop ids', () => {
     expect(parseTargetContainer('unknown', sampleLayout)).toBeNull()
+  })
+
+  it('returns null for an account that sits in no container', () => {
+    expect(parseTargetContainer('account-99', sampleLayout)).toBeNull()
   })
 })
 
@@ -245,6 +265,10 @@ describe('shouldInsertAfter', () => {
     expect(shouldInsertAfter(active, overItem)).toBe(false)
   })
 
+  it('returns false before the dragged item has a translated rect', () => {
+    expect(shouldInsertAfter({ rect: { current: { translated: null } } }, overItem)).toBe(false)
+  })
+
   it('returns false when dropping on a container (not an account item)', () => {
     const active = { rect: { current: { translated: { top: 500, height: 40 } } } }
     const overContainer = { id: 'container-200', rect: { top: 100, height: 40 } }
@@ -262,5 +286,520 @@ describe('buildAccountLookup', () => {
 
   it('returns an empty map when the user is missing', () => {
     expect(buildAccountLookup(undefined).size).toBe(0)
+  })
+})
+
+const SHARED_ACCOUNT_ID = 3
+const DAILY_GROUP_NAME = 'Daily'
+
+function sharedAccount(overrides: Partial<AccountRead> = {}): AccountRead {
+  return {
+    id: SHARED_ACCOUNT_ID,
+    name: ACCOUNT_NAME_SAVINGS,
+    display_name: null,
+    balance: 300,
+    balance_factor: 100,
+    is_hidden: false,
+    include_by_default: true,
+    is_market_valued: false,
+    ...overrides,
+  }
+}
+
+function buildUserWithShare(overrides: Partial<AccountRead> = {}): UserRead {
+  const user = buildUser()
+  return {
+    ...user,
+    credentials: [
+      ...user.credentials,
+      {
+        id: 20,
+        bank: 'dkb',
+        bank_name: null,
+        bank_icon: null,
+        accounts: [sharedAccount(overrides)],
+        last_successful_sync_timestamp: null,
+        requires_two_factor_authentication: false,
+        sync_enabled: true,
+        shared_from: SHARE_OWNER_NAME,
+        share_permission: 'write',
+      },
+    ],
+  }
+}
+
+const editorLayout: AccountGroupLayout = {
+  groups: [
+    { id: 100, name: GROUP_NAME_SAVINGS, accounts: [{ id: 1 }] },
+    { id: 200, name: DAILY_GROUP_NAME, accounts: [{ id: 2 }] },
+  ],
+  ungrouped: [{ id: SHARED_ACCOUNT_ID }],
+}
+
+const LAYOUT_URL = '/api/account_groups/layout'
+const DEBOUNCE_MS = 400
+
+let fetchMock: MockInstance<typeof fetch>
+
+function mockFetch(handler: (url: string, init?: RequestInit) => Promise<Response> | undefined) {
+  fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+    const url = String(input)
+    return handler(url, init) ?? Promise.reject(new Error(`unexpected fetch: ${url}`))
+  })
+}
+
+function requestsTo(url: string, method: string) {
+  return fetchMock.mock.calls.filter(
+    ([calledUrl, init]) => calledUrl === url && init?.method === method,
+  )
+}
+
+function lastBody(url: string, method: string): unknown {
+  const calls = requestsTo(url, method)
+  return JSON.parse(String(calls[calls.length - 1][1]!.body))
+}
+
+function renderEditor(layout: AccountGroupLayout = editorLayout, user = buildUserWithShare()) {
+  return renderWithQuery(
+    <GroupsEditorView layout={layout} accountLookup={buildAccountLookup(user)} />,
+  )
+}
+
+function groupNames(): string[] {
+  return screen
+    .getAllByRole('textbox', { name: 'Group name' })
+    .map((input) => (input as HTMLInputElement).value)
+}
+
+function accountsIn(containerId: string): string[] {
+  return within(screen.getByTestId(containerId))
+    .queryAllByRole('button', { name: 'Edit account name' })
+    .map((button) => button.closest('li')!.textContent!)
+}
+
+async function flushDebounce() {
+  await act(() => vi.advanceTimersByTimeAsync(DEBOUNCE_MS))
+}
+
+afterEach(async () => {
+  if (vi.isFakeTimers()) await act(() => vi.runOnlyPendingTimersAsync())
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
+
+describe('GroupsEditorView — layout edits', () => {
+  function setup() {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    mockFetch((url, init) =>
+      url === LAYOUT_URL && init?.method === 'PUT'
+        ? Promise.resolve(jsonResponse({ status: 200, body: editorLayout }))
+        : undefined,
+    )
+    const success = vi.spyOn(toast, 'success')
+    renderEditor()
+    return { user, success }
+  }
+
+  it('asks the user to connect a bank first when there are no accounts', () => {
+    renderWithQuery(<GroupsEditorView layout={editorLayout} accountLookup={new Map()} />)
+    expect(
+      screen.getByText('Connect a bank first — then come back here to organise your accounts.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Create group' })).not.toBeInTheDocument()
+  })
+
+  it('places every account in its group and the rest under "Without group"', () => {
+    renderEditor()
+    expect(groupNames()).toEqual([GROUP_NAME_SAVINGS, DAILY_GROUP_NAME])
+    expect(accountsIn('container-100')).toEqual([expect.stringContaining(ACCOUNT_NAME_GIRO)])
+    expect(accountsIn('container-200')).toEqual([expect.stringContaining(ACCOUNT_NAME_DAY)])
+    expect(accountsIn('container-ungrouped')).toEqual([
+      expect.stringContaining(ACCOUNT_NAME_SAVINGS),
+    ])
+  })
+
+  it('skips layout entries whose account no longer exists', () => {
+    renderEditor({ ...editorLayout, ungrouped: [{ id: SHARED_ACCOUNT_ID }, { id: 99 }] })
+    expect(accountsIn('container-ungrouped')).toEqual([
+      expect.stringContaining(ACCOUNT_NAME_SAVINGS),
+    ])
+  })
+
+  it('creates a group and saves it without an id once the debounce elapses', async () => {
+    const { user, success } = setup()
+
+    await user.click(screen.getByRole('button', { name: 'Create group' }))
+    expect(groupNames()).toEqual([GROUP_NAME_SAVINGS, DAILY_GROUP_NAME, 'New group'])
+    expect(within(screen.getByTestId(/^container--\d+$/)).getByText('Drop accounts here'))
+    expect(requestsTo(LAYOUT_URL, 'PUT')).toHaveLength(0)
+
+    await flushDebounce()
+
+    await waitFor(() => expect(success).toHaveBeenCalledWith('Saved'))
+    expect(lastBody(LAYOUT_URL, 'PUT')).toEqual({
+      groups: [
+        { id: 100, name: GROUP_NAME_SAVINGS, account_ids: [1] },
+        { id: 200, name: DAILY_GROUP_NAME, account_ids: [2] },
+        { name: 'New group', account_ids: [] },
+      ],
+      ungrouped: [SHARED_ACCOUNT_ID],
+    })
+  })
+
+  it('coalesces a burst of renames into a single save', async () => {
+    const { user } = setup()
+
+    const [firstName] = screen.getAllByRole('textbox', { name: 'Group name' })
+    await user.clear(firstName)
+    await user.type(firstName, ACCOUNT_NAME_CHECKING)
+    await flushDebounce()
+
+    await waitFor(() => expect(requestsTo(LAYOUT_URL, 'PUT')).toHaveLength(1))
+    expect(lastBody(LAYOUT_URL, 'PUT')).toMatchObject({
+      groups: [{ id: 100, name: ACCOUNT_NAME_CHECKING }, { id: 200 }],
+    })
+  })
+
+  it('moves the accounts of a deleted group to "Without group"', async () => {
+    const { user } = setup()
+
+    await user.click(screen.getAllByRole('button', { name: 'Delete group' })[0])
+
+    expect(groupNames()).toEqual([DAILY_GROUP_NAME])
+    expect(accountsIn('container-ungrouped')).toEqual([
+      expect.stringContaining(ACCOUNT_NAME_SAVINGS),
+      expect.stringContaining(ACCOUNT_NAME_GIRO),
+    ])
+    await flushDebounce()
+    await waitFor(() =>
+      expect(lastBody(LAYOUT_URL, 'PUT')).toEqual({
+        groups: [{ id: 200, name: DAILY_GROUP_NAME, account_ids: [2] }],
+        ungrouped: [SHARED_ACCOUNT_ID, 1],
+      }),
+    )
+  })
+
+  it('shows a saving hint while the layout request is in flight', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    let respond: (response: Response) => void = () => {}
+    mockFetch(() => new Promise((resolve) => (respond = resolve)))
+    renderEditor()
+
+    await user.click(screen.getByRole('button', { name: 'Create group' }))
+    await flushDebounce()
+
+    expect(await screen.findByText('Saving …')).toBeInTheDocument()
+    await act(async () => respond(jsonResponse({ status: 200, body: editorLayout })))
+    await waitFor(() => expect(screen.queryByText('Saving …')).not.toBeInTheDocument())
+  })
+
+  it('toasts an error when the layout cannot be saved', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    mockFetch(() => Promise.resolve(jsonResponse({ status: 500, body: { detail: 'boom' } })))
+    const error = vi.spyOn(toast, 'error')
+    renderEditor()
+
+    await user.click(screen.getByRole('button', { name: 'Create group' }))
+    await flushDebounce()
+
+    await waitFor(() =>
+      expect(error).toHaveBeenCalledWith('Could not save the layout. Please try again.'),
+    )
+  })
+
+  it('adopts a new server layout without saving it back', async () => {
+    mockFetch(() => undefined)
+    const accountLookup = buildAccountLookup(buildUserWithShare())
+    const { rerender } = renderWithQueryWrapper(
+      <GroupsEditorView layout={editorLayout} accountLookup={accountLookup} />,
+    )
+
+    rerender(
+      <GroupsEditorView
+        layout={{ groups: [], ungrouped: [{ id: 1 }, { id: 2 }, { id: SHARED_ACCOUNT_ID }] }}
+        accountLookup={accountLookup}
+      />,
+    )
+
+    expect(screen.queryByRole('textbox', { name: 'Group name' })).not.toBeInTheDocument()
+    expect(accountsIn('container-ungrouped')).toHaveLength(3)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('GroupsEditorView — drag and drop', () => {
+  function placeDropTarget(target: Element, top = 1000) {
+    const height = 64
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      const y = this === target ? top : 0
+      return {
+        x: 0,
+        y,
+        top: y,
+        left: 0,
+        right: 800,
+        bottom: y + height,
+        width: 800,
+        height,
+        toJSON() {},
+      }
+    })
+  }
+
+  function startDrag(handle: Element) {
+    fireEvent.pointerDown(handle, { isPrimary: true, button: 0, clientX: 0, clientY: 0 })
+    fireEvent.pointerMove(document, { isPrimary: true, clientX: 0, clientY: 10 })
+  }
+
+  function moveTo(clientY: number) {
+    fireEvent.pointerMove(document, { isPrimary: true, clientX: 0, clientY })
+  }
+
+  function drop(clientY: number) {
+    fireEvent.pointerUp(document, { isPrimary: true, clientX: 0, clientY })
+  }
+
+  function handleOf(accountName: string): Element {
+    return within(screen.getByText(accountName).closest('li')!).getByRole('button', {
+      name: 'Move account',
+    })
+  }
+
+  function setup() {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    mockFetch((url, init) =>
+      url === LAYOUT_URL && init?.method === 'PUT'
+        ? Promise.resolve(jsonResponse({ status: 200, body: editorLayout }))
+        : undefined,
+    )
+    renderEditor()
+  }
+
+  it('reorders groups by dragging a group handle onto another group', async () => {
+    setup()
+    const [savingsSection] = screen
+      .getAllByRole('textbox', { name: 'Group name' })
+      .map((input) => input.closest('section')!)
+    placeDropTarget(savingsSection)
+
+    startDrag(screen.getAllByRole('button', { name: 'Reorder group' })[1])
+    moveTo(1000)
+    drop(1000)
+
+    expect(groupNames()).toEqual([DAILY_GROUP_NAME, GROUP_NAME_SAVINGS])
+    await flushDebounce()
+    await waitFor(() =>
+      expect(lastBody(LAYOUT_URL, 'PUT')).toMatchObject({
+        groups: [{ id: 200 }, { id: 100 }],
+      }),
+    )
+  })
+
+  it('moves an account into another container and shows it in the drag overlay', async () => {
+    setup()
+    placeDropTarget(screen.getByTestId('container-ungrouped'))
+
+    startDrag(handleOf(ACCOUNT_NAME_DAY))
+    moveTo(1000)
+    expect(screen.getAllByText(ACCOUNT_NAME_DAY)).toHaveLength(2)
+    drop(1000)
+
+    expect(accountsIn('container-200')).toEqual([])
+    expect(accountsIn('container-ungrouped')).toEqual([
+      expect.stringContaining(ACCOUNT_NAME_SAVINGS),
+      expect.stringContaining(ACCOUNT_NAME_DAY),
+    ])
+    await flushDebounce()
+    await waitFor(() =>
+      expect(lastBody(LAYOUT_URL, 'PUT')).toEqual({
+        groups: [
+          { id: 100, name: GROUP_NAME_SAVINGS, account_ids: [1] },
+          { id: 200, name: DAILY_GROUP_NAME, account_ids: [] },
+        ],
+        ungrouped: [SHARED_ACCOUNT_ID, 2],
+      }),
+    )
+  })
+
+  it('inserts after the hovered account when dropped on its lower half', () => {
+    setup()
+    placeDropTarget(screen.getByText(ACCOUNT_NAME_GIRO).closest('li')!)
+
+    startDrag(handleOf(ACCOUNT_NAME_DAY))
+    moveTo(1040)
+    drop(1040)
+
+    expect(accountsIn('container-100')).toEqual([
+      expect.stringContaining(ACCOUNT_NAME_GIRO),
+      expect.stringContaining(ACCOUNT_NAME_DAY),
+    ])
+  })
+
+  it('inserts before the hovered account when dropped on its upper half', () => {
+    setup()
+    placeDropTarget(screen.getByText(ACCOUNT_NAME_GIRO).closest('li')!)
+
+    startDrag(handleOf(ACCOUNT_NAME_DAY))
+    moveTo(980)
+    drop(980)
+
+    expect(accountsIn('container-100')).toEqual([
+      expect.stringContaining(ACCOUNT_NAME_DAY),
+      expect.stringContaining(ACCOUNT_NAME_GIRO),
+    ])
+  })
+
+  it('drops the drag overlay when the drag is cancelled with Escape', async () => {
+    setup()
+
+    startDrag(handleOf(ACCOUNT_NAME_GIRO))
+    expect(screen.getAllByText(ACCOUNT_NAME_GIRO)).toHaveLength(2)
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
+    await act(() => vi.runOnlyPendingTimersAsync())
+
+    expect(screen.getAllByText(ACCOUNT_NAME_GIRO)).toHaveLength(1)
+    expect(accountsIn('container-100')).toEqual([expect.stringContaining(ACCOUNT_NAME_GIRO)])
+    await flushDebounce()
+    expect(requestsTo(LAYOUT_URL, 'PUT')).toHaveLength(0)
+  })
+})
+
+describe('GroupsEditorView — account names', () => {
+  function setup({ status = 200, user = buildUserWithShare() } = {}) {
+    mockFetch((_url, init) =>
+      init?.method === 'PATCH' ? Promise.resolve(jsonResponse({ status, body: {} })) : undefined,
+    )
+    renderEditor(editorLayout, user)
+    return userEvent.setup()
+  }
+
+  function editButtonOf(accountName: string): HTMLElement {
+    return within(screen.getByText(accountName).closest('li')!).getByRole('button', {
+      name: 'Edit account name',
+    })
+  }
+
+  it('renames an own account on Enter', async () => {
+    const user = setup()
+    const success = vi.spyOn(toast, 'success')
+
+    await user.click(editButtonOf(ACCOUNT_NAME_GIRO))
+    const input = screen.getByRole('textbox', { name: 'Edit account name' })
+    expect(input).toHaveFocus()
+    expect(input).toHaveAttribute('placeholder', ACCOUNT_NAME_GIRO)
+    await user.type(input, `  ${ACCOUNT_NAME_CHECKING}  {Enter}`)
+
+    await waitFor(() => expect(success).toHaveBeenCalledWith('Saved'))
+    expect(requestsTo('/api/account/1', 'PATCH')).toHaveLength(1)
+    expect(lastBody('/api/account/1', 'PATCH')).toEqual({ display_name: ACCOUNT_NAME_CHECKING })
+  })
+
+  it('saves via the check button and on blur', async () => {
+    const user = setup()
+
+    await user.click(editButtonOf(ACCOUNT_NAME_GIRO))
+    await user.type(screen.getByRole('textbox', { name: 'Edit account name' }), 'A')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(requestsTo('/api/account/1', 'PATCH')).toHaveLength(1))
+
+    await user.click(editButtonOf(ACCOUNT_NAME_DAY))
+    await user.type(screen.getByRole('textbox', { name: 'Edit account name' }), 'B')
+    await user.click(screen.getByRole('button', { name: 'Create group' }))
+    await waitFor(() => expect(requestsTo('/api/account/2', 'PATCH')).toHaveLength(1))
+    expect(lastBody('/api/account/2', 'PATCH')).toEqual({ display_name: 'B' })
+  })
+
+  it('discards the draft on Escape or the cancel button', async () => {
+    const user = setup()
+
+    await user.click(editButtonOf(ACCOUNT_NAME_GIRO))
+    await user.type(screen.getByRole('textbox', { name: 'Edit account name' }), 'X{Escape}')
+    expect(screen.queryByRole('textbox', { name: 'Edit account name' })).not.toBeInTheDocument()
+
+    await user.click(editButtonOf(ACCOUNT_NAME_GIRO))
+    await user.type(screen.getByRole('textbox', { name: 'Edit account name' }), 'Y')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('textbox', { name: 'Edit account name' })).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('sends nothing when the name is committed unchanged', async () => {
+    const user = setup()
+
+    await user.click(editButtonOf(ACCOUNT_NAME_GIRO))
+    await user.keyboard('{Enter}')
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('clears a shared account name through the share-settings endpoint', async () => {
+    const user = setup({ user: buildUserWithShare({ display_name: ACCOUNT_NAME_CHECKING }) })
+
+    await user.click(editButtonOf(ACCOUNT_NAME_CHECKING))
+    const input = screen.getByRole('textbox', { name: 'Edit account name' })
+    expect(input).toHaveValue(ACCOUNT_NAME_CHECKING)
+    await user.clear(input)
+    await user.keyboard('{Enter}')
+
+    const url = `/api/account_shares/account/${SHARED_ACCOUNT_ID}/mine`
+    await waitFor(() => expect(requestsTo(url, 'PATCH')).toHaveLength(1))
+    expect(lastBody(url, 'PATCH')).toEqual({ display_name: null })
+  })
+
+  it('toasts an error when the rename fails', async () => {
+    const user = setup({ status: 500 })
+    const error = vi.spyOn(toast, 'error')
+
+    await user.click(editButtonOf(ACCOUNT_NAME_GIRO))
+    await user.type(screen.getByRole('textbox', { name: 'Edit account name' }), 'Z{Enter}')
+
+    await waitFor(() => expect(error).toHaveBeenCalledWith('Could not save name.'))
+  })
+})
+
+describe('/settings/credentials/groups route', () => {
+  const Page = Route.options.component!
+
+  it('loads the user and layout, then saves edits back into the cached layout', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const savedLayout: AccountGroupLayout = {
+      ...editorLayout,
+      groups: [...editorLayout.groups, { id: 300, name: 'New group', accounts: [] }],
+    }
+    let serveLayout: (response: Response) => void = () => {}
+    mockFetch((url, init) => {
+      if (url === '/api/auth/me') {
+        return Promise.resolve(jsonResponse({ status: 200, body: buildUserWithShare() }))
+      }
+      if (url === LAYOUT_URL && init?.method === 'PUT') {
+        return Promise.resolve(jsonResponse({ status: 200, body: savedLayout }))
+      }
+      if (url === LAYOUT_URL) return new Promise((resolve) => (serveLayout = resolve))
+      return undefined
+    })
+
+    renderWithQuery(<Page />)
+
+    expect(await screen.findByRole('heading', { name: 'Account groups' })).toBeInTheDocument()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    await act(async () => serveLayout(jsonResponse({ status: 200, body: editorLayout })))
+    expect(await screen.findByDisplayValue(GROUP_NAME_SAVINGS)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Create group' }))
+    await flushDebounce()
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.filter(([url]) => url === '/api/auth/me')).toHaveLength(2),
+    )
+    await flushDebounce()
+    expect(requestsTo(LAYOUT_URL, 'PUT')).toHaveLength(1)
+    expect(groupNames()).toEqual([GROUP_NAME_SAVINGS, DAILY_GROUP_NAME, 'New group'])
   })
 })

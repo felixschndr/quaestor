@@ -1,13 +1,14 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 
 vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
 import { SettingsCredentialsIndexView } from '@/pages/settings.credentials.index'
+import { Route } from '@/routes/settings.credentials.index'
 import type { CredentialRead } from '@/lib/auth'
-import { buildUser } from './-settingsUserTestHelpers'
+import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
 import { DATETIME_RECENT } from '@/test/constants'
 
 function buildCredential(overrides: Partial<CredentialRead>): CredentialRead {
@@ -149,5 +150,34 @@ describe('SettingsCredentialsIndexView', () => {
   it('does not show the groups editor link when there are no credentials yet', () => {
     render(<SettingsCredentialsIndexView user={buildUser({ credentials: [] })} />)
     expect(screen.queryByRole('link', { name: /Arrange & group accounts/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('/settings/credentials/ route', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('renders nothing until the signed-in user is loaded, then lists their banks', async () => {
+    let respond: (response: Response) => void = () => {}
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      () => new Promise((resolve) => (respond = resolve)),
+    )
+    const Page = Route.options.component!
+    const { container } = renderWithQuery(<Page />)
+    expect(container).toBeEmptyDOMElement()
+
+    respond(
+      jsonResponse({
+        status: 200,
+        body: buildUser({ credentials: [buildCredential({ id: 1, bank: 'trade_republic' })] }),
+      }),
+    )
+
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Bank connections')
+    expect(screen.getByRole('link', { name: /Trade Republic/ })).toHaveAttribute(
+      'href',
+      '/settings/credentials/1',
+    )
   })
 })

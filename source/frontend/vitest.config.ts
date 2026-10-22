@@ -23,13 +23,13 @@ export default defineConfig({
         'src/**/*.test.{ts,tsx}',
         'src/test/**',
         'src/setupTests.ts',
+        'src/main.tsx',
         'src/routeTree.gen.ts',
         'src/components/ui/**', // shadcn, vendored
         'src/**/*.d.ts',
       ],
       reporter: ['text-summary', 'text', 'html'],
-      // Ratchet: raise as coverage grows, never lower.
-      thresholds: { lines: 63, statements: 62, branches: 57, functions: 59 },
+      thresholds: { lines: 99, statements: 99, branches: 95, functions: 99 },
     },
   },
 })

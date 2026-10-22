@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { autoSubscribe } from '../push'
+import { autoSubscribe, sendTestNotification } from '../push'
 import { api } from '../api'
 
 vi.mock('../api', () => ({ api: vi.fn() }))
@@ -82,5 +82,63 @@ describe('autoSubscribe', () => {
     await autoSubscribe()
 
     expect(api).not.toHaveBeenCalled()
+  })
+})
+
+describe('sendTestNotification', () => {
+  it('reports an unsupported device without asking for permission', async () => {
+    await expect(sendTestNotification()).resolves.toEqual({ status: 'unsupported' })
+
+    expect(api).not.toHaveBeenCalled()
+  })
+
+  it('reports a denied permission and sends nothing', async () => {
+    const { requestPermission } = installPushEnv('default', null)
+    requestPermission.mockResolvedValue('denied')
+
+    await expect(sendTestNotification()).resolves.toEqual({ status: 'denied' })
+
+    expect(api).not.toHaveBeenCalled()
+  })
+
+  it('re-registers the existing subscription and returns the delivery counts', async () => {
+    const { subscribe } = installPushEnv('granted', subscription)
+    vi.mocked(api).mockImplementation(async (path) =>
+      path === '/push/test' ? { sent: 2, failed: 1, error: null } : undefined,
+    )
+
+    await expect(sendTestNotification()).resolves.toEqual({
+      status: 'done',
+      sent: 2,
+      failed: 1,
+      error: null,
+    })
+
+    expect(subscribe).not.toHaveBeenCalled()
+    expect(api).not.toHaveBeenCalledWith('/push/public-key')
+    expect(api).toHaveBeenCalledWith('/push/subscribe', {
+      method: 'POST',
+      body: { endpoint: 'https://push.example/abc', keys: { p256dh: 'p', auth: 'a' } },
+    })
+  })
+
+  it('subscribes with the url-safe base64 server key decoded to bytes', async () => {
+    const { subscribe } = installPushEnv('granted', null)
+    vi.mocked(api).mockImplementation(async (path) =>
+      path === '/push/public-key' ? { public_key: '-_8' } : { sent: 1, failed: 0 },
+    )
+
+    await sendTestNotification()
+
+    const { applicationServerKey } = subscribe.mock.calls[0][0]
+    expect(subscribe).toHaveBeenCalledWith(expect.objectContaining({ userVisibleOnly: true }))
+    expect([...applicationServerKey]).toEqual([0xfb, 0xff])
+  })
+
+  it('lets subscription errors reach the caller', async () => {
+    installPushEnv('granted', null)
+    vi.mocked(api).mockRejectedValue(new Error('offline'))
+
+    await expect(sendTestNotification()).rejects.toThrow('offline')
   })
 })

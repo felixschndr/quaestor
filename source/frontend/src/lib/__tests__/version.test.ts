@@ -62,6 +62,19 @@ describe('checkForFrontendUpdate', () => {
     expect(update).toHaveBeenCalledTimes(2)
   })
 
+  it('does nothing when no service worker is registered', async () => {
+    const getRegistration = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: { getRegistration },
+      configurable: true,
+    })
+    Object.defineProperty(navigator, 'onLine', { value: true, configurable: true })
+
+    await expect((await loadCheckForFrontendUpdate())()).resolves.toBeUndefined()
+
+    expect(getRegistration).toHaveBeenCalledTimes(1)
+  })
+
   it('does nothing while offline', async () => {
     const update = vi.fn().mockResolvedValue(undefined)
     installServiceWorker(update)

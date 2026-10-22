@@ -10,11 +10,13 @@ import '@/i18n'
 vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
 const toastSuccess = vi.hoisted(() => vi.fn())
-vi.mock('sonner', () => ({ toast: { success: toastSuccess, error: vi.fn() } }))
+const toastError = vi.hoisted(() => vi.fn())
+vi.mock('sonner', () => ({ toast: { success: toastSuccess, error: toastError } }))
 
 import { SettingsCategorizationView } from '@/pages/settings.user.categorization'
 import { CategoryCatalogProvider } from '@/lib/categoryCatalog'
-import type { CategorizationRead } from '@/lib/categorization'
+import type { CategorizationRead, CategoryRuleRead, CustomCategoryRead } from '@/lib/categorization'
+import { Route } from '@/routes/settings.user.categorization'
 import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
 import { DATETIME_RECENT } from '@/test/constants'
 
@@ -44,7 +46,53 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.clearAllMocks()
 })
+
+const OWN_RULE: CategoryRuleRead = {
+  id: 1,
+  pattern: 'kaufland',
+  category: 'SUPERMARKET',
+  created_at: DATETIME_RECENT,
+}
+const PET_SHOP: CustomCategoryRead = {
+  key: 'CUSTOM_00000001',
+  group: 'PETS',
+  name: 'Zooladen',
+  owned: true,
+}
+
+function serve(writes: Record<string, () => Response> = {}) {
+  ;(globalThis.fetch as Mock).mockImplementation((url: string, init?: { method?: string }) => {
+    const method = init?.method ?? 'GET'
+    if (method === 'GET' && url === '/api/categorization/custom-categories') {
+      return Promise.resolve(
+        jsonResponse({ status: 200, body: { custom_categories: [PET_SHOP], recategorized: 0 } }),
+      )
+    }
+    if (method === 'GET' && url === '/api/categorization') {
+      return Promise.resolve(
+        jsonResponse({ status: 200, body: buildCategorization({ rules: [OWN_RULE] }) }),
+      )
+    }
+    const write = writes[`${method} ${url}`]
+    return Promise.resolve(
+      write ? write() : jsonResponse({ status: 500, body: { detail: 'boom' } }),
+    )
+  })
+}
+
+function renderWithCatalog() {
+  return renderWithQuery(
+    <CategoryCatalogProvider enabled>
+      <SettingsCategorizationView />
+    </CategoryCatalogProvider>,
+  )
+}
+
+async function petShopRow() {
+  return (await screen.findByText(PET_SHOP.name)).closest('li') as HTMLElement
+}
 
 describe('SettingsCategorizationView', () => {
   it('lists the rules and shows switched off default matchers as unchecked', async () => {
@@ -334,5 +382,153 @@ describe('SettingsCategorizationView', () => {
     )
     const [[, init]] = requestsTo('/api/categorization/default-matchers', 'PUT')
     expect(JSON.parse(init.body)).toEqual({ pattern: 'rewe', disabled: true })
+  })
+
+  it('collapses an open group again', async () => {
+    const user = userEvent.setup()
+    serve()
+    renderWithQuery(<SettingsCategorizationView />)
+
+    const supermarket = (await screen.findByText('Supermarket')).closest('details') as HTMLElement
+    expect(supermarket).toHaveAttribute('open')
+    await user.click(within(supermarket).getByText('Supermarket'))
+
+    expect(supermarket).not.toHaveAttribute('open')
+  })
+
+  it('says so when no rule matches the search', async () => {
+    const user = userEvent.setup()
+    serve()
+    renderWithQuery(<SettingsCategorizationView />)
+    await screen.findByText('Supermarket')
+
+    await user.type(screen.getByLabelText('Search'), 'no-such-merchant')
+
+    expect(screen.getByText('No rule matches the search.')).toBeInTheDocument()
+    expect(screen.queryByText('Supermarket')).not.toBeInTheDocument()
+  })
+
+  it('edits an own rule in place', async () => {
+    const user = userEvent.setup()
+    serve({
+      'PUT /api/categorization/rules/1': () =>
+        jsonResponse({
+          status: 200,
+          body: buildCategorization({ rules: [{ ...OWN_RULE, pattern: 'kaufland markt' }] }),
+        }),
+    })
+    renderWithQuery(<SettingsCategorizationView />)
+    const supermarket = (await screen.findByText('Supermarket')).closest('details') as HTMLElement
+
+    await user.click(within(supermarket).getByRole('button', { name: 'Edit' }))
+    const pattern = within(supermarket).getByDisplayValue('kaufland')
+    await user.type(pattern, ' markt')
+    await user.click(within(supermarket).getByRole('button', { name: 'Save' }))
+
+    expect(await within(supermarket).findByText('kaufland markt')).toBeInTheDocument()
+    const [[, init]] = requestsTo('/api/categorization/rules/1', 'PUT')
+    expect(JSON.parse(init.body)).toEqual({ pattern: 'kaufland markt', category: 'SUPERMARKET' })
+    expect(toastSuccess).toHaveBeenCalledWith('Rule saved')
+    expect(within(supermarket).queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+  })
+
+  it('deletes an own rule after a confirm step', async () => {
+    const user = userEvent.setup()
+    serve({
+      'DELETE /api/categorization/rules/1': () =>
+        jsonResponse({ status: 200, body: buildCategorization() }),
+    })
+    renderWithQuery(<SettingsCategorizationView />)
+    const supermarket = (await screen.findByText('Supermarket')).closest('details') as HTMLElement
+
+    await user.click(within(supermarket).getByRole('button', { name: 'Delete' }))
+    expect(requestsTo('/api/categorization/rules/1', 'DELETE')).toHaveLength(0)
+    await user.click(within(supermarket).getByRole('button', { name: 'Really delete?' }))
+
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Rule deleted'))
+    expect(requestsTo('/api/categorization/rules/1', 'DELETE')).toHaveLength(1)
+    expect(screen.queryByText('kaufland')).not.toBeInTheDocument()
+  })
+
+  it('renames a custom category in place', async () => {
+    const user = userEvent.setup()
+    serve({
+      [`PUT /api/categorization/custom-categories/${PET_SHOP.key}`]: () =>
+        jsonResponse({
+          status: 200,
+          body: { custom_categories: [{ ...PET_SHOP, name: 'Tierbedarf' }], recategorized: 0 },
+        }),
+    })
+    renderWithCatalog()
+
+    await user.click(within(await petShopRow()).getByRole('button', { name: 'Edit' }))
+    const name = screen.getByDisplayValue(PET_SHOP.name)
+    await user.clear(name)
+    await user.type(name, 'Tierbedarf')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Tierbedarf')).toBeInTheDocument()
+    const [[, init]] = requestsTo(`/api/categorization/custom-categories/${PET_SHOP.key}`, 'PUT')
+    expect(JSON.parse(init.body)).toEqual({ group: 'PETS', name: 'Tierbedarf' })
+    expect(toastSuccess).toHaveBeenCalledWith('Category saved')
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+  })
+
+  it('leaves a custom category untouched when its edit is cancelled', async () => {
+    const user = userEvent.setup()
+    serve()
+    renderWithCatalog()
+
+    await user.click(within(await petShopRow()).getByRole('button', { name: 'Edit' }))
+    await user.type(screen.getByDisplayValue(PET_SHOP.name), ' XL')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.getByText(PET_SHOP.name)).toBeInTheDocument()
+    expect(screen.queryByDisplayValue(`${PET_SHOP.name} XL`)).not.toBeInTheDocument()
+    expect(requestsTo(`/api/categorization/custom-categories/${PET_SHOP.key}`, 'PUT')).toHaveLength(
+      0,
+    )
+  })
+
+  it('deletes a custom category after the warning is confirmed', async () => {
+    const user = userEvent.setup()
+    serve({
+      [`DELETE /api/categorization/custom-categories/${PET_SHOP.key}`]: () =>
+        jsonResponse({ status: 200, body: { custom_categories: [], recategorized: 3 } }),
+    })
+    renderWithCatalog()
+
+    await user.click(within(await petShopRow()).getByRole('button', { name: 'Delete' }))
+    await user.click(
+      screen.getByRole('button', { name: 'Delete? Transactions fall back to “Unknown”' }),
+    )
+
+    await waitFor(() =>
+      expect(toastSuccess).toHaveBeenCalledWith('Category deleted · 3 transactions recategorized'),
+    )
+    expect(await screen.findByText('No categories of your own yet.')).toBeInTheDocument()
+  })
+
+  it('keeps the typed name and reports the error when adding a category fails', async () => {
+    const user = userEvent.setup()
+    serve()
+    renderWithCatalog()
+    await petShopRow()
+
+    const name = screen.getByLabelText('Category name')
+    await user.type(name, 'Bio-Laden')
+    await user.click(screen.getByRole('button', { name: 'Add category' }))
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith('Something went wrong. Please try again.'),
+    )
+    expect(name).toHaveValue('Bio-Laden')
+    expect(toastSuccess).not.toHaveBeenCalled()
+  })
+})
+
+describe('/settings/user/categorization route', () => {
+  it('serves the categorization page', () => {
+    expect(Route.options.component).toBe(SettingsCategorizationView)
   })
 })

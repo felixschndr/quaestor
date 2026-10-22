@@ -6,6 +6,7 @@ import '@/i18n'
 vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
 import { SettingsAttributionsPage } from '@/pages/settings.attributions'
+import { Route } from '@/routes/settings.attributions'
 
 describe('SettingsAttributionsPage', () => {
   it('renders the heading and a back link to /settings', () => {
@@ -35,5 +36,11 @@ describe('SettingsAttributionsPage', () => {
     expect(credit).toHaveAttribute('href', 'https://www.flaticon.com/free-icons/writing')
     expect(credit).toHaveAttribute('target', '_blank')
     expect(credit).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+})
+
+describe('/settings/attributions route', () => {
+  it('serves the attributions page', () => {
+    expect(Route.options.component).toBe(SettingsAttributionsPage)
   })
 })

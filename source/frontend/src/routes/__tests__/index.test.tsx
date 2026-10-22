@@ -4,13 +4,23 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
-import type { UserRead } from '@/lib/auth'
+import type { UseAppSyncResult, UserRead } from '@/lib/auth'
 import type { SyncJob } from '@/lib/credentials'
 import type { ContractRead } from '@/lib/contract'
 
+const overviewRoute = vi.hoisted(() => ({ sync: null as unknown as UseAppSyncResult }))
+
 vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
+vi.mock('@/components/sync-provider', () => ({ useSync: () => overviewRoute.sync }))
+vi.mock('@/lib/version', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  checkForFrontendUpdate: vi.fn(),
+}))
 
 import { OverviewView } from '@/pages'
+import { checkForFrontendUpdate } from '@/lib/version'
+import { Route } from '@/routes/index'
+import { makeJob } from '@/test/syncTestHelpers'
 import { sumFactoredBalance } from '@/lib/accountDisplayGroups'
 import { buildUser } from './-settingsUserTestHelpers'
 import {
@@ -72,17 +82,21 @@ function mockApi(
     netWorth?: unknown
     layout?: unknown
     notificationLog?: unknown
+    me?: UserRead
   } = {},
 ) {
   globalThis.fetch = vi.fn().mockImplementation((input: RequestInfo | URL) => {
     const url = String(input)
-    const body = url.includes('/contracts')
-      ? (bodies.contracts ?? [])
-      : url.includes('/net-worth')
-        ? (bodies.netWorth ?? { series: [], summary: null })
-        : url.includes('/notification_log')
-          ? (bodies.notificationLog ?? [])
-          : (bodies.layout ?? { groups: [], ungrouped: [] })
+    const body =
+      bodies.me && url.endsWith('/auth/me')
+        ? bodies.me
+        : url.includes('/contracts')
+          ? (bodies.contracts ?? [])
+          : url.includes('/net-worth')
+            ? (bodies.netWorth ?? { series: [], summary: null })
+            : url.includes('/notification_log')
+              ? (bodies.notificationLog ?? [])
+              : (bodies.layout ?? { groups: [], ungrouped: [] })
     return Promise.resolve(
       new Response(JSON.stringify(body), {
         status: 200,
@@ -1133,5 +1147,138 @@ describe('OverviewView upcoming contracts visibility', () => {
     expect(trigger).not.toHaveTextContent('Netflix')
     expect(trigger).toHaveTextContent(money(-12.99))
     expect(window.localStorage.getItem('collapsedGroups')).toContain('upcomingContracts')
+  })
+})
+
+describe('OverviewView balance', () => {
+  it('lets the total settle in when a sync changed it, but not on first render', () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const view = (balance: number) => (
+      <QueryClientProvider client={queryClient}>
+        <OverviewView
+          user={buildUser({ balance, credentials: [buildCredential()] })}
+          onSyncClick={() => {}}
+          syncDisabled={false}
+          syncSpinning={false}
+        />
+      </QueryClientProvider>
+    )
+    const { rerender } = render(view(AMOUNT_L))
+    expect(screen.getByText(money(AMOUNT_L))).not.toHaveClass('balance-settle')
+
+    rerender(view(AMOUNT_XL))
+
+    expect(screen.getByText(money(AMOUNT_XL))).toHaveClass('balance-settle')
+  })
+})
+
+describe('OverviewView settings cog', () => {
+  it('points at pending account shares', () => {
+    const invitation = {
+      id: 1,
+      credential_id: 2,
+      account_name: ACCOUNT_NAME_GIRO,
+      bank_name: 'ING',
+      owner_name: 'Bob',
+      permission: 'read' as const,
+    }
+    render_(buildUser({ account_share_invitations: [invitation] }))
+
+    expect(
+      screen.getByRole('link', { name: 'Settings – 1 pending account share' }),
+    ).toHaveAttribute('href', '/settings')
+  })
+
+  it('points at bank connections that need attention', () => {
+    render_(buildUser({ credentials: [{ ...buildCredential(), last_sync_error_code: 'timeout' }] }))
+
+    expect(screen.getByRole('link', { name: '1 bank connection needs attention' })).toHaveAttribute(
+      'href',
+      '/settings',
+    )
+  })
+})
+
+describe('overview route', () => {
+  const OverviewPage = Route.options.component!
+
+  function setSync(overrides: Partial<UseAppSyncResult> = {}) {
+    overviewRoute.sync = {
+      start: vi.fn(),
+      status: 'idle',
+      jobs: new Map(),
+      current2fa: null,
+      submit2fa: vi.fn(),
+      skip2fa: vi.fn(),
+      succeededAt: null,
+      failedAt: null,
+      startError: null,
+      ...overrides,
+    }
+  }
+
+  function renderPage() {
+    return render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <OverviewPage />
+      </QueryClientProvider>,
+    )
+  }
+
+  function setVisibility(state: 'visible' | 'hidden') {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state })
+    document.dispatchEvent(new Event('visibilitychange'))
+  }
+
+  beforeEach(() => {
+    vi.mocked(checkForFrontendUpdate).mockClear()
+    setSync()
+    mockApi({ me: buildUser({ display_name: 'Alice', credentials: [buildCredential()] }) })
+  })
+
+  afterEach(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+  })
+
+  it('shows the overview of the signed-in user once loaded', async () => {
+    const { container } = renderPage()
+    expect(container).toBeEmptyDOMElement()
+
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Hello, Alice')
+  })
+
+  it('syncs every bank from the sync button', async () => {
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Sync all accounts' }))
+
+    expect(overviewRoute.sync.start).toHaveBeenCalledExactlyOnceWith()
+  })
+
+  it.each(['starting', 'running', 'awaiting_2fa'] as const)(
+    'keeps the sync button busy while the sync is %s',
+    async (status) => {
+      setSync({ status, jobs: new Map([[1, makeJob({ credential_id: 1 })]]) })
+      renderPage()
+
+      expect(await screen.findByRole('button', { name: 'Sync all accounts' })).toBeDisabled()
+      expect(screen.getByLabelText('Syncing')).toBeInTheDocument()
+    },
+  )
+
+  it('looks for a new app version whenever the overview comes back into view', async () => {
+    const { unmount } = renderPage()
+    await screen.findByRole('heading', { level: 1 })
+
+    setVisibility('hidden')
+    expect(checkForFrontendUpdate).not.toHaveBeenCalled()
+    setVisibility('visible')
+    expect(checkForFrontendUpdate).toHaveBeenCalledOnce()
+
+    unmount()
+    setVisibility('visible')
+    expect(checkForFrontendUpdate).toHaveBeenCalledOnce()
   })
 })

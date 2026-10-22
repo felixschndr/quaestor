@@ -55,3 +55,18 @@ export const DATE_FAR_FUTURE = '2099-01-15'
 export const DATE_LONG_OVERDUE = '2020-01-01'
 export const DATETIME_FAR_FUTURE = '2099-01-01T00:00:00Z'
 export const DATETIME_CREATED_NEWER = '2026-05-21T10:00:00Z'
+
+export const CONTRACT_NAME = 'Netflix'
+export const CONTRACT_NAME_GYM = 'Fitnessstudio'
+export const DATE_PREVIOUS_YEAR = '2025-12-20'
+
+export const VERSION_CURRENT = '0.1.0'
+export const VERSION_LATEST = '0.1.9'
+export const RELEASE_URL = `https://github.com/felixschndr/quaestor/releases/tag/${VERSION_LATEST}`
+
+export const TWO_FACTOR_CODE = '123456'
+export const BACKUP_CODES = ['AAAAA-BBBBB-CCCCC', 'DDDDD-EEEEE-FFFFF']
+export const SHARE_OWNER_NAME = 'Bob'
+export const SHARE_RECIPIENT_NAME = 'Carol'
+export const BANKING_CALLBACK_CODE = 'eb-auth-code-123'
+export const TEST_IBAN_BRANCH_BLZ = 'DE89120700000532013000'

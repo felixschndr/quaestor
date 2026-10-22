@@ -4,9 +4,19 @@ import {
   formatAmountForInput,
   formatMoney,
   formatDate,
+  formatDateCompact,
+  formatDateShortWeekday,
   formatDateShortWeekdayWithoutYear,
+  formatDateWithoutYear,
+  formatDecimal,
+  formatFactorMultiplier,
+  formatSignedMoney,
+  isIban,
+  isStale,
   formatDateTime,
   formatIban,
+  formatMonths,
+  formatPercent,
   transactionPartyName,
   formatRelativeDate,
   formatRelativeDateTime,
@@ -67,6 +77,65 @@ describe('formatMoney', () => {
   })
 })
 
+describe('formatMoney in a currency without its own locale', () => {
+  it('falls back to the German number format', () => {
+    setDisplayCurrency('SEK')
+    try {
+      expect(formatMoney(1234.5)).toBe('1.234,50\u00a0SEK')
+    } finally {
+      setDisplayCurrency('EUR')
+    }
+  })
+})
+
+describe('number formats', () => {
+  it('signs an amount explicitly', () => {
+    expect(formatSignedMoney(5)).toBe('+5,00\u00a0€')
+    expect(formatSignedMoney(-5)).toBe('-5,00\u00a0€')
+  })
+
+  it('shows plain decimals and balance factors the German way', () => {
+    expect(formatDecimal(1234.5)).toBe('1.234,50')
+    expect(formatFactorMultiplier(0.12345)).toBe('0,1235')
+  })
+})
+
+describe('isIban', () => {
+  it.each([
+    ['DE89 3704 0044 0532 0130 00', true],
+    ['DE89', false],
+    ['Rewe Markt', false],
+  ])('isIban(%j) → %s', (value, expected) => {
+    expect(isIban(value)).toBe(expected)
+  })
+})
+
+describe('isStale', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('flags a sync older than five days, but not a recent or missing one', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-22T12:00:00Z'))
+
+    expect(isStale('2026-05-17T11:59:00')).toBe(true)
+    expect(isStale('2026-05-18T12:00:00Z')).toBe(false)
+    expect(isStale(null)).toBe(false)
+  })
+})
+
+describe('formatMonths / formatPercent', () => {
+  it('shows months with one decimal', () => {
+    expect(formatMonths(1.25)).toBe('1,3')
+  })
+
+  it('shows a ratio as a percentage with one decimal, or whole on request', () => {
+    expect(formatPercent(0.1234)).toBe('12,3\u00a0%')
+    expect(formatPercent(0.1234, true)).toBe('12\u00a0%')
+  })
+})
+
 describe('wrapWithCurrency', () => {
   it('suffixes the euro symbol (de-DE convention)', () => {
     expect(wrapWithCurrency('1,5M')).toBe('1,5M €')
@@ -98,6 +167,14 @@ describe('formatDate', () => {
   it('writes out a short weekday and long month without the year', () => {
     expect(formatDateShortWeekdayWithoutYear('2026-05-20T12:00:00Z')).toBe('Wed, May 20')
   })
+
+  it.each([
+    [formatDateShortWeekday, 'Wed, May 20, 2026'],
+    [formatDateWithoutYear, 'Wednesday, May 20'],
+    [formatDateCompact, 'May 20'],
+  ])('offers shorter variants (%#)', (format, expected) => {
+    expect(format(new Date(2026, 4, 20))).toBe(expected)
+  })
 })
 
 describe('formatDateTime', () => {
@@ -122,6 +199,11 @@ describe('formatDateTime', () => {
   it('treats a timestamp that already carries a Z as UTC', () => {
     setDisplayTimeZone('Europe/Berlin')
     expect(formatDateTime('2026-05-20T12:00:00Z')).toMatch(/20\. Mai 2026 um 14:00/)
+  })
+
+  it('takes a Date as the instant it is', () => {
+    setDisplayTimeZone('Europe/Berlin')
+    expect(formatDateTime(new Date(Date.UTC(2026, 4, 20, 12)))).toMatch(/20\. Mai 2026 um 14:00/)
   })
 })
 
@@ -179,6 +261,7 @@ describe('formatRelativeDate', () => {
     [new Date(2026, 5, 5), 'in 2 weeks'],
     [new Date(2026, 6, 22), 'in 2 months'],
     [new Date(2026, 4, 16), '6 days ago'],
+    [new Date(2028, 4, 22), 'in 2 years'],
   ])('renders %s as %s', (date, expected) => {
     expect(formatRelativeDate(date, today)).toBe(expected)
   })
