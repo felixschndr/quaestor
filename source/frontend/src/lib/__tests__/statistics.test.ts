@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { createElement, type ReactNode } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { renderHook, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 
 import {
   aggregateTopN,
@@ -6,14 +9,26 @@ import {
   baselineDateRange,
   baselineRangeDescriptor,
   buildStatsQueryString,
+  DATE_RANGE_PRESETS,
   defaultStatsDateRange,
+  DETAIL_RANGE_PRESETS,
+  detailPresetRange,
   fillTransactionCountBuckets,
+  matchingDetailPreset,
+  matchingPreset,
+  monthDateRange,
+  presetDateRange,
   runwayMonths,
   runwayYearsMonths,
+  showsStaleData,
   sliceColor,
+  useCategoryTrendStats,
+  useNetWorthRange,
+  useNetWorthStats,
   type CategoryChartDatum,
   type MonthlyCashflow,
 } from '@/lib/statistics'
+import { DATE_RECENT, DATE_TODAY, DATE_YEAR_START, DATE_YESTERDAY, TODAY } from '@/test/constants'
 import {
   CATEGORIES_BY_GROUP,
   CATEGORY_GROUPS,
@@ -153,6 +168,11 @@ describe('aggregateTopN', () => {
     ])
   })
 
+  it('adds no Other slice when the cut-off tail sums to zero', () => {
+    const data = [datum('FUEL', 5), datum('RENT', 3), datum('SALARY', 0)]
+    expect(aggregateTopN(data, 2, 'Other')).toEqual([datum('FUEL', 5), datum('RENT', 3)])
+  })
+
   it('sorts by value before slicing so the biggest survive', () => {
     const data = [datum('FUEL', 1), datum('RENT', 100), datum('GIFTS', 2)]
     const result = aggregateTopN(data, 1, 'Other')
@@ -263,6 +283,10 @@ describe('fillTransactionCountBuckets', () => {
   it('returns empty for time groupings without data or range', () => {
     expect(fillTransactionCountBuckets([], 'day')).toEqual([])
   })
+
+  it('returns empty for a range that ends before it starts', () => {
+    expect(fillTransactionCountBuckets([], 'day', DATE_TODAY, DATE_YESTERDAY)).toEqual([])
+  })
 })
 
 describe('averageMonthlyExpenses', () => {
@@ -292,6 +316,11 @@ describe('averageMonthlyExpenses', () => {
 
   it('falls back to bucket count without a range', () => {
     expect(averageMonthlyExpenses([month('2026-01', 1000), month('2026-02', 3000)])).toBe(2000)
+  })
+
+  it('falls back to bucket count for a range that ends before it starts', () => {
+    const cashflow = [month('2026-01', 1000), month('2026-02', 3000)]
+    expect(averageMonthlyExpenses(cashflow, '2026-02-28', '2026-01-01')).toBe(2000)
   })
 
   it('returns 0 for no months', () => {
@@ -343,5 +372,127 @@ describe('expandCategorySelection', () => {
 
   it('drops retired keys', () => {
     expect(expandCategorySelection(['TRAVEL', 'FUEL'])).toEqual(['FUEL'])
+  })
+})
+
+describe('date range presets', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('recognises every stats preset it produced for the same day', () => {
+    for (const preset of DATE_RANGE_PRESETS) {
+      expect(matchingPreset(presetDateRange(preset, TODAY), TODAY)).toBe(preset)
+    }
+  })
+
+  it('ends a preset today and starts it the preset length earlier', () => {
+    expect(presetDateRange('3m', TODAY)).toEqual({ date_from: '2026-02-22', date_to: DATE_TODAY })
+  })
+
+  it('matches no preset for an open, custom or past-ending range', () => {
+    expect(matchingPreset({ date_from: DATE_YEAR_START }, TODAY)).toBeNull()
+    expect(matchingPreset({ date_from: DATE_YEAR_START, date_to: DATE_TODAY }, TODAY)).toBeNull()
+    expect(
+      matchingPreset({ ...presetDateRange('1m', TODAY), date_to: DATE_YESTERDAY }, TODAY),
+    ).toBeNull()
+  })
+
+  it('round-trips every detail preset against the real today by default', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(TODAY)
+
+    for (const preset of DETAIL_RANGE_PRESETS) {
+      const { start, end } = detailPresetRange(preset)
+      expect(matchingDetailPreset(start, end)).toBe(preset)
+    }
+    expect(detailPresetRange('1d')).toEqual({ start: DATE_YESTERDAY, end: DATE_TODAY })
+    expect(matchingDetailPreset(DATE_RECENT, DATE_YESTERDAY)).toBeNull()
+  })
+})
+
+describe('monthDateRange', () => {
+  it('spans the first to the last day of the month, leap days included', () => {
+    expect(monthDateRange('2024-02')).toEqual({ from: '2024-02-01', to: '2024-02-29' })
+  })
+})
+
+describe('showsStaleData', () => {
+  it('is only stale while refetching behind placeholder data', () => {
+    expect(showsStaleData({ isFetching: true, isPlaceholderData: true })).toBe(true)
+    expect(showsStaleData({ isFetching: true, isPlaceholderData: false })).toBe(false)
+    expect(showsStaleData({ isFetching: false, isPlaceholderData: true })).toBe(false)
+  })
+})
+
+describe('statistics queries', () => {
+  let fetchSpy: MockInstance<typeof fetch>
+
+  beforeEach(() => {
+    fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(
+        async () =>
+          new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),
+      )
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function wrapper({ children }: { children: ReactNode }) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    return createElement(QueryClientProvider, { client }, children)
+  }
+
+  async function requestedUrl(): Promise<URL> {
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1))
+    return new URL(String(fetchSpy.mock.calls[0][0]), 'http://localhost')
+  }
+
+  it('asks for the range breakdown of every selected account', async () => {
+    renderHook(() => useNetWorthRange(DATE_RECENT, DATE_TODAY, [43, 42]), { wrapper })
+
+    const url = await requestedUrl()
+    expect(url.pathname).toBe('/api/statistics/net-worth/range')
+    expect(url.searchParams.get('start')).toBe(DATE_RECENT)
+    expect(url.searchParams.get('end')).toBe(DATE_TODAY)
+    expect(url.searchParams.getAll('account_ids')).toEqual(['43', '42'])
+  })
+
+  it('does not ask for a range breakdown without accounts', () => {
+    const { result } = renderHook(() => useNetWorthRange(DATE_RECENT, DATE_TODAY, []), {
+      wrapper,
+    })
+
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('asks for the raw net worth when the balance factor must not be applied', async () => {
+    renderHook(() => useNetWorthStats([42], {}, true, false), { wrapper })
+
+    const url = await requestedUrl()
+    expect(url.pathname).toBe('/api/statistics/net-worth')
+    expect(url.searchParams.get('apply_factor')).toBe('false')
+  })
+
+  it('sends direction, baseline windows and the type filter for the category trend', async () => {
+    renderHook(
+      () =>
+        useCategoryTrendStats([42], { date_from: DATE_RECENT }, 'INCOMING', ['SALARY'], 3, {
+          transaction_types: ['FEES'],
+        }),
+      { wrapper },
+    )
+
+    const url = await requestedUrl()
+    expect(url.pathname).toBe('/api/statistics/categories/trend')
+    expect(url.searchParams.get('direction')).toBe('INCOMING')
+    expect(url.searchParams.get('baseline_windows')).toBe('3')
+    expect(url.searchParams.get('date_from')).toBe(DATE_RECENT)
+    expect(url.searchParams.getAll('categories')).toEqual(['SALARY'])
+    expect(url.searchParams.getAll('transaction_types')).toEqual(['FEES'])
   })
 })

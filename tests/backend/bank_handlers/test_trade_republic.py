@@ -3,7 +3,8 @@ import base64
 import json
 import logging
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -23,13 +24,24 @@ from source.backend.services.banking import trade_republic_login
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     CHALLENGE_TOKEN,
+    CREDENTIAL_ID,
     DEFAULT_AMOUNT,
+    DEFAULT_BALANCE,
     ETF_NAME,
+    EURO,
+    EXCHANGE,
     ISIN,
+    LATEST_DATE,
+    OLDER_DATE,
     PERSON_NAME,
     PHONE_NUMBER,
     PIN,
+    POSITION_NAME,
+    REFRESHED_COOKIES,
     SECOND_ISIN,
+    SHARE_COUNT,
+    SHARE_PRICE,
+    STORED_COOKIES,
     TWO_FACTOR_CODE,
     assert_log_contains,
 )
@@ -313,10 +325,10 @@ def test_begin_two_factor_challenge_starts_login_with_credentials(monkeypatch: p
 
     monkeypatch.setattr(target=trade_republic_login, name="start", value=fake_start)
 
-    challenge = _handler().begin_two_factor_challenge(credential_id=7)
+    challenge = _handler().begin_two_factor_challenge(credential_id=CREDENTIAL_ID)
 
     assert challenge == TwoFactorChallenge(challenge_token=CHALLENGE_TOKEN, expires_at=expires_at)
-    assert calls == [{"credential_id": 7, "phone_no": PHONE_NUMBER, "pin": PIN}]
+    assert calls == [{"credential_id": CREDENTIAL_ID, "phone_no": PHONE_NUMBER, "pin": PIN}]
 
 
 def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest.MonkeyPatch):
@@ -324,16 +336,16 @@ def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest
 
     def fake_complete(challenge_token: str, credential_id: int, code: str) -> str:
         calls.append({"challenge_token": challenge_token, "credential_id": credential_id, "code": code})
-        return "fresh-cookie"
+        return REFRESHED_COOKIES
 
     monkeypatch.setattr(target=trade_republic_login, name="complete", value=fake_complete)
 
     session_state = _handler().complete_two_factor_challenge(
-        challenge_token=CHALLENGE_TOKEN, credential_id=7, code=TWO_FACTOR_CODE
+        challenge_token=CHALLENGE_TOKEN, credential_id=CREDENTIAL_ID, code=TWO_FACTOR_CODE
     )
 
-    assert session_state == {"cookies": "fresh-cookie"}
-    assert calls == [{"challenge_token": CHALLENGE_TOKEN, "credential_id": 7, "code": TWO_FACTOR_CODE}]
+    assert session_state == {"cookies": REFRESHED_COOKIES}
+    assert calls == [{"challenge_token": CHALLENGE_TOKEN, "credential_id": CREDENTIAL_ID, "code": TWO_FACTOR_CODE}]
 
 
 def test_session_without_resumable_websession_requires_reauthentication(monkeypatch: pytest.MonkeyPatch):
@@ -344,13 +356,160 @@ def test_session_without_resumable_websession_requires_reauthentication(monkeypa
         def resume_websession(self) -> bool:
             return False
 
-    monkeypatch.setattr(target=trade_republic, name="TradeRepublicApi", value=_FakeApi)
+    monkeypatch.setattr(target=trade_republic_login, name="TradeRepublicApi", value=_FakeApi)
     handler = _handler()
-    handler.session_state = {"cookies": "stale-cookie"}
+    handler.session_state = {"cookies": STORED_COOKIES}
 
     with pytest.raises(ReauthenticationRequiredError, match="2FA re-authentication required"):
         with handler.session():
             pass
+
+
+class _ResumingApi:
+    cookie_files: list[Path] = []
+
+    def __init__(self, cookies_file: str, **kwargs: object) -> None:
+        self._cookies_file = Path(cookies_file)
+        self.cookie_files.append(self._cookies_file)
+
+    def resume_websession(self) -> bool:
+        assert self._cookies_file.read_text() == STORED_COOKIES
+        self._cookies_file.write_text(REFRESHED_COOKIES)
+        return True
+
+
+def test_resumed_session_writes_the_refreshed_cookies_back(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(target=_ResumingApi, name="cookie_files", value=[])
+    monkeypatch.setattr(target=trade_republic_login, name="TradeRepublicApi", value=_ResumingApi)
+    handler = _handler()
+    handler.session_state = {"cookies": STORED_COOKIES}
+
+    with handler.session() as session:
+        assert isinstance(session, _TradeRepublicSession)
+
+    assert handler.session_state == {"cookies": REFRESHED_COOKIES}
+    assert not any(cookies_file.exists() for cookies_file in _ResumingApi.cookie_files)
+
+
+def test_session_without_stored_cookies_requires_reauthentication_without_trying_to_resume(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(target=_ResumingApi, name="resume_websession", value=None)
+    monkeypatch.setattr(target=trade_republic_login, name="TradeRepublicApi", value=_ResumingApi)
+
+    with pytest.raises(ReauthenticationRequiredError):
+        with _handler().session():
+            pass
+
+
+def test_session_whose_resume_fails_requires_reauthentication(monkeypatch: pytest.MonkeyPatch):
+    def failing_resume(self: _ResumingApi) -> bool:
+        raise ConnectionError()
+
+    monkeypatch.setattr(target=_ResumingApi, name="resume_websession", value=failing_resume)
+    monkeypatch.setattr(target=trade_republic_login, name="TradeRepublicApi", value=_ResumingApi)
+    handler = _handler()
+    handler.session_state = {"cookies": STORED_COOKIES}
+
+    with pytest.raises(ReauthenticationRequiredError):
+        with handler.session():
+            pass
+
+
+class _FakeWebsocketClient(_FakeClient):
+    def __init__(self, responses: dict[str, object], settings: dict | None = None) -> None:
+        self._responses = responses
+        self._settings = settings
+        self._inbox: list[tuple[int, dict, object]] = []
+        self.subscriptions: list[dict] = []
+        self.unsubscribed: list[int] = []
+
+    def settings(self) -> dict:
+        return super().settings() if self._settings is None else self._settings
+
+    async def subscribe(self, payload: dict) -> int:  # noqa: ASYNC124
+        self.subscriptions.append(payload)
+        subscription_id = len(self.subscriptions)
+        self._inbox.append((subscription_id, {"type": "ticker"}, {}))
+        self._inbox.append((subscription_id, payload, self._responses[payload["type"]]))
+        return subscription_id
+
+    async def recv(self) -> tuple[int, dict, object]:  # noqa: ASYNC124
+        return self._inbox.pop(0)
+
+    async def unsubscribe(self, subscription_id: int) -> None:  # noqa: ASYNC124
+        self.unsubscribed.append(subscription_id)
+
+
+def _utc_epoch_ms(day: date) -> int:
+    return int(datetime.combine(date=day, time=datetime.min.time(), tzinfo=timezone.utc).timestamp() * 1000)
+
+
+@pytest.mark.parametrize(
+    argnames="exchange_ids, expected_exchange",
+    argvalues=[([EXCHANGE], EXCHANGE), ([], trade_republic._DEFAULT_EXCHANGE)],
+)
+def test_market_value_history_values_the_holding_with_the_daily_close(
+    monkeypatch: pytest.MonkeyPatch, exchange_ids: list[str], expected_exchange: str
+):
+    rows = [{"date": OLDER_DATE.isoformat(), "type": "Buy", "isin": ISIN, "shares": str(SHARE_COUNT)}]
+    _patch_pytr(monkeypatch=monkeypatch, rows=rows, captured={})
+    client = _FakeWebsocketClient(
+        responses={
+            "instrument": {"exchangeIds": exchange_ids},
+            trade_republic._PRICE_HISTORY_TOPIC: {
+                "aggregates": [{"time": _utc_epoch_ms(OLDER_DATE), "close": str(SHARE_PRICE)}]
+            },
+        }
+    )
+    session = _TradeRepublicSession(trade_republic_client=client)
+    session._account(ETF_NAME)["isin"] = ISIN
+    session._account(POSITION_NAME)["isin"] = SECOND_ISIN
+
+    history = session.get_market_value_history(FetchedAccount(name=ETF_NAME))
+
+    assert history == [BalanceObservation(date=OLDER_DATE, amount=SHARE_COUNT * SHARE_PRICE)]
+    assert session.get_market_value_history(FetchedAccount(name=POSITION_NAME)) == []
+    price_subscription = client.subscriptions[-1]
+    assert price_subscription["id"] == f"{ISIN}.{expected_exchange}"
+    assert client.unsubscribed == list(range(1, len(client.subscriptions) + 1))
+
+
+def test_market_value_history_without_positions_skips_the_websocket():
+    client = _FakeWebsocketClient(responses={})
+    session = _TradeRepublicSession(trade_republic_client=client)
+    session._account(ACCOUNT_IBAN)
+
+    assert asyncio.run(session._fetch_value_history()) == {}
+    assert client.subscriptions == []
+
+
+def test_savings_plans_are_fetched_lazily_and_incomplete_plans_are_skipped(monkeypatch: pytest.MonkeyPatch):
+    _patch_pytr(monkeypatch=monkeypatch, rows=[], captured={})
+    plan = {"instrumentId": ISIN, "amount": DEFAULT_AMOUNT, "nextExecutionDate": LATEST_DATE.isoformat()}
+    incomplete_plan = {"instrumentId": ISIN, "amount": None, "nextExecutionDate": LATEST_DATE.isoformat()}
+    client = _FakeWebsocketClient(responses={"savingsPlans": {"savingsPlans": [plan, incomplete_plan]}})
+    session = _TradeRepublicSession(trade_republic_client=client)
+    session._account(ETF_NAME)["isin"] = ISIN
+
+    position = session.get_transactions(FetchedAccount(name=ETF_NAME), start_date=OLDER_DATE)
+
+    assert [(t.amount, t.pending, t.date) for t in position] == [(-DEFAULT_AMOUNT, True, LATEST_DATE)]
+    assert [subscription["type"] for subscription in client.subscriptions] == ["savingsPlans"]
+
+
+def test_portfolio_without_a_securities_account_number_requires_reauthentication():
+    session = _TradeRepublicSession(trade_republic_client=_FakeWebsocketClient(responses={}, settings={}))
+
+    with pytest.raises(ReauthenticationRequiredError, match="securities account number"):
+        asyncio.run(session._fetch_positions())
+
+
+def test_balance_is_the_fetched_account_balance():
+    session = _session()
+    session._account(ACCOUNT_IBAN)["balance"] = DEFAULT_BALANCE
+
+    assert session.get_balance(FetchedAccount(name=ACCOUNT_IBAN)) == DEFAULT_BALANCE
 
 
 def _cookies_with_refresh_token(token: str) -> dict:
@@ -400,14 +559,14 @@ def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.M
 
     async def fake_subscribe_once(payload: dict, expected_type: str):  # noqa: ASYNC124
         if expected_type == "cash":
-            return [{"accountNumber": ACCOUNT_IBAN, "currencyId": "EUR", "amount": 100.5}]
+            return [{"accountNumber": ACCOUNT_IBAN, "currencyId": EURO, "amount": 100.5}]
         if expected_type == "compactPortfolioByType":
             return {
                 "categories": [
                     {
                         "categoryType": "stocksAndETFs",
                         "positions": [
-                            {"isin": ISIN, "name": ETF_NAME, "netSize": "10", "bondInfo": None},
+                            {"isin": ISIN, "name": ETF_NAME, "netSize": str(SHARE_COUNT), "bondInfo": None},
                         ],
                     },
                     {
@@ -419,12 +578,12 @@ def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.M
                 ]
             }
         if expected_type == "ticker":
-            price = {f"{ISIN}.LSX": "120.0", f"{SECOND_ISIN}.LSX": "98.5"}[payload["id"]]
+            price = {f"{ISIN}.{EXCHANGE}": str(SHARE_PRICE), f"{SECOND_ISIN}.{EXCHANGE}": "98.5"}[payload["id"]]
             return {"last": {"price": price}}
         raise AssertionError(f"unexpected topic {expected_type}")
 
     async def fake_instrument_exchange(isin: str) -> str:  # noqa: ASYNC124
-        return "LSX"
+        return EXCHANGE
 
     monkeypatch.setattr(target=session, name="_subscribe_once", value=fake_subscribe_once)
     monkeypatch.setattr(target=session, name="_instrument_exchange", value=fake_instrument_exchange)
@@ -433,7 +592,7 @@ def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.M
 
     assert session._cash_account_name == ACCOUNT_IBAN
     assert session._account(ACCOUNT_IBAN)["balance"] == 100.5
-    assert session._account(ETF_NAME)["balance"] == 1200.0  # = 10 * 120.0
+    assert session._account(ETF_NAME)["balance"] == SHARE_COUNT * SHARE_PRICE
     assert session._account(ETF_NAME)["isin"] == ISIN
     assert session._account("Some Bond 2030")["balance"] == 985.0  # price is per 100 of face value -> 98.5 / 100 * 1000
     assert session._account("Some Bond 2030")["isin"] == SECOND_ISIN

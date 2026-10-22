@@ -458,6 +458,7 @@
       "description": "Wir bestätigen deine Anmeldung und laden deine Konten und Transaktionen. Das kann einen Moment dauern, besonders beim ersten Sync — du musst nichts weiter tun."
     },
     "neverSynced": "Noch nie synchronisiert",
+    "neverSyncedSyncNow": "Noch nie synchronisiert, <sync>jetzt synchronisieren</sync>",
     "syncErrorPending_one": "{{count}} Bankverbindung benötigt Aufmerksamkeit",
     "syncErrorPending_other": "{{count}} Bankverbindungen benötigen Aufmerksamkeit",
     "syncError": {
@@ -501,6 +502,7 @@
     "detail": {
       "notFound": "Die Verbindung, die du suchst, dies nicht sie ist.",
       "backToList": "Zurück zu den Bankverbindungen",
+      "syncAria": "Bankverbindung synchronisieren",
       "accountsEmpty": "Noch keine Konten. Sie erscheinen nach der ersten erfolgreichen Synchronisierung.",
       "accountsEmptyManual": "Noch keine Konten. Lege dein erstes manuelles Konto an.",
       "addAccount": "Konto hinzufügen",

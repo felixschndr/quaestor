@@ -1,13 +1,22 @@
 import { useState } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 
-vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
+const navigate = vi.hoisted(() => vi.fn())
+vi.mock('@tanstack/react-router', async () =>
+  (await import('./-routerMock')).routerMocks({ useNavigate: () => navigate }),
+)
 
 import { BankPickerView } from '@/pages/settings.credentials.new.index'
+import { Route } from '@/routes/settings.credentials.new.index'
 import type { SupportedBank } from '@/lib/credentials'
+import type { CredentialRead } from '@/lib/auth'
+import { routeState } from './-routerMock'
+import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { TEST_IBAN_BRANCH_BLZ } from '@/test/constants'
 
 function StatefulPicker({
   isLoading = false,
@@ -294,5 +303,143 @@ describe('BankPickerView', () => {
     expect(screen.getByRole('link', { name: /Deutsche Bank/ })).toHaveTextContent(
       '3 accounts already added',
     )
+  })
+})
+
+describe('BankPickerView — search and badges', () => {
+  it('finds a branch bank by a pasted IBAN', () => {
+    render(<StatefulPicker banks={CATALOG} />)
+    fireEvent.change(screen.getByRole('searchbox'), {
+      target: { value: TEST_IBAN_BRANCH_BLZ.replace(/(.{4})/g, '$1 ') },
+    })
+    const items = screen.getAllByRole('listitem')
+    expect(items).toHaveLength(1)
+    expect(items[0]).toHaveTextContent('Deutsche Bank')
+  })
+
+  it('matches nothing for a query made only of punctuation', () => {
+    render(<StatefulPicker banks={CATALOG} />)
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '--' } })
+    expect(screen.getByText('No bank found.')).toBeInTheDocument()
+  })
+
+  it('marks directly supported providers and counts their accounts even when none exist', () => {
+    const tradeRepublic: SupportedBank = {
+      provider: 'trade_republic',
+      key: 'trade_republic',
+      name: 'Trade Republic',
+      bic: null,
+      icon: null,
+      tested: false,
+      required_fields: ['phone', 'pin'],
+      blzs: [],
+    }
+    render(<StatefulPicker banks={[tradeRepublic]} />)
+    const row = screen.getByRole('link', { name: /Trade Republic/ })
+    expect(row).toHaveTextContent('Direct')
+    expect(row).toHaveTextContent('No accounts added yet')
+  })
+
+  it('drops the keyboard focus from the search field when the list is scrolled by touch', () => {
+    render(<StatefulPicker banks={CATALOG} />)
+    const search = screen.getByRole('searchbox')
+    search.focus()
+    fireEvent.touchMove(window)
+    expect(search).not.toHaveFocus()
+  })
+})
+
+describe('/settings/credentials/new/ route', () => {
+  const Page = Route.options.component!
+
+  function credential(overrides: Partial<CredentialRead>): CredentialRead {
+    return {
+      id: 1,
+      bank: 'fints',
+      bank_name: null,
+      bank_icon: null,
+      accounts: [],
+      last_successful_sync_timestamp: null,
+      requires_two_factor_authentication: false,
+      sync_enabled: true,
+      ...overrides,
+    }
+  }
+
+  const account = (id: number) => ({
+    id,
+    name: `Account ${id}`,
+    display_name: null,
+    balance: 0,
+    balance_factor: 100,
+    is_hidden: false,
+    include_by_default: true,
+    is_market_valued: false,
+  })
+
+  function serve() {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      if (input === '/api/credentials/supported_banks') {
+        return Promise.resolve(jsonResponse({ status: 200, body: BANKS }))
+      }
+      if (input === '/api/auth/me') {
+        return Promise.resolve(
+          jsonResponse({
+            status: 200,
+            body: buildUser({
+              credentials: [
+                credential({ id: 1, bank_name: 'Deutsche Bank', accounts: [account(1)] }),
+                credential({ id: 2, bank_name: 'Deutsche Bank', accounts: [account(2)] }),
+                credential({ id: 3, bank: 'manual', accounts: [account(3)] }),
+              ],
+            }),
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${String(input)}`))
+    })
+  }
+
+  afterEach(() => {
+    navigate.mockClear()
+    vi.restoreAllMocks()
+  })
+
+  it('counts the accounts already added per bank', async () => {
+    serve()
+    routeState.search = {}
+    renderWithQuery(<Page />)
+
+    expect(
+      await screen.findByRole('link', { name: /Deutsche Bank.*2 accounts already added/ }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Manual account/ })).toHaveTextContent(
+      '1 account already added',
+    )
+  })
+
+  it('filters by the q search param and writes edits back to the URL', async () => {
+    serve()
+    routeState.search = { q: 'deutsche' }
+    renderWithQuery(<Page />)
+
+    const search = screen.getByRole('searchbox')
+    expect(search).toHaveValue('deutsche')
+    expect(await screen.findByRole('link', { name: /Deutsche Bank/ })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Stadtsparkasse/ })).not.toBeInTheDocument()
+
+    await userEvent.type(search, 'x')
+    await userEvent.clear(search)
+
+    const [[typed], [cleared]] = navigate.mock.calls
+    expect(typed.replace).toBe(true)
+    expect(typed.search({ other: '1' })).toEqual({ other: '1', q: 'deutschex' })
+    expect(cleared.search({ q: 'deutsche' })).toEqual({ q: undefined })
+  })
+
+  it('accepts only a string q search param', () => {
+    const validate = Route.options.validateSearch as (search: unknown) => unknown
+    expect(validate({ q: 'ing', page: 2 })).toEqual({ q: 'ing' })
+    expect(() => validate({ q: 5 })).toThrow()
   })
 })

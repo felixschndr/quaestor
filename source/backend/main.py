@@ -62,7 +62,8 @@ MAX_LOGGED_BODY_BYTES = 4096
 ALLOW_MISSING_FRONTEND_ENV = "ALLOW_MISSING_FRONTEND"
 
 LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(session)s] [%(name)s] %(message)s"
-NOISY_LIBRARY_LOGGERS = ("fints", "mt940")
+# websockets logs handshake headers (Trade Republic session cookies) and urllib3 full URLs (push tokens) at DEBUG
+NOISY_LIBRARY_LOGGERS = ("fints", "mt940", "websockets", "urllib3")
 DEFAULT_LOG_LEVEL = logging.INFO
 
 load_dotenv()

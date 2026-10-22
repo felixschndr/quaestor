@@ -14,6 +14,7 @@ from source.backend.models.transactions.transaction_category import (
 from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
     AMOUNT,
+    PAYPAL_COUNTERPARTY,
     PERSON_NAME,
     UNKNOWN_TRANSACTION_OTHER_PARTY,
     assert_log_contains,
@@ -44,9 +45,9 @@ from tests.backend.conftest import (
         ("Nasdaq", None, TransactionCategory.INVESTMENT),
         # Streaming and software — purpose-side match wins over private person name and payment intermediaries
         ("Person", "Spotify", TransactionCategory.STREAMING),
-        ("PayPal Europe S.a.r.l. et Cie S.C.A", "Ihr Einkauf bei Spotify AB", TransactionCategory.STREAMING),
+        (PAYPAL_COUNTERPARTY, "Ihr Einkauf bei Spotify AB", TransactionCategory.STREAMING),
         (None, "Disney Plus", TransactionCategory.STREAMING),
-        ("PayPal Europe S.a.r.l. et Cie S.C.A", "Ihr Einkauf bei Apple Services", TransactionCategory.SOFTWARE_CLOUD),
+        (PAYPAL_COUNTERPARTY, "Ihr Einkauf bei Apple Services", TransactionCategory.SOFTWARE_CLOUD),
         ("VISA APPLE.COM BILL", None, TransactionCategory.SOFTWARE_CLOUD),
         ("PayPal Europe", "Ihr Einkauf bei IONOS", TransactionCategory.SOFTWARE_CLOUD),
         (None, "Google Workspace", TransactionCategory.SOFTWARE_CLOUD),
@@ -87,7 +88,7 @@ from tests.backend.conftest import (
         ("VISA MEWAN FRISEURSTUDIO", None, TransactionCategory.PERSONAL_CARE),
         ("VISA BLUME 2000 SE", None, TransactionCategory.GIFTS),
         ("VISA PAYPAL *STEAM GAMES", None, TransactionCategory.GAMING),
-        ("PayPal Europe S.a.r.l. et Cie S.C.A", "Ihr Einkauf bei Nintendo", TransactionCategory.GAMING),
+        (PAYPAL_COUNTERPARTY, "Ihr Einkauf bei Nintendo", TransactionCategory.GAMING),
         ("GoCardless Ltd", "GCNTGPQ", TransactionCategory.FEES),
         ("Stadt Karlsruhe", "503016420621/Bewohnerparkausweis", TransactionCategory.PARKING),
         ("VISA DEUTSCHE POST AG", None, TransactionCategory.FEES),

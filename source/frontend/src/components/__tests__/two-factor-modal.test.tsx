@@ -184,6 +184,53 @@ describe('TwoFactorModal', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
+  it('links to the sign-in page and takes the pasted code as text', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderModal({
+      current2fa: {
+        credentialId: 1,
+        jobId: 'j',
+        bank: 'fints',
+        bankName: 'DKB',
+        bankIcon: null,
+        kind: 'awaiting_2fa',
+        authorizationUrl: AUTHORIZATION_URL,
+      },
+      onSubmit,
+    })
+    expect(screen.getByText(/Sign in at DKB via the link/)).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Sign in at DKB' })).toHaveAttribute(
+      'href',
+      AUTHORIZATION_URL,
+    )
+    const input = screen.getByLabelText('Code')
+    expect(input).toHaveAttribute('inputmode', 'text')
+
+    await userEvent.type(input, DEVICE_CODE)
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    expect(onSubmit).toHaveBeenCalledWith(DEVICE_CODE)
+    expect(input).toHaveValue('')
+  })
+
+  it('ignores clicks outside the dialog — cancelling kills the sync job', async () => {
+    const onSkip = vi.fn()
+    renderModal({
+      current2fa: {
+        credentialId: 1,
+        jobId: 'j',
+        bank: 'trade_republic',
+        bankName: null,
+        bankIcon: null,
+        kind: 'awaiting_2fa',
+      },
+      onSkip,
+    })
+    await userEvent.click(document.querySelector('[data-slot="dialog-overlay"]')!)
+    expect(onSkip).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
   it('clears typed code when the active credential changes (skip-then-next)', async () => {
     const { rerender } = renderModal({
       current2fa: {

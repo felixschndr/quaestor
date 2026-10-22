@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -14,6 +14,7 @@ import {
   AMOUNT_M,
   AMOUNT_S,
   AMOUNT_XL,
+  DATE_MID_MONTH,
   DATE_RECENT,
   DATE_YEAR_START,
   DATE_YESTERDAY,
@@ -23,9 +24,11 @@ import {
   money,
 } from '@/test/constants'
 
+const searchRoute = vi.hoisted(() => ({ navigate: vi.fn() }))
+
 vi.mock('@tanstack/react-router', async () =>
   (await import('./-routerMock')).routerMocks({
-    useNavigate: () => vi.fn(),
+    useNavigate: () => searchRoute.navigate,
     useRouter: () => ({ history: { back: vi.fn() } }),
     useCanGoBack: () => false,
   }),
@@ -37,6 +40,10 @@ vi.mock('@/lib/accountGroups', () => ({
 
 import { type TransactionSearchParams } from '@/lib/transactionSearchParams'
 import { TransactionSearchView } from '@/pages/search'
+import { Route } from '@/routes/search'
+import { selectFromPopover } from '@/test/popover-select'
+import { routeState } from './-routerMock'
+import { buildUser, jsonResponse } from './-settingsUserTestHelpers'
 
 const credentials: CredentialRead[] = [
   {
@@ -104,7 +111,11 @@ beforeEach(() => {
 
 function renderWithClient(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+  return render(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  })
 }
 
 type ChangePayload = { accountIds: number[]; filters: TransactionFiltersLike }
@@ -239,6 +250,95 @@ describe('TransactionSearchView — form', () => {
     const payload = lastPayload(onChange)
     expect(payload?.filters.amount_to).toBeUndefined()
     expect([...(payload?.accountIds ?? [])].sort((a, b) => a - b)).toEqual([42, 43, 99])
+  })
+
+  it('emits the upper amount bound', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderView()
+
+    await user.type(screen.getByLabelText('Amount to'), String(AMOUNT_L))
+
+    await waitFor(() => expect(lastPayload(onChange)?.filters.amount_to).toBe(AMOUNT_L))
+  })
+
+  it('emits the dates picked in the calendar', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderView({ search: { date_from: DATE_MID_MONTH, date_to: DATE_RECENT } })
+
+    await user.click(screen.getByLabelText('From date'))
+    await user.click(screen.getByRole('button', { name: /May 1st, 2026/ }))
+    await user.click(screen.getByLabelText('To date'))
+    await user.click(screen.getByRole('button', { name: /May 22nd, 2026/ }))
+
+    await waitFor(() =>
+      expect(lastPayload(onChange)?.filters).toMatchObject({
+        date_from: '2026-05-01',
+        date_to: '2026-05-22',
+      }),
+    )
+  })
+
+  it('narrows the transaction types, and drops the filter again once all are picked', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderView()
+
+    await user.click(screen.getByLabelText('Type'))
+    await user.click(screen.getByRole('button', { name: 'None' }))
+    await waitFor(() => expect(lastPayload(onChange)?.filters.transaction_types).toEqual([]))
+    expect(screen.getByText('No transactions match your filters.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'All' }))
+    await waitFor(() =>
+      expect(lastPayload(onChange)?.filters).toHaveProperty('transaction_types', undefined),
+    )
+  })
+
+  it('narrows the categories, and drops the filter again once all are picked', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderView()
+
+    await user.click(screen.getByLabelText('Categories'))
+    await user.click(screen.getByRole('button', { name: 'None' }))
+    await waitFor(() => expect(lastPayload(onChange)?.filters.categories).toEqual([]))
+
+    await user.click(screen.getByRole('button', { name: 'All' }))
+    await waitFor(() =>
+      expect(lastPayload(onChange)?.filters).toHaveProperty('categories', undefined),
+    )
+  })
+
+  it('emits the selected attachment filter', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderView()
+
+    await user.click(screen.getByLabelText('Attachment'))
+    await user.click(document.getElementById('attachment-without')!)
+
+    await waitFor(() => expect(lastPayload(onChange)?.filters.has_attachment).toBe('with'))
+  })
+
+  it('resets the filters to the ones the page was opened with', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderView({ search: { text: 'gehalt' } })
+    expect(screen.queryByRole('button', { name: 'Reset filters' })).toBeNull()
+
+    await user.type(screen.getByLabelText('Search text'), ' mai')
+    await waitFor(() => expect(lastPayload(onChange)?.filters.text).toBe('gehalt mai'))
+    await user.click(screen.getByRole('button', { name: 'Reset filters' }))
+
+    expect(screen.getByLabelText('Search text')).toHaveValue('gehalt')
+    await waitFor(() => expect(lastPayload(onChange)?.filters.text).toBe('gehalt'))
+    expect(screen.queryByRole('button', { name: 'Reset filters' })).toBeNull()
+  })
+
+  it('keeps the page when Enter is pressed in the form', () => {
+    renderView()
+    const form = screen.getByLabelText('Search text').closest('form')!
+
+    const submit = createEvent.submit(form)
+    fireEvent(form, submit)
+
+    expect(submit.defaultPrevented).toBe(true)
   })
 
   it('preserves the existing URL filters in the form', () => {
@@ -416,6 +516,25 @@ describe('TransactionSearchView — results', () => {
     // Each row's subtitle (date + account name) should mention the account.
     expect(await screen.findByText(new RegExp(ACCOUNT_NAME_GIRO))).toBeInTheDocument()
     expect(screen.getByText(new RegExp(ACCOUNT_NAME_DAY))).toBeInTheDocument()
+  })
+
+  it('names a transaction without counterparty "Unknown"', async () => {
+    mockFetchOnce([
+      {
+        id: 3,
+        account_id: 42,
+        amount: -AMOUNT_S,
+        purpose: null,
+        date: DATE_RECENT,
+        other_party: null,
+        transaction_type: null,
+        category: 'UNKNOWN',
+        note: null,
+      },
+    ])
+    renderView({ search: { account_ids: [42] } })
+
+    expect(await screen.findByText('Unknown')).toBeInTheDocument()
   })
 
   it('links each result row to its own account, not to the anchor', async () => {
@@ -629,5 +748,101 @@ describe('TransactionSearchView — request building', () => {
     expect(url).toContain('transaction_types=OUTGOING')
     expect(url).toContain('linked=linked')
     expect(url).not.toContain('submitted=')
+  })
+})
+
+describe('search route', () => {
+  const SearchPage = Route.options.component!
+
+  const transaction = (id: number, amount: number, party: string) => ({
+    id,
+    account_id: 42,
+    amount,
+    purpose: null,
+    date: DATE_RECENT,
+    other_party: party,
+    transaction_type: null,
+    category: 'UNKNOWN',
+    note: null,
+  })
+
+  beforeEach(() => {
+    routeState.search = {}
+    searchRoute.navigate.mockClear()
+    globalThis.fetch = vi.fn((url: string) =>
+      Promise.resolve(
+        url === '/api/auth/me'
+          ? jsonResponse({ status: 200, body: buildUser({ credentials }) })
+          : jsonResponse({
+              status: 200,
+              body: [
+                transaction(1, -AMOUNT_S, PARTY_SUPERMARKET),
+                transaction(2, AMOUNT_L, 'ACME'),
+              ],
+            }),
+      ),
+    ) as unknown as typeof fetch
+  })
+
+  const lastNavigation = () => searchRoute.navigate.mock.calls.at(-1)?.[0]
+
+  it('reads one or many account ids from the URL', () => {
+    const parse = Route.options.validateSearch as (search: object) => TransactionSearchParams
+    expect(parse({ account_ids: '42' }).account_ids).toEqual([42])
+    expect(parse({ account_ids: ['42', '99'] }).account_ids).toEqual([42, 99])
+  })
+
+  it('shows the search once the user is known', async () => {
+    const { container } = renderWithClient(<SearchPage />)
+    expect(container).toBeEmptyDOMElement()
+
+    expect(await screen.findByLabelText('Search text')).toBeInTheDocument()
+  })
+
+  it('mirrors the filters into the URL, leaving the default accounts out', async () => {
+    const user = userEvent.setup()
+    routeState.search = { link_account_id: 42, link_transaction_id: 7, sort: 'amount_asc' }
+    renderWithClient(<SearchPage />)
+
+    await user.type(await screen.findByLabelText('Search text'), 'rewe')
+
+    await waitFor(() => expect(lastNavigation()?.search.text).toBe('rewe'))
+    expect(lastNavigation()).toEqual({
+      search: {
+        text: 'rewe',
+        account_ids: undefined,
+        link_account_id: 42,
+        link_transaction_id: 7,
+        sort: 'amount_asc',
+      },
+      replace: true,
+    })
+  })
+
+  it('keeps a narrowed account selection in the URL', async () => {
+    routeState.search = { account_ids: [42] }
+    renderWithClient(<SearchPage />)
+
+    await waitFor(() => expect(lastNavigation()?.search.account_ids).toEqual([42]))
+  })
+
+  it('stores a chosen sort in the URL and drops it again for the default', async () => {
+    const user = userEvent.setup()
+    const { rerender } = renderWithClient(<SearchPage />)
+    await screen.findByText('ACME')
+
+    await selectFromPopover(user, 'Sort', 'Amount: low to high')
+    expect(lastNavigation()).toEqual({
+      search: expect.objectContaining({ sort: 'amount_asc' }),
+      replace: true,
+    })
+
+    routeState.search = { sort: 'amount_asc' }
+    rerender(<SearchPage />)
+    await selectFromPopover(user, 'Sort', 'Newest first')
+    expect(lastNavigation()).toEqual({
+      search: expect.objectContaining({ sort: undefined }),
+      replace: true,
+    })
   })
 })

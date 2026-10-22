@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "Quaestor"
 description = "Your self-hosted, read-only treasurer: a personal finance overview across all your bank accounts"
-version = "0.8.0"
+version = "0.8.1"
 authors = ["Felix Schneider <mail@fschneider.me>"]
 repository = "https://github.com/felixschndr/quaestor"
 package-mode = false
@@ -50,6 +50,9 @@ env = [
     "R:LOG_LEVEL=WARNING",
 ]
 markers = ["real_playwright_browser: exercise the real Playwright browser provisioning logic"]
+
+[tool.coverage.run]
+branch = true
 
 [tool.alembic]
 script_location = "source/backend/alembic"

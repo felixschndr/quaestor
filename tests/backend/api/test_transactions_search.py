@@ -15,6 +15,7 @@ from tests.backend.conftest import (
     LARGE_AMOUNT,
     REWE,
     SECOND_AMOUNT,
+    UNKNOWN_ID,
     assert_log_contains,
     create_credential,
     link_transactions_as_related_group,
@@ -441,8 +442,8 @@ def test_get_by_id_hides_foreign_transaction(
 def test_get_by_id_returns_404_for_unknown_transaction(http_client: TestClient, caplog: pytest.LogCaptureFixture):
     register_and_login(http_client)
 
-    response = http_client.get("/api/transactions/999999")
+    response = http_client.get(f"/api/transactions/{UNKNOWN_ID}")
 
     assert response.status_code == 404
     # Exact match: the 404 handler's own log line merely contains this text.
-    assert "Transaction with the ID 999999 not found" in caplog.messages
+    assert f"Transaction with the ID {UNKNOWN_ID} not found" in caplog.messages

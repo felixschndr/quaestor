@@ -1,11 +1,13 @@
 import { createElement, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { transactionQueryKeys } from '@/lib/transaction'
 import {
   contractAmountForPeriod,
+  contractQueryKeys,
+  useContracts,
   useSetTransactionContract,
   filterContracts,
   hasActiveContractFilters,
@@ -125,6 +127,11 @@ describe('filterContracts', () => {
     expect(ids(filterContracts(all, { amount_from: -1000, amount_to: -40 }))).toEqual([3, 4])
   })
 
+  it('drops contracts below the lower bound, including those without a median', () => {
+    const noMedian = makeContract({ id: 7, median_amount: null })
+    expect(ids(filterContracts([...all, noMedian], { amount_from: -60 }))).toEqual([1, 2, 4, 5])
+  })
+
   it('excludes contracts without a median when an amount bound is set', () => {
     const noMedian = makeContract({ id: 7, median_amount: null })
     expect(ids(filterContracts([...all, noMedian], { amount_to: 10000 }))).toEqual([1, 2, 3, 4, 5])
@@ -193,6 +200,10 @@ describe('monthsOverdue', () => {
     expect(monthsOverdue('2026-08-01', now)).toBe(0)
     expect(monthsOverdue('2026-06-28', now)).toBe(0)
   })
+
+  it('is zero for an unparseable date', () => {
+    expect(monthsOverdue('not-a-date', now)).toBe(0)
+  })
 })
 
 describe('overdueDuration', () => {
@@ -254,9 +265,61 @@ describe('sumContractsForPeriod', () => {
   })
 })
 
+function renderWithClient<T>(hook: () => T, client = new QueryClient()) {
+  const wrapper = ({ children }: { children: ReactNode }) =>
+    createElement(QueryClientProvider, { client }, children)
+  return renderHook(hook, { wrapper })
+}
+
+describe('useContracts', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('loads only active contracts unless archived ones are requested', async () => {
+    const fetchMock = vi.fn<typeof fetch>(
+      async () =>
+        new Response(JSON.stringify([netflix]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const client = new QueryClient()
+
+    const active = renderWithClient(() => useContracts(), client)
+    const withArchived = renderWithClient(() => useContracts(true), client)
+
+    await waitFor(() => expect(active.result.current.data).toEqual([netflix]))
+    await waitFor(() => expect(withArchived.result.current.data).toEqual([netflix]))
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/api/contracts',
+      '/api/contracts?include_archived=true',
+    ])
+  })
+})
+
 describe('useSetTransactionContract', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('assigns an unassigned transaction via POST and refreshes the target contract', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = new QueryClient()
+    client.setQueryData(contractQueryKeys.detail(3), { id: 3 })
+    const { result } = renderWithClient(() => useSetTransactionContract(), client)
+
+    await act(async () => {
+      await result.current.mutateAsync({ transactionId: 5, fromContractId: null, toContractId: 3 })
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/contracts/3/transactions')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(String(init?.body))).toEqual({ transaction_id: 5 })
+    expect(client.getQueryState(contractQueryKeys.detail(3))?.isInvalidated).toBe(true)
   })
 
   it('refetches the transaction detail so removing a contract shows up there', async () => {

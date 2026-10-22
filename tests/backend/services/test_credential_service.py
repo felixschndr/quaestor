@@ -18,6 +18,7 @@ from source.backend.exceptions import (
     MissingCredentialFieldError,
     ReauthenticationRequiredError,
 )
+from source.backend.helpers import utc_now
 from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.services.banking import credential_service, scalable_capital_login, trade_republic_login
@@ -30,8 +31,11 @@ from tests.backend.conftest import (
     HTTP_SESSION_TOKEN,
     PHONE_NUMBER,
     PIN,
+    REFRESHED_COOKIES,
     SECOND_USER_NAME,
+    STORED_COOKIES,
     TWO_FACTOR_CODE,
+    UNKNOWN_ID,
     VALID_PASSWORD,
     assert_log_contains,
     create_user,
@@ -101,9 +105,9 @@ def test_get_credential_logs_and_raises_for_an_unknown_id(
 ):
     with session_factory() as session:
         with pytest.raises(CredentialNotFoundError):
-            credential_service.get_credential(db_session=session, credential_id=12345)
+            credential_service.get_credential(db_session=session, credential_id=UNKNOWN_ID)
 
-    assert_log_contains(caplog, message="Credential with the ID 12345 not found")
+    assert_log_contains(caplog, message=f"Credential with the ID {UNKNOWN_ID} not found")
 
 
 def test_get_credential_for_user_logs_and_raises_for_a_foreign_credential(
@@ -503,20 +507,20 @@ def test_sync_credential_object_for_handler_with_2fa_returns_completed_on_resume
             bank=BankProvider.TRADE_REPUBLIC,
             credentials={"phone": PHONE_NUMBER, "pin": PIN},
         )
-        credential.session_state = {"cookies": "stored-cookie"}
+        credential.session_state = {"cookies": STORED_COOKIES}
         session.commit()
         credential_id = credential.id
 
     def fake_sync(self: Credential, handler: BankHandler) -> None:
-        assert handler.session_state == {"cookies": "stored-cookie"}
-        handler.session_state = {"cookies": "refreshed-cookie"}
+        assert handler.session_state == {"cookies": STORED_COOKIES}
+        handler.session_state = {"cookies": REFRESHED_COOKIES}
 
     monkeypatch.setattr(target=Credential, name="sync", value=fake_sync)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
         result = credential_service.sync_credential_object(credential=credential)
-        assert credential.session_state == {"cookies": "refreshed-cookie"}
+        assert credential.session_state == {"cookies": REFRESHED_COOKIES}
 
     assert result.status == credential_service.SyncStatus.COMPLETED
 
@@ -644,6 +648,64 @@ def test_sync_credential_object_for_handler_with_2fa_starts_2fa_when_reauth_requ
     assert_log_contains(caplog, message="requires 2FA re-authentication; started interactive challenge")
 
 
+def test_sync_credential_awaiting_2fa_skips_the_post_sync_detection_and_notifications(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    with session_factory() as session:
+        user = make_user(session)
+        credential = make_credential(
+            session,
+            user_id=user.id,
+            bank=BankProvider.TRADE_REPUBLIC,
+            credentials={"phone": PHONE_NUMBER, "pin": PIN},
+        )
+        session.commit()
+        credential_id = credential.id
+
+    def raise_reauth(self: Credential, handler: BankHandler) -> None:
+        raise ReauthenticationRequiredError()
+
+    monkeypatch.setattr(target=Credential, name="sync", value=raise_reauth)
+    monkeypatch.setattr(
+        target=trade_republic_login, name="start", value=MagicMock(return_value=(HTTP_SESSION_TOKEN, utc_now()))
+    )
+    detect_transfers = MagicMock()
+    monkeypatch.setattr(
+        target=credential_service.transfer_detection, name="detect_transfers_for_user", value=detect_transfers
+    )
+    collect_notifications = MagicMock()
+    monkeypatch.setattr(target=notification_engine, name="collect_notifications", value=collect_notifications)
+
+    with session_factory() as session:
+        result = credential_service.sync_credential(db_session=session, credential_id=credential_id)
+
+    assert result.status == credential_service.SyncStatus.TWO_FACTOR_REQUIRED
+    detect_transfers.assert_not_called()
+    collect_notifications.assert_not_called()
+    with session_factory() as session:
+        assert session.get(entity=Credential, ident=credential_id).requires_two_factor_authentication is True
+
+
+def test_sync_credential_object_passes_the_2fa_state_on_to_the_caller(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    user_id = create_user(session_factory).id
+    credential_id = persist_credential(session_factory, user_id=user_id)
+
+    def fake_sync(self: Credential, handler: BankHandler) -> None:
+        handler.notify_two_factor_state(True)
+        handler.notify_two_factor_state(False)
+
+    monkeypatch.setattr(target=Credential, name="sync", value=fake_sync)
+    states: list[bool] = []
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential_service.sync_credential_object(credential=credential, notify_two_factor_state=states.append)
+
+    assert states == [True, False]
+
+
 def test_confirm_two_factor_completes_login_and_syncs_credential(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
@@ -658,7 +720,7 @@ def test_confirm_two_factor_completes_login_and_syncs_credential(
         session.commit()
         credential_id = credential.id
 
-    complete_login = MagicMock(return_value="cookies-from-2fa")
+    complete_login = MagicMock(return_value=REFRESHED_COOKIES)
     monkeypatch.setattr(target=trade_republic_login, name="complete", value=complete_login)
     monkeypatch.setattr(target=Credential, name="sync", value=MagicMock())
 
@@ -672,7 +734,7 @@ def test_confirm_two_factor_completes_login_and_syncs_credential(
         challenge_token=CHALLENGE_TOKEN, credential_id=credential_id, code=TWO_FACTOR_CODE
     )
     with session_factory() as session:
-        assert session.get(entity=Credential, ident=credential_id).session_state == {"cookies": "cookies-from-2fa"}
+        assert session.get(entity=Credential, ident=credential_id).session_state == {"cookies": REFRESHED_COOKIES}
     assert_log_contains(caplog, message="Confirming 2FA for")
 
 

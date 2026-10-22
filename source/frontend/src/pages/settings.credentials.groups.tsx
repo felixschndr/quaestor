@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Check, GripVertical, Pencil, Plus, X } from 'lucide-react'
@@ -94,10 +94,15 @@ export function GroupsEditorView({ layout, accountLookup }: GroupsEditorViewProp
   )
 
   const [activeId, setActiveId] = useState<string | null>(null)
+  const layoutBeforeDrag = useRef(localLayout)
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(String(event.active.id))
-  }, [])
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      layoutBeforeDrag.current = localLayout
+      setActiveId(String(event.active.id))
+    },
+    [localLayout],
+  )
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event
@@ -135,6 +140,7 @@ export function GroupsEditorView({ layout, accountLookup }: GroupsEditorViewProp
 
   const handleDragCancel = useCallback(() => {
     setActiveId(null)
+    setLocalLayout(layoutBeforeDrag.current)
   }, [])
 
   const collisionDetection = useCallback<CollisionDetection>((args) => {
@@ -544,6 +550,7 @@ function moveAccount(
   overId: string,
   insertAfter = false,
 ): AccountGroupLayout {
+  if (overId === accountItemId(accountId)) return layout
   // overId is either "container-<id>" (empty container drop) or "account-<id>" (hovering an item).
   // Strip "container-" / "account-" prefixes to figure out the target.
   const targetContainerId = parseTargetContainer(overId, layout)

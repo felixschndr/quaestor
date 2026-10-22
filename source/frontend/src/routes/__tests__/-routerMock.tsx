@@ -35,12 +35,29 @@ export function LinkMock({
   )
 }
 
+export const routeState: { params: Record<string, string>; search: Record<string, unknown> } = {
+  params: {},
+  search: {},
+}
+
 export function routerMocks(overrides: Record<string, unknown> = {}) {
   return {
     Link: LinkMock,
-    createFileRoute: () => () => ({}),
+    createFileRoute: () => (options: object) => ({
+      options,
+      useParams: () => routeState.params,
+      useSearch: () => routeState.search,
+    }),
     useCanGoBack: () => false,
     useRouter: () => ({ history: { back: () => {}, push: () => {} } }),
     ...overrides,
   }
+}
+
+export function NavLinkMock({
+  activeOptions: _activeOptions,
+  activeProps: _activeProps,
+  ...props
+}: Parameters<typeof LinkMock>[0] & { activeOptions?: unknown; activeProps?: unknown }) {
+  return <LinkMock {...props} />
 }

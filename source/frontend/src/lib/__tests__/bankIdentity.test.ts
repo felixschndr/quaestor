@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ibanToBlz, isLikelyIban, initials, monogramColor } from '@/lib/bankIdentity'
+import { countryName, ibanToBlz, isLikelyIban, initials, monogramColor } from '@/lib/bankIdentity'
 
 describe('ibanToBlz', () => {
   it('extracts the bank code from a German IBAN (chars 5-12)', () => {
@@ -34,5 +34,16 @@ describe('monogramColor', () => {
   it('is deterministic for the same seed and a valid hsl string', () => {
     expect(monogramColor('37040044')).toBe(monogramColor('37040044'))
     expect(monogramColor('37040044')).toMatch(/^hsl\(\d{1,3} \d{1,3}% \d{1,3}%\)$/)
+  })
+})
+
+describe('countryName', () => {
+  it('names a country in the given language', () => {
+    expect(countryName('DE', 'en')).toBe('Germany')
+    expect(countryName('DE', 'de')).toBe('Deutschland')
+  })
+
+  it('falls back to the code when it cannot be resolved', () => {
+    expect(countryName('not-a-region', 'en')).toBe('not-a-region')
   })
 })

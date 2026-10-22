@@ -19,6 +19,7 @@ class _Leg:
     amount: float
     account_id: int
     date: datetime.date
+    other_party: str | None
     remaining: float = 0.0
 
     def __post_init__(self) -> None:
@@ -39,15 +40,20 @@ def analyze(db_session: Session, related_group_ids: set[int] | None = None) -> R
     if related_group_ids is not None and not related_group_ids:
         return RelatedGroupAnalysis()
     query = select(  # noqa: FKA100
-        Transaction.id, Transaction.related_group_id, Transaction.amount, Transaction.account_id, Transaction.date
+        Transaction.id,
+        Transaction.related_group_id,
+        Transaction.amount,
+        Transaction.account_id,
+        Transaction.date,
+        Transaction.other_party,
     ).where(Transaction.related_group_id.isnot(None))
     if related_group_ids is not None:
         query = query.where(Transaction.related_group_id.in_(related_group_ids))
 
     legs_by_related_group: dict[int, list[_Leg]] = defaultdict(list)
-    for transaction_id, related_group_id, amount, account_id, date in db_session.execute(query):
+    for transaction_id, related_group_id, amount, account_id, date, other_party in db_session.execute(query):
         legs_by_related_group[cast(int, related_group_id)].append(
-            _Leg(id=transaction_id, amount=amount, account_id=account_id, date=date)
+            _Leg(id=transaction_id, amount=amount, account_id=account_id, date=date, other_party=other_party)
         )
 
     analysis = RelatedGroupAnalysis()
@@ -75,7 +81,8 @@ def _analyze_related_group(legs: list[_Leg], analysis: RelatedGroupAnalysis) -> 
     refund_inflows: set[int] = set()
     covered_outflows: dict[int, list[int]] = defaultdict(list)
 
-    for same_account in (True, False):
+    # Exact cross-account transfers go first, else a same-account debit swallows the transfer that topped the account up
+    for same_account in (False, True):
         for inflow in inflows:
             if inflow.remaining <= _EPS:
                 continue
@@ -92,7 +99,8 @@ def _analyze_related_group(legs: list[_Leg], analysis: RelatedGroupAnalysis) -> 
                 applied = min(inflow.remaining, outflow.remaining)
                 inflow.remaining -= applied
                 outflow.remaining -= applied
-                if same_account and outflow.booked < inflow.booked:
+                same_party = inflow.other_party is not None and inflow.other_party == outflow.other_party
+                if same_account and (outflow.booked < inflow.booked or same_party):
                     refund_inflows.add(inflow.id)
                     covered_outflows[inflow.id].append(outflow.id)
 

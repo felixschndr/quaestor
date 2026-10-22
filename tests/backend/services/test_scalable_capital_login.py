@@ -1,4 +1,5 @@
 import logging
+import queue
 import subprocess  # nosec B404 -- only used to monkeypatch Popen and raise TimeoutExpired, never spawns
 import tempfile
 import time
@@ -11,7 +12,14 @@ import pytest
 from source.backend.exceptions import InvalidTwoFactorError
 from source.backend.helpers import utc_now
 from source.backend.services.banking import scalable_capital_login as module
-from tests.backend.conftest import SCALABLE_AUTHORIZATION_URL, SESSION_ARCHIVE, TWO_FACTOR_CODE, assert_log_contains
+from tests.backend.conftest import (
+    CREDENTIAL_ID,
+    SCALABLE_AUTHORIZATION_URL,
+    SECOND_CREDENTIAL_ID,
+    SESSION_ARCHIVE,
+    TWO_FACTOR_CODE,
+    assert_log_contains,
+)
 
 AUTHORIZATION_URL_WITH_CODE = f"{SCALABLE_AUTHORIZATION_URL}?user_code={TWO_FACTOR_CODE}"
 DEVICE_CODE_LINE = f"Verify the code {TWO_FACTOR_CODE} in your browser."
@@ -55,18 +63,18 @@ def test_start_returns_authorization_url_and_registers_pending_login(
     process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE, "", DEVICE_CODE_LINE])
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
 
-    token, authorization_url, device_code, expires_at = module.start(credential_id=1)
+    token, authorization_url, device_code, expires_at = module.start(credential_id=CREDENTIAL_ID)
 
     assert authorization_url == AUTHORIZATION_URL_WITH_CODE
     assert device_code is None
     assert expires_at > utc_now()
     assert token in module._pending_logins
-    assert module._pending_logins[token].credential_id == 1
+    assert module._pending_logins[token].credential_id == CREDENTIAL_ID
     assert_log_contains(
         caplog,
         messages=[
-            "Initiating device-code login for credential 1",
-            "Device-code challenge issued for credential 1",
+            f"Initiating device-code login for credential {CREDENTIAL_ID}",
+            f"Device-code challenge issued for credential {CREDENTIAL_ID}",
         ],
     )
 
@@ -75,7 +83,7 @@ def test_start_reads_the_device_code_from_the_follow_up_line(monkeypatch: pytest
     process = _FakeProcess(lines=["Open this URL:", SCALABLE_AUTHORIZATION_URL, "", DEVICE_CODE_LINE])
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
 
-    _token, authorization_url, device_code, _expires_at = module.start(credential_id=1)
+    _token, authorization_url, device_code, _expires_at = module.start(credential_id=CREDENTIAL_ID)
 
     assert authorization_url == SCALABLE_AUTHORIZATION_URL
     assert device_code == TWO_FACTOR_CODE
@@ -86,7 +94,7 @@ def test_start_raises_when_process_ends_without_a_url(monkeypatch: pytest.Monkey
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
 
     with pytest.raises(InvalidTwoFactorError, match="without an authorization URL"):
-        module.start(credential_id=1)
+        module.start(credential_id=CREDENTIAL_ID)
 
     assert module._pending_logins == {}
     assert process.killed
@@ -97,14 +105,14 @@ def test_complete_reads_back_config_dir_as_session_state(
 ):
     process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE], wait_returncode=0)
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
-    token, *_ = module.start(credential_id=1)
+    token, *_ = module.start(credential_id=CREDENTIAL_ID)
     config_dir = module._pending_logins[token].config_dir
     session_file = module.cli_config_dir(config_dir) / "session.json"
     session_file.write_text("token-data")
 
-    session_state = module.complete(challenge_token=token, credential_id=1)
+    session_state = module.complete(challenge_token=token, credential_id=CREDENTIAL_ID)
 
-    assert_log_contains(caplog, message="Login completed for credential 1")
+    assert_log_contains(caplog, message=f"Login completed for credential {CREDENTIAL_ID}")
     restored_dir = Path(tempfile.mkdtemp())
     module.write_session_state(config_dir=restored_dir, session_state=session_state)
 
@@ -116,9 +124,11 @@ def test_complete_reads_back_config_dir_as_session_state(
 
 def test_complete_rejects_unknown_token(caplog: pytest.LogCaptureFixture):
     with pytest.raises(InvalidTwoFactorError, match="Unknown or expired"):
-        module.complete(challenge_token="no-such-token", credential_id=1)  # nosec B106
+        module.complete(challenge_token="no-such-token", credential_id=CREDENTIAL_ID)  # nosec B106
 
-    assert_log_contains(caplog, message="Unknown or expired login challenge for credential 1. Start the sync again.")
+    assert_log_contains(
+        caplog, message=f"Unknown or expired login challenge for credential {CREDENTIAL_ID}. Start the sync again."
+    )
 
 
 def test_complete_rejects_token_issued_for_other_credential(
@@ -126,23 +136,26 @@ def test_complete_rejects_token_issued_for_other_credential(
 ):
     process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE])
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
-    token, *_ = module.start(credential_id=1)
+    token, *_ = module.start(credential_id=CREDENTIAL_ID)
 
     with pytest.raises(InvalidTwoFactorError):
-        module.complete(challenge_token=token, credential_id=2)
+        module.complete(challenge_token=token, credential_id=SECOND_CREDENTIAL_ID)
 
-    assert_log_contains(caplog, message="Unknown or expired login challenge for credential 2. Start the sync again.")
+    assert_log_contains(
+        caplog,
+        message=f"Unknown or expired login challenge for credential {SECOND_CREDENTIAL_ID}. Start the sync again.",
+    )
 
 
 def test_complete_raises_when_process_exited_nonzero(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
     process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE], wait_returncode=1)
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
-    token, *_ = module.start(credential_id=1)
+    token, *_ = module.start(credential_id=CREDENTIAL_ID)
 
     with pytest.raises(InvalidTwoFactorError, match="Login failed"):
-        module.complete(challenge_token=token, credential_id=1)
+        module.complete(challenge_token=token, credential_id=CREDENTIAL_ID)
 
-    assert_log_contains(caplog, message="Login failed for credential 1")
+    assert_log_contains(caplog, message=f"Login failed for credential {CREDENTIAL_ID}")
     assert module._pending_logins == {}
 
 
@@ -154,12 +167,14 @@ def test_complete_times_out_when_browser_step_is_not_finished_yet(
     )
     process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE], wait_hangs=True)
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
-    token, *_ = module.start(credential_id=1)
+    token, *_ = module.start(credential_id=CREDENTIAL_ID)
 
     with pytest.raises(InvalidTwoFactorError, match="has not finished yet"):
-        module.complete(challenge_token=token, credential_id=1)
+        module.complete(challenge_token=token, credential_id=CREDENTIAL_ID)
 
-    assert_log_contains(caplog, message="Login for credential 1 has not finished yet in the browser; try again.")
+    assert_log_contains(
+        caplog, message=f"Login for credential {CREDENTIAL_ID} has not finished yet in the browser; try again."
+    )
     # The pending login must survive a "not finished yet" timeout so a later retry can still find it.
     assert token in module._pending_logins
 
@@ -169,16 +184,18 @@ def test_expired_challenge_is_cleaned_up_and_rejected(
 ):
     process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE])
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
-    token, *_ = module.start(credential_id=1)
+    token, *_ = module.start(credential_id=CREDENTIAL_ID)
     config_dir = module._pending_logins[token].config_dir
     module._pending_logins[token].expires_at = utc_now() - timedelta(seconds=1)
 
     with caplog.at_level(logging.DEBUG):
         with pytest.raises(InvalidTwoFactorError):
-            module.complete(challenge_token=token, credential_id=1)
+            module.complete(challenge_token=token, credential_id=CREDENTIAL_ID)
 
     assert_log_contains(caplog, message="Cleaned up 1 expired pending login(s)")
-    assert_log_contains(caplog, message="Unknown or expired login challenge for credential 1. Start the sync again.")
+    assert_log_contains(
+        caplog, message=f"Unknown or expired login challenge for credential {CREDENTIAL_ID}. Start the sync again."
+    )
     assert module._pending_logins == {}
     assert not config_dir.exists()
 
@@ -212,7 +229,7 @@ def test_start_strips_terminal_styling_before_matching_the_prompt(monkeypatch: p
     )
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
 
-    _token, authorization_url, device_code, _expires_at = module.start(credential_id=1)
+    _token, authorization_url, device_code, _expires_at = module.start(credential_id=CREDENTIAL_ID)
 
     assert authorization_url == SCALABLE_AUTHORIZATION_URL
     assert device_code == TWO_FACTOR_CODE
@@ -223,7 +240,7 @@ def test_start_raises_when_the_url_line_is_blank(monkeypatch: pytest.MonkeyPatch
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
 
     with pytest.raises(InvalidTwoFactorError, match="did not print an authorization URL"):
-        module.start(credential_id=1)
+        module.start(credential_id=CREDENTIAL_ID)
 
     assert module._pending_logins == {}
     assert process.killed
@@ -240,7 +257,7 @@ def test_start_times_out_when_the_cli_stays_silent(monkeypatch: pytest.MonkeyPat
     _patch_subprocess(monkeypatch=monkeypatch, process=process)
 
     with pytest.raises(InvalidTwoFactorError, match="timed out"):
-        module.start(credential_id=1)
+        module.start(credential_id=CREDENTIAL_ID)
 
     assert module._pending_logins == {}
     assert process.killed
@@ -252,3 +269,25 @@ def test_subprocess_env_pins_home_and_xdg_config_home_to_the_config_dir(tmp_path
     assert env["HOME"] == str(tmp_path)
     assert env["XDG_CONFIG_HOME"] == str(tmp_path / ".config")
     assert module.cli_config_dir(tmp_path).parent == Path(env["XDG_CONFIG_HOME"])
+
+
+def test_expired_challenge_of_an_already_finished_cli_is_cleaned_up_without_killing_it(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    process = _FakeProcess(lines=["Open this URL:", AUTHORIZATION_URL_WITH_CODE])
+    _patch_subprocess(monkeypatch=monkeypatch, process=process)
+    token, *_ = module.start(credential_id=CREDENTIAL_ID)
+    config_dir = module._pending_logins[token].config_dir
+    module._pending_logins[token].expires_at = utc_now() - timedelta(seconds=1)
+    process.wait()
+
+    with pytest.raises(InvalidTwoFactorError):
+        module.complete(challenge_token=token, credential_id=CREDENTIAL_ID)
+
+    assert not process.killed
+    assert not config_dir.exists()
+
+
+def test_reading_the_login_prompt_after_the_deadline_times_out():
+    with pytest.raises(InvalidTwoFactorError, match="timed out"):
+        module._next_line(sink=queue.Queue(), deadline=utc_now() - timedelta(seconds=1), credential_id=CREDENTIAL_ID)

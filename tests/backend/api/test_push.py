@@ -6,10 +6,17 @@ from sqlalchemy.orm import sessionmaker
 from source.backend.api.notifications import push
 from source.backend.models.notifications.push_subscription import PushSubscription
 from source.backend.services.notifications import push_service
+from source.backend.services.notifications.notification_service import NotificationResult
 from source.backend.services.notifications.push_service import PushOutcome, PushResult
-from tests.backend.conftest import assert_log_contains, register
+from tests.backend.conftest import (
+    NOTIFICATION,
+    PUSH_ENDPOINT,
+    UNKNOWN_ID,
+    assert_log_contains,
+    register,
+)
 
-SUBSCRIPTION = {"endpoint": "https://push.example/abc", "keys": {"p256dh": "key", "auth": "auth"}}
+SUBSCRIPTION = {"endpoint": PUSH_ENDPOINT, "keys": {"p256dh": "key", "auth": "auth"}}
 
 
 def test_get_public_key_is_public(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
@@ -92,3 +99,11 @@ def test_test_push_reports_failed_delivery(
     body = response.json()
     assert body["sent"] == 0
     assert body["failed"] == 1
+
+
+def test_test_push_for_a_user_deleted_in_the_meantime_sends_nothing(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(target=push, name="SessionLocal", value=session_factory)
+
+    assert push._notify_in_thread(user_id=UNKNOWN_ID, notification=NOTIFICATION) == NotificationResult()

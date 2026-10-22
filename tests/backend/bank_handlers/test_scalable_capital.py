@@ -2,6 +2,7 @@ import asyncio
 import itertools
 import json
 import logging
+from copy import deepcopy
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -18,9 +19,12 @@ from tests.backend.conftest import (
     ACCOUNT_UID,
     AMOUNT,
     CHALLENGE_TOKEN,
+    CREDENTIAL_ID,
     DEFAULT_AMOUNT,
     DEFAULT_BALANCE,
     ETF_NAME,
+    EURO,
+    EXCHANGE,
     ISIN,
     LATEST_DATE,
     OLDER_DATE,
@@ -33,6 +37,7 @@ from tests.backend.conftest import (
     SECOND_ISIN,
     SECOND_SESSION_ARCHIVE,
     SESSION_ARCHIVE,
+    SHARE_COUNT,
     THIRD_AMOUNT,
     TWO_FACTOR_CODE,
     assert_log_contains,
@@ -47,7 +52,6 @@ HOLDINGS_COMMAND = f"{SCALABLE_CLI_BIN} broker holdings --json"
 CASH_ACCOUNT = FetchedAccount(name="Scalable Capital Verrechnungskonto")
 OVERNIGHT_ACCOUNT = FetchedAccount(name="Scalable Capital Tagesgeld")
 
-QUANTITY = 10.0
 SECOND_QUANTITY = 20.0
 SOLD_QUANTITY = 4.0
 PRICES = {OLDER_DATE: 100.0, RECENT_DATE: 110.0, LATEST_DATE: 120.0}
@@ -97,14 +101,14 @@ HOLDINGS_PAYLOAD = {
                     "isin": ISIN,
                     "name": ETF_NAME,
                     "security_type": "STOCK",
-                    "quantity": QUANTITY,
+                    "quantity": SHARE_COUNT,
                     "pending_quantity": 0,
                     "blocked_quantity": 0,
                     "fifo_price": PRICES[RECENT_DATE],
-                    "valuation": QUANTITY * PRICES[LATEST_DATE],
-                    "valuation_currency": "EUR",
+                    "valuation": SHARE_COUNT * PRICES[LATEST_DATE],
+                    "valuation_currency": EURO,
                     "quote_mid_price": PRICES[LATEST_DATE],
-                    "quote_currency": "EUR",
+                    "quote_currency": EURO,
                     "quote_timestamp_utc": _event_datetime(LATEST_DATE),
                     "quote_is_outdated": False,
                 },
@@ -117,9 +121,9 @@ HOLDINGS_PAYLOAD = {
                     "blocked_quantity": 0,
                     "fifo_price": SECOND_PRICES[OLDER_DATE],
                     "valuation": SECOND_QUANTITY * SECOND_PRICES[RECENT_DATE],
-                    "valuation_currency": "EUR",
+                    "valuation_currency": EURO,
                     "quote_mid_price": SECOND_PRICES[RECENT_DATE],
-                    "quote_currency": "EUR",
+                    "quote_currency": EURO,
                     "quote_timestamp_utc": _event_datetime(RECENT_DATE),
                     "quote_is_outdated": False,
                 },
@@ -145,7 +149,7 @@ TRANSACTIONS_PAYLOAD = {
                 {
                     "id": f"SECURITY_{PORTFOLIO_ID}_BUY",
                     "summary_type": "BrokerSecurityTransactionSummary",
-                    "currency": "EUR",
+                    "currency": EURO,
                     # `type` is a coarse category, not the transaction type — real direction is `side`.
                     "type": "SECURITY_TRANSACTION",
                     "status": "SETTLED",
@@ -157,8 +161,8 @@ TRANSACTIONS_PAYLOAD = {
                     "unknown_summary_type": False,
                     "isin": ISIN,
                     "security_transaction_type": "SINGLE",
-                    "quantity": QUANTITY,
-                    "amount": -(QUANTITY * PRICES[RECENT_DATE]),
+                    "quantity": SHARE_COUNT,
+                    "amount": -(SHARE_COUNT * PRICES[RECENT_DATE]),
                     "side": "BUY",
                     "limit_price": None,
                     "stop_price": None,
@@ -166,7 +170,7 @@ TRANSACTIONS_PAYLOAD = {
                 {
                     "id": f"CASH_{PORTFOLIO_ID}_DISTRIBUTION",
                     "summary_type": "BrokerCashTransactionSummary",
-                    "currency": "EUR",
+                    "currency": EURO,
                     "type": "CASH_TRANSACTION",
                     "status": "SETTLED",
                     "is_cancellation": False,
@@ -182,7 +186,7 @@ TRANSACTIONS_PAYLOAD = {
                 {
                     "id": f"CASH_{PORTFOLIO_ID}_DEPOSIT",
                     "summary_type": "BrokerCashTransactionSummary",
-                    "currency": "EUR",
+                    "currency": EURO,
                     "type": "CASH_TRANSACTION",
                     "status": "SETTLED",
                     "is_cancellation": False,
@@ -198,7 +202,7 @@ TRANSACTIONS_PAYLOAD = {
                 {
                     "id": f"CASH_{PORTFOLIO_ID}_TRANSFER",
                     "summary_type": "BrokerCashTransactionSummary",
-                    "currency": "EUR",
+                    "currency": EURO,
                     "type": "CASH_TRANSACTION",
                     "status": "SETTLED",
                     "is_cancellation": False,
@@ -214,7 +218,7 @@ TRANSACTIONS_PAYLOAD = {
                 {
                     "id": f"SECURITY_{PORTFOLIO_ID}_NON_TRADE",
                     "summary_type": "BrokerNonTradeSecurityTransactionSummary",
-                    "currency": "EUR",
+                    "currency": EURO,
                     "type": "NON_TRADE_SECURITY_TRANSACTION",
                     "status": "SETTLED",
                     "is_cancellation": False,
@@ -266,7 +270,7 @@ OVERNIGHT_TRANSACTIONS_PAYLOAD = {
             "items": [
                 {
                     "id": f"CASH_{SECOND_ACCOUNT_UID}_INTEREST",
-                    "currency": "EUR",
+                    "currency": EURO,
                     "type": "CASH_TRANSACTION",
                     "status": "SETTLED",
                     "is_cancellation": False,
@@ -280,7 +284,7 @@ OVERNIGHT_TRANSACTIONS_PAYLOAD = {
                 },
                 {
                     "id": f"CASH_{SECOND_ACCOUNT_UID}_TRANSFER",
-                    "currency": "EUR",
+                    "currency": EURO,
                     "type": "CASH_TRANSACTION",
                     "status": "SETTLED",
                     "is_cancellation": False,
@@ -314,8 +318,8 @@ def _chart_payload(args: tuple[str, ...]) -> dict:
         "data": {
             "isin": isin,
             "timeframe": "max",
-            "currency": "EUR",
-            "source": "LSX",
+            "currency": EURO,
+            "source": EXCHANGE,
             "closing_reference_point": points[-1],
             "data_points": points,
             "point_count": len(points),
@@ -395,7 +399,7 @@ def test_begin_two_factor_challenge_delegates_to_login_module(monkeypatch: pytes
     monkeypatch.setattr(target=scalable_capital, name="ensure_cli_binary_available", value=lambda: None)
     monkeypatch.setattr(target=scalable_capital_login, name="start", value=fake_start)
 
-    challenge = _handler().begin_two_factor_challenge(credential_id=7)
+    challenge = _handler().begin_two_factor_challenge(credential_id=CREDENTIAL_ID)
 
     assert challenge == TwoFactorChallenge(
         challenge_token=CHALLENGE_TOKEN,
@@ -403,7 +407,7 @@ def test_begin_two_factor_challenge_delegates_to_login_module(monkeypatch: pytes
         authorization_url=SCALABLE_AUTHORIZATION_URL,
         device_code=TWO_FACTOR_CODE,
     )
-    assert calls == [7]
+    assert calls == [CREDENTIAL_ID]
 
 
 def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest.MonkeyPatch):
@@ -416,11 +420,11 @@ def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest
     monkeypatch.setattr(target=scalable_capital_login, name="complete", value=fake_complete)
 
     session_state = _handler().complete_two_factor_challenge(
-        challenge_token=CHALLENGE_TOKEN, credential_id=7, code="unused"
+        challenge_token=CHALLENGE_TOKEN, credential_id=CREDENTIAL_ID, code="unused"
     )
 
     assert session_state == {"archive": SESSION_ARCHIVE}
-    assert calls == [{"challenge_token": CHALLENGE_TOKEN, "credential_id": 7}]
+    assert calls == [{"challenge_token": CHALLENGE_TOKEN, "credential_id": CREDENTIAL_ID}]
 
 
 def test_session_without_session_state_requires_reauthentication():
@@ -485,7 +489,7 @@ def test_transactions_are_routed_to_the_cash_and_position_accounts(
     tagesgeld = session.get_transactions(OVERNIGHT_ACCOUNT, start_date=start_date)
 
     assert {(t.amount, t.transaction_type) for t in cash} == {
-        (-(QUANTITY * PRICES[RECENT_DATE]), TransactionType.BUY),
+        (-(SHARE_COUNT * PRICES[RECENT_DATE]), TransactionType.BUY),
         (DEFAULT_AMOUNT, TransactionType.DIVIDEND),
         (SECOND_AMOUNT, TransactionType.DEPOSIT),
         (-AMOUNT, TransactionType.TRANSFER_OUT),
@@ -540,7 +544,7 @@ def test_get_balance_observations_returns_a_single_point_for_today(monkeypatch: 
 
     assert len(observations) == 1
     assert observations[0].date == date.today()
-    assert observations[0].amount == pytest.approx(QUANTITY * PRICES[LATEST_DATE])
+    assert observations[0].amount == pytest.approx(SHARE_COUNT * PRICES[LATEST_DATE])
 
 
 def test_market_value_history_is_built_from_chart_prices_and_share_moves(
@@ -555,8 +559,8 @@ def test_market_value_history_is_built_from_chart_prices_and_share_moves(
 
     # The oldest price point predates the only buy, so it carries no position yet.
     assert [(observation.date, observation.amount) for observation in history] == [
-        (RECENT_DATE, pytest.approx(QUANTITY * PRICES[RECENT_DATE])),
-        (LATEST_DATE, pytest.approx(QUANTITY * PRICES[LATEST_DATE])),
+        (RECENT_DATE, pytest.approx(SHARE_COUNT * PRICES[RECENT_DATE])),
+        (LATEST_DATE, pytest.approx(SHARE_COUNT * PRICES[LATEST_DATE])),
     ]
 
 
@@ -729,8 +733,8 @@ SHARE_MOVE_PAYLOAD = _paged_payload(
             "description": ETF_NAME,
             "isin": ISIN,
             # ELTIF summaries carry `eltif_quantity` where every other summary carries `quantity`
-            "eltif_quantity": QUANTITY,
-            "amount": -(QUANTITY * PRICES[OLDER_DATE]),
+            "eltif_quantity": SHARE_COUNT,
+            "amount": -(SHARE_COUNT * PRICES[OLDER_DATE]),
             "side": "BUY",
         },
         {
@@ -752,8 +756,8 @@ SHARE_MOVE_PAYLOAD = _paged_payload(
             "description": ETF_NAME,
             "isin": ISIN,
             "non_trade_security_transaction_type": "TRANSFER_OUT",
-            "quantity": QUANTITY - SOLD_QUANTITY,
-            "amount": -((QUANTITY - SOLD_QUANTITY) * PRICES[LATEST_DATE]),
+            "quantity": SHARE_COUNT - SOLD_QUANTITY,
+            "amount": -((SHARE_COUNT - SOLD_QUANTITY) * PRICES[LATEST_DATE]),
         },
     ],
     cursor=None,
@@ -986,8 +990,8 @@ def test_share_moves_cover_eltif_quantities_sales_and_transfers_out(monkeypatch:
 
     # All ELTIF units first, then the sold ones gone, then the rest transferred out.
     assert [(observation.date, observation.amount) for observation in history] == [
-        (OLDER_DATE, pytest.approx(QUANTITY * PRICES[OLDER_DATE])),
-        (RECENT_DATE, pytest.approx((QUANTITY - SOLD_QUANTITY) * PRICES[RECENT_DATE])),
+        (OLDER_DATE, pytest.approx(SHARE_COUNT * PRICES[OLDER_DATE])),
+        (RECENT_DATE, pytest.approx((SHARE_COUNT - SOLD_QUANTITY) * PRICES[RECENT_DATE])),
         (LATEST_DATE, pytest.approx(0.0)),
     ]
 
@@ -1017,3 +1021,73 @@ def test_unavailable_overnight_transactions_are_skipped(
     assert cash  # the broker side of the sync still went through
     assert session.get_transactions(OVERNIGHT_ACCOUNT, start_date=OLDER_DATE) == []
     assert_log_contains(caplog, message="Overnight/Tagesgeld transactions unavailable, skipping")
+
+
+def _chart_with_incomplete_points(args: tuple[str, ...]) -> dict:
+    payload = _chart_payload(args)
+    payload["data"]["data_points"] = [
+        *payload["data"]["data_points"],
+        {"mid_price": None, "timestamp_utc": _event_datetime(LATEST_DATE)},
+        {"mid_price": PRICES[LATEST_DATE], "timestamp_utc": None},
+    ]
+    return payload
+
+
+def test_market_value_history_skips_incomplete_chart_points_and_share_moves(monkeypatch: pytest.MonkeyPatch):
+    transactions = deepcopy(TRANSACTIONS_PAYLOAD)
+    buy_without_quantity = {**transactions["data"]["result"]["items"][0], "quantity": None}
+    transactions["data"]["result"]["items"].append(buy_without_quantity)
+    payloads = FULL_PAYLOADS | {"broker transactions": [transactions], "broker chart": [_chart_with_incomplete_points]}
+    session = _fetched_session(monkeypatch, payloads=payloads)
+
+    history = session.get_market_value_history(FetchedAccount(name=ETF_NAME))
+
+    assert [(observation.date, observation.amount) for observation in history] == [
+        (RECENT_DATE, pytest.approx(SHARE_COUNT * PRICES[RECENT_DATE])),
+        (LATEST_DATE, pytest.approx(SHARE_COUNT * PRICES[LATEST_DATE])),
+    ]
+
+
+def test_market_value_history_is_fetched_once_for_all_positions(monkeypatch: pytest.MonkeyPatch):
+    recorded: list[tuple[str, ...]] = []
+    _fake_run_command(monkeypatch=monkeypatch, payloads=FULL_PAYLOADS, recorded=recorded)
+    session = _session()
+    session.get_accounts()
+
+    session.get_market_value_history(FetchedAccount(name=ETF_NAME))
+    session.get_market_value_history(FetchedAccount(name=POSITION_NAME))
+
+    chart_calls = [args for args in recorded if _command_key(args) == "broker chart"]
+    assert len(chart_calls) == len(HOLDINGS_PAYLOAD["data"]["result"]["items"])
+
+
+def test_value_history_without_positions_runs_no_command(monkeypatch: pytest.MonkeyPatch):
+    holdings = deepcopy(HOLDINGS_PAYLOAD)
+    holdings["data"]["result"]["items"] = []
+    recorded: list[tuple[str, ...]] = []
+    _fake_run_command(monkeypatch=monkeypatch, payloads=FULL_PAYLOADS | {"broker holdings": [holdings]})
+    session = _session()
+    session.get_accounts()
+    _fake_run_command(monkeypatch=monkeypatch, payloads={}, recorded=recorded)
+
+    assert asyncio.run(session._fetch_value_history()) == {}
+    assert recorded == []
+
+
+def test_transactions_of_a_position_no_longer_held_only_land_on_the_cash_account(monkeypatch: pytest.MonkeyPatch):
+    holdings = deepcopy(HOLDINGS_PAYLOAD)
+    holdings["data"]["result"]["items"] = holdings["data"]["result"]["items"][:1]
+    session = _fetched_session(monkeypatch, payloads=FULL_PAYLOADS | {"broker holdings": [holdings]})
+
+    cash = session.get_transactions(CASH_ACCOUNT, start_date=OLDER_DATE)
+
+    assert POSITION_NAME not in {account.name for account in session.get_accounts()}
+    assert len(cash) == len(TRANSACTIONS_PAYLOAD["data"]["result"]["items"])
+
+
+def test_ensure_cli_binary_available_accepts_an_installed_binary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    installed_binary = tmp_path / "sc"
+    installed_binary.touch()
+    monkeypatch.setattr(target=scalable_capital, name="SCALABLE_CLI_BIN", value=installed_binary)
+
+    scalable_capital.ensure_cli_binary_available()

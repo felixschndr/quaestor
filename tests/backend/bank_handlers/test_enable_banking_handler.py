@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.hashes import SHA256
 from source.backend import rest_api_client
 from source.backend.bank_handlers import BANKS_BY_NAME
 from source.backend.bank_handlers.enable_banking_handler import (
+    _BALANCE_TYPE_PREFERENCE,
     EnableBankingHandler,
     _extract_code,
     _make_jwt,
@@ -29,11 +30,17 @@ from tests.backend.conftest import (
     ACCOUNT_UID,
     APPLICATION_ID,
     CHALLENGE_TOKEN,
+    CREDENTIAL_ID,
     DEFAULT_AMOUNT,
+    EURO,
+    NON_DEFAULT_CURRENCY,
     PERSON_NAME,
     RECENT_DATE,
     SECOND_ACCOUNT_UID,
+    SECOND_AMOUNT,
     SESSION_ID,
+    THIRD_AMOUNT,
+    UNSUPPORTED_CURRENCY,
     FakeHttpResponse,
     assert_log_contains,
 )
@@ -129,12 +136,18 @@ def test_extract_code_accepts_code_and_full_redirect_url(input_value: str):
     assert _extract_code(input_value) == "abc-123"
 
 
+def test_extract_code_passes_a_redirect_url_without_code_through():
+    redirect_url = _credentials()["redirect_url"]
+
+    assert _extract_code(f" {redirect_url} ") == redirect_url
+
+
 def test_transaction_mapping_signs_and_dates():
     booked = _to_fetched_transaction(
         {
             "status": "BOOK",
             "entry_reference": "ref-42",
-            "transaction_amount": {"currency": "EUR", "amount": "17.88"},
+            "transaction_amount": {"currency": EURO, "amount": "17.88"},
             "credit_debit_indicator": "DBIT",
             "booking_date": None,
             "value_date": None,
@@ -157,7 +170,7 @@ def test_transaction_mapping_signs_and_dates():
         {
             "status": "PDNG",
             "entry_reference": "",
-            "transaction_amount": {"currency": "EUR", "amount": "5.00"},
+            "transaction_amount": {"currency": EURO, "amount": "5.00"},
             "credit_debit_indicator": "CRDT",
             "booking_date": "2026-07-01",
             "remittance_information": ["thanks", "for lunch"],
@@ -176,7 +189,7 @@ def test_transaction_mapping_signs_and_dates():
 def test_refund_sub_code_is_flagged_as_refund():
     non_refund_raw = {
         "status": "BOOK",
-        "transaction_amount": {"currency": "EUR", "amount": DEFAULT_AMOUNT},
+        "transaction_amount": {"currency": EURO, "amount": DEFAULT_AMOUNT},
         "credit_debit_indicator": "CRDT",
         "transaction_date": RECENT_DATE.isoformat(),
         "remittance_information": [],
@@ -198,7 +211,7 @@ def test_paypal_balance_payout_is_typed_as_removal():
     raw = {
         "status": "BOOK",
         "entry_reference": "ABCDE12345",
-        "transaction_amount": {"currency": "EUR", "amount": "10.00"},
+        "transaction_amount": {"currency": EURO, "amount": "10.00"},
         "credit_debit_indicator": "DBIT",
         "transaction_date": "2026-08-11",
         "remittance_information": [],
@@ -223,7 +236,7 @@ def test_paypal_payment_with_a_creditor_stays_outgoing():
         {
             "status": "BOOK",
             "entry_reference": "ABCDE12345",
-            "transaction_amount": {"currency": "EUR", "amount": "10.00"},
+            "transaction_amount": {"currency": EURO, "amount": "10.00"},
             "credit_debit_indicator": "DBIT",
             "transaction_date": "2026-08-17",
             "remittance_information": [],
@@ -280,7 +293,7 @@ def test_session_fetches_accounts_balances_and_paginated_transactions(fake_http:
             "transactions": [
                 {
                     "status": "BOOK",
-                    "transaction_amount": {"currency": "EUR", "amount": "21.99"},
+                    "transaction_amount": {"currency": EURO, "amount": "21.99"},
                     "credit_debit_indicator": "DBIT",
                     "transaction_date": "2026-07-13",
                     "creditor": {"name": "Spotify AB"},
@@ -294,7 +307,7 @@ def test_session_fetches_accounts_balances_and_paginated_transactions(fake_http:
             "transactions": [
                 {
                     "status": "BOOK",
-                    "transaction_amount": {"currency": "EUR", "amount": "100.00"},
+                    "transaction_amount": {"currency": EURO, "amount": "100.00"},
                     "credit_debit_indicator": "CRDT",
                     "transaction_date": "2026-07-08",
                     "debtor": {"name": "Alice"},
@@ -314,7 +327,7 @@ def test_session_fetches_accounts_balances_and_paginated_transactions(fake_http:
             ("GET", f"/accounts/{ACCOUNT_UID}/balances"): FakeHttpResponse(
                 json_data={
                     "balances": [
-                        {"balance_type": "XPCD", "balance_amount": {"currency": "EUR", "amount": "12.34"}},
+                        {"balance_type": "XPCD", "balance_amount": {"currency": EURO, "amount": "12.34"}},
                     ]
                 }
             ),
@@ -368,8 +381,8 @@ def test_balance_prefers_settled_over_expected(fake_http: Callable[[dict], FakeH
             ("GET", f"/accounts/{ACCOUNT_UID}/balances"): FakeHttpResponse(
                 json_data={
                     "balances": [
-                        {"balance_type": "XPCD", "balance_amount": {"currency": "EUR", "amount": "1.00"}},
-                        {"balance_type": "CLBD", "balance_amount": {"currency": "EUR", "amount": "2.00"}},
+                        {"balance_type": "XPCD", "balance_amount": {"currency": EURO, "amount": "1.00"}},
+                        {"balance_type": "CLBD", "balance_amount": {"currency": EURO, "amount": "2.00"}},
                     ]
                 }
             ),
@@ -381,6 +394,77 @@ def test_balance_prefers_settled_over_expected(fake_http: Callable[[dict], FakeH
         assert bank.get_balance(accounts[0]) == 2.00
 
 
+def _authorized_session_routes(extra_routes: dict) -> dict:
+    return {
+        ("GET", f"/sessions/{SESSION_ID}"): FakeHttpResponse(
+            json_data={
+                "status": "AUTHORIZED",
+                "accounts": [{"uid": ACCOUNT_UID, "name": PERSON_NAME, "account_id": None}],
+            }
+        ),
+        **extra_routes,
+    }
+
+
+def _balance(currency: str, amount: float) -> dict:
+    return {
+        "balance_type": _BALANCE_TYPE_PREFERENCE[0],
+        "balance_amount": {"currency": currency, "amount": str(amount)},
+    }
+
+
+@pytest.mark.parametrize(
+    argnames="balances, expected",
+    argvalues=[
+        (
+            [
+                _balance(currency=NON_DEFAULT_CURRENCY, amount=SECOND_AMOUNT),
+                _balance(currency=EURO, amount=DEFAULT_AMOUNT),
+                _balance(currency=UNSUPPORTED_CURRENCY, amount=THIRD_AMOUNT),
+            ],
+            DEFAULT_AMOUNT,
+        ),
+        ([], 0.0),
+    ],
+)
+def test_balance_prefers_the_euro_amount_and_defaults_to_zero(
+    fake_http: Callable[[dict], FakeHttp], balances: list[dict], expected: float
+):
+    fake_http(
+        _authorized_session_routes(
+            {("GET", f"/accounts/{ACCOUNT_UID}/balances"): FakeHttpResponse(json_data={"balances": balances})}
+        )
+    )
+
+    with _handler(session_state={"session_id": SESSION_ID}).session() as bank:
+        accounts = bank.get_accounts()
+        assert bank.get_balance(accounts[0]) == expected
+
+
+def test_transactions_skip_entries_that_cannot_be_mapped(fake_http: Callable[[dict], FakeHttp]):
+    booked = {
+        "status": "BOOK",
+        "transaction_amount": {"currency": EURO, "amount": str(DEFAULT_AMOUNT)},
+        "credit_debit_indicator": "CRDT",
+        "transaction_date": RECENT_DATE.isoformat(),
+    }
+    fake_http(
+        _authorized_session_routes(
+            {
+                ("GET", f"/accounts/{ACCOUNT_UID}/transactions"): FakeHttpResponse(
+                    json_data={"transactions": [{"status": "RJCT"}, booked]}
+                )
+            }
+        )
+    )
+
+    with _handler(session_state={"session_id": SESSION_ID}).session() as bank:
+        accounts = bank.get_accounts()
+        transactions = bank.get_transactions(account=accounts[0], start_date=RECENT_DATE)
+
+    assert [transaction.amount for transaction in transactions] == [DEFAULT_AMOUNT]
+
+
 def test_begin_two_factor_challenge_returns_authorization_url(
     fake_http: Callable[[dict], FakeHttp], caplog: pytest.LogCaptureFixture
 ):
@@ -388,7 +472,7 @@ def test_begin_two_factor_challenge_returns_authorization_url(
         {("POST", "/auth"): FakeHttpResponse(json_data={"url": "https://tilisy.enablebanking.com/ais/start?x=1"})}
     )
 
-    challenge = _handler().begin_two_factor_challenge(credential_id=7)
+    challenge = _handler().begin_two_factor_challenge(credential_id=CREDENTIAL_ID)
 
     assert challenge.authorization_url == "https://tilisy.enablebanking.com/ais/start?x=1"
     assert challenge.challenge_token
@@ -397,7 +481,7 @@ def test_begin_two_factor_challenge_returns_authorization_url(
     assert body["psu_type"] == "personal"
     assert body["redirect_url"] == _credentials()["redirect_url"]
     assert body["access"]["valid_until"].endswith("+00:00")  # The API rejects naive timestamps
-    assert_log_contains(caplog, message="Enable Banking authorization started for credential 7")
+    assert_log_contains(caplog, message=f"Enable Banking authorization started for credential {CREDENTIAL_ID}")
 
 
 def test_begin_two_factor_challenge_with_inactive_application_raises_specific_error(
@@ -405,7 +489,7 @@ def test_begin_two_factor_challenge_with_inactive_application_raises_specific_er
 ):
     fake_http({("POST", "/auth"): FakeHttpResponse(json_data={}, status_code=403, text="Application is not active")})
     with pytest.raises(PSD2ApplicationNotActivatedError):
-        _handler().begin_two_factor_challenge(credential_id=7)
+        _handler().begin_two_factor_challenge(credential_id=CREDENTIAL_ID)
 
 
 def test_begin_two_factor_challenge_with_rejected_jwt_raises_invalid_credentials(
@@ -413,7 +497,7 @@ def test_begin_two_factor_challenge_with_rejected_jwt_raises_invalid_credentials
 ):
     fake_http({("POST", "/auth"): FakeHttpResponse(json_data={}, status_code=401, text="Invalid JWT")})
     with pytest.raises(InvalidCredentialsError):
-        _handler().begin_two_factor_challenge(credential_id=7)
+        _handler().begin_two_factor_challenge(credential_id=CREDENTIAL_ID)
 
 
 def test_complete_two_factor_challenge_creates_session_from_redirect_url(
@@ -429,19 +513,21 @@ def test_complete_two_factor_challenge_creates_session_from_redirect_url(
 
     state = _handler().complete_two_factor_challenge(
         challenge_token=CHALLENGE_TOKEN,
-        credential_id=7,
+        credential_id=CREDENTIAL_ID,
         code="https://localhost:8000/cb?state=xyz&code=the-code",
     )
 
     assert state == {"session_id": SESSION_ID, "valid_until": "2027-01-09T13:24:20Z"}
     assert fake.requests[0]["json"] == {"code": "the-code"}
-    assert_log_contains(caplog, message="Enable Banking session created for credential 7")
+    assert_log_contains(caplog, message=f"Enable Banking session created for credential {CREDENTIAL_ID}")
 
 
 def test_complete_two_factor_challenge_rejects_bad_code(fake_http: Callable[[dict], FakeHttp]):
     fake_http({("POST", "/sessions"): FakeHttpResponse(json_data={}, status_code=422, text="bad code")})
     with pytest.raises(InvalidCredentialsError):
-        _handler().complete_two_factor_challenge(challenge_token=CHALLENGE_TOKEN, credential_id=7, code="nope")
+        _handler().complete_two_factor_challenge(
+            challenge_token=CHALLENGE_TOKEN, credential_id=CREDENTIAL_ID, code="nope"
+        )
 
 
 def test_begin_two_factor_challenge_with_unlisted_redirect_url_raises_specific_error(
@@ -457,7 +543,7 @@ def test_begin_two_factor_challenge_with_unlisted_redirect_url_raises_specific_e
         }
     )
     with pytest.raises(PSD2RedirectUrlNotAllowedError, match="not whitelisted"):
-        _handler().begin_two_factor_challenge(credential_id=7)
+        _handler().begin_two_factor_challenge(credential_id=CREDENTIAL_ID)
 
 
 def test_paypal_accounts_are_marked_history_incomplete_and_anchor_todays_balance(
@@ -473,7 +559,7 @@ def test_paypal_accounts_are_marked_history_incomplete_and_anchor_todays_balance
             ),
             ("GET", f"/accounts/{ACCOUNT_UID}/balances"): FakeHttpResponse(
                 json_data={
-                    "balances": [{"balance_type": "XPCD", "balance_amount": {"currency": "EUR", "amount": "7.50"}}]
+                    "balances": [{"balance_type": "XPCD", "balance_amount": {"currency": EURO, "amount": "7.50"}}]
                 }
             ),
         }

@@ -6,6 +6,7 @@ from source.backend.models.auth.user import User
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     SECOND_ACCOUNT_IBAN,
+    WALLET_ACCOUNT_NAME,
     assert_log_contains,
     make_account,
     make_credential,
@@ -172,6 +173,24 @@ def test_set_layout_rejects_duplicate_account_ids(http_client: TestClient, sessi
             "ungrouped": [],
         },
     )
+    assert response.status_code == 422
+
+
+def test_set_layout_rejects_an_account_that_is_both_grouped_and_ungrouped(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    register(http_client)
+    with session_factory() as db_session:
+        user = db_session.query(User).first()
+        credential = make_credential(db_session, user_id=user.id)
+        account_id = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
+        db_session.commit()
+
+    response = http_client.put(
+        "/api/account_groups/layout",
+        json={"groups": [{"name": WALLET_ACCOUNT_NAME, "account_ids": [account_id]}], "ungrouped": [account_id]},
+    )
+
     assert response.status_code == 422
 
 

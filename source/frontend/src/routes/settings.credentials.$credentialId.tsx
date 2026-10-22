@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
+import { useCredentialSync } from '@/components/sync-provider'
 import { CredentialDetailView } from '@/pages/settings.credentials.$credentialId'
 
 export const Route = createFileRoute('/settings/credentials/$credentialId')({
@@ -13,6 +14,7 @@ function CredentialDetailPage() {
   const { data: user } = useAuthMe()
   const router = useRouter()
   const credential = user?.credentials.find((c) => c.id === Number(credentialId))
+  const sync = useCredentialSync(Number(credentialId))
 
   const hadCredential = useRef(false)
   useEffect(() => {
@@ -29,6 +31,9 @@ function CredentialDetailPage() {
     <CredentialDetailView
       credential={credential}
       onDeleted={() => router.history.push('/settings/credentials')}
+      onSyncClick={sync.start}
+      syncBusy={sync.busy}
+      syncSucceededAt={sync.succeededAt}
     />
   )
 }
@@ -36,4 +41,7 @@ function CredentialDetailPage() {
 export interface CredentialDetailViewProps {
   credential: CredentialRead | undefined
   onDeleted: () => void
+  onSyncClick?: () => void
+  syncBusy?: boolean
+  syncSucceededAt?: number | null
 }

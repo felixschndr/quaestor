@@ -1,21 +1,34 @@
-import { act, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
+import { toast } from 'sonner'
 
 import '@/i18n'
 
+const routerPush = vi.hoisted(() => vi.fn())
 vi.mock('@tanstack/react-router', async () =>
   (await import('./-routerMock')).routerMocks({
-    useRouter: () => ({ history: { push: vi.fn() } }),
+    useRouter: () => ({ history: { push: routerPush } }),
   }),
 )
 
 import { NewCredentialFormView } from '@/pages/settings.credentials.new.$bank'
+import { Route } from '@/routes/settings.credentials.new.$bank'
 import { NO_CODE_PLACEHOLDER } from '@/lib/credentials'
 import type { SupportedBank, SyncJob } from '@/lib/credentials'
-import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
-import { AUTHORIZATION_URL_WITH_CODE, DATETIME_FAR_FUTURE, DEVICE_CODE } from '@/test/constants'
+import { authQueryKeys } from '@/lib/auth'
+import { routeState } from './-routerMock'
+import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { openPopoverOptions, selectFromPopover } from '@/test/popover-select'
+import {
+  AUTHORIZATION_URL,
+  AUTHORIZATION_URL_WITH_CODE,
+  DATETIME_FAR_FUTURE,
+  DEVICE_CODE,
+  TWO_FACTOR_CODE,
+} from '@/test/constants'
 
 const ING_BANK: SupportedBank = {
   provider: 'ing',
@@ -143,6 +156,7 @@ async function pushJob(
 }
 
 beforeEach(() => {
+  routerPush.mockClear()
   globalThis.fetch = vi.fn() as unknown as typeof fetch
   polledJob = null
   document.cookie = ''
@@ -1525,5 +1539,427 @@ describe('NewCredentialFormView', () => {
       ).toBeInTheDocument()
       expect(fetchMock).not.toHaveBeenCalled()
     })
+  })
+})
+
+const NORDEA_BANK: SupportedBank = {
+  provider: 'enable_banking',
+  key: 'eb-FI-Nordea',
+  name: 'Nordea',
+  bic: null,
+  icon: null,
+  tested: true,
+  required_fields: ['private_key'],
+  blzs: [],
+  countries: ['FI'],
+}
+
+const PAYPAL_BANK: SupportedBank = {
+  ...NORDEA_BANK,
+  key: 'eb-PayPal',
+  name: 'PayPal',
+  countries: ['DE', 'FR'],
+}
+
+const PRIVATE_KEY_PEM = '-----BEGIN PRIVATE KEY-----\nMIIBVgIBADANBg\n-----END PRIVATE KEY-----\n'
+const KEY_FILE_NAME = 'quaestor.pem'
+
+type Served = Record<string, { status: number; body?: unknown }>
+
+function serve(routes: Served) {
+  ;(globalThis.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
+    const poll = pollBranch(url, init)
+    if (poll) return poll
+    const route = routes[`${init?.method ?? 'GET'} ${url}`]
+    return route
+      ? Promise.resolve(jsonResponse(route))
+      : Promise.reject(new Error(`unexpected fetch: ${init?.method ?? 'GET'} ${url}`))
+  })
+}
+
+function requestsTo(method: string, url: string) {
+  return (globalThis.fetch as Mock).mock.calls.filter(
+    ([calledUrl, init]) => calledUrl === url && (init?.method ?? 'GET') === method,
+  )
+}
+
+function bodyOf(method: string, url: string): unknown {
+  return JSON.parse(requestsTo(method, url)[0][1].body)
+}
+
+function createdCredential(id: number, bank: string) {
+  return {
+    status: 201,
+    body: {
+      id,
+      bank,
+      bank_name: null,
+      bank_icon: null,
+      accounts: [],
+      last_successful_sync_timestamp: null,
+      requires_two_factor_authentication: false,
+      sync_enabled: true,
+    },
+  }
+}
+
+function startedJob(credentialId: number, jobId: string) {
+  return {
+    status: 202,
+    body: {
+      job_id: jobId,
+      credential_id: credentialId,
+      status: 'running',
+      expires_at: null,
+      error: null,
+    },
+  }
+}
+
+function serveSyncedCreate(extra: Served = {}) {
+  serve({
+    'POST /api/credentials': createdCredential(30, 'enable_banking'),
+    'POST /api/credentials/30/sync': startedJob(30, 'job-eb'),
+    ...extra,
+  })
+}
+
+function renderForm(
+  bank: SupportedBank,
+  props: Partial<Parameters<typeof NewCredentialFormView>[0]> = {},
+) {
+  return renderWithQuery(
+    <NewCredentialFormView
+      bankKey={bank.key}
+      bank={bank}
+      isLoading={false}
+      onCancel={vi.fn()}
+      onConnected={vi.fn()}
+      onSyncFailed={vi.fn()}
+      {...props}
+    />,
+  )
+}
+
+async function uploadKey(user: ReturnType<typeof userEvent.setup>) {
+  await user.upload(
+    screen.getByLabelText('Private key (.pem)'),
+    new File([PRIVATE_KEY_PEM], KEY_FILE_NAME, { type: 'application/x-pem-file' }),
+  )
+}
+
+describe('NewCredentialFormView — Enable Banking', () => {
+  const redirectUrl = () => `${window.location.origin}/banking/callback`
+
+  it('guides through the app setup and warns that plain HTTP will not work', () => {
+    renderForm(NORDEA_BANK)
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      'Connect Nordea via Enable Banking',
+    )
+    expect(
+      screen.getByRole('heading', { name: 'One-time Enable Banking setup' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(redirectUrl())).toBeInTheDocument()
+    expect(
+      screen.getByText(/Enable Banking requires Quaestor to be served over HTTPS/),
+    ).toBeInTheDocument()
+  })
+
+  it('requires the key file before connecting', async () => {
+    const user = userEvent.setup()
+    renderForm(NORDEA_BANK)
+
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+    expect(await screen.findByText('This field is required')).toBeInTheDocument()
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  it('uploads the key and sends it with the institution, country and redirect URL', async () => {
+    const user = userEvent.setup()
+    serveSyncedCreate()
+    renderForm(NORDEA_BANK)
+
+    await uploadKey(user)
+    expect(await screen.findByText('Key loaded ✓')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+    await waitFor(() => expect(requestsTo('POST', '/api/credentials')).toHaveLength(1))
+    expect(bodyOf('POST', '/api/credentials')).toEqual({
+      bank: 'enable_banking',
+      credentials: {
+        private_key: PRIVATE_KEY_PEM,
+        private_key_file_name: KEY_FILE_NAME,
+        aspsp_name: 'Nordea',
+        aspsp_country: 'FI',
+        redirect_url: redirectUrl(),
+      },
+    })
+  })
+
+  it('sends the picked country when the institution exists in several', async () => {
+    const user = userEvent.setup()
+    serveSyncedCreate()
+    renderForm(PAYPAL_BANK)
+
+    expect(await openPopoverOptions(user, 'Country')).toEqual(['France', 'Germany'])
+    await user.click(screen.getByRole('button', { name: 'Germany' }))
+    await uploadKey(user)
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+    await waitFor(() => expect(requestsTo('POST', '/api/credentials')).toHaveLength(1))
+    expect(bodyOf('POST', '/api/credentials')).toMatchObject({
+      credentials: { aspsp_name: 'PayPal', aspsp_country: 'DE' },
+    })
+  })
+
+  it('reuses an existing Enable Banking app instead of asking for a key again', async () => {
+    const user = userEvent.setup()
+    serveSyncedCreate()
+    const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    queryClient.setQueryData(
+      authQueryKeys.me,
+      buildUser({
+        credentials: [
+          {
+            id: 1,
+            bank: 'enable_banking',
+            bank_name: 'Nordea',
+            bank_icon: null,
+            accounts: [],
+            last_successful_sync_timestamp: null,
+            requires_two_factor_authentication: false,
+            sync_enabled: true,
+          },
+        ],
+      }),
+    )
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NewCredentialFormView
+          bankKey={PAYPAL_BANK.key}
+          bank={PAYPAL_BANK}
+          isLoading={false}
+          onCancel={vi.fn()}
+          onConnected={vi.fn()}
+          onSyncFailed={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+
+    expect(
+      screen.getByText(/Your existing Enable Banking application is reused/),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'control panel' })).toHaveAttribute(
+      'href',
+      'https://enablebanking.com/cp/applications',
+    )
+    expect(screen.queryByLabelText('Private key (.pem)')).not.toBeInTheDocument()
+    await selectFromPopover(user, 'Country', 'France')
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+    await waitFor(() => expect(requestsTo('POST', '/api/credentials')).toHaveLength(1))
+    expect(bodyOf('POST', '/api/credentials')).toEqual({
+      bank: 'enable_banking',
+      credentials: { aspsp_name: 'PayPal', aspsp_country: 'FR', redirect_url: redirectUrl() },
+    })
+  })
+
+  it.each([
+    [
+      'redirect_url_not_allowed',
+      (): string =>
+        `Enable Banking does not allow the redirect URL ${redirectUrl()}. Whitelist it in your application in the control panel and connect again.`,
+    ],
+    [
+      'application_not_activated',
+      (): string =>
+        'Your Enable Banking application is not active yet. Link your bank in the control panel (“Link accounts”) first, then connect again.',
+    ],
+  ] as const)('deletes the credential and explains a %s failure', async (errorCode, message) => {
+    const user = userEvent.setup()
+    const toastError = vi.spyOn(toast, 'error')
+    const onSyncFailed = vi.fn()
+    serveSyncedCreate({ 'DELETE /api/credentials/30': { status: 204 } })
+    renderForm(NORDEA_BANK, { onSyncFailed })
+
+    await uploadKey(user)
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+    await waitForFirstPoll()
+    await pushJob({ job_id: 'job-eb', credential_id: 30, status: 'failed', error_code: errorCode })
+
+    await waitFor(() => expect(requestsTo('DELETE', '/api/credentials/30')).toHaveLength(1))
+    expect(toastError).toHaveBeenCalledWith(message(), { duration: 12000 })
+    expect(onSyncFailed).not.toHaveBeenCalled()
+  })
+
+  it('asks for the code shown after signing in at the bank', async () => {
+    const user = userEvent.setup()
+    serveSyncedCreate()
+    renderForm(NORDEA_BANK)
+
+    await uploadKey(user)
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+    expect(await screen.findByRole('button', { name: 'Syncing…' })).toBeDisabled()
+    await waitForFirstPoll()
+    await pushJob({
+      job_id: 'job-eb',
+      credential_id: 30,
+      status: 'awaiting_2fa',
+      authorization_url: AUTHORIZATION_URL,
+    })
+
+    expect(await screen.findByRole('link', { name: 'Sign in at Nordea' })).toHaveAttribute(
+      'href',
+      AUTHORIZATION_URL,
+    )
+    expect(
+      screen.getByText(/Sign in at Nordea via the link and approve access/),
+    ).toBeInTheDocument()
+    const codeInput = screen.getByLabelText('Code')
+    expect(codeInput).toHaveAttribute('inputmode', 'text')
+    ;(globalThis.fetch as Mock).mockImplementation(
+      (url: string, init?: RequestInit) => pollBranch(url, init) ?? new Promise(() => {}),
+    )
+    await user.type(codeInput, TWO_FACTOR_CODE)
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    expect(await screen.findByRole('button', { name: 'Confirming …' })).toBeDisabled()
+    expect(bodyOf('POST', '/api/credentials/30/sync/job-eb/2fa')).toEqual({ code: TWO_FACTOR_CODE })
+  })
+})
+
+describe('NewCredentialFormView — create errors', () => {
+  async function submitIng(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Password'), 'hunter2')
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+  }
+
+  it('shows the server validation message next to the offending field', async () => {
+    const user = userEvent.setup()
+    const toastError = vi.spyOn(toast, 'error')
+    serve({
+      'POST /api/credentials': {
+        status: 422,
+        body: {
+          detail: [
+            { loc: ['body', 'credentials', 'username'], msg: 'Unknown login' },
+            { loc: ['body', 0], msg: 'not a field' },
+            'garbage',
+          ],
+        },
+      },
+    })
+    renderForm(ING_BANK)
+
+    await submitIng(user)
+
+    expect(await screen.findByText('Unknown login')).toBeInTheDocument()
+    expect(screen.queryByText('not a field')).not.toBeInTheDocument()
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [422, { detail: 'Bad request' }],
+    [500, { detail: 'boom' }],
+  ])('falls back to a generic toast for HTTP %i', async (status, body) => {
+    const user = userEvent.setup()
+    const toastError = vi.spyOn(toast, 'error')
+    serve({ 'POST /api/credentials': { status, body } })
+    renderForm(ING_BANK)
+
+    await submitIng(user)
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        'Could not connect to ING. Please check the credentials.',
+      ),
+    )
+  })
+
+  it('shows a busy label while the credential is being created', async () => {
+    const user = userEvent.setup()
+    ;(globalThis.fetch as Mock).mockImplementation(() => new Promise(() => {}))
+    renderForm(ING_BANK)
+
+    await submitIng(user)
+
+    expect(await screen.findByRole('button', { name: 'Connecting…' })).toBeDisabled()
+  })
+})
+
+describe('/settings/credentials/new/$bank route', () => {
+  const Page = Route.options.component!
+
+  function serveBanks(extra: Served = {}) {
+    serve({
+      'GET /api/credentials/supported_banks': { status: 200, body: [ING_BANK, MANUAL_BANK] },
+      ...extra,
+    })
+  }
+
+  it('loads the bank catalog and opens the form for the bank in the URL', async () => {
+    serveBanks()
+    routeState.params = { bank: 'ing' }
+    renderWithQuery(<Page />)
+
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Username')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Connect ING')
+  })
+
+  it('goes back to the list from an unknown bank', async () => {
+    serveBanks()
+    routeState.params = { bank: 'no-such-bank' }
+    renderWithQuery(<Page />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Back' }))
+    expect(routerPush).toHaveBeenCalledWith('/settings/credentials')
+  })
+
+  it('opens the new manual credential to add its accounts', async () => {
+    serveBanks({ 'POST /api/credentials': createdCredential(7, 'manual') })
+    routeState.params = { bank: 'manual' }
+    renderWithQuery(<Page />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Create' }))
+    await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/settings/credentials/7'))
+  })
+
+  it('lands on the overview once a synced bank is connected', async () => {
+    const user = userEvent.setup()
+    serveBanks({
+      'POST /api/credentials': createdCredential(42, 'ing'),
+      'POST /api/credentials/42/sync': startedJob(42, 'job-ing'),
+    })
+    routeState.params = { bank: 'ing' }
+    renderWithQuery(<Page />)
+
+    await user.type(await screen.findByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Password'), 'hunter2')
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+    await waitForFirstPoll()
+    await pushJob({ job_id: 'job-ing', credential_id: 42, status: 'completed' })
+
+    await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/'))
+  })
+
+  it('returns to the list when the first sync cannot start', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(toast, 'error')
+    serveBanks({
+      'POST /api/credentials': createdCredential(42, 'ing'),
+      'POST /api/credentials/42/sync': { status: 500, body: {} },
+    })
+    routeState.params = { bank: 'ing' }
+    renderWithQuery(<Page />)
+
+    await user.type(await screen.findByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Password'), 'hunter2')
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+    await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/settings/credentials'))
   })
 })

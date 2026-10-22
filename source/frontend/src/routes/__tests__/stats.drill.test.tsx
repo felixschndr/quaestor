@@ -89,13 +89,14 @@ const credentials: CredentialRead[] = [
 
 async function renderAndGetArrows(search: Partial<StatsSearchParams>) {
   const onOpenSearch = vi.fn()
+  const onChange = vi.fn()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const { container } = render(
     <QueryClientProvider client={client}>
       <StatsView
         credentials={credentials}
         search={search as StatsSearchParams}
-        onChange={vi.fn()}
+        onChange={onChange}
         onOpenSearch={onOpenSearch}
         onOpenDay={vi.fn()}
         onOpenRange={vi.fn()}
@@ -108,6 +109,7 @@ async function renderAndGetArrows(search: Partial<StatsSearchParams>) {
   )
   return {
     onOpenSearch,
+    onChange,
     arrows: container.querySelectorAll('.stats-drill-arrow[role="button"]'),
   }
 }
@@ -167,5 +169,31 @@ describe('StatsView drill-in carries the active filters', () => {
     await drillIntoFuel(arrows)
 
     expect(onOpenSearch.mock.calls.at(-1)?.[0].accountIds).toEqual([42])
+  })
+})
+
+describe('StatsView hides chart rows from their axis label', () => {
+  it('hides a category group', async () => {
+    const { onChange } = await renderAndGetArrows({})
+    fireEvent.click(screen.getByText('Mobility'))
+    expect(onChange.mock.calls.at(-1)?.[0].hiddenCategories).toEqual(['MOBILITY'])
+  })
+
+  it('shows a hidden category group again', async () => {
+    const { onChange } = await renderAndGetArrows({ hidden_categories: ['MOBILITY'] })
+    fireEvent.click(screen.getByText('Mobility'))
+    expect(onChange.mock.calls.at(-1)?.[0].hiddenCategories).toEqual([])
+  })
+
+  it('hides a party', async () => {
+    const { onChange } = await renderAndGetArrows({})
+    fireEvent.click(screen.getByText(PARTY_SUPERMARKET))
+    expect(onChange.mock.calls.at(-1)?.[0].hiddenParties).toEqual([PARTY_SUPERMARKET])
+  })
+
+  it('shows a hidden party again', async () => {
+    const { onChange } = await renderAndGetArrows({ hidden_parties: [PARTY_SUPERMARKET] })
+    fireEvent.click(screen.getByText(PARTY_SUPERMARKET))
+    expect(onChange.mock.calls.at(-1)?.[0].hiddenParties).toEqual([])
   })
 })

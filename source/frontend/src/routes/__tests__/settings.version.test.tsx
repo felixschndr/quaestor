@@ -6,6 +6,9 @@ import '@/i18n'
 vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 
 import { SettingsVersionView } from '@/pages/settings.version'
+import { Route } from '@/routes/settings.version'
+import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { RELEASE_URL, VERSION_CURRENT, VERSION_LATEST } from '@/test/constants'
 
 describe('SettingsVersionView', () => {
   it('shows current and latest version with a link to the release when an update is available', () => {
@@ -58,5 +61,60 @@ describe('SettingsVersionView', () => {
       />,
     )
     expect(screen.getAllByText("Couldn't check for updates").length).toBeGreaterThan(0)
+  })
+
+  it('shows placeholders instead of versions while loading', () => {
+    render(<SettingsVersionView versionInfo={undefined} isLoading={true} />)
+
+    expect(screen.getAllByText('…')).toHaveLength(3)
+    expect(screen.queryByText("Couldn't check for updates")).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: VERSION_LATEST })).not.toBeInTheDocument()
+  })
+
+  it('shows the latest version as plain text when there is no release page', () => {
+    render(
+      <SettingsVersionView
+        versionInfo={{
+          current: VERSION_CURRENT,
+          latest: VERSION_LATEST,
+          update_available: true,
+          release_url: null,
+        }}
+        isLoading={false}
+      />,
+    )
+
+    expect(screen.getByText(VERSION_LATEST)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: VERSION_LATEST })).not.toBeInTheDocument()
+  })
+})
+
+describe('SettingsVersionPage', () => {
+  const Page = Route.options.component!
+
+  it('loads the server version and links the latest release', async () => {
+    globalThis.fetch = vi.fn(async (url: string) =>
+      url === '/api/version'
+        ? jsonResponse({
+            status: 200,
+            body: {
+              current: VERSION_CURRENT,
+              latest: VERSION_LATEST,
+              update_available: true,
+              release_url: RELEASE_URL,
+            },
+          })
+        : jsonResponse({ status: 404 }),
+    ) as unknown as typeof fetch
+
+    renderWithQuery(<Page />)
+
+    expect(screen.getAllByText('…')).toHaveLength(3)
+    expect(await screen.findByRole('link', { name: VERSION_LATEST })).toHaveAttribute(
+      'href',
+      RELEASE_URL,
+    )
+    expect(screen.getByText(VERSION_CURRENT)).toBeInTheDocument()
+    expect(screen.getByText('An update is available')).toBeInTheDocument()
   })
 })

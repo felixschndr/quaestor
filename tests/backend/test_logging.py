@@ -14,7 +14,7 @@ from source.backend.logging_utils import (
     redact_headers,
     session_log_context,
 )
-from tests.backend.conftest import PIN, VALID_PASSWORD, assert_log_contains, register
+from tests.backend.conftest import PIN, TWO_FACTOR_CODE, VALID_PASSWORD, assert_log_contains, register
 
 
 @pytest.mark.parametrize(
@@ -25,6 +25,13 @@ from tests.backend.conftest import PIN, VALID_PASSWORD, assert_log_contains, reg
         ({"username": "bob", "id": 3}, {"username": "bob", "id": 3}),
         ({"outer": {"api_key": "k", "ok": 1}}, {"outer": {"api_key": REDACTION_PLACEHOLDER, "ok": 1}}),
         ({"items": [{"pin": PIN}, {"keep": "v"}]}, {"items": [{"pin": REDACTION_PLACEHOLDER}, {"keep": "v"}]}),
+        ({"code": TWO_FACTOR_CODE}, {"code": REDACTION_PLACEHOLDER}),
+        ({"error_code": "unknown"}, {"error_code": "unknown"}),
+        ({"backup_codes": [TWO_FACTOR_CODE]}, {"backup_codes": REDACTION_PLACEHOLDER}),
+        (
+            {"otpauth_uri": "otpauth://totp/x?secret=s", "qr_code": "data:image/svg+xml"},
+            {"otpauth_uri": REDACTION_PLACEHOLDER, "qr_code": REDACTION_PLACEHOLDER},
+        ),
         ("plain string", "plain string"),
         (42, 42),
     ],

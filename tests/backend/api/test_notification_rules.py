@@ -4,8 +4,22 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
+from source.backend.models.notifications.notification_rule import (
+    DEFAULT_DIGEST_WEEKDAY,
+    DigestPeriod,
+    NotificationTrigger,
+)
 from source.backend.services.notifications.notification_rule_service import DEFAULT_RULES
-from tests.backend.conftest import DEFAULT_AMOUNT, DEFAULT_BALANCE, NETFLIX, assert_log_contains, setup_account
+from tests.backend.conftest import (
+    DEFAULT_AMOUNT,
+    DEFAULT_BALANCE,
+    NETFLIX,
+    UNKNOWN_CATEGORY,
+    UNKNOWN_ID,
+    assert_log_contains,
+    register,
+    setup_account,
+)
 
 
 def _balance_rule_payload(account_id: int, **overrides: Any) -> dict:
@@ -93,6 +107,20 @@ def test_create_transaction_rule_round_trips_criteria(http_client: TestClient, s
     assert created["min_amount"] == -DEFAULT_AMOUNT
 
 
+def test_create_digest_rule_round_trips_the_period(http_client: TestClient):
+    register(http_client)
+
+    response = http_client.post(
+        "/api/notification_rules",
+        json={"trigger": NotificationTrigger.DIGEST.value, "account_ids": [], "period": DigestPeriod.MONTHLY.value},
+    )
+
+    assert response.status_code == 201
+    created = response.json()
+    assert created["period"] == DigestPeriod.MONTHLY.value
+    assert created["weekday"] == DEFAULT_DIGEST_WEEKDAY
+
+
 def test_update_rule(http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     rule_id = http_client.post("/api/notification_rules", json=_balance_rule_payload(account_id)).json()["id"]
@@ -135,11 +163,21 @@ def test_create_rule_with_empty_accounts_means_all(http_client: TestClient, sess
     assert response.json()["account_ids"] == []
 
 
+def test_create_transaction_rule_rejects_an_unknown_category(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+
+    response = http_client.post(
+        "/api/notification_rules", json=_transaction_rule_payload(account_id, categories=[UNKNOWN_CATEGORY])
+    )
+
+    assert response.status_code == 422
+
+
 def test_create_rule_rejects_foreign_account(http_client: TestClient, session_factory: sessionmaker):
     setup_account(http_client=http_client, session_factory=session_factory)
 
     response = http_client.post(
-        "/api/notification_rules", json=_balance_rule_payload(account_id=0, account_ids=[999999])
+        "/api/notification_rules", json=_balance_rule_payload(account_id=0, account_ids=[UNKNOWN_ID])
     )
 
     assert response.status_code == 404
@@ -150,6 +188,9 @@ def test_unknown_rule_returns_404(
 ):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
-    assert http_client.delete("/api/notification_rules/999999").status_code == 404
-    assert http_client.put("/api/notification_rules/999999", json=_balance_rule_payload(account_id)).status_code == 404
-    assert_log_contains(caplog, message="attempted to access notification rule 999999 which is not theirs")
+    assert http_client.delete(f"/api/notification_rules/{UNKNOWN_ID}").status_code == 404
+    assert (
+        http_client.put(f"/api/notification_rules/{UNKNOWN_ID}", json=_balance_rule_payload(account_id)).status_code
+        == 404
+    )
+    assert_log_contains(caplog, message=f"attempted to access notification rule {UNKNOWN_ID} which is not theirs")

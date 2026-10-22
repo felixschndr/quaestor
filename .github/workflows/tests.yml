@@ -23,7 +23,10 @@ jobs:
         run: poetry install --no-interaction --no-root
 
       - name: Run backend tests
-        run: poetry run pytest --cov=source/backend --cov-report=term-missing
+        run: poetry run pytest --cov=source/backend --cov-report=term-missing --cov-report=json
+
+      - name: Check backend coverage
+        run: poetry run python scripts/checks/check_coverage.py
 
   frontend:
     runs-on: ubuntu-latest
@@ -46,4 +49,4 @@ jobs:
 
       - name: Run frontend tests
         working-directory: source/frontend
-        run: pnpm test
+        run: pnpm test:coverage

@@ -175,6 +175,26 @@ def test_recompute_leaves_market_valued_snapshots_untouched(session_factory: ses
         assert _get_persisted_snapshots(session=session, account=account) == {OLDER_DATE: 42.0}
 
 
+@pytest.mark.parametrize(argnames="has_snapshot_today", argvalues=[True, False])
+def test_closing_a_sold_position_ends_its_value_at_zero_today(session_factory: sessionmaker, has_snapshot_today: bool):
+    with session_factory() as session:
+        account = _persist_account(session=session, balance=DEFAULT_BALANCE, transactions=[])
+        _plant_market_value(account=account, day=OLDER_DATE, balance=DEFAULT_BALANCE)
+        if has_snapshot_today:
+            _plant_bank_anchor(account=account, day=date.today(), balance=DEFAULT_BALANCE)
+        session.flush()
+
+        account.close_sold_position()
+        session.flush()
+
+        assert account.balance == 0.0
+        assert _get_persisted_snapshots(session=session, account=account) == {
+            OLDER_DATE: DEFAULT_BALANCE,
+            date.today(): 0.0,
+        }
+        assert account.balance_at_date[date.today()].source == BalanceSnapshotSource.MARKET_VALUED
+
+
 def test_record_market_value_history_replaces_previous_market_snapshots(session_factory: sessionmaker):
     with session_factory() as session:
         account = _persist_account(session=session, balance=0.0, transactions=[])

@@ -3,10 +3,12 @@ from sqlalchemy.orm import sessionmaker
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.services.transactions import related_refunds
 from tests.backend.conftest import (
+    ACME,
     DEFAULT_AMOUNT,
     LATEST_DATE,
     OLDER_DATE,
     RECENT_DATE,
+    SECOND_ACCOUNT_IBAN,
     SECOND_AMOUNT,
     link_transactions_as_related_group,
     make_account,
@@ -121,4 +123,84 @@ def test_money_flow_hop_through_an_account_is_hidden_but_not_badged(session_fact
         analysis = related_refunds.analyze(db_session=session)
 
     assert analysis.hidden_ids == {incoming_id, passed_on_id}
+    assert analysis.refund_status == {}
+
+
+def test_transfer_topping_up_an_account_after_a_debit_is_not_a_refund(session_factory: sessionmaker):
+    with session_factory() as session:
+        _, credential, checking = make_user_and_credential_and_account(session, name="Checking")
+        savings = make_account(session, credential_id=credential.id, name="Savings")
+        spent = make_transaction(session, account_id=checking.id, amount=-DEFAULT_AMOUNT, date=OLDER_DATE)
+        withdrawn = make_transaction(session, account_id=savings.id, amount=-DEFAULT_AMOUNT, date=LATEST_DATE)
+        topped_up = make_transaction(session, account_id=checking.id, amount=DEFAULT_AMOUNT, date=LATEST_DATE)
+        session.flush()
+        link_transactions_as_related_group(db_session=session, transactions=[spent, withdrawn, topped_up])
+        session.commit()
+        withdrawn_id, topped_up_id = withdrawn.id, topped_up.id
+
+        analysis = related_refunds.analyze(db_session=session)
+
+    assert analysis.hidden_ids == {withdrawn_id, topped_up_id}
+    assert analysis.refund_status == {}
+
+
+def test_merchant_credit_booked_before_the_purchase_is_badged(session_factory: sessionmaker):
+    with session_factory() as session:
+        _, _, account = make_user_and_credential_and_account(session, name="Credit card")
+        credit = make_transaction(
+            session,
+            account_id=account.id,
+            amount=DEFAULT_AMOUNT,
+            other_party=ACME,
+            category=TransactionCategory.REIMBURSEMENT,
+            date=OLDER_DATE,
+        )
+        purchase = make_transaction(
+            session,
+            account_id=account.id,
+            amount=-DEFAULT_AMOUNT,
+            other_party=ACME,
+            category=TransactionCategory.ONLINE_SHOPPING,
+            date=LATEST_DATE,
+        )
+        session.flush()
+        link_transactions_as_related_group(db_session=session, transactions=[credit, purchase])
+        session.commit()
+        credit_id, purchase_id = credit.id, purchase.id
+
+        analysis = related_refunds.analyze(db_session=session)
+
+    assert analysis.hidden_ids == {credit_id, purchase_id}
+    assert analysis.refund_status == {purchase_id: "refunded", credit_id: "refund"}
+
+
+def test_cross_account_legs_of_different_amounts_stay_visible(session_factory: sessionmaker):
+    with session_factory() as session:
+        _, credential, source = make_user_and_credential_and_account(session)
+        target = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN)
+        out = make_transaction(session, account_id=source.id, amount=-DEFAULT_AMOUNT, date=OLDER_DATE)
+        incoming = make_transaction(session, account_id=target.id, amount=SECOND_AMOUNT, date=RECENT_DATE)
+        session.flush()
+        link_transactions_as_related_group(db_session=session, transactions=[out, incoming])
+        session.commit()
+
+        analysis = related_refunds.analyze(db_session=session)
+
+    assert analysis.hidden_ids == set()
+    assert analysis.refund_status == {}
+
+
+def test_analyzing_no_related_groups_finds_nothing(session_factory: sessionmaker):
+    with session_factory() as session:
+        _, credential, source = make_user_and_credential_and_account(session)
+        target = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN)
+        out = make_transaction(session, account_id=source.id, amount=-DEFAULT_AMOUNT, date=OLDER_DATE)
+        incoming = make_transaction(session, account_id=target.id, amount=DEFAULT_AMOUNT, date=RECENT_DATE)
+        session.flush()
+        link_transactions_as_related_group(db_session=session, transactions=[out, incoming])
+        session.commit()
+
+        analysis = related_refunds.analyze(db_session=session, related_group_ids=set())
+
+    assert analysis.hidden_ids == set()
     assert analysis.refund_status == {}

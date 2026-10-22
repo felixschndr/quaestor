@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  accountHistoryQuery,
   findAccountInUser,
   groupTransactionsByDate,
   type AccountHistoryPage,
@@ -18,6 +19,7 @@ import {
   DATE_MID_MONTH,
   DATE_TODAY,
   DATE_YESTERDAY,
+  SHARE_OWNER_NAME,
 } from '@/test/constants'
 
 function makeUser(): UserRead {
@@ -106,6 +108,13 @@ describe('findAccountInUser', () => {
   it("surfaces the owning credential's last sync timestamp", () => {
     expect(findAccountInUser(makeUser(), 2)?.lastFetchingTimestamp).toBe(DATETIME_UPDATED)
     expect(findAccountInUser(makeUser(), 3)?.lastFetchingTimestamp).toBeNull()
+  })
+
+  it('treats a share without an explicit permission as read-only', () => {
+    const user = makeUser()
+    user.credentials[1].shared_from = SHARE_OWNER_NAME
+    expect(findAccountInUser(user, 3)?.sharePermission).toBe('read')
+    expect(findAccountInUser(user, 1)?.sharePermission).toBeNull()
   })
 
   it('finds accounts that live under a different credential', () => {
@@ -205,5 +214,22 @@ describe('groupTransactionsByDate', () => {
 
   it('returns an empty list when there are no pages', () => {
     expect(groupTransactionsByDate([])).toEqual([])
+  })
+})
+
+describe('accountHistoryQuery', () => {
+  const nextPage = (page: Partial<AccountHistoryPage>) =>
+    accountHistoryQuery(1).getNextPageParam!(makePage(page), [], 1, [])
+
+  it('asks for the next page while more days remain', () => {
+    expect(nextPage({ page: 1, page_size: 30, total_days: 31 })).toBe(2)
+  })
+
+  it('stops after the last page', () => {
+    expect(nextPage({ page: 2, page_size: 30, total_days: 31 })).toBeUndefined()
+  })
+
+  it('treats an account without history as a single page', () => {
+    expect(nextPage({ page: 1, page_size: 30, total_days: 0 })).toBeUndefined()
   })
 })

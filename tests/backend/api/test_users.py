@@ -11,10 +11,14 @@ from source.backend.helpers import utc_now
 from source.backend.logging_utils import NO_SESSION_LOG_LABEL
 from source.backend.services.banking import credential_service
 from source.backend.services.banking.credential_service import SyncResult, SyncStatus
+from source.backend.services.core import i18n_service
 from tests.backend.conftest import (
     DISPLAY_NAME,
     NEW_VALID_PASSWORD,
+    NON_DEFAULT_CURRENCY,
     SECOND_USER_NAME,
+    UNKNOWN_ID,
+    UNSUPPORTED_CURRENCY,
     USER_NAME,
     VALID_PASSWORD,
     WRONG_PASSWORD,
@@ -120,6 +124,42 @@ def test_update_user_rejects_unsupported_language(http_client: TestClient):
 
     assert response.status_code == 422
     assert http_client.get("/api/auth/me").json()["language"] == "en"
+
+
+def test_update_user_changes_currency(http_client: TestClient):
+    user_id = register_and_get_id(http_client)
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"currency": NON_DEFAULT_CURRENCY})
+
+    assert response.status_code == 200
+    assert http_client.get("/api/auth/me").json()["currency"] == NON_DEFAULT_CURRENCY
+
+
+def test_update_user_rejects_unsupported_currency(http_client: TestClient):
+    user_id = register_and_get_id(http_client)
+
+    response = http_client.patch(f"/api/users/{user_id}", json={"currency": UNSUPPORTED_CURRENCY})
+
+    assert response.status_code == 422
+    assert http_client.get("/api/auth/me").json()["currency"] == i18n_service.DEFAULT_CURRENCY
+
+
+def test_registering_without_language_and_currency_uses_the_server_defaults(http_client: TestClient):
+    response = http_client.post(
+        "/api/auth/register",
+        json={
+            "user_name": USER_NAME,
+            "display_name": DISPLAY_NAME,
+            "password": VALID_PASSWORD,
+            "language": None,
+            "currency": None,
+        },
+    )
+
+    assert response.status_code == 201
+    me = http_client.get("/api/auth/me").json()
+    assert me["language"] == i18n_service.DEFAULT_LANGUAGE
+    assert me["currency"] == i18n_service.DEFAULT_CURRENCY
 
 
 def test_new_user_starts_with_the_upcoming_contracts_section_on(http_client: TestClient):
@@ -516,7 +556,7 @@ def test_revoke_current_session_returns_422(http_client: TestClient):
 def test_revoke_unknown_session_returns_404(http_client: TestClient):
     user_id = register_and_get_id(http_client)
 
-    response = http_client.delete(f"/api/users/{user_id}/sessions/999999")
+    response = http_client.delete(f"/api/users/{user_id}/sessions/{UNKNOWN_ID}")
 
     assert response.status_code == 404
 

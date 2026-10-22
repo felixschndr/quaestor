@@ -4,6 +4,7 @@ from source.backend.security import csrf
 from tests.backend.conftest import (
     API_KEY_NAME,
     INTRUDER_USER_NAME,
+    UNKNOWN_API_KEY,
     auth_header_for_api_key,
     create_api_key,
     register,
@@ -76,7 +77,16 @@ def test_api_key_can_drive_a_write_endpoint_without_a_csrf_token(http_client: Te
 def test_invalid_api_key_is_rejected(http_client: TestClient):
     register(http_client)
 
-    response = http_client.get("/api/auth/me", headers=auth_header_for_api_key("qk_not-a-real-key"))
+    response = http_client.get("/api/auth/me", headers=auth_header_for_api_key(UNKNOWN_API_KEY))
+
+    assert response.status_code == 401
+
+
+def test_unknown_api_key_without_a_session_is_rejected(http_client: TestClient):
+    register(http_client)
+    _strip_session_auth(http_client)
+
+    response = http_client.get("/api/auth/me", headers=auth_header_for_api_key(UNKNOWN_API_KEY))
 
     assert response.status_code == 401
 

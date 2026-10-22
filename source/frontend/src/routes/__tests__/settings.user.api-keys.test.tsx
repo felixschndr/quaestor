@@ -14,7 +14,11 @@ vi.mock('@/lib/clipboard', async (importOriginal) => ({
   copyText: vi.fn().mockResolvedValue(undefined),
 }))
 
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }))
+vi.mock('sonner', () => ({ toast }))
+
 import { SettingsApiKeysView } from '@/pages/settings.user.api-keys'
+import { Route } from '@/routes/settings.user.api-keys'
 import type { ApiKeyRead } from '@/lib/apiKeys'
 import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
 import { DATETIME_CREATED_NEWER, DATETIME_RECENT } from '@/test/constants'
@@ -38,7 +42,26 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.clearAllMocks()
 })
+
+const GENERIC_ERROR = 'Something went wrong. Please try again.'
+
+function serveFailingWrites(keys: ApiKeyRead[]) {
+  ;(globalThis.fetch as Mock).mockImplementation((url: string, init?: { method?: string }) =>
+    Promise.resolve(
+      url === '/api/api_keys' && (init?.method ?? 'GET') === 'GET'
+        ? jsonResponse({ status: 200, body: keys })
+        : jsonResponse({ status: 500, body: { detail: 'boom' } }),
+    ),
+  )
+}
+
+function postRequests() {
+  return (globalThis.fetch as Mock).mock.calls.filter(
+    ([url, init]) => url === '/api/api_keys' && init?.method === 'POST',
+  )
+}
 
 describe('SettingsApiKeysView', () => {
   it('renders one row per key with its name and never-used hint', async () => {
@@ -131,6 +154,10 @@ describe('SettingsApiKeysView', () => {
       expect(post).toBeTruthy()
     })
 
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+    await expect(navigator.clipboard.readText()).resolves.toBe('qk_secret-raw-token-value')
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
+
     // Dismissing the reveal returns to the create form; the token is gone for good.
     await user.click(screen.getByRole('button', { name: "I've saved my key" }))
     expect(screen.queryByText('qk_secret-raw-token-value')).not.toBeInTheDocument()
@@ -170,5 +197,52 @@ describe('SettingsApiKeysView', () => {
     await waitFor(() => {
       expect(screen.queryByText('Doomed key')).not.toBeInTheDocument()
     })
+  })
+
+  it('asks for a name before creating a key', async () => {
+    const user = userEvent.setup()
+    serveFailingWrites([])
+    renderWithQuery(<SettingsApiKeysView />)
+    await screen.findByText('No API keys yet.')
+
+    await user.click(screen.getByRole('button', { name: 'Create API key' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Please enter a name')
+    expect(screen.getByLabelText('Name')).toHaveAttribute('aria-invalid', 'true')
+    expect(postRequests()).toHaveLength(0)
+  })
+
+  it('keeps the entered name and reports the error when creating fails', async () => {
+    const user = userEvent.setup()
+    serveFailingWrites([])
+    renderWithQuery(<SettingsApiKeysView />)
+    await screen.findByText('No API keys yet.')
+
+    await user.type(screen.getByLabelText('Name'), '  CI key  ')
+    await user.click(screen.getByRole('button', { name: 'Create API key' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(GENERIC_ERROR))
+    expect(JSON.parse(postRequests()[0][1].body)).toEqual({ name: 'CI key' })
+    expect(screen.getByLabelText('Name')).toHaveValue('  CI key  ')
+  })
+
+  it('keeps the key listed and reports the error when deleting fails', async () => {
+    const user = userEvent.setup()
+    serveFailingWrites([buildKey({ id: 7, name: 'Sticky key' })])
+    renderWithQuery(<SettingsApiKeysView />)
+    await screen.findByText('Sticky key')
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Really delete?' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(GENERIC_ERROR))
+    expect(toast.success).not.toHaveBeenCalled()
+    expect(screen.getByText('Sticky key')).toBeInTheDocument()
+  })
+})
+
+describe('/settings/user/api-keys route', () => {
+  it('serves the API keys page', () => {
+    expect(Route.options.component).toBe(SettingsApiKeysView)
   })
 })

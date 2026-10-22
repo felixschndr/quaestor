@@ -36,7 +36,7 @@ import {
 import { useCollapsedGroups } from '@/lib/collapsedGroups'
 import { useContracts } from '@/lib/contract'
 import { unreadCount, useNotificationLog } from '@/lib/notificationLog'
-import { hasSyncError, type SyncJob } from '@/lib/credentials'
+import { hasSyncError, isManualBank, type SyncJob } from '@/lib/credentials'
 import { cn } from '@/lib/utils'
 
 interface OverviewViewProps {
@@ -63,6 +63,9 @@ export function OverviewView({
     [user, customLayout.data],
   )
   const hasAccounts = displayGroups.some((group) => group.accounts.length > 0)
+  const hasSyncableCredential = user.credentials.some(
+    (credential) => credential.sync_enabled && !isManualBank(credential.bank),
+  )
   const visibleAccountIds = useMemo(
     () =>
       user.credentials.flatMap((credential) =>
@@ -158,7 +161,7 @@ export function OverviewView({
             {unreadNotifications > 0 ? <WarningDot /> : null}
           </Link>
           {hasAccounts ? <PrivacyToggle className="p-2.5" /> : null}
-          {hasAccounts ? (
+          {hasAccounts || hasSyncableCredential ? (
             <SyncButton
               onClick={onSyncClick}
               spinning={syncSpinning}

@@ -6,7 +6,7 @@ import pytest
 from source.backend.models.contracts.contract import OVERDUE_GRACE, Contract
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_type import TransactionType
-from tests.backend.conftest import LATEST_DATE
+from tests.backend.conftest import LATEST_DATE, OLDER_DATE, RECENT_DATE
 
 
 def _create_contract_with_amounts(amounts: list[float]) -> Contract:
@@ -44,6 +44,22 @@ def test_is_overdue_on(expected_next_date: date | None, offset_days: int, expect
     contract = Contract(expected_next_date=expected_next_date)
 
     assert contract.is_overdue_on(today=LATEST_DATE + timedelta(days=offset_days)) is expected
+
+
+@pytest.mark.parametrize(
+    argnames="end_date, expected",
+    argvalues=[
+        (None, False),
+        (OLDER_DATE, False),
+        (RECENT_DATE, True),
+        (LATEST_DATE, True),
+        (LATEST_DATE + timedelta(days=1), False),
+    ],
+)
+def test_is_ending_within(end_date: date | None, expected: bool):
+    contract = Contract(end_date=end_date)
+
+    assert contract.is_ending_within(today=RECENT_DATE, lead=LATEST_DATE - RECENT_DATE) is expected
 
 
 @pytest.mark.parametrize(

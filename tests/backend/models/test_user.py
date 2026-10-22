@@ -5,6 +5,7 @@ from source.backend.models.auth.user import User
 from tests.backend.conftest import (
     DEFAULT_BALANCE,
     DISPLAY_NAME,
+    EURO,
     TWO_FACTOR_SECRET,
     USER_NAME,
     VALID_PASSWORD_HASH,
@@ -21,7 +22,7 @@ def test_user_repr_contains_identifying_fields_but_not_password():
         display_name=DISPLAY_NAME,
         password_hash=VALID_PASSWORD_HASH,
         language="en",
-        currency="EUR",
+        currency=EURO,
         theme=Theme.SYSTEM,
         two_factor_secret=TWO_FACTOR_SECRET,
         two_factor_enabled=False,
@@ -32,7 +33,7 @@ def test_user_repr_contains_identifying_fields_but_not_password():
 
     assert representation == (
         f"<User(id=1, user_name={USER_NAME}, display_name={DISPLAY_NAME}, "
-        "language=en, currency=EUR, theme=SYSTEM, two_factor_enabled=False, show_upcoming_contracts=True, "
+        f"language=en, currency={EURO}, theme=SYSTEM, two_factor_enabled=False, show_upcoming_contracts=True, "
         "disabled_default_matchers=None)>"
     )
     assert VALID_PASSWORD_HASH not in representation

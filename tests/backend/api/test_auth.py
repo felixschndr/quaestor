@@ -11,6 +11,8 @@ from source.backend.services.auth.session_service import COOKIE_NAME
 from source.backend.services.auth.user_service import ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME
 from tests.backend.conftest import (
     DISPLAY_NAME,
+    EURO,
+    NON_DEFAULT_CURRENCY,
     SECOND_USER_NAME,
     USER_NAME,
     VALID_PASSWORD,
@@ -258,7 +260,7 @@ def test_register_defaults_language_and_currency(http_client: TestClient):
     body = register(http_client).json()
 
     assert body["language"] == "en"
-    assert body["currency"] == "EUR"
+    assert body["currency"] == EURO
 
 
 def test_register_accepts_explicit_language_and_currency(http_client: TestClient):
@@ -269,14 +271,14 @@ def test_register_accepts_explicit_language_and_currency(http_client: TestClient
             "display_name": DISPLAY_NAME,
             "password": VALID_PASSWORD,
             "language": "de",
-            "currency": "USD",
+            "currency": NON_DEFAULT_CURRENCY,
         },
     )
 
     assert response.status_code == 201
     body = response.json()
     assert body["language"] == "de"
-    assert body["currency"] == "USD"
+    assert body["currency"] == NON_DEFAULT_CURRENCY
 
 
 def test_password_requirements_returns_current_rules(http_client: TestClient):

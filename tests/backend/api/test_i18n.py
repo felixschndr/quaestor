@@ -11,6 +11,13 @@ def test_list_languages_returns_supported_languages(http_client: TestClient):
     assert response.json() == {"languages": list(i18n_service.SUPPORTED_LANGUAGES)}
 
 
+def test_list_currencies_returns_supported_currencies(http_client: TestClient):
+    response = http_client.get("/api/i18n/currencies")
+
+    assert response.status_code == 200
+    assert response.json() == {"currencies": list(i18n_service.SUPPORTED_CURRENCIES)}
+
+
 @pytest.mark.parametrize(
     argnames="env_value, expected",
     argvalues=[

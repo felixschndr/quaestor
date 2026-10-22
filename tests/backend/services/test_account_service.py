@@ -26,10 +26,12 @@ from tests.backend.conftest import (
     AMOUNT,
     DEFAULT_AMOUNT,
     DEFAULT_BALANCE,
+    OLDER_DATE,
     RECENT_DATE,
     REWE,
     SECOND_ACCOUNT_IBAN,
     SECOND_USER_NAME,
+    UNKNOWN_ID,
     UNKNOWN_TRANSACTION_OTHER_PARTY,
     WALLET_ACCOUNT_NAME,
     assert_log_contains,
@@ -83,8 +85,8 @@ def test_list_accounts_empty_when_user_has_no_credentials(session_factory: sessi
 def test_get_account_raises_when_id_unknown(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     with session_factory() as session:
         with pytest.raises(AccountNotFoundError, match="not found"):
-            account_service.get_account(db_session=session, account_id=99999)
-        assert_log_contains(caplog, message="Account with the ID 99999 not found")
+            account_service.get_account(db_session=session, account_id=UNKNOWN_ID)
+        assert_log_contains(caplog, message=f"Account with the ID {UNKNOWN_ID} not found")
 
 
 def _create_user_with_manual_credential(session_factory: sessionmaker) -> tuple[int, int]:
@@ -450,6 +452,9 @@ def test_resolve_owned_account_ids_raises_for_foreign_account(
         # Combined filters must AND together.
         ({"text": "Rewe", "amount_to": 9}, [0, 1]),
         ({"text": "Rewe", "amount_from": 5}, [1]),
+        # "none" deselects every option of a tri-state filter, so nothing can match.
+        ({"linked": "none"}, [0, 1]),
+        ({"has_attachment": "none"}, [0, 1]),
     ],
 )
 def test_filter_transactions(
@@ -490,27 +495,32 @@ def test_filter_transactions(
         assert [t.id for t in filtered_transactions] == expected_ids
 
 
+def _cash_and_depot_buy(session: Session) -> tuple[Transaction, Transaction]:
+    user = make_user(session)
+    credential = make_credential(session, user_id=user.id, bank=BankProvider.TRADE_REPUBLIC)
+    cash_account = make_account(session, credential_id=credential.id, name=ACCOUNT_IBAN)
+    depot_account = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN)
+    session.add(
+        AccountBalanceSnapshot(
+            account_id=depot_account.id,
+            date=OLDER_DATE,
+            balance=AMOUNT,
+            source=BalanceSnapshotSource.MARKET_VALUED,
+        )
+    )
+    cash_buy = make_transaction(
+        session, account_id=cash_account.id, amount=AMOUNT * -1, transaction_type=TransactionType.BUY
+    )
+    depot_buy = make_transaction(
+        session, account_id=depot_account.id, amount=AMOUNT * -1, transaction_type=TransactionType.BUY
+    )
+    session.flush()
+    return cash_buy, depot_buy
+
+
 def test_link_related_keeps_the_type_of_a_depot_leg(session_factory: sessionmaker):
     with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(session, user_id=user.id, bank=BankProvider.TRADE_REPUBLIC)
-        cash_account = make_account(session, credential_id=credential.id, name=ACCOUNT_IBAN)
-        depot_account = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN)
-        session.add(
-            AccountBalanceSnapshot(
-                account_id=depot_account.id,
-                date=date(year=2026, month=1, day=1),
-                balance=AMOUNT,
-                source=BalanceSnapshotSource.MARKET_VALUED,
-            )
-        )
-        cash_buy = make_transaction(
-            session, account_id=cash_account.id, amount=AMOUNT * -1, transaction_type=TransactionType.BUY
-        )
-        depot_buy = make_transaction(
-            session, account_id=depot_account.id, amount=AMOUNT * -1, transaction_type=TransactionType.BUY
-        )
-        session.flush()
+        cash_buy, depot_buy = _cash_and_depot_buy(session)
 
         account_service.link_related(db_session=session, transaction=cash_buy, counterpart=depot_buy)
 
@@ -519,6 +529,31 @@ def test_link_related_keeps_the_type_of_a_depot_leg(session_factory: sessionmake
         assert depot_buy.transaction_type == TransactionType.BUY
         assert depot_buy.transfer_original_type is None
         assert depot_buy.related_group_id == cash_buy.related_group_id
+
+
+def test_unlink_related_leaves_the_type_of_a_depot_leg_alone(session_factory: sessionmaker):
+    with session_factory() as session:
+        cash_buy, depot_buy = _cash_and_depot_buy(session)
+        account_service.link_related(db_session=session, transaction=cash_buy, counterpart=depot_buy)
+
+        account_service.unlink_related(db_session=session, transaction=depot_buy)
+
+        assert cash_buy.transaction_type == TransactionType.BUY
+        assert depot_buy.transaction_type == TransactionType.BUY
+        assert depot_buy.related_group_id is None
+
+
+def test_unlinking_a_transaction_without_a_related_group_changes_nothing(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    with session_factory() as session:
+        cash_buy, _ = _cash_and_depot_buy(session)
+
+        account_service.unlink_related(db_session=session, transaction=cash_buy)
+
+        assert cash_buy.transaction_type == TransactionType.BUY
+        assert not cash_buy.transfer_relink_blocked
+        assert_log_contains(caplog, message="Unlinked <Transaction(", negate=True)
 
 
 def test_unlink_related_clears_both_sides_and_restores_types(
@@ -583,7 +618,7 @@ def test_get_transaction_for_account_rejects_unknown_and_foreign_transactions(
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_ids[0])
         with pytest.raises(TransactionNotFoundError, match="not found"):
-            account_service.get_transaction_for_account(db_session=session, account=account, transaction_id=99999)
+            account_service.get_transaction_for_account(db_session=session, account=account, transaction_id=UNKNOWN_ID)
         with pytest.raises(TransactionNotFoundError, match="not found"):
             account_service.get_transaction_for_account(
                 db_session=session, account=account, transaction_id=foreign_transaction_id
@@ -591,7 +626,7 @@ def test_get_transaction_for_account_rejects_unknown_and_foreign_transactions(
         assert_log_contains(
             caplog,
             messages=[
-                "Transaction with the ID 99999 not found",
+                f"Transaction with the ID {UNKNOWN_ID} not found",
                 f"does not belong to <Account(id={account_ids[0]}, ",
             ],
         )

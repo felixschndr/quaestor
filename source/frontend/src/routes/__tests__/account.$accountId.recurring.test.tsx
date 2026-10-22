@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -9,9 +9,11 @@ import { formatDateWithoutYear } from '@/lib/format'
 import type { RecurringTransactionRead } from '@/lib/recurringTransaction'
 import {
   ACCOUNT_NAME_CHECKING,
+  AMOUNT_L,
   AMOUNT_M,
   AMOUNT_XL,
   DATE_NEXT_RUN,
+  PARTY_SUPERMARKET,
   TODAY_RECURRING,
   money,
 } from '@/test/constants'
@@ -23,10 +25,14 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
 }))
 
-vi.mock('@/lib/recurringTransaction', () => ({
+vi.mock('@/lib/recurringTransaction', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/recurringTransaction')>()),
   useRecurringTransactions: vi.fn(),
   useDeleteRecurringTransaction: vi.fn(),
 }))
+
+const { toast } = vi.hoisted(() => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('sonner', () => ({ toast }))
 
 import { useDeleteRecurringTransaction, useRecurringTransactions } from '@/lib/recurringTransaction'
 import { AccountDetailView } from '@/pages/account.$accountId'
@@ -97,6 +103,8 @@ const mutateAsync = vi.fn().mockResolvedValue(undefined)
 
 beforeEach(() => {
   mutateAsync.mockClear()
+  toast.success.mockClear()
+  toast.error.mockClear()
   globalThis.fetch = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
   mockedDelete.mockReturnValue({ mutateAsync, isPending: false } as unknown as ReturnType<
     typeof useDeleteRecurringTransaction
@@ -159,5 +167,60 @@ describe('RecurringTransactionsList', () => {
     await user.click(screen.getByRole('button', { name: 'Really delete?' }))
 
     expect(mutateAsync).toHaveBeenCalledWith(99)
+  })
+
+  it('names a rule after its other party and colours income green', () => {
+    mockedList.mockReturnValue({
+      data: [buildRule({ other_party: PARTY_SUPERMARKET, amount: AMOUNT_L })],
+    } as unknown as ReturnType<typeof useRecurringTransactions>)
+    renderManualAccount()
+
+    expect(screen.getByText(PARTY_SUPERMARKET)).toBeInTheDocument()
+    expect(screen.getByText(money(AMOUNT_L))).toHaveClass('text-success')
+  })
+
+  it('confirms a deleted rule', async () => {
+    const user = userEvent.setup()
+    mockedList.mockReturnValue({ data: [buildRule()] } as unknown as ReturnType<
+      typeof useRecurringTransactions
+    >)
+    renderManualAccount()
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Really delete?' }))
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Recurring transaction deleted'))
+  })
+
+  it('reports a rule that could not be deleted', async () => {
+    const user = userEvent.setup()
+    mutateAsync.mockRejectedValueOnce(new Error('boom'))
+    mockedList.mockReturnValue({ data: [buildRule()] } as unknown as ReturnType<
+      typeof useRecurringTransactions
+    >)
+    renderManualAccount()
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Really delete?' }))
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Could not delete recurring transaction.'),
+    )
+  })
+
+  it('edits a rule in place and returns to the list on cancel', async () => {
+    const user = userEvent.setup()
+    mockedList.mockReturnValue({ data: [buildRule()] } as unknown as ReturnType<
+      typeof useRecurringTransactions
+    >)
+    renderManualAccount()
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(screen.getByLabelText('Frequency')).toBeInTheDocument()
+    expect(screen.queryByText('Day 15 of the month')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByLabelText('Frequency')).toBeNull()
+    expect(screen.getByText('Day 15 of the month')).toBeInTheDocument()
   })
 })

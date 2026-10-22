@@ -458,6 +458,7 @@
       "description": "We're confirming your login and fetching your accounts and transactions. This can take a moment, especially on the first sync — no need to do anything else."
     },
     "neverSynced": "Never synced",
+    "neverSyncedSyncNow": "Never synced, <sync>sync now</sync>",
     "syncErrorPending_one": "{{count}} bank connection needs attention",
     "syncErrorPending_other": "{{count}} bank connections need attention",
     "syncError": {
@@ -501,6 +502,7 @@
     "detail": {
       "notFound": "The connection you seek, this is not.",
       "backToList": "Back to bank connections",
+      "syncAria": "Sync bank connection",
       "accountsEmpty": "No accounts yet. They appear after the first successful sync.",
       "accountsEmptyManual": "No accounts yet. Create your first manual account.",
       "addAccount": "Add account",

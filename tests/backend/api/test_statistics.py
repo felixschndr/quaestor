@@ -1,5 +1,5 @@
 import logging
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,6 +13,8 @@ from tests.backend.conftest import (
     DEFAULT_BALANCE,
     INTRUDER_USER_NAME,
     LARGE_AMOUNT,
+    OLDER_DATE,
+    RECENT_DATE,
     REWE,
     SECOND_AMOUNT,
     THIRD_AMOUNT,
@@ -35,6 +37,7 @@ STATISTICS_ENDPOINTS = (
     f"{API_PREFIX}/statistics/net-savings",
     f"{API_PREFIX}/statistics/other-parties",
     f"{API_PREFIX}/statistics/net-worth",
+    f"{API_PREFIX}/statistics/transaction-counts",
 )
 
 
@@ -578,6 +581,72 @@ def test_net_worth_range_breaks_down_change_per_account(http_client: TestClient,
             }
         ],
     }
+
+
+def test_net_worth_range_rejects_an_end_before_the_start(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+
+    response = http_client.get(
+        "/api/statistics/net-worth/range",
+        params=[("start", RECENT_DATE.isoformat()), ("end", OLDER_DATE.isoformat()), ("account_ids", account_id)],
+    )
+
+    assert response.status_code == 422
+
+
+def test_category_trend_compares_the_range_with_the_window_before(
+    http_client: TestClient, session_factory: sessionmaker
+):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    supermarket = TransactionCategory.SUPERMARKET
+    persist_transaction(
+        session_factory, account_id=account_id, amount=-DEFAULT_AMOUNT, date=RECENT_DATE, category=supermarket
+    )
+    persist_transaction(
+        session_factory,
+        account_id=account_id,
+        amount=-SECOND_AMOUNT,
+        date=RECENT_DATE - timedelta(days=1),
+        category=supermarket,
+    )
+
+    response = http_client.get(
+        "/api/statistics/categories/trend",
+        params=[
+            ("account_ids", account_id),
+            ("date_from", RECENT_DATE.isoformat()),
+            ("date_to", RECENT_DATE.isoformat()),
+            ("baseline_windows", 1),
+        ],
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [{"category": supermarket.value, "current": DEFAULT_AMOUNT, "baseline": SECOND_AMOUNT}]
+
+
+def test_category_trend_rejects_a_range_ending_before_it_starts(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+
+    response = http_client.get(
+        "/api/statistics/categories/trend",
+        params=[
+            ("account_ids", account_id),
+            ("date_from", RECENT_DATE.isoformat()),
+            ("date_to", OLDER_DATE.isoformat()),
+        ],
+    )
+
+    assert response.status_code == 422
+
+
+def test_transaction_counts_buckets_bookings_per_day(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    persist_transaction(session_factory, account_id=account_id, amount=-DEFAULT_AMOUNT, date=RECENT_DATE)
+
+    response = http_client.get("/api/statistics/transaction-counts", params=[("account_ids", account_id)])
+
+    assert response.status_code == 200
+    assert response.json() == [{"bucket": RECENT_DATE.isoformat(), "count": 1, "amount": DEFAULT_AMOUNT}]
 
 
 def test_net_worth_range_rejects_foreign_account(http_client: TestClient, session_factory: sessionmaker):

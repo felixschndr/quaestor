@@ -9,6 +9,7 @@ from source.backend.models.auth.user import User
 from source.backend.services.notifications import notification_service
 from source.backend.services.notifications.notification_service import Notification
 from tests.backend.conftest import (
+    NOTIFICATION,
     SECOND_USER_NAME,
     VALID_PASSWORD,
     assert_log_contains,
@@ -16,8 +17,6 @@ from tests.backend.conftest import (
     register,
     register_and_login,
 )
-
-NOTIFICATION = Notification(title="Payment overdue", body="Wallet: rent overdue", url="/contracts/7")
 
 
 def _log(session_factory: sessionmaker, user_id: int, notification: Notification = NOTIFICATION) -> None:
@@ -38,9 +37,9 @@ def test_a_notification_is_logged_even_without_a_push_subscription(
         )
 
     (entry,) = http_client.get("/api/notification_log").json()
-    assert entry["title"] == "Payment overdue"
-    assert entry["body"] == "Wallet: rent overdue"
-    assert entry["url"] == "/contracts/7"
+    assert entry["title"] == NOTIFICATION.title
+    assert entry["body"] == NOTIFICATION.body
+    assert entry["url"] == NOTIFICATION.url
     assert entry["read_at"] is None
 
 
@@ -93,6 +92,17 @@ def test_opening_an_entry_marks_it_read_and_leaves_other_users_out(
 
     assert http_client.get("/api/notification_log").json() == []
     assert http_client.post(f"/api/notification_log/{entry['id']}/read").status_code == 404
+
+
+def test_opening_an_entry_again_keeps_the_first_read_time(session_factory: sessionmaker, http_client: TestClient):
+    user_id = register_and_login(http_client)
+    _log(session_factory, user_id=user_id)
+    (entry,) = http_client.get("/api/notification_log").json()
+
+    first_read_at = http_client.post(f"/api/notification_log/{entry['id']}/read").json()["read_at"]
+    second_read_at = http_client.post(f"/api/notification_log/{entry['id']}/read").json()["read_at"]
+
+    assert second_read_at == first_read_at
 
 
 def test_marking_everything_read_only_touches_the_callers_entries(

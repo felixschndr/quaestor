@@ -15,5 +15,21 @@ export default defineConfig({
     setupFiles: ['./src/setupTests.ts'],
     css: false,
     exclude: ['node_modules', 'dist'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/__tests__/**',
+        'src/**/*.test.{ts,tsx}',
+        'src/test/**',
+        'src/setupTests.ts',
+        'src/main.tsx',
+        'src/routeTree.gen.ts',
+        'src/components/ui/**', // shadcn, vendored
+        'src/**/*.d.ts',
+      ],
+      reporter: ['text-summary', 'text', 'html'],
+      thresholds: { lines: 99, statements: 99, branches: 95, functions: 99 },
+    },
   },
 })

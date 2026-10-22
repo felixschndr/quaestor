@@ -1,3 +1,5 @@
+import pytest
+
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
@@ -25,3 +27,15 @@ def test_transaction_repr_contains_identifying_fields():
         "transfer_original_type=None, transfer_relink_blocked=None, related_link_source=None, recurring_transaction_id=None, "
         "contract_id=None, contract_assignment=None)>"
     )
+
+
+@pytest.mark.parametrize(
+    argnames="amount, expected",
+    argvalues=[
+        (DEFAULT_AMOUNT, TransactionType.INCOMING),
+        (-DEFAULT_AMOUNT, TransactionType.OUTGOING),
+        (0.0, TransactionType.ZERO),
+    ],
+)
+def test_transaction_type_follows_the_sign_of_the_amount(amount: float, expected: TransactionType):
+    assert TransactionType.from_amount(amount) is expected
