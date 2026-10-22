@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from source.backend.services.transactions import attachment_service
 from tests.backend.conftest import (
+    ATTACHMENT_FILE_NAME,
     INTRUDER_USER_NAME,
     assert_log_contains,
     persist_transaction,
@@ -30,12 +31,12 @@ def test_upload_list_download_delete_roundtrip(
         http_client=http_client,
         account_id=account_id,
         transaction_id=transaction_id,
-        name="receipt.pdf",
+        name=ATTACHMENT_FILE_NAME,
         content=b"%PDF-1.4 hello",
     )
     assert upload.status_code == 201
     attachment_id = upload.json()[0]["id"]
-    assert upload.json()[0]["filename"] == "receipt.pdf"
+    assert upload.json()[0]["filename"] == ATTACHMENT_FILE_NAME
     assert upload.json()[0]["size"] == len(b"%PDF-1.4 hello")
     assert_log_contains(caplog=caplog, message=f"Added <TransactionAttachment(id={attachment_id}")
 
@@ -45,13 +46,13 @@ def test_upload_list_download_delete_roundtrip(
     download = http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}/attachments/{attachment_id}")
     assert download.status_code == 200
     assert download.content == b"%PDF-1.4 hello"
-    assert "receipt.pdf" in download.headers["content-disposition"]
+    assert ATTACHMENT_FILE_NAME in download.headers["content-disposition"]
 
     deleted = http_client.delete(f"/api/account/{account_id}/transactions/{transaction_id}/attachments/{attachment_id}")
     assert deleted.status_code == 204
     assert http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}/attachments").json() == []
     assert_log_contains(
-        caplog=caplog, message=f"Deleted attachment 'receipt.pdf' from <Transaction(id={transaction_id}"
+        caplog=caplog, message=f"Deleted attachment '{ATTACHMENT_FILE_NAME}' from <Transaction(id={transaction_id}"
     )
 
 
@@ -75,7 +76,7 @@ def test_upload_to_pending_transaction_is_rejected(http_client: TestClient, sess
         http_client=http_client,
         account_id=account_id,
         transaction_id=transaction_id,
-        name="receipt.pdf",
+        name=ATTACHMENT_FILE_NAME,
         content=b"%PDF-1.4 hello",
     )
 
@@ -108,6 +109,22 @@ def test_disallowed_extension_returns_415(http_client: TestClient, session_facto
     assert response.status_code == 415
 
 
+def test_empty_file_is_rejected(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
+
+    response = _upload(
+        http_client=http_client,
+        account_id=account_id,
+        transaction_id=transaction_id,
+        name=ATTACHMENT_FILE_NAME,
+        content=b"",
+    )
+
+    assert response.status_code == 422
+    assert http_client.get(f"/api/account/{account_id}/transactions/{transaction_id}/attachments").json() == []
+
+
 def test_oversized_file_returns_413(
     http_client: TestClient, session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
@@ -129,7 +146,11 @@ def test_attachment_of_other_user_is_not_accessible(http_client: TestClient, ses
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id)
     attachment_id = _upload(
-        http_client=http_client, account_id=account_id, transaction_id=transaction_id, name="receipt.pdf", content=b"x"
+        http_client=http_client,
+        account_id=account_id,
+        transaction_id=transaction_id,
+        name=ATTACHMENT_FILE_NAME,
+        content=b"x",
     ).json()[0]["id"]
 
     register_and_login(http_client, user_name=INTRUDER_USER_NAME)

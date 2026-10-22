@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
+from source.backend.models.accounts.account_share import SharePermission
 from source.backend.models.banking.credential import Credential
 from source.backend.services.banking import credential_service, sync_jobs
 from source.backend.services.banking.credential_service import SyncResult, SyncStatus
@@ -20,6 +21,7 @@ from tests.backend.conftest import (
     SECOND_DISPLAY_NAME,
     SECOND_USER_NAME,
     THIRD_AMOUNT,
+    UNKNOWN_ID,
     USER_NAME,
     VALID_PASSWORD,
     WALLET_ACCOUNT_NAME,
@@ -183,6 +185,65 @@ def test_only_the_owner_manages_shares(http_client: TestClient):
         ).status_code
         == 403
     )
+
+
+def test_an_account_cannot_be_shared_with_its_owner(http_client: TestClient):
+    owner_id = register_and_login(http_client)
+    account_id = setup_manual_account(http_client)
+
+    response = http_client.post(
+        f"/api/account_shares/account/{account_id}",
+        json={"user_id": owner_id, "permission": SharePermission.WRITE.value},
+    )
+
+    assert response.status_code == 422
+    assert http_client.get(f"/api/account_shares/account/{account_id}").json() == []
+
+
+def test_sharing_with_an_unknown_user_is_not_found(http_client: TestClient):
+    register_and_login(http_client)
+    account_id = setup_manual_account(http_client)
+
+    response = http_client.post(
+        f"/api/account_shares/account/{account_id}",
+        json={"user_id": UNKNOWN_ID, "permission": SharePermission.WRITE.value},
+    )
+
+    assert response.status_code == 404
+    assert http_client.get(f"/api/account_shares/account/{account_id}").json() == []
+
+
+def test_an_account_cannot_be_shared_twice_with_the_same_user(http_client: TestClient):
+    account_id, _ = _setup(http_client)
+    (share,) = http_client.get(f"/api/account_shares/account/{account_id}").json()
+
+    response = http_client.post(
+        f"/api/account_shares/account/{account_id}",
+        json={"user_id": share["user_id"], "permission": SharePermission.READ.value},
+    )
+
+    assert response.status_code == 409
+    assert len(http_client.get(f"/api/account_shares/account/{account_id}").json()) == 1
+
+
+def test_an_answered_invitation_cannot_be_answered_again(http_client: TestClient):
+    _, share_id = _setup(http_client)
+    _accept(http_client, share_id=share_id)
+
+    assert http_client.post(f"/api/account_shares/{share_id}/decline").status_code == 409
+    assert len(http_client.get("/api/auth/me").json()["credentials"]) == 1
+
+
+def test_managing_an_unknown_share_is_not_found(http_client: TestClient):
+    register_and_login(http_client)
+
+    assert (
+        http_client.patch(
+            f"/api/account_shares/{UNKNOWN_ID}", json={"permission": SharePermission.READ.value}
+        ).status_code
+        == 404
+    )
+    assert http_client.delete(f"/api/account_shares/{UNKNOWN_ID}").status_code == 404
 
 
 def test_shareable_users_excludes_the_caller(http_client: TestClient):

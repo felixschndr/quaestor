@@ -31,6 +31,7 @@ from tests.backend.conftest import (
     BANK_PASSWORD,
     BANK_USERNAME,
     CHALLENGE_TOKEN,
+    CREDENTIAL_ID,
     DEFAULT_AMOUNT,
     DEFAULT_BALANCE,
     LAST_FETCHING_TIMESTAMP,
@@ -489,13 +490,13 @@ def test_bank_info_required_fields_reflects_handler_credential_fields():
 
 
 def test_fints_handler_offers_no_out_of_band_two_factor_challenge():
-    assert _fints_handler().begin_two_factor_challenge(credential_id=1) is None
+    assert _fints_handler().begin_two_factor_challenge(credential_id=CREDENTIAL_ID) is None
 
 
 def test_fints_handler_complete_two_factor_challenge_is_not_supported():
     with pytest.raises(NotImplementedError):
         _fints_handler().complete_two_factor_challenge(
-            challenge_token=CHALLENGE_TOKEN, credential_id=1, code=TWO_FACTOR_CODE
+            challenge_token=CHALLENGE_TOKEN, credential_id=CREDENTIAL_ID, code=TWO_FACTOR_CODE
         )
 
 
@@ -547,6 +548,27 @@ def test_extract_balance_observations_skips_incomplete_balances():
     )
 
     assert module._extract_balance_observations(raw) == []
+
+
+def test_session_lists_the_sepa_accounts_after_a_pushtan_and_reads_their_balance(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
+    pending = MagicMock(spec=module.NeedTANResponse)
+    pending.decoupled = True
+    sepa_accounts = [MagicMock(iban=ACCOUNT_IBAN), MagicMock(iban=SECOND_ACCOUNT_IBAN)]
+    client = MagicMock()
+    client.get_sepa_accounts.return_value = pending
+    client.send_tan.return_value = sepa_accounts
+    client.get_balance.return_value = MagicMock(amount=_FakeMt940Amount(Decimal(str(DEFAULT_BALANCE))))
+    session = module._FinTSSession(client=client)
+
+    accounts = session.get_accounts()
+
+    assert [(account.name, account.external_id) for account in accounts] == [
+        (ACCOUNT_IBAN, ACCOUNT_IBAN),
+        (SECOND_ACCOUNT_IBAN, SECOND_ACCOUNT_IBAN),
+    ]
+    assert session.get_balance(accounts[1]) == DEFAULT_BALANCE
+    client.get_balance.assert_called_once_with(sepa_accounts[1])
 
 
 def test_get_balance_observations_returns_captured_anchors_for_account():

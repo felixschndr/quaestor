@@ -4,10 +4,15 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
+from source.backend.helpers import utc_now
+from source.backend.models.contracts.contract import Contract
 from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from tests.backend.conftest import (
+    LATEST_DATE,
+    MONTHLY_DAY_OFFSETS,
     OLDER_DATE,
+    RECENT_DATE,
     SECOND_USER_NAME,
     assert_log_contains,
     login_as,
@@ -56,7 +61,7 @@ def test_changing_the_turnus_of_a_manual_contract(http_client: TestClient, sessi
     contract = http_client.post(
         "/api/contracts", json={"name": "Miete", "account_id": account_id, "frequency": "MONTHLY"}
     ).json()
-    for offset in [0, 30, 60, 90]:
+    for offset in MONTHLY_DAY_OFFSETS:
         transaction_id = persist_transaction(
             session_factory, account_id=account_id, date=OLDER_DATE + timedelta(days=offset)
         )
@@ -262,3 +267,33 @@ def test_archiving_hides_contract_from_default_list_but_keeps_it_reachable(
     unarchived = http_client.patch(f"/api/contracts/{contract['id']}", json={"name": "Gym", "archived": False})
     assert not unarchived.json()["is_archived"]
     assert [c["id"] for c in http_client.get("/api/contracts").json()] == [contract["id"]]
+
+
+def test_archiving_ends_the_contract_on_its_last_payment(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    contract = _create_contract(http_client, account_id=account_id)
+    for day in (OLDER_DATE, RECENT_DATE):
+        transaction_id = persist_transaction(session_factory, account_id=account_id, date=day)
+        http_client.post(f"/api/contracts/{contract['id']}/transactions", json={"transaction_id": transaction_id})
+
+    archived = http_client.patch(f"/api/contracts/{contract['id']}", json={"name": contract["name"], "archived": True})
+
+    assert archived.status_code == 200
+    assert archived.json()["end_date"] == RECENT_DATE.isoformat()
+
+
+def test_setting_an_end_date_re_arms_the_ending_notification(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    contract = _create_contract(http_client, account_id=account_id)
+    with session_factory() as session:
+        session.get(entity=Contract, ident=contract["id"]).ending_notified_at = utc_now()
+        session.commit()
+
+    updated = http_client.patch(
+        f"/api/contracts/{contract['id']}", json={"name": contract["name"], "end_date": LATEST_DATE.isoformat()}
+    )
+
+    assert updated.status_code == 200
+    assert updated.json()["end_date"] == LATEST_DATE.isoformat()
+    with session_factory() as session:
+        assert session.get(entity=Contract, ident=contract["id"]).ending_notified_at is None

@@ -27,7 +27,15 @@ from source.backend.helpers import (
 )
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_type import TransactionType
-from tests.backend.conftest import DEFAULT_AMOUNT, RECENT_DATE, assert_log_contains, create_fetched_transaction
+from tests.backend.conftest import (
+    DEFAULT_AMOUNT,
+    EURO,
+    NON_DEFAULT_CURRENCY,
+    RECENT_DATE,
+    UNSUPPORTED_CURRENCY,
+    assert_log_contains,
+    create_fetched_transaction,
+)
 
 
 @pytest.mark.parametrize(
@@ -48,11 +56,11 @@ def test_format_amount(amount: float, expected: str):
 @pytest.mark.parametrize(
     argnames="currency, expected",
     argvalues=[
-        ("EUR", "12,50 €"),
-        ("USD", "12,50 $"),
+        (EURO, "12,50 €"),
+        (NON_DEFAULT_CURRENCY, "12,50 $"),
         ("GBP", "12,50 £"),
         ("CHF", "12,50 CHF"),
-        ("XYZ", "12,50 XYZ"),  # Unknown code falls back to the code itself.
+        (UNSUPPORTED_CURRENCY, f"12,50 {UNSUPPORTED_CURRENCY}"),
     ],
 )
 def test_format_amount_uses_currency_symbol(currency: str, expected: str):

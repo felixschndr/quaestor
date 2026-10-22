@@ -11,7 +11,7 @@ from source.backend.helpers import utc_now
 from source.backend.models.auth.two_factor_challenge import TwoFactorChallenge
 from source.backend.models.auth.user import User
 from source.backend.services.auth import two_factor_service
-from tests.backend.conftest import USER_NAME, assert_log_contains, create_user
+from tests.backend.conftest import CHALLENGE_TOKEN, TWO_FACTOR_CODE, USER_NAME, assert_log_contains, create_user
 
 _BACKUP_CODE_FORMAT = re.compile(r"^[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$")
 
@@ -117,6 +117,34 @@ def test_disable_rejects_wrong_code(session_factory: sessionmaker):
         assert attached.two_factor_enabled is True
 
 
+def test_disable_is_rejected_while_2fa_is_off(session_factory: sessionmaker):
+    user = create_user(session_factory=session_factory)
+    with session_factory() as db_session:
+        attached = db_session.get(entity=User, ident=user.id)
+
+        with pytest.raises(InvalidTwoFactorError, match="not enabled"):
+            two_factor_service.disable(db_session=db_session, user=attached, code=TWO_FACTOR_CODE)
+
+
+def test_login_code_is_rejected_for_a_user_without_2fa(session_factory: sessionmaker):
+    user = create_user(session_factory=session_factory)
+    with session_factory() as db_session:
+        attached = db_session.get(entity=User, ident=user.id)
+
+        assert not two_factor_service.verify_login_code(db_session=db_session, user=attached, code=TWO_FACTOR_CODE)
+
+
+def test_empty_login_code_is_rejected_without_using_up_a_backup_code(session_factory: sessionmaker):
+    user = create_user(session_factory=session_factory)
+    with session_factory() as db_session:
+        attached = db_session.get(entity=User, ident=user.id)
+        secret, _, _ = two_factor_service.start_setup(db_session=db_session, user=attached)
+        two_factor_service.enable(db_session=db_session, user=attached, code=pyotp.TOTP(secret).now())
+
+        assert not two_factor_service.verify_login_code(db_session=db_session, user=attached, code="")
+        assert len(attached.backup_codes) == two_factor_service.BACKUP_CODE_COUNT
+
+
 def test_regenerate_backup_codes_replaces_and_invalidates_old(
     session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
@@ -163,3 +191,14 @@ def test_challenge_resolves_until_expired(session_factory: sessionmaker, caplog:
 def test_resolve_challenge_returns_none_for_unknown_token(session_factory: sessionmaker):
     with session_factory() as db_session:
         assert two_factor_service.resolve_challenge(db_session=db_session, raw_token="nope") is None  # nosec B106
+
+
+def test_deleting_an_unknown_challenge_leaves_the_others_alone(session_factory: sessionmaker):
+    user = create_user(session_factory=session_factory)
+    with session_factory() as db_session:
+        attached = db_session.get(entity=User, ident=user.id)
+        raw_token = two_factor_service.create_challenge(db_session=db_session, user=attached)
+
+        two_factor_service.delete_challenge(db_session=db_session, raw_token=CHALLENGE_TOKEN)
+
+        assert two_factor_service.resolve_challenge(db_session=db_session, raw_token=raw_token) is not None

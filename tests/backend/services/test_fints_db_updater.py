@@ -103,6 +103,19 @@ def test_update_keeps_bundled_db_when_the_directory_is_not_writable(
     assert_log_contains(caplog, message="is not writable; keeping bundled DB")
 
 
+def test_update_without_a_writable_directory_or_a_stored_db_keeps_the_in_memory_db(
+    isolated_paths: Path, monkeypatch: pytest.MonkeyPatch
+):
+    reloaded: list[Path] = []
+    monkeypatch.setattr(target=updater.os, name="access", value=lambda path, mode: False)
+    monkeypatch.setattr(target=updater, name="_reload_in_memory_db", value=lambda path: reloaded.append(path))
+
+    updater._update_raw_db_file()
+
+    assert reloaded == []
+    assert not isolated_paths.exists()
+
+
 def test_startup_update_logs_the_failure_and_does_not_raise(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):

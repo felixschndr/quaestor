@@ -89,6 +89,16 @@ def test_breakdown_returns_empty_without_selected_accounts(session_factory: sess
     assert (result.series if hasattr(result, "series") else result) == []
 
 
+def test_range_summary_is_zero_without_selected_accounts(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        summary = statistics_service.range_summary(
+            db_session=session, user=user, account_ids=[], date_from=LATEST_DATE, date_to=LATEST_DATE
+        )
+
+    assert summary == statistics_service.RangeSummary(income=0.0, expenses=0.0, count=0)
+
+
 def test_daily_net_worth_returns_empty_when_account_has_no_snapshots(session_factory: sessionmaker):
     # An owned account with no balance snapshots has no earliest date to anchor the
     # auto-start (date_from=None), so the series is empty.

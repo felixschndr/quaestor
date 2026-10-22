@@ -4,9 +4,13 @@ import pytest
 from pywebpush import WebPushException
 
 from source.backend.services.notifications import push_service
-from tests.backend.conftest import FakeHttpResponse, assert_log_contains
+from tests.backend.conftest import (
+    PUSH_ENDPOINT,
+    FakeHttpResponse,
+    assert_log_contains,
+)
 
-SUBSCRIPTION_INFO = {"endpoint": "https://push.example/abc", "keys": {"p256dh": "key", "auth": "auth"}}
+SUBSCRIPTION_INFO = {"endpoint": PUSH_ENDPOINT, "keys": {"p256dh": "key", "auth": "auth"}}
 PAYLOAD = {"title": "App"}
 
 
@@ -29,6 +33,14 @@ def test_application_server_key_is_generated_persisted_and_reloaded(
 
     monkeypatch.setattr(target=push_service, name="_vapid", value=None)
     assert push_service.get_application_server_key() == key
+
+
+def test_application_server_key_is_kept_in_memory_once_loaded():
+    key = push_service.get_application_server_key()
+    push_service.VAPID_PRIVATE_KEY_PATH.unlink()
+
+    assert push_service.get_application_server_key() == key
+    assert not push_service.VAPID_PRIVATE_KEY_PATH.exists()
 
 
 def test_send_reports_delivered_on_success(monkeypatch: pytest.MonkeyPatch):

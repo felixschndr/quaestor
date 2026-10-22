@@ -7,7 +7,14 @@ from source.backend.models.notifications.push_subscription import PushSubscripti
 from source.backend.services.notifications import notification_service, push_service
 from source.backend.services.notifications.notification_service import Notification
 from source.backend.services.notifications.push_service import PushOutcome, PushResult
-from tests.backend.conftest import assert_log_contains, make_user
+from tests.backend.conftest import (
+    PUSH_ENDPOINT,
+    PUSH_FAILURE_DETAIL,
+    SECOND_PUSH_ENDPOINT,
+    SECOND_PUSH_FAILURE_DETAIL,
+    assert_log_contains,
+    make_user,
+)
 
 
 def _add_subscription(db_session: Session, user_id: int, endpoint: str) -> PushSubscription:
@@ -54,8 +61,8 @@ def test_notify_user_delivers_to_all_subscriptions(
     with session_factory() as db_session:
         user = make_user(db_session)
         db_session.flush()
-        _add_subscription(db_session=db_session, user_id=user.id, endpoint="https://push.example/a")
-        _add_subscription(db_session=db_session, user_id=user.id, endpoint="https://push.example/b")
+        _add_subscription(db_session=db_session, user_id=user.id, endpoint=PUSH_ENDPOINT)
+        _add_subscription(db_session=db_session, user_id=user.id, endpoint=SECOND_PUSH_ENDPOINT)
         db_session.commit()
 
         result = notification_service.notify_user(
@@ -82,7 +89,7 @@ def test_the_push_payload_carries_the_log_entry_id_so_a_click_can_mark_it_read(
     with session_factory() as db_session:
         user = make_user(db_session)
         db_session.flush()
-        _add_subscription(db_session=db_session, user_id=user.id, endpoint="https://push.example/live")
+        _add_subscription(db_session=db_session, user_id=user.id, endpoint=PUSH_ENDPOINT)
         db_session.commit()
 
         notification_service.notify_user(
@@ -97,7 +104,7 @@ def test_notify_user_prunes_expired_subscriptions(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     def fake_send(subscription_info: dict, payload: dict) -> PushResult:
-        if subscription_info["endpoint"].endswith("/gone"):
+        if subscription_info["endpoint"] == SECOND_PUSH_ENDPOINT:
             return PushResult(outcome=PushOutcome.EXPIRED, detail="410 Gone")
         return PushResult(outcome=PushOutcome.DELIVERED)
 
@@ -106,8 +113,8 @@ def test_notify_user_prunes_expired_subscriptions(
     with session_factory() as db_session:
         user = make_user(db_session)
         db_session.flush()
-        _add_subscription(db_session=db_session, user_id=user.id, endpoint="https://push.example/live")
-        _add_subscription(db_session=db_session, user_id=user.id, endpoint="https://push.example/gone")
+        _add_subscription(db_session=db_session, user_id=user.id, endpoint=PUSH_ENDPOINT)
+        _add_subscription(db_session=db_session, user_id=user.id, endpoint=SECOND_PUSH_ENDPOINT)
         db_session.commit()
 
         result = notification_service.notify_user(
@@ -119,20 +126,24 @@ def test_notify_user_prunes_expired_subscriptions(
 
     assert result.delivered == 1
     assert result.pruned == 1
-    assert [subscription.endpoint for subscription in remaining] == ["https://push.example/live"]
+    assert [subscription.endpoint for subscription in remaining] == [PUSH_ENDPOINT]
 
 
 def test_notify_user_reports_first_failure_detail(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
+    details = {PUSH_ENDPOINT: PUSH_FAILURE_DETAIL, SECOND_PUSH_ENDPOINT: SECOND_PUSH_FAILURE_DETAIL}
     monkeypatch.setattr(
         target=push_service,
         name="send",
-        value=lambda **kwargs: PushResult(outcome=PushOutcome.FAILED, detail="403 BadJwtToken"),
+        value=lambda subscription_info, payload: PushResult(
+            outcome=PushOutcome.FAILED, detail=details[subscription_info["endpoint"]]
+        ),
     )
 
     with session_factory() as db_session:
         user = make_user(db_session)
         db_session.flush()
-        _add_subscription(db_session=db_session, user_id=user.id, endpoint="https://push.example/a")
+        _add_subscription(db_session=db_session, user_id=user.id, endpoint=PUSH_ENDPOINT)
+        _add_subscription(db_session=db_session, user_id=user.id, endpoint=SECOND_PUSH_ENDPOINT)
         db_session.commit()
 
         result = notification_service.notify_user(
@@ -140,5 +151,5 @@ def test_notify_user_reports_first_failure_detail(session_factory: sessionmaker,
         )
 
     assert result.delivered == 0
-    assert result.failed == 1
-    assert result.error == "403 BadJwtToken"
+    assert result.failed == 2
+    assert result.error == PUSH_FAILURE_DETAIL

@@ -8,6 +8,7 @@ from tests.backend.conftest import (
     LATEST_DATE,
     OLDER_DATE,
     RECENT_DATE,
+    SECOND_ACCOUNT_IBAN,
     SECOND_AMOUNT,
     link_transactions_as_related_group,
     make_account,
@@ -171,3 +172,35 @@ def test_merchant_credit_booked_before_the_purchase_is_badged(session_factory: s
 
     assert analysis.hidden_ids == {credit_id, purchase_id}
     assert analysis.refund_status == {purchase_id: "refunded", credit_id: "refund"}
+
+
+def test_cross_account_legs_of_different_amounts_stay_visible(session_factory: sessionmaker):
+    with session_factory() as session:
+        _, credential, source = make_user_and_credential_and_account(session)
+        target = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN)
+        out = make_transaction(session, account_id=source.id, amount=-DEFAULT_AMOUNT, date=OLDER_DATE)
+        incoming = make_transaction(session, account_id=target.id, amount=SECOND_AMOUNT, date=RECENT_DATE)
+        session.flush()
+        link_transactions_as_related_group(db_session=session, transactions=[out, incoming])
+        session.commit()
+
+        analysis = related_refunds.analyze(db_session=session)
+
+    assert analysis.hidden_ids == set()
+    assert analysis.refund_status == {}
+
+
+def test_analyzing_no_related_groups_finds_nothing(session_factory: sessionmaker):
+    with session_factory() as session:
+        _, credential, source = make_user_and_credential_and_account(session)
+        target = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN)
+        out = make_transaction(session, account_id=source.id, amount=-DEFAULT_AMOUNT, date=OLDER_DATE)
+        incoming = make_transaction(session, account_id=target.id, amount=DEFAULT_AMOUNT, date=RECENT_DATE)
+        session.flush()
+        link_transactions_as_related_group(db_session=session, transactions=[out, incoming])
+        session.commit()
+
+        analysis = related_refunds.analyze(db_session=session, related_group_ids=set())
+
+    assert analysis.hidden_ids == set()
+    assert analysis.refund_status == {}

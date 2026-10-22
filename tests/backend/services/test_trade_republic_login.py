@@ -12,8 +12,10 @@ from source.backend.exceptions import (
 from source.backend.helpers import utc_now
 from source.backend.services.banking import trade_republic_login as module
 from tests.backend.conftest import (
+    CREDENTIAL_ID,
     PHONE_NUMBER,
     PIN,
+    SECOND_CREDENTIAL_ID,
     TWO_FACTOR_CODE,
     assert_log_contains,
 )
@@ -53,10 +55,14 @@ def _patch_client(monkeypatch: pytest.MonkeyPatch, initiate_side_effect: Excepti
         (
             ValueError("bad phone number"),
             InvalidCredentialsError,
-            ["Trade Republic rejected the login for credential 1"],
+            [f"Trade Republic rejected the login for credential {CREDENTIAL_ID}"],
         ),
         (_http_error(503), requests.exceptions.HTTPError, []),  # server errors are re-raised generically
-        (_http_error(429), BankRateLimitedError, ["Trade Republic rate limited the login for credential 1"]),
+        (
+            _http_error(429),
+            BankRateLimitedError,
+            [f"Trade Republic rate limited the login for credential {CREDENTIAL_ID}"],
+        ),
     ],
 )
 def test_start_translates_initiate_errors(
@@ -69,7 +75,7 @@ def test_start_translates_initiate_errors(
     _patch_client(monkeypatch=monkeypatch, initiate_side_effect=initiate_side_effect)
 
     with pytest.raises(expected_exception):
-        module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
+        module.start(credential_id=CREDENTIAL_ID, phone_no=PHONE_NUMBER, pin=PIN)
 
     if expected_log:
         assert_log_contains(caplog, messages=expected_log)
@@ -102,47 +108,52 @@ def test_start_and_complete_roundtrip_returns_cookies_and_cleans_up(
 ):
     cookie_paths = _patch_successful_client(monkeypatch)
 
-    token, expires_at = module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
+    token, expires_at = module.start(credential_id=CREDENTIAL_ID, phone_no=PHONE_NUMBER, pin=PIN)
     assert expires_at > utc_now()
 
-    cookies = module.complete(challenge_token=token, credential_id=1, code=TWO_FACTOR_CODE)
+    cookies = module.complete(challenge_token=token, credential_id=CREDENTIAL_ID, code=TWO_FACTOR_CODE)
 
     assert cookies == "cookie-jar"
     assert module._pending_logins == {}
     assert not cookie_paths[0].exists()
     assert_log_contains(
         caplog,
-        messages=["2FA challenge issued for credential 1", "2FA login completed for credential 1"],
+        messages=[
+            f"2FA challenge issued for credential {CREDENTIAL_ID}",
+            f"2FA login completed for credential {CREDENTIAL_ID}",
+        ],
     )
 
 
 def test_complete_rejects_unknown_token(caplog: pytest.LogCaptureFixture):
     with pytest.raises(InvalidTwoFactorError):
-        module.complete(challenge_token="no-such-token", credential_id=1, code=TWO_FACTOR_CODE)  # nosec B106
+        module.complete(
+            challenge_token="no-such-token", credential_id=CREDENTIAL_ID, code=TWO_FACTOR_CODE
+        )  # nosec B106
 
     assert_log_contains(caplog, message="Unknown or expired 2FA challenge")
 
 
 def test_complete_rejects_token_issued_for_other_credential(monkeypatch: pytest.MonkeyPatch):
     _patch_successful_client(monkeypatch)
-    token, _ = module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
+    token, _ = module.start(credential_id=CREDENTIAL_ID, phone_no=PHONE_NUMBER, pin=PIN)
 
     with pytest.raises(InvalidTwoFactorError):
-        module.complete(challenge_token=token, credential_id=2, code=TWO_FACTOR_CODE)
+        module.complete(challenge_token=token, credential_id=SECOND_CREDENTIAL_ID, code=TWO_FACTOR_CODE)
 
 
 def test_complete_translates_http_error_into_invalid_two_factor(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     cookie_paths = _patch_successful_client(monkeypatch, complete_side_effect=_http_error(400))
-    token, _ = module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
+    token, _ = module.start(credential_id=CREDENTIAL_ID, phone_no=PHONE_NUMBER, pin=PIN)
 
     with pytest.raises(InvalidTwoFactorError, match="Invalid 2FA code"):
-        module.complete(challenge_token=token, credential_id=1, code=PIN)
+        module.complete(challenge_token=token, credential_id=CREDENTIAL_ID, code=PIN)
 
     assert module._pending_logins == {}
     assert not cookie_paths[0].exists()
-    assert_log_contains(caplog, message="Invalid 2FA code for credential 1")
+    assert_log_contains(caplog, message=f"Invalid 2FA code for credential {CREDENTIAL_ID}")
 
 
 @pytest.mark.parametrize(
@@ -151,9 +162,13 @@ def test_complete_translates_http_error_into_invalid_two_factor(
         (
             ValueError("Too many requests"),
             BankRateLimitedError,
-            "Trade Republic rate limited the login for credential 1",
+            f"Trade Republic rate limited the login for credential {CREDENTIAL_ID}",
         ),
-        (ValueError("code mismatch"), InvalidTwoFactorError, "Invalid 2FA code for credential 1: code mismatch"),
+        (
+            ValueError("code mismatch"),
+            InvalidTwoFactorError,
+            f"Invalid 2FA code for credential {CREDENTIAL_ID}: code mismatch",
+        ),
     ],
 )
 def test_complete_translates_value_errors(
@@ -164,10 +179,10 @@ def test_complete_translates_value_errors(
     expected_log: str,
 ):
     cookie_paths = _patch_successful_client(monkeypatch, complete_side_effect=complete_side_effect)
-    token, _ = module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
+    token, _ = module.start(credential_id=CREDENTIAL_ID, phone_no=PHONE_NUMBER, pin=PIN)
 
     with pytest.raises(expected_exception):
-        module.complete(challenge_token=token, credential_id=1, code=TWO_FACTOR_CODE)
+        module.complete(challenge_token=token, credential_id=CREDENTIAL_ID, code=TWO_FACTOR_CODE)
 
     assert not cookie_paths[0].exists()
     assert_log_contains(caplog, message=expected_log)
@@ -175,11 +190,11 @@ def test_complete_translates_value_errors(
 
 def test_expired_challenge_is_cleaned_up_and_rejected(monkeypatch: pytest.MonkeyPatch):
     cookie_paths = _patch_successful_client(monkeypatch)
-    token, _ = module.start(credential_id=1, phone_no=PHONE_NUMBER, pin=PIN)
+    token, _ = module.start(credential_id=CREDENTIAL_ID, phone_no=PHONE_NUMBER, pin=PIN)
     module._pending_logins[token].expires_at = utc_now() - timedelta(seconds=1)
 
     with pytest.raises(InvalidTwoFactorError):
-        module.complete(challenge_token=token, credential_id=1, code=TWO_FACTOR_CODE)
+        module.complete(challenge_token=token, credential_id=CREDENTIAL_ID, code=TWO_FACTOR_CODE)
 
     assert module._pending_logins == {}
     assert not cookie_paths[0].exists()

@@ -5,7 +5,13 @@ from sqlalchemy.orm import sessionmaker
 from source.backend.exceptions import ApiKeyNotFoundError
 from source.backend.models.auth.api_key import ApiKey
 from source.backend.services.auth import api_key_service
-from tests.backend.conftest import API_KEY_NAME, INTRUDER_USER_NAME, assert_log_contains, create_user
+from tests.backend.conftest import (
+    API_KEY_NAME,
+    INTRUDER_USER_NAME,
+    UNKNOWN_API_KEY,
+    assert_log_contains,
+    create_user,
+)
 
 
 def test_create_returns_prefixed_token_and_stores_only_its_hash(
@@ -37,9 +43,10 @@ def test_authenticate_returns_user_and_stamps_last_used(session_factory: session
         assert db_session.scalars(select(ApiKey)).one().last_used_at is not None
 
 
-def test_authenticate_returns_none_for_unknown_token(session_factory: sessionmaker):
+@pytest.mark.parametrize(argnames="raw_token", argvalues=[UNKNOWN_API_KEY, None])
+def test_authenticate_returns_none_for_unknown_or_missing_token(session_factory: sessionmaker, raw_token: str | None):
     with session_factory() as db_session:
-        assert api_key_service.authenticate(db_session=db_session, raw_token="qk_does-not-exist") is None  # nosec B106
+        assert api_key_service.authenticate(db_session=db_session, raw_token=raw_token) is None
 
 
 def test_delete_removes_the_key(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):

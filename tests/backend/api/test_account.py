@@ -9,6 +9,7 @@ from source.backend.models.accounts.account import Account
 from source.backend.models.accounts.account_balance_snapshot import AccountBalanceSnapshot, BalanceSnapshotSource
 from source.backend.models.banking.credential import Credential
 from source.backend.models.transactions.category_source import CategorySource
+from source.backend.models.transactions.recurrence_frequency import RecurrenceFrequency
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
@@ -17,8 +18,10 @@ from tests.backend.conftest import (
     DEFAULT_AMOUNT,
     DEFAULT_BALANCE,
     INTRUDER_USER_NAME,
+    RECENT_DATE,
     REWE,
     SECOND_USER_NAME,
+    UNKNOWN_ID,
     USER_NAME,
     WALLET_ACCOUNT_NAME,
     assert_log_contains,
@@ -41,7 +44,7 @@ def _create_manual_account_payload(credential_id: int) -> dict:
 def test_create_manual_account_with_unknown_credential_returns_404(http_client: TestClient):
     register(http_client)
 
-    response = http_client.post("/api/account", json=_create_manual_account_payload(999999))
+    response = http_client.post("/api/account", json=_create_manual_account_payload(UNKNOWN_ID))
 
     assert response.status_code == 404
 
@@ -267,7 +270,7 @@ def test_get_transaction_returns_404_when_transaction_does_not_belong_to_account
 def test_get_transaction_returns_404_for_unknown_transaction(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
-    assert http_client.get(f"/api/account/{account_id}/transactions/999999").status_code == 404
+    assert http_client.get(f"/api/account/{account_id}/transactions/{UNKNOWN_ID}").status_code == 404
 
 
 def test_get_transaction_for_other_users_account_returns_404(http_client: TestClient, session_factory: sessionmaker):
@@ -1114,7 +1117,7 @@ def test_create_recurring_transaction_requires_account_of_user(http_client: Test
     register(http_client)
 
     response = http_client.post(
-        "/api/account/999999/recurring-transactions",
+        f"/api/account/{UNKNOWN_ID}/recurring-transactions",
         json={"amount": 10.0, "frequency": "WEEKLY", "day_of_week": 0},
     )
 
@@ -1140,6 +1143,34 @@ def test_create_recurring_transaction_rejects_weekly_without_day(http_client: Te
     response = http_client.post(
         f"/api/account/{account_id}/recurring-transactions",
         json={"amount": -DEFAULT_AMOUNT, "frequency": "WEEKLY"},
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    argnames="schedule",
+    argvalues=[
+        {
+            "frequency": RecurrenceFrequency.MONTHLY.value,
+            "day_of_month": RECENT_DATE.day,
+            "day_of_week": RECENT_DATE.weekday(),
+        },
+        {
+            "frequency": RecurrenceFrequency.WEEKLY.value,
+            "day_of_week": RECENT_DATE.weekday(),
+            "day_of_month": RECENT_DATE.day,
+        },
+    ],
+)
+def test_create_recurring_transaction_rejects_a_day_that_does_not_fit_the_frequency(
+    http_client: TestClient, schedule: dict
+):
+    register(http_client)
+    account_id = setup_manual_account(http_client)
+
+    response = http_client.post(
+        f"/api/account/{account_id}/recurring-transactions", json={"amount": -DEFAULT_AMOUNT, **schedule}
     )
 
     assert response.status_code == 422
@@ -1191,7 +1222,7 @@ def test_update_recurring_transaction_unknown_returns_404(http_client: TestClien
     account_id = setup_manual_account(http_client)
 
     response = http_client.patch(
-        f"/api/account/{account_id}/recurring-transactions/999999",
+        f"/api/account/{account_id}/recurring-transactions/{UNKNOWN_ID}",
         json={"amount": 1.0, "frequency": "WEEKLY", "day_of_week": 0},
     )
 
@@ -1216,6 +1247,6 @@ def test_delete_unknown_recurring_transaction_returns_404(http_client: TestClien
     register(http_client)
     account_id = setup_manual_account(http_client)
 
-    response = http_client.delete(f"/api/account/{account_id}/recurring-transactions/999999")
+    response = http_client.delete(f"/api/account/{account_id}/recurring-transactions/{UNKNOWN_ID}")
 
     assert response.status_code == 404

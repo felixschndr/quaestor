@@ -6,6 +6,7 @@ from tests.backend.conftest import (
     ACME,
     DEFAULT_AMOUNT,
     INTRUDER_USER_NAME,
+    UNKNOWN_ID,
     persist_transaction,
     register,
     register_and_login,
@@ -139,7 +140,7 @@ def test_modify_unknown_expected_transaction_returns_404(
 
     response = http_client.request(
         method=method,
-        url=f"/api/account/{account_id}/expected-transactions/999999",
+        url=f"/api/account/{account_id}/expected-transactions/{UNKNOWN_ID}",
         json=json_body,
     )
 

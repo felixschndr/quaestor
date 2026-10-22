@@ -1,7 +1,10 @@
 import pytest
 
 from source.backend.services.core import i18n_service
-from tests.backend.conftest import assert_log_contains
+from tests.backend.conftest import (
+    NON_DEFAULT_CURRENCY,
+    assert_log_contains,
+)
 
 
 def test_unsupported_default_language_is_logged(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
@@ -13,9 +16,9 @@ def test_unsupported_default_language_is_logged(monkeypatch: pytest.MonkeyPatch,
 
 
 def test_default_currency_normalises_lowercase_env_value(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv(name=i18n_service.DEFAULT_CURRENCY_ENV_VARIABLE_NAME, value="usd")
+    monkeypatch.setenv(name=i18n_service.DEFAULT_CURRENCY_ENV_VARIABLE_NAME, value=NON_DEFAULT_CURRENCY.lower())
 
-    assert i18n_service.get_default_currency() == "USD"
+    assert i18n_service.get_default_currency() == NON_DEFAULT_CURRENCY
 
 
 def test_unsupported_default_currency_falls_back_and_is_logged(

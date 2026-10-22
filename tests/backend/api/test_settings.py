@@ -7,6 +7,7 @@ from source.backend.services.auth.user_service import ALLOW_NEW_USER_REGISTRATIO
 from source.backend.services.banking.sync_scheduler import SYNC_INTERVAL_HOURS_ENV_VARIABLE_NAME
 from source.backend.services.core import i18n_service
 from source.backend.services.transactions import attachment_service
+from tests.backend.conftest import NON_DEFAULT_CURRENCY
 
 
 def _expected_trigger_default_days() -> dict[str, int]:
@@ -45,7 +46,7 @@ def test_settings_returns_defaults(http_client: TestClient, monkeypatch: pytest.
 def test_settings_reflects_env_variables(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv(name=ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME, value="false")
     monkeypatch.setenv(name=i18n_service.DEFAULT_LANGUAGE_ENV_VARIABLE_NAME, value="de")
-    monkeypatch.setenv(name=i18n_service.DEFAULT_CURRENCY_ENV_VARIABLE_NAME, value="USD")
+    monkeypatch.setenv(name=i18n_service.DEFAULT_CURRENCY_ENV_VARIABLE_NAME, value=NON_DEFAULT_CURRENCY)
     monkeypatch.setenv(name=i18n_service.DISPLAY_TIMEZONE_ENV_VARIABLE_NAME, value="Europe/Berlin")
     monkeypatch.setenv(name=SYNC_INTERVAL_HOURS_ENV_VARIABLE_NAME, value="6")
     monkeypatch.setenv(name=attachment_service.MAX_ATTACHMENT_SIZE_MB_ENV_VARIABLE_NAME, value="5")
@@ -56,7 +57,7 @@ def test_settings_reflects_env_variables(http_client: TestClient, monkeypatch: p
     assert response.json() == {
         "allow_new_user_registration": False,
         "default_language": "de",
-        "default_currency": "USD",
+        "default_currency": NON_DEFAULT_CURRENCY,
         "display_timezone": "Europe/Berlin",
         "sync_interval_hours": 6.0,
         "allowed_attachment_extensions": sorted(attachment_service.ALLOWED_EXTENSIONS),

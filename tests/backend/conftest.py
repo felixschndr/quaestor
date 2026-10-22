@@ -97,6 +97,33 @@ DEFAULT_BALANCE = 100.0
 NETFLIX = "Netflix"
 ACME = "ACME"
 REWE = "Rewe"
+NETFLIX_FINGERPRINT = "party:netflix:out"
+MONTHLY_DAY_OFFSETS = [0, 30, 60, 90]
+LONG_OVERDUE_MONTHLY_DAY_OFFSETS = [-800, -770, -740, -710]
+SAME_DAY_DAY_OFFSETS = [0, 0, 30]
+OFF_CADENCE_DAY_OFFSETS = [0, 50, 100]  # the gaps fit no cadence at all
+MOSTLY_OFF_CADENCE_DAY_OFFSETS = [0, 30, 80, 130]  # only one of three gaps fits a cadence
+ERRATIC_DEBIT_AMOUNTS = [-12.0, -12.0, -48.0, -48.0]
+UNKNOWN_ID = 999_999
+CREDENTIAL_ID = 1
+SECOND_CREDENTIAL_ID = 2
+UNKNOWN_API_KEY = "qk_not-a-real-key"  # nosec B105
+EURO = "EUR"
+NON_DEFAULT_CURRENCY = "USD"
+UNSUPPORTED_CURRENCY = "XXX"
+PUSH_ENDPOINT = "https://push.example/a"
+SECOND_PUSH_ENDPOINT = "https://push.example/b"
+PUSH_FAILURE_DETAIL = "403 BadJwtToken"
+SECOND_PUSH_FAILURE_DETAIL = "429 Too Many Requests"
+NOTIFICATION = Notification(title="Payment overdue", body="Wallet: rent overdue", url="/contracts/7")
+PAYPAL_COUNTERPARTY = "PayPal Europe S.a.r.l. et Cie S.C.A"
+ATTACHMENT_FILE_NAME = "receipt.pdf"
+UNKNOWN_CATEGORY = "NOT_A_CATEGORY"
+STORED_COOKIES = "stored-cookie"
+REFRESHED_COOKIES = "refreshed-cookie"
+EXCHANGE = "XETR"
+SHARE_COUNT = 10.0
+SHARE_PRICE = 120.0
 
 
 def date_to_epoch_ms(day: _date) -> int:

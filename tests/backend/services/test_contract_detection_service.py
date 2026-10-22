@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import timedelta
 from unittest.mock import Mock
 
@@ -6,6 +7,7 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from source.backend.bank_handlers import BankProvider
+from source.backend.models.accounts.account import Account
 from source.backend.models.contracts.contract import Contract
 from source.backend.models.contracts.contract_assignment import ContractAssignment
 from source.backend.models.contracts.contract_frequency import ContractFrequency
@@ -18,8 +20,17 @@ from source.backend.services.contracts.contract_detection_service import (
 )
 from tests.backend.conftest import (
     DEFAULT_AMOUNT,
+    ERRATIC_DEBIT_AMOUNTS,
+    LONG_OVERDUE_MONTHLY_DAY_OFFSETS,
+    MONTHLY_DAY_OFFSETS,
+    MOSTLY_OFF_CADENCE_DAY_OFFSETS,
     NETFLIX,
+    NETFLIX_FINGERPRINT,
+    OFF_CADENCE_DAY_OFFSETS,
     OLDER_DATE,
+    PAYPAL_COUNTERPARTY,
+    REWE,
+    SAME_DAY_DAY_OFFSETS,
     SECOND_USER_NAME,
     USER_NAME,
     assert_log_contains,
@@ -34,7 +45,7 @@ from tests.backend.conftest import (
 def _seed(
     session: Session,
     account_id: int,
-    other_party: str,
+    other_party: str | None,
     amount: float,
     day_offsets: list[int],
     purpose: str | None = None,
@@ -56,7 +67,9 @@ def _seed(
 def test_detects_monthly_series_as_contract(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     with session_factory() as session:
         account = make_account_with_new_user(session)
-        _seed(session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=[0, 30, 60, 90])
+        _seed(
+            session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=MONTHLY_DAY_OFFSETS
+        )
         session.commit()
 
         detected = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
@@ -67,7 +80,9 @@ def test_detects_monthly_series_as_contract(session_factory: sessionmaker, caplo
         assert contract.frequency == ContractFrequency.MONTHLY
         assert len(contract.members()) == 4
         assert contract.median_amount == -DEFAULT_AMOUNT
-        assert contract.expected_next_date == OLDER_DATE + timedelta(days=120)
+        assert contract.expected_next_date == OLDER_DATE + timedelta(
+            days=MONTHLY_DAY_OFFSETS[-1] + ContractFrequency.MONTHLY.interval_days
+        )
         assert_log_contains(caplog, message=f"Detected new <Contract(id={contract.id}")
         assert_log_contains(caplog, message=f"Contract detection on <Account(id={account.id}")
         assert_log_contains(caplog, message=")>: 1 recurring and 1 newly created contract(s) detected")
@@ -103,7 +118,7 @@ def test_backfill_detects_contracts_for_every_user(
                 account_id=account.id,
                 other_party=NETFLIX,
                 amount=-DEFAULT_AMOUNT,
-                day_offsets=[0, 30, 60, 90],
+                day_offsets=MONTHLY_DAY_OFFSETS,
             )
             session.commit()
 
@@ -127,12 +142,12 @@ def test_paypal_routed_subscription_only_forms_a_contract_on_the_paypal_account(
             credentials={"aspsp_name": "PayPal"},
         )
         paypal_account = make_account(session, credential_id=paypal_credential.id, name="PayPal")
-        for offset in [0, 30, 60, 90]:
+        for offset in MONTHLY_DAY_OFFSETS:
             make_transaction(
                 session,
                 account_id=bank_account.id,
                 amount=-DEFAULT_AMOUNT,
-                other_party="PayPal Europe S.a.r.l. et Cie S.C.A",
+                other_party=PAYPAL_COUNTERPARTY,
                 purpose=_APPLE_PAYPAL_PURPOSE,
                 date=OLDER_DATE + timedelta(days=offset),
                 transaction_type=TransactionType.OUTGOING,
@@ -158,12 +173,12 @@ def test_paypal_routed_subscription_only_forms_a_contract_on_the_paypal_account(
 def test_paypal_routed_subscription_forms_a_bank_contract_without_a_paypal_account(session_factory: sessionmaker):
     with session_factory() as session:
         bank_account = make_account_with_new_user(session, bank=BankProvider.FINTS)
-        for offset in [0, 30, 60, 90]:
+        for offset in MONTHLY_DAY_OFFSETS:
             make_transaction(
                 session,
                 account_id=bank_account.id,
                 amount=-DEFAULT_AMOUNT,
-                other_party="PayPal Europe S.a.r.l. et Cie S.C.A",
+                other_party=PAYPAL_COUNTERPARTY,
                 purpose=_APPLE_PAYPAL_PURPOSE,
                 date=OLDER_DATE + timedelta(days=offset),
                 transaction_type=TransactionType.OUTGOING,
@@ -205,6 +220,116 @@ def test_too_few_occurrences_do_not_form_a_contract(session_factory: sessionmake
 
         assert detected == []
         assert session.query(Contract).count() == 0
+
+
+@pytest.mark.parametrize(
+    argnames="day_offsets",
+    argvalues=[SAME_DAY_DAY_OFFSETS, OFF_CADENCE_DAY_OFFSETS, MOSTLY_OFF_CADENCE_DAY_OFFSETS],
+)
+def test_payments_without_a_steady_cadence_do_not_form_a_contract(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture, day_offsets: list[int]
+):
+    caplog.set_level(logging.DEBUG)
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        _seed(session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=day_offsets)
+        session.commit()
+
+        detected = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        assert detected == []
+        assert session.query(Contract).count() == 0
+        assert_log_contains(caplog, message=f"with {len(day_offsets)} transaction(s) is not recurring")
+
+
+def test_payments_with_erratic_amounts_do_not_form_a_contract(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    caplog.set_level(logging.DEBUG)
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        for offset, amount in zip(MONTHLY_DAY_OFFSETS, ERRATIC_DEBIT_AMOUNTS, strict=True):
+            make_transaction(
+                session,
+                account_id=account.id,
+                amount=amount,
+                other_party=NETFLIX,
+                date=OLDER_DATE + timedelta(days=offset),
+                transaction_type=TransactionType.OUTGOING,
+            )
+        session.commit()
+
+        detected = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        assert detected == []
+        assert session.query(Contract).count() == 0
+        assert_log_contains(caplog, message="has inconsistent amounts; skipping")
+
+
+def test_payments_without_a_counterparty_do_not_form_a_contract(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        _seed(session, account_id=account.id, other_party=None, amount=-DEFAULT_AMOUNT, day_offsets=MONTHLY_DAY_OFFSETS)
+        session.commit()
+
+        detected = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        assert detected == []
+        assert session.query(Contract).count() == 0
+
+
+def test_detected_contract_takes_the_category_most_of_its_payments_share(session_factory: sessionmaker):
+    categories = [
+        TransactionCategory.STREAMING,
+        TransactionCategory.STREAMING,
+        TransactionCategory.STREAMING,
+        TransactionCategory.ENTERTAINMENT,
+    ]
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        for offset, category in zip(MONTHLY_DAY_OFFSETS, categories, strict=True):
+            make_transaction(
+                session,
+                account_id=account.id,
+                amount=-DEFAULT_AMOUNT,
+                other_party=NETFLIX,
+                category=category,
+                date=OLDER_DATE + timedelta(days=offset),
+                transaction_type=TransactionType.OUTGOING,
+            )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        contract = session.query(Contract).one()
+        assert contract.category == TransactionCategory.STREAMING
+        assert {member.category for member in contract.members()} == {TransactionCategory.STREAMING}
+
+
+def test_detected_contract_is_removed_once_its_payments_are_recategorized_as_groceries(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    caplog.set_level(logging.DEBUG)
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        _seed(session, account_id=account.id, other_party=REWE, amount=-DEFAULT_AMOUNT, day_offsets=MONTHLY_DAY_OFFSETS)
+        session.commit()
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+        contract_id = session.query(Contract).one().id
+        for transaction in account.transactions:
+            transaction.category = TransactionCategory.SUPERMARKET
+            transaction.category_source = CategorySource.MANUAL
+        session.commit()
+        account_id = account.id
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        assert session.query(Contract).count() == 0
+        assert {transaction.contract_id for transaction in account.transactions} == {None}
+        assert_log_contains(caplog, message=f"Removing detected <Contract(id={contract_id}")
 
 
 def test_amount_outlier_stays_in_series_and_is_flagged(session_factory: sessionmaker):
@@ -324,7 +449,9 @@ def test_paypal_transactions_are_split_into_one_contract_per_merchant(session_fa
 def test_detection_is_idempotent(session_factory: sessionmaker):
     with session_factory() as session:
         account = make_account_with_new_user(session)
-        _seed(session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=[0, 30, 60, 90])
+        _seed(
+            session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=MONTHLY_DAY_OFFSETS
+        )
         session.commit()
 
         first_run = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
@@ -342,8 +469,8 @@ def test_contract_category_is_applied_to_newly_detected_members(session_factory:
         contract = make_contract(
             session, account_id=account.id, name=NETFLIX, category=TransactionCategory.ENTERTAINMENT
         )
-        contract.fingerprint = "party:netflix:out"
-        for offset in (0, 30, 60, 90):
+        contract.fingerprint = NETFLIX_FINGERPRINT
+        for offset in MONTHLY_DAY_OFFSETS:
             make_transaction(
                 session,
                 account_id=account.id,
@@ -370,7 +497,7 @@ def test_detection_keeps_a_category_the_user_set_on_a_member(session_factory: se
         contract = make_contract(
             session, account_id=account.id, name=NETFLIX, category=TransactionCategory.ENTERTAINMENT
         )
-        contract.fingerprint = "party:netflix:out"
+        contract.fingerprint = NETFLIX_FINGERPRINT
         members = [
             make_transaction(
                 session,
@@ -380,7 +507,7 @@ def test_detection_keeps_a_category_the_user_set_on_a_member(session_factory: se
                 date=OLDER_DATE + timedelta(days=offset),
                 transaction_type=TransactionType.OUTGOING,
             )
-            for offset in (0, 30, 60, 90)
+            for offset in MONTHLY_DAY_OFFSETS
         ]
         members[0].category = TransactionCategory.GIFTS
         members[0].category_source = CategorySource.MANUAL
@@ -412,7 +539,9 @@ def test_a_transaction_released_from_a_contract_gets_its_matched_category_back(s
 def test_excluded_transaction_is_not_re_added(session_factory: sessionmaker):
     with session_factory() as session:
         account = make_account_with_new_user(session)
-        _seed(session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=[0, 30, 60, 90])
+        _seed(
+            session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=MONTHLY_DAY_OFFSETS
+        )
         session.commit()
 
         contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
@@ -445,7 +574,9 @@ def test_new_matching_payments_reactivate_an_archived_contract(
 ):
     with session_factory() as session:
         account = make_account_with_new_user(session)
-        _seed(session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=[0, 30, 60, 90])
+        _seed(
+            session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=MONTHLY_DAY_OFFSETS
+        )
         session.commit()
         contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
 
@@ -472,7 +603,7 @@ def test_contract_overdue_for_a_year_is_archived_automatically(
             account_id=account.id,
             other_party=NETFLIX,
             amount=-DEFAULT_AMOUNT,
-            day_offsets=[-800, -770, -740, -710],
+            day_offsets=LONG_OVERDUE_MONTHLY_DAY_OFFSETS,
         )
         session.commit()
 
@@ -480,6 +611,50 @@ def test_contract_overdue_for_a_year_is_archived_automatically(
 
         contract = session.query(Contract).one()
         assert contract.is_archived
-        assert contract.end_date == OLDER_DATE + timedelta(days=-710)
+        assert contract.end_date == OLDER_DATE + timedelta(days=LONG_OVERDUE_MONTHLY_DAY_OFFSETS[-1])
         assert_log_contains(caplog, message=f"Auto-archived <Contract(id={contract.id}")
         assert_log_contains(caplog, message=f")>; overdue since {contract.expected_next_date}")
+
+
+def test_auto_archived_contract_is_left_alone_by_the_next_detection(
+    session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        _seed(
+            session,
+            account_id=account.id,
+            other_party=NETFLIX,
+            amount=-DEFAULT_AMOUNT,
+            day_offsets=LONG_OVERDUE_MONTHLY_DAY_OFFSETS,
+        )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        contract = session.query(Contract).one()
+        assert contract.is_archived
+        archive_logs = [record for record in caplog.records if record.getMessage().startswith("Auto-archived")]
+        assert len(archive_logs) == 1
+
+
+def test_auto_archiving_keeps_an_end_date_the_user_set(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        contract = make_contract(session, account_id=account.id, name=NETFLIX, end_date=OLDER_DATE)
+        contract.fingerprint = NETFLIX_FINGERPRINT
+        _seed(
+            session,
+            account_id=account.id,
+            other_party=NETFLIX,
+            amount=-DEFAULT_AMOUNT,
+            day_offsets=LONG_OVERDUE_MONTHLY_DAY_OFFSETS,
+        )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        session.refresh(contract)
+        assert contract.is_archived
+        assert contract.end_date == OLDER_DATE

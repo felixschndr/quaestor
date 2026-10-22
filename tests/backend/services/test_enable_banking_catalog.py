@@ -79,3 +79,15 @@ def test_startup_update_falls_back_to_the_cached_list(
 
     assert enable_banking_catalog._aspsps == _ASPSPS
     assert_log_contains(caplog, message="Enable Banking ASPSP update failed; using cached list")
+
+
+def test_get_aspsps_serves_the_cached_list_and_then_keeps_it_in_memory(monkeypatch: pytest.MonkeyPatch):
+    def fetch_must_not_run() -> list[dict]:
+        raise AssertionError("the cached list must be enough")
+
+    monkeypatch.setattr(target=enable_banking_catalog, name="_fetch", value=fetch_must_not_run)
+    enable_banking_catalog.ENABLE_BANKING_ASPSPS_PATH.write_text(json.dumps(_ASPSPS))
+
+    assert enable_banking_catalog.get_aspsps() == _ASPSPS
+    enable_banking_catalog.ENABLE_BANKING_ASPSPS_PATH.unlink()
+    assert enable_banking_catalog.get_aspsps() == _ASPSPS

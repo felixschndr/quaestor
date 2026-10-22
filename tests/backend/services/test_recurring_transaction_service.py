@@ -13,11 +13,13 @@ from source.backend.models.accounts.account import Account
 from source.backend.models.transactions.recurrence_frequency import RecurrenceFrequency
 from source.backend.models.transactions.recurring_transaction import RecurringTransaction
 from source.backend.models.transactions.transaction import Transaction
+from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.services.accounts import account_service
 from source.backend.services.transactions import recurring_transaction_service
 from tests.backend.conftest import (
     DEFAULT_AMOUNT,
     DEFAULT_BALANCE,
+    UNKNOWN_ID,
     assert_log_contains,
     make_account_with_new_user,
     persist_manual_account_with_new_user,
@@ -115,6 +117,44 @@ def test_create_with_immediate_booking_books_today_and_schedules_next(
         booked = account.transactions[0]
         assert booked.date == _d("2026-06-06")
         assert booked.recurring_transaction_id == rule.id
+
+
+def test_booked_occurrence_takes_the_category_of_its_rule(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    _freeze_today(monkeypatch=monkeypatch, today_value=SATURDAY)
+    account_id = persist_manual_account_with_new_user(session_factory)
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        recurring_transaction_service.create_recurring_transaction(
+            db_session=session,
+            account=account,
+            fields={
+                "amount": -DEFAULT_AMOUNT,
+                "category": TransactionCategory.STREAMING,
+                "frequency": RecurrenceFrequency.WEEKLY,
+                "day_of_week": SATURDAY.weekday(),
+            },
+            book_immediately=True,
+        )
+
+        (booked,) = account.transactions
+        assert booked.category == TransactionCategory.STREAMING
+
+
+def test_book_due_with_nothing_due_books_nothing(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    _freeze_today(monkeypatch=monkeypatch, today_value=SATURDAY)
+    account_id = persist_manual_account_with_new_user(session_factory)
+
+    with session_factory() as session:
+        recurring_transaction_service.book_due_recurring_transactions(session)
+
+    with session_factory() as session:
+        assert session.get(entity=Account, ident=account_id).transactions == []
+    assert_log_contains(caplog, message="due recurring transaction(s)", negate=True)
 
 
 def test_create_rejects_non_manual_account(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
@@ -288,10 +328,12 @@ def test_update_unknown_rule_raises(
             recurring_transaction_service.update_recurring_transaction(
                 db_session=session,
                 account=account,
-                recurring_transaction_id=999999,
+                recurring_transaction_id=UNKNOWN_ID,
                 fields={"amount": 1.0, "frequency": RecurrenceFrequency.WEEKLY, "day_of_week": 0},
             )
-        assert_log_contains(caplog, message=f"Recurring transaction 999999 not found for <Account(id={account_id}")
+        assert_log_contains(
+            caplog, message=f"Recurring transaction {UNKNOWN_ID} not found for <Account(id={account_id}"
+        )
 
 
 def test_delete_detaches_booked_transactions_and_removes_rule(
@@ -331,5 +373,5 @@ def test_delete_unknown_rule_raises(session_factory: sessionmaker, monkeypatch: 
         account = session.get(entity=Account, ident=account_id)
         with pytest.raises(RecurringTransactionNotFoundError):
             recurring_transaction_service.delete_recurring_transaction(
-                db_session=session, account=account, recurring_transaction_id=999999
+                db_session=session, account=account, recurring_transaction_id=UNKNOWN_ID
             )

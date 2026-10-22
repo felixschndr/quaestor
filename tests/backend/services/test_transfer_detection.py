@@ -1,5 +1,5 @@
 import asyncio
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
@@ -20,6 +20,7 @@ from tests.backend.conftest import (
     ETF_NAME,
     LARGE_AMOUNT,
     NETFLIX,
+    PAYPAL_COUNTERPARTY,
     RECENT_DATE,
     SECOND_ACCOUNT_IBAN,
     SECOND_AMOUNT,
@@ -343,6 +344,33 @@ def test_deleting_one_leg_dissolves_a_two_member_related_group(session_factory: 
         assert in_transaction.transaction_type == TransactionType.INCOMING
 
 
+def test_deleting_one_leg_keeps_a_related_group_of_three(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, account_b = _create_two_accounts(session, user_id=user.id)
+        legs = [
+            make_transaction(
+                session, account_id=account_a.id, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_OUT
+            ),
+            make_transaction(
+                session, account_id=account_b.id, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_IN
+            ),
+            make_transaction(
+                session, account_id=account_b.id, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_OUT
+            ),
+        ]
+        related_group = link_transactions_as_related_group(db_session=session, transactions=legs)
+        session.flush()
+
+        session.delete(legs[0])
+        session.flush()
+
+        for leg in legs[1:]:
+            session.refresh(leg)
+            assert leg.related_group_id == related_group.id
+            assert leg.transaction_type in (TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT)
+
+
 def test_deleting_a_related_group_restores_member_types(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
@@ -509,7 +537,7 @@ def test_links_same_signed_mirror_booking_on_an_intermediary_account(session_fac
             account_id=bank_account.id,
             amount=-DEFAULT_AMOUNT,
             date=RECENT_DATE + timedelta(days=1),
-            other_party="PayPal Europe S.a.r.l. et Cie S.C.A",
+            other_party=PAYPAL_COUNTERPARTY,
             purpose="123456/PP.1922.PP/. SpotifyAB, Ihr Einkauf bei Spotify AB",
             transaction_type=TransactionType.OUTGOING,
         )
@@ -539,7 +567,7 @@ def test_mirror_matching_prefers_the_funding_leg_naming_the_same_merchant(sessio
             account_id=bank_account.id,
             amount=-DEFAULT_AMOUNT,
             date=RECENT_DATE,
-            other_party="PayPal Europe S.a.r.l. et Cie S.C.A",
+            other_party=PAYPAL_COUNTERPARTY,
             purpose="123456/PP.1922.PP/. Ihr Einkauf bei Steam",
             transaction_type=TransactionType.OUTGOING,
         )
@@ -548,7 +576,7 @@ def test_mirror_matching_prefers_the_funding_leg_naming_the_same_merchant(sessio
             account_id=bank_account.id,
             amount=-DEFAULT_AMOUNT,
             date=RECENT_DATE,
-            other_party="PayPal Europe S.a.r.l. et Cie S.C.A",
+            other_party=PAYPAL_COUNTERPARTY,
             purpose="123456/PP.1922.PP/. Ihr Einkauf bei Restaurant Rama",
             transaction_type=TransactionType.OUTGOING,
         )
@@ -592,6 +620,42 @@ def test_never_links_mirror_bookings_without_an_intermediary_counterparty(sessio
 
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 0
         assert unrelated.related_group_id is None
+        assert mirror.related_group_id is None
+
+
+@pytest.mark.parametrize(
+    argnames="funding_amount, funding_date",
+    argvalues=[
+        (-SECOND_AMOUNT, RECENT_DATE),
+        (-DEFAULT_AMOUNT, RECENT_DATE + transfer_detection.TRANSFER_MAX_DISTANCE + timedelta(days=1)),
+    ],
+)
+def test_never_links_a_mirror_booking_of_another_amount_or_too_far_apart(
+    session_factory: sessionmaker, funding_amount: float, funding_date: date
+):
+    with session_factory() as session:
+        user = make_user(session)
+        bank_account, paypal_account = _create_bank_and_paypal_accounts(session, user_id=user.id)
+        funding = make_transaction(
+            session,
+            account_id=bank_account.id,
+            amount=funding_amount,
+            date=funding_date,
+            other_party=PAYPAL_COUNTERPARTY,
+            transaction_type=TransactionType.OUTGOING,
+        )
+        mirror = make_transaction(
+            session,
+            account_id=paypal_account.id,
+            amount=-DEFAULT_AMOUNT,
+            date=RECENT_DATE,
+            other_party=NETFLIX,
+            transaction_type=TransactionType.OUTGOING,
+        )
+        session.flush()
+
+        assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 0
+        assert funding.related_group_id is None
         assert mirror.related_group_id is None
 
 
@@ -659,6 +723,25 @@ def test_chains_a_new_leg_onto_an_existing_related_groups_open_end(
         assert arrival.transaction_type == TransactionType.TRANSFER_IN
         assert arrival.transfer_original_type == TransactionType.INCOMING
         assert arrival.related_link_source == RelatedLinkSource.DETECTED
+
+
+def test_does_not_chain_a_leg_too_far_from_the_related_groups_open_end(session_factory: sessionmaker):
+    with session_factory() as session:
+        user = make_user(session)
+        account_a, account_b = _create_two_accounts(session, user_id=user.id)
+        _existing_related_group_leaving(session, account=account_a, amount=DEFAULT_AMOUNT)
+        late_arrival = make_transaction(
+            session,
+            account_id=account_b.id,
+            amount=DEFAULT_AMOUNT,
+            date=RECENT_DATE + transfer_detection.TRANSFER_MAX_DISTANCE + timedelta(days=1),
+            transaction_type=TransactionType.INCOMING,
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert late_arrival.related_group_id is None
 
 
 def test_does_not_chain_when_two_related_groups_are_in_reach(session_factory: sessionmaker):
@@ -986,6 +1069,28 @@ def test_chains_the_whole_broker_purchase_depot_and_cash_side(session_factory: s
         assert cash_buy.related_group_id == related_group.id
         assert cash_buy.transaction_type == TransactionType.TRANSFER_OUT
         assert cash_buy.transfer_original_type == TransactionType.BUY
+
+
+def test_a_cash_buy_of_a_later_sync_joins_the_group_whose_depot_leg_was_chained_before(
+    session_factory: sessionmaker,
+):
+    with session_factory() as session:
+        user = make_user(session)
+        _, cash, depot, related_group = _make_broker_setup(session=session, user=user)
+        make_transaction(
+            session, account_id=depot.id, amount=-DEFAULT_AMOUNT, date=RECENT_DATE, transaction_type=TransactionType.BUY
+        )
+        session.flush()
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+        cash_buy = make_transaction(
+            session, account_id=cash.id, amount=-DEFAULT_AMOUNT, date=RECENT_DATE, transaction_type=TransactionType.BUY
+        )
+        session.flush()
+
+        transfer_detection.detect_transfers_for_user(db_session=session, user=user)
+
+        assert cash_buy.related_group_id == related_group.id
+        assert cash_buy.transaction_type == TransactionType.TRANSFER_OUT
 
 
 def test_never_chains_a_lone_cash_leg_without_a_depot_mirror(session_factory: sessionmaker):

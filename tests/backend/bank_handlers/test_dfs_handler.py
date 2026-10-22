@@ -10,6 +10,8 @@ from source.backend.bank_handlers.dfs_handler import DFSHandler, _DFSSession
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
 from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
+    ETF_NAME,
+    ISIN,
     LAST_FETCHING_TIMESTAMP,
     LATEST_DATE,
     LATEST_DATE_MS,
@@ -17,6 +19,7 @@ from tests.backend.conftest import (
     OLDER_DATE_MS,
     RECENT_DATE,
     RECENT_DATE_MS,
+    UNKNOWN_ID,
     USER_NAME,
     VALID_PASSWORD,
     FakeHttpResponse,
@@ -218,6 +221,18 @@ def test_get_market_value_history_is_empty_without_price_series(monkeypatch: pyt
     patch_session(monkeypatch=monkeypatch, fake=FakeSession(kurse_list_data={"daten": {"rows": []}}))
 
     assert dfs_session().get_market_value_history(FetchedAccount(name="Stock A")) == []
+
+
+def test_price_series_of_a_fund_not_held_is_not_fetched(monkeypatch: pytest.MonkeyPatch):
+    rows = [*KURSE_LIST["daten"]["rows"], {"id": str(UNKNOWN_ID), "isin": ISIN, "name": ETF_NAME}]
+    fake = FakeSession(kurse_list_data={"daten": {"rows": rows}})
+    patch_session(monkeypatch=monkeypatch, fake=fake)
+    session = dfs_session()
+    held_fund = session.get_accounts()[0]
+
+    assert session.get_market_value_history(held_fund)
+    assert session.get_market_value_history(FetchedAccount(name=ETF_NAME)) == []
+    assert not any(url.endswith(f"/kurse/{UNKNOWN_ID}") for _, url, _ in fake.calls)
 
 
 def test_get_market_value_history_is_empty_for_unknown_account(monkeypatch: pytest.MonkeyPatch):
