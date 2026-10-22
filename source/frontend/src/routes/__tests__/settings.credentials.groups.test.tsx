@@ -90,6 +90,10 @@ describe('moveAccount', () => {
     expect(next.groups[1].accounts.map((a) => a.id)).toEqual([2, 1])
   })
 
+  it('keeps the layout when an account is dropped onto itself', () => {
+    expect(moveAccount(sampleLayout, 1, 'account-1')).toBe(sampleLayout)
+  })
+
   it('moves an account from a group to the ungrouped bucket', () => {
     const next = moveAccount(sampleLayout, 1, 'container-ungrouped')
     expect(next.groups[0].accounts).toEqual([])
@@ -664,6 +668,27 @@ describe('GroupsEditorView — drag and drop', () => {
 
     expect(screen.getAllByText(ACCOUNT_NAME_GIRO)).toHaveLength(1)
     expect(accountsIn('container-100')).toEqual([expect.stringContaining(ACCOUNT_NAME_GIRO)])
+    await flushDebounce()
+    expect(requestsTo(LAYOUT_URL, 'PUT')).toHaveLength(0)
+  })
+
+  it('undoes a move into another group when the drag is cancelled with Escape', async () => {
+    setup()
+    placeDropTarget(screen.getByTestId('container-ungrouped'))
+
+    startDrag(handleOf(ACCOUNT_NAME_DAY))
+    moveTo(1000)
+    expect(accountsIn('container-ungrouped')).toEqual([
+      expect.stringContaining(ACCOUNT_NAME_SAVINGS),
+      expect.stringContaining(ACCOUNT_NAME_DAY),
+    ])
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
+    await act(() => vi.runOnlyPendingTimersAsync())
+
+    expect(accountsIn('container-200')).toEqual([expect.stringContaining(ACCOUNT_NAME_DAY)])
+    expect(accountsIn('container-ungrouped')).toEqual([
+      expect.stringContaining(ACCOUNT_NAME_SAVINGS),
+    ])
     await flushDebounce()
     expect(requestsTo(LAYOUT_URL, 'PUT')).toHaveLength(0)
   })
