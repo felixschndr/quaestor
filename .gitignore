@@ -20,3 +20,4 @@ scripts/wip/
 .coverage
 htmlcov/
 coverage.xml
+coverage.json

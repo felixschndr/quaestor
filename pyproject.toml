@@ -51,6 +51,9 @@ env = [
 ]
 markers = ["real_playwright_browser: exercise the real Playwright browser provisioning logic"]
 
+[tool.coverage.run]
+branch = true
+
 [tool.alembic]
 script_location = "source/backend/alembic"
 prepend_sys_path = ["."]
