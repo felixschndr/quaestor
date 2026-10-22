@@ -68,7 +68,8 @@ function StatusLine({
   isLoading: boolean
 }) {
   const { t } = useTranslation()
-  if (isLoading || !versionInfo || versionInfo.latest === null) {
+  if (isLoading) return <span className="text-muted-foreground">…</span>
+  if (!versionInfo || versionInfo.latest === null) {
     return <span className="text-muted-foreground">{t('version.checkFailed')}</span>
   }
   if (versionInfo.update_available) {

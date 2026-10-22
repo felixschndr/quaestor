@@ -66,7 +66,8 @@ describe('SettingsVersionView', () => {
   it('shows placeholders instead of versions while loading', () => {
     render(<SettingsVersionView versionInfo={undefined} isLoading={true} />)
 
-    expect(screen.getAllByText('…')).toHaveLength(2)
+    expect(screen.getAllByText('…')).toHaveLength(3)
+    expect(screen.queryByText("Couldn't check for updates")).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: VERSION_LATEST })).not.toBeInTheDocument()
   })
 
@@ -108,7 +109,7 @@ describe('SettingsVersionPage', () => {
 
     renderWithQuery(<Page />)
 
-    expect(screen.getAllByText('…')).toHaveLength(2)
+    expect(screen.getAllByText('…')).toHaveLength(3)
     expect(await screen.findByRole('link', { name: VERSION_LATEST })).toHaveAttribute(
       'href',
       RELEASE_URL,
