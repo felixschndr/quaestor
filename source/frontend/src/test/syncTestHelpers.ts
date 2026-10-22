@@ -28,19 +28,22 @@ export interface SyncFetchMock {
   setJob: (job: SyncJob) => Promise<void>
 }
 
-export function installSyncFetchMock(
-  initialJobs: SyncJob[],
-  opts: { global?: boolean } = {},
-): SyncFetchMock {
-  const isGlobal = opts.global ?? true
+export function installSyncFetchMock(initialJobs: SyncJob[]): SyncFetchMock {
   const store = new Map<number, SyncJob>()
 
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     const method = (init?.method ?? 'GET').toUpperCase()
+    const single = url.match(/credentials\/(\d+)\/sync$/)
+    if (method === 'POST' && single) {
+      const id = Number(single[1])
+      const job = initialJobs.find((j) => j.credential_id === id) ?? makeJob({ credential_id: id })
+      store.set(id, job)
+      return jsonResponse(job, 202)
+    }
     if (method === 'POST' && /\/sync(\?|$)/.test(url)) {
       for (const job of initialJobs) store.set(job.credential_id, job)
-      return jsonResponse(isGlobal ? initialJobs : initialJobs[0], 202)
+      return jsonResponse(initialJobs, 202)
     }
     if (method === 'POST' && /\/2fa$/.test(url)) {
       const id = Number(url.match(/credentials\/(\d+)\//)![1])

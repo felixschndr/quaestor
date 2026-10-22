@@ -4,11 +4,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
-import type { UseAppSyncResult, UserRead } from '@/lib/auth'
+import type { UserRead } from '@/lib/auth'
 import type { SyncJob } from '@/lib/credentials'
 import type { ContractRead } from '@/lib/contract'
+import type { SyncContextValue } from '@/components/sync-provider'
 
-const overviewRoute = vi.hoisted(() => ({ sync: null as unknown as UseAppSyncResult }))
+const overviewRoute = vi.hoisted(() => ({ sync: null as unknown as SyncContextValue }))
 
 vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).routerMocks())
 vi.mock('@/components/sync-provider', () => ({ useSync: () => overviewRoute.sync }))
@@ -1202,9 +1203,11 @@ describe('OverviewView settings cog', () => {
 describe('overview route', () => {
   const OverviewPage = Route.options.component!
 
-  function setSync(overrides: Partial<UseAppSyncResult> = {}) {
+  function setSync(overrides: Partial<SyncContextValue> = {}) {
     overviewRoute.sync = {
       start: vi.fn(),
+      adopt: vi.fn(),
+      credential: vi.fn(),
       status: 'idle',
       jobs: new Map(),
       current2fa: null,
@@ -1212,7 +1215,6 @@ describe('overview route', () => {
       skip2fa: vi.fn(),
       succeededAt: null,
       failedAt: null,
-      startError: null,
       ...overrides,
     }
   }

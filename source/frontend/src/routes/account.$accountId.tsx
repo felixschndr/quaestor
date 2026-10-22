@@ -1,14 +1,11 @@
-import { useEffect } from 'react'
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
-import { useAuthMe, useCredentialSync, type AccountRead } from '@/lib/auth'
-import { bankTitle, isManualBank } from '@/lib/credentials'
-import { toastSyncFailure } from '@/lib/syncToast'
+import { useAuthMe, type AccountRead } from '@/lib/auth'
+import { isManualBank } from '@/lib/credentials'
 import { findAccountInUser, useAccountHistory, type AccountHistoryPage } from '@/lib/accountHistory'
 import { isStale } from '@/lib/format'
-import { TwoFactorModal } from '@/components/two-factor-modal'
+import { useCredentialSync } from '@/components/sync-provider'
 import { AccountDetailView } from '@/pages/account.$accountId'
 import { NotFound } from '@/components/not-found'
 
@@ -24,33 +21,6 @@ function AccountDetailPage() {
 
   const history = useAccountHistory(accountId)
   const sync = useCredentialSync(accountInfo?.credentialId ?? -1)
-  const { t } = useTranslation()
-  const router = useRouter()
-
-  // A sync that fails *after* a successful 2FA submit resolves the POST with 200, so the submit handler
-  // below never sees it. `failedAt` is the only signal that the async job died
-  const syncFailedAt = sync.failedAt
-  const syncBank = accountInfo?.bank
-  const syncBankName = accountInfo?.bankName
-  const syncCredentialId = accountInfo?.credentialId
-  const syncJobs = sync.jobs
-  const syncStartError = sync.startError
-  useEffect(() => {
-    if (syncFailedAt === null || syncBank === undefined || syncCredentialId === undefined) return
-    if (syncStartError?.status === 403) {
-      toast.error(t('sync.notAllowedForShare'))
-      return
-    }
-    const failed = Array.from(syncJobs.values()).find((job) => job.status === 'failed')
-    toastSyncFailure({
-      t,
-      bank: bankTitle(t, syncBank, syncBankName),
-      credentialId: syncCredentialId,
-      errorCode: failed?.error_code,
-      navigate: (path) => router.history.push(path),
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [syncFailedAt, syncBank, t])
 
   if (!user) return null // Root guard already redirected on 401.
 
@@ -62,49 +32,29 @@ function AccountDetailPage() {
   const permission = accountInfo.sharePermission
   const canSync =
     !isManual && (permission === null || (permission === 'write' && !accountInfo.requiresTwoFactor))
-  const isSyncBusy =
-    sync.status === 'starting' || sync.status === 'running' || sync.status === 'awaiting_2fa'
 
   return (
-    <>
-      <AccountDetailView
-        account={accountInfo.account}
-        bank={accountInfo.bank}
-        isOwner={permission === null}
-        canWrite={permission === null || permission === 'write'}
-        lastUpdated={accountInfo.lastFetchingTimestamp}
-        pages={history.data?.pages ?? []}
-        isLoading={history.isLoading}
-        isFetchingNextPage={history.isFetchingNextPage}
-        hasNextPage={!!history.hasNextPage}
-        onLoadMore={() => {
-          if (history.hasNextPage && !history.isFetchingNextPage) {
-            void history.fetchNextPage()
-          }
-        }}
-        onSyncClick={canSync ? sync.start : undefined}
-        syncDisabled={isSyncBusy}
-        syncSpinning={isSyncBusy}
-        syncSucceededAt={sync.succeededAt}
-        syncWarn={accountInfo.syncEnabled && isStale(accountInfo.lastFetchingTimestamp)}
-      />
-      <TwoFactorModal
-        current2fa={sync.current2fa}
-        onSubmit={async (code) => {
-          try {
-            await sync.submit2fa(code)
-          } catch {
-            toast.error(
-              t('sync.failed', { bank: bankTitle(t, accountInfo.bank, accountInfo.bankName) }),
-            )
-          }
-        }}
-        onSkip={() => {
-          toast(t('sync.skipped', { bank: bankTitle(t, accountInfo.bank, accountInfo.bankName) }))
-          sync.skip2fa()
-        }}
-      />
-    </>
+    <AccountDetailView
+      account={accountInfo.account}
+      bank={accountInfo.bank}
+      isOwner={permission === null}
+      canWrite={permission === null || permission === 'write'}
+      lastUpdated={accountInfo.lastFetchingTimestamp}
+      pages={history.data?.pages ?? []}
+      isLoading={history.isLoading}
+      isFetchingNextPage={history.isFetchingNextPage}
+      hasNextPage={!!history.hasNextPage}
+      onLoadMore={() => {
+        if (history.hasNextPage && !history.isFetchingNextPage) {
+          void history.fetchNextPage()
+        }
+      }}
+      onSyncClick={canSync ? sync.start : undefined}
+      syncDisabled={sync.busy}
+      syncSpinning={sync.busy}
+      syncSucceededAt={sync.succeededAt}
+      syncWarn={accountInfo.syncEnabled && isStale(accountInfo.lastFetchingTimestamp)}
+    />
   )
 }
 

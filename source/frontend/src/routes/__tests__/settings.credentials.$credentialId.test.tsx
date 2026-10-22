@@ -18,23 +18,14 @@ vi.mock('sonner', () => ({ toast: toastMock }))
 vi.mock('@/lib/auth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/auth')>()),
   useAuthMe: vi.fn(),
-  useCredentialSync: vi.fn(),
 }))
-vi.mock('@/lib/syncToast', () => ({ toastSyncFailure: vi.fn() }))
+vi.mock('@/components/sync-provider', () => ({ useCredentialSync: vi.fn() }))
 
 import { CredentialDetailView } from '@/pages/settings.credentials.$credentialId'
 import { Route } from '@/routes/settings.credentials.$credentialId'
-import {
-  useAuthMe,
-  useCredentialSync,
-  type AccountRead,
-  type CredentialRead,
-  type UseCredentialSyncResult,
-  type UserRead,
-} from '@/lib/auth'
+import { useAuthMe, type AccountRead, type CredentialRead, type UserRead } from '@/lib/auth'
+import { useCredentialSync } from '@/components/sync-provider'
 import type { AccountShareRecipient } from '@/lib/accountShares'
-import type { SyncJob } from '@/lib/credentials'
-import { toastSyncFailure } from '@/lib/syncToast'
 import { routeState } from './-routerMock'
 import {
   buildUser,
@@ -53,7 +44,6 @@ import {
   SHARE_RECIPIENT_NAME,
   TEST_IBAN,
   TEST_IBAN_FORMATTED,
-  TWO_FACTOR_CODE,
 } from '@/test/constants'
 
 function buildAccount(overrides: Partial<AccountRead> = {}): AccountRead {
@@ -1107,37 +1097,16 @@ describe('/settings/credentials/$credentialId route', () => {
   const Page = Route.options.component!
   const credential = buildCredential({ id: 42, bank: 'trade_republic' })
 
-  function syncState(overrides: Partial<UseCredentialSyncResult> = {}): UseCredentialSyncResult {
-    return {
-      start: vi.fn(),
-      status: 'idle',
-      jobs: new Map(),
-      current2fa: null,
-      submit2fa: vi.fn().mockResolvedValue(undefined),
-      skip2fa: vi.fn(),
-      succeededAt: null,
-      failedAt: null,
-      startError: null,
-      ...overrides,
-    }
+  type CredentialSync = ReturnType<typeof useCredentialSync>
+
+  function syncState(overrides: Partial<CredentialSync> = {}): CredentialSync {
+    return { start: vi.fn(), busy: false, succeededAt: null, ...overrides }
   }
 
   function mockHooks(user: UserRead | undefined, sync = syncState()) {
     vi.mocked(useAuthMe).mockReturnValue({ data: user } as ReturnType<typeof useAuthMe>)
     vi.mocked(useCredentialSync).mockReturnValue(sync)
     return sync
-  }
-
-  function failedJob(overrides: Partial<SyncJob> = {}): SyncJob {
-    return {
-      job_id: 'job-1',
-      credential_id: 42,
-      status: 'failed',
-      expires_at: null,
-      error: null,
-      error_code: 'rate_limited',
-      ...overrides,
-    }
   }
 
   beforeEach(() => {
@@ -1160,14 +1129,11 @@ describe('/settings/credentials/$credentialId route', () => {
     expect(sync.start).toHaveBeenCalledOnce()
   })
 
-  it.each(['starting', 'running', 'awaiting_2fa'] as const)(
-    'disables the sync button while the sync is %s',
-    (status) => {
-      mockHooks(buildUser({ credentials: [credential] }), syncState({ status }))
-      renderWithQuery(<Page />)
-      expect(screen.getByRole('button', { name: 'Sync bank connection' })).toBeDisabled()
-    },
-  )
+  it('disables the sync button while its bank syncs', () => {
+    mockHooks(buildUser({ credentials: [credential] }), syncState({ busy: true }))
+    renderWithQuery(<Page />)
+    expect(screen.getByRole('button', { name: 'Sync bank connection' })).toBeDisabled()
+  })
 
   it('shows the not-found page without redirecting for an unknown id', () => {
     mockHooks(buildUser({ credentials: [] }))
@@ -1197,91 +1163,5 @@ describe('/settings/credentials/$credentialId route', () => {
     await user.click(screen.getByRole('button', { name: 'Really delete?' }))
 
     await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/settings/credentials'))
-  })
-
-  it("reports a failed sync with the failed job's error code and a link to the credential", () => {
-    mockHooks(buildUser({ credentials: [credential] }))
-    const { rerender } = renderWithQueryWrapper(<Page />)
-    expect(toastSyncFailure).not.toHaveBeenCalled()
-
-    mockHooks(
-      buildUser({ credentials: [credential] }),
-      syncState({ failedAt: 1, jobs: new Map([[42, failedJob()]]) }),
-    )
-    rerender(<Page />)
-
-    expect(toastSyncFailure).toHaveBeenCalledOnce()
-    const [args] = vi.mocked(toastSyncFailure).mock.calls[0]
-    expect(args).toMatchObject({
-      bank: 'Trade Republic',
-      credentialId: 42,
-      errorCode: 'rate_limited',
-    })
-    args.navigate('/settings/credentials/42')
-    expect(routerPush).toHaveBeenCalledWith('/settings/credentials/42')
-  })
-
-  it('reports a failure without an error code when no job is marked failed', () => {
-    mockHooks(
-      buildUser({ credentials: [credential] }),
-      syncState({ failedAt: 1, jobs: new Map([[42, failedJob({ status: 'completed' })]]) }),
-    )
-    renderWithQuery(<Page />)
-    expect(vi.mocked(toastSyncFailure).mock.calls[0][0].errorCode).toBeUndefined()
-  })
-
-  it('does not report a failure for a credential that is gone', () => {
-    mockHooks(buildUser({ credentials: [] }), syncState({ failedAt: 1 }))
-    renderWithQuery(<Page />)
-    expect(toastSyncFailure).not.toHaveBeenCalled()
-  })
-
-  describe('two-factor prompt', () => {
-    const current2fa = {
-      credentialId: 42,
-      jobId: 'job-1',
-      bank: 'trade_republic',
-      bankName: null,
-      bankIcon: null,
-      kind: 'awaiting_2fa' as const,
-    }
-
-    it('submits the entered code', async () => {
-      const user = userEvent.setup()
-      const sync = mockHooks(buildUser({ credentials: [credential] }), syncState({ current2fa }))
-      renderWithQuery(<Page />)
-
-      await user.type(screen.getByLabelText('Code'), TWO_FACTOR_CODE)
-      await user.click(screen.getByRole('button', { name: 'Confirm' }))
-
-      expect(sync.submit2fa).toHaveBeenCalledWith(TWO_FACTOR_CODE)
-      expect(toastMock.error).not.toHaveBeenCalled()
-    })
-
-    it('toasts a sync failure when the code is rejected', async () => {
-      const user = userEvent.setup()
-      mockHooks(
-        buildUser({ credentials: [credential] }),
-        syncState({ current2fa, submit2fa: vi.fn().mockRejectedValue(new Error('rejected')) }),
-      )
-      renderWithQuery(<Page />)
-
-      await user.type(screen.getByLabelText('Code'), TWO_FACTOR_CODE)
-      await user.click(screen.getByRole('button', { name: 'Confirm' }))
-
-      await waitFor(() =>
-        expect(toastMock.error).toHaveBeenCalledWith("Trade Republic couldn't be synced."),
-      )
-    })
-
-    it('skips the sync when the prompt is closed', async () => {
-      const sync = mockHooks(buildUser({ credentials: [credential] }), syncState({ current2fa }))
-      renderWithQuery(<Page />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Close' }))
-
-      expect(toastMock).toHaveBeenCalledWith('Trade Republic skipped.')
-      expect(sync.skip2fa).toHaveBeenCalledOnce()
-    })
   })
 })

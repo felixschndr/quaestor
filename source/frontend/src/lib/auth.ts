@@ -223,8 +223,20 @@ export interface Current2FA {
   deviceCode?: string | null
 }
 
-export interface UseGlobalSyncResult {
-  start: () => void
+export interface SyncStartOptions {
+  dueOnly?: boolean
+  credentialId?: number
+}
+
+export interface CredentialSyncState {
+  busy: boolean
+  succeededAt: number | null
+}
+
+export interface UseAppSyncResult {
+  start: (options?: SyncStartOptions) => Promise<SyncJob[]>
+  adopt: () => Promise<void>
+  credential: (credentialId: number) => CredentialSyncState
   status: GlobalSyncStatus
   jobs: Map<number, SyncJob>
   current2fa: Current2FA | null
@@ -232,7 +244,6 @@ export interface UseGlobalSyncResult {
   skip2fa: () => void
   succeededAt: number | null
   failedAt: number | null
-  startError: ApiError | null
 }
 
 const TWO_FACTOR_STATUSES = new Set<SyncJobStatus>([
@@ -241,107 +252,141 @@ const TWO_FACTOR_STATUSES = new Set<SyncJobStatus>([
   'awaiting_decoupled_approval',
 ])
 const TERMINAL_STATUSES = new Set<SyncJobStatus>(['completed', 'failed'])
+const ALL_CREDENTIALS = 'all'
+type StartKey = number | typeof ALL_CREDENTIALS
 
-type GlobalSyncPhase = 'idle' | 'starting' | 'active' | 'done' | 'finishing'
+function isRunning(job: SyncJob | undefined): boolean {
+  return job !== undefined && !TERMINAL_STATUSES.has(job.status)
+}
 
-function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts: boolean = false) {
+export function useAppSync(): UseAppSyncResult {
   const queryClient = useQueryClient()
-  const [phase, setPhase] = useState<GlobalSyncPhase>('idle')
+  const [phase, setPhase] = useState<'idle' | 'active' | 'done'>('idle')
   const [jobs, setJobs] = useState<Map<number, SyncJob>>(new Map())
   const [queue, setQueue] = useState<number[]>([])
+  const [starting, setStarting] = useState<ReadonlySet<StartKey>>(new Set())
+  const [finishedAt, setFinishedAt] = useState<ReadonlyMap<number, number>>(new Map())
   const [succeededAt, setSucceededAt] = useState<number | null>(null)
   const [failedAt, setFailedAt] = useState<number | null>(null)
-  const [startError, setStartError] = useState<ApiError | null>(null)
-  const queueRef = useRef<number[]>(queue)
+  const jobsRef = useRef(jobs)
+  const queueRef = useRef(queue)
+  const startingRef = useRef(new Set<StartKey>())
+  const startFailedRef = useRef(false)
   useEffect(() => {
     queueRef.current = queue
   }, [queue])
-  const jobsRef = useRef<Map<number, SyncJob>>(jobs)
-  useEffect(() => {
-    jobsRef.current = jobs
-  }, [jobs])
 
-  const current2faId = queue[0] ?? null
+  const commitJobs = useCallback((next: Map<number, SyncJob>) => {
+    jobsRef.current = next
+    setJobs(next)
+  }, [])
 
-  const allJobsTerminal = useMemo(
-    () => jobs.size > 0 && Array.from(jobs.values()).every((j) => TERMINAL_STATUSES.has(j.status)),
-    [jobs],
+  const changeStarting = useCallback((change: (keys: Set<StartKey>) => void) => {
+    change(startingRef.current)
+    setStarting(new Set(startingRef.current))
+  }, [])
+
+  const isBusy = useCallback(
+    () =>
+      startingRef.current.size > 0 ||
+      queueRef.current.length > 0 ||
+      Array.from(jobsRef.current.values()).some(isRunning),
+    [],
   )
 
-  const credentialDisplay = useCallback(
-    (credentialId: number) => {
-      const user = queryClient.getQueryData<UserRead>(authQueryKeys.me)
-      const credential = user?.credentials.find((c) => c.id === credentialId)
-      return {
-        bank: credential?.bank ?? '',
-        bankName: credential?.bank_name ?? null,
-        bankIcon: credential?.bank_icon ?? null,
-      }
-    },
-    [queryClient],
-  )
-
-  const phaseRef = useRef<GlobalSyncPhase>(phase)
-  useEffect(() => {
-    phaseRef.current = phase
-  }, [phase])
-
-  const start = useCallback(() => {
-    if (phaseRef.current === 'starting' || phaseRef.current === 'active') return
-    phaseRef.current = 'starting'
-    setPhase('starting')
-    setJobs(new Map())
+  const beginRound = useCallback(() => {
+    commitJobs(new Map())
     setQueue([])
     setSucceededAt(null)
     setFailedAt(null)
-    setStartError(null)
-    void (async () => {
-      try {
-        const started = await startJobs()
-        if (started.length === 0) {
-          setPhase('finishing')
-          return
-        }
-        const initial = new Map<number, SyncJob>()
-        for (const job of started) initial.set(job.credential_id, job)
-        setJobs(initial)
-        setPhase('active')
-      } catch (error) {
-        setStartError(error instanceof ApiError ? error : null)
-        setFailedAt(Date.now())
-        setPhase('finishing')
+    startFailedRef.current = false
+    setPhase('active')
+  }, [commitJobs])
+
+  const track = useCallback(
+    (started: SyncJob[]) => {
+      const next = new Map(jobsRef.current)
+      for (const job of started) next.set(job.credential_id, job)
+      commitJobs(next)
+    },
+    [commitJobs],
+  )
+
+  const applyUpdate = useCallback(
+    (update: SyncJob) => {
+      const previous = jobsRef.current.get(update.credential_id)
+      track([update])
+      if (TERMINAL_STATUSES.has(update.status) && isRunning(previous)) {
+        setFinishedAt((prev) => new Map(prev).set(update.credential_id, Date.now()))
+        void queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
+        void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
       }
-    })()
-  }, [startJobs])
+      setQueue((prev) => {
+        const queued = prev.includes(update.credential_id)
+        if (TWO_FACTOR_STATUSES.has(update.status)) {
+          return queued ? prev : [...prev, update.credential_id]
+        }
+        return queued ? prev.filter((id) => id !== update.credential_id) : prev
+      })
+    },
+    [track, queryClient],
+  )
+
+  const start = useCallback(
+    async ({ credentialId, dueOnly = false }: SyncStartOptions = {}): Promise<SyncJob[]> => {
+      const key: StartKey = credentialId ?? ALL_CREDENTIALS
+      if (isBusy()) {
+        if (credentialId === undefined) return []
+        if (startingRef.current.has(ALL_CREDENTIALS) || startingRef.current.has(credentialId)) {
+          return []
+        }
+        if (isRunning(jobsRef.current.get(credentialId))) return []
+      } else {
+        beginRound()
+      }
+      changeStarting((keys) => keys.add(key))
+      try {
+        const started =
+          credentialId === undefined
+            ? await api<SyncJob[]>(`/users/sync${dueOnly ? '?due_only=true' : ''}`, {
+                method: 'POST',
+              })
+            : [await api<SyncJob>(`/credentials/${credentialId}/sync`, { method: 'POST' })]
+        track(started)
+        return started
+      } catch (error) {
+        startFailedRef.current = true
+        throw error
+      } finally {
+        changeStarting((keys) => keys.delete(key))
+      }
+    },
+    [isBusy, beginRound, changeStarting, track],
+  )
+
+  const adopt = useCallback(async () => {
+    let serverJobs: SyncJob[]
+    try {
+      serverJobs = await api<SyncJob[]>('/credentials/sync')
+    } catch {
+      return
+    }
+    const untracked = serverJobs.filter(
+      (job) => isRunning(job) && !isRunning(jobsRef.current.get(job.credential_id)),
+    )
+    if (untracked.length === 0) return
+    if (!isBusy()) beginRound()
+    track(untracked)
+  }, [isBusy, beginRound, track])
 
   const jobKeys = useMemo(() => Array.from(jobs.keys()).sort().join(','), [jobs])
   useEffect(() => {
     if (jobs.size === 0) return
     let stopped = false
-    const applyUpdate = (update: SyncJob) => {
-      setJobs((prev) => {
-        const next = new Map(prev)
-        next.set(update.credential_id, update)
-        return next
-      })
-      if (TWO_FACTOR_STATUSES.has(update.status)) {
-        setQueue((prev) =>
-          prev.includes(update.credential_id) ? prev : [...prev, update.credential_id],
-        )
-      } else {
-        setQueue((prev) =>
-          prev.includes(update.credential_id)
-            ? prev.filter((id) => id !== update.credential_id)
-            : prev,
-        )
-      }
-    }
     const poll = async () => {
-      const trackedJobIds = new Set(Array.from(jobsRef.current.values()).map((j) => j.job_id))
-      const anyPending = Array.from(jobsRef.current.values()).some(
-        (job) => !TERMINAL_STATUSES.has(job.status),
-      )
-      if (!anyPending) return
+      const tracked = Array.from(jobsRef.current.values())
+      if (!tracked.some(isRunning)) return
+      const trackedJobIds = new Set(tracked.map((job) => job.job_id))
       try {
         const updates = await api<SyncJob[]>('/credentials/sync')
         if (stopped) return
@@ -366,41 +411,51 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobKeys])
 
+  const anyRunning = useMemo(() => Array.from(jobs.values()).some(isRunning), [jobs])
+  const busy = starting.size > 0 || queue.length > 0 || anyRunning
   useEffect(() => {
-    if (phase !== 'active') return
-    if (!allJobsTerminal || queue.length > 0) return
-    phaseRef.current = 'done'
+    if (phase !== 'active' || busy) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPhase('done')
     const reportable = Array.from(jobs.values()).filter((j) => j.error_code !== 'cancelled')
-    if (reportable.length > 0) {
-      if (reportable.every((j) => j.status === 'completed')) {
-        setSucceededAt(Date.now())
-      } else {
-        setFailedAt(Date.now())
-      }
+    if (startFailedRef.current || reportable.some((j) => j.status === 'failed')) {
+      setFailedAt(Date.now())
+    } else if (reportable.length > 0) {
+      setSucceededAt(Date.now())
     }
-    queryClient.invalidateQueries({ queryKey: authQueryKeys.me })
-    if (invalidateAccounts) {
-      queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
-    }
-  }, [phase, allJobsTerminal, queue.length, jobs, queryClient, invalidateAccounts])
+  }, [phase, busy, jobs])
 
+  const current2faId = queue[0] ?? null
   const status: GlobalSyncStatus = useMemo(() => {
     if (phase === 'idle') return 'idle'
-    if (phase === 'starting') return 'starting'
-    if (phase === 'done' || phase === 'finishing') return 'done'
-    return current2faId !== null ? 'awaiting_2fa' : 'running'
-  }, [phase, current2faId])
+    if (phase === 'done') return 'done'
+    if (current2faId !== null) return 'awaiting_2fa'
+    return anyRunning ? 'running' : 'starting'
+  }, [phase, current2faId, anyRunning])
+
+  const credential = useCallback(
+    (credentialId: number): CredentialSyncState => {
+      const job = jobs.get(credentialId)
+      return {
+        busy: starting.has(credentialId) || starting.has(ALL_CREDENTIALS) || isRunning(job),
+        succeededAt: job?.status === 'completed' ? (finishedAt.get(credentialId) ?? null) : null,
+      }
+    },
+    [jobs, starting, finishedAt],
+  )
 
   const current2fa: Current2FA | null = useMemo(() => {
     if (current2faId === null) return null
     const job = jobs.get(current2faId)
     if (!job) return null
+    const user = queryClient.getQueryData<UserRead>(authQueryKeys.me)
+    const credentialRead = user?.credentials.find((c) => c.id === current2faId)
     return {
       credentialId: current2faId,
       jobId: job.job_id,
-      ...credentialDisplay(current2faId),
+      bank: credentialRead?.bank ?? '',
+      bankName: credentialRead?.bank_name ?? null,
+      bankIcon: credentialRead?.bank_icon ?? null,
       kind:
         job.status === 'awaiting_decoupled_approval'
           ? 'awaiting_decoupled_approval'
@@ -410,21 +465,21 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
       authorizationUrl: job.authorization_url ?? null,
       deviceCode: job.device_code ?? null,
     }
-  }, [current2faId, jobs, credentialDisplay])
+  }, [current2faId, jobs, queryClient])
 
   const submit2fa = useCallback(
     async (code: string) => {
-      const activeId = queue[0]
+      const activeId = queueRef.current[0]
       if (activeId === undefined) return
-      const job = jobs.get(activeId)
+      const job = jobsRef.current.get(activeId)
       if (!job) return
       const updated = await api<SyncJob>(`/credentials/${activeId}/sync/${job.job_id}/2fa`, {
         method: 'POST',
         body: { code },
       })
-      setJobs((prev) => new Map(prev).set(updated.credential_id, updated))
+      applyUpdate(updated)
     },
-    [queue, jobs],
+    [applyUpdate],
   )
 
   const skip2fa = useCallback(() => {
@@ -437,43 +492,18 @@ function useSyncMachine(startJobs: () => Promise<SyncJob[]>, invalidateAccounts:
     }
   }, [])
 
-  return { start, status, jobs, current2fa, submit2fa, skip2fa, succeededAt, failedAt, startError }
-}
-
-export interface UseAppSyncResult extends Omit<UseGlobalSyncResult, 'start'> {
-  start: (options?: { dueOnly?: boolean }) => void
-}
-
-export function useAppSync(): UseAppSyncResult {
-  const dueOnlyRef = useRef(false)
-  const startJobs = useCallback(
-    async () =>
-      api<SyncJob[]>(`/users/sync${dueOnlyRef.current ? '?due_only=true' : ''}`, {
-        method: 'POST',
-      }),
-    [],
-  )
-  const machine = useSyncMachine(startJobs, true)
-  const { start: startMachine } = machine
-  const start = useCallback(
-    (options?: { dueOnly?: boolean }) => {
-      dueOnlyRef.current = options?.dueOnly ?? false
-      startMachine()
-    },
-    [startMachine],
-  )
-  return { ...machine, start }
-}
-
-export type CredentialSyncStatus = GlobalSyncStatus
-export type UseCredentialSyncResult = UseGlobalSyncResult
-
-export function useCredentialSync(credentialId: number): UseCredentialSyncResult {
-  const startJobs = useCallback(
-    async () => [await api<SyncJob>(`/credentials/${credentialId}/sync`, { method: 'POST' })],
-    [credentialId],
-  )
-  return useSyncMachine(startJobs, true)
+  return {
+    start,
+    adopt,
+    credential,
+    status,
+    jobs,
+    current2fa,
+    submit2fa,
+    skip2fa,
+    succeededAt,
+    failedAt,
+  }
 }
 
 export function evaluatePassword(

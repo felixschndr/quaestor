@@ -31,11 +31,17 @@ vi.mock('sonner', () => ({
 
 import { toast } from 'sonner'
 
-import { SyncProvider, useSync } from '@/components/sync-provider'
+import { ApiError } from '@/lib/api'
+import { SyncProvider, useCredentialSync, useSync } from '@/components/sync-provider'
 
 const BANK_TITLE = 'Trade Republic'
 
-const start = vi.fn()
+const start = vi.fn<UseAppSyncResult['start']>(() => Promise.resolve([]))
+const adopt = vi.fn(() => Promise.resolve())
+const credentialState = vi.fn<UseAppSyncResult['credential']>(() => ({
+  busy: false,
+  succeededAt: null,
+}))
 const submit2fa = vi.fn()
 const skip2fa = vi.fn()
 
@@ -56,6 +62,8 @@ function credential(id: number, overrides: Partial<CredentialRead> = {}): Creden
 function setSync(overrides: Partial<UseAppSyncResult> = {}) {
   mocks.sync = {
     start,
+    adopt,
+    credential: credentialState,
     status: 'idle',
     jobs: new Map(),
     current2fa: null,
@@ -63,9 +71,15 @@ function setSync(overrides: Partial<UseAppSyncResult> = {}) {
     skip2fa,
     succeededAt: null,
     failedAt: null,
-    startError: null,
     ...overrides,
   }
+}
+
+async function autoSyncStarted(...jobs: SyncJob[]) {
+  start.mockResolvedValueOnce(jobs)
+  const view = render(ui())
+  await act(async () => {})
+  return view
 }
 
 function jobsOf(...jobs: SyncJob[]): Map<number, SyncJob> {
@@ -144,6 +158,7 @@ describe('SyncProvider auto-sync', () => {
     rerender(ui())
 
     expect(start).toHaveBeenCalledExactlyOnceWith({ dueOnly: true })
+    expect(adopt).toHaveBeenCalledOnce()
   })
 
   it('syncs the due banks again whenever the tab comes back into view', () => {
@@ -191,7 +206,7 @@ describe('SyncProvider failure toasts', () => {
     expect(toast.error).not.toHaveBeenCalled()
   })
 
-  it('opens the credential from the toast and retries a full sync from its action', async () => {
+  it('opens the credential from the toast and retries just that bank from its action', async () => {
     const { rerender } = render(ui())
     setSync({ status: 'done', jobs: jobsOf(failed(1)) })
     rerender(ui())
@@ -206,7 +221,7 @@ describe('SyncProvider failure toasts', () => {
     act(() => options.action.onClick())
 
     expect(mocks.push).toHaveBeenCalledWith('/settings/credentials/1')
-    expect(start).toHaveBeenCalledExactlyOnceWith(undefined)
+    expect(start).toHaveBeenCalledExactlyOnceWith({ credentialId: 1 })
   })
 
   it('reports a failed job even before the user list knows its bank', async () => {
@@ -225,7 +240,10 @@ describe('SyncProvider failure toasts', () => {
     mocks.user = buildUser({
       credentials: [credential(1, { last_sync_error_code: 'timeout' }), credential(2)],
     })
-    const { rerender } = render(ui())
+    const { rerender } = await autoSyncStarted(
+      makeJob({ credential_id: 1 }),
+      makeJob({ credential_id: 2 }),
+    )
 
     setSync({ status: 'done', jobs: jobsOf(failed(1), failed(2)) })
     rerender(ui())
@@ -238,7 +256,7 @@ describe('SyncProvider failure toasts', () => {
 
   it('reports a known bank error again when the user started the sync', async () => {
     mocks.user = buildUser({ credentials: [credential(1, { last_sync_error_code: 'timeout' })] })
-    const { rerender } = render(ui())
+    const { rerender } = await autoSyncStarted(makeJob({ credential_id: 1 }))
     await userEvent.click(screen.getByRole('button', { name: /Sync now/ }))
 
     setSync({ status: 'done', jobs: jobsOf(failed(1)) })
@@ -247,17 +265,88 @@ describe('SyncProvider failure toasts', () => {
     expect(toast.error).toHaveBeenCalledOnce()
   })
 
-  it('toasts the same bank again once a new sync starts', () => {
+  it('still reports a sync the user started when the tab comes back during it', async () => {
+    mocks.user = buildUser({ credentials: [credential(1, { last_sync_error_code: 'timeout' })] })
+    const { rerender } = render(ui())
+    await userEvent.click(screen.getByRole('button', { name: /Sync now/ }))
+
+    await act(async () => setVisibility('visible'))
+    setSync({ status: 'done', jobs: jobsOf(failed(1)) })
+    rerender(ui())
+
+    expect(start).toHaveBeenLastCalledWith({ dueOnly: true })
+    expect(toast.error).toHaveBeenCalledOnce()
+  })
+
+  it('toasts the same bank again for a new sync job', () => {
     const { rerender } = render(ui())
     setSync({ status: 'done', jobs: jobsOf(failed(1)) })
     rerender(ui())
 
-    setSync({ status: 'starting' })
-    rerender(ui())
-    setSync({ status: 'done', jobs: jobsOf(failed(1)) })
+    setSync({ status: 'done', jobs: jobsOf({ ...failed(1), job_id: 'job-1-retry' }) })
     rerender(ui())
 
     expect(toast.error).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('useCredentialSync', () => {
+  function CredentialConsumer() {
+    const sync = useCredentialSync(1)
+    return (
+      <button type="button" onClick={sync.start}>
+        Sync bank ({sync.busy ? 'busy' : 'idle'})
+      </button>
+    )
+  }
+
+  function renderCredential() {
+    render(
+      <SyncProvider>
+        <CredentialConsumer />
+      </SyncProvider>,
+    )
+  }
+
+  it('shows the state of its bank and syncs just that bank', async () => {
+    credentialState.mockReturnValue({ busy: true, succeededAt: null })
+    renderCredential()
+    start.mockClear()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sync bank (busy)' }))
+
+    expect(credentialState).toHaveBeenCalledWith(1)
+    expect(start).toHaveBeenCalledExactlyOnceWith({ credentialId: 1 })
+  })
+
+  it('tells a share recipient that only the owner can sync', async () => {
+    renderCredential()
+    start.mockRejectedValueOnce(new ApiError(403, {}, 'forbidden'))
+
+    await userEvent.click(screen.getByRole('button', { name: /Sync bank/ }))
+
+    expect(toast.error).toHaveBeenCalledExactlyOnceWith('Only its owner can refresh this account')
+  })
+
+  it('reports any other failed start for the bank', async () => {
+    renderCredential()
+    start.mockRejectedValueOnce(new ApiError(500, {}, 'boom'))
+
+    await userEvent.click(screen.getByRole('button', { name: /Sync bank/ }))
+
+    render(vi.mocked(toast.error).mock.calls[0][0] as ReactNode)
+    expect(screen.getByText(`${BANK_TITLE} couldn't be synced.`)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /couldn't be synced/ }))
+    expect(mocks.push).toHaveBeenCalledWith('/settings/credentials/1')
+  })
+
+  it('stays quiet when a full sync could not be started', async () => {
+    render(ui())
+    start.mockRejectedValueOnce(new ApiError(500, {}, 'boom'))
+
+    await userEvent.click(screen.getByRole('button', { name: /Sync now/ }))
+
+    expect(toast.error).not.toHaveBeenCalled()
   })
 })
 

@@ -4,7 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
-import type { AccountRead, CredentialRead, UseCredentialSyncResult } from '@/lib/auth'
+import type { AccountRead, CredentialRead } from '@/lib/auth'
+import type { useCredentialSync } from '@/components/sync-provider'
 import type { AccountHistoryPage, TransactionRead } from '@/lib/accountHistory'
 
 const { mockUseAuthMe, mockUseCredentialSync, routerPush, toast } = vi.hoisted(() => ({
@@ -23,8 +24,8 @@ vi.mock('sonner', () => ({ toast }))
 vi.mock('@/lib/auth', async (importActual) => ({
   ...(await importActual<typeof import('@/lib/auth')>()),
   useAuthMe: mockUseAuthMe,
-  useCredentialSync: mockUseCredentialSync,
 }))
+vi.mock('@/components/sync-provider', () => ({ useCredentialSync: mockUseCredentialSync }))
 
 const { mockUseExpectedTransactions } = vi.hoisted(() => ({
   mockUseExpectedTransactions: vi.fn(),
@@ -36,7 +37,6 @@ vi.mock('@/lib/expectedTransaction', async (importActual) => ({
 
 import { AccountDetailView } from '@/pages/account.$accountId'
 import { Route } from '@/routes/account.$accountId'
-import { ApiError } from '@/lib/api'
 import { OFFLINE_BANNER_RESIZE_EVENT } from '@/components/offline-banner'
 import { STORAGE_KEY } from '@/lib/collapsedGroups'
 import { formatDateWithoutYear } from '@/lib/format'
@@ -63,7 +63,6 @@ import {
   TEST_IBAN,
   TEST_IBAN_FORMATTED,
   TODAY,
-  TWO_FACTOR_CODE,
   money,
 } from '@/test/constants'
 
@@ -1093,41 +1092,23 @@ describe('AccountDetailPage', () => {
     }
   }
 
-  function buildSync(overrides: Partial<UseCredentialSyncResult> = {}): UseCredentialSyncResult {
-    return {
-      start: vi.fn(),
-      status: 'idle',
-      jobs: new Map(),
-      current2fa: null,
-      submit2fa: vi.fn().mockResolvedValue(undefined),
-      skip2fa: vi.fn(),
-      succeededAt: null,
-      failedAt: null,
-      startError: null,
-      ...overrides,
-    }
+  type CredentialSync = ReturnType<typeof useCredentialSync>
+
+  function buildSync(overrides: Partial<CredentialSync> = {}): CredentialSync {
+    return { start: vi.fn(), busy: false, succeededAt: null, ...overrides }
   }
 
   function renderPage({
     accountId = '42',
     credential = buildCredential(),
     sync = buildSync(),
-  }: { accountId?: string; credential?: CredentialRead; sync?: UseCredentialSyncResult } = {}) {
+  }: { accountId?: string; credential?: CredentialRead; sync?: CredentialSync } = {}) {
     routeState.params = { accountId }
     mockUseAuthMe.mockReturnValue({ data: buildUser({ credentials: [credential] }) })
     mockUseCredentialSync.mockReturnValue(sync)
     renderWithQuery(<Page />)
     return sync
   }
-
-  const current2fa = {
-    credentialId: 100,
-    jobId: 'job',
-    bank: 'fints',
-    bankName: 'ING',
-    bankIcon: null,
-    kind: 'awaiting_2fa',
-  } as const
 
   it('renders nothing until the signed-in user is known', () => {
     routeState.params = { accountId: '42' }
@@ -1213,8 +1194,8 @@ describe('AccountDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Sync account' })).toBeEnabled()
   })
 
-  it('disables the sync button while a sync runs', () => {
-    renderPage({ sync: buildSync({ status: 'running' }) })
+  it('disables the sync button while its bank syncs', () => {
+    renderPage({ sync: buildSync({ busy: true }) })
     expect(screen.getByRole('button', { name: 'Sync account' })).toBeDisabled()
   })
 
@@ -1230,77 +1211,5 @@ describe('AccountDetailPage', () => {
       }),
     })
     expect(screen.getByText(/^Last updated /)).toHaveClass(colour)
-  })
-
-  it('tells someone the account is shared with that only its owner may sync', () => {
-    renderPage({
-      credential: buildCredential({ shared_from: SHARE_OWNER_NAME, share_permission: 'write' }),
-      sync: buildSync({ failedAt: 1, startError: new ApiError(403, null, 'forbidden') }),
-    })
-    expect(toast.error).toHaveBeenCalledWith('Only its owner can refresh this account')
-  })
-
-  it('reports a failed sync with its reason, linking to the connection', async () => {
-    const user = userEvent.setup()
-    renderPage({
-      sync: buildSync({
-        failedAt: 1,
-        jobs: new Map([
-          [
-            100,
-            {
-              job_id: 'job',
-              credential_id: 100,
-              status: 'failed',
-              expires_at: null,
-              error: null,
-              error_code: 'rate_limited',
-            },
-          ],
-        ]),
-      }),
-    })
-
-    expect(toast.error).toHaveBeenCalledOnce()
-    render(<>{toast.error.mock.calls[0][0] as React.ReactNode}</>)
-    await user.click(screen.getByRole('button', { name: /ING received too many requests/ }))
-    expect(routerPush).toHaveBeenCalledWith('/settings/credentials/100')
-  })
-
-  it('submits the 2FA code to the running sync', async () => {
-    const user = userEvent.setup()
-    const sync = renderPage({ sync: buildSync({ status: 'awaiting_2fa', current2fa }) })
-
-    await user.type(screen.getByLabelText('Code'), TWO_FACTOR_CODE)
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
-
-    expect(sync.submit2fa).toHaveBeenCalledWith(TWO_FACTOR_CODE)
-    expect(toast.error).not.toHaveBeenCalled()
-  })
-
-  it('toasts when the 2FA code is not accepted', async () => {
-    const user = userEvent.setup()
-    renderPage({
-      sync: buildSync({
-        status: 'awaiting_2fa',
-        current2fa,
-        submit2fa: vi.fn().mockRejectedValue(new Error('rejected')),
-      }),
-    })
-
-    await user.type(screen.getByLabelText('Code'), TWO_FACTOR_CODE)
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
-
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("ING couldn't be synced."))
-  })
-
-  it('skips the bank when the 2FA dialog is closed', async () => {
-    const user = userEvent.setup()
-    const sync = renderPage({ sync: buildSync({ status: 'awaiting_2fa', current2fa }) })
-
-    await user.click(screen.getByRole('button', { name: 'Close' }))
-
-    expect(toast).toHaveBeenCalledWith('ING skipped.')
-    expect(sync.skip2fa).toHaveBeenCalledOnce()
   })
 })

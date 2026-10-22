@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-import { ApiError } from '@/lib/api'
+import { ApiError, NetworkError } from '@/lib/api'
 import { authQueryKeys, useAppSync } from '@/lib/auth'
 import { installSyncFetchMock, makeJob, wrapper } from '@/test/syncTestHelpers'
 
@@ -142,7 +142,9 @@ describe('useAppSync edge cases', () => {
     const { fetchMock, result } = await startedSync()
     await waitFor(() => expect(result.current.status).toBe('running'))
 
-    act(() => result.current.start())
+    await act(async () => {
+      await expect(result.current.start()).resolves.toEqual([])
+    })
 
     expect(requests(fetchMock).filter((r) => r.startsWith('POST'))).toEqual([
       'POST /api/users/sync',
@@ -159,17 +161,19 @@ describe('useAppSync edge cases', () => {
 
   it.each([
     ['the server rejects it', () => new Response('{}', { status: 409 }), ApiError],
-    ['the server is unreachable', () => Promise.reject(new TypeError('Failed to fetch')), null],
+    [
+      'the server is unreachable',
+      () => Promise.reject(new TypeError('Failed to fetch')),
+      NetworkError,
+    ],
   ])('reports a failed start when %s', async (_, respond, errorType) => {
     globalThis.fetch = vi.fn(respond) as unknown as typeof fetch
     const { result } = renderHook(() => useAppSync(), { wrapper })
 
-    await act(async () => result.current.start())
+    await act(() => expect(result.current.start()).rejects.toBeInstanceOf(errorType))
 
     await waitFor(() => expect(result.current.status).toBe('done'))
     expect(result.current.failedAt).toEqual(expect.any(Number))
-    if (errorType) expect(result.current.startError).toBeInstanceOf(errorType)
-    else expect(result.current.startError).toBeNull()
   })
 
   it.each([
