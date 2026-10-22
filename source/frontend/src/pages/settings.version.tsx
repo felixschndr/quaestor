@@ -73,7 +73,7 @@ function StatusLine({
     return <span className="text-muted-foreground">{t('version.checkFailed')}</span>
   }
   if (versionInfo.update_available) {
-    return <span className="text-destructive font-medium">{t('version.updateAvailable')}</span>
+    return <span className="text-warning font-medium">{t('version.updateAvailable')}</span>
   }
   return <span className="text-success font-medium">{t('version.upToDate')}</span>
 }
