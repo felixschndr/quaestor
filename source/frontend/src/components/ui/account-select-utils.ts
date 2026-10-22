@@ -12,6 +12,25 @@ export function groupAccounts(
   credentials: CredentialRead[],
   layout?: AccountGroupLayout,
 ): AccountGroup[] {
+  return moveArchivedLast(groupAllAccounts(credentials, layout))
+}
+
+function moveArchivedLast(groups: AccountGroup[]): AccountGroup[] {
+  const archived = groups.flatMap((group) => group.accounts.filter((account) => account.is_hidden))
+  const active = groups
+    .map((group) => ({
+      ...group,
+      accounts: group.accounts.filter((account) => !account.is_hidden),
+    }))
+    .filter((group) => group.accounts.length > 0)
+  if (archived.length === 0) return active
+  return [...active, { key: 'archived', heading: '__archived__', accounts: archived }]
+}
+
+function groupAllAccounts(
+  credentials: CredentialRead[],
+  layout?: AccountGroupLayout,
+): AccountGroup[] {
   const lookup = buildAccountLookup(credentials)
 
   if (!layout?.groups?.length) {

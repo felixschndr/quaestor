@@ -1043,12 +1043,87 @@ def test_sync_sets_a_sold_position_to_zero(session_factory: sessionmaker, caplog
         accounts = _accounts_by_external_id(session, credential_id=credential_id)
         position = accounts[ACME]
         assert position.balance == 0.0
-        assert position.is_hidden is False
+        assert position.is_hidden is True
         assert position.balance_at_date[RECENT_DATE].balance == 4200.0
         assert position.balance_at_date[date.today()].balance == 0.0
         assert position.balance_at_date[date.today()].source == BalanceSnapshotSource.MARKET_VALUED
         assert accounts[ACCOUNT_IBAN].balance == DEFAULT_AMOUNT
-    assert_log_contains(caplog, message="is no longer held; set it to 0")
+    assert_log_contains(caplog, message="is no longer held --> set it to 0 and archived it")
+
+
+def _closed_position_handler(balance: float, is_closed: bool) -> MagicMock:
+    position = FetchedAccount(name="ACME Corp", external_id=ACME, is_closed=is_closed)
+    return build_handler(
+        FakeBankSession(
+            accounts=[position],
+            balances={ACME: balance},
+            transactions={},
+            market_values={ACME: [BalanceObservation(date=RECENT_DATE, amount=4200.0)]},
+        )
+    )
+
+
+def test_sync_archives_a_newly_found_sold_out_position(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+
+    _sync(session_factory, credential_id=credential_id, handler=_closed_position_handler(balance=0.0, is_closed=True))
+
+    with session_factory() as session:
+        position = _accounts_by_external_id(session, credential_id=credential_id)[ACME]
+        assert position.is_hidden is True
+        assert position.balance_at_date[RECENT_DATE].balance == 4200.0
+
+
+def test_sync_archives_a_held_position_once_the_bank_reports_it_sold(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    _sync(
+        session_factory, credential_id=credential_id, handler=_closed_position_handler(balance=4200.0, is_closed=False)
+    )
+
+    _sync(session_factory, credential_id=credential_id, handler=_closed_position_handler(balance=0.0, is_closed=True))
+
+    with session_factory() as session:
+        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_hidden is True
+
+
+def test_sync_keeps_a_sold_position_the_user_unarchived(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    sold = _closed_position_handler(balance=0.0, is_closed=True)
+    _sync(session_factory, credential_id=credential_id, handler=sold)
+    with session_factory() as session:
+        _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_hidden = False
+        session.commit()
+
+    _sync(session_factory, credential_id=credential_id, handler=sold)
+
+    with session_factory() as session:
+        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_hidden is False
+
+
+def test_sync_unarchives_a_sold_position_that_is_bought_again(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    _sync(session_factory, credential_id=credential_id, handler=_closed_position_handler(balance=0.0, is_closed=True))
+
+    _sync(
+        session_factory, credential_id=credential_id, handler=_closed_position_handler(balance=4200.0, is_closed=False)
+    )
+
+    with session_factory() as session:
+        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_hidden is False
+
+
+def test_sync_keeps_a_held_position_the_user_archived(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+    held = _closed_position_handler(balance=4200.0, is_closed=False)
+    _sync(session_factory, credential_id=credential_id, handler=held)
+    with session_factory() as session:
+        _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_hidden = True
+        session.commit()
+
+    _sync(session_factory, credential_id=credential_id, handler=held)
+
+    with session_factory() as session:
+        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_hidden is True
 
 
 def test_sync_keeps_an_account_that_is_not_a_position_when_the_bank_omits_it(session_factory: sessionmaker):

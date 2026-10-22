@@ -112,7 +112,8 @@ class Account(Base):
             snapshot.balance = 0.0
             snapshot.source = BalanceSnapshotSource.MARKET_VALUED
         self.balance = 0.0
-        logger.info(f"{self} is no longer held; set it to 0")
+        self.is_hidden = True
+        logger.info(f"{self} is no longer held --> set it to 0 and archived it")
 
     def record_balance_observations(self, observations: list[BalanceObservation]) -> None:
         # Persist bank-reported balances as ground-truth anchors. They are kept across recomputes

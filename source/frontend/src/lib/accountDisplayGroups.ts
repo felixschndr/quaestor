@@ -41,7 +41,9 @@ export function buildAccountLookup(credentials: CredentialRead[]): Map<number, A
 export function buildDisplayGroups(
   user: UserRead,
   layout: AccountGroupLayout | undefined,
+  showArchived: (account: AccountRead) => boolean = () => false,
 ): DisplayGroup[] {
+  const isVisible = (account: AccountRead) => !account.is_hidden || showArchived(account)
   const usesCustomLayout = !!layout && layout.groups.length > 0
   if (!usesCustomLayout) {
     return [...user.credentials]
@@ -50,7 +52,7 @@ export function buildDisplayGroups(
         key: `cred-${credential.id}`,
         heading: null,
         accounts: credential.accounts
-          .filter((account) => !account.is_hidden)
+          .filter(isVisible)
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((account) => ({
             ...account,
@@ -67,7 +69,7 @@ export function buildDisplayGroups(
   const resolveAccounts = (refs: AccountGroupAccountRef[]) =>
     refs
       .map((ref) => lookup.get(ref.id))
-      .filter((account): account is AccountWithBank => !!account && !account.is_hidden)
+      .filter((account): account is AccountWithBank => !!account && isVisible(account))
 
   const groups: DisplayGroup[] = layout!.groups.map((group) => ({
     key: `group-${group.id}`,

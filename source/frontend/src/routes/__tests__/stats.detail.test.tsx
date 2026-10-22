@@ -7,6 +7,8 @@ import type { TransactionRead } from '@/lib/accountHistory'
 import type { NetWorthRangeResponse } from '@/lib/statistics'
 import {
   ACCOUNT_NAME_GIRO,
+  ACCOUNT_NAME_OLD_ETF,
+  ACCOUNT_NAME_SOLD_ETF,
   AMOUNT_M,
   AMOUNT_S,
   DATE_RECENT,
@@ -77,6 +79,24 @@ vi.mock('@/lib/auth', () => ({
                   balance: 500,
                   balance_factor: 150,
                   is_hidden: false,
+                  include_by_default: true,
+                },
+                {
+                  id: 44,
+                  name: ACCOUNT_NAME_SOLD_ETF,
+                  display_name: null,
+                  balance: 0,
+                  balance_factor: 100,
+                  is_hidden: true,
+                  include_by_default: true,
+                },
+                {
+                  id: 45,
+                  name: ACCOUNT_NAME_OLD_ETF,
+                  display_name: null,
+                  balance: 0,
+                  balance_factor: 100,
+                  is_hidden: true,
                   include_by_default: true,
                 },
               ],
@@ -222,6 +242,27 @@ describe('NetWorthDetailPage', () => {
     // Total at end = 130 * 1.0 + 500 * 1.5 = 880; difference = 30 * 1.0 + 250 * 1.5 = 405.
     expect(screen.getByText(money(880))).toBeInTheDocument()
     expect(screen.getByText(`+${money(405)}`)).toBeInTheDocument()
+  })
+
+  it('shows archived accounts only when they held money at the start or end', () => {
+    routerState.search = { account_ids: [42, 44, 45], end: DATE_RECENT }
+    const archived = (account_id: number, balance_at_start: number) => ({
+      account_id,
+      balance_at_start,
+      balance_at_end: 0,
+      difference: -balance_at_start,
+      transactions: [],
+    })
+    hookState.range = loaded(
+      rangeResponse({
+        accounts: [...rangeResponse().accounts, archived(44, AMOUNT_M), archived(45, 0)],
+      }),
+    )
+    render(<NetWorthDetailPage />)
+
+    const sold = screen.getByRole('button', { name: new RegExp(ACCOUNT_NAME_SOLD_ETF) })
+    expect(within(sold).getByText('Archived')).toBeInTheDocument()
+    expect(screen.queryByText(ACCOUNT_NAME_OLD_ETF)).toBeNull()
   })
 
   it('colours a loss red and leaves an unchanged account neutral', () => {

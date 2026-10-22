@@ -18,6 +18,7 @@ import {
   type AccountUpdatePayload,
 } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
+import { ArchivedBadge } from '@/components/contract-status-badge'
 import { SyncButton } from '@/components/sync-button'
 import {
   hasSyncError,
@@ -503,7 +504,10 @@ function AccountRow({
     <li className="border-border bg-card flex flex-col rounded-lg border shadow-sm">
       <div className="flex items-start justify-between gap-3 p-4">
         <div className="flex min-w-0 flex-col">
-          <span className="text-foreground truncate text-base font-medium">{cardTitle}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="text-foreground truncate text-base font-medium">{cardTitle}</span>
+            {hidden ? <ArchivedBadge size="md" /> : null}
+          </span>
           {cardSubtitle ? (
             <span className="text-muted-foreground truncate text-xs">{cardSubtitle}</span>
           ) : null}

@@ -17,6 +17,8 @@ export const ACCOUNT_NAME_SAVINGS = 'Sparkonto'
 export const ACCOUNT_NAME_GIRO = 'Girokonto'
 export const ACCOUNT_NAME_DAY = 'Tagesgeld'
 export const ACCOUNT_NAME_BROKER = 'TR Cash'
+export const ACCOUNT_NAME_SOLD_ETF = 'Sold ETF'
+export const ACCOUNT_NAME_OLD_ETF = 'Old ETF'
 export const GROUP_NAME_SAVINGS = 'Spar'
 
 export const PARTY_SUPERMARKET = 'Rewe'

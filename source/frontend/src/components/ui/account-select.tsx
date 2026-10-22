@@ -94,7 +94,9 @@ export function AccountSelectPopover({
             const heading =
               group.heading === '__ungrouped__'
                 ? t('credentials.groups.ungroupedHeading')
-                : group.heading
+                : group.heading === '__archived__'
+                  ? t('common.archived')
+                  : group.heading
             return (
               <li key={group.key} className="flex flex-col">
                 {heading != null

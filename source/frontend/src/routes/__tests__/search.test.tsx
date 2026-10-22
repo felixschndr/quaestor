@@ -89,7 +89,7 @@ const credentials: CredentialRead[] = [
         balance: 0,
         balance_factor: 100,
         display_name: null,
-        is_hidden: false,
+        is_hidden: true,
         include_by_default: true,
         is_market_valued: false,
       },
@@ -367,6 +367,17 @@ describe('TransactionSearchView — accounts multi-select', () => {
         42, 99,
       ]),
     )
+  })
+
+  it('lists archived accounts last under their own heading', async () => {
+    const user = userEvent.setup()
+    renderView()
+
+    await user.click(screen.getByLabelText('Accounts'))
+
+    const archived = screen.getByRole('heading', { name: 'Archived' }).closest('li')!
+    expect(within(archived).getByText(ACCOUNT_NAME_BROKER)).toBeInTheDocument()
+    expect(within(archived).queryByText(ACCOUNT_NAME_GIRO)).toBeNull()
   })
 
   it('"All" selects every account', async () => {

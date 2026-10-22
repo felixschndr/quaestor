@@ -5,6 +5,7 @@ import logging
 import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -37,10 +38,12 @@ from tests.backend.conftest import (
     PHONE_NUMBER,
     PIN,
     POSITION_NAME,
+    RECENT_DATE,
     REFRESHED_COOKIES,
     SECOND_ISIN,
     SHARE_COUNT,
     SHARE_PRICE,
+    SOLD_ISIN,
     STORED_COOKIES,
     TWO_FACTOR_CODE,
     assert_log_contains,
@@ -452,8 +455,6 @@ def _utc_epoch_ms(day: date) -> int:
 def test_market_value_history_values_the_holding_with_the_daily_close(
     monkeypatch: pytest.MonkeyPatch, exchange_ids: list[str], expected_exchange: str
 ):
-    rows = [{"date": OLDER_DATE.isoformat(), "type": "Buy", "isin": ISIN, "shares": str(SHARE_COUNT)}]
-    _patch_pytr(monkeypatch=monkeypatch, rows=rows, captured={})
     client = _FakeWebsocketClient(
         responses={
             "instrument": {"exchangeIds": exchange_ids},
@@ -465,6 +466,7 @@ def test_market_value_history_values_the_holding_with_the_daily_close(
     session = _TradeRepublicSession(trade_republic_client=client)
     session._account(ETF_NAME)["isin"] = ISIN
     session._account(POSITION_NAME)["isin"] = SECOND_ISIN
+    session._share_moves = {ISIN: [(OLDER_DATE, SHARE_COUNT)]}
 
     history = session.get_market_value_history(FetchedAccount(name=ETF_NAME))
 
@@ -473,6 +475,31 @@ def test_market_value_history_values_the_holding_with_the_daily_close(
     price_subscription = client.subscriptions[-1]
     assert price_subscription["id"] == f"{ISIN}.{expected_exchange}"
     assert client.unsubscribed == list(range(1, len(client.subscriptions) + 1))
+
+
+def test_market_value_history_of_a_sold_out_position_is_zero_from_its_last_move_on():
+    client = _FakeWebsocketClient(
+        responses={
+            "instrument": {"exchangeIds": [EXCHANGE]},
+            trade_republic._PRICE_HISTORY_TOPIC: {
+                "aggregates": [
+                    {"time": _utc_epoch_ms(day), "close": str(SHARE_PRICE)}
+                    for day in (OLDER_DATE, RECENT_DATE, LATEST_DATE)
+                ]
+            },
+        }
+    )
+    session = _TradeRepublicSession(trade_republic_client=client)
+    session._account(POSITION_NAME).update(isin=SOLD_ISIN, closed=True)
+    session._share_moves = {SOLD_ISIN: [(OLDER_DATE, SHARE_COUNT * 2), (RECENT_DATE, -SHARE_COUNT)]}
+
+    history = session.get_market_value_history(FetchedAccount(name=POSITION_NAME))
+
+    assert history == [
+        BalanceObservation(date=OLDER_DATE, amount=SHARE_COUNT * 2 * SHARE_PRICE),
+        BalanceObservation(date=RECENT_DATE, amount=0.0),
+        BalanceObservation(date=LATEST_DATE, amount=0.0),
+    ]
 
 
 def test_market_value_history_without_positions_skips_the_websocket():
@@ -587,6 +614,15 @@ def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.M
 
     monkeypatch.setattr(target=session, name="_subscribe_once", value=fake_subscribe_once)
     monkeypatch.setattr(target=session, name="_instrument_exchange", value=fake_instrument_exchange)
+    rows = [
+        {"date": OLDER_DATE.isoformat(), "type": "Buy", "isin": ISIN, "shares": str(SHARE_COUNT)},
+        {"date": OLDER_DATE.isoformat(), "type": "Buy", "isin": SOLD_ISIN, "shares": str(SHARE_COUNT)},
+        {"date": RECENT_DATE.isoformat(), "type": "Sell", "isin": SOLD_ISIN, "shares": str(SHARE_COUNT)},
+    ]
+    _patch_pytr(monkeypatch=monkeypatch, rows=rows, captured={})
+    monkeypatch.setattr(
+        target=session, name="_instrument_titles", value=lambda events: {ISIN: ETF_NAME, SOLD_ISIN: POSITION_NAME}
+    )
 
     asyncio.run(session._fetch())
 
@@ -594,8 +630,64 @@ def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.M
     assert session._account(ACCOUNT_IBAN)["balance"] == 100.5
     assert session._account(ETF_NAME)["balance"] == SHARE_COUNT * SHARE_PRICE
     assert session._account(ETF_NAME)["isin"] == ISIN
+    assert session._account(ETF_NAME)["closed"] is False
     assert session._account("Some Bond 2030")["balance"] == 985.0  # price is per 100 of face value -> 98.5 / 100 * 1000
     assert session._account("Some Bond 2030")["isin"] == SECOND_ISIN
+    assert session._account(POSITION_NAME) == {"balance": 0.0, "transactions": [], "isin": SOLD_ISIN, "closed": True}
+    assert session._share_moves[SOLD_ISIN] == [(OLDER_DATE, SHARE_COUNT), (RECENT_DATE, -SHARE_COUNT)]
+
+
+def test_sold_out_position_named_like_a_held_one_gets_its_isin_appended(monkeypatch: pytest.MonkeyPatch):
+    session = _TradeRepublicSession(trade_republic_client=_FakeClient())
+
+    async def fake_subscribe_once(payload: dict, expected_type: str):  # noqa: ASYNC124
+        if expected_type == "cash":
+            return [{"accountNumber": ACCOUNT_IBAN, "amount": 0}]
+        return {"categories": [{"positions": [{"isin": ISIN, "name": ETF_NAME, "netSize": "0"}]}]}
+
+    async def fake_position_net_value(position: dict) -> float:  # noqa: ASYNC124
+        return SHARE_COUNT * SHARE_PRICE
+
+    monkeypatch.setattr(target=session, name="_subscribe_once", value=fake_subscribe_once)
+    monkeypatch.setattr(target=session, name="_position_net_value", value=fake_position_net_value)
+    _patch_pytr(
+        monkeypatch=monkeypatch,
+        rows=[{"date": OLDER_DATE.isoformat(), "type": "Buy", "isin": SOLD_ISIN, "shares": str(SHARE_COUNT)}],
+        captured={},
+    )
+    monkeypatch.setattr(target=session, name="_instrument_titles", value=lambda events: {SOLD_ISIN: ETF_NAME})
+
+    asyncio.run(session._fetch())
+
+    assert session._account(ETF_NAME)["isin"] == ISIN
+    assert session._account(f"{ETF_NAME} ({SOLD_ISIN})")["isin"] == SOLD_ISIN
+
+
+def test_get_accounts_marks_sold_out_positions_as_closed(monkeypatch: pytest.MonkeyPatch):
+    session = _session()
+    session._account(POSITION_NAME).update(isin=SOLD_ISIN, closed=True)
+
+    async def _noop() -> None:
+        pass
+
+    monkeypatch.setattr(target=session, name="_fetch", value=_noop)
+
+    closed = {account.external_id: account.is_closed for account in session.get_accounts()}
+    assert closed == {ACCOUNT_IBAN: False, ISIN: False, SOLD_ISIN: True}
+
+
+def test_instrument_titles_maps_each_isin_to_its_newest_title(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        target=trade_republic.Event, name="from_dict", value=staticmethod(lambda raw: SimpleNamespace(**raw))
+    )
+    events = [  # newest first, like the timeline
+        {"isin": ISIN, "title": ETF_NAME},
+        {"isin": ISIN, "title": POSITION_NAME},
+        {"isin": None, "title": PERSON_NAME},  # cash event
+        {"isin": SOLD_ISIN, "title": None},
+    ]
+
+    assert _TradeRepublicSession._instrument_titles(events) == {ISIN: ETF_NAME}
 
 
 def test_project_savings_plans_next_buy():

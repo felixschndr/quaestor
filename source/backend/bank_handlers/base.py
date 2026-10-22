@@ -24,6 +24,7 @@ class FetchedAccount:
     name: str
     external_id: str | None = None
     transaction_history_incomplete: bool = False
+    is_closed: bool = False
 
 
 @dataclass(frozen=True)

@@ -60,7 +60,13 @@ export function NetWorthDetailPage() {
   const endDate = search.end ?? toIsoDate(new Date())
   const startDate = search.start ?? shiftIsoDay(endDate, -1)
   const range = useNetWorthRange(startDate, endDate, accountIds)
-  const groups = useDisplayGroups(accountIds)
+  const changeByAccount = new Map<number, AccountRangeChange>(
+    (range.data?.accounts ?? []).map((change) => [change.account_id, change]),
+  )
+  const groups = useDisplayGroups(accountIds, (account) => {
+    const change = changeByAccount.get(account.id)
+    return !!change && (change.balance_at_start !== 0 || change.balance_at_end !== 0)
+  })
   const sort = search.sort ?? 'date_desc'
 
   const changeSort = (next: TransactionSortKey) => {
@@ -113,10 +119,6 @@ export function NetWorthDetailPage() {
   }
 
   if (!user || !groups) return null // root guard already redirected on 401
-
-  const changeByAccount = new Map<number, AccountRangeChange>(
-    (range.data?.accounts ?? []).map((change) => [change.account_id, change]),
-  )
 
   const totalAtEnd = range.data?.total_at_end ?? 0
   const totalDifference = range.data?.total_difference ?? 0

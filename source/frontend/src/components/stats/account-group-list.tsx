@@ -1,18 +1,22 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useAuthMe } from '@/lib/auth'
+import { ArchivedBadge } from '@/components/contract-status-badge'
+import { useAuthMe, type AccountRead } from '@/lib/auth'
 import { useAccountGroupLayout } from '@/lib/accountGroups'
 import { buildDisplayGroups, type AccountWithBank } from '@/lib/accountDisplayGroups'
 import { accountDisplayName } from '@/lib/accounts'
 import { formatFactorMultiplier } from '@/lib/format'
 
-export function useDisplayGroups(accountIds: number[]) {
+export function useDisplayGroups(
+  accountIds: number[],
+  showArchived?: (account: AccountRead) => boolean,
+) {
   const { data: user } = useAuthMe()
   const layout = useAccountGroupLayout()
   if (!user) return null
   const selectedIds = new Set(accountIds)
-  return buildDisplayGroups(user, layout.data)
+  return buildDisplayGroups(user, layout.data, showArchived)
     .map((group) => ({
       ...group,
       accounts: group.accounts.filter((account) => selectedIds.has(account.id)),
@@ -65,6 +69,7 @@ export function AccountLabel({ account }: { account: AccountWithBank }) {
           x {formatFactorMultiplier(account.balance_factor / 100)}
         </span>
       ) : null}
+      {account.is_hidden ? <ArchivedBadge /> : null}
     </span>
   )
 }

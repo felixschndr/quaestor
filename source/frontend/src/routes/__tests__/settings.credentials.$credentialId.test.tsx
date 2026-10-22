@@ -651,7 +651,8 @@ describe('CredentialDetailView — sync settings', () => {
     expect(
       screen.getByRole('checkbox', { name: 'Include when syncing all accounts' }),
     ).not.toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'Hide from overview' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Archive' })).toBeChecked()
+    expect(screen.getByText('Archived')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Select by default' })).not.toBeChecked()
   })
 
@@ -688,7 +689,7 @@ describe('CredentialDetailView — account toggles', () => {
   const credential = buildCredential({ accounts: [buildAccount({ id: 1 })] })
 
   it.each([
-    ['Hide from overview', { is_hidden: true }],
+    ['Archive', { is_hidden: true }],
     ['Select by default', { include_by_default: false }],
   ])('saves "%s" right away', async (label, payload) => {
     const user = userEvent.setup()
@@ -702,7 +703,7 @@ describe('CredentialDetailView — account toggles', () => {
   })
 
   it.each([
-    ['Hide from overview', false],
+    ['Archive', false],
     ['Select by default', true],
   ])('reverts "%s" when saving fails', async (label, initiallyChecked) => {
     const user = userEvent.setup()
@@ -1070,9 +1071,11 @@ describe('CredentialDetailView — an account shared with me', () => {
     const user = userEvent.setup()
     serve({ [`PATCH ${MINE_URL}`]: { status: 200, body: buildAccount() } })
     renderWithQuery(<CredentialDetailView credential={sharedCredential()} onDeleted={vi.fn()} />)
+    expect(screen.queryByText('Archived')).toBeNull()
 
-    await user.click(screen.getByRole('checkbox', { name: 'Hide from overview' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Archive' }))
 
+    expect(screen.getByText('Archived')).toBeInTheDocument()
     await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Saved'))
     expect(bodyOf('PATCH', MINE_URL)).toEqual({ is_hidden: true })
   })

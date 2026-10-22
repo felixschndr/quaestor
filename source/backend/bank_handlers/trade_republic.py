@@ -121,6 +121,7 @@ class _AccountState(TypedDict):
     balance: float
     transactions: list[FetchedTransaction]
     isin: str | None  # None for the cash account, the instrument ISIN for a position
+    closed: bool
 
 
 class _TradeRepublicSession(BankSession):
@@ -129,6 +130,7 @@ class _TradeRepublicSession(BankSession):
 
         self._accounts: dict[str, _AccountState] = {}
         self._cash_account_name: str | None = None
+        self._share_moves: dict[str, list[tuple[date, float]]] = {}
 
         self._transactions_loaded = False
         self._value_history: dict[str, list[BalanceObservation]] | None = None
@@ -136,7 +138,7 @@ class _TradeRepublicSession(BankSession):
 
     def _account(self, name: str) -> _AccountState:
         if name not in self._accounts:
-            self._accounts[name] = {"balance": 0.0, "transactions": [], "isin": None}
+            self._accounts[name] = {"balance": 0.0, "transactions": [], "isin": None, "closed": False}
         return self._accounts[name]
 
     def _account_name_for_isin(self, isin: str) -> str | None:
@@ -145,7 +147,7 @@ class _TradeRepublicSession(BankSession):
     def get_accounts(self) -> list[FetchedAccount]:
         asyncio.run(self._fetch())
         return [
-            FetchedAccount(name=account_name, external_id=state["isin"] or account_name)
+            FetchedAccount(name=account_name, external_id=state["isin"] or account_name, is_closed=state["closed"])
             for account_name, state in self._accounts.items()
         ]
 
@@ -204,6 +206,7 @@ class _TradeRepublicSession(BankSession):
             valued_positions: list[tuple[dict, float]] = []
             for position in positions:
                 valued_positions.append((position, await self._position_net_value(position)))
+            events = await self._load_full_events()
 
         cash = cash_accounts[0]
         cash_account_name: str = cash["accountNumber"]
@@ -215,7 +218,20 @@ class _TradeRepublicSession(BankSession):
             account["balance"] = net_value
             account["isin"] = position["isin"]
 
-        logger.debug(f"Trade Republic portfolio fetched: {len(positions)} portfolio position(s)")
+        self._share_moves = self._share_moves_by_isin(events)
+        titles = self._instrument_titles(events)
+        held_isins = {position["isin"] for position in positions}
+        sold_isins = [isin for isin in self._share_moves if isin not in held_isins]
+        for isin in sold_isins:
+            name = titles.get(isin) or isin
+            account = self._account(name if name not in self._accounts else f"{name} ({isin})")
+            account["isin"] = isin
+            account["closed"] = True
+
+        logger.debug(
+            f"Trade Republic portfolio fetched: {len(positions)} portfolio position(s), "
+            f"{len(sold_isins)} sold-out position(s)"
+        )
 
     async def _fetch_positions(self) -> list[dict]:
         sec_acc_no = self._trade_republic_client.settings().get("securitiesAccountNumber")
@@ -291,23 +307,31 @@ class _TradeRepublicSession(BankSession):
         )
 
     async def _fetch_value_history(self) -> dict[str, list[BalanceObservation]]:
-        # Map each securities position to its ISIN (cash accounts carry no ISIN). The walrus
-        # narrows the optional ISIN to a plain str so the downstream lookups stay well-typed.
         positions = {name: isin for name, state in self._accounts.items() if (isin := state["isin"]) is not None}
         if not positions:
             return {}
 
         async with self._connection():
-            share_moves = self._share_moves_by_isin(await self._load_full_events())
             history: dict[str, list[BalanceObservation]] = {}
             for name, isin in positions.items():
-                moves = sorted(share_moves.get(isin) or [])
+                moves = sorted(self._share_moves.get(isin) or [])
                 if not moves:
                     logger.debug(f"Trade Republic: no share moves for {name} ({isin}); skipping value history")
                     continue
                 exchange = await self._instrument_exchange(isin)
                 prices = await self._price_history(isin=isin, exchange=exchange)
-                history[name] = self._build_daily_market_value_history(name=name, isin=isin, moves=moves, prices=prices)
+                observations = self._build_daily_market_value_history(name=name, isin=isin, moves=moves, prices=prices)
+                if self._accounts[name]["closed"]:
+                    last_move = moves[-1][0]
+                    observations = [
+                        (
+                            BalanceObservation(date=observation.date, amount=0.0)
+                            if observation.date >= last_move
+                            else observation
+                        )
+                        for observation in observations
+                    ]
+                history[name] = observations
             return history
 
     async def _load_full_events(self) -> list[dict]:
@@ -342,6 +366,15 @@ class _TradeRepublicSession(BankSession):
                     continue
                 moves[isin].append((date.fromisoformat(str(row[date_field])), sign * float(shares)))
         return moves
+
+    @staticmethod
+    def _instrument_titles(events: list[dict]) -> dict[str, str]:
+        titles: dict[str, str] = {}
+        for raw_event in events:
+            event = Event.from_dict(raw_event)
+            if event.isin and event.title and event.isin not in titles:
+                titles[event.isin] = event.title
+        return titles
 
     async def _instrument_exchange(self, isin: str) -> str:
         instrument = await self._subscribe_once(payload={"type": "instrument", "id": isin}, expected_type="instrument")

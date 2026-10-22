@@ -53,6 +53,22 @@ describe('groupAccounts', () => {
     expect(flatIds(groups)).toEqual([3, 2, 1])
   })
 
+  it('moves archived accounts into a trailing archived group', () => {
+    const [ing, dkb] = credentials
+    const withArchived: CredentialRead[] = [
+      { ...ing, accounts: [ing.accounts[0], { ...ing.accounts[1], is_hidden: true }] },
+      { ...dkb, accounts: [{ ...dkb.accounts[0], is_hidden: true }] },
+    ]
+
+    const groups = groupAccounts(withArchived)
+
+    expect(groups.map((group) => [group.key, group.heading])).toEqual([
+      ['cred-1', null],
+      ['archived', '__archived__'],
+    ])
+    expect(flatIds(groups)).toEqual([1, 3, 2])
+  })
+
   it('carries the owning bank on every account row', () => {
     const [dkb] = groupAccounts(credentials)
 
