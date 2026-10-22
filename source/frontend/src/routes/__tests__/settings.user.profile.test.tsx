@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
@@ -166,13 +166,13 @@ describe('SettingsProfileView', () => {
     expect(patchRequests()).toHaveLength(0)
   })
 
-  it('keeps Save disabled and sends nothing while the values are unchanged', () => {
+  it('keeps Save disabled and sends nothing while the values are unchanged', async () => {
     renderWithQuery(<SettingsProfileView user={buildUser()} />)
 
     for (const label of ['Username', 'Display name']) {
       const form = screen.getByLabelText(label).closest('form')!
       expect(within(form).getByRole('button', { name: 'Save' })).toBeDisabled()
-      fireEvent.submit(form)
+      await act(async () => fireEvent.submit(form))
     }
 
     expect(patchRequests()).toHaveLength(0)

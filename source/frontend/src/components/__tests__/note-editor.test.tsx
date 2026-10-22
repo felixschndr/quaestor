@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { onlineManager } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -22,7 +22,6 @@ function stubCaretApi(name: 'caretPositionFromPoint' | 'caretRangeFromPoint', hi
 afterEach(() => {
   delete (document as Partial<Document>).caretPositionFromPoint
   delete (document as Partial<Document>).caretRangeFromPoint
-  onlineManager.setOnline(true)
 })
 
 describe('NoteEditor', () => {
@@ -134,7 +133,7 @@ describe('NoteEditor', () => {
     await user.type(screen.getByRole('textbox'), 'x')
     expect(screen.getByText('Saving …')).toBeInTheDocument()
 
-    await vi.waitFor(() => expect(onSave).toHaveBeenCalledWith('x'))
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith('x'))
     finishSave()
     expect(await screen.findByText('Saved')).toBeInTheDocument()
   })

@@ -80,7 +80,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks()
-  onlineManager.setOnline(true)
 })
 
 function buildTransaction(overrides: Partial<TransactionDetailRead> = {}): TransactionDetailRead {
@@ -721,7 +720,6 @@ describe('ContractSection', () => {
     )
     expect(screen.getByText('No contracts on this account')).toHaveClass('text-muted-foreground')
     expect(screen.queryByRole('link')).toBeNull()
-    onlineManager.setOnline(true)
   })
 })
 

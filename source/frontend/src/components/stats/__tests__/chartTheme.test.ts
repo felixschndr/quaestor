@@ -1,13 +1,13 @@
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { de, enUS } from 'date-fns/locale'
-import { afterEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import i18n from '@/i18n'
 import { formatMoney, wrapWithCurrency } from '@/lib/format'
 import { AMOUNT_M, AMOUNT_XL } from '@/test/constants'
 import { euroAxisFormat, euroFormat, useDateFnsLocale, useMonthLabel } from '../chartTheme'
 
-afterEach(async () => {
+beforeEach(async () => {
   await i18n.changeLanguage('en')
 })
 
@@ -34,7 +34,7 @@ describe('useDateFnsLocale', () => {
     const { result, rerender } = renderHook(() => useDateFnsLocale())
     expect(result.current).toBe(enUS)
 
-    await i18n.changeLanguage('de')
+    await act(() => i18n.changeLanguage('de'))
     rerender()
 
     expect(result.current).toBe(de)

@@ -630,13 +630,14 @@ describe('GroupsEditorView — drag and drop', () => {
     )
   })
 
-  it('inserts after the hovered account when dropped on its lower half', () => {
+  it('inserts after the hovered account when dropped on its lower half', async () => {
     setup()
     placeDropTarget(screen.getByText(ACCOUNT_NAME_GIRO).closest('li')!)
 
     startDrag(handleOf(ACCOUNT_NAME_DAY))
     moveTo(1040)
     drop(1040)
+    await act(() => vi.runOnlyPendingTimersAsync())
 
     expect(accountsIn('container-100')).toEqual([
       expect.stringContaining(ACCOUNT_NAME_GIRO),
@@ -644,13 +645,14 @@ describe('GroupsEditorView — drag and drop', () => {
     ])
   })
 
-  it('inserts before the hovered account when dropped on its upper half', () => {
+  it('inserts before the hovered account when dropped on its upper half', async () => {
     setup()
     placeDropTarget(screen.getByText(ACCOUNT_NAME_GIRO).closest('li')!)
 
     startDrag(handleOf(ACCOUNT_NAME_DAY))
     moveTo(980)
     drop(980)
+    await act(() => vi.runOnlyPendingTimersAsync())
 
     expect(accountsIn('container-100')).toEqual([
       expect.stringContaining(ACCOUNT_NAME_DAY),
