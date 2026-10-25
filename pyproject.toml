@@ -8,10 +8,10 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.14"
-sqlalchemy = "^2.1.4"
-fastapi = "^0.143.2"
+sqlalchemy = "^2.1.6"
+fastapi = "^0.161.1"
 pydantic = "^2.14.1"
-alembic = "^1.20.0"
+alembic = "^1.20.1"
 uvicorn = ">=0.54.0,<0.55"
 sqlcipher3 = ">=0.6.4,<0.7.0"
 python-dotenv = "^1.2.4"
@@ -34,7 +34,7 @@ python-multipart = "^0.0.32"
 pytest = "^9.1.1"
 httpx = "^0.28.1"
 pytest-cov = "^7.1.0"
-pytest-env = "^1.8.0"
+pytest-env = "^1.8.1"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
