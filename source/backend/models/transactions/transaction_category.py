@@ -349,6 +349,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
     TransactionCategory.ENTERTAINMENT: [
         "ausgehen",
         "buchhandlung",
+        "europa park",
         "feier",
         "patreon",
         "strand",
