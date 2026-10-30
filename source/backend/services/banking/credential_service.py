@@ -480,6 +480,8 @@ def confirm_two_factor(
         credential.session_state = handler.complete_two_factor_challenge(
             challenge_token=challenge_token, credential_id=credential_id, code=code
         )
+        if notify_two_factor_state is not None:
+            notify_two_factor_state(False)
         snapshot = notification_engine.capture_sync_snapshot(credential)
         try:
             result = sync_credential_object(credential=credential)

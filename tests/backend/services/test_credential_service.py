@@ -647,14 +647,26 @@ def test_confirm_two_factor_completes_login_and_syncs_credential(
 
     complete_login = MagicMock(return_value=REFRESHED_COOKIES)
     monkeypatch.setattr(target=trade_republic_login, name="complete", value=complete_login)
-    monkeypatch.setattr(target=Credential, name="sync", value=MagicMock())
+    states: list[bool] = []
+    states_when_syncing: list[list[bool]] = []
+
+    def fake_sync(self: Credential, handler: BankHandler) -> None:
+        states_when_syncing.append(list(states))
+
+    monkeypatch.setattr(target=Credential, name="sync", value=fake_sync)
 
     with session_factory() as session:
         result = credential_service.confirm_two_factor(
-            db_session=session, credential_id=credential_id, challenge_token=CHALLENGE_TOKEN, code=TWO_FACTOR_CODE
+            db_session=session,
+            credential_id=credential_id,
+            challenge_token=CHALLENGE_TOKEN,
+            code=TWO_FACTOR_CODE,
+            notify_two_factor_state=states.append,
         )
 
     assert result.status == credential_service.SyncStatus.COMPLETED
+    # The 2FA dialog is released before the sync starts, so the sync runs in the background
+    assert states_when_syncing == [[False]]
     complete_login.assert_called_once_with(
         challenge_token=CHALLENGE_TOKEN, credential_id=credential_id, code=TWO_FACTOR_CODE
     )
