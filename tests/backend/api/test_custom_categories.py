@@ -3,7 +3,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from source.backend.models.transactions.category_source import CategorySource
-from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from tests.backend.conftest import (
     DEFAULT_AMOUNT,
@@ -13,6 +12,7 @@ from tests.backend.conftest import (
     SECOND_USER_NAME,
     VALID_PASSWORD,
     assert_log_contains,
+    category_of,
     login_as,
     make_transaction,
     persist_transaction,
@@ -30,11 +30,6 @@ def _create(http_client: TestClient, name: str = BIO_SHOP, group: str = "FOOD_AN
     response = http_client.post(URL, json={"group": group, "name": name})
     assert response.status_code == 201, response.text
     return next(custom["key"] for custom in response.json()["custom_categories"] if custom["name"] == name.strip())
-
-
-def _category_of(session_factory: sessionmaker, transaction_id: int) -> str:
-    with session_factory() as session:
-        return session.get(entity=Transaction, ident=transaction_id).category
 
 
 def test_a_custom_category_is_listed_with_its_group(
@@ -120,7 +115,7 @@ def test_a_rule_can_assign_a_custom_category(http_client: TestClient, session_fa
     response = http_client.post("/api/categorization/rules", json={"pattern": "alnatura", "category": key})
 
     assert response.json()["recategorized"] == 1
-    assert _category_of(session_factory=session_factory, transaction_id=transaction_id) == key
+    assert category_of(session_factory=session_factory, transaction_id=transaction_id) == key
 
 
 def test_deleting_a_custom_category_leaves_its_transactions_uncategorized(
@@ -151,8 +146,8 @@ def test_deleting_a_custom_category_leaves_its_transactions_uncategorized(
     assert response.status_code == 200
     assert_log_contains(caplog=caplog, message=f"Deleted <CustomCategory(key={key}")
     assert response.json()["custom_categories"] == []
-    assert _category_of(session_factory=session_factory, transaction_id=manual) == TransactionCategory.UNKNOWN
-    assert _category_of(session_factory=session_factory, transaction_id=ruled) == TransactionCategory.UNKNOWN
+    assert category_of(session_factory=session_factory, transaction_id=manual) == TransactionCategory.UNKNOWN
+    assert category_of(session_factory=session_factory, transaction_id=ruled) == TransactionCategory.UNKNOWN
     assert http_client.get("/api/categorization").json()["rules"] == []
     assert http_client.get("/api/notification_rules").json()[-1]["categories"] == ["FUEL"]
 

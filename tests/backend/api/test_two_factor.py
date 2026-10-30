@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from httpx import Response
 
 from tests.backend.conftest import (
     SECOND_USER_NAME,
@@ -6,6 +7,7 @@ from tests.backend.conftest import (
     VALID_PASSWORD,
     current_totp,
     enable_two_factor,
+    login_as,
     register_and_get_id,
     register_and_login,
 )
@@ -64,9 +66,8 @@ def test_enable_with_wrong_code_is_rejected(http_client: TestClient):
 def test_login_with_2fa_returns_challenge_instead_of_session(http_client: TestClient):
     user_id = register_and_get_id(http_client)
     enable_two_factor(http_client, user_id=user_id)
-    http_client.cookies.delete("session")
 
-    response = http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD})
+    response = login_as(http_client, user_name=USER_NAME)
 
     assert response.status_code == 200
     body = response.json()
@@ -78,11 +79,7 @@ def test_login_with_2fa_returns_challenge_instead_of_session(http_client: TestCl
 def test_full_2fa_login_with_totp(http_client: TestClient):
     user_id = register_and_get_id(http_client)
     secret, _ = enable_two_factor(http_client, user_id=user_id)
-    http_client.cookies.delete("session")
-
-    challenge_token = http_client.post(
-        "/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD}
-    ).json()["challenge_token"]
+    challenge_token = login_as(http_client, user_name=USER_NAME).json()["challenge_token"]
     response = http_client.post(
         "/api/auth/2fa", json={"challenge_token": challenge_token, "code": current_totp(secret)}
     )
@@ -95,27 +92,19 @@ def test_full_2fa_login_with_totp(http_client: TestClient):
 def test_2fa_login_with_backup_code_is_single_use(http_client: TestClient):
     user_id = register_and_get_id(http_client)
     _, backup_codes = enable_two_factor(http_client, user_id=user_id)
-    http_client.cookies.delete("session")
 
-    def login_and_submit(code: str):
-        token = http_client.post("/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD}).json()[
-            "challenge_token"
-        ]
+    def login_and_submit(code: str) -> Response:
+        token = login_as(http_client, user_name=USER_NAME).json()["challenge_token"]
         return http_client.post("/api/auth/2fa", json={"challenge_token": token, "code": code})
 
     assert login_and_submit(backup_codes[0]).status_code == 200
-    http_client.cookies.delete("session")
     assert login_and_submit(backup_codes[0]).status_code == 401
 
 
 def test_2fa_login_with_wrong_code_keeps_challenge_for_retry(http_client: TestClient):
     user_id = register_and_get_id(http_client)
     secret, _ = enable_two_factor(http_client, user_id=user_id)
-    http_client.cookies.delete("session")
-
-    challenge_token = http_client.post(
-        "/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD}
-    ).json()["challenge_token"]
+    challenge_token = login_as(http_client, user_name=USER_NAME).json()["challenge_token"]
 
     wrong = http_client.post("/api/auth/2fa", json={"challenge_token": challenge_token, "code": "000000"})
     assert wrong.status_code == 401
@@ -152,10 +141,7 @@ def test_regenerate_backup_codes_invalidates_the_old_set(http_client: TestClient
     assert len(new_codes) == 5
     assert set(new_codes).isdisjoint(old_codes)
 
-    http_client.cookies.delete("session")
-    challenge_token = http_client.post(
-        "/api/auth/login", json={"user_name": USER_NAME, "password": VALID_PASSWORD}
-    ).json()["challenge_token"]
+    challenge_token = login_as(http_client, user_name=USER_NAME).json()["challenge_token"]
     assert (
         http_client.post("/api/auth/2fa", json={"challenge_token": challenge_token, "code": old_codes[0]}).status_code
         == 401

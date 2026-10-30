@@ -52,23 +52,25 @@ def _create_two_accounts(session: Session, user_id: int) -> tuple[Account, Accou
     return account_a, account_b
 
 
+def _leg(
+    session: Session, account: Account, amount: float, transaction_type: TransactionType, **kwargs: object
+) -> Transaction:
+    return make_transaction(session, account_id=account.id, amount=amount, transaction_type=transaction_type, **kwargs)
+
+
 def test_detects_a_simple_transfer_and_links_them(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        out_transaction = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.OUTGOING,
+        out_transaction = _leg(
+            session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.OUTGOING
         )
-        in_transaction = make_transaction(
+        in_transaction = _leg(
             session,
-            account_id=account_b.id,
+            account=account_b,
             amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE + timedelta(days=2),
             transaction_type=TransactionType.INCOMING,
+            date=RECENT_DATE + timedelta(days=2),
         )
         session.flush()
 
@@ -90,28 +92,10 @@ def test_requires_an_exact_amount_match(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.OUTGOING,
-        )
+        _leg(session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.OUTGOING)
         # Off by one: a similarly-sized but unrelated booking must not be swept into a bogus transfer pair.
-        near_miss = make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=SECOND_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
-        )
-        exact = make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
-        )
+        near_miss = _leg(session, account=account_b, amount=SECOND_AMOUNT, transaction_type=TransactionType.INCOMING)
+        exact = _leg(session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING)
         session.flush()
 
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
@@ -123,19 +107,13 @@ def test_no_match_when_time_difference_is_too_big(session_factory: sessionmaker)
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        make_transaction(
+        _leg(session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.OUTGOING)
+        _leg(
             session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.OUTGOING,
-        )
-        make_transaction(
-            session,
-            account_id=account_b.id,
+            account=account_b,
             amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE + timedelta(days=4),
             transaction_type=TransactionType.INCOMING,
+            date=RECENT_DATE + timedelta(days=4),
         )
         session.flush()
 
@@ -146,19 +124,11 @@ def test_same_account_pair_is_linked_as_reimbursement(session_factory: sessionma
     with session_factory() as session:
         user = make_user(session)
         account_a, _ = _create_two_accounts(session, user_id=user.id)
-        out_transaction = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.OUTGOING,
+        out_transaction = _leg(
+            session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.OUTGOING
         )
-        in_transaction = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
+        in_transaction = _leg(
+            session, account=account_a, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING
         )
         session.flush()
 
@@ -173,26 +143,14 @@ def test_prefers_a_different_account_over_the_same_account(session_factory: sess
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        out_transaction = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.OUTGOING,
+        out_transaction = _leg(
+            session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.OUTGOING
         )
-        same_account = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
+        same_account = _leg(
+            session, account=account_a, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING
         )
-        other_account = make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
+        other_account = _leg(
+            session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING
         )
         session.flush()
 
@@ -209,20 +167,8 @@ def test_does_not_match_across_different_users(session_factory: sessionmaker):
         credential_two = make_credential(session, user_id=user_two.id, bank=BankProvider.FINTS)
         account_one = make_account(session, credential_id=credential_one.id, name=ACCOUNT_IBAN)
         account_two = make_account(session, credential_id=credential_two.id, name=SECOND_ACCOUNT_IBAN)
-        make_transaction(
-            session,
-            account_id=account_one.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.OUTGOING,
-        )
-        make_transaction(
-            session,
-            account_id=account_two.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
-        )
+        _leg(session, account=account_one, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.OUTGOING)
+        _leg(session, account=account_two, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING)
         session.flush()
 
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user_one) == 0
@@ -233,20 +179,8 @@ def test_ignores_non_whitelisted_transaction_types(session_factory: sessionmaker
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
         # A securities sale crediting cash must not be mistaken for a transfer.
-        make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.BUY,
-        )
-        make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.SELL,
-        )
+        _leg(session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.BUY)
+        _leg(session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.SELL)
         session.flush()
 
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 0
@@ -256,20 +190,8 @@ def test_is_idempotent_across_reruns(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.OUTGOING,
-        )
-        make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
-        )
+        _leg(session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.OUTGOING)
+        _leg(session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING)
         session.flush()
 
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
@@ -282,28 +204,10 @@ def test_pairs_one_to_one_when_multiple_inflows_match(session_factory: sessionma
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.OUTGOING,
-        )
+        _leg(session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.OUTGOING)
         # Two equally-close inflows; exactly one must be paired, the other left untouched.
-        first = make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
-        )
-        second = make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
-        )
+        first = _leg(session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING)
+        second = _leg(session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING)
         session.flush()
 
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
@@ -318,19 +222,11 @@ def test_deleting_one_leg_dissolves_a_two_member_related_group(session_factory: 
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        out_transaction = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.OUTGOING,
+        out_transaction = _leg(
+            session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.OUTGOING
         )
-        in_transaction = make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
+        in_transaction = _leg(
+            session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING
         )
         session.flush()
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
@@ -349,15 +245,9 @@ def test_deleting_one_leg_keeps_a_related_group_of_three(session_factory: sessio
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
         legs = [
-            make_transaction(
-                session, account_id=account_a.id, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_OUT
-            ),
-            make_transaction(
-                session, account_id=account_b.id, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_IN
-            ),
-            make_transaction(
-                session, account_id=account_b.id, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_OUT
-            ),
+            _leg(session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_OUT),
+            _leg(session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_IN),
+            _leg(session, account=account_b, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_OUT),
         ]
         related_group = link_transactions_as_related_group(db_session=session, transactions=legs)
         session.flush()
@@ -375,11 +265,11 @@ def test_deleting_a_related_group_restores_member_types(session_factory: session
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        out_transaction = make_transaction(
-            session, account_id=account_a.id, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_OUT
+        out_transaction = _leg(
+            session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_OUT
         )
-        in_transaction = make_transaction(
-            session, account_id=account_b.id, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_IN
+        in_transaction = _leg(
+            session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_IN
         )
         out_transaction.transfer_original_type = TransactionType.REMOVAL
         in_transaction.transfer_original_type = TransactionType.INCOMING
@@ -404,30 +294,23 @@ def test_prefers_the_candidate_with_matching_purpose(session_factory: sessionmak
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        make_transaction(
+        _leg(
             session,
-            account_id=account_a.id,
+            account=account_a,
             amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            purpose="Rent",
             transaction_type=TransactionType.OUTGOING,
+            purpose="Rent",
         )
         # Same amount and date; the one with the matching purpose should win the tie.
-        other_purpose = make_transaction(
+        other_purpose = _leg(
             session,
-            account_id=account_b.id,
+            account=account_b,
             amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
+            transaction_type=TransactionType.INCOMING,
             purpose="Something else",
-            transaction_type=TransactionType.INCOMING,
         )
-        matching_purpose = make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            purpose="Rent",
-            transaction_type=TransactionType.INCOMING,
+        matching_purpose = _leg(
+            session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING, purpose="Rent"
         )
         session.flush()
 
@@ -440,19 +323,11 @@ def test_stores_original_type_when_pairing(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        out_transaction = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.DEPOSIT,
+        out_transaction = _leg(
+            session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.DEPOSIT
         )
-        in_transaction = make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
+        in_transaction = _leg(
+            session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING
         )
         session.flush()
 
@@ -465,21 +340,9 @@ def test_never_pairs_relink_blocked_transactions(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        blocked = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.OUTGOING,
-        )
+        blocked = _leg(session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.OUTGOING)
         blocked.transfer_relink_blocked = True
-        make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
-        )
+        _leg(session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING)
         session.flush()
 
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 0
@@ -491,19 +354,11 @@ def test_deleting_a_user_with_a_linked_transfer_pair_does_not_deadlock(session_f
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        out_transaction = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.OUTGOING,
+        out_transaction = _leg(
+            session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.OUTGOING
         )
-        in_transaction = make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
+        in_transaction = _leg(
+            session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING
         )
         session.flush()
         assert transfer_detection.detect_transfers_for_user(db_session=session, user=user) == 1
@@ -532,22 +387,21 @@ def test_links_same_signed_mirror_booking_on_an_intermediary_account(session_fac
     with session_factory() as session:
         user = make_user(session)
         bank_account, paypal_account = _create_bank_and_paypal_accounts(session, user_id=user.id)
-        funding = make_transaction(
+        funding = _leg(
             session,
-            account_id=bank_account.id,
+            account=bank_account,
             amount=-DEFAULT_AMOUNT,
+            transaction_type=TransactionType.OUTGOING,
             date=RECENT_DATE + timedelta(days=1),
             other_party=PAYPAL_COUNTERPARTY,
             purpose="123456/PP.1922.PP/. SpotifyAB, Ihr Einkauf bei Spotify AB",
-            transaction_type=TransactionType.OUTGOING,
         )
-        mirror = make_transaction(
+        mirror = _leg(
             session,
-            account_id=paypal_account.id,
+            account=paypal_account,
             amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            other_party="Spotify AB",
             transaction_type=TransactionType.OUTGOING,
+            other_party="Spotify AB",
         )
         session.flush()
 
@@ -562,31 +416,28 @@ def test_mirror_matching_prefers_the_funding_leg_naming_the_same_merchant(sessio
     with session_factory() as session:
         user = make_user(session)
         bank_account, paypal_account = _create_bank_and_paypal_accounts(session, user_id=user.id)
-        other_purchase = make_transaction(
+        other_purchase = _leg(
             session,
-            account_id=bank_account.id,
+            account=bank_account,
             amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
+            transaction_type=TransactionType.OUTGOING,
             other_party=PAYPAL_COUNTERPARTY,
             purpose="123456/PP.1922.PP/. Ihr Einkauf bei Steam",
-            transaction_type=TransactionType.OUTGOING,
         )
-        matching_purchase = make_transaction(
+        matching_purchase = _leg(
             session,
-            account_id=bank_account.id,
+            account=bank_account,
             amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
+            transaction_type=TransactionType.OUTGOING,
             other_party=PAYPAL_COUNTERPARTY,
             purpose="123456/PP.1922.PP/. Ihr Einkauf bei Restaurant Rama",
-            transaction_type=TransactionType.OUTGOING,
         )
-        mirror = make_transaction(
+        mirror = _leg(
             session,
-            account_id=paypal_account.id,
+            account=paypal_account,
             amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            other_party="Restaurant Rama",
             transaction_type=TransactionType.OUTGOING,
+            other_party="Restaurant Rama",
         )
         session.flush()
 
@@ -600,21 +451,19 @@ def test_never_links_mirror_bookings_without_an_intermediary_counterparty(sessio
     with session_factory() as session:
         user = make_user(session)
         bank_account, paypal_account = _create_bank_and_paypal_accounts(session, user_id=user.id)
-        unrelated = make_transaction(
+        unrelated = _leg(
             session,
-            account_id=bank_account.id,
+            account=bank_account,
             amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
+            transaction_type=TransactionType.OUTGOING,
             other_party=NETFLIX,
-            transaction_type=TransactionType.OUTGOING,
         )
-        mirror = make_transaction(
+        mirror = _leg(
             session,
-            account_id=paypal_account.id,
+            account=paypal_account,
             amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            other_party="Some Merchant",
             transaction_type=TransactionType.OUTGOING,
+            other_party="Some Merchant",
         )
         session.flush()
 
@@ -636,21 +485,20 @@ def test_never_links_a_mirror_booking_of_another_amount_or_too_far_apart(
     with session_factory() as session:
         user = make_user(session)
         bank_account, paypal_account = _create_bank_and_paypal_accounts(session, user_id=user.id)
-        funding = make_transaction(
+        funding = _leg(
             session,
-            account_id=bank_account.id,
+            account=bank_account,
             amount=funding_amount,
+            transaction_type=TransactionType.OUTGOING,
             date=funding_date,
             other_party=PAYPAL_COUNTERPARTY,
-            transaction_type=TransactionType.OUTGOING,
         )
-        mirror = make_transaction(
+        mirror = _leg(
             session,
-            account_id=paypal_account.id,
+            account=paypal_account,
             amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            other_party=NETFLIX,
             transaction_type=TransactionType.OUTGOING,
+            other_party=NETFLIX,
         )
         session.flush()
 
@@ -663,20 +511,15 @@ def test_opposite_signed_intermediary_pairs_stay_regular_transfers(session_facto
     with session_factory() as session:
         user = make_user(session)
         bank_account, paypal_account = _create_bank_and_paypal_accounts(session, user_id=user.id)
-        withdrawal = make_transaction(
-            session,
-            account_id=paypal_account.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.OUTGOING,
+        withdrawal = _leg(
+            session, account=paypal_account, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.OUTGOING
         )
-        deposit = make_transaction(
+        deposit = _leg(
             session,
-            account_id=bank_account.id,
+            account=bank_account,
             amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            other_party="PAYPAL",
             transaction_type=TransactionType.INCOMING,
+            other_party="PAYPAL",
         )
         session.flush()
 
@@ -687,12 +530,8 @@ def test_opposite_signed_intermediary_pairs_stay_regular_transfers(session_facto
 
 def _existing_related_group_leaving(session: Session, account: Account, amount: float) -> None:
     # A two-member DETECTED related group whose open end is a `-amount` outflow leaving `account`.
-    incoming = make_transaction(
-        session, account_id=account.id, amount=amount, date=RECENT_DATE, transaction_type=TransactionType.TRANSFER_IN
-    )
-    outgoing = make_transaction(
-        session, account_id=account.id, amount=-amount, date=RECENT_DATE, transaction_type=TransactionType.TRANSFER_OUT
-    )
+    incoming = _leg(session, account=account, amount=amount, transaction_type=TransactionType.TRANSFER_IN)
+    outgoing = _leg(session, account=account, amount=-amount, transaction_type=TransactionType.TRANSFER_OUT)
     link_transactions_as_related_group(db_session=session, transactions=[incoming, outgoing])
 
 
@@ -703,12 +542,12 @@ def test_chains_a_new_leg_onto_an_existing_related_groups_open_end(
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
         _existing_related_group_leaving(session, account=account_a, amount=DEFAULT_AMOUNT)
-        arrival = make_transaction(
+        arrival = _leg(
             session,
-            account_id=account_b.id,
+            account=account_b,
             amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE + timedelta(days=1),
             transaction_type=TransactionType.INCOMING,
+            date=RECENT_DATE + timedelta(days=1),
         )
         session.flush()
 
@@ -730,12 +569,12 @@ def test_does_not_chain_a_leg_too_far_from_the_related_groups_open_end(session_f
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
         _existing_related_group_leaving(session, account=account_a, amount=DEFAULT_AMOUNT)
-        late_arrival = make_transaction(
+        late_arrival = _leg(
             session,
-            account_id=account_b.id,
+            account=account_b,
             amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE + transfer_detection.TRANSFER_MAX_DISTANCE + timedelta(days=1),
             transaction_type=TransactionType.INCOMING,
+            date=RECENT_DATE + transfer_detection.TRANSFER_MAX_DISTANCE + timedelta(days=1),
         )
         session.flush()
 
@@ -752,13 +591,7 @@ def test_does_not_chain_when_two_related_groups_are_in_reach(session_factory: se
         account_c = make_account(session, credential_id=credential_c.id, name="Third IBAN")
         _existing_related_group_leaving(session, account=account_a, amount=DEFAULT_AMOUNT)
         _existing_related_group_leaving(session, account=account_c, amount=DEFAULT_AMOUNT)
-        arrival = make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
-        )
+        arrival = _leg(session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING)
         session.flush()
 
         transfer_detection.detect_transfers_for_user(db_session=session, user=user)
@@ -770,30 +603,14 @@ def test_never_chains_onto_a_manual_related_group(session_factory: sessionmaker)
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        incoming = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.TRANSFER_IN,
-        )
-        outgoing = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.TRANSFER_OUT,
+        incoming = _leg(session, account=account_a, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_IN)
+        outgoing = _leg(
+            session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_OUT
         )
         link_transactions_as_related_group(db_session=session, transactions=[incoming, outgoing])
         incoming.related_link_source = RelatedLinkSource.MANUAL
         outgoing.related_link_source = RelatedLinkSource.MANUAL
-        arrival = make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
-        )
+        arrival = _leg(session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING)
         session.flush()
 
         transfer_detection.detect_transfers_for_user(db_session=session, user=user)
@@ -806,13 +623,7 @@ def test_does_not_chain_a_same_account_leg(session_factory: sessionmaker):
         user = make_user(session)
         account_a, _ = _create_two_accounts(session, user_id=user.id)
         _existing_related_group_leaving(session, account=account_a, amount=DEFAULT_AMOUNT)
-        refund = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
-        )
+        refund = _leg(session, account=account_a, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING)
         session.flush()
 
         transfer_detection.detect_transfers_for_user(db_session=session, user=user)
@@ -824,21 +635,20 @@ def test_links_a_partial_refund_to_its_payment_by_counterparty(session_factory: 
     with session_factory() as session:
         user = make_user(session)
         account_a, _ = _create_two_accounts(session, user_id=user.id)
-        payment = make_transaction(
+        payment = _leg(
             session,
-            account_id=account_a.id,
+            account=account_a,
             amount=-LARGE_AMOUNT,
-            date=RECENT_DATE,
-            other_party=NETFLIX,
             transaction_type=TransactionType.OUTGOING,
+            other_party=NETFLIX,
         )
-        refund = make_transaction(
+        refund = _leg(
             session,
-            account_id=account_a.id,
+            account=account_a,
             amount=DEFAULT_AMOUNT,
+            transaction_type=TransactionType.INCOMING,
             date=RECENT_DATE + timedelta(days=20),
             other_party=NETFLIX,
-            transaction_type=TransactionType.INCOMING,
             category=TransactionCategory.REIMBURSEMENT,
         )
         session.flush()
@@ -855,29 +665,28 @@ def test_does_not_link_a_refund_when_two_payments_to_the_same_party_are_open(ses
     with session_factory() as session:
         user = make_user(session)
         account_a, _ = _create_two_accounts(session, user_id=user.id)
-        make_transaction(
+        _leg(
             session,
-            account_id=account_a.id,
+            account=account_a,
             amount=-LARGE_AMOUNT,
-            date=RECENT_DATE,
-            other_party=NETFLIX,
             transaction_type=TransactionType.OUTGOING,
+            other_party=NETFLIX,
         )
-        make_transaction(
+        _leg(
             session,
-            account_id=account_a.id,
+            account=account_a,
             amount=-LARGE_AMOUNT,
+            transaction_type=TransactionType.OUTGOING,
             date=RECENT_DATE + timedelta(days=1),
             other_party=NETFLIX,
-            transaction_type=TransactionType.OUTGOING,
         )
-        refund = make_transaction(
+        refund = _leg(
             session,
-            account_id=account_a.id,
+            account=account_a,
             amount=DEFAULT_AMOUNT,
+            transaction_type=TransactionType.INCOMING,
             date=RECENT_DATE + timedelta(days=20),
             other_party=NETFLIX,
-            transaction_type=TransactionType.INCOMING,
             category=TransactionCategory.REIMBURSEMENT,
         )
         session.flush()
@@ -891,21 +700,20 @@ def test_does_not_link_a_refund_older_than_the_window(session_factory: sessionma
     with session_factory() as session:
         user = make_user(session)
         account_a, _ = _create_two_accounts(session, user_id=user.id)
-        make_transaction(
+        _leg(
             session,
-            account_id=account_a.id,
+            account=account_a,
             amount=-LARGE_AMOUNT,
-            date=RECENT_DATE,
-            other_party=NETFLIX,
             transaction_type=TransactionType.OUTGOING,
+            other_party=NETFLIX,
         )
-        refund = make_transaction(
+        refund = _leg(
             session,
-            account_id=account_a.id,
+            account=account_a,
             amount=DEFAULT_AMOUNT,
+            transaction_type=TransactionType.INCOMING,
             date=RECENT_DATE + timedelta(days=40),
             other_party=NETFLIX,
-            transaction_type=TransactionType.INCOMING,
             category=TransactionCategory.REIMBURSEMENT,
         )
         session.flush()
@@ -919,30 +727,28 @@ def test_chains_a_same_account_retry_naming_the_same_counterparty(session_factor
     with session_factory() as session:
         user = make_user(session)
         account_a, _ = _create_two_accounts(session, user_id=user.id)
-        outgoing = make_transaction(
+        outgoing = _leg(
             session,
-            account_id=account_a.id,
+            account=account_a,
             amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            other_party=NETFLIX,
             transaction_type=TransactionType.TRANSFER_OUT,
-        )
-        returned = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
             other_party=NETFLIX,
+        )
+        returned = _leg(
+            session,
+            account=account_a,
+            amount=DEFAULT_AMOUNT,
             transaction_type=TransactionType.TRANSFER_IN,
+            other_party=NETFLIX,
         )
         link_transactions_as_related_group(db_session=session, transactions=[outgoing, returned])
-        retry = make_transaction(
+        retry = _leg(
             session,
-            account_id=account_a.id,
+            account=account_a,
             amount=-DEFAULT_AMOUNT,
+            transaction_type=TransactionType.OUTGOING,
             date=RECENT_DATE + timedelta(days=1),
             other_party=NETFLIX,
-            transaction_type=TransactionType.OUTGOING,
         )
         session.flush()
 
@@ -957,30 +763,28 @@ def test_does_not_chain_a_same_account_leg_with_a_different_counterparty(session
     with session_factory() as session:
         user = make_user(session)
         account_a, _ = _create_two_accounts(session, user_id=user.id)
-        outgoing = make_transaction(
+        outgoing = _leg(
             session,
-            account_id=account_a.id,
+            account=account_a,
             amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            other_party=NETFLIX,
             transaction_type=TransactionType.TRANSFER_OUT,
-        )
-        returned = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
             other_party=NETFLIX,
+        )
+        returned = _leg(
+            session,
+            account=account_a,
+            amount=DEFAULT_AMOUNT,
             transaction_type=TransactionType.TRANSFER_IN,
+            other_party=NETFLIX,
         )
         link_transactions_as_related_group(db_session=session, transactions=[outgoing, returned])
-        unrelated = make_transaction(
+        unrelated = _leg(
             session,
-            account_id=account_a.id,
+            account=account_a,
             amount=-DEFAULT_AMOUNT,
+            transaction_type=TransactionType.OUTGOING,
             date=RECENT_DATE + timedelta(days=1),
             other_party=UNKNOWN_TRANSACTION_OTHER_PARTY,
-            transaction_type=TransactionType.OUTGOING,
         )
         session.flush()
 
@@ -1003,20 +807,8 @@ def _make_broker_setup(session: Session, user: User) -> tuple[object, Account, A
     personal = make_account(
         session, credential_id=make_credential(session, user_id=user.id, bank=BankProvider.FINTS).id
     )
-    outgoing = make_transaction(
-        session,
-        account_id=personal.id,
-        amount=-DEFAULT_AMOUNT,
-        date=RECENT_DATE,
-        transaction_type=TransactionType.TRANSFER_OUT,
-    )
-    deposit = make_transaction(
-        session,
-        account_id=cash.id,
-        amount=DEFAULT_AMOUNT,
-        date=RECENT_DATE,
-        transaction_type=TransactionType.TRANSFER_IN,
-    )
+    outgoing = _leg(session, account=personal, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_OUT)
+    deposit = _leg(session, account=cash, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.TRANSFER_IN)
     related_group = link_transactions_as_related_group(db_session=session, transactions=[outgoing, deposit])
     return broker, cash, depot, related_group
 
@@ -1025,12 +817,12 @@ def test_chains_a_depot_buy_into_the_related_group_keeping_its_buy_type(session_
     with session_factory() as session:
         user = make_user(session)
         _, _, depot, related_group = _make_broker_setup(session=session, user=user)
-        depot_buy = make_transaction(
+        depot_buy = _leg(
             session,
-            account_id=depot.id,
+            account=depot,
             amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE + timedelta(days=6),
             transaction_type=TransactionType.BUY,
+            date=RECENT_DATE + timedelta(days=6),
         )
         session.flush()
 
@@ -1046,19 +838,19 @@ def test_chains_the_whole_broker_purchase_depot_and_cash_side(session_factory: s
     with session_factory() as session:
         user = make_user(session)
         _, cash, depot, related_group = _make_broker_setup(session=session, user=user)
-        depot_buy = make_transaction(
+        depot_buy = _leg(
             session,
-            account_id=depot.id,
+            account=depot,
             amount=-DEFAULT_AMOUNT,
+            transaction_type=TransactionType.BUY,
             date=RECENT_DATE + timedelta(days=6),
-            transaction_type=TransactionType.BUY,
         )
-        cash_buy = make_transaction(
+        cash_buy = _leg(
             session,
-            account_id=cash.id,
+            account=cash,
             amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE + timedelta(days=7),
             transaction_type=TransactionType.BUY,
+            date=RECENT_DATE + timedelta(days=7),
         )
         session.flush()
 
@@ -1077,14 +869,10 @@ def test_a_cash_buy_of_a_later_sync_joins_the_group_whose_depot_leg_was_chained_
     with session_factory() as session:
         user = make_user(session)
         _, cash, depot, related_group = _make_broker_setup(session=session, user=user)
-        make_transaction(
-            session, account_id=depot.id, amount=-DEFAULT_AMOUNT, date=RECENT_DATE, transaction_type=TransactionType.BUY
-        )
+        _leg(session, account=depot, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.BUY)
         session.flush()
         transfer_detection.detect_transfers_for_user(db_session=session, user=user)
-        cash_buy = make_transaction(
-            session, account_id=cash.id, amount=-DEFAULT_AMOUNT, date=RECENT_DATE, transaction_type=TransactionType.BUY
-        )
+        cash_buy = _leg(session, account=cash, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.BUY)
         session.flush()
 
         transfer_detection.detect_transfers_for_user(db_session=session, user=user)
@@ -1097,12 +885,12 @@ def test_never_chains_a_lone_cash_leg_without_a_depot_mirror(session_factory: se
     with session_factory() as session:
         user = make_user(session)
         _, cash, _, _ = _make_broker_setup(session=session, user=user)
-        lone_cash = make_transaction(
+        lone_cash = _leg(
             session,
-            account_id=cash.id,
+            account=cash,
             amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE + timedelta(days=2),
             transaction_type=TransactionType.BUY,
+            date=RECENT_DATE + timedelta(days=2),
         )
         session.flush()
 
@@ -1115,9 +903,7 @@ def test_never_chains_a_pending_broker_leg(session_factory: sessionmaker):
     with session_factory() as session:
         user = make_user(session)
         _, _, depot, _ = _make_broker_setup(session=session, user=user)
-        pending_buy = make_transaction(
-            session, account_id=depot.id, amount=-DEFAULT_AMOUNT, date=RECENT_DATE, transaction_type=TransactionType.BUY
-        )
+        pending_buy = _leg(session, account=depot, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.BUY)
         pending_buy.pending = True
         session.flush()
 
@@ -1130,9 +916,7 @@ def test_does_not_chain_a_broker_leg_of_a_different_amount(session_factory: sess
     with session_factory() as session:
         user = make_user(session)
         _, _, depot, _ = _make_broker_setup(session=session, user=user)
-        other_buy = make_transaction(
-            session, account_id=depot.id, amount=-LARGE_AMOUNT, date=RECENT_DATE, transaction_type=TransactionType.BUY
-        )
+        other_buy = _leg(session, account=depot, amount=-LARGE_AMOUNT, transaction_type=TransactionType.BUY)
         session.flush()
 
         transfer_detection.detect_transfers_for_user(db_session=session, user=user)
@@ -1148,20 +932,8 @@ def test_startup_detection_links_across_all_users(
     with session_factory() as session:
         user = make_user(session)
         account_a, account_b = _create_two_accounts(session, user_id=user.id)
-        out_id = make_transaction(
-            session,
-            account_id=account_a.id,
-            amount=-DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.OUTGOING,
-        ).id
-        in_id = make_transaction(
-            session,
-            account_id=account_b.id,
-            amount=DEFAULT_AMOUNT,
-            date=RECENT_DATE,
-            transaction_type=TransactionType.INCOMING,
-        ).id
+        out_id = _leg(session, account=account_a, amount=-DEFAULT_AMOUNT, transaction_type=TransactionType.OUTGOING).id
+        in_id = _leg(session, account=account_b, amount=DEFAULT_AMOUNT, transaction_type=TransactionType.INCOMING).id
         session.commit()
 
     transfer_detection.detect_transfers_for_all_users()

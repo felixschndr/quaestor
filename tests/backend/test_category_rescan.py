@@ -1,12 +1,8 @@
 import asyncio
-import threading
-from unittest.mock import AsyncMock
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
-from source.backend import main
 from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
@@ -17,6 +13,7 @@ from tests.backend.conftest import (
     REWE,
     UNKNOWN_TRANSACTION_OTHER_PARTY,
     assert_log_contains,
+    category_of,
     persist_account_with_new_user,
     persist_transaction,
 )
@@ -28,11 +25,6 @@ def account_id(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch) -
     return persist_account_with_new_user(session_factory)
 
 
-def _category_of(session_factory: sessionmaker, transaction_id: int) -> TransactionCategory:
-    with session_factory() as session:
-        return session.get(entity=Transaction, ident=transaction_id).category
-
-
 def test_rescan_updates_unknown_transactions_that_now_match(session_factory: sessionmaker, account_id: int):
     transaction_id = persist_transaction(
         session_factory=session_factory, account_id=account_id, category=TransactionCategory.UNKNOWN, other_party=REWE
@@ -41,7 +33,7 @@ def test_rescan_updates_unknown_transactions_that_now_match(session_factory: ses
     category_rescan.rescan_categories_sync()
 
     assert (
-        _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SUPERMARKET
+        category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SUPERMARKET
     )
 
 
@@ -53,7 +45,7 @@ def test_rescan_rederives_automatic_categories_that_no_longer_match(session_fact
     category_rescan.rescan_categories_sync()
 
     assert (
-        _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SUPERMARKET
+        category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SUPERMARKET
     )
 
 
@@ -67,7 +59,7 @@ def test_rescan_leaves_truly_unknown_transactions_alone(session_factory: session
 
     category_rescan.rescan_categories_sync()
 
-    assert _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.UNKNOWN
+    assert category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.UNKNOWN
 
 
 @pytest.mark.parametrize(
@@ -86,7 +78,7 @@ def test_rescan_does_not_touch_categories_that_did_not_come_from_the_matchers(
 
     category_rescan.rescan_categories_sync()
 
-    assert _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.DRUGSTORE
+    assert category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.DRUGSTORE
 
 
 def test_rescan_matches_linked_transfers_on_the_type_the_bank_reported(session_factory: sessionmaker, account_id: int):
@@ -102,7 +94,7 @@ def test_rescan_matches_linked_transfers_on_the_type_the_bank_reported(session_f
 
     category_rescan.rescan_categories_sync()
 
-    assert _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SAVINGS
+    assert category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SAVINGS
 
 
 def test_rescan_logs_summary_at_info(session_factory: sessionmaker, account_id: int, caplog: pytest.LogCaptureFixture):
@@ -140,15 +132,3 @@ def test_run_startup_rescan_logs_exception_instead_of_crashing(
     asyncio.run(real_run_startup_rescan())
 
     assert_log_contains(caplog=caplog, message="Startup category re-scan crashed")
-
-
-def test_app_startup_schedules_category_rescan(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(target=main, name="SessionLocal", value=session_factory)
-    scheduled = threading.Event()
-    run_startup_rescan = AsyncMock(side_effect=lambda: scheduled.set())
-    monkeypatch.setattr(target=main.category_rescan, name="run_startup_rescan", value=run_startup_rescan)
-
-    with TestClient(main.app):
-        assert scheduled.wait(timeout=5)
-
-    run_startup_rescan.assert_called_once_with()

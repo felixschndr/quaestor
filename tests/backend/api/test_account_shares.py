@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -6,8 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from source.backend.models.accounts.account_share import SharePermission
 from source.backend.models.banking.credential import Credential
-from source.backend.services.banking import credential_service, sync_jobs
-from source.backend.services.banking.credential_service import SyncResult, SyncStatus
+from source.backend.services.banking import sync_jobs
 from source.backend.services.banking.sync_jobs import JobErrorCode, JobStatus
 from source.backend.services.notifications.notification_service import Notification
 from tests.backend.conftest import (
@@ -28,7 +28,7 @@ from tests.backend.conftest import (
     assert_log_contains,
     create_credential,
     login_as,
-    make_account,
+    persist_account,
     register,
     register_and_login,
     setup_manual_account,
@@ -52,6 +52,14 @@ def _setup(http_client: TestClient, permission: str = "write") -> tuple[int, int
     register_and_login(http_client)
     account_id = setup_manual_account(http_client)
     return account_id, _share(http_client, account_id=account_id, recipient_id=recipient_id, permission=permission)
+
+
+def _setup_bank_share(http_client: TestClient, session_factory: sessionmaker, permission: str) -> tuple[int, int]:
+    recipient_id = register(http_client, user_name=SECOND_USER_NAME, display_name=SECOND_DISPLAY_NAME).json()["id"]
+    register_and_login(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    account_id = persist_account(session_factory, credential_id=credential_id)
+    return credential_id, _share(http_client, account_id=account_id, recipient_id=recipient_id, permission=permission)
 
 
 def _accept(http_client: TestClient, share_id: int) -> None:
@@ -303,22 +311,26 @@ def test_recipient_settings_do_not_touch_the_owners_account(http_client: TestCli
     assert account["balance_factor"] == 100.0
 
 
-def test_both_sides_are_notified_along_the_whole_lifecycle(
+def test_both_sides_are_notified_along_the_whole_lifecycle_with_a_link_to_act_on(
     http_client: TestClient, sent_notifications: list[tuple[str, Notification]]
 ):
     account_id, share_id = _setup(http_client, permission="read")
+    credential_id = http_client.get("/api/auth/me").json()["credentials"][0]["id"]
     assert _titles(sent_notifications) == [(SECOND_USER_NAME, "Account shared with you")]
+    assert sent_notifications[-1][1].url == "/settings"
 
     _accept(http_client, share_id=share_id)
     assert _titles(sent_notifications)[-1] == (USER_NAME, "Share accepted")
+    assert sent_notifications[-1][1].url == f"/settings/credentials/{credential_id}"
 
     login_as(http_client, user_name=USER_NAME, password=VALID_PASSWORD)
     http_client.patch(f"/api/account_shares/{share_id}", json={"permission": "write"})
     assert _titles(sent_notifications)[-1] == (SECOND_USER_NAME, "Share permission changed")
+    assert sent_notifications[-1][1].url == f"/account/{account_id}"
 
     http_client.delete(f"/api/account_shares/{share_id}")
     assert _titles(sent_notifications)[-1] == (SECOND_USER_NAME, "Share revoked")
-    assert account_id > 0
+    assert sent_notifications[-1][1].url == "/settings"
 
 
 def test_permission_change_notification_names_the_share_and_the_new_permission(
@@ -355,25 +367,6 @@ def test_owner_is_notified_when_the_recipient_declines(
     http_client.post(f"/api/account_shares/{share_id}/decline")
 
     assert _titles(sent_notifications)[-1] == (USER_NAME, "Share declined")
-
-
-def test_every_share_notification_links_where_the_recipient_can_act(
-    http_client: TestClient, sent_notifications: list[tuple[str, Notification]]
-):
-    account_id, share_id = _setup(http_client, permission="read")
-    credential_id = http_client.get("/api/auth/me").json()["credentials"][0]["id"]
-
-    assert sent_notifications[-1][1].url == "/settings"
-
-    _accept(http_client, share_id=share_id)
-    assert sent_notifications[-1][1].url == f"/settings/credentials/{credential_id}"
-
-    login_as(http_client, user_name=USER_NAME, password=VALID_PASSWORD)
-    http_client.patch(f"/api/account_shares/{share_id}", json={"permission": "write"})
-    assert sent_notifications[-1][1].url == f"/account/{account_id}"
-
-    http_client.delete(f"/api/account_shares/{share_id}")
-    assert sent_notifications[-1][1].url == "/settings"
 
 
 def test_share_notifications_are_tagged_per_share_so_they_do_not_replace_each_other(
@@ -513,18 +506,9 @@ def test_pending_share_hands_out_no_balance(http_client: TestClient):
 
 
 def test_read_only_share_hides_the_owners_sync_jobs(
-    http_client: TestClient, session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+    http_client: TestClient, session_factory: sessionmaker, completed_sync: MagicMock
 ):
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
-    recipient_id = register(http_client, user_name=SECOND_USER_NAME, display_name=SECOND_DISPLAY_NAME).json()["id"]
-    register_and_login(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    with session_factory() as db_session:
-        account_id = make_account(db_session, credential_id=credential_id).id
-        db_session.commit()
-    share_id = _share(http_client, account_id=account_id, recipient_id=recipient_id, permission="read")
+    credential_id, share_id = _setup_bank_share(http_client, session_factory=session_factory, permission="read")
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
     _accept(http_client, share_id=share_id)
 
@@ -532,18 +516,9 @@ def test_read_only_share_hides_the_owners_sync_jobs(
 
 
 def test_a_write_recipient_sees_no_bank_internals_on_the_owners_sync_job(
-    http_client: TestClient, session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+    http_client: TestClient, session_factory: sessionmaker, completed_sync: MagicMock
 ):
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
-    recipient_id = register(http_client, user_name=SECOND_USER_NAME, display_name=SECOND_DISPLAY_NAME).json()["id"]
-    register_and_login(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    with session_factory() as db_session:
-        account_id = make_account(db_session, credential_id=credential_id).id
-        db_session.commit()
-    share_id = _share(http_client, account_id=account_id, recipient_id=recipient_id, permission="write")
+    credential_id, share_id = _setup_bank_share(http_client, session_factory=session_factory, permission="write")
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
     job = sync_jobs.get_job_by_id(job_id)
     job.status = JobStatus.AWAITING_TWO_FACTOR

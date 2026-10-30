@@ -10,7 +10,6 @@ from source.backend.exceptions import JobErrorCode
 from source.backend.helpers import utc_now
 from source.backend.logging_utils import NO_SESSION_LOG_LABEL
 from source.backend.services.banking import credential_service
-from source.backend.services.banking.credential_service import SyncResult, SyncStatus
 from source.backend.services.core import i18n_service
 from tests.backend.conftest import (
     DISPLAY_NAME,
@@ -70,23 +69,15 @@ def test_update_user_normalises_new_user_name(http_client: TestClient):
     assert response.json()["user_name"] == "mixedcase"
 
 
-def test_update_user_rejects_user_name_taken_by_other_user(http_client: TestClient):
+@pytest.mark.parametrize(argnames="taken_user_name", argvalues=[SECOND_USER_NAME, SECOND_USER_NAME.upper()])
+def test_update_user_rejects_user_name_taken_by_other_user(http_client: TestClient, taken_user_name: str):
     register(http_client, user_name=SECOND_USER_NAME)
     user_id = register_and_login(http_client, user_name=USER_NAME)
 
-    response = http_client.patch(f"/api/users/{user_id}", json={"user_name": SECOND_USER_NAME})
+    response = http_client.patch(f"/api/users/{user_id}", json={"user_name": taken_user_name})
 
     assert response.status_code == 409
     assert http_client.get("/api/auth/me").json()["user_name"] == USER_NAME
-
-
-def test_update_user_rejects_user_name_taken_by_other_user_case_insensitively(http_client: TestClient):
-    register(http_client, user_name=SECOND_USER_NAME)
-    user_id = register_and_login(http_client, user_name=USER_NAME)
-
-    response = http_client.patch(f"/api/users/{user_id}", json={"user_name": SECOND_USER_NAME.upper()})
-
-    assert response.status_code == 409
 
 
 def test_update_user_keeping_same_user_name_is_a_noop(http_client: TestClient):
@@ -107,54 +98,44 @@ def test_update_user_rejects_empty_user_name(http_client: TestClient):
     assert http_client.get("/api/auth/me").json()["user_name"] == USER_NAME
 
 
-def test_update_user_changes_language(http_client: TestClient):
+@pytest.mark.parametrize(
+    argnames=("field", "value"),
+    argvalues=[
+        ("language", "de"),
+        ("currency", NON_DEFAULT_CURRENCY),
+        ("theme", "DARK"),
+        ("show_upcoming_contracts", False),
+    ],
+)
+def test_update_user_changes_preference(http_client: TestClient, field: str, value: str | bool):
     user_id = register_and_get_id(http_client)
 
-    response = http_client.patch(f"/api/users/{user_id}", json={"language": "de"})
+    response = http_client.patch(f"/api/users/{user_id}", json={field: value})
 
     assert response.status_code == 200
-    assert response.json()["language"] == "de"
-    assert http_client.get("/api/auth/me").json()["language"] == "de"
+    assert response.json()[field] == value
+    assert http_client.get("/api/auth/me").json()[field] == value
 
 
-def test_update_user_rejects_unsupported_language(http_client: TestClient):
+@pytest.mark.parametrize(
+    argnames=("field", "value", "default"),
+    argvalues=[
+        ("language", "klingon", i18n_service.DEFAULT_LANGUAGE),
+        ("currency", UNSUPPORTED_CURRENCY, i18n_service.DEFAULT_CURRENCY),
+        ("theme", "neon", "SYSTEM"),
+    ],
+)
+def test_update_user_rejects_invalid_preference(http_client: TestClient, field: str, value: str, default: str):
     user_id = register_and_get_id(http_client)
 
-    response = http_client.patch(f"/api/users/{user_id}", json={"language": "klingon"})
+    response = http_client.patch(f"/api/users/{user_id}", json={field: value})
 
     assert response.status_code == 422
-    assert http_client.get("/api/auth/me").json()["language"] == "en"
-
-
-def test_update_user_changes_currency(http_client: TestClient):
-    user_id = register_and_get_id(http_client)
-
-    response = http_client.patch(f"/api/users/{user_id}", json={"currency": NON_DEFAULT_CURRENCY})
-
-    assert response.status_code == 200
-    assert http_client.get("/api/auth/me").json()["currency"] == NON_DEFAULT_CURRENCY
-
-
-def test_update_user_rejects_unsupported_currency(http_client: TestClient):
-    user_id = register_and_get_id(http_client)
-
-    response = http_client.patch(f"/api/users/{user_id}", json={"currency": UNSUPPORTED_CURRENCY})
-
-    assert response.status_code == 422
-    assert http_client.get("/api/auth/me").json()["currency"] == i18n_service.DEFAULT_CURRENCY
+    assert http_client.get("/api/auth/me").json()[field] == default
 
 
 def test_registering_without_language_and_currency_uses_the_server_defaults(http_client: TestClient):
-    response = http_client.post(
-        "/api/auth/register",
-        json={
-            "user_name": USER_NAME,
-            "display_name": DISPLAY_NAME,
-            "password": VALID_PASSWORD,
-            "language": None,
-            "currency": None,
-        },
-    )
+    response = register(http_client, language=None, currency=None)
 
     assert response.status_code == 201
     me = http_client.get("/api/auth/me").json()
@@ -166,35 +147,6 @@ def test_new_user_starts_with_the_upcoming_contracts_section_on(http_client: Tes
     register_and_get_id(http_client)
 
     assert http_client.get("/api/auth/me").json()["show_upcoming_contracts"] is True
-
-
-def test_update_user_hides_the_upcoming_contracts_section(http_client: TestClient):
-    user_id = register_and_get_id(http_client)
-
-    response = http_client.patch(f"/api/users/{user_id}", json={"show_upcoming_contracts": False})
-
-    assert response.status_code == 200
-    assert response.json()["show_upcoming_contracts"] is False
-    assert http_client.get("/api/auth/me").json()["show_upcoming_contracts"] is False
-
-
-def test_update_user_changes_theme(http_client: TestClient):
-    user_id = register_and_get_id(http_client)
-
-    response = http_client.patch(f"/api/users/{user_id}", json={"theme": "DARK"})
-
-    assert response.status_code == 200
-    assert response.json()["theme"] == "DARK"
-    assert http_client.get("/api/auth/me").json()["theme"] == "DARK"
-
-
-def test_update_user_rejects_invalid_theme(http_client: TestClient):
-    user_id = register_and_get_id(http_client)
-
-    response = http_client.patch(f"/api/users/{user_id}", json={"theme": "neon"})
-
-    assert response.status_code == 422
-    assert http_client.get("/api/auth/me").json()["theme"] == "SYSTEM"
 
 
 def test_update_user_changes_password_with_correct_current_password(http_client: TestClient):
@@ -311,7 +263,7 @@ def test_sync_without_credentials_returns_empty_list(http_client: TestClient):
 def test_sync_starts_jobs_for_normal_and_2fa_credentials(
     http_client: TestClient,
     session_factory: sessionmaker,
-    monkeypatch: pytest.MonkeyPatch,
+    completed_sync: MagicMock,
 ):
     user_id = register_and_get_id(http_client)
     with session_factory() as session:
@@ -325,9 +277,6 @@ def test_sync_starts_jobs_for_normal_and_2fa_credentials(
         session.commit()
         normal_id = normal.id
         two_factor_id = two_factor.id
-
-    sync_mock = MagicMock(return_value=SyncResult(status=SyncStatus.COMPLETED))
-    monkeypatch.setattr(target=credential_service, name="sync_credential", value=sync_mock)
 
     response = http_client.post("/api/users/sync")
 
@@ -343,7 +292,7 @@ def test_sync_starts_jobs_for_normal_and_2fa_credentials(
 def test_due_only_sync_skips_a_credential_tried_within_the_gap(
     http_client: TestClient,
     session_factory: sessionmaker,
-    monkeypatch: pytest.MonkeyPatch,
+    completed_sync: MagicMock,
     caplog: pytest.LogCaptureFixture,
 ):
     user_id = register_and_get_id(http_client)
@@ -359,9 +308,6 @@ def test_due_only_sync_skips_a_credential_tried_within_the_gap(
         session.commit()
         skipped_id, long_ago_id, never_tried_id = just_tried.id, long_ago.id, never_tried.id
 
-    sync_mock = MagicMock(return_value=SyncResult(status=SyncStatus.COMPLETED))
-    monkeypatch.setattr(target=credential_service, name="sync_credential", value=sync_mock)
-
     response = http_client.post("/api/users/sync?due_only=true")
 
     assert response.status_code == 202
@@ -375,7 +321,7 @@ def test_due_only_sync_skips_a_credential_tried_within_the_gap(
 def test_due_only_sync_skips_credentials_awaiting_two_factor(
     http_client: TestClient,
     session_factory: sessionmaker,
-    monkeypatch: pytest.MonkeyPatch,
+    completed_sync: MagicMock,
 ):
     user_id = register_and_get_id(http_client)
     with session_factory() as session:
@@ -389,9 +335,6 @@ def test_due_only_sync_skips_credentials_awaiting_two_factor(
         session.commit()
         unattended_id = unattended.id
 
-    sync_mock = MagicMock(return_value=SyncResult(status=SyncStatus.COMPLETED))
-    monkeypatch.setattr(target=credential_service, name="sync_credential", value=sync_mock)
-
     response = http_client.post("/api/users/sync?due_only=true")
 
     assert response.status_code == 202
@@ -401,7 +344,7 @@ def test_due_only_sync_skips_credentials_awaiting_two_factor(
 def test_due_only_sync_resumes_trade_republic_without_an_interactive_challenge(
     http_client: TestClient,
     session_factory: sessionmaker,
-    monkeypatch: pytest.MonkeyPatch,
+    completed_sync: MagicMock,
 ):
     user_id = register_and_get_id(http_client)
     with session_factory() as session:
@@ -415,20 +358,17 @@ def test_due_only_sync_resumes_trade_republic_without_an_interactive_challenge(
         session.commit()
         resumable_id = resumable.id
 
-    sync_mock = MagicMock(return_value=SyncResult(status=SyncStatus.COMPLETED))
-    monkeypatch.setattr(target=credential_service, name="sync_credential", value=sync_mock)
-
     response = http_client.post("/api/users/sync?due_only=true")
 
     assert response.status_code == 202
     assert [job["credential_id"] for job in response.json()] == [resumable_id]
-    assert sync_mock.call_args.kwargs["start_interactive_challenge"] is False
+    assert completed_sync.call_args.kwargs["start_interactive_challenge"] is False
 
 
 def test_sync_without_due_only_still_starts_a_credential_tried_a_moment_ago(
     http_client: TestClient,
     session_factory: sessionmaker,
-    monkeypatch: pytest.MonkeyPatch,
+    completed_sync: MagicMock,
 ):
     user_id = register_and_get_id(http_client)
     with session_factory() as session:
@@ -436,20 +376,17 @@ def test_sync_without_due_only_still_starts_a_credential_tried_a_moment_ago(
         session.commit()
         credential_id = credential.id
 
-    sync_mock = MagicMock(return_value=SyncResult(status=SyncStatus.COMPLETED))
-    monkeypatch.setattr(target=credential_service, name="sync_credential", value=sync_mock)
-
     response = http_client.post("/api/users/sync")
 
     assert response.status_code == 202
     assert [job["credential_id"] for job in response.json()] == [credential_id]
-    assert sync_mock.call_args.kwargs["start_interactive_challenge"] is True
+    assert completed_sync.call_args.kwargs["start_interactive_challenge"] is True
 
 
 def test_sync_skips_credentials_with_sync_disabled(
     http_client: TestClient,
     session_factory: sessionmaker,
-    monkeypatch: pytest.MonkeyPatch,
+    completed_sync: MagicMock,
 ):
     user_id = register_and_get_id(http_client)
     with session_factory() as session:
@@ -457,9 +394,6 @@ def test_sync_skips_credentials_with_sync_disabled(
         make_credential(session, user_id=user_id, bank=BankProvider.FINTS, sync_enabled=False)
         session.commit()
         enabled_id = enabled.id
-
-    sync_mock = MagicMock(return_value=SyncResult(status=SyncStatus.COMPLETED))
-    monkeypatch.setattr(target=credential_service, name="sync_credential", value=sync_mock)
 
     response = http_client.post("/api/users/sync")
 
@@ -506,17 +440,16 @@ def test_list_user_sessions_returns_multiple_sessions_with_only_current_flagged(
     assert sum(s["is_current"] for s in body) == 1
 
 
-def test_list_user_sessions_for_other_user_returns_404(http_client: TestClient):
+@pytest.mark.parametrize(
+    argnames=("method", "path"), argvalues=[("GET", "/sessions"), ("DELETE", "/sessions"), ("DELETE", "/sessions/1")]
+)
+def test_sessions_of_other_user_return_404(http_client: TestClient, method: str, path: str):
     first_user_id = register_and_get_id(http_client, user_name=USER_NAME)
-    register_and_login(http_client, user_name="other")
+    register_and_login(http_client, user_name=SECOND_USER_NAME)
 
-    response = http_client.get(f"/api/users/{first_user_id}/sessions")
+    response = http_client.request(method=method, url=f"/api/users/{first_user_id}{path}")
 
     assert response.status_code == 404
-
-
-def test_list_user_sessions_requires_authentication(http_client: TestClient):
-    assert http_client.get("/api/users/1/sessions").status_code == 401
 
 
 def test_last_used_at_is_bumped_on_authenticated_request(http_client: TestClient):
@@ -565,7 +498,7 @@ def test_revoke_other_users_session_returns_404(http_client: TestClient, caplog:
     first_user_id = register_and_get_id(http_client, user_name=USER_NAME)
     first_user_session_id = http_client.get(f"/api/users/{first_user_id}/sessions").json()[0]["id"]
 
-    other_user_id = register_and_login(http_client, user_name="other")
+    other_user_id = register_and_login(http_client, user_name=SECOND_USER_NAME)
 
     response = http_client.delete(f"/api/users/{other_user_id}/sessions/{first_user_session_id}")
 
@@ -574,19 +507,6 @@ def test_revoke_other_users_session_returns_404(http_client: TestClient, caplog:
         caplog=caplog,
         message=f"attempted to revoke session {first_user_session_id} which does not belong to them",
     )
-
-
-def test_revoke_session_for_other_user_id_returns_404(http_client: TestClient):
-    first_user_id = register_and_get_id(http_client, user_name=USER_NAME)
-    register_and_login(http_client, user_name="other")
-
-    response = http_client.delete(f"/api/users/{first_user_id}/sessions/1")
-
-    assert response.status_code == 404
-
-
-def test_revoke_session_requires_authentication(http_client: TestClient):
-    assert http_client.delete("/api/users/1/sessions/1").status_code == 401
 
 
 def test_revoke_all_other_sessions_keeps_only_current(http_client: TestClient, caplog: pytest.LogCaptureFixture):
@@ -611,16 +531,3 @@ def test_revoke_all_other_sessions_with_only_current_session_is_noop(http_client
 
     assert response.status_code == 204
     assert http_client.get("/api/auth/me").status_code == 200
-
-
-def test_revoke_all_other_sessions_for_other_user_returns_404(http_client: TestClient):
-    first_user_id = register_and_get_id(http_client, user_name=USER_NAME)
-    register_and_login(http_client, user_name="other")
-
-    response = http_client.delete(f"/api/users/{first_user_id}/sessions")
-
-    assert response.status_code == 404
-
-
-def test_revoke_all_other_sessions_requires_authentication(http_client: TestClient):
-    assert http_client.delete("/api/users/1/sessions").status_code == 401

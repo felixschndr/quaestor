@@ -1,29 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import sessionmaker
 
-from source.backend import main
-from source.backend.db import get_session
 from source.backend.security import csrf
-from tests.backend.conftest import (
-    DISPLAY_NAME,
-    USER_NAME,
-    VALID_PASSWORD,
-    assert_log_contains,
-)
-
-
-@pytest.fixture
-def raw_http_client(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
-    def override_get_session():
-        with session_factory() as session:
-            yield session
-
-    monkeypatch.setattr(target=main, name="SessionLocal", value=session_factory)
-    main.app.dependency_overrides[get_session] = override_get_session
-    with TestClient(main.app) as test_client:
-        yield test_client
-    main.app.dependency_overrides.clear()
+from tests.backend.conftest import assert_log_contains, prime_csrf, register
 
 
 def test_get_request_does_not_require_csrf_token(raw_http_client: TestClient):
@@ -50,10 +29,7 @@ def test_get_request_does_not_re_issue_csrf_cookie_when_already_present(raw_http
 
 
 def test_mutation_without_any_csrf_data_is_rejected(raw_http_client: TestClient, caplog: pytest.LogCaptureFixture):
-    response = raw_http_client.post(
-        "/api/auth/register",
-        json={"user_name": USER_NAME, "display_name": DISPLAY_NAME, "password": VALID_PASSWORD},
-    )
+    response = register(raw_http_client)
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Invalid CSRF token"
@@ -63,9 +39,7 @@ def test_mutation_without_any_csrf_data_is_rejected(raw_http_client: TestClient,
 def test_mutation_with_cookie_but_no_header_is_rejected(raw_http_client: TestClient):
     raw_http_client.get("/api/settings")  # primes cookie only
 
-    response = raw_http_client.post(
-        "/api/auth/register", json={"user_name": USER_NAME, "display_name": DISPLAY_NAME, "password": VALID_PASSWORD}
-    )
+    response = register(raw_http_client)
 
     assert response.status_code == 403
 
@@ -74,20 +48,15 @@ def test_mutation_with_mismatched_header_is_rejected(raw_http_client: TestClient
     raw_http_client.get("/api/settings")
     raw_http_client.headers[csrf.HEADER_NAME] = "definitely-not-the-cookie-value"
 
-    response = raw_http_client.post(
-        "/api/auth/register", json={"user_name": USER_NAME, "display_name": DISPLAY_NAME, "password": VALID_PASSWORD}
-    )
+    response = register(raw_http_client)
 
     assert response.status_code == 403
 
 
 def test_mutation_with_matching_token_succeeds(raw_http_client: TestClient):
-    raw_http_client.get("/api/settings")
-    raw_http_client.headers[csrf.HEADER_NAME] = raw_http_client.cookies[csrf.COOKIE_NAME]
+    prime_csrf(raw_http_client)
 
-    response = raw_http_client.post(
-        "/api/auth/register", json={"user_name": USER_NAME, "display_name": DISPLAY_NAME, "password": VALID_PASSWORD}
-    )
+    response = register(raw_http_client)
 
     assert response.status_code == 201
 

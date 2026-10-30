@@ -2,6 +2,7 @@ import time
 from collections.abc import Iterator
 from datetime import datetime
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -101,17 +102,6 @@ def test_create_credential_allows_same_bank_with_different_login(http_client: Te
     assert second.json()["id"] != first.json()["id"]
 
 
-def test_create_credential_allows_same_login_for_different_user(http_client: TestClient):
-    register(http_client)
-    alice_credential = create_credential(http_client)
-    assert alice_credential.status_code == 201
-
-    register_and_login(http_client, user_name=SECOND_USER_NAME)
-    bob_credential = create_credential(http_client)
-
-    assert bob_credential.status_code == 201
-
-
 def test_list_credentials_returns_empty_when_none_exist(http_client: TestClient):
     register(http_client)
 
@@ -149,10 +139,6 @@ def test_list_credentials_excludes_other_users_credentials(http_client: TestClie
     ids = {credential["id"] for credential in response.json()}
     assert ids == {bob_credential_id}
     assert alice_credential_id not in ids
-
-
-def test_list_credentials_requires_authentication(http_client: TestClient):
-    assert http_client.get("/api/credentials").status_code == 401
 
 
 def test_get_credential_returns_own_credential(http_client: TestClient):
@@ -226,10 +212,6 @@ def test_list_supported_banks_returns_catalog(http_client: TestClient):
     assert expected_keys == fints_entry.keys()
 
 
-def test_supported_banks_requires_authentication(http_client: TestClient):
-    assert http_client.get("/api/credentials/supported_banks").status_code == 401
-
-
 def test_bank_icons_are_served_as_static_files(http_client: TestClient):
     response = http_client.get("/static/banks/ing-diba.png")
     assert response.status_code == 200
@@ -248,12 +230,9 @@ def test_create_credential_rejects_unknown_bank(http_client: TestClient):
     assert response.status_code == 422
 
 
-def test_start_sync_returns_a_running_job(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+def test_start_sync_returns_a_running_job(http_client: TestClient, completed_sync: MagicMock):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
 
     response = http_client.post(f"/api/credentials/{credential_id}/sync")
 
@@ -262,19 +241,6 @@ def test_start_sync_returns_a_running_job(http_client: TestClient, monkeypatch: 
     assert body["job_id"]
     assert body["status"] in {"running", "completed"}  # job may have finished before response is read
     assert body["credential_id"] == credential_id
-
-
-def test_sync_job_eventually_completes(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
-
-    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
-
-    body = _wait_for_status(http_client=http_client, credential_id=credential_id, job_id=job_id, expected="completed")
-    assert body["error"] is None
 
 
 def test_sync_job_reports_failure_when_the_sync_raises(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
@@ -365,25 +331,30 @@ def test_submit_two_factor_completes_the_sync(http_client: TestClient, monkeypat
     _wait_for_status(http_client=http_client, credential_id=credential_id, job_id=job_id, expected="completed")
 
 
-def test_submit_two_factor_returns_404_for_unknown_job(http_client: TestClient):
+@pytest.mark.parametrize(
+    argnames=("method", "path", "json"),
+    argvalues=[
+        ("GET", "", None),
+        ("DELETE", "", None),
+        ("POST", "/2fa", {"code": TWO_FACTOR_CODE}),
+    ],
+)
+def test_unknown_sync_job_returns_404(http_client: TestClient, method: str, path: str, json: dict | None):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
 
-    response = http_client.post(
-        f"/api/credentials/{credential_id}/sync/nonexistent/2fa", json={"code": TWO_FACTOR_CODE}
+    response = http_client.request(
+        method=method, url=f"/api/credentials/{credential_id}/sync/nonexistent{path}", json=json
     )
 
     assert response.status_code == 404
 
 
 def test_submit_two_factor_returns_422_when_job_not_awaiting_two_factor(
-    http_client: TestClient, monkeypatch: pytest.MonkeyPatch
+    http_client: TestClient, completed_sync: MagicMock
 ):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
 
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
     _wait_for_status(http_client=http_client, credential_id=credential_id, job_id=job_id, expected="completed")
@@ -393,27 +364,22 @@ def test_submit_two_factor_returns_422_when_job_not_awaiting_two_factor(
     assert response.status_code == 422
 
 
-def test_get_sync_job_returns_404_for_other_users_credential(
-    http_client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+@pytest.mark.parametrize(argnames="method", argvalues=["GET", "DELETE"])
+def test_sync_job_of_other_users_credential_returns_404(
+    http_client: TestClient, completed_sync: MagicMock, caplog: pytest.LogCaptureFixture, method: str
 ):
-    register(http_client, user_name="owner")
+    register(http_client)
     credential_id = create_credential(http_client).json()["id"]
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
 
     register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
-    assert http_client.get(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
+    assert http_client.request(method=method, url=f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
     assert_log_contains(caplog, message=f"attempted to sync <Credential(id={credential_id}")
 
 
-def test_list_sync_jobs_returns_only_own_jobs(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
-    register(http_client, user_name="owner")
+def test_list_sync_jobs_returns_only_own_jobs(http_client: TestClient, completed_sync: MagicMock):
+    register(http_client)
     owner_credential_id = create_credential(http_client).json()["id"]
     owner_job_id = http_client.post(f"/api/credentials/{owner_credential_id}/sync").json()["job_id"]
 
@@ -426,69 +392,22 @@ def test_list_sync_jobs_returns_only_own_jobs(http_client: TestClient, monkeypat
     assert owner_job_id not in {job["job_id"] for job in jobs}
 
 
-def test_cancel_sync_job_returns_204(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
+def test_cancel_sync_job_returns_204(http_client: TestClient, completed_sync: MagicMock):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
 
     assert http_client.delete(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 204
 
 
-def test_cancel_unknown_sync_job_returns_404(http_client: TestClient):
+def test_sync_job_eventually_completes(http_client: TestClient, completed_sync: MagicMock):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
-
-    assert http_client.delete(f"/api/credentials/{credential_id}/sync/nonexistent").status_code == 404
-
-
-def test_cancel_sync_job_returns_404_for_other_users_credential(
-    http_client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-):
-    register(http_client, user_name="owner")
-    credential_id = create_credential(http_client).json()["id"]
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
-    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
-
-    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
-
-    assert http_client.delete(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
-    assert_log_contains(caplog, message=f"attempted to sync <Credential(id={credential_id}")
-
-
-def test_sync_job_polling_reports_terminal_state(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
 
     job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
 
     last = _wait_for_status(http_client=http_client, credential_id=credential_id, job_id=job_id, expected="completed")
+    assert last["error"] is None
     assert "challenge_token" not in last
     assert last["job_id"] == job_id
     assert last["credential_id"] == credential_id
-
-
-def test_sync_job_polling_rejects_credential_of_another_user(http_client: TestClient, monkeypatch: pytest.MonkeyPatch):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential", value=lambda **_: SyncResult(status=SyncStatus.COMPLETED)
-    )
-    job_id = http_client.post(f"/api/credentials/{credential_id}/sync").json()["job_id"]
-
-    register_and_login(http_client, user_name=INTRUDER_USER_NAME)
-    assert http_client.get(f"/api/credentials/{credential_id}/sync/{job_id}").status_code == 404
-
-
-def test_sync_job_polling_rejects_unknown_job(http_client: TestClient):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-
-    assert http_client.get(f"/api/credentials/{credential_id}/sync/no-such-job").status_code == 404

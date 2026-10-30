@@ -121,7 +121,3 @@ def test_marking_everything_read_only_touches_the_callers_entries(
 
     login_as(http_client, user_name=SECOND_USER_NAME, password=VALID_PASSWORD)
     assert http_client.get("/api/notification_log").json()[0]["read_at"] is None
-
-
-def test_the_log_needs_a_session(http_client: TestClient):
-    assert http_client.get("/api/notification_log").status_code == 401

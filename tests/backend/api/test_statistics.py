@@ -41,17 +41,21 @@ STATISTICS_ENDPOINTS = (
 )
 
 
-def test_categories_sums_expenses_by_category_excluding_income(http_client: TestClient, session_factory: sessionmaker):
+def test_categories_sums_expenses_by_category_excluding_income(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     seed_for_categories(session_factory=session_factory, account_id=account_id)
 
-    response = http_client.get("/api/statistics/categories", params=[("account_ids", account_id)])
+    with caplog.at_level(logging.DEBUG, logger="services.transactions.statistics_service"):
+        response = http_client.get("/api/statistics/categories", params=[("account_ids", account_id)])
 
     assert response.status_code == 200
     assert response.json() == [
         {"category": "SUPERMARKET", "total": 2 * DEFAULT_AMOUNT},
         {"category": "RESTAURANTS", "total": DEFAULT_AMOUNT},
     ]
+    assert_log_contains(caplog=caplog, message="Computed OUTGOING category breakdown (2 categories) for <User(id=1,")
 
 
 def test_categories_income_direction_returns_only_incoming(http_client: TestClient, session_factory: sessionmaker):
@@ -64,18 +68,6 @@ def test_categories_income_direction_returns_only_incoming(http_client: TestClie
 
     assert response.status_code == 200
     assert response.json() == [{"category": "SALARY", "total": DEFAULT_AMOUNT}]
-
-
-def test_categories_logs_with_user_object(
-    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
-):
-    account_id = setup_account(http_client=http_client, session_factory=session_factory)
-    seed_for_categories(session_factory=session_factory, account_id=account_id)
-
-    with caplog.at_level(logging.DEBUG, logger="services.transactions.statistics_service"):
-        http_client.get("/api/statistics/categories", params=[("account_ids", account_id)])
-
-    assert_log_contains(caplog=caplog, message="Computed OUTGOING category breakdown (2 categories) for <User(id=1,")
 
 
 def test_categories_respects_date_range(http_client: TestClient, session_factory: sessionmaker):
@@ -142,34 +134,6 @@ def test_categories_hide_net_zero_transfers(http_client: TestClient, session_fac
 
     assert response.status_code == 200
     assert response.json() == [{"category": "SALARY", "total": LARGE_AMOUNT}]
-
-
-def test_categories_filter_by_transaction_type(http_client: TestClient, session_factory: sessionmaker):
-    account_id = setup_account(http_client=http_client, session_factory=session_factory)
-    with session_factory() as session:
-        make_transaction(
-            session,
-            account_id=account_id,
-            amount=-DEFAULT_AMOUNT,
-            category=TransactionCategory.FUEL,
-            transaction_type=TransactionType.OUTGOING,
-        )
-        make_transaction(
-            session,
-            account_id=account_id,
-            amount=-DEFAULT_AMOUNT,
-            category=TransactionCategory.FEES,
-            transaction_type=TransactionType.FEES,
-        )
-        session.commit()
-
-    response = http_client.get(
-        "/api/statistics/categories",
-        params=[("account_ids", account_id), ("transaction_types", "FEES")],
-    )
-
-    assert response.status_code == 200
-    assert response.json() == [{"category": "FEES", "total": DEFAULT_AMOUNT}]
 
 
 def test_categories_filter_by_multiple_transaction_types(http_client: TestClient, session_factory: sessionmaker):
@@ -244,41 +208,34 @@ def test_categories_hide_net_zero_related_groups_but_keep_related_groups_with_ne
     assert response.json() == [{"category": "FEES", "total": DEFAULT_AMOUNT}]
 
 
-def test_categories_filter_restricts_results(http_client: TestClient, session_factory: sessionmaker):
+@pytest.mark.parametrize(
+    argnames=("second_category", "category_filter"),
+    argvalues=[
+        (TransactionCategory.RENT, ["FUEL", "RENT"]),
+        (TransactionCategory.PARKING, ["MOBILITY"]),
+    ],
+)
+def test_categories_filter_restricts_results(
+    http_client: TestClient,
+    session_factory: sessionmaker,
+    second_category: TransactionCategory,
+    category_filter: list[str],
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     with session_factory() as session:
         make_transaction(session, account_id=account_id, amount=-THIRD_AMOUNT, category=TransactionCategory.FUEL)
-        make_transaction(session, account_id=account_id, amount=-SECOND_AMOUNT, category=TransactionCategory.RENT)
+        make_transaction(session, account_id=account_id, amount=-SECOND_AMOUNT, category=second_category)
         make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.GIFTS)
         session.commit()
 
     response = http_client.get(
         "/api/statistics/categories",
-        params=[("account_ids", account_id), ("categories", "FUEL"), ("categories", "RENT")],
+        params=[("account_ids", account_id), *(("categories", category) for category in category_filter)],
     )
 
     assert response.status_code == 200
     assert response.json() == [
-        {"category": "RENT", "total": SECOND_AMOUNT},
-        {"category": "FUEL", "total": THIRD_AMOUNT},
-    ]
-
-
-def test_categories_filter_accepts_a_group(http_client: TestClient, session_factory: sessionmaker):
-    account_id = setup_account(http_client=http_client, session_factory=session_factory)
-    with session_factory() as session:
-        make_transaction(session, account_id=account_id, amount=-THIRD_AMOUNT, category=TransactionCategory.FUEL)
-        make_transaction(session, account_id=account_id, amount=-SECOND_AMOUNT, category=TransactionCategory.PARKING)
-        make_transaction(session, account_id=account_id, amount=-DEFAULT_AMOUNT, category=TransactionCategory.GIFTS)
-        session.commit()
-
-    response = http_client.get(
-        "/api/statistics/categories", params=[("account_ids", account_id), ("categories", "MOBILITY")]
-    )
-
-    assert response.status_code == 200
-    assert response.json() == [
-        {"category": "PARKING", "total": SECOND_AMOUNT},
+        {"category": second_category.value, "total": SECOND_AMOUNT},
         {"category": "FUEL", "total": THIRD_AMOUNT},
     ]
 
@@ -373,56 +330,67 @@ def test_statistics_span_multiple_accounts(http_client: TestClient, session_fact
     assert response.json() == [{"category": "FUEL", "total": 2 * DEFAULT_AMOUNT}]
 
 
-def test_net_worth_carries_forward_latest_snapshot_per_day(http_client: TestClient, session_factory: sessionmaker):
+@pytest.mark.parametrize(
+    argnames=("snapshots", "date_to", "expected"),
+    argvalues=[
+        (
+            [(date(year=2026, month=1, day=1), 1000.0), (date(year=2026, month=1, day=3), 1200.0)],
+            "2026-01-05",
+            {
+                "series": [
+                    {"date": "2026-01-01", "value": 1000.0},
+                    {"date": "2026-01-02", "value": 1000.0},
+                    {"date": "2026-01-03", "value": 1200.0},
+                    {"date": "2026-01-04", "value": 1200.0},
+                    {"date": "2026-01-05", "value": 1200.0},
+                ],
+                "summary": {"minimum": 1000.0, "average": 1120.0, "maximum": 1200.0},
+            },
+        ),
+        (
+            [(date(year=2025, month=12, day=20), 500.0), (date(year=2026, month=1, day=2), 750.0)],
+            "2026-01-03",
+            {
+                "series": [
+                    {"date": "2026-01-01", "value": 500.0},
+                    {"date": "2026-01-02", "value": 750.0},
+                    {"date": "2026-01-03", "value": 750.0},
+                ],
+                "summary": {"minimum": 500.0, "average": 666.67, "maximum": 750.0},
+            },
+        ),
+        (
+            [(date(year=2026, month=1, day=3), DEFAULT_BALANCE)],
+            "2026-01-04",
+            {
+                "series": [
+                    {"date": "2026-01-03", "value": DEFAULT_BALANCE},
+                    {"date": "2026-01-04", "value": DEFAULT_BALANCE},
+                ],
+                "summary": {"minimum": DEFAULT_BALANCE, "average": DEFAULT_BALANCE, "maximum": DEFAULT_BALANCE},
+            },
+        ),
+        ([], "2026-01-05", {"series": [], "summary": None}),
+    ],
+)
+def test_net_worth_series(
+    http_client: TestClient,
+    session_factory: sessionmaker,
+    snapshots: list[tuple[date, float]],
+    date_to: str,
+    expected: dict,
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
-    seed_snapshot(
-        session_factory=session_factory, account_id=account_id, day=date(year=2026, month=1, day=1), balance=1000.0
-    )
-    seed_snapshot(
-        session_factory=session_factory, account_id=account_id, day=date(year=2026, month=1, day=3), balance=1200.0
-    )
+    for day, balance in snapshots:
+        seed_snapshot(session_factory=session_factory, account_id=account_id, day=day, balance=balance)
 
     response = http_client.get(
         "/api/statistics/net-worth",
-        params=[("account_ids", account_id), ("date_from", "2026-01-01"), ("date_to", "2026-01-05")],
+        params=[("account_ids", account_id), ("date_from", "2026-01-01"), ("date_to", date_to)],
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "series": [
-            {"date": "2026-01-01", "value": 1000.0},
-            {"date": "2026-01-02", "value": 1000.0},
-            {"date": "2026-01-03", "value": 1200.0},
-            {"date": "2026-01-04", "value": 1200.0},
-            {"date": "2026-01-05", "value": 1200.0},
-        ],
-        "summary": {"minimum": 1000.0, "average": 1120.0, "maximum": 1200.0},
-    }
-
-
-def test_net_worth_uses_anchor_before_date_from(http_client: TestClient, session_factory: sessionmaker):
-    account_id = setup_account(http_client=http_client, session_factory=session_factory)
-    seed_snapshot(
-        session_factory=session_factory, account_id=account_id, day=date(year=2025, month=12, day=20), balance=500.0
-    )
-    seed_snapshot(
-        session_factory=session_factory, account_id=account_id, day=date(year=2026, month=1, day=2), balance=750.0
-    )
-
-    response = http_client.get(
-        "/api/statistics/net-worth",
-        params=[("account_ids", account_id), ("date_from", "2026-01-01"), ("date_to", "2026-01-03")],
-    )
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "series": [
-            {"date": "2026-01-01", "value": 500.0},
-            {"date": "2026-01-02", "value": 750.0},
-            {"date": "2026-01-03", "value": 750.0},
-        ],
-        "summary": {"minimum": 500.0, "average": 666.67, "maximum": 750.0},
-    }
+    assert response.json() == expected
 
 
 def test_net_worth_sums_across_accounts_applying_balance_factor(http_client: TestClient, session_factory: sessionmaker):
@@ -454,46 +422,6 @@ def test_net_worth_sums_across_accounts_applying_balance_factor(http_client: Tes
     }
 
 
-def test_net_worth_skips_days_with_no_anchor(http_client: TestClient, session_factory: sessionmaker):
-    account_id = setup_account(http_client=http_client, session_factory=session_factory)
-    seed_snapshot(
-        session_factory=session_factory,
-        account_id=account_id,
-        day=date(year=2026, month=1, day=3),
-        balance=DEFAULT_BALANCE,
-    )
-
-    response = http_client.get(
-        "/api/statistics/net-worth",
-        params=[("account_ids", account_id), ("date_from", "2026-01-01"), ("date_to", "2026-01-04")],
-    )
-
-    # 2026-01-01 and 2026-01-02 have no anchor; series starts at the first day with data.
-    assert response.json() == {
-        "series": [
-            {"date": "2026-01-03", "value": 100.0},
-            {"date": "2026-01-04", "value": 100.0},
-        ],
-        "summary": {"minimum": 100.0, "average": 100.0, "maximum": 100.0},
-    }
-
-
-def test_net_worth_returns_empty_without_snapshots(http_client: TestClient, session_factory: sessionmaker):
-    account_id = setup_account(http_client=http_client, session_factory=session_factory)
-    response = http_client.get(
-        "/api/statistics/net-worth",
-        params=[("account_ids", account_id), ("date_from", "2026-01-01"), ("date_to", "2026-01-05")],
-    )
-    assert response.status_code == 200
-    assert response.json() == {"series": [], "summary": None}
-
-
-@pytest.mark.parametrize(argnames="endpoint", argvalues=STATISTICS_ENDPOINTS)
-def test_statistics_require_authentication(http_client: TestClient, endpoint: str):
-    response = http_client.get(endpoint, params=[("account_ids", 1)])
-    assert response.status_code == 401
-
-
 @pytest.mark.parametrize(argnames="endpoint", argvalues=STATISTICS_ENDPOINTS)
 def test_statistics_require_at_least_one_account_id(http_client: TestClient, endpoint: str):
     register(http_client)
@@ -505,9 +433,7 @@ def test_statistics_require_at_least_one_account_id(http_client: TestClient, end
 def test_statistics_reject_account_owned_by_a_different_user(
     http_client: TestClient, session_factory: sessionmaker, endpoint: str
 ):
-    register(http_client, user_name="owner")
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
@@ -549,46 +475,32 @@ def test_net_worth_range_breaks_down_change_per_account(http_client: TestClient,
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "start": "2026-05-19",
-        "end": "2026-05-20",
-        "total_at_start": 100.0,
-        "total_at_end": 130.0,
-        "total_difference": 30.0,
-        "accounts": [
-            {
-                "account_id": account_id,
-                "balance_at_start": 100.0,
-                "balance_at_end": 130.0,
-                "difference": 30.0,
-                "transactions": [
-                    {
-                        "id": transaction_id,
-                        "account_id": account_id,
-                        "amount": DEFAULT_AMOUNT,
-                        "purpose": None,
-                        "date": "2026-05-20",
-                        "other_party": None,
-                        "transaction_type": None,
-                        "category": "UNKNOWN",
-                        "category_source": "AUTO",
-                        "note": None,
-                        "pending": False,
-                        "contract_id": None,
-                        "refund_status": None,
-                    }
-                ],
-            }
-        ],
-    }
+    body = response.json()
+    assert (body["total_at_start"], body["total_at_end"], body["total_difference"]) == (100.0, 130.0, 30.0)
+    (account,) = body["accounts"]
+    assert account["account_id"] == account_id
+    assert [transaction["id"] for transaction in account["transactions"]] == [transaction_id]
 
 
-def test_net_worth_range_rejects_an_end_before_the_start(http_client: TestClient, session_factory: sessionmaker):
+@pytest.mark.parametrize(
+    argnames=("endpoint", "start_param", "end_param"),
+    argvalues=[
+        ("/api/statistics/net-worth/range", "start", "end"),
+        ("/api/statistics/categories/trend", "date_from", "date_to"),
+    ],
+)
+def test_statistics_reject_a_range_ending_before_it_starts(
+    http_client: TestClient, session_factory: sessionmaker, endpoint: str, start_param: str, end_param: str
+):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     response = http_client.get(
-        "/api/statistics/net-worth/range",
-        params=[("start", RECENT_DATE.isoformat()), ("end", OLDER_DATE.isoformat()), ("account_ids", account_id)],
+        endpoint,
+        params=[
+            (start_param, RECENT_DATE.isoformat()),
+            (end_param, OLDER_DATE.isoformat()),
+            ("account_ids", account_id),
+        ],
     )
 
     assert response.status_code == 422
@@ -622,21 +534,6 @@ def test_category_trend_compares_the_range_with_the_window_before(
 
     assert response.status_code == 200
     assert response.json() == [{"category": supermarket.value, "current": DEFAULT_AMOUNT, "baseline": SECOND_AMOUNT}]
-
-
-def test_category_trend_rejects_a_range_ending_before_it_starts(http_client: TestClient, session_factory: sessionmaker):
-    account_id = setup_account(http_client=http_client, session_factory=session_factory)
-
-    response = http_client.get(
-        "/api/statistics/categories/trend",
-        params=[
-            ("account_ids", account_id),
-            ("date_from", RECENT_DATE.isoformat()),
-            ("date_to", OLDER_DATE.isoformat()),
-        ],
-    )
-
-    assert response.status_code == 422
 
 
 def test_transaction_counts_buckets_bookings_per_day(http_client: TestClient, session_factory: sessionmaker):

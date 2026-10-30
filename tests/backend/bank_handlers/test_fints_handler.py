@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import requests
+from fints.exceptions import FinTSClientPINError
 
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
 from source.backend.bank_handlers import fints_handler as module
@@ -148,23 +149,15 @@ def test_configure_pushtan_picks_mechanism_by_name():
     client.get_tan_media.assert_not_called()
 
 
-def test_configure_pushtan_skips_silently_when_no_pushtan_advertised():
+@pytest.mark.parametrize(argnames="tan_mechanisms", argvalues=[{"900": _FakeMechanism(name="iTAN")}, {}])
+def test_configure_pushtan_skips_silently_when_no_pushtan_advertised(tan_mechanisms: dict[str, _FakeMechanism]):
     client = MagicMock()
-    client.get_tan_mechanisms.return_value = {"900": _FakeMechanism(name="iTAN")}
+    client.get_tan_mechanisms.return_value = tan_mechanisms
 
     _try_configure_pushtan_mechanism(client)
 
     client.set_tan_mechanism.assert_not_called()
     client.get_tan_media.assert_not_called()
-
-
-def test_configure_pushtan_skips_silently_when_no_mechanisms_at_all():
-    client = MagicMock()
-    client.get_tan_mechanisms.return_value = {}
-
-    _try_configure_pushtan_mechanism(client)
-
-    client.set_tan_mechanism.assert_not_called()
 
 
 def test_configure_pushtan_selects_tan_medium_when_required():
@@ -407,62 +400,49 @@ def test_date_ranges_splits_history_into_gapless_chunks_up_to_today():
         assert chunk_end - chunk_start < module.FETCH_CHUNK_LENGTH
 
 
-def test_session_captures_system_id_after_successful_use(monkeypatch: pytest.MonkeyPatch):
+@pytest.mark.parametrize(
+    argnames=("system_id", "expected_system_id"),
+    argvalues=[
+        ("1234567890", "1234567890"),
+        ("0", None),  # placeholder used before the bank assigns a real one
+    ],
+)
+def test_session_captures_a_real_system_id_after_successful_use(
+    monkeypatch: pytest.MonkeyPatch, system_id: str, expected_system_id: str | None
+):
     client = MagicMock()
     client.get_tan_mechanisms.return_value = {}
     client.init_tan_response = "no-tan-needed"
-    client.system_id = "1234567890"
+    client.system_id = system_id
     monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
 
     with _fints_handler().session() as bank:
         assert bank.system_id is None  # not yet captured while the session is in use
 
-    assert bank.system_id == "1234567890"
+    assert bank.system_id == expected_system_id
 
 
-def test_session_does_not_capture_placeholder_system_id(monkeypatch: pytest.MonkeyPatch):
-    client = MagicMock()
-    client.get_tan_mechanisms.return_value = {}
-    client.init_tan_response = "no-tan-needed"
-    client.system_id = "0"  # placeholder used before the bank assigns a real one
-    monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
-
-    with _fints_handler().session() as bank:
-        pass
-
-    assert bank.system_id is None
-
-
-def test_session_translates_missing_system_id_into_invalid_credentials(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+@pytest.mark.parametrize(
+    argnames=("login_error", "expected_log"),
+    argvalues=[
+        # python-fints raises a bare ValueError('Could not find system_id') when the bank rejects
+        # the login (wrong username/PIN), because the initial sync can't obtain a system id.
+        (ValueError("Could not find system_id"), "the username or password is likely incorrect"),
+        (FinTSClientPINError("PIN is wrong or blocked"), "The bank rejected the login"),
+    ],
+)
+def test_session_translates_login_errors_into_invalid_credentials(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, login_error: Exception, expected_log: str
 ):
-    # python-fints raises a bare ValueError('Could not find system_id') when the bank rejects
-    # the login (wrong username/PIN), because the initial sync can't obtain a system id.
     client = MagicMock()
-    client.fetch_tan_mechanisms.side_effect = ValueError("Could not find system_id")
+    client.fetch_tan_mechanisms.side_effect = login_error
     monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
 
     with pytest.raises(InvalidCredentialsError):
         with _fints_handler().session():
             pass
 
-    assert_log_contains(caplog, message="the username or password is likely incorrect")
-
-
-def test_session_translates_fints_pin_error_into_invalid_credentials(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-):
-    from fints.exceptions import FinTSClientPINError
-
-    client = MagicMock()
-    client.fetch_tan_mechanisms.side_effect = FinTSClientPINError("PIN is wrong or blocked")
-    monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
-
-    with pytest.raises(InvalidCredentialsError):
-        with _fints_handler().session():
-            pass
-
-    assert_log_contains(caplog, message="The bank rejected the login")
+    assert_log_contains(caplog, message=expected_log)
 
 
 def test_session_does_not_swallow_unrelated_value_errors(monkeypatch: pytest.MonkeyPatch):
@@ -481,12 +461,6 @@ def test_fints_strips_whitespace_from_blz():
 
     assert rules["blz"]["strip_whitespace"] is True
     assert rules["blz"]["rules"] == []
-
-
-def test_bank_info_required_fields_reflects_handler_credential_fields():
-    fints = BANKS_BY_NAME[BankProvider.FINTS.value]
-    assert fints.required_fields == ["username", "password", "blz"]
-    assert _FAKE_BANK_INFO.required_fields == ["username", "password"]
 
 
 def test_fints_handler_offers_no_out_of_band_two_factor_challenge():

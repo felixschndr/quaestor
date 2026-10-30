@@ -191,29 +191,27 @@ def test_paypal_routed_subscription_forms_a_bank_contract_without_a_paypal_accou
         assert contract.fingerprint == "paypal:apple services:out"
 
 
-def test_blacklisted_other_party_does_not_form_a_contract(session_factory: sessionmaker):
+@pytest.mark.parametrize(
+    argnames=("other_party", "day_offsets", "category"),
+    argvalues=[
+        ("EDEKA Markt Mueller", [0, 30, 60], TransactionCategory.SUPERMARKET),
+        (NETFLIX, [0, 30], TransactionCategory.UNKNOWN),
+        (None, MONTHLY_DAY_OFFSETS, TransactionCategory.UNKNOWN),
+    ],
+)
+def test_payments_that_are_no_subscription_do_not_form_a_contract(
+    session_factory: sessionmaker, other_party: str | None, day_offsets: list[int], category: TransactionCategory
+):
     with session_factory() as session:
         account = make_account_with_new_user(session)
         _seed(
             session,
             account_id=account.id,
-            other_party="EDEKA Markt Mueller",
+            other_party=other_party,
             amount=-DEFAULT_AMOUNT,
-            day_offsets=[0, 30, 60],
-            category=TransactionCategory.SUPERMARKET,
+            day_offsets=day_offsets,
+            category=category,
         )
-        session.commit()
-
-        detected = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
-
-        assert detected == []
-        assert session.query(Contract).count() == 0
-
-
-def test_too_few_occurrences_do_not_form_a_contract(session_factory: sessionmaker):
-    with session_factory() as session:
-        account = make_account_with_new_user(session)
-        _seed(session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=[0, 30])
         session.commit()
 
         detected = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
@@ -264,18 +262,6 @@ def test_payments_with_erratic_amounts_do_not_form_a_contract(
         assert detected == []
         assert session.query(Contract).count() == 0
         assert_log_contains(caplog, message="has inconsistent amounts; skipping")
-
-
-def test_payments_without_a_counterparty_do_not_form_a_contract(session_factory: sessionmaker):
-    with session_factory() as session:
-        account = make_account_with_new_user(session)
-        _seed(session, account_id=account.id, other_party=None, amount=-DEFAULT_AMOUNT, day_offsets=MONTHLY_DAY_OFFSETS)
-        session.commit()
-
-        detected = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
-
-        assert detected == []
-        assert session.query(Contract).count() == 0
 
 
 def test_detected_contract_takes_the_category_most_of_its_payments_share(session_factory: sessionmaker):

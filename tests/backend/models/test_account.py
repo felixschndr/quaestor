@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from datetime import date, timedelta
 
 import pytest
@@ -18,10 +19,8 @@ from tests.backend.conftest import (
     SECOND_AMOUNT,
     THIRD_AMOUNT,
     assert_log_contains,
-    make_account,
-    make_credential,
+    make_account_with_new_user,
     make_transaction,
-    make_user,
 )
 
 
@@ -34,9 +33,7 @@ def test_display_label_falls_back_to_name_when_no_display_name():
 
 
 def _persist_account(session: Session, balance: float, transactions: list[tuple[date, float]]) -> Account:
-    user = make_user(session)
-    credential = make_credential(session, user_id=user.id)
-    account = make_account(session, credential_id=credential.id, name="x", balance=balance)
+    account = make_account_with_new_user(session, balance=balance)
     for day, amount in transactions:
         make_transaction(session, account_id=account.id, amount=amount, date=day)
     return account
@@ -219,12 +216,15 @@ def test_record_market_value_history_replaces_previous_market_snapshots(session_
         )
 
 
-def test_record_market_value_history_ignores_future_dates(session_factory: sessionmaker):
+@pytest.mark.parametrize(
+    argnames="record", argvalues=[Account.record_market_value_history, Account.record_balance_observations]
+)
+def test_recording_observations_ignores_future_dates(session_factory: sessionmaker, record: Callable[..., None]):
     with session_factory() as session:
         account = _persist_account(session=session, balance=0.0, transactions=[])
         future = date.today() + timedelta(days=3)
 
-        account.record_market_value_history([BalanceObservation(date=future, amount=DEFAULT_AMOUNT)])
+        record(account, observations=[BalanceObservation(date=future, amount=DEFAULT_AMOUNT)])
         session.flush()
 
         assert future not in account.balance_at_date
@@ -263,17 +263,6 @@ def test_record_balance_observations_persists_bank_reported_anchor(session_facto
         snapshot = account.balance_at_date[anchor_day]
         assert snapshot.balance == DEFAULT_AMOUNT
         assert snapshot.source == BalanceSnapshotSource.BANK_REPORTED
-
-
-def test_record_balance_observations_ignores_future_dates(session_factory: sessionmaker):
-    with session_factory() as session:
-        account = _persist_account(session=session, balance=0.0, transactions=[])
-        future = date.today() + timedelta(days=3)
-
-        account.record_balance_observations([BalanceObservation(date=future, amount=DEFAULT_AMOUNT)])
-        session.flush()
-
-        assert future not in account.balance_at_date
 
 
 def test_record_balance_observations_upgrades_existing_computed_snapshot(session_factory: sessionmaker):

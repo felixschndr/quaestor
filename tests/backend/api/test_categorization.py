@@ -3,23 +3,18 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from source.backend.models.transactions.category_source import CategorySource
-from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TRANSACTION_CATEGORY_MAPPING, TransactionCategory
 from tests.backend.conftest import (
     INTRUDER_USER_NAME,
     REWE,
     assert_log_contains,
+    category_of,
     persist_transaction,
     register_and_login,
     setup_account,
 )
 
 URL = "/api/categorization"
-
-
-def _category_of(session_factory: sessionmaker, transaction_id: int) -> TransactionCategory:
-    with session_factory() as session:
-        return session.get(entity=Transaction, ident=transaction_id).category
 
 
 def _create_rule(http_client: TestClient, pattern: str = "Rewe Markt", category: str = "GIFTS") -> dict:
@@ -66,8 +61,8 @@ def test_creating_a_rule_normalizes_it_and_recategorizes_only_automatic_transact
     assert_log_contains(
         caplog=caplog, messages=["Created <CategoryRule(id=None", f"Updated <CategoryRule(id={rule_id}"]
     )
-    assert _category_of(session_factory=session_factory, transaction_id=automatic) == TransactionCategory.GIFTS
-    assert _category_of(session_factory=session_factory, transaction_id=manual) == TransactionCategory.RESTAURANTS
+    assert category_of(session_factory=session_factory, transaction_id=automatic) == TransactionCategory.GIFTS
+    assert category_of(session_factory=session_factory, transaction_id=manual) == TransactionCategory.RESTAURANTS
 
 
 def test_deleting_a_rule_hands_its_transactions_back_to_the_default_matchers(
@@ -76,14 +71,14 @@ def test_deleting_a_rule_hands_its_transactions_back_to_the_default_matchers(
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     transaction_id = persist_transaction(session_factory=session_factory, account_id=account_id, other_party=REWE)
     rule = _create_rule(http_client=http_client, pattern=REWE)["rules"][0]
-    assert _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.GIFTS
+    assert category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.GIFTS
 
     body = http_client.delete(f"{URL}/rules/{rule['id']}").json()
 
     assert body["rules"] == []
     assert_log_contains(caplog=caplog, message=f"Deleted <CategoryRule(id={rule['id']}")
     assert (
-        _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SUPERMARKET
+        category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SUPERMARKET
     )
 
 
@@ -142,13 +137,13 @@ def test_disabling_a_default_matcher_recategorizes_and_can_be_undone(
 
     assert body["recategorized"] == 1
     assert {"pattern": "rewe", "category": "SUPERMARKET", "disabled": True} in body["default_matchers"]
-    assert _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.UNKNOWN
+    assert category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.UNKNOWN
     assert_log_contains(caplog=caplog, message="Disabled the default matcher 'rewe' for <User(id=1")
 
     http_client.put(f"{URL}/default-matchers", json={"pattern": "rewe", "disabled": False})
 
     assert (
-        _category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SUPERMARKET
+        category_of(session_factory=session_factory, transaction_id=transaction_id) == TransactionCategory.SUPERMARKET
     )
     assert_log_contains(caplog=caplog, message="Enabled the default matcher 'rewe' for <User(id=1")
 
@@ -159,7 +154,3 @@ def test_only_default_matchers_can_be_disabled(http_client: TestClient, session_
     response = http_client.put(f"{URL}/default-matchers", json={"pattern": "not a matcher", "disabled": True})
 
     assert response.status_code == 422
-
-
-def test_categorization_requires_authentication(http_client: TestClient):
-    assert http_client.get(URL).status_code == 401

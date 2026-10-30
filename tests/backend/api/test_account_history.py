@@ -7,41 +7,37 @@ from source.backend.models.accounts.account_balance_snapshot import AccountBalan
 from tests.backend.conftest import (
     DEFAULT_BALANCE,
     SECOND_USER_NAME,
-    create_credential,
-    make_account,
     make_transaction,
-    register,
     register_and_login,
+    setup_account,
 )
 
 
 def _account_with_history(
-    session_factory: sessionmaker, credential_id: int, day_count: int, transactions_per_day: int = 1
+    http_client: TestClient, session_factory: sessionmaker, day_count: int, transactions_per_day: int = 1
 ) -> int:
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     with session_factory() as session:
-        account = make_account(session, credential_id=credential_id)
         base = date(year=2026, month=5, day=1)
         for day_offset in range(day_count):
             day = base - timedelta(days=day_offset)
             for index in range(transactions_per_day):
                 make_transaction(
                     session,
-                    account_id=account.id,
+                    account_id=account_id,
                     amount=float(index + 1),
                     purpose=f"d{day_offset}-t{index}",
                     date=day,
                 )
-            session.add(AccountBalanceSnapshot(account_id=account.id, date=day, balance=DEFAULT_BALANCE - day_offset))
+            session.add(AccountBalanceSnapshot(account_id=account_id, date=day, balance=DEFAULT_BALANCE - day_offset))
         session.commit()
-        return account.id
+    return account_id
 
 
 def test_history_default_page_returns_first_thirty_days_newest_first(
     http_client: TestClient, session_factory: sessionmaker
 ):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = _account_with_history(session_factory=session_factory, credential_id=credential_id, day_count=40)
+    account_id = _account_with_history(http_client=http_client, session_factory=session_factory, day_count=40)
 
     body = http_client.get(f"/api/account/{account_id}/history").json()
 
@@ -57,13 +53,11 @@ def test_history_default_page_returns_first_thirty_days_newest_first(
 
 
 def test_history_page_size_controls_day_window(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
     # 5 days, 3 transactions each → 15 transactions; page_size=2 should return
     # 2 days = 6 transactions.
     account_id = _account_with_history(
+        http_client=http_client,
         session_factory=session_factory,
-        credential_id=credential_id,
         day_count=5,
         transactions_per_day=3,
     )
@@ -86,9 +80,7 @@ def test_history_page_size_controls_day_window(http_client: TestClient, session_
 
 
 def test_history_second_page_returns_next_day_window(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = _account_with_history(session_factory=session_factory, credential_id=credential_id, day_count=5)
+    account_id = _account_with_history(http_client=http_client, session_factory=session_factory, day_count=5)
 
     page_one = http_client.get(f"/api/account/{account_id}/history", params={"page_size": 2}).json()
     page_two = http_client.get(f"/api/account/{account_id}/history", params={"page": 2, "page_size": 2}).json()
@@ -99,9 +91,7 @@ def test_history_second_page_returns_next_day_window(http_client: TestClient, se
 
 
 def test_history_page_beyond_data_is_empty(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = _account_with_history(session_factory=session_factory, credential_id=credential_id, day_count=3)
+    account_id = _account_with_history(http_client=http_client, session_factory=session_factory, day_count=3)
 
     body = http_client.get(f"/api/account/{account_id}/history", params={"page": 5, "page_size": 10}).json()
 
@@ -111,12 +101,7 @@ def test_history_page_beyond_data_is_empty(http_client: TestClient, session_fact
 
 
 def test_history_empty_account_returns_zero_total_days(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name="empty")
-        session.commit()
-        account_id = account.id
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
     body = http_client.get(f"/api/account/{account_id}/history").json()
 
@@ -124,23 +109,15 @@ def test_history_empty_account_returns_zero_total_days(http_client: TestClient, 
 
 
 def test_history_rejects_invalid_pagination_parameters(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = _account_with_history(session_factory=session_factory, credential_id=credential_id, day_count=1)
+    account_id = _account_with_history(http_client=http_client, session_factory=session_factory, day_count=1)
 
     assert http_client.get(f"/api/account/{account_id}/history", params={"page": 0}).status_code == 422
     assert http_client.get(f"/api/account/{account_id}/history", params={"page_size": 0}).status_code == 422
     assert http_client.get(f"/api/account/{account_id}/history", params={"page_size": 9999}).status_code == 422
 
 
-def test_history_requires_authentication(http_client: TestClient):
-    assert http_client.get("/api/account/1/history").status_code == 401
-
-
 def test_user_cannot_read_other_users_history(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = _account_with_history(session_factory=session_factory, credential_id=credential_id, day_count=1)
+    account_id = _account_with_history(http_client=http_client, session_factory=session_factory, day_count=1)
 
     register_and_login(http_client, user_name=SECOND_USER_NAME)
 

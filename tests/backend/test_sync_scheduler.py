@@ -1,15 +1,14 @@
 import asyncio
-import threading
 from datetime import timedelta
-from unittest.mock import AsyncMock, Mock
+from types import ModuleType
+from unittest.mock import Mock
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
-from source.backend import main
 from source.backend.services.banking import sync_scheduler
 from source.backend.services.banking.sync_scheduler import run_periodic_sync as real_run_periodic_sync
+from source.backend.services.transactions import recurring_transaction_scheduler
 from tests.backend.conftest import assert_log_contains
 
 
@@ -37,32 +36,33 @@ def test_invalid_interval_falls_back_to_default(monkeypatch: pytest.MonkeyPatch,
     )
 
 
-def test_app_startup_schedules_periodic_sync(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(target=main, name="SessionLocal", value=session_factory)
-    scheduled = threading.Event()
-    run_periodic_sync = AsyncMock(side_effect=lambda: scheduled.set())
-    monkeypatch.setattr(target=main.sync_scheduler, name="run_periodic_sync", value=run_periodic_sync)
-
-    with TestClient(main.app):
-        assert scheduled.wait(timeout=5)
-
-    run_periodic_sync.assert_called_once_with()
-
-
-def test_sync_all_due_credentials_helper_uses_session_local(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    argnames=("scheduler", "service", "job", "helper"),
+    argvalues=[
+        (sync_scheduler, sync_scheduler.credential_service, "sync_all_due_credentials", "_sync_all_due_credentials"),
+        (
+            recurring_transaction_scheduler,
+            recurring_transaction_scheduler.recurring_transaction_service,
+            "book_due_recurring_transactions",
+            "_book_due_recurring_transactions",
+        ),
+    ],
+)
+def test_scheduler_helper_runs_its_job_in_a_session_local(
+    session_factory: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+    scheduler: ModuleType,
+    service: ModuleType,
+    job: str,
+    helper: str,
 ):
-    monkeypatch.setattr(target=sync_scheduler, name="SessionLocal", value=session_factory)
-    called_with: list = []
+    monkeypatch.setattr(target=scheduler, name="SessionLocal", value=session_factory)
+    job_mock = Mock()
+    monkeypatch.setattr(target=service, name=job, value=job_mock)
 
-    def sync_mock(db_session: object) -> None:
-        called_with.append(db_session)
+    getattr(scheduler, helper)()
 
-    monkeypatch.setattr(target=sync_scheduler.credential_service, name="sync_all_due_credentials", value=sync_mock)
-
-    sync_scheduler._sync_all_due_credentials()
-
-    assert len(called_with) == 1
+    job_mock.assert_called_once()
 
 
 def test_run_periodic_sync_logs_and_keeps_running_on_exception(

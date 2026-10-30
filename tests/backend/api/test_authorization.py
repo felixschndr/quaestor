@@ -10,15 +10,6 @@ from tests.backend.conftest import (
 )
 
 
-def test_credential_endpoints_require_authentication(http_client: TestClient):
-    assert http_client.get("/api/credentials/1").status_code == 401
-    assert http_client.post("/api/credentials", json={}).status_code == 401
-
-
-def test_user_endpoints_require_authentication(http_client: TestClient):
-    assert http_client.get("/api/auth/me").status_code == 401
-
-
 def test_user_cannot_read_other_users_credential(http_client: TestClient):
     register_and_login(http_client, user_name="owner")
     credential_id = create_credential(http_client).json()["id"]

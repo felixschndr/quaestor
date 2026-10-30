@@ -84,10 +84,7 @@ def test_start_sync_creates_a_job_that_runs_to_completion(patch_sync: PatchSync,
         assert sync_jobs.get_job_by_id(job.job_id) is job
         # start_sync yields once before returning, so the background task may have already
         # progressed to terminal — only assert the eventual outcome.
-        for _ in range(50):
-            if job.finished_at is not None:
-                break
-            await asyncio.sleep(0)
+        await _wait_until(lambda: job.finished_at is not None)
         assert job.status == JobStatus.COMPLETED
         return job
 
@@ -96,41 +93,38 @@ def test_start_sync_creates_a_job_that_runs_to_completion(patch_sync: PatchSync,
     assert_log_contains(caplog, messages=[f"<SyncJob(job_id={job.job_id}, ", ")> started", ")> completed"])
 
 
-def test_start_sync_marks_job_failed_on_exception(patch_sync: PatchSync, caplog: pytest.LogCaptureFixture):
-    patch_sync(RuntimeError("Something went wrong"))
+@pytest.mark.parametrize(
+    argnames=("error", "expected_error_code", "expected_log"),
+    argvalues=[
+        (RuntimeError("Something went wrong"), JobErrorCode.UNKNOWN, ")> failed"),
+        (
+            InvalidCredentialsError("The bank rejected the login"),
+            JobErrorCode.INVALID_CREDENTIALS,
+            ")> failed: The bank rejected the login",
+        ),
+        (BankRateLimitedError("429"), JobErrorCode.RATE_LIMITED, ")> failed: 429"),
+    ],
+)
+def test_start_sync_marks_job_failed_on_exception(
+    patch_sync: PatchSync,
+    caplog: pytest.LogCaptureFixture,
+    error: Exception,
+    expected_error_code: JobErrorCode,
+    expected_log: str,
+):
+    patch_sync(error)
 
     async def scenario() -> SyncJob:
         job = await sync_jobs.start_sync(credential_id=CREDENTIAL_ID)
-        for _ in range(50):
-            if job.finished_at is not None:
-                break
-            await asyncio.sleep(0)
-        assert job.status == JobStatus.FAILED
-        assert "Something went wrong" in (job.error or "")
-        assert job.error_code == JobErrorCode.UNKNOWN  # unexpected failures are tagged UNKNOWN
+        await _wait_until(lambda: job.finished_at is not None)
         return job
 
     job = asyncio.run(scenario())
 
-    assert_log_contains(caplog, messages=[f"<SyncJob(job_id={job.job_id}, ", ")> failed"])
-
-
-def test_start_sync_tags_invalid_credentials_with_error_code(patch_sync: PatchSync, caplog: pytest.LogCaptureFixture):
-    patch_sync(InvalidCredentialsError("The bank rejected the login"))
-
-    async def scenario():
-        job = await sync_jobs.start_sync(credential_id=CREDENTIAL_ID)
-        for _ in range(50):
-            if job.finished_at is not None:
-                break
-            await asyncio.sleep(0)
-        assert job.status == JobStatus.FAILED
-        assert job.error_code == JobErrorCode.INVALID_CREDENTIALS
-        assert "rejected the login" in (job.error or "")
-
-    asyncio.run(scenario())
-
-    assert_log_contains(caplog, message="failed: The bank rejected the login")
+    assert job.status == JobStatus.FAILED
+    assert job.error == str(error)
+    assert job.error_code == expected_error_code
+    assert_log_contains(caplog, messages=[f"<SyncJob(job_id={job.job_id}, ", expected_log])
 
 
 def test_start_sync_holds_awaiting_two_factor(patch_sync: PatchSync, caplog: pytest.LogCaptureFixture):
@@ -139,10 +133,7 @@ def test_start_sync_holds_awaiting_two_factor(patch_sync: PatchSync, caplog: pyt
 
     async def scenario():
         job = await sync_jobs.start_sync(credential_id=CREDENTIAL_ID)
-        for _ in range(50):
-            if job.status == JobStatus.AWAITING_TWO_FACTOR:
-                break
-            await asyncio.sleep(0)
+        await _wait_until(lambda: job.status == JobStatus.AWAITING_TWO_FACTOR)
         assert job.status == JobStatus.AWAITING_TWO_FACTOR
         assert job.challenge_token == CHALLENGE_TOKEN
         assert job.expires_at == expires
@@ -180,17 +171,6 @@ def test_submit_two_factor_returns_none_when_job_not_awaiting():
         assert await sync_jobs.submit_two_factor(job_id=job.job_id, code="x") is None
 
     asyncio.run(scenario())
-
-
-def test_start_sync_runs_to_completion(patch_sync: PatchSync):
-    patch_sync(SyncResult(status=SyncStatus.COMPLETED))
-
-    async def scenario() -> JobStatus:
-        job = await sync_jobs.start_sync(credential_id=CREDENTIAL_ID)
-        await _wait_until(lambda: job.finished_at is not None)
-        return job.status
-
-    assert asyncio.run(scenario()) == JobStatus.COMPLETED
 
 
 def test_start_sync_supersedes_a_running_job_for_the_same_credential(
@@ -385,16 +365,3 @@ def test_cleanup_fails_expired_two_factor_jobs():
 
     assert expired.status == JobStatus.FAILED
     assert expired.finished_at is not None
-
-
-def test_rate_limit_is_reported_as_rate_limited_error_code(patch_sync: PatchSync):
-    patch_sync(BankRateLimitedError("429"))
-
-    async def scenario() -> SyncJob:
-        job = await sync_jobs.start_sync(credential_id=CREDENTIAL_ID)
-        await _wait_until(lambda: job.finished_at is not None)
-        return job
-
-    job = asyncio.run(scenario())
-    assert job.status == JobStatus.FAILED
-    assert job.error_code == JobErrorCode.RATE_LIMITED

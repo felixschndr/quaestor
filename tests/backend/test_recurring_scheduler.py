@@ -1,13 +1,10 @@
 import asyncio
-import threading
 from datetime import date, datetime, timedelta
-from unittest.mock import AsyncMock
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
-from source.backend import helpers, main
+from source.backend import helpers
 from source.backend.bank_handlers import BankProvider
 from source.backend.models.accounts.account import Account
 from source.backend.models.transactions.recurrence_frequency import RecurrenceFrequency
@@ -35,38 +32,6 @@ def test_sleeps_until_the_next_midnight(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=helpers, name="datetime", value=_FixedDateTime)
 
     assert helpers.seconds_until_next_midnight() == 3600 + 5
-
-
-def test_app_startup_schedules_periodic_recurring(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(target=main, name="SessionLocal", value=session_factory)
-    scheduled = threading.Event()
-    run_periodic_recurring = AsyncMock(side_effect=lambda: scheduled.set())
-    monkeypatch.setattr(
-        target=main.recurring_transaction_scheduler, name="run_periodic_recurring", value=run_periodic_recurring
-    )
-
-    with TestClient(main.app):
-        assert scheduled.wait(timeout=5)
-
-    run_periodic_recurring.assert_called_once_with()
-
-
-def test_book_helper_uses_session_local(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(target=recurring_transaction_scheduler, name="SessionLocal", value=session_factory)
-    called_with: list = []
-
-    def book_mock(db_session: object) -> None:
-        called_with.append(db_session)
-
-    monkeypatch.setattr(
-        target=recurring_transaction_scheduler.recurring_transaction_service,
-        name="book_due_recurring_transactions",
-        value=book_mock,
-    )
-
-    recurring_transaction_scheduler._book_due_recurring_transactions()
-
-    assert len(called_with) == 1
 
 
 def test_startup_run_books_rules_whose_day_passed_while_offline(

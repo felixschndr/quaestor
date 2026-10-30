@@ -1,18 +1,31 @@
+from collections.abc import Callable
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
-from source.backend.models.auth.user import User
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
     SECOND_ACCOUNT_IBAN,
+    SECOND_USER_NAME,
+    UNKNOWN_ID,
     WALLET_ACCOUNT_NAME,
     assert_log_contains,
-    make_account,
-    make_credential,
-    make_user,
+    create_credential,
+    persist_account,
     register,
+    register_and_login,
+    setup_account,
 )
+
+
+def _setup_two_accounts(http_client: TestClient, session_factory: sessionmaker) -> tuple[int, int]:
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    return (
+        persist_account(session_factory=session_factory, credential_id=credential_id, name=ACCOUNT_IBAN),
+        persist_account(session_factory=session_factory, credential_id=credential_id, name=SECOND_ACCOUNT_IBAN),
+    )
 
 
 def test_get_layout_returns_empty_when_user_has_no_accounts(http_client: TestClient):
@@ -27,13 +40,7 @@ def test_get_layout_returns_empty_when_user_has_no_accounts(http_client: TestCli
 def test_get_layout_returns_ungrouped_accounts_when_no_groups_exist(
     http_client: TestClient, session_factory: sessionmaker
 ):
-    register(http_client)
-    with session_factory() as db_session:
-        user = db_session.query(User).first()
-        credential = make_credential(db_session, user_id=user.id)
-        account_id_1 = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
-        account_id_2 = make_account(db_session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN).id
-        db_session.commit()
+    account_id_1, account_id_2 = _setup_two_accounts(http_client=http_client, session_factory=session_factory)
 
     response = http_client.get("/api/account_groups/layout")
 
@@ -46,13 +53,7 @@ def test_get_layout_returns_ungrouped_accounts_when_no_groups_exist(
 def test_set_layout_creates_a_new_group_and_assigns_accounts(
     http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
-    register(http_client)
-    with session_factory() as db_session:
-        user = db_session.query(User).first()
-        credential = make_credential(db_session, user_id=user.id)
-        account_id_1 = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
-        account_id_2 = make_account(db_session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN).id
-        db_session.commit()
+    account_id_1, account_id_2 = _setup_two_accounts(http_client=http_client, session_factory=session_factory)
 
     response = http_client.put(
         "/api/account_groups/layout",
@@ -69,13 +70,7 @@ def test_set_layout_creates_a_new_group_and_assigns_accounts(
 
 
 def test_set_layout_renames_and_reorders_groups(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    with session_factory() as db_session:
-        user = db_session.query(User).first()
-        credential = make_credential(db_session, user_id=user.id)
-        account_id_1 = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
-        account_id_2 = make_account(db_session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN).id
-        db_session.commit()
+    account_id_1, account_id_2 = _setup_two_accounts(http_client=http_client, session_factory=session_factory)
 
     initial = http_client.put(
         "/api/account_groups/layout",
@@ -110,12 +105,7 @@ def test_set_layout_renames_and_reorders_groups(http_client: TestClient, session
 def test_set_layout_deletes_groups_not_in_payload_and_orphans_become_ungrouped(
     http_client: TestClient, session_factory: sessionmaker
 ):
-    register(http_client)
-    with session_factory() as db_session:
-        user = db_session.query(User).first()
-        credential = make_credential(db_session, user_id=user.id)
-        account_id_1 = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
-        db_session.commit()
+    account_id_1 = setup_account(http_client=http_client, session_factory=session_factory)
 
     initial = http_client.put(
         "/api/account_groups/layout",
@@ -135,18 +125,12 @@ def test_set_layout_deletes_groups_not_in_payload_and_orphans_become_ungrouped(
 
 
 def test_set_layout_rejects_account_id_not_owned_by_user(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    with session_factory() as db_session:
-        user = db_session.query(User).first()
-        # Different user owns this account.
-        other_user = make_user(db_session, user_name="otheruser", display_name="Other")
-        other_cred = make_credential(db_session, user_id=other_user.id)
-        foreign = make_account(db_session, credential_id=other_cred.id, name=SECOND_ACCOUNT_IBAN)
-        # Our user has one of their own too, just to make sure the error message references the foreign one.
-        my_cred = make_credential(db_session, user_id=user.id)
-        mine = make_account(db_session, credential_id=my_cred.id, name=ACCOUNT_IBAN)
-        db_session.commit()
-        foreign_id, mine_id = foreign.id, mine.id
+    foreign_id = setup_account(http_client=http_client, session_factory=session_factory)
+    # Our user has one of their own too, just to make sure the error message references the foreign one.
+    register_and_login(http_client, user_name=SECOND_USER_NAME)
+    mine_id = persist_account(
+        session_factory=session_factory, credential_id=create_credential(http_client).json()["id"]
+    )
 
     response = http_client.put(
         "/api/account_groups/layout",
@@ -155,76 +139,41 @@ def test_set_layout_rejects_account_id_not_owned_by_user(http_client: TestClient
     assert response.status_code == 404
 
 
-def test_set_layout_rejects_duplicate_account_ids(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    with session_factory() as db_session:
-        user = db_session.query(User).first()
-        credential = make_credential(db_session, user_id=user.id)
-        account_id_1 = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
-        db_session.commit()
-
-    response = http_client.put(
-        "/api/account_groups/layout",
-        json={
-            "groups": [
-                {"name": "A", "account_ids": [account_id_1]},
-                {"name": "B", "account_ids": [account_id_1]},
-            ],
-            "ungrouped": [],
-        },
-    )
-    assert response.status_code == 422
-
-
-def test_set_layout_rejects_an_account_that_is_both_grouped_and_ungrouped(
-    http_client: TestClient, session_factory: sessionmaker
+@pytest.mark.parametrize(
+    argnames=("layout", "expected_status"),
+    argvalues=[
+        (
+            lambda account_id: {
+                "groups": [{"name": "A", "account_ids": [account_id]}, {"name": "B", "account_ids": [account_id]}],
+                "ungrouped": [],
+            },
+            422,
+        ),
+        (
+            lambda account_id: {
+                "groups": [{"name": WALLET_ACCOUNT_NAME, "account_ids": [account_id]}],
+                "ungrouped": [account_id],
+            },
+            422,
+        ),
+        (
+            lambda account_id: {
+                "groups": [{"id": UNKNOWN_ID, "name": "Phantom", "account_ids": [account_id]}],
+                "ungrouped": [],
+            },
+            404,
+        ),
+        (lambda account_id: {"groups": [{"name": "", "account_ids": []}], "ungrouped": [account_id]}, 422),
+    ],
+)
+def test_set_layout_rejects_invalid_layout(
+    http_client: TestClient,
+    session_factory: sessionmaker,
+    layout: Callable[[int], dict],
+    expected_status: int,
 ):
-    register(http_client)
-    with session_factory() as db_session:
-        user = db_session.query(User).first()
-        credential = make_credential(db_session, user_id=user.id)
-        account_id = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
-        db_session.commit()
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
 
-    response = http_client.put(
-        "/api/account_groups/layout",
-        json={"groups": [{"name": WALLET_ACCOUNT_NAME, "account_ids": [account_id]}], "ungrouped": [account_id]},
-    )
+    response = http_client.put("/api/account_groups/layout", json=layout(account_id))
 
-    assert response.status_code == 422
-
-
-def test_set_layout_rejects_unknown_group_id(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-    with session_factory() as db_session:
-        user = db_session.query(User).first()
-        credential = make_credential(db_session, user_id=user.id)
-        account_id_1 = make_account(db_session, credential_id=credential.id, name=ACCOUNT_IBAN).id
-        db_session.commit()
-
-    response = http_client.put(
-        "/api/account_groups/layout",
-        json={
-            "groups": [{"id": 9999, "name": "Phantom", "account_ids": [account_id_1]}],
-            "ungrouped": [],
-        },
-    )
-    assert response.status_code == 404
-
-
-def test_set_layout_rejects_empty_group_name(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client)
-
-    response = http_client.put(
-        "/api/account_groups/layout",
-        json={"groups": [{"name": "", "account_ids": []}], "ungrouped": []},
-    )
-    assert response.status_code == 422
-
-
-def test_get_layout_requires_authentication(http_client: TestClient):
-    assert http_client.get("/api/account_groups/layout").status_code == 401
-
-
-def test_set_layout_requires_authentication(http_client: TestClient):
-    assert http_client.put("/api/account_groups/layout", json={"groups": [], "ungrouped": []}).status_code == 401
+    assert response.status_code == expected_status

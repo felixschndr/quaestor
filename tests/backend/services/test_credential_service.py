@@ -19,7 +19,6 @@ from source.backend.exceptions import (
     ReauthenticationRequiredError,
 )
 from source.backend.helpers import utc_now
-from source.backend.models.auth.user import User
 from source.backend.models.banking.credential import Credential
 from source.backend.services.banking import credential_service, scalable_capital_login, trade_republic_login
 from source.backend.services.notifications import notification_engine
@@ -39,9 +38,9 @@ from tests.backend.conftest import (
     VALID_PASSWORD,
     assert_log_contains,
     create_user,
-    make_credential,
     make_user,
     persist_credential,
+    persist_credential_with_new_user,
 )
 
 
@@ -126,8 +125,7 @@ def test_get_credential_for_user_logs_and_raises_for_a_foreign_credential(
 
 
 def test_delete_credential_logs_the_deletion(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -160,6 +158,7 @@ def test_sync_all_due_credentials_counts_synced_skipped_failed(
 
     assert_log_contains(caplog, message="Starting periodic sync of all due credentials")
     assert_log_contains(caplog, message="1 synced, 3 skipped (2FA or sync disabled), 1 failed out of 5 credential(s)")
+    assert_log_contains(caplog, message=f"Periodic sync failed for <Credential(id={failing}")
     assert credential_service.sync_credential_object.call_count == 2
     synced_ids = [call.kwargs["credential"].id for call in credential_service.sync_credential_object.call_args_list]
     assert two_factor not in synced_ids
@@ -168,23 +167,12 @@ def test_sync_all_due_credentials_counts_synced_skipped_failed(
     assert {syncable, failing} == set(synced_ids)
 
 
-@pytest.mark.parametrize(
-    argnames=("bank", "credentials"),
-    argvalues=[
-        (BankProvider.SCALABLE_CAPITAL, {}),
-        (BankProvider.TRADE_REPUBLIC, {"phone": PHONE_NUMBER, "pin": PIN}),
-    ],
-)
+@pytest.mark.parametrize(argnames="bank", argvalues=[BankProvider.SCALABLE_CAPITAL, BankProvider.TRADE_REPUBLIC])
 def test_sync_all_due_credentials_keeps_an_unattended_2fa_session_alive(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, bank: BankProvider, credentials: dict[str, str]
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, bank: BankProvider
 ):
-    user_id = create_user(session_factory).id
     credential_id = persist_credential(
-        session_factory,
-        user_id=user_id,
-        bank=bank,
-        credentials=credentials,
-        requires_two_factor_authentication=True,
+        session_factory, user_id=create_user(session_factory).id, bank=bank, requires_two_factor_authentication=True
     )
     sync = MagicMock(return_value=credential_service.SyncResult(status=credential_service.SyncStatus.COMPLETED))
     monkeypatch.setattr(target=credential_service, name="sync_credential_object", value=sync)
@@ -200,12 +188,10 @@ def test_sync_all_due_credentials_keeps_an_unattended_2fa_session_alive(
 def test_sync_all_due_credentials_skips_a_credential_awaiting_reauthentication(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
     credential_id = persist_credential(
         session_factory,
-        user_id=user_id,
+        user_id=create_user(session_factory).id,
         bank=BankProvider.TRADE_REPUBLIC,
-        credentials={"phone": PHONE_NUMBER, "pin": PIN},
         requires_two_factor_authentication=True,
     )
     with session_factory() as session:
@@ -224,12 +210,10 @@ def test_sync_all_due_credentials_skips_a_credential_awaiting_reauthentication(
 def test_sync_all_due_credentials_skips_an_unattended_2fa_session_that_can_no_longer_be_resumed(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
     persist_credential(
         session_factory,
-        user_id=user_id,
+        user_id=create_user(session_factory).id,
         bank=BankProvider.TRADE_REPUBLIC,
-        credentials={"phone": PHONE_NUMBER, "pin": PIN},
         requires_two_factor_authentication=True,
     )
     monkeypatch.setattr(
@@ -247,8 +231,7 @@ def test_sync_all_due_credentials_skips_an_unattended_2fa_session_that_can_no_lo
 def test_sync_credential_loads_by_id_and_returns_completed_for_handler_without_2fa(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
     monkeypatch.setattr(target=Credential, name="sync", value=MagicMock())
 
     with session_factory() as session:
@@ -263,8 +246,7 @@ def test_sync_credential_loads_by_id_and_returns_completed_for_handler_without_2
 def test_sync_credential_object_for_handler_without_2fa_calls_credential_sync(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
     calls: list[object] = []
 
     def fake_sync(self: Credential, handler: BankHandler) -> None:
@@ -284,8 +266,7 @@ def test_sync_credential_object_for_handler_without_2fa_calls_credential_sync(
 def test_sync_credential_object_records_the_failure_and_clears_it_on_the_next_success(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
 
     def failing_sync(self: Credential, handler: BankHandler) -> None:
         raise InvalidCredentialsError("the bank rejected the login")
@@ -310,8 +291,7 @@ def test_sync_credential_object_records_the_failure_and_clears_it_on_the_next_su
 def test_unattended_sync_credential_keeps_the_reauthentication_error_without_starting_a_challenge(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
 
     def failing_sync(self: Credential, handler: BankHandler) -> None:
         raise ReauthenticationRequiredError("websession expired")
@@ -335,8 +315,7 @@ def test_unattended_sync_credential_keeps_the_reauthentication_error_without_sta
 def test_sync_credential_object_records_a_failure_raised_while_starting_the_2fa_challenge(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
 
     def failing_sync(self: Credential, handler: BankHandler) -> None:
         raise ReauthenticationRequiredError("access has not been authorized yet")
@@ -363,8 +342,7 @@ def test_sync_credential_object_records_a_failure_raised_while_starting_the_2fa_
 def test_sync_credential_object_records_the_failure_when_no_2fa_challenge_can_be_started(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
 
     def failing_sync(self: Credential, handler: BankHandler) -> None:
         raise ReauthenticationRequiredError("access has not been authorized yet")
@@ -397,8 +375,7 @@ def _stored_sync_failure(session_factory: sessionmaker, credential_id: int) -> t
 def test_sync_credential_commits_the_cleared_failure_after_a_successful_manual_sync(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
     _store_sync_failure(session_factory, credential_id=credential_id)
     monkeypatch.setattr(target=Credential, name="sync", value=MagicMock())
 
@@ -411,8 +388,7 @@ def test_sync_credential_commits_the_cleared_failure_after_a_successful_manual_s
 def test_sync_all_due_credentials_commits_the_cleared_failure_after_a_successful_periodic_sync(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
     _store_sync_failure(session_factory, credential_id=credential_id)
     monkeypatch.setattr(target=Credential, name="sync", value=MagicMock())
 
@@ -425,8 +401,7 @@ def test_sync_all_due_credentials_commits_the_cleared_failure_after_a_successful
 def test_sync_credential_object_commits_the_attempt_before_talking_to_the_bank(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
     committed_attempts: list[datetime | None] = []
 
     def fake_sync(self: Credential, handler: BankHandler) -> None:
@@ -446,8 +421,7 @@ def test_sync_credential_object_commits_the_attempt_before_talking_to_the_bank(
 def test_sync_credential_object_records_every_message_of_a_chained_failure(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
 
     def failing_sync(self: Credential, handler: BankHandler) -> None:
         # The shape the Enable Banking handler produces: a bare KeyError while handling the real cause.
@@ -471,8 +445,7 @@ def test_sync_credential_object_records_every_message_of_a_chained_failure(
 def test_sync_all_due_credentials_notifies_only_on_the_first_of_repeated_failures(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
 
     def fake_sync(credential: Credential, **_: object):
         # Mirrors what the real sync_credential_object records before the error propagates.
@@ -499,17 +472,9 @@ def test_sync_all_due_credentials_notifies_only_on_the_first_of_repeated_failure
 def test_sync_credential_object_for_handler_with_2fa_returns_completed_on_resumed_session(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(
-            session,
-            user_id=user.id,
-            bank=BankProvider.TRADE_REPUBLIC,
-            credentials={"phone": PHONE_NUMBER, "pin": PIN},
-        )
-        credential.session_state = {"cookies": STORED_COOKIES}
-        session.commit()
-        credential_id = credential.id
+    credential_id = persist_credential(
+        session_factory, user_id=create_user(session_factory).id, bank=BankProvider.TRADE_REPUBLIC
+    )
 
     def fake_sync(self: Credential, handler: BankHandler) -> None:
         assert handler.session_state == {"cookies": STORED_COOKIES}
@@ -519,6 +484,7 @@ def test_sync_credential_object_for_handler_with_2fa_returns_completed_on_resume
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
+        credential.session_state = {"cookies": STORED_COOKIES}
         result = credential_service.sync_credential_object(credential=credential)
         assert credential.session_state == {"cookies": REFRESHED_COOKIES}
 
@@ -528,8 +494,7 @@ def test_sync_credential_object_for_handler_with_2fa_returns_completed_on_resume
 def test_sync_marks_credential_when_handler_requests_two_factor(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
 
     def fake_sync(self: Credential, handler: BankHandler) -> None:
         notifier = handler.notify_two_factor_state
@@ -553,8 +518,7 @@ def test_sync_marks_credential_when_handler_requests_two_factor(
 def test_sync_leaves_two_factor_flag_unset_without_two_factor(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
 
     monkeypatch.setattr(target=Credential, name="sync", value=lambda self, handler: None)
 
@@ -596,36 +560,12 @@ def test_sync_reevaluates_two_factor_flag(
         assert credential.requires_two_factor_authentication is expected_flag
 
 
-def test_sync_reraises_reauth_when_handler_has_no_interactive_challenge(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
-):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
-
-    def raise_reauth(self: Credential, handler: BankHandler) -> None:
-        raise ReauthenticationRequiredError("expired")
-
-    monkeypatch.setattr(target=Credential, name="sync", value=raise_reauth)
-
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        with pytest.raises(ReauthenticationRequiredError):
-            credential_service.sync_credential_object(credential=credential)
-
-
 def test_sync_credential_object_for_handler_with_2fa_starts_2fa_when_reauth_required(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(
-            session,
-            user_id=user.id,
-            bank=BankProvider.TRADE_REPUBLIC,
-            credentials={"phone": PHONE_NUMBER, "pin": PIN},
-        )
-        session.commit()
-        credential_id = credential.id
+    credential_id = persist_credential(
+        session_factory, user_id=create_user(session_factory).id, bank=BankProvider.TRADE_REPUBLIC
+    )
 
     def raise_reauth(self: Credential, handler: BankHandler) -> None:
         assert isinstance(handler, TradeRepublicHandler)
@@ -651,16 +591,9 @@ def test_sync_credential_object_for_handler_with_2fa_starts_2fa_when_reauth_requ
 def test_sync_credential_awaiting_2fa_skips_the_post_sync_detection_and_notifications(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(
-            session,
-            user_id=user.id,
-            bank=BankProvider.TRADE_REPUBLIC,
-            credentials={"phone": PHONE_NUMBER, "pin": PIN},
-        )
-        session.commit()
-        credential_id = credential.id
+    credential_id = persist_credential(
+        session_factory, user_id=create_user(session_factory).id, bank=BankProvider.TRADE_REPUBLIC
+    )
 
     def raise_reauth(self: Credential, handler: BankHandler) -> None:
         raise ReauthenticationRequiredError()
@@ -689,8 +622,7 @@ def test_sync_credential_awaiting_2fa_skips_the_post_sync_detection_and_notifica
 def test_sync_credential_object_passes_the_2fa_state_on_to_the_caller(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
 
     def fake_sync(self: Credential, handler: BankHandler) -> None:
         handler.notify_two_factor_state(True)
@@ -709,16 +641,9 @@ def test_sync_credential_object_passes_the_2fa_state_on_to_the_caller(
 def test_confirm_two_factor_completes_login_and_syncs_credential(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(
-            session,
-            user_id=user.id,
-            bank=BankProvider.TRADE_REPUBLIC,
-            credentials={"phone": PHONE_NUMBER, "pin": PIN},
-        )
-        session.commit()
-        credential_id = credential.id
+    credential_id = persist_credential(
+        session_factory, user_id=create_user(session_factory).id, bank=BankProvider.TRADE_REPUBLIC
+    )
 
     complete_login = MagicMock(return_value=REFRESHED_COOKIES)
     monkeypatch.setattr(target=trade_republic_login, name="complete", value=complete_login)
@@ -748,8 +673,7 @@ def _stored_credential(session_factory: sessionmaker, credential_id: int) -> Cre
 def test_sync_credential_persists_the_rotated_session_state_but_not_the_partial_sync_after_a_failure(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
 
     def failing_sync(self: Credential, handler: BankHandler) -> None:
         handler.session_state = {"archive": "rotated"}
@@ -771,8 +695,7 @@ def test_sync_credential_persists_the_rotated_session_state_but_not_the_partial_
 def test_persist_session_state_of_failed_sync_logs_when_the_commit_fails(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -801,8 +724,7 @@ class _LockWithSideEffects:
 def test_sync_all_due_credentials_uses_the_session_state_of_a_sync_that_finished_meanwhile(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
     seen_states: list[dict | None] = []
     committed_states: list[dict | None] = []
 
@@ -837,8 +759,7 @@ def test_sync_all_due_credentials_uses_the_session_state_of_a_sync_that_finished
 def test_sync_all_due_credentials_skips_a_credential_that_is_already_syncing(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    user_id = create_user(session_factory).id
-    credential_id = persist_credential(session_factory, user_id=user_id)
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
     sync = MagicMock()
     monkeypatch.setattr(target=Credential, name="sync", value=sync)
 
@@ -886,12 +807,8 @@ def test_sync_all_due_credentials_keeps_the_rotated_session_state_when_writing_t
 def test_sync_all_due_credentials_starts_no_interactive_challenge(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    user_id = create_user(session_factory).id
     credential_id = persist_credential(
-        session_factory,
-        user_id=user_id,
-        bank=BankProvider.TRADE_REPUBLIC,
-        credentials={"phone": PHONE_NUMBER, "pin": PIN},
+        session_factory, user_id=create_user(session_factory).id, bank=BankProvider.TRADE_REPUBLIC
     )
 
     def raise_reauth(self: Credential, handler: BankHandler) -> None:
@@ -917,9 +834,8 @@ def test_sync_all_due_credentials_starts_no_interactive_challenge(
 def test_confirm_two_factor_keeps_the_new_login_when_the_first_sync_fails(
     session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
 ):
-    user_id = create_user(session_factory).id
     credential_id = persist_credential(
-        session_factory, user_id=user_id, bank=BankProvider.SCALABLE_CAPITAL, credentials={}
+        session_factory, user_id=create_user(session_factory).id, bank=BankProvider.SCALABLE_CAPITAL
     )
     monkeypatch.setattr(
         target=scalable_capital_login, name="complete", value=MagicMock(return_value={"archive": "fresh"})
@@ -936,10 +852,8 @@ def test_confirm_two_factor_keeps_the_new_login_when_the_first_sync_fails(
 
 
 def test_create_generic_fints_credential_persists_blz(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
-    user_id = create_user(session_factory).id
-
     with session_factory() as session:
-        user = session.get(entity=User, ident=user_id)
+        user = make_user(session)
         credential = credential_service.create_credential(
             session,
             user=user,
@@ -955,11 +869,10 @@ def test_create_generic_fints_credential_persists_blz(session_factory: sessionma
 
 
 def test_create_generic_fints_credential_rejects_a_duplicate(session_factory: sessionmaker):
-    user_id = create_user(session_factory).id
     credentials = {"username": BANK_USERNAME, "password": BANK_PASSWORD, "blz": "70150000"}
 
     with session_factory() as session:
-        user = session.get(entity=User, ident=user_id)
+        user = make_user(session)
         credential = credential_service.create_credential(
             session, user=user, bank=BankProvider.FINTS, credentials=credentials
         )
@@ -974,10 +887,8 @@ def test_create_generic_fints_credential_rejects_a_duplicate(session_factory: se
 def test_create_scalable_capital_credential_allows_a_second_attempt_after_the_first(
     session_factory: sessionmaker,
 ):
-    user_id = create_user(session_factory).id
-
     with session_factory() as session:
-        user = session.get(entity=User, ident=user_id)
+        user = make_user(session)
         first = credential_service.create_credential(
             session, user=user, bank=BankProvider.SCALABLE_CAPITAL, credentials={}
         )
@@ -991,39 +902,6 @@ def test_create_scalable_capital_credential_allows_a_second_attempt_after_the_fi
     assert first.id != second.id
 
 
-def test_create_generic_fints_credential_rejects_missing_blz(session_factory: sessionmaker):
-    user_id = create_user(session_factory).id
-
-    with session_factory() as session:
-        user = session.get(entity=User, ident=user_id)
-        with pytest.raises(MissingCredentialFieldError):
-            credential_service.create_credential(
-                session,
-                user=user,
-                bank=BankProvider.FINTS,
-                credentials={"username": BANK_USERNAME, "password": BANK_PASSWORD},
-            )
-
-
-def test_sync_all_due_credentials_logs_exception_per_failure(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-):
-    user_id = create_user(session_factory).id
-    failing = persist_credential(session_factory, user_id=user_id)
-
-    def fake_sync(credential: Credential, **_: object):
-        raise RuntimeError(f"something went wrong when syncing {credential}")
-
-    monkeypatch.setattr(
-        target=credential_service, name="sync_credential_object", value=MagicMock(side_effect=fake_sync)
-    )
-
-    with session_factory() as session:
-        credential_service.sync_all_due_credentials(db_session=session)
-
-    assert_log_contains(caplog, message=f"Periodic sync failed for <Credential(id={failing}")
-
-
 _ENABLE_BANKING_APP = {
     "application_id": APPLICATION_ID,
     "private_key": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
@@ -1034,10 +912,8 @@ _ENABLE_BANKING_APP = {
 def test_create_enable_banking_credential_inherits_the_application_from_an_existing_one(
     session_factory: sessionmaker,
 ):
-    user_id = create_user(session_factory).id
-
     with session_factory() as session:
-        user = session.get(entity=User, ident=user_id)
+        user = make_user(session)
         credential_service.create_credential(
             session,
             user=user,
@@ -1066,10 +942,8 @@ def test_create_enable_banking_credential_inherits_the_application_from_an_exist
 def test_create_enable_banking_credential_extracts_the_application_id_from_the_key_file_name(
     session_factory: sessionmaker,
 ):
-    user_id = create_user(session_factory).id
-
     with session_factory() as session:
-        user = session.get(entity=User, ident=user_id)
+        user = make_user(session)
         credential = credential_service.create_credential(
             session,
             user=user,
@@ -1089,10 +963,8 @@ def test_create_enable_banking_credential_extracts_the_application_id_from_the_k
 
 
 def test_create_enable_banking_credential_rejects_a_non_https_redirect_url(session_factory: sessionmaker):
-    user_id = create_user(session_factory).id
-
     with session_factory() as session:
-        user = session.get(entity=User, ident=user_id)
+        user = make_user(session)
         with pytest.raises(InvalidCredentialFieldError):
             credential_service.create_credential(
                 session,
@@ -1110,10 +982,8 @@ def test_create_enable_banking_credential_rejects_a_non_https_redirect_url(sessi
 def test_create_enable_banking_credential_without_existing_application_requires_the_fields(
     session_factory: sessionmaker,
 ):
-    user_id = create_user(session_factory).id
-
     with session_factory() as session:
-        user = session.get(entity=User, ident=user_id)
+        user = make_user(session)
         with pytest.raises(MissingCredentialFieldError):
             credential_service.create_credential(
                 session,

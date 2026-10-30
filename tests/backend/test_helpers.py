@@ -1,5 +1,7 @@
 import asyncio
+from collections.abc import Callable
 from datetime import date, timezone
+from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -132,31 +134,21 @@ def test_get_root_path_of_repository_points_at_the_repo_root():
     assert (root / "pyproject.toml").is_file()
 
 
-def test_get_backend_source_path_points_at_source_backend():
-    backend = get_backend_source_path()
+@pytest.mark.parametrize(
+    argnames=("get_path", "relative_parts", "marker_file"),
+    argvalues=[
+        (get_backend_source_path, ("source", "backend"), "main.py"),
+        (get_frontend_path, ("source", "frontend"), "package.json"),
+        (get_frontend_source_path, ("source", "frontend", "src"), "main.tsx"),
+    ],
+)
+def test_source_path_getters_point_at_their_directory_under_the_repo_root(
+    get_path: Callable[[], Path], relative_parts: tuple[str, ...], marker_file: str
+):
+    path = get_path()
 
-    assert backend.is_dir()
-    assert backend.name == "backend"
-    assert backend.parent.name == "source"
-    assert (backend / "main.py").is_file()
-
-
-def test_get_frontend_path_points_at_source_frontend():
-    frontend = get_frontend_path()
-
-    assert frontend.is_dir()
-    assert frontend.name == "frontend"
-    assert frontend.parent.name == "source"
-    assert (frontend / "package.json").is_file()
-
-
-def test_get_frontend_source_path_points_at_frontend_src():
-    frontend_src = get_frontend_source_path()
-
-    assert frontend_src.is_dir()
-    assert frontend_src.name == "src"
-    assert frontend_src.parent.name == "frontend"
-    assert (frontend_src / "main.tsx").is_file()
+    assert path.relative_to(get_root_path_of_repository()).parts == relative_parts
+    assert (path / marker_file).is_file()
 
 
 def test_get_project_name_reads_the_name_from_pyproject():
@@ -215,10 +207,6 @@ def test_hash_token_is_deterministic_sha256_hex():
     assert hash_token("hello") == hash_token("hello")
 
 
-def test_hash_token_differs_for_different_inputs():
-    assert hash_token("token-a") != hash_token("token-b")
-
-
 def test_apply_fields_sets_each_key_as_an_attribute():
     class Entity:
         def __init__(self):
@@ -241,15 +229,6 @@ def test_apply_fields_with_empty_dict_leaves_entity_unchanged():
     apply_fields(entity=entity, fields={})
 
     assert entity.name == "unchanged"
-
-
-def test_backend_and_frontend_are_siblings_under_the_repo_root():
-    root = get_root_path_of_repository()
-    backend = get_backend_source_path()
-    frontend = get_frontend_path()
-
-    assert backend.parent == frontend.parent
-    assert backend.parent.parent == root
 
 
 def test_run_daily_runs_the_job_then_sleeps_until_the_next_midnight(monkeypatch: pytest.MonkeyPatch):

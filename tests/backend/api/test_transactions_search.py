@@ -101,26 +101,6 @@ def _ids_in_response(response_json: list[dict]) -> set[int]:
     return {row["id"] for row in response_json}
 
 
-def test_search_returns_only_transactions_for_requested_account(http_client: TestClient, session_factory: sessionmaker):
-    account_id = setup_account(http_client=http_client, session_factory=session_factory)
-    ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
-
-    response = http_client.get("/api/transactions/search", params=[("account_ids", account_id)])
-
-    assert response.status_code == 200
-    assert _ids_in_response(response.json()) == set(ids.values())
-
-
-def test_search_returns_account_id_on_every_row(http_client: TestClient, session_factory: sessionmaker):
-    account_id = setup_account(http_client=http_client, session_factory=session_factory)
-    _seed_three_transactions(session_factory=session_factory, account_id=account_id)
-
-    response = http_client.get("/api/transactions/search", params=[("account_ids", account_id)])
-
-    for row in response.json():
-        assert row["account_id"] == account_id
-
-
 def test_search_spans_multiple_accounts(http_client: TestClient, session_factory: sessionmaker):
     register(http_client)
     credential_id = create_credential(http_client).json()["id"]
@@ -183,6 +163,7 @@ def test_search_only_returns_selected_accounts(http_client: TestClient, session_
 @pytest.mark.parametrize(
     argnames="extra_params, expected_keys",
     argvalues=[
+        ([], {"rewe", "salary", "atm"}),
         ([("text", "SALARY")], {"salary"}),  # purpose, case-insensitive
         ([("text", "rewe")], {"rewe"}),  # also matches other_party
         ([("text", "vacation")], {"atm"}),  # also matches note
@@ -191,6 +172,10 @@ def test_search_only_returns_selected_accounts(http_client: TestClient, session_
         ([("transaction_types", "OUTGOING")], {"rewe", "atm"}),
         ([("categories", "WITHDRAWAL")], {"atm"}),
         ([("categories", "FOOD_AND_DRINK")], {"rewe"}),
+        ([("categories", "SUPERMARKET"), ("categories", "WITHDRAWAL")], {"rewe", "atm"}),
+        ([("transaction_types", "OUTGOING"), ("amount_from", -50)], {"rewe"}),
+        ([("text", "no such transaction")], set()),
+        ([("categories", "NOT_A_REAL_CATEGORY")], set()),
     ],
 )
 def test_search_filters_match_expected_transactions(
@@ -207,48 +192,9 @@ def test_search_filters_match_expected_transactions(
         params=[("account_ids", account_id), *extra_params],
     )
 
-    assert _ids_in_response(response.json()) == {ids[key] for key in expected_keys}
-
-
-def test_search_combines_filters_with_and(http_client: TestClient, session_factory: sessionmaker):
-    account_id = setup_account(http_client=http_client, session_factory=session_factory)
-    ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
-
-    response = http_client.get(
-        "/api/transactions/search",
-        params=[
-            ("account_ids", account_id),
-            ("transaction_types", "OUTGOING"),
-            ("amount_from", -50),
-        ],
-    )
-
-    assert [row["id"] for row in response.json()] == [ids["rewe"]]
-
-
-def test_search_filters_by_multiple_categories(http_client: TestClient, session_factory: sessionmaker):
-    account_id = setup_account(http_client=http_client, session_factory=session_factory)
-    ids = _seed_three_transactions(session_factory=session_factory, account_id=account_id)
-
-    response = http_client.get(
-        "/api/transactions/search",
-        params=[("account_ids", account_id), ("categories", "SUPERMARKET"), ("categories", "WITHDRAWAL")],
-    )
-
-    assert {row["id"] for row in response.json()} == {ids["rewe"], ids["atm"]}
-
-
-def test_search_returns_empty_when_no_match(http_client: TestClient, session_factory: sessionmaker):
-    account_id = setup_account(http_client=http_client, session_factory=session_factory)
-    _seed_three_transactions(session_factory=session_factory, account_id=account_id)
-
-    response = http_client.get(
-        "/api/transactions/search",
-        params=[("account_ids", account_id), ("text", "no such transaction")],
-    )
-
     assert response.status_code == 200
-    assert response.json() == []
+    assert _ids_in_response(response.json()) == {ids[key] for key in expected_keys}
+    assert all(row["account_id"] == account_id for row in response.json())
 
 
 def test_search_rejects_unknown_transaction_type(http_client: TestClient, session_factory: sessionmaker):
@@ -263,23 +209,8 @@ def test_search_rejects_unknown_transaction_type(http_client: TestClient, sessio
     assert response.status_code == 422
 
 
-def test_search_for_an_unknown_category_finds_nothing(http_client: TestClient, session_factory: sessionmaker):
-    account_id = setup_account(http_client=http_client, session_factory=session_factory)
-    _seed_three_transactions(session_factory=session_factory, account_id=account_id)
-
-    response = http_client.get(
-        "/api/transactions/search",
-        params=[("account_ids", account_id), ("categories", "NOT_A_REAL_CATEGORY")],
-    )
-
-    assert response.status_code == 200
-    assert response.json() == []
-
-
 def test_search_rejects_account_owned_by_a_different_user(http_client: TestClient, session_factory: sessionmaker):
-    register(http_client, user_name="owner")
-    credential_id = create_credential(http_client).json()["id"]
-    account_id = persist_account(session_factory=session_factory, credential_id=credential_id)
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
     _seed_three_transactions(session_factory=session_factory, account_id=account_id)
 
     register_and_login(http_client, user_name=INTRUDER_USER_NAME)
@@ -312,11 +243,6 @@ def test_search_requires_at_least_one_account_id(http_client: TestClient):
     register(http_client)
     response = http_client.get("/api/transactions/search")
     assert response.status_code == 422
-
-
-def test_search_requires_authentication(http_client: TestClient):
-    response = http_client.get("/api/transactions/search", params=[("account_ids", 1)])
-    assert response.status_code == 401
 
 
 @pytest.mark.parametrize(

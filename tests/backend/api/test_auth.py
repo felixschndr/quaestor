@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 
 from source.backend import main
 from source.backend.logging_utils import NO_SESSION_LOG_LABEL
-from source.backend.security import csrf
 from source.backend.services.auth.session_service import COOKIE_NAME
 from source.backend.services.auth.user_service import ALLOW_NEW_USER_REGISTRATION_ENV_VARIABLE_NAME
 from tests.backend.conftest import (
@@ -19,6 +18,7 @@ from tests.backend.conftest import (
     WRONG_PASSWORD,
     assert_log_contains,
     create_credential,
+    prime_csrf,
     register,
 )
 
@@ -219,66 +219,31 @@ def test_me_returns_401_when_unauthenticated(http_client: TestClient):
     assert response.status_code == 401
 
 
-def test_register_defaults_theme_to_system(http_client: TestClient):
+def test_register_defaults_theme_language_and_currency(http_client: TestClient):
     response = register(http_client)
 
     assert response.status_code == 201
-    assert response.json()["theme"] == "SYSTEM"
-
-
-def test_register_accepts_explicit_theme(http_client: TestClient):
-    response = http_client.post(
-        "/api/auth/register",
-        json={
-            "user_name": USER_NAME,
-            "display_name": DISPLAY_NAME,
-            "password": VALID_PASSWORD,
-            "theme": "LIGHT",
-        },
-    )
-
-    assert response.status_code == 201
-    assert response.json()["theme"] == "LIGHT"
-
-
-@pytest.mark.parametrize(argnames=("field", "value"), argvalues=[("theme", "neon"), ("currency", "XYZ")])
-def test_register_rejects_invalid_field(http_client: TestClient, field: str, value: str):
-    response = http_client.post(
-        "/api/auth/register",
-        json={
-            "user_name": USER_NAME,
-            "display_name": DISPLAY_NAME,
-            "password": VALID_PASSWORD,
-            field: value,
-        },
-    )
-
-    assert response.status_code == 422
-
-
-def test_register_defaults_language_and_currency(http_client: TestClient):
-    body = register(http_client).json()
-
+    body = response.json()
+    assert body["theme"] == "SYSTEM"
     assert body["language"] == "en"
     assert body["currency"] == EURO
 
 
-def test_register_accepts_explicit_language_and_currency(http_client: TestClient):
-    response = http_client.post(
-        "/api/auth/register",
-        json={
-            "user_name": USER_NAME,
-            "display_name": DISPLAY_NAME,
-            "password": VALID_PASSWORD,
-            "language": "de",
-            "currency": NON_DEFAULT_CURRENCY,
-        },
-    )
+def test_register_accepts_explicit_theme_language_and_currency(http_client: TestClient):
+    response = register(http_client, theme="LIGHT", language="de", currency=NON_DEFAULT_CURRENCY)
 
     assert response.status_code == 201
     body = response.json()
+    assert body["theme"] == "LIGHT"
     assert body["language"] == "de"
     assert body["currency"] == NON_DEFAULT_CURRENCY
+
+
+@pytest.mark.parametrize(argnames=("field", "value"), argvalues=[("theme", "neon"), ("currency", "XYZ")])
+def test_register_rejects_invalid_field(http_client: TestClient, field: str, value: str):
+    response = register(http_client, **{field: value})
+
+    assert response.status_code == 422
 
 
 def test_password_requirements_returns_current_rules(http_client: TestClient):
@@ -327,10 +292,7 @@ def test_register_respects_registration_toggle(
 @pytest.fixture
 def second_http_client(http_client: TestClient) -> Iterator[TestClient]:
     with TestClient(main.app) as client:
-        client.get("/api/settings")
-        csrf_token = client.cookies.get(csrf.COOKIE_NAME)
-        if csrf_token:
-            client.headers[csrf.HEADER_NAME] = csrf_token
+        prime_csrf(client)
         yield client
 
 

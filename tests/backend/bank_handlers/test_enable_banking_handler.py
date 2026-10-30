@@ -259,31 +259,24 @@ def test_transaction_mapping_skips_undateable_and_info_entries():
     )
 
 
-def test_session_without_state_requires_reauthentication(fake_http: Callable[[dict], FakeHttp]):
-    fake_http({})
-    with pytest.raises(ReauthenticationRequiredError):
-        with _handler(session_state=None).session():
-            pass
-
-
-def test_session_with_expired_session_requires_reauthentication(fake_http: Callable[[dict], FakeHttp]):
-    fake_http({("GET", f"/sessions/{SESSION_ID}"): FakeHttpResponse(json_data={"status": "EXPIRED"}, status_code=200)})
-    with pytest.raises(ReauthenticationRequiredError):
-        with _handler(session_state={"session_id": SESSION_ID}).session():
-            pass
-
-
-def test_session_gone_requires_reauthentication(fake_http: Callable[[dict], FakeHttp]):
-    fake_http({("GET", f"/sessions/{SESSION_ID}"): FakeHttpResponse(json_data={}, status_code=404)})
-    with pytest.raises(ReauthenticationRequiredError):
-        with _handler(session_state={"session_id": SESSION_ID}).session():
-            pass
-
-
-def test_session_rejected_jwt_raises_invalid_credentials(fake_http: Callable[[dict], FakeHttp]):
-    fake_http({("GET", f"/sessions/{SESSION_ID}"): FakeHttpResponse(json_data={}, status_code=401)})
-    with pytest.raises(InvalidCredentialsError):
-        with _handler(session_state={"session_id": SESSION_ID}).session():
+@pytest.mark.parametrize(
+    argnames=("session_state", "session_response", "expected_exception"),
+    argvalues=[
+        (None, None, ReauthenticationRequiredError),
+        ({"session_id": SESSION_ID}, FakeHttpResponse(json_data={"status": "EXPIRED"}), ReauthenticationRequiredError),
+        ({"session_id": SESSION_ID}, FakeHttpResponse(json_data={}, status_code=404), ReauthenticationRequiredError),
+        ({"session_id": SESSION_ID}, FakeHttpResponse(json_data={}, status_code=401), InvalidCredentialsError),
+    ],
+)
+def test_session_that_is_not_authorized_raises(
+    fake_http: Callable[[dict], FakeHttp],
+    session_state: dict | None,
+    session_response: FakeHttpResponse | None,
+    expected_exception: type[Exception],
+):
+    fake_http({("GET", f"/sessions/{SESSION_ID}"): session_response} if session_response else {})
+    with pytest.raises(expected_exception):
+        with _handler(session_state=session_state).session():
             pass
 
 
@@ -484,19 +477,18 @@ def test_begin_two_factor_challenge_returns_authorization_url(
     assert_log_contains(caplog, message=f"Enable Banking authorization started for credential {CREDENTIAL_ID}")
 
 
-def test_begin_two_factor_challenge_with_inactive_application_raises_specific_error(
-    fake_http: Callable[[dict], FakeHttp],
+@pytest.mark.parametrize(
+    argnames=("status_code", "text", "expected_exception"),
+    argvalues=[
+        (403, "Application is not active", PSD2ApplicationNotActivatedError),
+        (401, "Invalid JWT", InvalidCredentialsError),
+    ],
+)
+def test_begin_two_factor_challenge_maps_auth_errors(
+    fake_http: Callable[[dict], FakeHttp], status_code: int, text: str, expected_exception: type[Exception]
 ):
-    fake_http({("POST", "/auth"): FakeHttpResponse(json_data={}, status_code=403, text="Application is not active")})
-    with pytest.raises(PSD2ApplicationNotActivatedError):
-        _handler().begin_two_factor_challenge(credential_id=CREDENTIAL_ID)
-
-
-def test_begin_two_factor_challenge_with_rejected_jwt_raises_invalid_credentials(
-    fake_http: Callable[[dict], FakeHttp],
-):
-    fake_http({("POST", "/auth"): FakeHttpResponse(json_data={}, status_code=401, text="Invalid JWT")})
-    with pytest.raises(InvalidCredentialsError):
+    fake_http({("POST", "/auth"): FakeHttpResponse(json_data={}, status_code=status_code, text=text)})
+    with pytest.raises(expected_exception):
         _handler().begin_two_factor_challenge(credential_id=CREDENTIAL_ID)
 
 

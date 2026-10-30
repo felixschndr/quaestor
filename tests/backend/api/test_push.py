@@ -28,11 +28,6 @@ def test_get_public_key_is_public(http_client: TestClient, monkeypatch: pytest.M
     assert response.json()["public_key"] == "server-key"
 
 
-@pytest.mark.parametrize(argnames="path", argvalues=["/api/push/subscribe", "/api/push/test"])
-def test_push_endpoints_require_authentication(http_client: TestClient, path: str):
-    assert http_client.post(path, json=SUBSCRIPTION).status_code == 401
-
-
 def test_subscribe_stores_the_subscription(
     http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):

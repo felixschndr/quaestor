@@ -1,6 +1,8 @@
 import asyncio
 import threading
-from unittest.mock import MagicMock
+from collections.abc import Awaitable, Callable
+from types import ModuleType
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -21,41 +23,54 @@ def test_lifespan_runs_alembic_upgrade_before_serving_requests(
         upgrade.assert_called_once_with()
 
 
-def test_lifespan_cancels_all_background_tasks_on_shutdown(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    argnames=("module", "name"),
+    argvalues=main.STARTUP_BACKGROUND_TASKS,
+    ids=[f"{module.__name__.rsplit('.', maxsplit=1)[-1]}.{name}" for module, name in main.STARTUP_BACKGROUND_TASKS],
+)
+def test_app_startup_schedules_background_task(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, module: ModuleType, name: str
 ):
     monkeypatch.setattr(target=main, name="SessionLocal", value=session_factory)
-
-    rescan_started = threading.Event()
-    rescan_cancelled = threading.Event()
-    sync_started = threading.Event()
-    sync_cancelled = threading.Event()
-
-    async def fake_rescan() -> None:
-        rescan_started.set()
-        try:
-            await asyncio.Event().wait()
-        except asyncio.CancelledError:
-            rescan_cancelled.set()
-            raise
-
-    async def fake_sync() -> None:
-        sync_started.set()
-        try:
-            await asyncio.Event().wait()
-        except asyncio.CancelledError:
-            sync_cancelled.set()
-            raise
-
-    monkeypatch.setattr(target=main.category_rescan, name="run_startup_rescan", value=fake_rescan)
-    monkeypatch.setattr(target=main.sync_scheduler, name="run_periodic_sync", value=fake_sync)
+    scheduled = threading.Event()
+    task = AsyncMock(side_effect=lambda: scheduled.set())
+    monkeypatch.setattr(target=module, name=name, value=task)
 
     with TestClient(main.app):
-        assert rescan_started.wait(timeout=5)
-        assert sync_started.wait(timeout=5)
+        assert scheduled.wait(timeout=5)
 
-    assert rescan_cancelled.wait(timeout=5), "rescan task was not cancelled on shutdown"
-    assert sync_cancelled.wait(timeout=5), "sync task was not cancelled on shutdown"
+    task.assert_called_once_with()
+
+
+def test_lifespan_cancels_background_tasks_before_disposing_the_db_engine(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    # Order matters: finish background tasks (which may hold sessions) first
+    monkeypatch.setattr(target=main, name="SessionLocal", value=session_factory)
+    call_order: list[str] = []
+    started = {"rescan": threading.Event(), "sync": threading.Event()}
+
+    def fake_task(label: str) -> Callable[[], Awaitable[None]]:
+        async def run() -> None:
+            started[label].set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                call_order.append(f"{label}_cancelled")
+                raise
+
+        return run
+
+    monkeypatch.setattr(target=main.category_rescan, name="run_startup_rescan", value=fake_task("rescan"))
+    monkeypatch.setattr(target=main.sync_scheduler, name="run_periodic_sync", value=fake_task("sync"))
+    monkeypatch.setattr(target=main, name="close_engine", value=lambda: call_order.append("engine_closed"))
+
+    with TestClient(main.app):
+        assert started["rescan"].wait(timeout=5)
+        assert started["sync"].wait(timeout=5)
+
+    assert sorted(call_order[:2]) == ["rescan_cancelled", "sync_cancelled"], "background tasks were not cancelled"
+    assert call_order[2:] == ["engine_closed"]
 
 
 def test_lifespan_closes_db_on_shutdown(
@@ -70,39 +85,3 @@ def test_lifespan_closes_db_on_shutdown(
 
     close.assert_called_once()
     assert_log_contains(caplog, message="Shutdown complete")
-
-
-def test_lifespan_disposes_db_engine_after_background_tasks_are_cancelled(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
-):
-    # Order matters: finish background tasks (which may hold sessions) first
-    call_order: list[str] = []
-
-    async def fake_rescan() -> None:
-        try:
-            await asyncio.Event().wait()
-        except asyncio.CancelledError:
-            call_order.append("rescan_cancelled")
-            raise
-
-    async def fake_sync() -> None:
-        try:
-            await asyncio.Event().wait()
-        except asyncio.CancelledError:
-            call_order.append("sync_cancelled")
-            raise
-
-    def fake_close() -> None:
-        call_order.append("engine_closed")
-
-    monkeypatch.setattr(target=main, name="SessionLocal", value=session_factory)
-    monkeypatch.setattr(target=main.category_rescan, name="run_startup_rescan", value=fake_rescan)
-    monkeypatch.setattr(target=main.sync_scheduler, name="run_periodic_sync", value=fake_sync)
-    monkeypatch.setattr(target=main, name="close_engine", value=fake_close)
-
-    with TestClient(main.app):
-        pass
-
-    assert "engine_closed" in call_order
-    assert call_order.index("engine_closed") > call_order.index("rescan_cancelled")
-    assert call_order.index("engine_closed") > call_order.index("sync_cancelled")

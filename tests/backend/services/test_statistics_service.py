@@ -99,16 +99,23 @@ def test_range_summary_is_zero_without_selected_accounts(session_factory: sessio
     assert summary == statistics_service.RangeSummary(income=0.0, expenses=0.0, count=0)
 
 
-def test_daily_net_worth_returns_empty_when_account_has_no_snapshots(session_factory: sessionmaker):
-    # An owned account with no balance snapshots has no earliest date to anchor the
-    # auto-start (date_from=None), so the series is empty.
+@pytest.mark.parametrize(
+    argnames="date_from",
+    argvalues=[
+        # An account with no balance snapshots has no earliest date to anchor the auto-start.
+        None,
+        # A date_from in the future while date_to defaults to today → end_date < date_from.
+        datetime.date(year=2999, month=1, day=1),
+    ],
+)
+def test_daily_net_worth_returns_an_empty_series(session_factory: sessionmaker, date_from: datetime.date | None):
     with session_factory() as session:
         user, _, account = make_user_and_credential_and_account(session)
         result = statistics_service.daily_net_worth(
             db_session=session,
             user=user,
             account_ids=[account.id],
-            date_from=None,
+            date_from=date_from,
             date_to=None,
         )
     assert result.series == []
@@ -160,21 +167,6 @@ def test_daily_net_worth_apply_factor_false_ignores_balance_factor(session_facto
 
     assert factored.series[0].value == DEFAULT_BALANCE / 2
     assert raw.series[0].value == DEFAULT_BALANCE
-
-
-def test_daily_net_worth_returns_empty_when_range_is_inverted(session_factory: sessionmaker):
-    # date_from in the future while date_to defaults to today → end_date < date_from.
-    future = datetime.date(year=2999, month=1, day=1)
-    with session_factory() as session:
-        user, _, account = make_user_and_credential_and_account(session)
-        result = statistics_service.daily_net_worth(
-            db_session=session,
-            user=user,
-            account_ids=[account.id],
-            date_from=future,
-            date_to=None,
-        )
-    assert result.series == []
 
 
 def test_net_worth_range_reports_before_after_and_transactions(session_factory: sessionmaker):

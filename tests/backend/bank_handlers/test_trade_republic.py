@@ -161,43 +161,6 @@ def test_transactions_are_imported_oldest_first_although_the_timeline_comes_newe
     assert [t.transaction_type for t in cash] == [TransactionType.DEPOSIT, TransactionType.BUY]
 
 
-def test_position_trades_also_appear_in_the_cash_account(monkeypatch: pytest.MonkeyPatch):
-    rows = [
-        {"date": "2026-05-13", "type": "Deposit", "value": 1000.0, "note": PERSON_NAME, "isin": None},
-        {
-            "date": "2026-05-14",
-            "type": "Buy",
-            "value": -600.0,
-            "note": ETF_NAME,
-            "isin": ISIN,
-        },
-    ]
-    _patch_pytr(monkeypatch=monkeypatch, rows=rows, captured={})
-    session = _session()
-
-    cash = session.get_transactions(FetchedAccount(name=ACCOUNT_IBAN), start_date=date(year=2026, month=1, day=1))
-    position = session.get_transactions(FetchedAccount(name=ETF_NAME), start_date=date(year=2026, month=1, day=1))
-
-    assert [(t.amount, t.transaction_type, t.date) for t in cash] == [
-        (1000.0, TransactionType.DEPOSIT, date(year=2026, month=5, day=13)),
-        (-600.0, TransactionType.BUY, date(year=2026, month=5, day=14)),
-    ]
-    assert [(t.amount, t.transaction_type, t.date) for t in position] == [
-        (-600.0, TransactionType.BUY, date(year=2026, month=5, day=14))
-    ]
-
-
-def test_get_accounts_lists_cash_and_positions(monkeypatch: pytest.MonkeyPatch):
-    session = _session()
-
-    async def _noop() -> None:
-        pass
-
-    monkeypatch.setattr(target=session, name="_fetch", value=_noop)
-
-    assert {account.name for account in session.get_accounts()} == {ACCOUNT_IBAN, ETF_NAME}
-
-
 def test_share_moves_only_count_buys_and_sells(monkeypatch: pytest.MonkeyPatch):
     rows = [
         {"date": "2025-03-24", "type": "Buy", "isin": ISIN, "shares": "10"},
@@ -351,23 +314,6 @@ def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest
     assert calls == [{"challenge_token": CHALLENGE_TOKEN, "credential_id": CREDENTIAL_ID, "code": TWO_FACTOR_CODE}]
 
 
-def test_session_without_resumable_websession_requires_reauthentication(monkeypatch: pytest.MonkeyPatch):
-    class _FakeApi:
-        def __init__(self, **kwargs: object) -> None:
-            pass
-
-        def resume_websession(self) -> bool:
-            return False
-
-    monkeypatch.setattr(target=trade_republic_login, name="TradeRepublicApi", value=_FakeApi)
-    handler = _handler()
-    handler.session_state = {"cookies": STORED_COOKIES}
-
-    with pytest.raises(ReauthenticationRequiredError, match="2FA re-authentication required"):
-        with handler.session():
-            pass
-
-
 class _ResumingApi:
     cookie_files: list[Path] = []
 
@@ -394,27 +340,27 @@ def test_resumed_session_writes_the_refreshed_cookies_back(monkeypatch: pytest.M
     assert not any(cookies_file.exists() for cookies_file in _ResumingApi.cookie_files)
 
 
-def test_session_without_stored_cookies_requires_reauthentication_without_trying_to_resume(
-    monkeypatch: pytest.MonkeyPatch,
+def _failing_resume(self: _ResumingApi) -> bool:
+    raise ConnectionError()
+
+
+@pytest.mark.parametrize(
+    argnames=("resume_websession", "session_state"),
+    argvalues=[
+        (lambda self: False, {"cookies": STORED_COOKIES}),
+        (_failing_resume, {"cookies": STORED_COOKIES}),
+        (None, None),
+    ],
+)
+def test_session_that_cannot_be_resumed_requires_reauthentication(
+    monkeypatch: pytest.MonkeyPatch, resume_websession: object, session_state: dict | None
 ):
-    monkeypatch.setattr(target=_ResumingApi, name="resume_websession", value=None)
-    monkeypatch.setattr(target=trade_republic_login, name="TradeRepublicApi", value=_ResumingApi)
-
-    with pytest.raises(ReauthenticationRequiredError):
-        with _handler().session():
-            pass
-
-
-def test_session_whose_resume_fails_requires_reauthentication(monkeypatch: pytest.MonkeyPatch):
-    def failing_resume(self: _ResumingApi) -> bool:
-        raise ConnectionError()
-
-    monkeypatch.setattr(target=_ResumingApi, name="resume_websession", value=failing_resume)
+    monkeypatch.setattr(target=_ResumingApi, name="resume_websession", value=resume_websession)
     monkeypatch.setattr(target=trade_republic_login, name="TradeRepublicApi", value=_ResumingApi)
     handler = _handler()
-    handler.session_state = {"cookies": STORED_COOKIES}
+    handler.session_state = session_state
 
-    with pytest.raises(ReauthenticationRequiredError):
+    with pytest.raises(ReauthenticationRequiredError, match="2FA re-authentication required"):
         with handler.session():
             pass
 

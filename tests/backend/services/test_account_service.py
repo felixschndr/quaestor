@@ -41,6 +41,7 @@ from tests.backend.conftest import (
     make_transaction,
     make_user,
     make_user_and_credential_and_account,
+    persist_manual_account_with_new_user,
 )
 
 
@@ -146,11 +147,7 @@ def test_create_manual_account_rejects_credential_of_non_manual_bank(session_fac
 def test_create_manual_transaction_updates_balance_and_snapshots(
     session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
-    user_id, credential_id = _create_user_with_manual_credential(session_factory)
-    with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name=WALLET_ACCOUNT_NAME, balance=DEFAULT_BALANCE)
-        session.commit()
-        account_id = account.id
+    account_id = persist_manual_account_with_new_user(session_factory, balance=DEFAULT_BALANCE)
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
@@ -173,7 +170,7 @@ def test_create_manual_transaction_updates_balance_and_snapshots(
         )
 
     with session_factory() as session:
-        user = session.get(entity=User, ident=user_id)
+        user = session.get(entity=Account, ident=account_id).credential.user
         account_service.get_account_for_user(db_session=session, account_id=account_id, user=user)
 
 
@@ -190,11 +187,7 @@ def test_create_manual_transaction_resolves_category(
     expected_category: TransactionCategory,
     expected_source: CategorySource,
 ):
-    _, credential_id = _create_user_with_manual_credential(session_factory)
-    with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name=WALLET_ACCOUNT_NAME, balance=1000.0)
-        session.commit()
-        account_id = account.id
+    account_id = persist_manual_account_with_new_user(session_factory, balance=1000.0)
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
@@ -232,11 +225,7 @@ def test_editing_the_counterparty_of_an_automatically_categorised_transaction_re
 
 
 def test_update_account_treats_explicit_null_balance_as_no_change(session_factory: sessionmaker):
-    _, credential_id = _create_user_with_manual_credential(session_factory)
-    with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name=WALLET_ACCOUNT_NAME, balance=42.0)
-        session.commit()
-        account_id = account.id
+    account_id = persist_manual_account_with_new_user(session_factory, balance=42.0)
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
@@ -271,11 +260,7 @@ def test_create_manual_transaction_rejects_non_manual_account(session_factory: s
 
 
 def test_delete_transaction_restores_balance(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
-    _, credential_id = _create_user_with_manual_credential(session_factory)
-    with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name=WALLET_ACCOUNT_NAME, balance=200.0)
-        session.commit()
-        account_id = account.id
+    account_id = persist_manual_account_with_new_user(session_factory, balance=200.0)
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
@@ -350,9 +335,9 @@ def test_update_account_rejects_balance_change_on_non_manual_account(session_fac
 
 
 def test_update_account_balance_recomputes_snapshots_on_manual_account(session_factory: sessionmaker):
-    _, credential_id = _create_user_with_manual_credential(session_factory)
+    account_id = persist_manual_account_with_new_user(session_factory, balance=DEFAULT_BALANCE)
     with session_factory() as session:
-        account = make_account(session, credential_id=credential_id, name=WALLET_ACCOUNT_NAME, balance=DEFAULT_BALANCE)
+        account = session.get(entity=Account, ident=account_id)
         make_transaction(
             session,
             account_id=account.id,
@@ -361,7 +346,6 @@ def test_update_account_balance_recomputes_snapshots_on_manual_account(session_f
         )
         account.update_balance_at_date()
         session.commit()
-        account_id = account.id
 
     with session_factory() as session:
         account = session.get(entity=Account, ident=account_id)
@@ -495,6 +479,11 @@ def test_filter_transactions(
         assert [t.id for t in filtered_transactions] == expected_ids
 
 
+def _create_n_accounts(db_session: Session, user: User, count: int) -> list[Account]:
+    credential = make_credential(db_session, user_id=user.id, bank=BankProvider.FINTS)
+    return [make_account(db_session, credential_id=credential.id, name=f"Account {index}") for index in range(count)]
+
+
 def _cash_and_depot_buy(session: Session) -> tuple[Transaction, Transaction]:
     user = make_user(session)
     credential = make_credential(session, user_id=user.id, bank=BankProvider.TRADE_REPUBLIC)
@@ -560,10 +549,7 @@ def test_unlink_related_clears_both_sides_and_restores_types(
     session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
     with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
-        account_a = make_account(session, credential_id=credential.id, name=ACCOUNT_IBAN)
-        account_b = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN)
+        account_a, account_b = _create_n_accounts(db_session=session, user=make_user(session), count=2)
         out_transaction = make_transaction(
             session, account_id=account_a.id, amount=AMOUNT * -1, transaction_type=TransactionType.TRANSFER_OUT
         )
@@ -634,10 +620,7 @@ def test_get_transaction_for_account_rejects_unknown_and_foreign_transactions(
 
 def test_link_related_links_both_legs(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
-        account_a = make_account(session, credential_id=credential.id, name=ACCOUNT_IBAN)
-        account_b = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN)
+        account_a, account_b = _create_n_accounts(db_session=session, user=make_user(session), count=2)
         out_transaction = make_transaction(
             session, account_id=account_a.id, amount=AMOUNT * -1, transaction_type=TransactionType.OUTGOING
         )
@@ -659,10 +642,7 @@ def test_link_related_links_both_legs(session_factory: sessionmaker, caplog: pyt
 
 def test_manual_link_reauthorises_auto_detection_on_a_previously_unlinked_leg(session_factory: sessionmaker):
     with session_factory() as session:
-        user = make_user(session)
-        credential = make_credential(session, user_id=user.id, bank=BankProvider.FINTS)
-        account_a = make_account(session, credential_id=credential.id, name=ACCOUNT_IBAN)
-        account_b = make_account(session, credential_id=credential.id, name=SECOND_ACCOUNT_IBAN)
+        account_a, account_b = _create_n_accounts(db_session=session, user=make_user(session), count=2)
         out_transaction = make_transaction(
             session, account_id=account_a.id, amount=AMOUNT * -1, transaction_type=TransactionType.OUTGOING
         )
@@ -676,11 +656,6 @@ def test_manual_link_reauthorises_auto_detection_on_a_previously_unlinked_leg(se
 
         assert out_transaction.transfer_relink_blocked is False
         assert out_transaction.related_link_source == RelatedLinkSource.MANUAL
-
-
-def _create_n_accounts(db_session: Session, user: User, count: int) -> list[Account]:
-    credential = make_credential(db_session, user_id=user.id, bank=BankProvider.FINTS)
-    return [make_account(db_session, credential_id=credential.id, name=f"Account {index}") for index in range(count)]
 
 
 def test_link_related_adds_a_third_transaction_to_an_existing_related_group(session_factory: sessionmaker):

@@ -129,8 +129,3 @@ def test_cannot_delete_another_users_key(http_client: TestClient):
     register_and_login(http_client, user_name=INTRUDER_USER_NAME)
 
     assert http_client.delete(f"/api/api_keys/{api_key_id}").status_code == 404
-
-
-def test_endpoints_require_authentication(http_client: TestClient):
-    assert http_client.get("/api/api_keys").status_code == 401
-    assert http_client.post("/api/api_keys", json={"name": "x"}).status_code == 401

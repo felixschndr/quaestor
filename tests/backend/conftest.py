@@ -7,6 +7,7 @@ from typing import Iterator
 from unittest.mock import AsyncMock, MagicMock
 from zoneinfo import ZoneInfo
 
+import httpx
 import pyotp
 import pytest
 import requests
@@ -41,7 +42,8 @@ from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.security import csrf, rate_limit
-from source.backend.services.banking import bank_catalog, enable_banking_catalog
+from source.backend.services.banking import bank_catalog, credential_service, enable_banking_catalog
+from source.backend.services.banking.credential_service import SyncResult, SyncStatus
 from source.backend.services.core import i18n_service
 from source.backend.services.notifications import notification_service
 from source.backend.services.notifications.notification_service import Notification, NotificationResult
@@ -202,23 +204,38 @@ def session_factory():
 
 
 @pytest.fixture
-def http_client(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
-    def override_get_session():
+def isolated_app(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    def override_get_session() -> Iterator[Session]:
         with session_factory() as session:
             yield session
 
     monkeypatch.setattr(target=main, name="SessionLocal", value=session_factory)
     main.app.dependency_overrides[get_session] = override_get_session
-    with TestClient(main.app) as test_client:
-        # Mimic what a real SPA does: prime the csrf_token cookie via a GET, then echo it
-        # back in the X-CSRF-Token header on every subsequent request. Without this every
-        # POST/PATCH/PUT/DELETE in the test suite would 403 on the CSRF middleware.
-        test_client.get("/api/settings")
-        csrf_token = test_client.cookies.get(csrf.COOKIE_NAME)
-        if csrf_token:
-            test_client.headers[csrf.HEADER_NAME] = csrf_token
-        yield test_client
+    yield
     main.app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def raw_http_client(isolated_app: None) -> Iterator[TestClient]:
+    """A client without the CSRF token primed, for tests of the CSRF middleware itself."""
+    with TestClient(main.app) as test_client:
+        yield test_client
+
+
+def prime_csrf(client: TestClient | httpx.Client) -> None:
+    # Mimic what a real SPA does: prime the csrf_token cookie via a GET, then echo it
+    # back in the X-CSRF-Token header on every subsequent request. Without this every
+    # POST/PATCH/PUT/DELETE would 403 on the CSRF middleware.
+    client.get("/api/settings")
+    csrf_token = client.cookies.get(csrf.COOKIE_NAME)
+    if csrf_token:
+        client.headers[csrf.HEADER_NAME] = csrf_token
+
+
+@pytest.fixture
+def http_client(raw_http_client: TestClient) -> TestClient:
+    prime_csrf(raw_http_client)
+    return raw_http_client
 
 
 @pytest.fixture
@@ -246,10 +263,19 @@ def register(
     user_name: str = USER_NAME,
     display_name: str = DISPLAY_NAME,
     password: str = VALID_PASSWORD,
+    **fields: str | None,
 ) -> Response:
     return http_client.post(
-        "/api/auth/register", json={"user_name": user_name, "display_name": display_name, "password": password}
+        "/api/auth/register",
+        json={"user_name": user_name, "display_name": display_name, "password": password, **fields},
     )
+
+
+@pytest.fixture
+def completed_sync(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    sync_mock = MagicMock(return_value=SyncResult(status=SyncStatus.COMPLETED))
+    monkeypatch.setattr(target=credential_service, name="sync_credential", value=sync_mock)
+    return sync_mock
 
 
 def register_and_get_id(
@@ -681,6 +707,11 @@ def setup_manual_account(http_client: TestClient, balance: float = DEFAULT_BALAN
         "/api/account",
         json={"credential_id": credential_id, "name": WALLET_ACCOUNT_NAME, "balance": balance},
     ).json()["id"]
+
+
+def category_of(session_factory: sessionmaker, transaction_id: int) -> str:
+    with session_factory() as session:
+        return session.get(entity=Transaction, ident=transaction_id).category
 
 
 def seed_for_categories(session_factory: sessionmaker, account_id: int) -> None:

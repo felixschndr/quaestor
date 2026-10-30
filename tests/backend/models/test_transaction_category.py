@@ -161,19 +161,12 @@ def test_expanding_a_selection_replaces_groups_by_their_categories():
     ]
 
 
-def test_bank_flagged_refund_is_reimbursement_without_a_keyword():
+def test_bank_flagged_refund_is_a_system_categorised_reimbursement_without_a_keyword():
     fetched = create_fetched_transaction(
         amount=AMOUNT, other_party=PERSON_NAME, transaction_type=TransactionType.INCOMING, is_refund=True
     )
 
     assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.REIMBURSEMENT
-
-
-def test_from_fetched_marks_a_bank_flagged_refund_as_system_categorised():
-    fetched = create_fetched_transaction(
-        amount=AMOUNT, other_party=PERSON_NAME, transaction_type=TransactionType.INCOMING, is_refund=True
-    )
-
     assert Transaction.from_fetched(fetched_transaction=fetched).category_source == CategorySource.SYSTEM
 
 
@@ -214,28 +207,21 @@ def test_log_result_false_keeps_the_log_quiet(caplog: pytest.LogCaptureFixture):
 
 
 @pytest.mark.parametrize(
-    argnames="transaction_type, expected",
+    argnames="other_party, purpose, transaction_type, expected",
     argvalues=[
-        (TransactionType.DEPOSIT, TransactionCategory.SAVINGS),
-        (TransactionType.REMOVAL, TransactionCategory.WITHDRAWAL),
+        (PERSON_NAME, None, TransactionType.DEPOSIT, TransactionCategory.SAVINGS),
+        (PERSON_NAME, None, TransactionType.REMOVAL, TransactionCategory.WITHDRAWAL),
+        # AG-Beitrag laufend is the employer's recurring contribution (VL) — recorded as a DEPOSIT
+        # onto the savings account. It must end up in SAVINGS via the type pre-check, not PENSION.
+        (None, "AG-Beitrag laufend", TransactionType.DEPOSIT, TransactionCategory.SAVINGS),
     ],
 )
 def test_type_short_circuits_to_category_regardless_of_text(
-    transaction_type: TransactionType, expected: TransactionCategory
+    other_party: str | None, purpose: str | None, transaction_type: TransactionType, expected: TransactionCategory
 ):
-    fetched = create_fetched_transaction(other_party=PERSON_NAME, purpose=None, transaction_type=transaction_type)
+    fetched = create_fetched_transaction(other_party=other_party, purpose=purpose, transaction_type=transaction_type)
 
     assert TransactionCategory.from_transaction(transaction=fetched) == expected
-
-
-def test_ag_beitrag_with_deposit_type_yields_savings():
-    # AG-Beitrag laufend is the employer's recurring contribution (VL) — recorded as a DEPOSIT
-    # onto the savings account. It must end up in SAVINGS via the type pre-check, not PENSION.
-    fetched = create_fetched_transaction(
-        other_party=None, purpose="AG-Beitrag laufend", transaction_type=TransactionType.DEPOSIT
-    )
-
-    assert TransactionCategory.from_transaction(transaction=fetched) == TransactionCategory.SAVINGS
 
 
 @pytest.mark.parametrize(

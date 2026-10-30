@@ -85,30 +85,27 @@ def test_send_reports_stale_vapid_subscription_as_expired(monkeypatch: pytest.Mo
     assert result.outcome == push_service.PushOutcome.EXPIRED
 
 
-def test_send_reports_unrelated_bad_request_as_failed(monkeypatch: pytest.MonkeyPatch):
-    response = FakeHttpResponse(text='{"reason":"InvalidTtl"}', status_code=400)
-    _patch_webpush_failure(monkeypatch, exception=WebPushException("bad ttl", response=response))
+@pytest.mark.parametrize(
+    argnames=("exception", "expected_detail"),
+    argvalues=[
+        (
+            WebPushException("bad ttl", response=FakeHttpResponse(text='{"reason":"InvalidTtl"}', status_code=400)),
+            '400 {"reason":"InvalidTtl"}',
+        ),
+        (
+            WebPushException("boom", response=FakeHttpResponse(text="server error", status_code=500)),
+            "500 server error",
+        ),
+        (WebPushException("connection refused"), "WebPushException: connection refused"),
+    ],
+)
+def test_send_reports_other_failures_as_failed(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, exception: WebPushException, expected_detail: str
+):
+    _patch_webpush_failure(monkeypatch, exception=exception)
 
     result = push_service.send(subscription_info=SUBSCRIPTION_INFO, payload=PAYLOAD)
 
     assert result.outcome == push_service.PushOutcome.FAILED
-
-
-def test_send_reports_other_http_errors_as_failed(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
-    response = FakeHttpResponse(text="server error", status_code=500)
-    _patch_webpush_failure(monkeypatch, exception=WebPushException("boom", response=response))
-
-    result = push_service.send(subscription_info=SUBSCRIPTION_INFO, payload=PAYLOAD)
-
-    assert result.outcome == push_service.PushOutcome.FAILED
-    assert result.detail == "500 server error"
-    assert_log_contains(caplog, message="Push delivery failed")
-
-
-def test_send_reports_failure_without_response_as_failed(monkeypatch: pytest.MonkeyPatch):
-    _patch_webpush_failure(monkeypatch, exception=WebPushException("connection refused"))
-
-    result = push_service.send(subscription_info=SUBSCRIPTION_INFO, payload=PAYLOAD)
-
-    assert result.outcome == push_service.PushOutcome.FAILED
-    assert "connection refused" in result.detail
+    assert result.detail == expected_detail
+    assert_log_contains(caplog, message=f"Push delivery failed: {expected_detail}")

@@ -117,28 +117,20 @@ def test_load_bundle_secrets_extracts_pubkey_and_version(monkeypatch: pytest.Mon
     assert insurance_calls[0][1] == f"{_Fin4uSession.BASE_URL}/api/{API_VERSION}/dashboard/insurance"
 
 
-def test_load_bundle_secrets_raises_when_bundle_url_missing(monkeypatch: pytest.MonkeyPatch):
-    patch_session(monkeypatch=monkeypatch, fake=MockedSession(spa_html="<html><body>no scripts</body></html>"))
+@pytest.mark.parametrize(
+    argnames=("session_kwargs", "expected_match"),
+    argvalues=[
+        ({"spa_html": "<html><body>no scripts</body></html>"}, "main"),
+        ({"bundle_text": 'var _config={D:"fin4u-2.0",_:"20260527"};'}, "public key"),
+        ({"bundle_text": REAL_PUBKEY_PEM.decode("ascii") + '\nvar x="something else";'}, "API version"),
+    ],
+)
+def test_load_bundle_secrets_raises_when_a_secret_is_missing(
+    monkeypatch: pytest.MonkeyPatch, session_kwargs: dict[str, str], expected_match: str
+):
+    patch_session(monkeypatch=monkeypatch, fake=MockedSession(**session_kwargs))
 
-    with pytest.raises(UnknownInternalError, match="main"):
-        fin4u_session().get_accounts()
-
-
-def test_load_bundle_secrets_raises_when_pubkey_missing(monkeypatch: pytest.MonkeyPatch):
-    patch_session(
-        monkeypatch=monkeypatch,
-        fake=MockedSession(bundle_text='var _config={D:"fin4u-2.0",_:"20260527"};'),
-    )
-
-    with pytest.raises(UnknownInternalError, match="public key"):
-        fin4u_session().get_accounts()
-
-
-def test_load_bundle_secrets_raises_when_api_version_missing(monkeypatch: pytest.MonkeyPatch):
-    bundle_without_version = REAL_PUBKEY_PEM.decode("ascii") + '\nvar x="something else";'
-    patch_session(monkeypatch=monkeypatch, fake=MockedSession(bundle_text=bundle_without_version))
-
-    with pytest.raises(UnknownInternalError, match="API version"):
+    with pytest.raises(UnknownInternalError, match=expected_match):
         fin4u_session().get_accounts()
 
 

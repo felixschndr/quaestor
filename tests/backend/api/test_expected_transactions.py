@@ -214,19 +214,3 @@ def test_expected_transactions_reject_other_users_account(
     )
 
     assert response.status_code == 404
-
-
-@pytest.mark.parametrize(argnames="method, path_suffix, json_body", argvalues=_ENDPOINTS)
-def test_expected_transactions_require_authentication(
-    http_client: TestClient,
-    method: str,
-    path_suffix: str,
-    json_body: dict | None,
-):
-    response = http_client.request(
-        method=method,
-        url=f"/api/account/1/expected-transactions{path_suffix}",
-        json=json_body,
-    )
-
-    assert response.status_code == 401

@@ -373,8 +373,10 @@ def _session() -> _ScalableCapitalSession:
     return _ScalableCapitalSession(config_dir=None)
 
 
-def _fetched_session(monkeypatch: pytest.MonkeyPatch, payloads: dict | None = None) -> _ScalableCapitalSession:
-    _fake_run_command(monkeypatch=monkeypatch, payloads=payloads or FULL_PAYLOADS)
+def _fetched_session(
+    monkeypatch: pytest.MonkeyPatch, payloads: dict | None = None, recorded: list[tuple[str, ...]] | None = None
+) -> _ScalableCapitalSession:
+    _fake_run_command(monkeypatch=monkeypatch, payloads=payloads or FULL_PAYLOADS, recorded=recorded)
     session = _session()
     session.get_accounts()
     return session
@@ -508,9 +510,7 @@ def test_transactions_are_routed_to_the_cash_and_position_accounts(
 
 def test_broker_transactions_are_fetched_once_for_the_full_history(monkeypatch: pytest.MonkeyPatch):
     recorded: list[tuple[str, ...]] = []
-    _fake_run_command(monkeypatch=monkeypatch, payloads=FULL_PAYLOADS, recorded=recorded)
-    session = _session()
-    session.get_accounts()
+    session = _fetched_session(monkeypatch, recorded=recorded)
 
     session.get_transactions(CASH_ACCOUNT, start_date=OLDER_DATE)
     session.get_market_value_history(FetchedAccount(name=ETF_NAME))
@@ -787,14 +787,10 @@ def test_session_requires_the_cli_binary(monkeypatch: pytest.MonkeyPatch, tmp_pa
             pass
 
 
-def test_session_restores_the_config_dir_and_stores_the_refreshed_state(monkeypatch: pytest.MonkeyPatch):
-    written: list[dict] = []
+@pytest.fixture
+def stored_session_handler(monkeypatch: pytest.MonkeyPatch) -> ScalableCapitalHandler:
     monkeypatch.setattr(target=scalable_capital, name="ensure_cli_binary_available", value=lambda: None)
-    monkeypatch.setattr(
-        target=scalable_capital_login,
-        name="write_session_state",
-        value=lambda config_dir, session_state: written.append({"dir": config_dir, "state": session_state}),
-    )
+    monkeypatch.setattr(target=scalable_capital_login, name="write_session_state", value=lambda **_: None)
     monkeypatch.setattr(
         target=scalable_capital_login,
         name="read_session_state",
@@ -802,6 +798,19 @@ def test_session_restores_the_config_dir_and_stores_the_refreshed_state(monkeypa
     )
     handler = _handler()
     handler.session_state = {"archive": SESSION_ARCHIVE}
+    return handler
+
+
+def test_session_restores_the_config_dir_and_stores_the_refreshed_state(
+    monkeypatch: pytest.MonkeyPatch, stored_session_handler: ScalableCapitalHandler
+):
+    written: list[dict] = []
+    monkeypatch.setattr(
+        target=scalable_capital_login,
+        name="write_session_state",
+        value=lambda config_dir, session_state: written.append({"dir": config_dir, "state": session_state}),
+    )
+    handler = stored_session_handler
 
     with handler.session() as session:
         config_dir = session._config_dir
@@ -813,17 +822,8 @@ def test_session_restores_the_config_dir_and_stores_the_refreshed_state(monkeypa
     assert not config_dir.exists()
 
 
-def test_session_stores_the_refreshed_state_even_when_the_sync_fails(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(target=scalable_capital, name="ensure_cli_binary_available", value=lambda: None)
-    monkeypatch.setattr(target=scalable_capital_login, name="write_session_state", value=lambda **_: None)
-    monkeypatch.setattr(
-        target=scalable_capital_login,
-        name="read_session_state",
-        value=lambda config_dir: {"archive": SECOND_SESSION_ARCHIVE},
-    )
-    handler = _handler()
-    handler.session_state = {"archive": SESSION_ARCHIVE}
-
+def test_session_stores_the_refreshed_state_even_when_the_sync_fails(stored_session_handler: ScalableCapitalHandler):
+    handler = stored_session_handler
     config_dirs: list[Path] = []
     with pytest.raises(RuntimeError, match="rate-limited"):
         with handler.session() as session:
@@ -835,16 +835,13 @@ def test_session_stores_the_refreshed_state_even_when_the_sync_fails(monkeypatch
 
 
 def test_session_keeps_the_previous_state_when_it_cannot_be_read_back(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, stored_session_handler: ScalableCapitalHandler
 ):
     def failing_read(config_dir: Path) -> dict:
         raise OSError("disk full")
 
-    monkeypatch.setattr(target=scalable_capital, name="ensure_cli_binary_available", value=lambda: None)
-    monkeypatch.setattr(target=scalable_capital_login, name="write_session_state", value=lambda **_: None)
     monkeypatch.setattr(target=scalable_capital_login, name="read_session_state", value=failing_read)
-    handler = _handler()
-    handler.session_state = {"archive": SESSION_ARCHIVE}
+    handler = stored_session_handler
 
     with handler.session():
         pass
@@ -853,13 +850,14 @@ def test_session_keeps_the_previous_state_when_it_cannot_be_read_back(
     assert_log_contains(caplog, message="Could not read back the rotated session state")
 
 
-def test_session_with_an_unusable_session_state_requires_reauthentication(monkeypatch: pytest.MonkeyPatch):
+def test_session_with_an_unusable_session_state_requires_reauthentication(
+    monkeypatch: pytest.MonkeyPatch, stored_session_handler: ScalableCapitalHandler
+):
     def fake_write(config_dir: Path, session_state: dict):
         raise ValueError("does not contain a CLI config archive")
 
-    monkeypatch.setattr(target=scalable_capital, name="ensure_cli_binary_available", value=lambda: None)
     monkeypatch.setattr(target=scalable_capital_login, name="write_session_state", value=fake_write)
-    handler = _handler()
+    handler = stored_session_handler
     handler.session_state = {"legacy": SESSION_ARCHIVE}
 
     with pytest.raises(ReauthenticationRequiredError, match="does not contain a CLI config archive"):
@@ -894,9 +892,7 @@ def test_broker_transactions_follow_the_cursor_across_pages(monkeypatch: pytest.
         ]
     }
     recorded: list[tuple[str, ...]] = []
-    _fake_run_command(monkeypatch=monkeypatch, payloads=payloads, recorded=recorded)
-    session = _session()
-    session.get_accounts()
+    session = _fetched_session(monkeypatch, payloads=payloads, recorded=recorded)
 
     cash = session.get_transactions(CASH_ACCOUNT, start_date=OLDER_DATE)
 
@@ -910,9 +906,7 @@ def test_broker_transactions_follow_the_cursor_across_pages(monkeypatch: pytest.
 def test_pagination_stops_when_the_cli_keeps_returning_the_same_cursor(monkeypatch: pytest.MonkeyPatch):
     payloads = FULL_PAYLOADS | {"broker transactions": [_paged_payload(items=BROKER_ITEMS[:1], cursor="stuck")]}
     recorded: list[tuple[str, ...]] = []
-    _fake_run_command(monkeypatch=monkeypatch, payloads=payloads, recorded=recorded)
-    session = _session()
-    session.get_accounts()
+    session = _fetched_session(monkeypatch, payloads=payloads, recorded=recorded)
 
     session.get_transactions(CASH_ACCOUNT, start_date=OLDER_DATE)
 
@@ -926,10 +920,8 @@ def test_pagination_gives_up_after_the_page_cap(monkeypatch: pytest.MonkeyPatch)
         "broker transactions": [lambda args: _paged_payload(items=BROKER_ITEMS[:1], cursor=f"page-{next(pages)}")]
     }
     recorded: list[tuple[str, ...]] = []
-    _fake_run_command(monkeypatch=monkeypatch, payloads=payloads, recorded=recorded)
     monkeypatch.setattr(target=scalable_capital, name="_MAX_TRANSACTION_PAGES", value=3)
-    session = _session()
-    session.get_accounts()
+    session = _fetched_session(monkeypatch, payloads=payloads, recorded=recorded)
 
     session.get_transactions(CASH_ACCOUNT, start_date=OLDER_DATE)
 
@@ -1050,9 +1042,7 @@ def test_market_value_history_skips_incomplete_chart_points_and_share_moves(monk
 
 def test_market_value_history_is_fetched_once_for_all_positions(monkeypatch: pytest.MonkeyPatch):
     recorded: list[tuple[str, ...]] = []
-    _fake_run_command(monkeypatch=monkeypatch, payloads=FULL_PAYLOADS, recorded=recorded)
-    session = _session()
-    session.get_accounts()
+    session = _fetched_session(monkeypatch, recorded=recorded)
 
     session.get_market_value_history(FetchedAccount(name=ETF_NAME))
     session.get_market_value_history(FetchedAccount(name=POSITION_NAME))

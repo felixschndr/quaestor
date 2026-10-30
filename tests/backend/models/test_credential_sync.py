@@ -41,6 +41,12 @@ from tests.backend.conftest import (
 )
 
 
+def _sync(session_factory: sessionmaker, credential_id: int, handler: MagicMock) -> None:
+    with session_factory() as session:
+        session.get(entity=Credential, ident=credential_id).sync(handler)
+        session.commit()
+
+
 def test_sync_creates_new_account_with_balance_and_transactions(
     session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
 ):
@@ -70,10 +76,7 @@ def test_sync_creates_new_account_with_balance_and_transactions(
         )
     )
 
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
+    _sync(session_factory, credential_id=credential_id, handler=handler)
 
     assert_log_contains(caplog, messages=["account(s) created", "transaction(s) created"])
 
@@ -105,12 +108,11 @@ def test_sync_categorizes_with_the_rules_of_the_credential_owner(session_factory
         )
     )
 
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
+    _sync(session_factory, credential_id=credential_id, handler=handler)
 
-        assert credential.accounts[0].transactions[0].category == TransactionCategory.SIDE_INCOME
+    with session_factory() as session:
+        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
+        assert transactions[0].category == TransactionCategory.SIDE_INCOME
 
 
 def test_sync_persists_system_id_reported_by_the_bank_session(session_factory: sessionmaker):
@@ -123,10 +125,7 @@ def test_sync_persists_system_id_reported_by_the_bank_session(session_factory: s
     fake_session.system_id = "1234567890"
     handler = build_handler(fake_session)
 
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
+    _sync(session_factory, credential_id=credential_id, handler=handler)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -177,10 +176,7 @@ def test_sync_matches_existing_account_by_name_and_adds_missing_ones(session_fac
         )
     )
 
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
+    _sync(session_factory, credential_id=credential_id, handler=handler)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -203,10 +199,7 @@ def test_sync_keeps_same_named_accounts_separate_when_external_ids_differ(sessio
         )
     )
 
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
+    _sync(session_factory, credential_id=credential_id, handler=handler)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -230,10 +223,7 @@ def test_sync_backfills_external_id_on_existing_account_matched_by_name(session_
         )
     )
 
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
+    _sync(session_factory, credential_id=credential_id, handler=handler)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -263,10 +253,7 @@ def test_sync_splits_previously_merged_same_named_account_once_external_ids_are_
         )
     )
 
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
+    _sync(session_factory, credential_id=credential_id, handler=handler)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -295,10 +282,7 @@ def test_sync_does_not_let_new_same_named_account_hijack_row_with_other_external
         )
     )
 
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
+    _sync(session_factory, credential_id=credential_id, handler=handler)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -317,20 +301,8 @@ def test_sync_does_not_duplicate_already_existing_transactions(session_factory: 
         transaction_type=TransactionType.OUTGOING,
     )
 
-    handler = build_handler(
-        FakeBankSession(
-            accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
-            balances={ACCOUNT_IBAN: 0.0},
-            transactions={ACCOUNT_IBAN: [existing_tx]},
-        )
-    )
-
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
-        credential.sync(handler)  # second sync — same fetched transactions
-        session.commit()
+    sync_with_booked(session_factory, credential_id=credential_id, booked=[existing_tx])
+    sync_with_booked(session_factory, credential_id=credential_id, booked=[existing_tx])  # same fetched transactions
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -371,25 +343,21 @@ def test_sync_creates_both_when_identical_looking_transactions_have_different_re
         assert len(transactions) == 2
 
 
-def test_sync_matches_by_fingerprint_when_bank_omits_a_previously_delivered_reference(
-    session_factory: sessionmaker,
+@pytest.mark.parametrize(
+    argnames="first_reference, second_reference",
+    argvalues=[
+        # Flaky ASPSP: the same transaction arrives without its entry_reference the second time
+        ("ref-1", None),
+        # The bank starts delivering ids (or the row predates the bank_reference column)
+        (None, "ref-1"),
+    ],
+)
+def test_sync_matches_by_fingerprint_and_keeps_the_known_bank_reference(
+    session_factory: sessionmaker, first_reference: str | None, second_reference: str | None
 ):
     credential_id = persist_credential_with_new_user(session_factory)
-    sync_with_booked(session_factory, credential_id=credential_id, booked=[_referenced_transaction("ref-1")])
-    # Flaky ASPSP: the same transaction arrives without its entry_reference this time
-    sync_with_booked(session_factory, credential_id=credential_id, booked=[_referenced_transaction(None)])
-
-    with session_factory() as session:
-        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
-        assert len(transactions) == 1
-        assert transactions[0].bank_reference == "ref-1"
-
-
-def test_sync_backfills_bank_reference_onto_rows_matched_by_fingerprint(session_factory: sessionmaker):
-    credential_id = persist_credential_with_new_user(session_factory)
-    sync_with_booked(session_factory, credential_id=credential_id, booked=[_referenced_transaction(None)])
-    # The bank starts delivering ids (or the row predates the bank_reference column)
-    sync_with_booked(session_factory, credential_id=credential_id, booked=[_referenced_transaction("ref-1")])
+    sync_with_booked(session_factory, credential_id=credential_id, booked=[_referenced_transaction(first_reference)])
+    sync_with_booked(session_factory, credential_id=credential_id, booked=[_referenced_transaction(second_reference)])
 
     with session_factory() as session:
         transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
@@ -411,23 +379,14 @@ def _pending_transaction(amount: float, day: int) -> FetchedTransaction:
 
 def test_sync_stores_pending_flag(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
-    handler = build_handler(
-        FakeBankSession(
-            accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
-            balances={ACCOUNT_IBAN: 0.0},
-            transactions={
-                ACCOUNT_IBAN: [
-                    _booked_transaction(amount=-DEFAULT_AMOUNT, day=10),
-                    _pending_transaction(amount=-SECOND_AMOUNT, day=11),
-                ]
-            },
-        )
+    sync_with_booked(
+        session_factory,
+        credential_id=credential_id,
+        booked=[
+            _booked_transaction(amount=-DEFAULT_AMOUNT, day=10),
+            _pending_transaction(amount=-SECOND_AMOUNT, day=11),
+        ],
     )
-
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -439,30 +398,23 @@ def test_sync_stores_pending_flag(session_factory: sessionmaker):
 
 def test_sync_rebuilds_pending_each_time_without_accumulating(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
-    bank = FakeBankSession(
-        accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
-        balances={ACCOUNT_IBAN: 0.0},
-        transactions={
-            ACCOUNT_IBAN: [
-                _booked_transaction(amount=-DEFAULT_AMOUNT, day=10),
-                _pending_transaction(amount=-SECOND_AMOUNT, day=11),
-            ]
-        },
+    sync_with_booked(
+        session_factory,
+        credential_id=credential_id,
+        booked=[
+            _booked_transaction(amount=-DEFAULT_AMOUNT, day=10),
+            _pending_transaction(amount=-SECOND_AMOUNT, day=11),
+        ],
     )
-    handler = build_handler(bank)
-
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
-
-        # Next sync: the pending entry has drifted (new date) --> the stale one must be wiped, not kept
-        bank._transactions[ACCOUNT_IBAN] = [
+    # Next sync: the pending entry has drifted (new date) --> the stale one must be wiped, not kept
+    sync_with_booked(
+        session_factory,
+        credential_id=credential_id,
+        booked=[
             _booked_transaction(amount=-DEFAULT_AMOUNT, day=10),
             _pending_transaction(amount=-SECOND_AMOUNT, day=13),
-        ]
-        credential.sync(handler)
-        session.commit()
+        ],
+    )
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -475,21 +427,12 @@ def test_sync_rebuilds_pending_each_time_without_accumulating(session_factory: s
 
 def test_pending_that_becomes_booked_is_not_duplicated(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
-    bank = FakeBankSession(
-        accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
-        balances={ACCOUNT_IBAN: 0.0},
-        transactions={ACCOUNT_IBAN: [_pending_transaction(amount=-DEFAULT_AMOUNT, day=4)]},
+    sync_with_booked(
+        session_factory, credential_id=credential_id, booked=[_pending_transaction(amount=-DEFAULT_AMOUNT, day=4)]
     )
-    handler = build_handler(bank)
-
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
-
-        bank._transactions[ACCOUNT_IBAN] = [_booked_transaction(amount=-DEFAULT_AMOUNT, day=2)]
-        credential.sync(handler)
-        session.commit()
+    sync_with_booked(
+        session_factory, credential_id=credential_id, booked=[_booked_transaction(amount=-DEFAULT_AMOUNT, day=2)]
+    )
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -501,23 +444,14 @@ def test_pending_that_becomes_booked_is_not_duplicated(session_factory: sessionm
 
 def test_pending_still_reported_after_its_booking_arrived_is_dropped(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
-    handler = build_handler(
-        FakeBankSession(
-            accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
-            balances={ACCOUNT_IBAN: 0.0},
-            transactions={
-                ACCOUNT_IBAN: [
-                    _booked_transaction(amount=DEFAULT_AMOUNT, day=6),
-                    _pending_transaction(amount=DEFAULT_AMOUNT, day=5),
-                ]
-            },
-        )
+    sync_with_booked(
+        session_factory,
+        credential_id=credential_id,
+        booked=[
+            _booked_transaction(amount=DEFAULT_AMOUNT, day=6),
+            _pending_transaction(amount=DEFAULT_AMOUNT, day=5),
+        ],
     )
-
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
 
     with session_factory() as session:
         transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
@@ -528,23 +462,14 @@ def test_pending_still_reported_after_its_booking_arrived_is_dropped(session_fac
 
 def test_pending_is_kept_when_its_booking_is_outside_the_match_window(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
-    handler = build_handler(
-        FakeBankSession(
-            accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
-            balances={ACCOUNT_IBAN: 0.0},
-            transactions={
-                ACCOUNT_IBAN: [
-                    _booked_transaction(amount=DEFAULT_AMOUNT, day=5),
-                    _pending_transaction(amount=DEFAULT_AMOUNT, day=14),
-                ]
-            },
-        )
+    sync_with_booked(
+        session_factory,
+        credential_id=credential_id,
+        booked=[
+            _booked_transaction(amount=DEFAULT_AMOUNT, day=5),
+            _pending_transaction(amount=DEFAULT_AMOUNT, day=14),
+        ],
     )
-
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
 
     with session_factory() as session:
         transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
@@ -553,24 +478,15 @@ def test_pending_is_kept_when_its_booking_is_outside_the_match_window(session_fa
 
 def test_only_one_of_two_identical_pendings_is_claimed_by_a_single_booking(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
-    handler = build_handler(
-        FakeBankSession(
-            accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
-            balances={ACCOUNT_IBAN: 0.0},
-            transactions={
-                ACCOUNT_IBAN: [
-                    _booked_transaction(amount=-DEFAULT_AMOUNT, day=5),
-                    _pending_transaction(amount=-DEFAULT_AMOUNT, day=6),
-                    _pending_transaction(amount=-DEFAULT_AMOUNT, day=6),
-                ]
-            },
-        )
+    sync_with_booked(
+        session_factory,
+        credential_id=credential_id,
+        booked=[
+            _booked_transaction(amount=-DEFAULT_AMOUNT, day=5),
+            _pending_transaction(amount=-DEFAULT_AMOUNT, day=6),
+            _pending_transaction(amount=-DEFAULT_AMOUNT, day=6),
+        ],
     )
-
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
 
     with session_factory() as session:
         transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
@@ -580,23 +496,14 @@ def test_only_one_of_two_identical_pendings_is_claimed_by_a_single_booking(sessi
 
 def test_pending_transactions_are_excluded_from_balance_history(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
-    handler = build_handler(
-        FakeBankSession(
-            accounts=[FetchedAccount(name=ACCOUNT_IBAN)],
-            balances={ACCOUNT_IBAN: 0.0},
-            transactions={
-                ACCOUNT_IBAN: [
-                    _booked_transaction(amount=-DEFAULT_AMOUNT, day=10),
-                    _pending_transaction(amount=-SECOND_AMOUNT, day=12),
-                ]
-            },
-        )
+    sync_with_booked(
+        session_factory,
+        credential_id=credential_id,
+        booked=[
+            _booked_transaction(amount=-DEFAULT_AMOUNT, day=10),
+            _pending_transaction(amount=-SECOND_AMOUNT, day=12),
+        ],
     )
-
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -650,39 +557,46 @@ def test_sync_resolves_expected_within_tolerance_and_moves_note(
         assert booking.note == "expected note"
 
 
-def test_sync_keeps_expected_when_amount_outside_tolerance(session_factory: sessionmaker):
+@pytest.mark.parametrize(
+    argnames="expected_amount, tolerance, other_party, booking",
+    argvalues=[
+        (-DEFAULT_AMOUNT, 10, None, _booked_transaction(amount=-LARGE_AMOUNT, day=5)),
+        (DEFAULT_AMOUNT, 20, None, _booked_transaction(amount=-DEFAULT_AMOUNT, day=5)),
+        (
+            -DEFAULT_AMOUNT,
+            0,
+            NETFLIX,
+            FetchedTransaction(
+                amount=-DEFAULT_AMOUNT,
+                purpose="Subscription",
+                date=date(year=2026, month=5, day=6),
+                other_party="Spotify AB",
+            ),
+        ),
+    ],
+)
+def test_sync_keeps_expected_when_the_booking_does_not_match(
+    session_factory: sessionmaker,
+    expected_amount: float,
+    tolerance: int,
+    other_party: str | None,
+    booking: FetchedTransaction,
+):
     credential_id = persist_credential_with_new_user(session_factory)
     seed_account_with_expectation(
-        session_factory=session_factory, credential_id=credential_id, amount=-DEFAULT_AMOUNT, tolerance=10
-    )
-
-    sync_with_booked(
         session_factory=session_factory,
         credential_id=credential_id,
-        booked=[_booked_transaction(amount=-LARGE_AMOUNT, day=5)],
+        amount=expected_amount,
+        tolerance=tolerance,
+        other_party=other_party,
     )
+
+    sync_with_booked(session_factory=session_factory, credential_id=credential_id, booked=[booking])
 
     with session_factory() as session:
         transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
         assert {tx.expected for tx in transactions} == {True, False}
         assert len(transactions) == 2  # expectation kept, booking added separately
-
-
-def test_sync_does_not_match_expected_with_opposite_sign(session_factory: sessionmaker):
-    credential_id = persist_credential_with_new_user(session_factory)
-    seed_account_with_expectation(
-        session_factory=session_factory, credential_id=credential_id, amount=DEFAULT_AMOUNT, tolerance=20
-    )
-
-    sync_with_booked(
-        session_factory=session_factory,
-        credential_id=credential_id,
-        booked=[_booked_transaction(amount=-DEFAULT_AMOUNT, day=5)],
-    )
-
-    with session_factory() as session:
-        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
-        assert len(transactions) == 2
 
 
 def test_sync_matches_expected_by_other_party_substring(session_factory: sessionmaker):
@@ -708,29 +622,6 @@ def test_sync_matches_expected_by_other_party_substring(session_factory: session
         assert len(transactions) == 1
         assert not transactions[0].expected
         assert transactions[0].other_party == "NETFLIX INTL BV"
-
-
-def test_sync_keeps_expected_when_other_party_does_not_match(session_factory: sessionmaker):
-    credential_id = persist_credential_with_new_user(session_factory)
-    seed_account_with_expectation(
-        session_factory=session_factory,
-        credential_id=credential_id,
-        amount=-DEFAULT_AMOUNT,
-        tolerance=0,
-        other_party=NETFLIX,
-    )
-
-    booking = FetchedTransaction(
-        amount=-DEFAULT_AMOUNT,
-        purpose="Subscription",
-        date=date(year=2026, month=5, day=6),
-        other_party="Spotify AB",
-    )
-    sync_with_booked(session_factory=session_factory, credential_id=credential_id, booked=[booking])
-
-    with session_factory() as session:
-        transactions = session.get(entity=Credential, ident=credential_id).accounts[0].transactions
-        assert len(transactions) == 2
 
 
 def test_sync_consumes_only_one_expectation_per_booking(session_factory: sessionmaker):
@@ -867,10 +758,7 @@ def test_sync_records_bank_reported_balance_observations_as_anchors(session_fact
         )
     )
 
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
+    _sync(session_factory, credential_id=credential_id, handler=handler)
 
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
@@ -944,10 +832,7 @@ def test_sync_records_market_value_history_as_market_valued_snapshots(session_fa
     )
     handler = _market_valued_handler(market_day=market_day, transactions=[buy])
 
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
+    _sync(session_factory, credential_id=credential_id, handler=handler)
 
     with session_factory() as session:
         account = session.get(entity=Credential, ident=credential_id).accounts[0]
@@ -962,10 +847,7 @@ def test_market_valued_snapshots_survive_a_recompute(session_factory: sessionmak
     market_day = date(year=2026, month=5, day=2)
     handler = _market_valued_handler(market_day=market_day)
 
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
+    _sync(session_factory, credential_id=credential_id, handler=handler)
 
     with session_factory() as session:
         account = session.get(entity=Credential, ident=credential_id).accounts[0]
@@ -995,10 +877,7 @@ def test_incomplete_history_accounts_keep_anchors_but_skip_the_transaction_walk(
         )
     )
 
-    with session_factory() as session:
-        credential = session.get(entity=Credential, ident=credential_id)
-        credential.sync(handler)
-        session.commit()
+    _sync(session_factory, credential_id=credential_id, handler=handler)
 
     with session_factory() as session:
         account = session.get(entity=Credential, ident=credential_id).accounts[0]
@@ -1023,12 +902,6 @@ def _position_and_cash_handler(include_position: bool) -> MagicMock:
     )
 
 
-def _sync(session_factory: sessionmaker, credential_id: int, handler: MagicMock) -> None:
-    with session_factory() as session:
-        session.get(entity=Credential, ident=credential_id).sync(handler)
-        session.commit()
-
-
 def _accounts_by_external_id(session: Session, credential_id: int) -> dict[str | None, Account]:
     return {account.external_id: account for account in session.get(entity=Credential, ident=credential_id).accounts}
 
@@ -1051,12 +924,12 @@ def test_sync_sets_a_sold_position_to_zero(session_factory: sessionmaker, caplog
     assert_log_contains(caplog, message="is no longer held --> set it to 0 and archived it")
 
 
-def _closed_position_handler(balance: float, is_closed: bool) -> MagicMock:
+def _closed_position_handler(is_closed: bool) -> MagicMock:
     position = FetchedAccount(name="ACME Corp", external_id=ACME, is_closed=is_closed)
     return build_handler(
         FakeBankSession(
             accounts=[position],
-            balances={ACME: balance},
+            balances={ACME: 0.0 if is_closed else 4200.0},
             transactions={},
             market_values={ACME: [BalanceObservation(date=RECENT_DATE, amount=4200.0)]},
         )
@@ -1066,7 +939,7 @@ def _closed_position_handler(balance: float, is_closed: bool) -> MagicMock:
 def test_sync_archives_a_newly_found_sold_out_position(session_factory: sessionmaker):
     credential_id = persist_credential_with_new_user(session_factory)
 
-    _sync(session_factory, credential_id=credential_id, handler=_closed_position_handler(balance=0.0, is_closed=True))
+    _sync(session_factory, credential_id=credential_id, handler=_closed_position_handler(is_closed=True))
 
     with session_factory() as session:
         position = _accounts_by_external_id(session, credential_id=credential_id)[ACME]
@@ -1074,56 +947,33 @@ def test_sync_archives_a_newly_found_sold_out_position(session_factory: sessionm
         assert position.balance_at_date[RECENT_DATE].balance == 4200.0
 
 
-def test_sync_archives_a_held_position_once_the_bank_reports_it_sold(session_factory: sessionmaker):
+@pytest.mark.parametrize(argnames="is_closed", argvalues=[True, False])
+def test_sync_archives_a_position_once_the_bank_reports_it_sold_and_unarchives_it_when_bought_again(
+    session_factory: sessionmaker, is_closed: bool
+):
     credential_id = persist_credential_with_new_user(session_factory)
-    _sync(
-        session_factory, credential_id=credential_id, handler=_closed_position_handler(balance=4200.0, is_closed=False)
-    )
+    _sync(session_factory, credential_id=credential_id, handler=_closed_position_handler(is_closed=not is_closed))
 
-    _sync(session_factory, credential_id=credential_id, handler=_closed_position_handler(balance=0.0, is_closed=True))
+    _sync(session_factory, credential_id=credential_id, handler=_closed_position_handler(is_closed=is_closed))
 
     with session_factory() as session:
-        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived is True
+        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived is is_closed
 
 
-def test_sync_keeps_a_sold_position_the_user_unarchived(session_factory: sessionmaker):
+@pytest.mark.parametrize(argnames="is_closed", argvalues=[True, False])
+def test_sync_keeps_the_archive_flag_the_user_set_on_a_position(session_factory: sessionmaker, is_closed: bool):
     credential_id = persist_credential_with_new_user(session_factory)
-    sold = _closed_position_handler(balance=0.0, is_closed=True)
-    _sync(session_factory, credential_id=credential_id, handler=sold)
+    handler = _closed_position_handler(is_closed=is_closed)
+    _sync(session_factory, credential_id=credential_id, handler=handler)
+    user_archived = not is_closed
     with session_factory() as session:
-        _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived = False
+        _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived = user_archived
         session.commit()
 
-    _sync(session_factory, credential_id=credential_id, handler=sold)
+    _sync(session_factory, credential_id=credential_id, handler=handler)
 
     with session_factory() as session:
-        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived is False
-
-
-def test_sync_unarchives_a_sold_position_that_is_bought_again(session_factory: sessionmaker):
-    credential_id = persist_credential_with_new_user(session_factory)
-    _sync(session_factory, credential_id=credential_id, handler=_closed_position_handler(balance=0.0, is_closed=True))
-
-    _sync(
-        session_factory, credential_id=credential_id, handler=_closed_position_handler(balance=4200.0, is_closed=False)
-    )
-
-    with session_factory() as session:
-        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived is False
-
-
-def test_sync_keeps_a_held_position_the_user_archived(session_factory: sessionmaker):
-    credential_id = persist_credential_with_new_user(session_factory)
-    held = _closed_position_handler(balance=4200.0, is_closed=False)
-    _sync(session_factory, credential_id=credential_id, handler=held)
-    with session_factory() as session:
-        _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived = True
-        session.commit()
-
-    _sync(session_factory, credential_id=credential_id, handler=held)
-
-    with session_factory() as session:
-        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived is True
+        assert _accounts_by_external_id(session, credential_id=credential_id)[ACME].is_archived is user_archived
 
 
 def test_sync_keeps_an_account_that_is_not_a_position_when_the_bank_omits_it(session_factory: sessionmaker):

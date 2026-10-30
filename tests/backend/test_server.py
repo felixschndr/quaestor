@@ -3,7 +3,6 @@ import logging
 import socket
 import threading
 import time
-from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -15,11 +14,9 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
-from sqlalchemy.orm import sessionmaker
 
 from source.backend import main, server
-from source.backend.db import get_session
-from tests.backend.conftest import VALID_PASSWORD, assert_log_contains
+from tests.backend.conftest import assert_log_contains, prime_csrf, register
 
 
 def test_run_invokes_uvicorn_with_resolved_options(monkeypatch: pytest.MonkeyPatch):
@@ -118,18 +115,6 @@ def _write_self_signed_certificate(directory: Path) -> tuple[str, str]:
     return str(certfile), str(keyfile)
 
 
-@pytest.fixture
-def isolated_app(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    def override_get_session() -> Iterator:
-        with session_factory() as session:
-            yield session
-
-    monkeypatch.setattr(target=main, name="SessionLocal", value=session_factory)
-    main.app.dependency_overrides[get_session] = override_get_session
-    yield
-    main.app.dependency_overrides.clear()
-
-
 @contextmanager
 def running_server():
     config = uvicorn.Config(main.app, **server.uvicorn_options(), log_level="warning")
@@ -166,19 +151,10 @@ def test_server_honors_x_forwarded_for_when_proxy_is_trusted(isolated_app: None,
     with running_server():
         # First prime the csrf_token cookie with an honest GET.
         with httpx.Client(base_url=f"http://127.0.0.1:{port}") as client:
-            client.get("/api/settings")
-            csrf_token = client.cookies.get("csrf_token")
-            client.headers["X-CSRF-Token"] = csrf_token
+            prime_csrf(client)
             # Now pretend to be a reverse proxy forwarding a real client at 203.0.113.7.
             client.headers["X-Forwarded-For"] = "203.0.113.7"
-            registered = client.post(
-                "/api/auth/register",
-                json={
-                    "user_name": "proxied",
-                    "display_name": "Proxied",
-                    "password": VALID_PASSWORD,
-                },
-            )
+            registered = register(client)
             user_id = registered.json()["id"]
             sessions = client.get(f"/api/users/{user_id}/sessions").json()
 
