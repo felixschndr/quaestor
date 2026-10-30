@@ -63,6 +63,7 @@ PIN = "1234"
 TWO_FACTOR_CODE = "4321"
 HTTP_SESSION_TOKEN = "eyJ_test_token_payload"  # nosec B105
 CHALLENGE_TOKEN = "challenge-token"  # nosec B105
+TRADE_REPUBLIC_ERROR_BODY = '{"errors":[{"errorCode":"VALIDATION_FAILED"}]}'
 SCALABLE_AUTHORIZATION_URL = "https://secure.scalable.capital/activate"
 SESSION_ARCHIVE = "ZmFrZQ=="
 SECOND_SESSION_ARCHIVE = "cmVmcmVzaA=="

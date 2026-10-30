@@ -462,7 +462,8 @@ class TradeRepublicHandler(BankHandler):
             )
             try:
                 resumed = bool(stored) and trade_republic_client.resume_websession()
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Could not resume the Trade Republic websession: {e!r}")
                 resumed = False
             if not resumed:
                 raise ReauthenticationRequiredError(

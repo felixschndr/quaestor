@@ -345,15 +345,19 @@ def _failing_resume(self: _ResumingApi) -> bool:
 
 
 @pytest.mark.parametrize(
-    argnames=("resume_websession", "session_state"),
+    argnames=("resume_websession", "session_state", "logs_resume_error"),
     argvalues=[
-        (lambda self: False, {"cookies": STORED_COOKIES}),
-        (_failing_resume, {"cookies": STORED_COOKIES}),
-        (None, None),
+        (lambda self: False, {"cookies": STORED_COOKIES}, False),
+        (_failing_resume, {"cookies": STORED_COOKIES}, True),
+        (None, None, False),
     ],
 )
 def test_session_that_cannot_be_resumed_requires_reauthentication(
-    monkeypatch: pytest.MonkeyPatch, resume_websession: object, session_state: dict | None
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    resume_websession: object,
+    session_state: dict | None,
+    logs_resume_error: bool,
 ):
     monkeypatch.setattr(target=_ResumingApi, name="resume_websession", value=resume_websession)
     monkeypatch.setattr(target=trade_republic_login, name="TradeRepublicApi", value=_ResumingApi)
@@ -363,6 +367,12 @@ def test_session_that_cannot_be_resumed_requires_reauthentication(
     with pytest.raises(ReauthenticationRequiredError, match="2FA re-authentication required"):
         with handler.session():
             pass
+
+    assert_log_contains(
+        caplog,
+        message="Could not resume the Trade Republic websession: ConnectionError()",
+        negate=not logs_resume_error,
+    )
 
 
 class _FakeWebsocketClient(_FakeClient):

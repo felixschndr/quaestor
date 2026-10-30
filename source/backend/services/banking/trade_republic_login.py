@@ -6,6 +6,7 @@ from pathlib import Path
 
 import requests
 from pytr.api import TradeRepublicApi
+from requests.structures import CaseInsensitiveDict
 
 from source.backend.exceptions import BankRateLimitedError, InvalidCredentialsError, InvalidTwoFactorError
 from source.backend.helpers import utc_now
@@ -16,6 +17,7 @@ logger = get_logger(__name__)
 DURATION_FOR_VALID_2FA_CODE = timedelta(minutes=5)
 
 _RATE_LIMIT_HINTS = ("too many", "rate")
+_MAX_LOGGED_BODY_LENGTH = 500
 
 
 def build_client(phone_no: str, pin: str, cookies_path: Path) -> TradeRepublicApi:
@@ -46,15 +48,22 @@ def _cleanup_expired_pending_logins() -> None:
         logger.debug(f"Cleaned up {len(expired)} expired pending 2FA login(s)")
 
 
+def _response_body(exc: requests.exceptions.HTTPError) -> str:
+    if exc.response is None or not exc.response.text:
+        return ""
+    return f" | response: {exc.response.text[:_MAX_LOGGED_BODY_LENGTH]}"
+
+
 def _raise_if_rate_limited(exc: requests.exceptions.HTTPError, credential_id: int | None) -> None:
     if exc.response is None or exc.response.status_code != 429:
         return
     error_message = f"Trade Republic rate limited the login for credential {credential_id}"
-    logger.warning(error_message)
+    logger.warning(error_message + _response_body(exc))
     raise BankRateLimitedError(error_message) from exc
 
 
 def initiate_weblogin(client: TradeRepublicApi, credential_id: int | None = None) -> None:
+    client._websession.headers = CaseInsensitiveDict({**client._websession.headers, **client._login_headers()})
     try:
         client.initiate_weblogin()
     except ValueError as e:
@@ -67,7 +76,7 @@ def initiate_weblogin(client: TradeRepublicApi, credential_id: int | None = None
         if status is None or not (400 <= status < 500):
             raise
         error_message = f"Trade Republic rejected the login for credential {credential_id}: {e}"
-        logger.warning(error_message)
+        logger.warning(error_message + _response_body(e))
         raise InvalidCredentialsError(error_message) from e
 
 
@@ -117,7 +126,7 @@ def complete(challenge_token: str, credential_id: int, code: str) -> str:
     except requests.exceptions.HTTPError as exc:
         _raise_if_rate_limited(exc=exc, credential_id=credential_id)
         error_message = f"Invalid 2FA code for credential {credential_id}: {exc}"
-        logger.warning(error_message)
+        logger.warning(error_message + _response_body(exc))
         raise InvalidTwoFactorError(error_message) from exc
     except ValueError as exc:
         if any(hint in str(exc).lower() for hint in _RATE_LIMIT_HINTS):

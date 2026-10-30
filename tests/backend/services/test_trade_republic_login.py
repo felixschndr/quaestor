@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 import requests
+from pytr.api import TradeRepublicApi
 
 from source.backend.exceptions import (
     BankRateLimitedError,
@@ -16,6 +17,7 @@ from tests.backend.conftest import (
     PHONE_NUMBER,
     PIN,
     SECOND_CREDENTIAL_ID,
+    TRADE_REPUBLIC_ERROR_BODY,
     TWO_FACTOR_CODE,
     assert_log_contains,
 )
@@ -26,17 +28,15 @@ def isolate_pending_logins(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=module, name="_pending_logins", value={})
 
 
-def _http_error(status_code: int) -> requests.exceptions.HTTPError:
+def _http_error(status_code: int, body: str = "") -> requests.exceptions.HTTPError:
     response = requests.Response()
     response.status_code = status_code
+    response._content = body.encode()
     return requests.exceptions.HTTPError(f"{status_code} Client Error", response=response)
 
 
 def _patch_client(monkeypatch: pytest.MonkeyPatch, initiate_side_effect: Exception) -> None:
-    class _FakeApi:
-        def __init__(self, **kwargs: object) -> None:
-            pass
-
+    class _FakeApi(TradeRepublicApi):
         def initiate_weblogin(self) -> None:
             raise initiate_side_effect
 
@@ -48,9 +48,13 @@ def _patch_client(monkeypatch: pytest.MonkeyPatch, initiate_side_effect: Excepti
     argvalues=[
         # Trade Republic answers 400 to the weblogin when the phone number / PIN is wrong.
         (
-            _http_error(400),
+            _http_error(400, body=TRADE_REPUBLIC_ERROR_BODY),
             InvalidCredentialsError,
-            ["Initiating Trade Republic web login", "Trade Republic rejected the login"],
+            [
+                "Initiating Trade Republic web login",
+                f"Trade Republic rejected the login for credential {CREDENTIAL_ID}: 400 Client Error"
+                f" | response: {TRADE_REPUBLIC_ERROR_BODY}",
+            ],
         ),
         (
             ValueError("bad phone number"),
@@ -59,9 +63,12 @@ def _patch_client(monkeypatch: pytest.MonkeyPatch, initiate_side_effect: Excepti
         ),
         (_http_error(503), requests.exceptions.HTTPError, []),  # server errors are re-raised generically
         (
-            _http_error(429),
+            _http_error(429, body=TRADE_REPUBLIC_ERROR_BODY),
             BankRateLimitedError,
-            [f"Trade Republic rate limited the login for credential {CREDENTIAL_ID}"],
+            [
+                f"Trade Republic rate limited the login for credential {CREDENTIAL_ID}"
+                f" | response: {TRADE_REPUBLIC_ERROR_BODY}"
+            ],
         ),
     ],
 )
@@ -86,9 +93,9 @@ def _patch_successful_client(
 ) -> list[Path]:
     cookie_paths: list[Path] = []
 
-    class _FakeApi:
+    class _FakeApi(TradeRepublicApi):
         def __init__(self, **kwargs: object) -> None:
-            self._cookies_file = Path(str(kwargs["cookies_file"]))
+            super().__init__(**kwargs)
             cookie_paths.append(self._cookies_file)
 
         def initiate_weblogin(self) -> None:
@@ -110,6 +117,9 @@ def test_start_and_complete_roundtrip_returns_cookies_and_cleans_up(
 
     token, expires_at = module.start(credential_id=CREDENTIAL_ID, phone_no=PHONE_NUMBER, pin=PIN)
     assert expires_at > utc_now()
+    login_headers = module._pending_logins[token].trade_republic_client._websession.headers
+    assert {"X-TR-Device-Info", "X-TR-App-Version", "X-Tr-Platform"} <= login_headers.keys()
+    assert "X-TR-App-Version" not in TradeRepublicApi._default_headers
 
     cookies = module.complete(challenge_token=token, credential_id=CREDENTIAL_ID, code=TWO_FACTOR_CODE)
 
@@ -145,7 +155,9 @@ def test_complete_rejects_token_issued_for_other_credential(monkeypatch: pytest.
 def test_complete_translates_http_error_into_invalid_two_factor(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    cookie_paths = _patch_successful_client(monkeypatch, complete_side_effect=_http_error(400))
+    cookie_paths = _patch_successful_client(
+        monkeypatch, complete_side_effect=_http_error(400, body=TRADE_REPUBLIC_ERROR_BODY)
+    )
     token, _ = module.start(credential_id=CREDENTIAL_ID, phone_no=PHONE_NUMBER, pin=PIN)
 
     with pytest.raises(InvalidTwoFactorError, match="Invalid 2FA code"):
@@ -153,7 +165,11 @@ def test_complete_translates_http_error_into_invalid_two_factor(
 
     assert module._pending_logins == {}
     assert not cookie_paths[0].exists()
-    assert_log_contains(caplog, message=f"Invalid 2FA code for credential {CREDENTIAL_ID}")
+    assert_log_contains(
+        caplog,
+        message=f"Invalid 2FA code for credential {CREDENTIAL_ID}: 400 Client Error"
+        f" | response: {TRADE_REPUBLIC_ERROR_BODY}",
+    )
 
 
 @pytest.mark.parametrize(
