@@ -12,6 +12,9 @@ function SettingsDeleteAccountPage() {
   const { data: user } = useAuthMe()
   if (!user) return null // root guard already redirected on 401
   return (
-    <SettingsDeleteAccountView user={user} onAccountDeleted={() => router.history.push('/login')} />
+    <SettingsDeleteAccountView
+      user={user}
+      onAccountDeleted={() => router.history.replace('/login')}
+    />
   )
 }

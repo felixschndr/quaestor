@@ -25,7 +25,9 @@ export function NotFound({ message, backTo, backLabel }: NotFoundProps) {
       </p>
       <img src={yodaUrl} alt="" className="w-52 max-w-full" />
       <Button asChild variant="outline" className="mt-3">
-        <Link to={backTo}>{backLabel}</Link>
+        <Link to={backTo} replace>
+          {backLabel}
+        </Link>
       </Button>
     </main>
   )

@@ -21,7 +21,7 @@ function CredentialDetailPage() {
     if (credential) {
       hadCredential.current = true
     } else if (hadCredential.current && user) {
-      router.history.push('/settings/credentials')
+      router.history.replace('/settings/credentials')
     }
   }, [credential, user, router])
 
@@ -30,7 +30,7 @@ function CredentialDetailPage() {
   return (
     <CredentialDetailView
       credential={credential}
-      onDeleted={() => router.history.push('/settings/credentials')}
+      onDeleted={() => router.history.replace('/settings/credentials')}
       onSyncClick={sync.start}
       syncBusy={sync.busy}
       syncSucceededAt={sync.succeededAt}

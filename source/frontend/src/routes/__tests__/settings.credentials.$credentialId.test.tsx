@@ -5,10 +5,10 @@ import type { Mock } from 'vitest'
 
 import '@/i18n'
 
-const routerPush = vi.hoisted(() => vi.fn())
+const routerReplace = vi.hoisted(() => vi.fn())
 vi.mock('@tanstack/react-router', async () =>
   (await import('./-routerMock')).routerMocks({
-    useRouter: () => ({ history: { push: routerPush } }),
+    useRouter: () => ({ history: { replace: routerReplace } }),
   }),
 )
 
@@ -1142,18 +1142,18 @@ describe('/settings/credentials/$credentialId route', () => {
     mockHooks(buildUser({ credentials: [] }))
     renderWithQuery(<Page />)
     expect(screen.getByText('The connection you seek, this is not.')).toBeInTheDocument()
-    expect(routerPush).not.toHaveBeenCalled()
+    expect(routerReplace).not.toHaveBeenCalled()
   })
 
   it('returns to the list once the credential disappears', () => {
     mockHooks(buildUser({ credentials: [credential] }))
     const { rerender } = renderWithQueryWrapper(<Page />)
-    expect(routerPush).not.toHaveBeenCalled()
+    expect(routerReplace).not.toHaveBeenCalled()
 
     mockHooks(buildUser({ credentials: [] }))
     rerender(<Page />)
 
-    expect(routerPush).toHaveBeenCalledWith('/settings/credentials')
+    expect(routerReplace).toHaveBeenCalledWith('/settings/credentials')
   })
 
   it('returns to the list after deleting the connection', async () => {
@@ -1165,6 +1165,6 @@ describe('/settings/credentials/$credentialId route', () => {
     await user.click(screen.getByRole('button', { name: 'Delete connection' }))
     await user.click(screen.getByRole('button', { name: 'Really delete?' }))
 
-    await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/settings/credentials'))
+    await waitFor(() => expect(routerReplace).toHaveBeenCalledWith('/settings/credentials'))
   })
 })

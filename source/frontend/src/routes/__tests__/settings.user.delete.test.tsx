@@ -6,11 +6,11 @@ import type { Mock } from 'vitest'
 import '@/i18n'
 import i18n from 'i18next'
 
-const historyPush = vi.hoisted(() => vi.fn())
+const historyReplace = vi.hoisted(() => vi.fn())
 const toastError = vi.hoisted(() => vi.fn())
 vi.mock('@tanstack/react-router', async () =>
   (await import('./-routerMock')).routerMocks({
-    useRouter: () => ({ history: { push: historyPush } }),
+    useRouter: () => ({ history: { replace: historyReplace } }),
   }),
 )
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: toastError } }))
@@ -118,7 +118,7 @@ describe('SettingsDeleteAccountPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Delete account' }))
     await user.click(screen.getByRole('button', { name: 'Yes, delete my account' }))
 
-    await waitFor(() => expect(historyPush).toHaveBeenCalledWith('/login'))
+    await waitFor(() => expect(historyReplace).toHaveBeenCalledWith('/login'))
     expect(deleteRequests()).toHaveLength(1)
   })
 

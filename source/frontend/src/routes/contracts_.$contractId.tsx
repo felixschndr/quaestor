@@ -31,7 +31,7 @@ function ContractDetailPage() {
 
   const onDelete = async () => {
     await remove.mutateAsync(contractId)
-    await navigate({ to: '/contracts' })
+    await navigate({ to: '/contracts', replace: true })
   }
 
   return (

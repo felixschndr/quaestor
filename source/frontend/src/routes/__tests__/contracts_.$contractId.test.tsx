@@ -143,10 +143,9 @@ describe('ContractDetailPage — loading and not found', () => {
     await renderPage(null)
 
     expect(await screen.findByText('The contract you seek, this is not.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back to contracts' })).toHaveAttribute(
-      'href',
-      '/contracts',
-    )
+    const back = screen.getByRole('link', { name: 'Back to contracts' })
+    expect(back).toHaveAttribute('href', '/contracts')
+    expect(back).toHaveAttribute('data-replace', 'true')
   })
 })
 
@@ -506,7 +505,7 @@ describe('ContractDetailPage — delete', () => {
     await user.click(screen.getByRole('button', { name: 'Delete contract' }))
     await user.click(screen.getByRole('button', { name: 'Really delete?' }))
 
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/contracts' }))
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/contracts', replace: true }))
     expect(sentBodies('DELETE')).toEqual([undefined])
     expect(toast.promise).toHaveBeenCalledWith(expect.any(Promise), {
       loading: 'Saving …',

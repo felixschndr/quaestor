@@ -4,12 +4,14 @@ export function LinkMock({
   to,
   params,
   search,
+  replace,
   children,
   ...rest
 }: {
   to: string
   params?: Record<string, string>
   search?: Record<string, unknown>
+  replace?: boolean
   children: React.ReactNode
 } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'children'>) {
   let href = to
@@ -29,7 +31,7 @@ export function LinkMock({
     if (queryString) href = `${href}?${queryString}`
   }
   return (
-    <a href={href} {...rest}>
+    <a href={href} data-replace={replace || undefined} {...rest}>
       {children}
     </a>
   )
