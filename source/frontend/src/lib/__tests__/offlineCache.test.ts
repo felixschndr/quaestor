@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { onlineManager, QueryClient } from '@tanstack/react-query'
 
 import { api, NetworkError } from '@/lib/api'
@@ -141,7 +141,7 @@ describe('offline cache storage', () => {
   const CONTRACTS = [{ id: 1, name: 'Netflix' }]
   const queryClient = () => new QueryClient()
 
-  beforeAll(() => {
+  beforeEach(() => {
     vi.stubGlobal('indexedDB', {
       open: () => {
         const request = {

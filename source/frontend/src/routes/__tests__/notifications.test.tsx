@@ -15,7 +15,7 @@ vi.mock('@tanstack/react-router', async () =>
 import { NotificationLogView } from '@/pages/notifications'
 import type { NotificationLogEntry } from '@/lib/notificationLog'
 import { Route } from '@/routes/notifications'
-import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { jsonResponse, renderWithQuery } from '@/test/helpers'
 import { DATETIME_RECENT } from '@/test/constants'
 
 function buildEntry(overrides: Partial<NotificationLogEntry> = {}): NotificationLogEntry {
@@ -142,7 +142,6 @@ describe('NotificationLogPage', () => {
 
   afterEach(() => {
     historyPush.mockReset()
-    vi.restoreAllMocks()
   })
 
   it('marks an unread entry read and navigates to its target', async () => {

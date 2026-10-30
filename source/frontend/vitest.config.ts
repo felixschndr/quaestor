@@ -14,6 +14,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/setupTests.ts'],
     css: false,
+    clearMocks: true,
+    restoreMocks: true,
+    unstubGlobals: true,
     exclude: ['node_modules', 'dist'],
     coverage: {
       provider: 'v8',

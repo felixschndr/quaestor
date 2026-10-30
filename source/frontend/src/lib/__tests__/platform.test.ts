@@ -21,7 +21,6 @@ function fakeDevice({
 }
 
 afterEach(() => {
-  vi.restoreAllMocks()
   vi.unstubAllGlobals()
   delete (navigator as { standalone?: boolean }).standalone
   delete (navigator as { maxTouchPoints?: number }).maxTouchPoints

@@ -1,10 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
-import type { AccountRead } from '@/lib/auth'
 import { formatDateWithoutYear } from '@/lib/format'
 import type { RecurringTransactionRead } from '@/lib/recurringTransaction'
 import {
@@ -17,6 +15,8 @@ import {
   TODAY_RECURRING,
   money,
 } from '@/test/constants'
+import { renderWithQuery } from '@/test/helpers'
+import { buildAccount } from '@/test/statsFixtures'
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, ...rest }: { children: React.ReactNode }) => <a {...rest}>{children}</a>,
@@ -53,16 +53,7 @@ beforeAll(() => {
   }
 })
 
-const account: AccountRead = {
-  id: 42,
-  name: ACCOUNT_NAME_CHECKING,
-  display_name: null,
-  balance: AMOUNT_XL,
-  balance_factor: 100,
-  is_archived: false,
-  include_by_default: true,
-  is_market_valued: false,
-}
+const account = buildAccount({ id: 42, name: ACCOUNT_NAME_CHECKING, balance: AMOUNT_XL })
 
 function buildRule(overrides: Partial<RecurringTransactionRead> = {}): RecurringTransactionRead {
   return {
@@ -83,28 +74,22 @@ function buildRule(overrides: Partial<RecurringTransactionRead> = {}): Recurring
 }
 
 function renderManualAccount() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <AccountDetailView
-        account={account}
-        bank="manual"
-        pages={[]}
-        isFetchingNextPage={false}
-        hasNextPage={false}
-        onLoadMore={vi.fn()}
-        today={TODAY_RECURRING}
-      />
-    </QueryClientProvider>,
+  renderWithQuery(
+    <AccountDetailView
+      account={account}
+      bank="manual"
+      pages={[]}
+      isFetchingNextPage={false}
+      hasNextPage={false}
+      onLoadMore={vi.fn()}
+      today={TODAY_RECURRING}
+    />,
   )
 }
 
 const mutateAsync = vi.fn().mockResolvedValue(undefined)
 
 beforeEach(() => {
-  mutateAsync.mockClear()
-  toast.success.mockClear()
-  toast.error.mockClear()
   globalThis.fetch = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
   mockedDelete.mockReturnValue({ mutateAsync, isPending: false } as unknown as ReturnType<
     typeof useDeleteRecurringTransaction

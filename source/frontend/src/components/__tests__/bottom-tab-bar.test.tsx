@@ -1,9 +1,7 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
-import type { CredentialRead } from '@/lib/auth'
 import { ACCOUNT_NAME_GIRO, ACCOUNT_NAME_SAVINGS } from '@/test/constants'
 
 const routerLocation = vi.hoisted(() => ({ pathname: '/' }))
@@ -21,46 +19,19 @@ vi.mock('@tanstack/react-router', async () => {
 })
 
 import { BottomTabBar } from '@/components/bottom-tab-bar'
-import {
-  buildUser,
-  jsonResponse,
-  renderWithQuery,
-} from '@/routes/__tests__/-settingsUserTestHelpers'
+import { buildUser, createTestQueryClient, jsonResponse, renderWithQuery } from '@/test/helpers'
+import { buildAccount, buildCredential } from '@/test/statsFixtures'
 
 const VISIBLE_ACCOUNT_ID = 7
 const HIDDEN_ACCOUNT_ID = 8
 
-const credential: CredentialRead = {
-  id: 1,
-  bank: 'trade_republic',
-  bank_name: null,
-  bank_icon: null,
-  accounts: [
-    {
-      id: VISIBLE_ACCOUNT_ID,
-      name: ACCOUNT_NAME_GIRO,
-      display_name: null,
-      balance: 0,
-      balance_factor: 100,
-      is_archived: false,
-      include_by_default: true,
-      is_market_valued: false,
-    },
-    {
-      id: HIDDEN_ACCOUNT_ID,
-      name: ACCOUNT_NAME_SAVINGS,
-      display_name: null,
-      balance: 0,
-      balance_factor: 100,
-      is_archived: true,
-      include_by_default: true,
-      is_market_valued: false,
-    },
+const credential = buildCredential(
+  [
+    buildAccount({ id: VISIBLE_ACCOUNT_ID, name: ACCOUNT_NAME_GIRO }),
+    buildAccount({ id: HIDDEN_ACCOUNT_ID, name: ACCOUNT_NAME_SAVINGS, is_archived: true }),
   ],
-  last_successful_sync_timestamp: null,
-  requires_two_factor_authentication: false,
-  sync_enabled: true,
-}
+  { bank: 'trade_republic' },
+)
 
 function mockApi(contracts: { account_id: number; is_overdue: boolean }[]) {
   globalThis.fetch = vi.fn((url: string) =>
@@ -124,12 +95,8 @@ describe('BottomTabBar', () => {
       { account_id: HIDDEN_ACCOUNT_ID, is_overdue: true },
       { account_id: VISIBLE_ACCOUNT_ID, is_overdue: false },
     ])
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    render(
-      <QueryClientProvider client={client}>
-        <BottomTabBar />
-      </QueryClientProvider>,
-    )
+    const client = createTestQueryClient()
+    renderWithQuery(<BottomTabBar />, client)
 
     await waitFor(() => {
       expect(client.getQueryData(['contracts'])).toHaveLength(2)

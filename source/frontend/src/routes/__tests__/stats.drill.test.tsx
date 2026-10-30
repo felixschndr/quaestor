@@ -1,6 +1,5 @@
 import { cloneElement, type ReactElement } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('recharts', async (importOriginal) => {
@@ -48,61 +47,32 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 import '@/i18n'
-import type { CredentialRead } from '@/lib/auth'
 import { StatsView } from '@/pages/stats'
 import { type StatsSearchParams } from '@/routes/stats'
 import { ACCOUNT_NAME_GIRO, AMOUNT_M, AMOUNT_S, PARTY_SUPERMARKET } from '@/test/constants'
+import { renderWithQuery } from '@/test/helpers'
+import { buildAccount, buildCredential } from '@/test/statsFixtures'
 
-const credentials: CredentialRead[] = [
-  {
-    id: 1,
-    bank: 'ing',
-    bank_name: null,
-    bank_icon: null,
-    accounts: [
-      {
-        id: 42,
-        name: ACCOUNT_NAME_GIRO,
-        balance: 0,
-        balance_factor: 100,
-        display_name: null,
-        is_archived: false,
-        include_by_default: true,
-        is_market_valued: false,
-      },
-      {
-        id: 99,
-        name: 'Depot',
-        balance: 0,
-        balance_factor: 100,
-        display_name: null,
-        is_archived: false,
-        include_by_default: true,
-        is_market_valued: true,
-      },
-    ],
-    last_successful_sync_timestamp: null,
-    requires_two_factor_authentication: false,
-    sync_enabled: true,
-  },
+const credentials = [
+  buildCredential([
+    buildAccount({ id: 42, name: ACCOUNT_NAME_GIRO }),
+    buildAccount({ id: 99, name: 'Depot', is_market_valued: true }),
+  ]),
 ]
 
 async function renderAndGetArrows(search: Partial<StatsSearchParams>) {
   const onOpenSearch = vi.fn()
   const onChange = vi.fn()
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const { container } = render(
-    <QueryClientProvider client={client}>
-      <StatsView
-        credentials={credentials}
-        search={search as StatsSearchParams}
-        onChange={onChange}
-        onOpenSearch={onOpenSearch}
-        onOpenDay={vi.fn()}
-        onOpenRange={vi.fn()}
-        onOpenBalance={vi.fn()}
-      />
-    </QueryClientProvider>,
+  const { container } = renderWithQuery(
+    <StatsView
+      credentials={credentials}
+      search={search as StatsSearchParams}
+      onChange={onChange}
+      onOpenSearch={onOpenSearch}
+      onOpenDay={vi.fn()}
+      onOpenRange={vi.fn()}
+      onOpenBalance={vi.fn()}
+    />,
   )
   await waitFor(() =>
     expect(container.querySelectorAll('.stats-drill-arrow[role="button"]').length).toBe(2),

@@ -1,10 +1,10 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
-import type { UserRead } from '@/lib/auth'
+import type { CredentialRead, UserRead } from '@/lib/auth'
 import type { SyncJob } from '@/lib/credentials'
 import type { ContractRead } from '@/lib/contract'
 import type { SyncContextValue } from '@/components/sync-provider'
@@ -23,7 +23,8 @@ import { checkForFrontendUpdate } from '@/lib/version'
 import { Route } from '@/routes/index'
 import { makeJob } from '@/test/syncTestHelpers'
 import { sumFactoredBalance } from '@/lib/accountDisplayGroups'
-import { buildUser } from './-settingsUserTestHelpers'
+import { buildUser, renderWithQuery } from '@/test/helpers'
+import { buildAccount, buildContract, buildCredential } from '@/test/statsFixtures'
 import {
   ACCOUNT_NAME_BROKER,
   ACCOUNT_NAME_CHECKING,
@@ -33,6 +34,8 @@ import {
   AMOUNT_M,
   AMOUNT_S,
   AMOUNT_XL,
+  CONTRACT_NAME,
+  CONTRACT_NAME_GYM,
   DATE_FAR_FUTURE,
   DATE_LONG_OVERDUE,
   GROUP_NAME_SAVINGS,
@@ -42,39 +45,42 @@ import {
   money,
 } from '@/test/constants'
 
-function buildCredential(): UserRead['credentials'][number] {
-  return {
-    id: 1,
-    bank: 'ing',
-    bank_name: null,
-    bank_icon: null,
-    accounts: [
-      {
-        id: 8,
-        name: TEST_IBAN,
-        display_name: null,
-        balance: AMOUNT_S,
-        balance_factor: 100,
-        is_archived: false,
-        include_by_default: true,
-        is_market_valued: false,
-      },
-    ],
-    last_successful_sync_timestamp: null,
-    requires_two_factor_authentication: false,
-    sync_enabled: true,
-  }
+function ingCredential(overrides: Partial<CredentialRead> = {}) {
+  return buildCredential([buildAccount({ id: 8, name: TEST_IBAN, balance: AMOUNT_S })], overrides)
 }
 
-function render_(user: UserRead) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } },
-  })
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <OverviewView user={user} onSyncClick={() => {}} syncDisabled={false} syncSpinning={false} />
-    </QueryClientProvider>,
+function credential(
+  id: number,
+  accountId: number,
+  name: string,
+  overrides: Partial<CredentialRead> = {},
+) {
+  return buildCredential([buildAccount({ id: accountId, name })], { id, ...overrides })
+}
+
+function overview(user: UserRead, props: Partial<ComponentProps<typeof OverviewView>> = {}) {
+  return (
+    <OverviewView
+      user={user}
+      onSyncClick={() => {}}
+      syncDisabled={false}
+      syncSpinning={false}
+      {...props}
+    />
   )
+}
+
+function contract(overrides: Partial<ContractRead> = {}) {
+  return buildContract({
+    account_id: 8,
+    category: 'ENTERTAINMENT',
+    expected_next_date: DATE_FAR_FUTURE,
+    ...overrides,
+  })
+}
+
+function render_(user: UserRead, props: Partial<ComponentProps<typeof OverviewView>> = {}) {
+  return renderWithQuery(overview(user, props))
 }
 
 function mockApi(
@@ -112,10 +118,6 @@ beforeEach(() => {
   mockApi()
 })
 
-afterEach(() => {
-  vi.restoreAllMocks()
-})
-
 describe('OverviewView', () => {
   it('greets with display_name when set', () => {
     render_(buildUser({ display_name: 'Alice' }))
@@ -128,7 +130,7 @@ describe('OverviewView', () => {
   })
 
   it('renders the total balance formatted as EUR (de-DE locale)', () => {
-    render_(buildUser({ balance: TEST_BALANCE, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: TEST_BALANCE, credentials: [ingCredential()] }))
     expect(screen.getByText(money(TEST_BALANCE))).toBeInTheDocument()
   })
 
@@ -142,7 +144,7 @@ describe('OverviewView', () => {
   })
 
   it('offers the sync button for a connected bank whose first sync never produced accounts', () => {
-    render_(buildUser({ credentials: [{ ...buildCredential(), accounts: [] }] }))
+    render_(buildUser({ credentials: [ingCredential({ accounts: [] })] }))
     expect(screen.getByText('No accounts yet')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sync all accounts' })).toBeInTheDocument()
   })
@@ -160,7 +162,7 @@ describe('OverviewView', () => {
   })
 
   it('puts the notification log between the settings cog and the privacy toggle', () => {
-    render_(buildUser({ credentials: [buildCredential()] }))
+    render_(buildUser({ credentials: [ingCredential()] }))
 
     const log = screen.getByRole('link', { name: 'Notification history' })
     expect(log).toHaveAttribute('href', '/notifications')
@@ -184,42 +186,19 @@ describe('OverviewView', () => {
   })
 
   it('renders the search link pointing at the global search route', () => {
-    const user = buildUser({
-      credentials: [
-        {
-          id: 10,
-          bank: 'ing',
-          bank_name: null,
-          bank_icon: null,
-          accounts: [
-            {
-              id: 5,
-              name: ACCOUNT_NAME_GIRO,
-              display_name: null,
-              balance: 0,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-            {
-              id: 7,
-              name: ACCOUNT_NAME_DAY,
-              display_name: null,
-              balance: 0,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-          ],
-          last_successful_sync_timestamp: null,
-          requires_two_factor_authentication: false,
-          sync_enabled: true,
-        },
-      ],
-    })
-    render_(user)
+    render_(
+      buildUser({
+        credentials: [
+          buildCredential(
+            [
+              buildAccount({ id: 5, name: ACCOUNT_NAME_GIRO }),
+              buildAccount({ id: 7, name: ACCOUNT_NAME_DAY }),
+            ],
+            { id: 10 },
+          ),
+        ],
+      }),
+    )
     const search = screen.getByRole('link', { name: 'Search transactions' })
     expect(search).toHaveAttribute('href', '/search')
     const settings = screen.getByRole('link', { name: 'Settings' })
@@ -232,64 +211,23 @@ describe('OverviewView', () => {
   })
 
   it('groups accounts by bank (alphabetical) and sorts accounts within each bank', () => {
-    const user = buildUser({
-      credentials: [
-        {
-          id: 10,
-          bank: 'trade_republic',
-          bank_name: null,
-          bank_icon: null,
-          accounts: [
-            {
-              id: 1,
-              name: ACCOUNT_NAME_BROKER,
-              display_name: null,
-              balance: AMOUNT_M,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-          ],
-          last_successful_sync_timestamp: null,
-          requires_two_factor_authentication: false,
-          sync_enabled: true,
-        },
-        {
-          id: 11,
-          bank: 'ing',
-          bank_name: null,
-          bank_icon: null,
-          accounts: [
-            {
-              id: 2,
-              name: ACCOUNT_NAME_DAY,
-              display_name: null,
-              balance: AMOUNT_XL,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-            {
-              id: 3,
-              name: ACCOUNT_NAME_GIRO,
-              display_name: null,
-              balance: -AMOUNT_L,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-          ],
-          last_successful_sync_timestamp: null,
-          requires_two_factor_authentication: false,
-          sync_enabled: true,
-        },
-      ],
-    })
-
-    render_(user)
+    render_(
+      buildUser({
+        credentials: [
+          buildCredential([buildAccount({ id: 1, name: ACCOUNT_NAME_BROKER, balance: AMOUNT_M })], {
+            id: 10,
+            bank: 'trade_republic',
+          }),
+          buildCredential(
+            [
+              buildAccount({ id: 2, name: ACCOUNT_NAME_DAY, balance: AMOUNT_XL }),
+              buildAccount({ id: 3, name: ACCOUNT_NAME_GIRO, balance: -AMOUNT_L }),
+            ],
+            { id: 11 },
+          ),
+        ],
+      }),
+    )
     const accountLinks = screen
       .getAllByRole('link')
       .filter((link) => /^\/account\/\d+$/.test(link.getAttribute('href') ?? ''))
@@ -308,78 +246,24 @@ describe('OverviewView', () => {
   })
 
   it('uses the personalised name instead of the IBAN when set, and only that', () => {
-    const user = buildUser({
-      credentials: [
-        {
-          id: 1,
-          bank: 'ing',
-          bank_name: null,
-          bank_icon: null,
-          accounts: [
-            {
+    render_(
+      buildUser({
+        credentials: [
+          buildCredential([
+            buildAccount({
               id: 8,
               name: TEST_IBAN,
               display_name: ACCOUNT_NAME_CHECKING,
               balance: AMOUNT_L,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-          ],
-          last_successful_sync_timestamp: null,
-          requires_two_factor_authentication: false,
-          sync_enabled: true,
-        },
-      ],
-    })
-    render_(user)
+            }),
+          ]),
+        ],
+      }),
+    )
     // The personalised name shows up.
     expect(screen.getByText(ACCOUNT_NAME_CHECKING)).toBeInTheDocument()
     // The IBAN does NOT (the overview is supposed to be just the personalised name)
     expect(screen.queryByText(TEST_IBAN_FORMATTED)).not.toBeInTheDocument()
-  })
-
-  it('renders custom group headings when the user has defined account groups', async () => {
-    mockApi({
-      layout: {
-        groups: [{ id: 100, name: GROUP_NAME_SAVINGS, accounts: [{ id: 8 }] }],
-        ungrouped: [],
-      },
-    })
-
-    const user = buildUser({
-      credentials: [
-        {
-          id: 1,
-          bank: 'ing',
-          bank_name: null,
-          bank_icon: null,
-          accounts: [
-            {
-              id: 8,
-              name: TEST_IBAN,
-              display_name: ACCOUNT_NAME_CHECKING,
-              balance: AMOUNT_L,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-          ],
-          last_successful_sync_timestamp: null,
-          requires_two_factor_authentication: false,
-          sync_enabled: true,
-        },
-      ],
-    })
-    render_(user)
-
-    const heading = await screen.findByRole('heading', {
-      level: 2,
-      name: new RegExp(GROUP_NAME_SAVINGS),
-    })
-    expect(heading).toBeInTheDocument()
   })
 
   it('shows a factored total next to each custom group heading', async () => {
@@ -390,55 +274,20 @@ describe('OverviewView', () => {
       },
     })
 
-    const user = buildUser({
-      credentials: [
-        {
-          id: 1,
-          bank: 'ing',
-          bank_name: null,
-          bank_icon: null,
-          accounts: [
+    render_(
+      buildUser({
+        credentials: [
+          buildCredential([
             // Factored: 100 * 100 / 100 = 100
-            {
-              id: 8,
-              name: 'Acc8',
-              display_name: null,
-              balance: 100,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
+            buildAccount({ id: 8, name: 'Acc8', balance: 100 }),
             // Factored: 200 * 50 / 100 = 100  →  group total = 200,00 €
-            {
-              id: 9,
-              name: 'Acc9',
-              display_name: null,
-              balance: 200,
-              balance_factor: 50,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
+            buildAccount({ id: 9, name: 'Acc9', balance: 200, balance_factor: 50 }),
             // Ungrouped factored: -50 * 100 / 100 = -50  →  destructive color
-            {
-              id: 10,
-              name: 'Acc10',
-              display_name: null,
-              balance: -50,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-          ],
-          last_successful_sync_timestamp: null,
-          requires_two_factor_authentication: false,
-          sync_enabled: true,
-        },
-      ],
-    })
-    render_(user)
+            buildAccount({ id: 10, name: 'Acc10', balance: -50 }),
+          ]),
+        ],
+      }),
+    )
 
     const sparHeading = await screen.findByRole('heading', {
       level: 2,
@@ -453,46 +302,6 @@ describe('OverviewView', () => {
     expect(total?.className).toMatch(/text-destructive/)
   })
 
-  it('renders the "without group" heading when the layout has ungrouped accounts', async () => {
-    mockApi({
-      layout: {
-        groups: [{ id: 100, name: GROUP_NAME_SAVINGS, accounts: [] }],
-        ungrouped: [{ id: 8 }],
-      },
-    })
-
-    const user = buildUser({
-      credentials: [
-        {
-          id: 1,
-          bank: 'ing',
-          bank_name: null,
-          bank_icon: null,
-          accounts: [
-            {
-              id: 8,
-              name: TEST_IBAN,
-              display_name: ACCOUNT_NAME_CHECKING,
-              balance: AMOUNT_L,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-          ],
-          last_successful_sync_timestamp: null,
-          requires_two_factor_authentication: false,
-          sync_enabled: true,
-        },
-      ],
-    })
-    render_(user)
-
-    expect(
-      await screen.findByRole('heading', { level: 2, name: /Without group/ }),
-    ).toBeInTheDocument()
-  })
-
   it('omits archived accounts from the list and from group totals', async () => {
     mockApi({
       layout: {
@@ -501,42 +310,16 @@ describe('OverviewView', () => {
       },
     })
 
-    const user = buildUser({
-      credentials: [
-        {
-          id: 1,
-          bank: 'ing',
-          bank_name: null,
-          bank_icon: null,
-          accounts: [
-            {
-              id: 11,
-              name: 'Visible',
-              display_name: null,
-              balance: AMOUNT_L,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-            {
-              id: 12,
-              name: 'HiddenSub',
-              display_name: null,
-              balance: 9999,
-              balance_factor: 100,
-              is_archived: true,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-          ],
-          last_successful_sync_timestamp: null,
-          requires_two_factor_authentication: false,
-          sync_enabled: true,
-        },
-      ],
-    })
-    render_(user)
+    render_(
+      buildUser({
+        credentials: [
+          buildCredential([
+            buildAccount({ id: 11, name: 'Visible', balance: AMOUNT_L }),
+            buildAccount({ id: 12, name: 'HiddenSub', balance: 9999, is_archived: true }),
+          ]),
+        ],
+      }),
+    )
 
     const heading = await screen.findByRole('heading', {
       level: 2,
@@ -570,242 +353,79 @@ describe('OverviewView', () => {
 
     return buildUser({
       credentials: [
-        {
-          id: 1,
-          bank: 'ing',
-          bank_name: null,
-          bank_icon: null,
-          accounts: [
-            {
-              id: 8,
-              name: ACCOUNT_NAME_CHECKING,
-              display_name: ACCOUNT_NAME_CHECKING,
-              balance: AMOUNT_L,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-          ],
-          last_successful_sync_timestamp: null,
-          requires_two_factor_authentication: false,
-          sync_enabled: true,
-        },
+        buildCredential([
+          buildAccount({
+            id: 8,
+            name: ACCOUNT_NAME_CHECKING,
+            display_name: ACCOUNT_NAME_CHECKING,
+            balance: AMOUNT_L,
+          }),
+        ]),
       ],
     })
   }
 
-  it('collapses a group when its heading is clicked, hiding the accounts', async () => {
+  it('collapses a group on a heading click, hiding the accounts but keeping the total', async () => {
     render_(buildGroupedUser())
     const trigger = await screen.findByRole('button', { name: new RegExp(GROUP_NAME_SAVINGS) })
     expect(screen.getByText(ACCOUNT_NAME_CHECKING)).toBeInTheDocument()
-
-    await userEvent.click(trigger)
-
-    await waitFor(() => expect(screen.queryByText(ACCOUNT_NAME_CHECKING)).not.toBeInTheDocument())
-  })
-
-  it('flips aria-expanded on the group trigger when toggled', async () => {
-    render_(buildGroupedUser())
-    const trigger = await screen.findByRole('button', { name: new RegExp(GROUP_NAME_SAVINGS) })
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
 
     await userEvent.click(trigger)
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
-  })
-
-  it('keeps the group total visible while collapsed', async () => {
-    render_(buildGroupedUser())
-    const trigger = await screen.findByRole('button', { name: new RegExp(GROUP_NAME_SAVINGS) })
-
-    await userEvent.click(trigger)
 
     await waitFor(() => expect(screen.queryByText(ACCOUNT_NAME_CHECKING)).not.toBeInTheDocument())
     expect(trigger).toHaveTextContent(money(AMOUNT_L))
   })
 
   it('does not render a collapse trigger for the legacy by-bank layout', () => {
-    const user = buildUser({
-      credentials: [
-        {
-          id: 1,
-          bank: 'ing',
-          bank_name: null,
-          bank_icon: null,
-          accounts: [
-            {
-              id: 2,
-              name: ACCOUNT_NAME_GIRO,
-              display_name: null,
-              balance: AMOUNT_L,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-          ],
-          last_successful_sync_timestamp: null,
-          requires_two_factor_authentication: false,
-          sync_enabled: true,
-        },
-      ],
-    })
-    render_(user)
+    render_(
+      buildUser({
+        credentials: [
+          buildCredential([buildAccount({ id: 2, name: ACCOUNT_NAME_GIRO, balance: AMOUNT_L })]),
+        ],
+      }),
+    )
     expect(screen.getByText(ACCOUNT_NAME_GIRO)).toBeInTheDocument()
     expect(document.querySelector('[aria-expanded]')).toBeNull()
   })
 
   it('renders negative account balances in the destructive color', () => {
-    const user = buildUser({
-      credentials: [
-        {
-          id: 1,
-          bank: 'ing',
-          bank_name: null,
-          bank_icon: null,
-          accounts: [
-            {
-              id: 7,
-              name: 'Overdrawn',
-              display_name: null,
-              balance: -150.5,
-              balance_factor: 100,
-              is_archived: false,
-              include_by_default: true,
-              is_market_valued: false,
-            },
-          ],
-          last_successful_sync_timestamp: null,
-          requires_two_factor_authentication: false,
-          sync_enabled: true,
-        },
-      ],
-    })
-    render_(user)
+    render_(
+      buildUser({
+        credentials: [
+          buildCredential([buildAccount({ id: 7, name: 'Overdrawn', balance: -150.5 })]),
+        ],
+      }),
+    )
     const amount = screen.getByText(money(-150.5))
     expect(amount.className).toMatch(/text-destructive/)
   })
 
   it('spins only the accounts whose credential is still syncing, then shows a check', async () => {
-    const credential = (id: number, accountId: number, name: string) => ({
-      id,
-      bank: 'ing',
-      bank_name: null,
-      bank_icon: null,
-      accounts: [
-        {
-          id: accountId,
-          name,
-          display_name: null,
-          balance: 0,
-          balance_factor: 100,
-          is_archived: false,
-          include_by_default: true,
-          is_market_valued: false,
-        },
-      ],
-      last_successful_sync_timestamp: null,
-      requires_two_factor_authentication: false,
-      sync_enabled: true,
-    })
     const user = buildUser({ credentials: [credential(1, 11, 'Slow'), credential(2, 22, 'Fast')] })
-    const job = (credentialId: number, status: SyncJob['status']): SyncJob => ({
-      job_id: `j${credentialId}`,
-      credential_id: credentialId,
-      status,
-      expires_at: null,
-      error: null,
-      error_code: null,
-    })
-    const view = (jobs: Map<number, SyncJob>) => (
-      <OverviewView
-        user={user}
-        onSyncClick={() => {}}
-        syncDisabled={false}
-        syncSpinning={true}
-        syncJobs={jobs}
-      />
-    )
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false, gcTime: 0 } },
-    })
-    const { rerender } = render(
-      <QueryClientProvider client={queryClient}>
-        {view(
-          new Map([
-            [1, job(1, 'running')],
-            [2, job(2, 'running')],
-          ]),
-        )}
-      </QueryClientProvider>,
-    )
+    const jobs = (second: SyncJob['status']) =>
+      new Map([
+        [1, makeJob({ credential_id: 1 })],
+        [2, makeJob({ credential_id: 2, status: second })],
+      ])
+    const { rerender } = render_(user, { syncSpinning: true, syncJobs: jobs('running') })
     expect(screen.getAllByLabelText('Syncing')).toHaveLength(2)
 
-    rerender(
-      <QueryClientProvider client={queryClient}>
-        {view(
-          new Map([
-            [1, job(1, 'running')],
-            [2, job(2, 'completed')],
-          ]),
-        )}
-      </QueryClientProvider>,
-    )
+    rerender(overview(user, { syncSpinning: true, syncJobs: jobs('completed') }))
     await waitFor(() => expect(screen.getByLabelText('Synced')).toBeInTheDocument())
     expect(screen.getAllByLabelText('Syncing')).toHaveLength(1)
   })
 
   it('marks a failed account, but not one the user cancelled', () => {
-    const credential = (id: number, accountId: number, name: string) => ({
-      id,
-      bank: 'ing',
-      bank_name: null,
-      bank_icon: null,
-      accounts: [
-        {
-          id: accountId,
-          name,
-          display_name: null,
-          balance: 0,
-          balance_factor: 100,
-          is_archived: false,
-          include_by_default: true,
-          is_market_valued: false,
-        },
-      ],
-      last_successful_sync_timestamp: null,
-      requires_two_factor_authentication: false,
-      sync_enabled: true,
-    })
-    const user = buildUser({
-      credentials: [credential(1, 11, 'Broken'), credential(2, 22, 'Skipped')],
-    })
-    const job = (credentialId: number, errorCode: SyncJob['error_code']): SyncJob => ({
-      job_id: `j${credentialId}`,
-      credential_id: credentialId,
-      status: 'failed',
-      expires_at: null,
-      error: null,
-      error_code: errorCode,
-    })
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false, gcTime: 0 } },
-    })
-    render(
-      <QueryClientProvider client={queryClient}>
-        <OverviewView
-          user={user}
-          onSyncClick={() => {}}
-          syncDisabled={false}
-          syncSpinning={false}
-          syncJobs={
-            new Map([
-              [1, job(1, 'unknown')],
-              [2, job(2, 'cancelled')],
-            ])
-          }
-        />
-      </QueryClientProvider>,
+    render_(
+      buildUser({ credentials: [credential(1, 11, 'Broken'), credential(2, 22, 'Skipped')] }),
+      {
+        syncJobs: new Map([
+          [1, makeJob({ credential_id: 1, status: 'failed', error_code: 'unknown' })],
+          [2, makeJob({ credential_id: 2, status: 'failed', error_code: 'cancelled' })],
+        ]),
+      },
     )
     expect(screen.getAllByLabelText('Sync failed')).toHaveLength(1)
   })
@@ -821,7 +441,7 @@ describe('OverviewView hero extras', () => {
 
   it('shows the one-month delta with its sign and percentage, linking to the stats', async () => {
     mockApi({ netWorth: series(1000, 1100, 1200) })
-    render_(buildUser({ balance: 1200, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: 1200, credentials: [ingCredential()] }))
 
     const trend = await screen.findByRole('link', { name: /past month/ })
     expect(trend).toHaveAttribute('href', '/stats')
@@ -831,7 +451,7 @@ describe('OverviewView hero extras', () => {
 
   it('colours a shrinking net worth as a loss', async () => {
     mockApi({ netWorth: series(1000, 400) })
-    render_(buildUser({ balance: 400, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: 400, credentials: [ingCredential()] }))
 
     const trend = await screen.findByRole('link', { name: /past month/ })
     expect(trend).toHaveTextContent(money(-600))
@@ -840,7 +460,7 @@ describe('OverviewView hero extras', () => {
 
   it('omits the trend when the series has fewer than two points', async () => {
     mockApi({ netWorth: series(1000) })
-    render_(buildUser({ balance: 1000, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: 1000, credentials: [ingCredential()] }))
 
     await waitFor(() =>
       expect(screen.queryByRole('link', { name: /past month/ })).not.toBeInTheDocument(),
@@ -850,16 +470,13 @@ describe('OverviewView hero extras', () => {
   it('warns on the sync button and the lagging account when a bank is more than 5 days old', () => {
     const stale = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()
     const fresh = new Date(Date.now() - 60 * 1000).toISOString()
-    const credential = (id: number, accountId: number, timestamp: string) => ({
-      ...buildCredential(),
-      id,
-      accounts: [{ ...buildCredential().accounts[0], id: accountId }],
-      last_successful_sync_timestamp: timestamp,
-    })
     render_(
       buildUser({
         balance: AMOUNT_S,
-        credentials: [credential(1, 8, fresh), credential(2, 9, stale)],
+        credentials: [
+          credential(1, 8, TEST_IBAN, { last_successful_sync_timestamp: fresh }),
+          credential(2, 9, TEST_IBAN, { last_successful_sync_timestamp: stale }),
+        ],
       }),
     )
     const syncButton = screen.getByRole('button', { name: 'Sync all accounts' })
@@ -873,7 +490,7 @@ describe('OverviewView hero extras', () => {
     render_(
       buildUser({
         balance: AMOUNT_S,
-        credentials: [{ ...buildCredential(), last_successful_sync_timestamp: fresh }],
+        credentials: [ingCredential({ last_successful_sync_timestamp: fresh })],
       }),
     )
     const syncButton = screen.getByRole('button', { name: 'Sync all accounts' })
@@ -887,14 +504,11 @@ describe('OverviewView hero extras', () => {
       buildUser({
         balance: AMOUNT_S,
         credentials: [
-          { ...buildCredential(), id: 1, last_successful_sync_timestamp: fresh },
-          {
-            ...buildCredential(),
-            id: 2,
-            accounts: [{ ...buildCredential().accounts[0], id: 9 }],
+          ingCredential({ last_successful_sync_timestamp: fresh }),
+          credential(2, 9, TEST_IBAN, {
             last_successful_sync_timestamp: long_ago,
             sync_enabled: false,
-          },
+          }),
         ],
       }),
     )
@@ -905,37 +519,17 @@ describe('OverviewView hero extras', () => {
 })
 
 describe('OverviewView upcoming contracts', () => {
-  function contract(overrides: Partial<ContractRead>): ContractRead {
-    return {
-      id: 1,
-      account_id: 8,
-      name: 'Netflix',
-      note: null,
-      category: 'ENTERTAINMENT',
-      source: 'DETECTED',
-      median_amount: -12.99,
-      frequency: 'MONTHLY',
-      expected_next_date: DATE_FAR_FUTURE,
-      end_date: null,
-      is_archived: false,
-      is_overdue: false,
-      amount_per_day: -0.43,
-      amount_per_frequency: null,
-      ...overrides,
-    }
-  }
-
   it('lists every overdue contract first, then only the next three payments', async () => {
     mockApi({
       contracts: [
         contract({ id: 1, name: 'Spotify', expected_next_date: '2099-01-04' }),
-        contract({ id: 2, name: 'Netflix', expected_next_date: '2099-01-02' }),
+        contract({ id: 2, name: CONTRACT_NAME, expected_next_date: '2099-01-02' }),
         contract({ id: 3, name: 'Gym', expected_next_date: '2099-01-03' }),
         contract({ id: 4, name: 'Newspaper', expected_next_date: '2099-01-05' }),
         contract({ id: 5, name: 'Rent', expected_next_date: DATE_LONG_OVERDUE, is_overdue: true }),
       ],
     })
-    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: AMOUNT_S, credentials: [ingCredential()] }))
 
     await screen.findByText('Rent')
     const names = screen
@@ -949,40 +543,25 @@ describe('OverviewView upcoming contracts', () => {
 
   it('ignores contracts of accounts that are not on the overview', async () => {
     mockApi({ contracts: [contract({ account_id: 999 })] })
-    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: AMOUNT_S, credentials: [ingCredential()] }))
 
     await waitFor(() => expect(screen.queryByText('Due soon contracts')).not.toBeInTheDocument())
   })
 })
 
 describe('OverviewView overdue badge', () => {
-  const overdue = {
-    id: 1,
-    account_id: 8,
-    name: 'Rent',
-    note: null,
-    category: 'RENT',
-    source: 'DETECTED',
-    median_amount: -800,
-    frequency: 'MONTHLY',
-    expected_next_date: DATE_LONG_OVERDUE,
-    end_date: null,
-    is_archived: false,
-    is_overdue: true,
-    amount_per_day: -26,
-    amount_per_frequency: null,
-  } satisfies ContractRead
+  const overdue = contract({ is_overdue: true, expected_next_date: DATE_LONG_OVERDUE })
 
   it('counts overdue contracts into the contracts icon label', async () => {
-    mockApi({ contracts: [overdue, { ...overdue, id: 2, name: 'Gym' }] })
-    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
+    mockApi({ contracts: [overdue, { ...overdue, id: 2, name: CONTRACT_NAME_GYM }] })
+    render_(buildUser({ balance: AMOUNT_S, credentials: [ingCredential()] }))
 
     expect(await screen.findByRole('link', { name: 'Contracts – 2 overdue' })).toBeInTheDocument()
   })
 
   it('leaves the plain label when nothing is overdue', async () => {
     mockApi({ contracts: [{ ...overdue, is_overdue: false, expected_next_date: DATE_FAR_FUTURE }] })
-    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: AMOUNT_S, credentials: [ingCredential()] }))
 
     await screen.findByRole('link', { name: 'Contracts' })
     expect(screen.queryByRole('link', { name: /overdue/ })).not.toBeInTheDocument()
@@ -990,7 +569,7 @@ describe('OverviewView overdue badge', () => {
 
   it('ignores contracts of accounts that are not on the overview', async () => {
     mockApi({ contracts: [{ ...overdue, account_id: 999 }] })
-    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: AMOUNT_S, credentials: [ingCredential()] }))
 
     await screen.findByRole('link', { name: 'Contracts' })
   })
@@ -1002,7 +581,7 @@ describe('OverviewView privacy mode', () => {
   })
 
   it('blurs the amounts, remembers the choice and flips the label back', async () => {
-    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: AMOUNT_S, credentials: [ingCredential()] }))
 
     expect(document.documentElement).not.toHaveAttribute('data-privacy')
     await userEvent.click(screen.getByRole('button', { name: 'Hide amounts' }))
@@ -1020,7 +599,7 @@ describe('OverviewView privacy mode', () => {
 
   it('starts hidden when the last session left it that way', () => {
     window.localStorage.setItem('privacyMode', 'on')
-    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
+    render_(buildUser({ balance: AMOUNT_S, credentials: [ingCredential()] }))
 
     expect(document.documentElement).toHaveAttribute('data-privacy', 'on')
     expect(screen.getByRole('button', { name: 'Show amounts' })).toBeInTheDocument()
@@ -1028,30 +607,14 @@ describe('OverviewView privacy mode', () => {
 })
 
 describe('OverviewView sync progress', () => {
-  const job = (credentialId: number, status: SyncJob['status']): SyncJob => ({
-    job_id: `j${credentialId}`,
-    credential_id: credentialId,
-    status,
-    expires_at: null,
-    error: null,
-    error_code: null,
-  })
+  const job = (credentialId: number, status: SyncJob['status']) =>
+    makeJob({ credential_id: credentialId, status })
 
   function renderWithJobs(jobs: Map<number, SyncJob>) {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    return render_(buildUser({ balance: AMOUNT_S, credentials: [ingCredential()] }), {
+      syncSpinning: true,
+      syncJobs: jobs,
     })
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <OverviewView
-          user={buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] })}
-          onSyncClick={() => {}}
-          syncDisabled={false}
-          syncSpinning={true}
-          syncJobs={jobs}
-        />
-      </QueryClientProvider>,
-    )
   }
 
   it('counts the finished banks while at least one is still running', () => {
@@ -1088,41 +651,24 @@ describe('OverviewView sync progress', () => {
 })
 
 describe('OverviewView upcoming contracts visibility', () => {
-  const contract = {
-    id: 1,
-    account_id: 8,
-    name: 'Netflix',
-    note: null,
-    category: 'ENTERTAINMENT',
-    source: 'DETECTED',
-    median_amount: -12.99,
-    frequency: 'MONTHLY',
-    expected_next_date: DATE_FAR_FUTURE,
-    end_date: null,
-    is_archived: false,
-    is_overdue: false,
-    amount_per_day: -0.43,
-    amount_per_frequency: null,
-  } satisfies ContractRead
-
   it('hides the section when the user switched it off', async () => {
-    mockApi({ contracts: [contract] })
+    mockApi({ contracts: [contract()] })
     render_(
       buildUser({
         balance: AMOUNT_S,
-        credentials: [buildCredential()],
+        credentials: [ingCredential()],
         show_upcoming_contracts: false,
       }),
     )
-    await waitFor(() => expect(screen.queryByText('Netflix')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText(CONTRACT_NAME)).not.toBeInTheDocument())
   })
 
   it('shows the due date relative to today while collapsed', async () => {
     const due = new Date()
     due.setDate(due.getDate() + 6)
     const iso = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}`
-    mockApi({ contracts: [{ ...contract, expected_next_date: iso }] })
-    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
+    mockApi({ contracts: [contract({ expected_next_date: iso })] })
+    render_(buildUser({ balance: AMOUNT_S, credentials: [ingCredential()] }))
 
     const trigger = await screen.findByRole('button', { name: /Due soon contracts/ })
     await userEvent.click(trigger)
@@ -1131,8 +677,8 @@ describe('OverviewView upcoming contracts visibility', () => {
   })
 
   it('collapses the section and remembers it, like an account group', async () => {
-    mockApi({ contracts: [contract] })
-    render_(buildUser({ balance: AMOUNT_S, credentials: [buildCredential()] }))
+    mockApi({ contracts: [contract()] })
+    render_(buildUser({ balance: AMOUNT_S, credentials: [ingCredential()] }))
 
     const trigger = await screen.findByRole('button', { name: /Due soon contracts/ })
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
@@ -1142,32 +688,24 @@ describe('OverviewView upcoming contracts visibility', () => {
 
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
     await waitFor(() =>
-      expect(screen.queryByRole('link', { name: /Netflix/ })).not.toBeInTheDocument(),
+      expect(
+        screen.queryByRole('link', { name: new RegExp(CONTRACT_NAME) }),
+      ).not.toBeInTheDocument(),
     )
     expect(screen.queryByRole('link', { name: 'View all' })).not.toBeInTheDocument()
-    expect(trigger).not.toHaveTextContent('Netflix')
-    expect(trigger).toHaveTextContent(money(-12.99))
+    expect(trigger).not.toHaveTextContent(CONTRACT_NAME)
+    expect(trigger).toHaveTextContent(money(-AMOUNT_S))
     expect(window.localStorage.getItem('collapsedGroups')).toContain('upcomingContracts')
   })
 })
 
 describe('OverviewView balance', () => {
   it('lets the total settle in when a sync changed it, but not on first render', () => {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    const view = (balance: number) => (
-      <QueryClientProvider client={queryClient}>
-        <OverviewView
-          user={buildUser({ balance, credentials: [buildCredential()] })}
-          onSyncClick={() => {}}
-          syncDisabled={false}
-          syncSpinning={false}
-        />
-      </QueryClientProvider>
-    )
-    const { rerender } = render(view(AMOUNT_L))
+    const user = (balance: number) => buildUser({ balance, credentials: [ingCredential()] })
+    const { rerender } = render_(user(AMOUNT_L))
     expect(screen.getByText(money(AMOUNT_L))).not.toHaveClass('balance-settle')
 
-    rerender(view(AMOUNT_XL))
+    rerender(overview(user(AMOUNT_XL)))
 
     expect(screen.getByText(money(AMOUNT_XL))).toHaveClass('balance-settle')
   })
@@ -1191,7 +729,7 @@ describe('OverviewView settings cog', () => {
   })
 
   it('points at bank connections that need attention', () => {
-    render_(buildUser({ credentials: [{ ...buildCredential(), last_sync_error_code: 'timeout' }] }))
+    render_(buildUser({ credentials: [ingCredential({ last_sync_error_code: 'timeout' })] }))
 
     expect(screen.getByRole('link', { name: '1 bank connection needs attention' })).toHaveAttribute(
       'href',
@@ -1220,13 +758,7 @@ describe('overview route', () => {
   }
 
   function renderPage() {
-    return render(
-      <QueryClientProvider
-        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-      >
-        <OverviewPage />
-      </QueryClientProvider>,
-    )
+    return renderWithQuery(<OverviewPage />)
   }
 
   function setVisibility(state: 'visible' | 'hidden') {
@@ -1235,9 +767,8 @@ describe('overview route', () => {
   }
 
   beforeEach(() => {
-    vi.mocked(checkForFrontendUpdate).mockClear()
     setSync()
-    mockApi({ me: buildUser({ display_name: 'Alice', credentials: [buildCredential()] }) })
+    mockApi({ me: buildUser({ display_name: 'Alice', credentials: [ingCredential()] }) })
   })
 
   afterEach(() => {

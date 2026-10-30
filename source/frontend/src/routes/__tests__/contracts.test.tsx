@@ -3,7 +3,7 @@ import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
-import type { AccountRead, CredentialRead } from '@/lib/auth'
+import type { CredentialRead } from '@/lib/auth'
 import type { ContractRead } from '@/lib/contract'
 import {
   ACCOUNT_NAME_GIRO,
@@ -20,7 +20,8 @@ import {
   LABEL_SALARY,
   PARTY_SUPERMARKET,
 } from '@/test/constants'
-import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { buildUser, jsonResponse, renderWithQuery } from '@/test/helpers'
+import { buildAccount, buildContract, buildCredential } from '@/test/statsFixtures'
 
 const navigate = vi.hoisted(() => vi.fn())
 vi.mock('@tanstack/react-router', async () =>
@@ -42,58 +43,11 @@ import { Route } from '@/routes/contracts'
 const ContractsPage = Route.options.component!
 const validateSearch = Route.options.validateSearch as (search: Record<string, unknown>) => unknown
 
-function buildAccount(overrides: Partial<AccountRead> = {}): AccountRead {
-  return {
-    id: 42,
-    name: ACCOUNT_NAME_GIRO,
-    display_name: null,
-    balance: 0,
-    balance_factor: 100,
-    is_archived: false,
-    include_by_default: true,
-    is_market_valued: false,
-    ...overrides,
-  }
-}
-
-function buildCredential(accounts: AccountRead[]): CredentialRead {
-  return {
-    id: 1,
-    bank: 'ing',
-    bank_name: null,
-    bank_icon: null,
-    accounts,
-    last_successful_sync_timestamp: null,
-    requires_two_factor_authentication: false,
-    sync_enabled: true,
-  }
-}
-
-function buildContract(overrides: Partial<ContractRead> = {}): ContractRead {
-  return {
-    id: 1,
-    account_id: 42,
-    name: CONTRACT_NAME,
-    note: null,
-    category: null,
-    source: 'DETECTED',
-    median_amount: -AMOUNT_S,
-    frequency: 'MONTHLY',
-    expected_next_date: null,
-    end_date: null,
-    is_archived: false,
-    is_overdue: false,
-    amount_per_day: null,
-    amount_per_frequency: null,
-    ...overrides,
-  }
-}
-
 const GIRO_ID = 42
 const SAVINGS_ID = 43
 const credentials = [
   buildCredential([
-    buildAccount({ id: GIRO_ID }),
+    buildAccount({ id: GIRO_ID, name: ACCOUNT_NAME_GIRO }),
     buildAccount({ id: SAVINGS_ID, name: ACCOUNT_NAME_SAVINGS, include_by_default: false }),
   ]),
 ]
@@ -167,7 +121,6 @@ async function shownIds(): Promise<string[]> {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
   globalThis.fetch = fetchMock as unknown as typeof fetch
   serve()
 })

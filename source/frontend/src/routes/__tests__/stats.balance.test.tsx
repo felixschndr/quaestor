@@ -1,5 +1,5 @@
 import { screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@tanstack/react-router', async () => {
   const router = await import('./-routerMock')
@@ -22,7 +22,7 @@ import {
 } from '@/test/constants'
 import { buildAccount, buildCredential } from '@/test/statsFixtures'
 import { routeState } from './-routerMock'
-import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { buildUser, jsonResponse, renderWithQuery } from '@/test/helpers'
 
 const user = buildUser({
   credentials: [
@@ -54,10 +54,6 @@ function renderPage() {
 
 beforeEach(() => {
   routeState.search = { account_ids: [42, 43] }
-})
-
-afterEach(() => {
-  vi.restoreAllMocks()
 })
 
 describe('AccountBalancesPage', () => {

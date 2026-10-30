@@ -13,7 +13,6 @@ function setVisibility(state: 'visible' | 'hidden') {
 afterEach(() => {
   Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
   vi.useRealTimers()
-  vi.restoreAllMocks()
 })
 
 describe('useSuccessCheck', () => {

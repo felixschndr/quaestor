@@ -2,43 +2,23 @@ import { describe, expect, it } from 'vitest'
 
 import { groupAccounts } from '@/components/ui/account-select-utils'
 import type { AccountGroupLayout } from '@/lib/accountGroups'
-import type { AccountRead, CredentialRead } from '@/lib/auth'
+import type { CredentialRead } from '@/lib/auth'
 import { ACCOUNT_NAME_GIRO } from '@/test/constants'
-
-function account(id: number, name: string): AccountRead {
-  return {
-    id,
-    name,
-    display_name: null,
-    balance: 0,
-    balance_factor: 100,
-    is_archived: false,
-    include_by_default: true,
-    is_market_valued: false,
-  }
-}
+import { buildAccount, buildCredential } from '@/test/statsFixtures'
 
 const credentials: CredentialRead[] = [
-  {
-    id: 1,
-    bank: 'ing',
-    bank_name: 'ING',
-    bank_icon: null,
-    last_successful_sync_timestamp: null,
-    requires_two_factor_authentication: false,
-    sync_enabled: true,
-    accounts: [account(1, ACCOUNT_NAME_GIRO), account(2, 'Extra Account')],
-  },
-  {
+  buildCredential(
+    [
+      buildAccount({ id: 1, name: ACCOUNT_NAME_GIRO }),
+      buildAccount({ id: 2, name: 'Extra Account' }),
+    ],
+    { bank_name: 'ING' },
+  ),
+  buildCredential([buildAccount({ id: 3, name: 'Depot' })], {
     id: 2,
     bank: 'dkb',
     bank_name: 'DKB',
-    bank_icon: null,
-    last_successful_sync_timestamp: null,
-    requires_two_factor_authentication: false,
-    sync_enabled: true,
-    accounts: [account(3, 'Depot')],
-  },
+  }),
 ]
 
 const flatIds = (groups: ReturnType<typeof groupAccounts>) =>

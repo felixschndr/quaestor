@@ -25,17 +25,6 @@ afterEach(() => {
 })
 
 describe('checkForFrontendUpdate', () => {
-  it('asks the service worker for a new build', async () => {
-    const update = vi.fn().mockResolvedValue(undefined)
-    installServiceWorker(update)
-
-    await (
-      await loadCheckForFrontendUpdate()
-    )()
-
-    expect(update).toHaveBeenCalledTimes(1)
-  })
-
   it('checks at most once an hour', async () => {
     const update = vi.fn().mockResolvedValue(undefined)
     installServiceWorker(update)

@@ -1,7 +1,6 @@
-import { createElement, type ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { renderHook, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient } from '@tanstack/react-query'
+import { waitFor } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const formatSetters = vi.hoisted(() => ({
   setDisplayTimeZone: vi.fn(),
@@ -18,7 +17,7 @@ import {
   useAppSettings,
   type AppSettings,
 } from '@/lib/settings'
-import { jsonResponse } from '@/routes/__tests__/-settingsUserTestHelpers'
+import { jsonResponse, renderHookWithClient } from '@/test/helpers'
 
 const SETTINGS: AppSettings = {
   allow_new_user_registration: false,
@@ -41,10 +40,6 @@ let fetchMock: ReturnType<typeof vi.fn>
 beforeEach(() => {
   fetchMock = vi.fn(async () => jsonResponse({ status: 200, body: SETTINGS }))
   globalThis.fetch = fetchMock as unknown as typeof fetch
-})
-
-afterEach(() => {
-  vi.clearAllMocks()
 })
 
 describe('ensureAppSettings', () => {
@@ -75,21 +70,15 @@ describe('useAppSettings', () => {
   it('serves the settings from the cache that ensureAppSettings filled', async () => {
     const queryClient = newQueryClient()
     await ensureAppSettings(queryClient)
-    const wrapper = ({ children }: { children: ReactNode }) =>
-      createElement(QueryClientProvider, { client: queryClient }, children)
 
-    const { result } = renderHook(() => useAppSettings(), { wrapper })
+    const { result } = renderHookWithClient(() => useAppSettings(), queryClient)
 
     expect(result.current.data).toEqual(SETTINGS)
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('fetches the settings when nothing is cached yet', async () => {
-    const queryClient = newQueryClient()
-    const wrapper = ({ children }: { children: ReactNode }) =>
-      createElement(QueryClientProvider, { client: queryClient }, children)
-
-    const { result } = renderHook(() => useAppSettings(), { wrapper })
+    const { result } = renderHookWithClient(() => useAppSettings())
 
     await waitFor(() => expect(result.current.data).toEqual(SETTINGS))
     expect(fetchMock.mock.calls[0][0]).toBe('/api/settings')

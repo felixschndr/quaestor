@@ -1,7 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { MockInstance } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 
 import '@/i18n'
@@ -11,13 +10,9 @@ vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).ro
 import { GroupsEditorView, __testing } from '@/pages/settings.credentials.groups'
 import { Route } from '@/routes/settings.credentials.groups'
 import type { AccountGroupLayout } from '@/lib/accountGroups'
-import type { AccountRead, UserRead } from '@/lib/auth'
-import {
-  buildUser as buildBaseUser,
-  jsonResponse,
-  renderWithQuery,
-  renderWithQueryWrapper,
-} from './-settingsUserTestHelpers'
+import type { AccountRead } from '@/lib/auth'
+import { bodyOf, buildUser, jsonResponse, renderWithQuery, requestsTo, serve } from '@/test/helpers'
+import { buildAccount, buildCredential } from '@/test/statsFixtures'
 import {
   ACCOUNT_NAME_CHECKING,
   ACCOUNT_NAME_DAY,
@@ -37,43 +32,13 @@ const {
   shouldInsertAfter,
 } = __testing
 
-function buildUser(): UserRead {
-  return buildBaseUser({
-    credentials: [
-      {
-        id: 10,
-        bank: 'ing',
-        bank_name: null,
-        bank_icon: null,
-        accounts: [
-          {
-            id: 1,
-            name: ACCOUNT_NAME_GIRO,
-            display_name: null,
-            balance: 100,
-            balance_factor: 100,
-            is_archived: false,
-            include_by_default: true,
-            is_market_valued: false,
-          },
-          {
-            id: 2,
-            name: ACCOUNT_NAME_DAY,
-            display_name: null,
-            balance: 200,
-            balance_factor: 100,
-            is_archived: false,
-            include_by_default: true,
-            is_market_valued: false,
-          },
-        ],
-        last_successful_sync_timestamp: null,
-        requires_two_factor_authentication: false,
-        sync_enabled: true,
-      },
-    ],
-  })
-}
+const OWN_CREDENTIAL = buildCredential(
+  [
+    buildAccount({ id: 1, name: ACCOUNT_NAME_GIRO }),
+    buildAccount({ id: 2, name: ACCOUNT_NAME_DAY }),
+  ],
+  { id: 10 },
+)
 
 const sampleLayout: AccountGroupLayout = {
   groups: [
@@ -282,7 +247,7 @@ describe('shouldInsertAfter', () => {
 
 describe('buildAccountLookup', () => {
   it('flattens accounts across credentials and tags each with its bank', () => {
-    const lookup = buildAccountLookup(buildUser())
+    const lookup = buildAccountLookup(buildUser({ credentials: [OWN_CREDENTIAL] }))
     expect(lookup.get(1)?.bank).toBe('ing')
     expect(lookup.get(2)?.name).toBe(ACCOUNT_NAME_DAY)
     expect(lookup.size).toBe(2)
@@ -296,40 +261,16 @@ describe('buildAccountLookup', () => {
 const SHARED_ACCOUNT_ID = 3
 const DAILY_GROUP_NAME = 'Daily'
 
-function sharedAccount(overrides: Partial<AccountRead> = {}): AccountRead {
-  return {
-    id: SHARED_ACCOUNT_ID,
-    name: ACCOUNT_NAME_SAVINGS,
-    display_name: null,
-    balance: 300,
-    balance_factor: 100,
-    is_archived: false,
-    include_by_default: true,
-    is_market_valued: false,
-    ...overrides,
-  }
-}
-
-function buildUserWithShare(overrides: Partial<AccountRead> = {}): UserRead {
-  const user = buildUser()
-  return {
-    ...user,
+function buildUserWithShare(overrides: Partial<AccountRead> = {}) {
+  return buildUser({
     credentials: [
-      ...user.credentials,
-      {
-        id: 20,
-        bank: 'dkb',
-        bank_name: null,
-        bank_icon: null,
-        accounts: [sharedAccount(overrides)],
-        last_successful_sync_timestamp: null,
-        requires_two_factor_authentication: false,
-        sync_enabled: true,
-        shared_from: SHARE_OWNER_NAME,
-        share_permission: 'write',
-      },
+      OWN_CREDENTIAL,
+      buildCredential(
+        [buildAccount({ id: SHARED_ACCOUNT_ID, name: ACCOUNT_NAME_SAVINGS, ...overrides })],
+        { id: 20, bank: 'dkb', shared_from: SHARE_OWNER_NAME, share_permission: 'write' },
+      ),
     ],
-  }
+  })
 }
 
 const editorLayout: AccountGroupLayout = {
@@ -343,24 +284,12 @@ const editorLayout: AccountGroupLayout = {
 const LAYOUT_URL = '/api/account_groups/layout'
 const DEBOUNCE_MS = 400
 
-let fetchMock: MockInstance<typeof fetch>
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn())
+})
 
-function mockFetch(handler: (url: string, init?: RequestInit) => Promise<Response> | undefined) {
-  fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
-    const url = String(input)
-    return handler(url, init) ?? Promise.reject(new Error(`unexpected fetch: ${url}`))
-  })
-}
-
-function requestsTo(url: string, method: string) {
-  return fetchMock.mock.calls.filter(
-    ([calledUrl, init]) => calledUrl === url && init?.method === method,
-  )
-}
-
-function lastBody(url: string, method: string): unknown {
-  const calls = requestsTo(url, method)
-  return JSON.parse(String(calls[calls.length - 1][1]!.body))
+function serveLayoutSave() {
+  serve({ [`PUT ${LAYOUT_URL}`]: { status: 200, body: editorLayout } })
 }
 
 function renderEditor(layout: AccountGroupLayout = editorLayout, user = buildUserWithShare()) {
@@ -388,18 +317,13 @@ async function flushDebounce() {
 afterEach(async () => {
   if (vi.isFakeTimers()) await act(() => vi.runOnlyPendingTimersAsync())
   vi.useRealTimers()
-  vi.restoreAllMocks()
 })
 
 describe('GroupsEditorView — layout edits', () => {
   function setup() {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    mockFetch((url, init) =>
-      url === LAYOUT_URL && init?.method === 'PUT'
-        ? Promise.resolve(jsonResponse({ status: 200, body: editorLayout }))
-        : undefined,
-    )
+    serveLayoutSave()
     const success = vi.spyOn(toast, 'success')
     renderEditor()
     return { user, success }
@@ -436,12 +360,12 @@ describe('GroupsEditorView — layout edits', () => {
     await user.click(screen.getByRole('button', { name: 'Create group' }))
     expect(groupNames()).toEqual([GROUP_NAME_SAVINGS, DAILY_GROUP_NAME, 'New group'])
     expect(within(screen.getByTestId(/^container--\d+$/)).getByText('Drop accounts here'))
-    expect(requestsTo(LAYOUT_URL, 'PUT')).toHaveLength(0)
+    expect(requestsTo('PUT', LAYOUT_URL)).toHaveLength(0)
 
     await flushDebounce()
 
     await waitFor(() => expect(success).toHaveBeenCalledWith('Saved'))
-    expect(lastBody(LAYOUT_URL, 'PUT')).toEqual({
+    expect(bodyOf('PUT', LAYOUT_URL)).toEqual({
       groups: [
         { id: 100, name: GROUP_NAME_SAVINGS, account_ids: [1] },
         { id: 200, name: DAILY_GROUP_NAME, account_ids: [2] },
@@ -459,8 +383,8 @@ describe('GroupsEditorView — layout edits', () => {
     await user.type(firstName, ACCOUNT_NAME_CHECKING)
     await flushDebounce()
 
-    await waitFor(() => expect(requestsTo(LAYOUT_URL, 'PUT')).toHaveLength(1))
-    expect(lastBody(LAYOUT_URL, 'PUT')).toMatchObject({
+    await waitFor(() => expect(requestsTo('PUT', LAYOUT_URL)).toHaveLength(1))
+    expect(bodyOf('PUT', LAYOUT_URL)).toMatchObject({
       groups: [{ id: 100, name: ACCOUNT_NAME_CHECKING }, { id: 200 }],
     })
   })
@@ -477,7 +401,7 @@ describe('GroupsEditorView — layout edits', () => {
     ])
     await flushDebounce()
     await waitFor(() =>
-      expect(lastBody(LAYOUT_URL, 'PUT')).toEqual({
+      expect(bodyOf('PUT', LAYOUT_URL)).toEqual({
         groups: [{ id: 200, name: DAILY_GROUP_NAME, account_ids: [2] }],
         ungrouped: [SHARED_ACCOUNT_ID, 1],
       }),
@@ -488,7 +412,7 @@ describe('GroupsEditorView — layout edits', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     let respond: (response: Response) => void = () => {}
-    mockFetch(() => new Promise((resolve) => (respond = resolve)))
+    serve({}, () => new Promise((resolve) => (respond = resolve)))
     renderEditor()
 
     await user.click(screen.getByRole('button', { name: 'Create group' }))
@@ -502,7 +426,7 @@ describe('GroupsEditorView — layout edits', () => {
   it('toasts an error when the layout cannot be saved', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    mockFetch(() => Promise.resolve(jsonResponse({ status: 500, body: { detail: 'boom' } })))
+    serve({ [`PUT ${LAYOUT_URL}`]: { status: 500, body: { detail: 'boom' } } })
     const error = vi.spyOn(toast, 'error')
     renderEditor()
 
@@ -515,9 +439,9 @@ describe('GroupsEditorView — layout edits', () => {
   })
 
   it('adopts a new server layout without saving it back', async () => {
-    mockFetch(() => undefined)
+    serve({})
     const accountLookup = buildAccountLookup(buildUserWithShare())
-    const { rerender } = renderWithQueryWrapper(
+    const { rerender } = renderWithQuery(
       <GroupsEditorView layout={editorLayout} accountLookup={accountLookup} />,
     )
 
@@ -530,7 +454,7 @@ describe('GroupsEditorView — layout edits', () => {
 
     expect(screen.queryByRole('textbox', { name: 'Group name' })).not.toBeInTheDocument()
     expect(accountsIn('container-ungrouped')).toHaveLength(3)
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 })
 
@@ -576,11 +500,7 @@ describe('GroupsEditorView — drag and drop', () => {
 
   function setup() {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    mockFetch((url, init) =>
-      url === LAYOUT_URL && init?.method === 'PUT'
-        ? Promise.resolve(jsonResponse({ status: 200, body: editorLayout }))
-        : undefined,
-    )
+    serveLayoutSave()
     renderEditor()
   }
 
@@ -598,7 +518,7 @@ describe('GroupsEditorView — drag and drop', () => {
     expect(groupNames()).toEqual([DAILY_GROUP_NAME, GROUP_NAME_SAVINGS])
     await flushDebounce()
     await waitFor(() =>
-      expect(lastBody(LAYOUT_URL, 'PUT')).toMatchObject({
+      expect(bodyOf('PUT', LAYOUT_URL)).toMatchObject({
         groups: [{ id: 200 }, { id: 100 }],
       }),
     )
@@ -620,7 +540,7 @@ describe('GroupsEditorView — drag and drop', () => {
     ])
     await flushDebounce()
     await waitFor(() =>
-      expect(lastBody(LAYOUT_URL, 'PUT')).toEqual({
+      expect(bodyOf('PUT', LAYOUT_URL)).toEqual({
         groups: [
           { id: 100, name: GROUP_NAME_SAVINGS, account_ids: [1] },
           { id: 200, name: DAILY_GROUP_NAME, account_ids: [] },
@@ -671,7 +591,7 @@ describe('GroupsEditorView — drag and drop', () => {
     expect(screen.getAllByText(ACCOUNT_NAME_GIRO)).toHaveLength(1)
     expect(accountsIn('container-100')).toEqual([expect.stringContaining(ACCOUNT_NAME_GIRO)])
     await flushDebounce()
-    expect(requestsTo(LAYOUT_URL, 'PUT')).toHaveLength(0)
+    expect(requestsTo('PUT', LAYOUT_URL)).toHaveLength(0)
   })
 
   it('undoes a move into another group when the drag is cancelled with Escape', async () => {
@@ -692,14 +612,14 @@ describe('GroupsEditorView — drag and drop', () => {
       expect.stringContaining(ACCOUNT_NAME_SAVINGS),
     ])
     await flushDebounce()
-    expect(requestsTo(LAYOUT_URL, 'PUT')).toHaveLength(0)
+    expect(requestsTo('PUT', LAYOUT_URL)).toHaveLength(0)
   })
 })
 
 describe('GroupsEditorView — account names', () => {
   function setup({ status = 200, user = buildUserWithShare() } = {}) {
-    mockFetch((_url, init) =>
-      init?.method === 'PATCH' ? Promise.resolve(jsonResponse({ status, body: {} })) : undefined,
+    serve({}, (_url, init) =>
+      init?.method === 'PATCH' ? Promise.resolve(jsonResponse({ status, body: {} })) : null,
     )
     renderEditor(editorLayout, user)
     return userEvent.setup()
@@ -722,8 +642,8 @@ describe('GroupsEditorView — account names', () => {
     await user.type(input, `  ${ACCOUNT_NAME_CHECKING}  {Enter}`)
 
     await waitFor(() => expect(success).toHaveBeenCalledWith('Saved'))
-    expect(requestsTo('/api/account/1', 'PATCH')).toHaveLength(1)
-    expect(lastBody('/api/account/1', 'PATCH')).toEqual({ display_name: ACCOUNT_NAME_CHECKING })
+    expect(requestsTo('PATCH', '/api/account/1')).toHaveLength(1)
+    expect(bodyOf('PATCH', '/api/account/1')).toEqual({ display_name: ACCOUNT_NAME_CHECKING })
   })
 
   it('saves via the check button and on blur', async () => {
@@ -732,13 +652,13 @@ describe('GroupsEditorView — account names', () => {
     await user.click(editButtonOf(ACCOUNT_NAME_GIRO))
     await user.type(screen.getByRole('textbox', { name: 'Edit account name' }), 'A')
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(requestsTo('/api/account/1', 'PATCH')).toHaveLength(1))
+    await waitFor(() => expect(requestsTo('PATCH', '/api/account/1')).toHaveLength(1))
 
     await user.click(editButtonOf(ACCOUNT_NAME_DAY))
     await user.type(screen.getByRole('textbox', { name: 'Edit account name' }), 'B')
     await user.click(screen.getByRole('button', { name: 'Create group' }))
-    await waitFor(() => expect(requestsTo('/api/account/2', 'PATCH')).toHaveLength(1))
-    expect(lastBody('/api/account/2', 'PATCH')).toEqual({ display_name: 'B' })
+    await waitFor(() => expect(requestsTo('PATCH', '/api/account/2')).toHaveLength(1))
+    expect(bodyOf('PATCH', '/api/account/2')).toEqual({ display_name: 'B' })
   })
 
   it('discards the draft on Escape or the cancel button', async () => {
@@ -753,7 +673,7 @@ describe('GroupsEditorView — account names', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByRole('textbox', { name: 'Edit account name' })).not.toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 
   it('sends nothing when the name is committed unchanged', async () => {
@@ -762,7 +682,7 @@ describe('GroupsEditorView — account names', () => {
     await user.click(editButtonOf(ACCOUNT_NAME_GIRO))
     await user.keyboard('{Enter}')
 
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 
   it('clears a shared account name through the share-settings endpoint', async () => {
@@ -775,8 +695,8 @@ describe('GroupsEditorView — account names', () => {
     await user.keyboard('{Enter}')
 
     const url = `/api/account_shares/account/${SHARED_ACCOUNT_ID}/mine`
-    await waitFor(() => expect(requestsTo(url, 'PATCH')).toHaveLength(1))
-    expect(lastBody(url, 'PATCH')).toEqual({ display_name: null })
+    await waitFor(() => expect(requestsTo('PATCH', url)).toHaveLength(1))
+    expect(bodyOf('PATCH', url)).toEqual({ display_name: null })
   })
 
   it('toasts an error when the rename fails', async () => {
@@ -801,16 +721,16 @@ describe('/settings/credentials/groups route', () => {
       groups: [...editorLayout.groups, { id: 300, name: 'New group', accounts: [] }],
     }
     let serveLayout: (response: Response) => void = () => {}
-    mockFetch((url, init) => {
-      if (url === '/api/auth/me') {
-        return Promise.resolve(jsonResponse({ status: 200, body: buildUserWithShare() }))
-      }
-      if (url === LAYOUT_URL && init?.method === 'PUT') {
-        return Promise.resolve(jsonResponse({ status: 200, body: savedLayout }))
-      }
-      if (url === LAYOUT_URL) return new Promise((resolve) => (serveLayout = resolve))
-      return undefined
-    })
+    serve(
+      {
+        'GET /api/auth/me': { status: 200, body: buildUserWithShare() },
+        [`PUT ${LAYOUT_URL}`]: { status: 200, body: savedLayout },
+      },
+      (url, init) =>
+        url === LAYOUT_URL && init?.method !== 'PUT'
+          ? new Promise((resolve) => (serveLayout = resolve))
+          : null,
+    )
 
     renderWithQuery(<Page />)
 
@@ -822,11 +742,9 @@ describe('/settings/credentials/groups route', () => {
     await user.click(screen.getByRole('button', { name: 'Create group' }))
     await flushDebounce()
 
-    await waitFor(() =>
-      expect(fetchMock.mock.calls.filter(([url]) => url === '/api/auth/me')).toHaveLength(2),
-    )
+    await waitFor(() => expect(requestsTo('GET', '/api/auth/me')).toHaveLength(2))
     await flushDebounce()
-    expect(requestsTo(LAYOUT_URL, 'PUT')).toHaveLength(1)
+    expect(requestsTo('PUT', LAYOUT_URL)).toHaveLength(1)
     expect(groupNames()).toEqual([GROUP_NAME_SAVINGS, DAILY_GROUP_NAME, 'New group'])
   })
 })

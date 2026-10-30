@@ -1,7 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient } from '@tanstack/react-query'
+import { describe, expect, it, vi } from 'vitest'
 import type { MockInstance } from 'vitest'
 import { toast } from 'sonner'
 
@@ -9,6 +9,7 @@ import '@/i18n'
 
 import { TwoFactorSetup, type TwoFactorSetupProps } from '@/components/two-factor-setup'
 import { BACKUP_CODES, TEST_TOTP_SECRET, TWO_FACTOR_CODE } from '@/test/constants'
+import { jsonResponse, renderWithQuery } from '@/test/helpers'
 
 const SETUP_URL = '/api/users/1/2fa/setup'
 const ENABLE_URL = '/api/users/1/2fa/enable'
@@ -17,14 +18,7 @@ const SETUP = { secret: TEST_TOTP_SECRET, otpauth_uri: 'otpauth://totp/Quaestor'
 
 let fetchMock: MockInstance<typeof fetch>
 
-function json(status: number, body: unknown): Promise<Response> {
-  return Promise.resolve(
-    new Response(JSON.stringify(body), {
-      status,
-      headers: { 'content-type': 'application/json' },
-    }),
-  )
-}
+const json = (status: number, body: unknown) => Promise.resolve(jsonResponse({ status, body }))
 
 function serve(routes: Record<string, () => Promise<Response>>) {
   fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
@@ -34,19 +28,10 @@ function serve(routes: Record<string, () => Promise<Response>>) {
 }
 
 function renderSetup(props: Partial<TwoFactorSetupProps> = {}) {
-  const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
   const onFinished = vi.fn()
-  render(
-    <QueryClientProvider client={queryClient}>
-      <TwoFactorSetup userId={1} onFinished={onFinished} {...props} />
-    </QueryClientProvider>,
-  )
+  renderWithQuery(<TwoFactorSetup userId={1} onFinished={onFinished} {...props} />)
   return { onFinished }
 }
-
-afterEach(() => {
-  vi.restoreAllMocks()
-})
 
 describe('TwoFactorSetup', () => {
   it('shows a spinner until the secret arrives, then the QR code and secret', async () => {
@@ -177,10 +162,9 @@ describe('TwoFactorSetup', () => {
     let respond: (response: Response) => void = () => {}
     serve({ [SETUP_URL]: () => new Promise((resolve) => (respond = resolve)) })
     const queryClient = new QueryClient()
-    const { unmount } = render(
-      <QueryClientProvider client={queryClient}>
-        <TwoFactorSetup userId={1} onFinished={vi.fn()} />
-      </QueryClientProvider>,
+    const { unmount } = renderWithQuery(
+      <TwoFactorSetup userId={1} onFinished={vi.fn()} />,
+      queryClient,
     )
     const consoleError = vi.spyOn(console, 'error')
 

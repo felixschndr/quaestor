@@ -9,7 +9,7 @@ vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).ro
 import { Route } from '@/routes/banking.callback'
 import { COPY_FEEDBACK_MS } from '@/lib/clipboard'
 import { routeState } from './-routerMock'
-import { renderWithQuery } from './-settingsUserTestHelpers'
+import { renderWithQuery } from '@/test/helpers'
 import { BANKING_CALLBACK_CODE } from '@/test/constants'
 
 const Page = Route.options.component!

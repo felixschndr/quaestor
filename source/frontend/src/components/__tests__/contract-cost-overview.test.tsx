@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 const navigate = vi.hoisted(() => vi.fn())
 vi.mock('@tanstack/react-router', async () =>
@@ -8,7 +8,7 @@ vi.mock('@tanstack/react-router', async () =>
 )
 
 import '@/i18n'
-import type { ContractRead } from '@/lib/contract'
+import { buildContract } from '@/test/statsFixtures'
 import { formatDate, formatDateWithoutYear } from '@/lib/format'
 import { ContractCostOverview } from '@/components/contract-cost-overview'
 import {
@@ -23,34 +23,20 @@ import {
   money,
 } from '@/test/constants'
 
-function buildContract(overrides: Partial<ContractRead> = {}): ContractRead {
-  return {
-    id: 1,
-    account_id: 42,
-    name: CONTRACT_NAME,
-    note: null,
-    category: 'STREAMING',
-    source: 'DETECTED',
-    median_amount: -AMOUNT_S,
-    frequency: 'MONTHLY',
-    expected_next_date: DATE_NEXT_RUN,
-    end_date: null,
-    is_archived: false,
-    is_overdue: false,
-    amount_per_day: -1,
-    amount_per_frequency: {
-      WEEKLY: -2,
-      BIWEEKLY: -4,
-      MONTHLY: -AMOUNT_S,
-      QUARTERLY: -3 * AMOUNT_S,
-      YEARLY: -12 * AMOUNT_S,
-    },
-    ...overrides,
-  }
-}
-
-const streaming = buildContract()
+const streaming = buildContract({
+  category: 'STREAMING',
+  expected_next_date: DATE_NEXT_RUN,
+  amount_per_day: -1,
+  amount_per_frequency: {
+    WEEKLY: -2,
+    BIWEEKLY: -4,
+    MONTHLY: -AMOUNT_S,
+    QUARTERLY: -3 * AMOUNT_S,
+    YEARLY: -12 * AMOUNT_S,
+  },
+})
 const salary = buildContract({
+  ...streaming,
   id: 2,
   name: LABEL_SALARY,
   category: null,
@@ -65,6 +51,7 @@ const salary = buildContract({
   },
 })
 const irregular = buildContract({
+  ...streaming,
   id: 3,
   name: CONTRACT_NAME_GYM,
   frequency: null,
@@ -73,14 +60,10 @@ const irregular = buildContract({
   amount_per_day: null,
   amount_per_frequency: null,
 })
-const unscheduled = buildContract({ id: 5, expected_next_date: null })
+const unscheduled = buildContract({ ...streaming, id: 5, expected_next_date: null })
 
 const desktopTable = () => screen.getAllByRole('table')[0]
 const mobileList = () => screen.getByRole('list')
-
-beforeEach(() => {
-  navigate.mockClear()
-})
 
 describe('ContractCostOverview — table', () => {
   it('lists every contract per period with a total row', () => {
@@ -135,8 +118,13 @@ describe('ContractCostOverview — table', () => {
   })
 
   it('shows the archive date for archived contracts instead of the next payment', () => {
-    const archived = buildContract({ is_archived: true, end_date: DATE_OLDER })
-    const archivedWithoutEnd = buildContract({ id: 4, is_archived: true, name: CONTRACT_NAME_GYM })
+    const archived = buildContract({ ...streaming, is_archived: true, end_date: DATE_OLDER })
+    const archivedWithoutEnd = buildContract({
+      ...streaming,
+      id: 4,
+      is_archived: true,
+      name: CONTRACT_NAME_GYM,
+    })
     render(<ContractCostOverview contracts={[archived, archivedWithoutEnd]} />)
 
     const [, archivedRow, withoutEndRow] = within(desktopTable()).getAllByRole('row')
@@ -210,8 +198,13 @@ describe('ContractCostOverview — mobile list', () => {
   })
 
   it('shows archived contracts with their archive date', () => {
-    const archived = buildContract({ is_archived: true, end_date: DATE_OLDER })
-    const archivedWithoutEnd = buildContract({ id: 4, is_archived: true, name: CONTRACT_NAME_GYM })
+    const archived = buildContract({ ...streaming, is_archived: true, end_date: DATE_OLDER })
+    const archivedWithoutEnd = buildContract({
+      ...streaming,
+      id: 4,
+      is_archived: true,
+      name: CONTRACT_NAME_GYM,
+    })
     render(<ContractCostOverview contracts={[archived, archivedWithoutEnd]} />)
 
     const [archivedItem, withoutEndItem] = within(mobileList()).getAllByRole('listitem')

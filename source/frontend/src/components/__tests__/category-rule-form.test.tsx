@@ -11,7 +11,7 @@ vi.mock('@tanstack/react-router', async () =>
 )
 
 import { CategoryRuleForm } from '@/components/category-rule-form'
-import { renderWithQuery } from '@/routes/__tests__/-settingsUserTestHelpers'
+import { renderWithQuery } from '@/test/helpers'
 
 beforeEach(async () => {
   globalThis.fetch = vi.fn() as unknown as typeof fetch

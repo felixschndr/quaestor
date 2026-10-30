@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 
 import { useAppSync } from '@/lib/auth'
@@ -7,10 +7,6 @@ import { TWO_FACTOR_CODE } from '@/test/constants'
 
 const CREDENTIAL_ID = 7
 const OTHER_CREDENTIAL_ID = 8
-
-afterEach(() => {
-  vi.restoreAllMocks()
-})
 
 const posts = (fetchMock: ReturnType<typeof vi.fn>) =>
   fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST').map(([url]) => String(url))

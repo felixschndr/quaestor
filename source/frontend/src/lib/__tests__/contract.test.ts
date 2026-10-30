@@ -1,7 +1,6 @@
-import { createElement, type ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, renderHook, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient } from '@tanstack/react-query'
+import { act, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 
 import { transactionQueryKeys } from '@/lib/transaction'
 import {
@@ -14,58 +13,41 @@ import {
   monthsOverdue,
   overdueDuration,
   sumContractsForPeriod,
+  type ContractFilters,
   type ContractRead,
 } from '@/lib/contract'
+import { jsonResponse, renderHookWithClient } from '@/test/helpers'
+import { buildContract } from '@/test/statsFixtures'
 
-function makeContract(overrides: Partial<ContractRead> = {}): ContractRead {
-  return {
-    id: 1,
-    account_id: 10,
-    name: 'Test',
-    note: null,
-    category: null,
-    source: 'DETECTED',
-    median_amount: -30,
-    frequency: 'MONTHLY',
-    expected_next_date: null,
-    end_date: null,
-    is_archived: false,
-    is_overdue: false,
-    amount_per_day: null,
-    amount_per_frequency: null,
-    ...overrides,
-  }
-}
-
-const netflix = makeContract({
+const netflix = buildContract({
   id: 1,
   account_id: 10,
   category: 'STREAMING',
   median_amount: -12.99,
   frequency: 'MONTHLY',
 })
-const salary = makeContract({
+const salary = buildContract({
   id: 2,
   account_id: 20,
   category: 'SALARY',
   median_amount: 4200,
   frequency: 'MONTHLY',
 })
-const rent = makeContract({
+const rent = buildContract({
   id: 3,
   account_id: 10,
   category: 'RENT',
   median_amount: -900,
   frequency: 'MONTHLY',
 })
-const insurance = makeContract({
+const insurance = buildContract({
   id: 4,
   account_id: 20,
   category: null,
   median_amount: -50,
   frequency: 'YEARLY',
 })
-const irregular = makeContract({
+const irregular = buildContract({
   id: 5,
   account_id: 10,
   category: null,
@@ -77,72 +59,81 @@ const all = [netflix, salary, rent, insurance, irregular]
 const ids = (contracts: ContractRead[]) => contracts.map((contract) => contract.id)
 
 describe('filterContracts', () => {
-  it('returns everything when no facet is active', () => {
-    expect(ids(filterContracts(all, {}))).toEqual([1, 2, 3, 4, 5])
+  const noMedian = buildContract({ id: 7, median_amount: null })
+
+  it.each<[string, ContractFilters, number[], number[]?]>([
+    ['returns everything when no facet is active', {}, [1, 2, 3, 4, 5]],
+    ['filters by account', { account_ids: [10] }, [1, 3, 5]],
+    [
+      'treats a present-but-empty facet as "none selected" (matches nothing)',
+      { account_ids: [] },
+      [],
+    ],
+    [
+      'treats an absent facet as inactive (matches everything)',
+      { account_ids: undefined },
+      [1, 2, 3, 4, 5],
+    ],
+    [
+      'falls back to the default accounts when no explicit account filter is set',
+      { account_ids: undefined },
+      [1, 3, 5],
+      [10],
+    ],
+    [
+      'an explicit account filter overrides the default fallback',
+      { account_ids: [20] },
+      [2, 4],
+      [10],
+    ],
+    [
+      'filters by category and excludes contracts without one',
+      { categories: ['RENT', 'SALARY'] },
+      [2, 3],
+    ],
+    ['filters by frequency', { frequencies: ['YEARLY'] }, [4]],
+    [
+      "matches contracts without a turnus via the 'NONE' facet value",
+      { frequencies: ['NONE'] },
+      [5],
+    ],
+    [
+      "combines the 'NONE' facet value with real turnuses",
+      { frequencies: ['YEARLY', 'NONE'] },
+      [4, 5],
+    ],
+    // Expenses between -1000 and -40 -> rent (-900) and insurance (-50).
+    ['filters by signed amount range', { amount_from: -1000, amount_to: -40 }, [3, 4]],
+    ['combines facets with AND', { account_ids: [10], categories: ['RENT'] }, [3]],
+  ])('%s', (_, filters, expected, defaults) => {
+    expect(ids(filterContracts(all, filters, defaults))).toEqual(expected)
   })
 
   it('filters by name, case-insensitively', () => {
     const named = [
-      makeContract({ id: 7, name: 'Netflix' }),
-      makeContract({ id: 8, name: 'Spotify' }),
+      buildContract({ id: 7, name: 'Netflix' }),
+      buildContract({ id: 8, name: 'Spotify' }),
     ]
     expect(ids(filterContracts(named, { text: ' netflix ' }))).toEqual([7])
   })
 
-  it('filters by account', () => {
-    expect(ids(filterContracts(all, { account_ids: [10] }))).toEqual([1, 3, 5])
-  })
-
-  it('treats a present-but-empty facet as "none selected" (matches nothing)', () => {
-    expect(ids(filterContracts(all, { account_ids: [] }))).toEqual([])
-  })
-
-  it('treats an absent facet as inactive (matches everything)', () => {
-    expect(ids(filterContracts(all, { account_ids: undefined }))).toEqual([1, 2, 3, 4, 5])
-  })
-
-  it('falls back to the default accounts when no explicit account filter is set', () => {
-    expect(ids(filterContracts(all, { account_ids: undefined }, [10]))).toEqual([1, 3, 5])
-  })
-
-  it('an explicit account filter overrides the default fallback', () => {
-    expect(ids(filterContracts(all, { account_ids: [20] }, [10]))).toEqual([2, 4])
-  })
-
-  it('filters by category and excludes contracts without one', () => {
-    expect(ids(filterContracts(all, { categories: ['RENT', 'SALARY'] }))).toEqual([2, 3])
-  })
-
-  it('filters by frequency', () => {
-    expect(ids(filterContracts(all, { frequencies: ['YEARLY'] }))).toEqual([4])
-  })
-
-  it("matches contracts without a turnus via the 'NONE' facet value", () => {
-    expect(ids(filterContracts(all, { frequencies: ['NONE'] }))).toEqual([5])
-    expect(ids(filterContracts(all, { frequencies: ['YEARLY', 'NONE'] }))).toEqual([4, 5])
-  })
-
-  it('filters by signed amount range', () => {
-    // Expenses between -1000 and -40 -> rent (-900) and insurance (-50).
-    expect(ids(filterContracts(all, { amount_from: -1000, amount_to: -40 }))).toEqual([3, 4])
-  })
-
-  it('drops contracts below the lower bound, including those without a median', () => {
-    const noMedian = makeContract({ id: 7, median_amount: null })
-    expect(ids(filterContracts([...all, noMedian], { amount_from: -60 }))).toEqual([1, 2, 4, 5])
-  })
-
-  it('excludes contracts without a median when an amount bound is set', () => {
-    const noMedian = makeContract({ id: 7, median_amount: null })
-    expect(ids(filterContracts([...all, noMedian], { amount_to: 10000 }))).toEqual([1, 2, 3, 4, 5])
-  })
-
-  it('combines facets with AND', () => {
-    expect(ids(filterContracts(all, { account_ids: [10], categories: ['RENT'] }))).toEqual([3])
+  it.each<[string, ContractFilters, number[]]>([
+    [
+      'drops contracts below the lower bound, including those without a median',
+      { amount_from: -60 },
+      [1, 2, 4, 5],
+    ],
+    [
+      'excludes contracts without a median when an amount bound is set',
+      { amount_to: 10000 },
+      [1, 2, 3, 4, 5],
+    ],
+  ])('%s', (_, filters, expected) => {
+    expect(ids(filterContracts([...all, noMedian], filters))).toEqual(expected)
   })
 
   it('filters by the overdue facet', () => {
-    const overdueRent = makeContract({ id: 6, is_overdue: true })
+    const overdueRent = buildContract({ id: 6, is_overdue: true })
     const pool = [...all, overdueRent]
     expect(ids(filterContracts(pool, { overdue: ['OVERDUE'] }))).toEqual([6])
     expect(ids(filterContracts(pool, { overdue: ['CURRENT'] }))).toEqual([1, 2, 3, 4, 5])
@@ -151,7 +142,7 @@ describe('filterContracts', () => {
   })
 
   it('hides archived contracts by default, showing them only via the status facet', () => {
-    const archived = makeContract({ id: 6, is_archived: true })
+    const archived = buildContract({ id: 6, is_archived: true })
     const pool = [...all, archived]
     expect(ids(filterContracts(pool, {}))).toEqual([1, 2, 3, 4, 5])
     expect(ids(filterContracts(pool, { status: ['ARCHIVED'] }))).toEqual([6])
@@ -162,68 +153,51 @@ describe('filterContracts', () => {
 })
 
 describe('hasActiveContractFilters', () => {
-  it('is false for an empty filter object', () => {
-    expect(hasActiveContractFilters({})).toBe(false)
-  })
-
-  it('is true for a present-but-empty facet ("none selected")', () => {
-    expect(hasActiveContractFilters({ account_ids: [] })).toBe(true)
-  })
-
-  it('is true when a facet has a value', () => {
-    expect(hasActiveContractFilters({ frequencies: ['MONTHLY'] })).toBe(true)
-  })
-
-  it('is true when only an amount bound is set', () => {
-    expect(hasActiveContractFilters({ amount_from: 0 })).toBe(true)
-  })
-
-  it('is true when the overdue or status facet is set', () => {
-    expect(hasActiveContractFilters({ overdue: ['OVERDUE'] })).toBe(true)
-    expect(hasActiveContractFilters({ status: ['ARCHIVED'] })).toBe(true)
-    expect(hasActiveContractFilters({ overdue: undefined })).toBe(false)
+  it.each<[string, ContractFilters, boolean]>([
+    ['is false for an empty filter object', {}, false],
+    ['is true for a present-but-empty facet ("none selected")', { account_ids: [] }, true],
+    ['is true when a facet has a value', { frequencies: ['MONTHLY'] }, true],
+    ['is true when only an amount bound is set', { amount_from: 0 }, true],
+    ['is true when the overdue facet is set', { overdue: ['OVERDUE'] }, true],
+    ['is true when the status facet is set', { status: ['ARCHIVED'] }, true],
+    ['is false when the overdue facet is explicitly undefined', { overdue: undefined }, false],
+  ])('%s', (_, filters, expected) => {
+    expect(hasActiveContractFilters(filters)).toBe(expected)
   })
 })
 
 describe('monthsOverdue', () => {
   const now = new Date('2026-06-28T12:00:00')
 
-  it('counts only whole calendar months', () => {
-    expect(monthsOverdue('2026-02-24', now)).toBe(4)
-  })
-
-  it('does not count a partial final month', () => {
-    expect(monthsOverdue('2026-04-30', now)).toBe(1)
-  })
-
-  it('is zero for a future or same-day date', () => {
-    expect(monthsOverdue('2026-08-01', now)).toBe(0)
-    expect(monthsOverdue('2026-06-28', now)).toBe(0)
-  })
-
-  it('is zero for an unparseable date', () => {
-    expect(monthsOverdue('not-a-date', now)).toBe(0)
+  it.each([
+    ['counts only whole calendar months', '2026-02-24', 4],
+    ['does not count a partial final month', '2026-04-30', 1],
+    ['is zero for a future date', '2026-08-01', 0],
+    ['is zero for a same-day date', '2026-06-28', 0],
+    ['is zero for an unparseable date', 'not-a-date', 0],
+  ])('%s', (_, date, expected) => {
+    expect(monthsOverdue(date, now)).toBe(expected)
   })
 })
 
 describe('overdueDuration', () => {
   const now = new Date('2026-06-28T12:00:00')
 
-  it('reports days below two weeks (at least one)', () => {
-    expect(overdueDuration('2026-06-22', now)).toEqual({ unit: 'days', count: 6 })
-    expect(overdueDuration('2026-06-28', now)).toEqual({ unit: 'days', count: 1 })
-  })
-
-  it('reports whole weeks from two weeks up to two months', () => {
-    expect(overdueDuration('2026-06-07', now)).toEqual({ unit: 'weeks', count: 3 })
-  })
-
-  it('reports whole months beyond two months', () => {
-    expect(overdueDuration('2026-02-24', now)).toEqual({ unit: 'months', count: 4 })
+  it.each([
+    ['reports days below two weeks', '2026-06-22', { unit: 'days', count: 6 }],
+    ['reports at least one day', '2026-06-28', { unit: 'days', count: 1 }],
+    [
+      'reports whole weeks from two weeks up to two months',
+      '2026-06-07',
+      { unit: 'weeks', count: 3 },
+    ],
+    ['reports whole months beyond two months', '2026-02-24', { unit: 'months', count: 4 }],
+  ])('%s', (_, date, expected) => {
+    expect(overdueDuration(date, now)).toEqual(expected)
   })
 })
 
-const projected = makeContract({
+const projected = buildContract({
   amount_per_day: -1,
   amount_per_frequency: { WEEKLY: -7, BIWEEKLY: -14, MONTHLY: -30, QUARTERLY: -91, YEARLY: -365 },
 })
@@ -240,7 +214,7 @@ describe('contractAmountForPeriod', () => {
   })
 
   it('returns null when the projection is missing', () => {
-    const bare = makeContract({ amount_per_day: null, amount_per_frequency: null })
+    const bare = buildContract({ amount_per_day: null, amount_per_frequency: null })
     expect(contractAmountForPeriod(bare, 'DAY')).toBeNull()
     expect(contractAmountForPeriod(bare, 'MONTHLY')).toBeNull()
   })
@@ -248,15 +222,15 @@ describe('contractAmountForPeriod', () => {
 
 describe('sumContractsForPeriod', () => {
   it('sums the period amount across contracts, ignoring those without a value', () => {
-    const a = makeContract({
+    const a = buildContract({
       id: 1,
       amount_per_frequency: { WEEKLY: 0, BIWEEKLY: 0, MONTHLY: -30, QUARTERLY: 0, YEARLY: 0 },
     })
-    const b = makeContract({
+    const b = buildContract({
       id: 2,
       amount_per_frequency: { WEEKLY: 0, BIWEEKLY: 0, MONTHLY: -50, QUARTERLY: 0, YEARLY: 0 },
     })
-    const missing = makeContract({ id: 3, amount_per_frequency: null })
+    const missing = buildContract({ id: 3, amount_per_frequency: null })
     expect(sumContractsForPeriod([a, b, missing], 'MONTHLY')).toBe(-80)
   })
 
@@ -265,30 +239,16 @@ describe('sumContractsForPeriod', () => {
   })
 })
 
-function renderWithClient<T>(hook: () => T, client = new QueryClient()) {
-  const wrapper = ({ children }: { children: ReactNode }) =>
-    createElement(QueryClientProvider, { client }, children)
-  return renderHook(hook, { wrapper })
-}
-
 describe('useContracts', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
   it('loads only active contracts unless archived ones are requested', async () => {
-    const fetchMock = vi.fn<typeof fetch>(
-      async () =>
-        new Response(JSON.stringify([netflix]), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ status: 200, body: [netflix] }),
     )
     vi.stubGlobal('fetch', fetchMock)
     const client = new QueryClient()
 
-    const active = renderWithClient(() => useContracts(), client)
-    const withArchived = renderWithClient(() => useContracts(true), client)
+    const active = renderHookWithClient(() => useContracts(), client)
+    const withArchived = renderHookWithClient(() => useContracts(true), client)
 
     await waitFor(() => expect(active.result.current.data).toEqual([netflix]))
     await waitFor(() => expect(withArchived.result.current.data).toEqual([netflix]))
@@ -300,16 +260,12 @@ describe('useContracts', () => {
 })
 
 describe('useSetTransactionContract', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
   it('assigns an unassigned transaction via POST and refreshes the target contract', async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => new Response('{}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
     const client = new QueryClient()
     client.setQueryData(contractQueryKeys.detail(3), { id: 3 })
-    const { result } = renderWithClient(() => useSetTransactionContract(), client)
+    const { result } = renderHookWithClient(() => useSetTransactionContract(), client)
 
     await act(async () => {
       await result.current.mutateAsync({ transactionId: 5, fromContractId: null, toContractId: 3 })
@@ -326,9 +282,7 @@ describe('useSetTransactionContract', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 200 })))
     const client = new QueryClient()
     client.setQueryData(transactionQueryKeys.byId(5), { id: 5, contract_id: 3 })
-    const wrapper = ({ children }: { children: ReactNode }) =>
-      createElement(QueryClientProvider, { client }, children)
-    const { result } = renderHook(() => useSetTransactionContract(), { wrapper })
+    const { result } = renderHookWithClient(() => useSetTransactionContract(), client)
 
     await act(async () => {
       await result.current.mutateAsync({ transactionId: 5, fromContractId: 3, toContractId: null })

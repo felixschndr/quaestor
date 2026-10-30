@@ -1,6 +1,6 @@
 import { cloneElement, type ReactElement } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('recharts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('recharts')>()
@@ -64,10 +64,6 @@ const tickLabels = (container: HTMLElement) =>
   Array.from(container.querySelectorAll('.recharts-cartesian-axis-tick-value')).map(
     (tick) => tick.textContent,
   )
-
-beforeEach(() => {
-  navigate.mockClear()
-})
 
 describe('ContractTimeline', () => {
   it('plots the counted payments oldest first, skipping excluded ones', () => {

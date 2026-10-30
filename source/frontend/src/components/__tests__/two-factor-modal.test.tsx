@@ -14,6 +14,7 @@ import {
   DEVICE_CODE,
   SECOND_DEVICE_CODE,
 } from '@/test/constants'
+import { twoFactor } from '@/test/syncTestHelpers'
 
 beforeAll(async () => {
   await i18n.changeLanguage('en')
@@ -39,53 +40,28 @@ describe('TwoFactorModal', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('renders code-entry form for awaiting_2fa', async () => {
+  it('renders code-entry form for awaiting_2fa, describing the sent Trade Republic code', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     renderModal({
-      current2fa: {
-        credentialId: 1,
-        jobId: 'j',
-        bank: 'trade_republic',
-        bankName: null,
-        bankIcon: null,
-        kind: 'awaiting_2fa',
-      },
+      current2fa: twoFactor(),
       onSubmit,
     })
     expect(screen.getByRole('dialog')).toBeVisible()
     expect(screen.getByText(/Enter code for Trade Republic/i)).toBeVisible()
+    expect(screen.getByText(/sent a confirmation code/i)).toBeVisible()
     const input = screen.getByLabelText('Code')
     await userEvent.type(input, '123456')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
     expect(onSubmit).toHaveBeenCalledWith('123456')
   })
 
-  it('describes the sent confirmation code for Trade Republic', () => {
-    renderModal({
-      current2fa: {
-        credentialId: 1,
-        jobId: 'j',
-        bank: 'trade_republic',
-        bankName: null,
-        bankIcon: null,
-        kind: 'awaiting_2fa',
-      },
-    })
-    expect(screen.getByText(/sent a confirmation code/i)).toBeVisible()
-  })
-
   it('renders a no-code confirm button with the authorization link for scalable_capital', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     renderModal({
-      current2fa: {
-        credentialId: 1,
-        jobId: 'j',
+      current2fa: twoFactor({
         bank: 'scalable_capital',
-        bankName: null,
-        bankIcon: null,
-        kind: 'awaiting_2fa',
         authorizationUrl: AUTHORIZATION_URL_WITH_CODE,
-      },
+      }),
       onSubmit,
     })
     expect(screen.getByRole('dialog')).toBeVisible()
@@ -101,30 +77,18 @@ describe('TwoFactorModal', () => {
 
   it('prefers the device code reported by the backend over the one in the URL', () => {
     renderModal({
-      current2fa: {
-        credentialId: 1,
-        jobId: 'j',
+      current2fa: twoFactor({
         bank: 'scalable_capital',
-        bankName: null,
-        bankIcon: null,
-        kind: 'awaiting_2fa',
         authorizationUrl: AUTHORIZATION_URL,
         deviceCode: SECOND_DEVICE_CODE,
-      },
+      }),
     })
     expect(screen.getByText(SECOND_DEVICE_CODE)).toBeVisible()
   })
 
   it('renders a neutral spinner without submit while confirming', () => {
     renderModal({
-      current2fa: {
-        credentialId: 1,
-        jobId: 'j',
-        bank: 'trade_republic',
-        bankName: null,
-        bankIcon: null,
-        kind: 'confirming',
-      },
+      current2fa: twoFactor({ kind: 'confirming' }),
     })
     expect(screen.getByText(/finishing the sign-in/i)).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
@@ -133,14 +97,11 @@ describe('TwoFactorModal', () => {
 
   it('renders spinner without submit for awaiting_decoupled_approval', () => {
     renderModal({
-      current2fa: {
-        credentialId: 1,
-        jobId: 'j',
+      current2fa: twoFactor({
         bank: 'fints',
         bankName: 'DKB',
-        bankIcon: null,
         kind: 'awaiting_decoupled_approval',
-      },
+      }),
     })
     expect(screen.getByText(/Approve in DKB/i)).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
@@ -152,14 +113,7 @@ describe('TwoFactorModal', () => {
   it('calls onSkip when the close button is clicked', async () => {
     const onSkip = vi.fn()
     renderModal({
-      current2fa: {
-        credentialId: 1,
-        jobId: 'j',
-        bank: 'trade_republic',
-        bankName: null,
-        bankIcon: null,
-        kind: 'awaiting_2fa',
-      },
+      current2fa: twoFactor(),
       onSkip,
     })
     await userEvent.click(screen.getByRole('button', { name: 'Close' }))
@@ -169,14 +123,7 @@ describe('TwoFactorModal', () => {
   it('ignores Escape — cancelling kills the sync job, so it needs the X', async () => {
     const onSkip = vi.fn()
     renderModal({
-      current2fa: {
-        credentialId: 1,
-        jobId: 'j',
-        bank: 'trade_republic',
-        bankName: null,
-        bankIcon: null,
-        kind: 'awaiting_decoupled_approval',
-      },
+      current2fa: twoFactor({ kind: 'awaiting_decoupled_approval' }),
       onSkip,
     })
     await userEvent.keyboard('{Escape}')
@@ -187,15 +134,11 @@ describe('TwoFactorModal', () => {
   it('links to the sign-in page and takes the pasted code as text', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     renderModal({
-      current2fa: {
-        credentialId: 1,
-        jobId: 'j',
+      current2fa: twoFactor({
         bank: 'fints',
         bankName: 'DKB',
-        bankIcon: null,
-        kind: 'awaiting_2fa',
         authorizationUrl: AUTHORIZATION_URL,
-      },
+      }),
       onSubmit,
     })
     expect(screen.getByText(/Sign in at DKB via the link/)).toBeVisible()
@@ -216,14 +159,7 @@ describe('TwoFactorModal', () => {
   it('ignores clicks outside the dialog — cancelling kills the sync job', async () => {
     const onSkip = vi.fn()
     renderModal({
-      current2fa: {
-        credentialId: 1,
-        jobId: 'j',
-        bank: 'trade_republic',
-        bankName: null,
-        bankIcon: null,
-        kind: 'awaiting_2fa',
-      },
+      current2fa: twoFactor(),
       onSkip,
     })
     await userEvent.click(document.querySelector('[data-slot="dialog-overlay"]')!)
@@ -233,14 +169,7 @@ describe('TwoFactorModal', () => {
 
   it('clears typed code when the active credential changes (skip-then-next)', async () => {
     const { rerender } = renderModal({
-      current2fa: {
-        credentialId: 1,
-        jobId: 'job-1',
-        bank: 'trade_republic',
-        bankName: null,
-        bankIcon: null,
-        kind: 'awaiting_2fa',
-      },
+      current2fa: twoFactor(),
     })
     const initialInput = screen.getByLabelText('Code') as HTMLInputElement
     await userEvent.type(initialInput, '123456')
@@ -248,14 +177,7 @@ describe('TwoFactorModal', () => {
 
     rerender(
       <TwoFactorModal
-        current2fa={{
-          credentialId: 2,
-          jobId: 'job-2',
-          bank: 'fints',
-          bankName: 'DKB',
-          bankIcon: null,
-          kind: 'awaiting_2fa',
-        }}
+        current2fa={twoFactor({ credentialId: 2, jobId: 'job-2', bank: 'fints', bankName: 'DKB' })}
         onSubmit={async () => {}}
         onSkip={() => {}}
       />,

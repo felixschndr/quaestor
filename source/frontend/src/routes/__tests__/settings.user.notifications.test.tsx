@@ -1,7 +1,7 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient } from '@tanstack/react-query'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
 
 import i18n from 'i18next'
@@ -26,12 +26,12 @@ vi.mock('@/lib/accountGroups', async (importOriginal) => ({
 import { SettingsNotificationsView } from '@/pages/settings.user.notifications'
 import { Route } from '@/routes/settings.user.notifications'
 import { ApiError } from '@/lib/api'
-import type { AccountRead, CredentialRead } from '@/lib/auth'
 import type { NotificationRule } from '@/lib/notificationRules'
 import { sendTestNotification, type TestOutcome } from '@/lib/push'
 import { settingsQueryKey, type AppSettings } from '@/lib/settings'
 import { CATEGORIES_BY_GROUP, TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from '@/lib/transaction'
-import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { buildUser, jsonResponse, renderWithQuery } from '@/test/helpers'
+import { buildAccount, buildCredential } from '@/test/statsFixtures'
 import {
   ACCOUNT_NAME_CHECKING,
   ACCOUNT_NAME_SAVINGS,
@@ -68,33 +68,11 @@ const SETTINGS: AppSettings = {
   default_digest_weekday: DEFAULT_DIGEST_WEEKDAY,
 }
 
-function buildAccount(id: number, name: string): AccountRead {
-  return {
-    id,
-    name,
-    display_name: null,
-    balance: 0,
-    balance_factor: 100,
-    is_archived: false,
-    include_by_default: true,
-    is_market_valued: false,
-  }
-}
-
-const CREDENTIALS: CredentialRead[] = [
-  {
-    id: 1,
-    bank: 'ing',
-    bank_name: null,
-    bank_icon: null,
-    accounts: [
-      buildAccount(CHECKING_ID, ACCOUNT_NAME_CHECKING),
-      buildAccount(SAVINGS_ID, ACCOUNT_NAME_SAVINGS),
-    ],
-    last_successful_sync_timestamp: null,
-    requires_two_factor_authentication: false,
-    sync_enabled: true,
-  },
+const CREDENTIALS = [
+  buildCredential([
+    buildAccount({ id: CHECKING_ID, name: ACCOUNT_NAME_CHECKING }),
+    buildAccount({ id: SAVINGS_ID, name: ACCOUNT_NAME_SAVINGS }),
+  ]),
 ]
 
 function buildRule(
@@ -155,10 +133,9 @@ async function renderPage(
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   if (settings) queryClient.setQueryData(settingsQueryKey, settings)
-  render(
-    <QueryClientProvider client={queryClient}>
-      <SettingsNotificationsView user={buildUser({ credentials: CREDENTIALS })} />
-    </QueryClientProvider>,
+  renderWithQuery(
+    <SettingsNotificationsView user={buildUser({ credentials: CREDENTIALS })} />,
+    queryClient,
   )
   await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
   return { fetchMock, user: userEvent.setup() }
@@ -196,11 +173,6 @@ beforeEach(async () => {
   await i18n.changeLanguage('en')
   toast.success.mockReset()
   toast.error.mockReset()
-})
-
-afterEach(() => {
-  vi.restoreAllMocks()
-  vi.unstubAllGlobals()
 })
 
 describe('SettingsNotificationsView — rule list', () => {

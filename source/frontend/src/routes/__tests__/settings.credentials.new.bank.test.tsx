@@ -1,7 +1,7 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient } from '@tanstack/react-query'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
 import { toast } from 'sonner'
 
@@ -20,7 +20,15 @@ import { NO_CODE_PLACEHOLDER } from '@/lib/credentials'
 import type { SupportedBank, SyncJob } from '@/lib/credentials'
 import { authQueryKeys } from '@/lib/auth'
 import { routeState } from './-routerMock'
-import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import {
+  bodyOf,
+  buildUser,
+  jsonResponse,
+  renderWithQuery,
+  requestsTo,
+  serve,
+  type Served,
+} from '@/test/helpers'
 import { openPopoverOptions, selectFromPopover } from '@/test/popover-select'
 import {
   AUTHORIZATION_URL,
@@ -126,1422 +134,6 @@ const MANUAL_BANK: SupportedBank = {
   blzs: [],
 }
 
-let polledJob: SyncJob | null = null
-
-function pollBranch(url: string, init?: { method?: string }): Promise<Response> | null {
-  if ((init?.method ?? 'GET') === 'GET' && /\/sync\/[^/?]+$/.test(url)) {
-    return Promise.resolve(jsonResponse({ status: polledJob ? 200 : 404, body: polledJob }))
-  }
-  return null
-}
-
-async function waitForFirstPoll(): Promise<void> {
-  await waitFor(() =>
-    expect(
-      (globalThis.fetch as Mock).mock.calls.some(
-        ([u, i]) =>
-          typeof u === 'string' && /\/sync\/[^/?]+$/.test(u) && (i?.method ?? 'GET') === 'GET',
-      ),
-    ).toBe(true),
-  )
-}
-
-async function pushJob(
-  message: Partial<SyncJob> & Pick<SyncJob, 'job_id' | 'credential_id' | 'status'>,
-): Promise<void> {
-  polledJob = { expires_at: null, error: null, error_code: null, ...message }
-  await act(async () => {
-    document.dispatchEvent(new Event('visibilitychange'))
-  })
-}
-
-beforeEach(() => {
-  routerPush.mockClear()
-  globalThis.fetch = vi.fn() as unknown as typeof fetch
-  polledJob = null
-  document.cookie = ''
-})
-
-afterEach(() => {
-  vi.restoreAllMocks()
-})
-
-describe('NewCredentialFormView', () => {
-  it('renders one input per required_field with the localised label', () => {
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="ing"
-        bank={ING_BANK}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={vi.fn()}
-        onSyncFailed={vi.fn()}
-      />,
-    )
-
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Connect ING')
-    expect(screen.getByLabelText('Username')).toBeInTheDocument()
-    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
-    expect(screen.queryByLabelText('Customer number')).not.toBeInTheDocument()
-  })
-
-  it('renders DFS with only username + password', () => {
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="dfs"
-        bank={DFS_BANK}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={vi.fn()}
-        onSyncFailed={vi.fn()}
-      />,
-    )
-
-    expect(screen.getByLabelText('Username')).toBeInTheDocument()
-    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
-    expect(screen.queryByLabelText('Customer number')).not.toBeInTheDocument()
-  })
-
-  it('renders the loading state while the supported_banks query is in flight', () => {
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="ing"
-        bank={undefined}
-        isLoading={true}
-        onCancel={vi.fn()}
-        onConnected={vi.fn()}
-        onSyncFailed={vi.fn()}
-      />,
-    )
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
-  })
-
-  it('shows an unknown-bank fallback with a back button when the URL points to a non-existent bank', async () => {
-    const user = userEvent.setup()
-    const onCancel = vi.fn()
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="not-a-real-bank"
-        bank={undefined}
-        isLoading={false}
-        onCancel={onCancel}
-        onConnected={vi.fn()}
-        onSyncFailed={vi.fn()}
-      />,
-    )
-    await user.click(screen.getByRole('button', { name: 'Back' }))
-    expect(onCancel).toHaveBeenCalledTimes(1)
-  })
-
-  it('asks for the country when an Enable Banking institution exists in several countries', () => {
-    const ebBank: SupportedBank = {
-      provider: 'enable_banking',
-      key: 'eb-PayPal',
-      name: 'PayPal',
-      bic: null,
-      icon: null,
-      tested: true,
-      required_fields: ['private_key'],
-      blzs: [],
-      countries: ['DE', 'FR'],
-    }
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="eb-PayPal"
-        bank={ebBank}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={vi.fn()}
-        onSyncFailed={vi.fn()}
-      />,
-    )
-    expect(screen.getByLabelText('Country')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Connect and sync' })).toBeDisabled()
-  })
-
-  it('does not ask for the country when the institution exists in a single country', () => {
-    const ebBank: SupportedBank = {
-      provider: 'enable_banking',
-      key: 'eb-Nordea',
-      name: 'Nordea',
-      bic: null,
-      icon: null,
-      tested: true,
-      required_fields: ['private_key'],
-      blzs: [],
-      countries: ['FI'],
-    }
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="eb-Nordea"
-        bank={ebBank}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={vi.fn()}
-        onSyncFailed={vi.fn()}
-      />,
-    )
-    expect(screen.queryByLabelText('Country')).not.toBeInTheDocument()
-  })
-
-  it('creates the credential, starts the sync, and routes to onConnected when the WS reports completed', async () => {
-    const user = userEvent.setup()
-    const fetchMock = globalThis.fetch as Mock
-    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-      const poll = pollBranch(url, init)
-      if (poll) return poll
-      if (url === '/api/credentials' && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 201,
-            body: {
-              id: 42,
-              bank: 'ing',
-              accounts: [],
-              last_successful_sync_timestamp: null,
-              requires_two_factor_authentication: false,
-              sync_enabled: true,
-            },
-          }),
-        )
-      }
-      if (url === '/api/credentials/42/sync' && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 202,
-            body: {
-              job_id: 'job-abc',
-              credential_id: 42,
-              status: 'running',
-              expires_at: null,
-              error: null,
-            },
-          }),
-        )
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-    })
-    const onConnected = vi.fn()
-    const onSyncFailed = vi.fn()
-
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="ing"
-        bank={ING_BANK}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={onConnected}
-        onSyncFailed={onSyncFailed}
-      />,
-    )
-    await user.type(screen.getByLabelText('Username'), 'alice')
-    await user.type(screen.getByLabelText('Password'), 'hunter2')
-    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-    await waitForFirstPoll()
-    await pushJob({
-      job_id: 'job-abc',
-      credential_id: 42,
-      status: 'completed',
-      expires_at: null,
-      error: null,
-    })
-
-    await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
-    expect(onSyncFailed).not.toHaveBeenCalled()
-  })
-
-  it('creates a manual credential without starting a sync', async () => {
-    const user = userEvent.setup()
-    const fetchMock = globalThis.fetch as Mock
-    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-      if (url === '/api/credentials' && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 201,
-            body: {
-              id: 7,
-              bank: 'manual',
-              accounts: [],
-              last_successful_sync_timestamp: null,
-              requires_two_factor_authentication: false,
-              sync_enabled: true,
-            },
-          }),
-        )
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-    })
-    const onConnected = vi.fn()
-    const onSyncFailed = vi.fn()
-
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="manual"
-        bank={MANUAL_BANK}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={onConnected}
-        onSyncFailed={onSyncFailed}
-      />,
-    )
-    await user.click(screen.getByRole('button', { name: 'Create' }))
-
-    await waitFor(() => expect(onConnected).toHaveBeenCalledWith(7))
-    expect(onSyncFailed).not.toHaveBeenCalled()
-    expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/sync'))).toBe(false)
-  })
-
-  it('deletes the credential when the user abandons the setup while the job is pending', async () => {
-    const user = userEvent.setup()
-    const fetchMock = globalThis.fetch as Mock
-    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-      const poll = pollBranch(url, init)
-      if (poll) return poll
-      if (url === '/api/credentials' && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 201,
-            body: {
-              id: 42,
-              bank: 'ing',
-              accounts: [],
-              last_successful_sync_timestamp: null,
-              requires_two_factor_authentication: false,
-              sync_enabled: true,
-            },
-          }),
-        )
-      }
-      if (url === '/api/credentials/42/sync' && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 202,
-            body: {
-              job_id: 'job-abc',
-              credential_id: 42,
-              status: 'running',
-              expires_at: null,
-              error: null,
-            },
-          }),
-        )
-      }
-      if (url === '/api/credentials/42' && init?.method === 'DELETE') {
-        return Promise.resolve(jsonResponse({ status: 204, body: null }))
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-    })
-
-    const { unmount } = renderWithQuery(
-      <NewCredentialFormView
-        bankKey="ing"
-        bank={ING_BANK}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={vi.fn()}
-        onSyncFailed={vi.fn()}
-      />,
-    )
-    await user.type(screen.getByLabelText('Username'), 'alice')
-    await user.type(screen.getByLabelText('Password'), 'hunter2')
-    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-    await waitForFirstPoll()
-    await pushJob({
-      job_id: 'job-abc',
-      credential_id: 42,
-      status: 'awaiting_2fa',
-      expires_at: null,
-      error: null,
-    })
-    await screen.findByLabelText('Code')
-
-    unmount()
-    await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.some(
-          ([url, init]) => url === '/api/credentials/42' && init?.method === 'DELETE',
-        ),
-      ).toBe(true),
-    )
-  })
-
-  it('bounces back to onSyncFailed when the WS reports failed', async () => {
-    const user = userEvent.setup()
-    const fetchMock = globalThis.fetch as Mock
-    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-      const poll = pollBranch(url, init)
-      if (poll) return poll
-      if (url === '/api/credentials' && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 201,
-            body: {
-              id: 11,
-              bank: 'ing',
-              accounts: [],
-              last_successful_sync_timestamp: null,
-              requires_two_factor_authentication: false,
-              sync_enabled: true,
-            },
-          }),
-        )
-      }
-      if (url === '/api/credentials/11/sync' && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 202,
-            body: {
-              job_id: 'job-x',
-              credential_id: 11,
-              status: 'running',
-              expires_at: null,
-              error: null,
-            },
-          }),
-        )
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-    })
-    const onConnected = vi.fn()
-    const onSyncFailed = vi.fn()
-
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="ing"
-        bank={ING_BANK}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={onConnected}
-        onSyncFailed={onSyncFailed}
-      />,
-    )
-    await user.type(screen.getByLabelText('Username'), 'alice')
-    await user.type(screen.getByLabelText('Password'), 'hunter2')
-    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-    await waitForFirstPoll()
-    await pushJob({
-      job_id: 'job-x',
-      credential_id: 11,
-      status: 'failed',
-      expires_at: null,
-      error: 'bank unreachable',
-    })
-
-    await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
-    expect(onConnected).not.toHaveBeenCalled()
-    // A generic (non-credential) failure is transient — the credential is kept so the user can retry.
-    expect(
-      fetchMock.mock.calls.some(
-        ([url, init]) => url === '/api/credentials/11' && init?.method === 'DELETE',
-      ),
-    ).toBe(false)
-  })
-
-  it('shows a dedicated message when the WS reports failed with invalid_credentials', async () => {
-    const user = userEvent.setup()
-    const { toast } = await import('sonner')
-    const toastError = vi.spyOn(toast, 'error').mockImplementation(() => 'toast-id' as never)
-    const fetchMock = globalThis.fetch as Mock
-    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-      const poll = pollBranch(url, init)
-      if (poll) return poll
-      if (url === '/api/credentials' && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 201,
-            body: {
-              id: 11,
-              bank: 'ing',
-              accounts: [],
-              last_successful_sync_timestamp: null,
-              requires_two_factor_authentication: false,
-              sync_enabled: true,
-            },
-          }),
-        )
-      }
-      if (url === '/api/credentials/11/sync' && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 202,
-            body: {
-              job_id: 'job-x',
-              credential_id: 11,
-              status: 'running',
-              expires_at: null,
-              error: null,
-            },
-          }),
-        )
-      }
-      if (url === '/api/credentials/11' && init?.method === 'DELETE') {
-        return Promise.resolve(new Response(null, { status: 204 }))
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-    })
-    const onSyncFailed = vi.fn()
-
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="ing"
-        bank={ING_BANK}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={vi.fn()}
-        onSyncFailed={onSyncFailed}
-      />,
-    )
-    await user.type(screen.getByLabelText('Username'), 'alice')
-    await user.type(screen.getByLabelText('Password'), 'wrong-pin')
-    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-    await waitForFirstPoll()
-    await pushJob({
-      job_id: 'job-x',
-      credential_id: 11,
-      status: 'failed',
-      error: 'The bank rejected the login',
-      error_code: 'invalid_credentials',
-    })
-
-    await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.some(
-          ([url, init]) => url === '/api/credentials/11' && init?.method === 'DELETE',
-        ),
-      ).toBe(true),
-    )
-    expect(toastError).toHaveBeenCalledTimes(1)
-    expect(toastError.mock.calls[0][0]).toMatch(/check your username and password/i)
-    expect(onSyncFailed).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Connect and sync' })).toBeEnabled()
-  })
-
-  it('bounces back to onSyncFailed when starting the sync itself errors', async () => {
-    const user = userEvent.setup()
-    const fetchMock = globalThis.fetch as Mock
-    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-      const poll = pollBranch(url, init)
-      if (poll) return poll
-      if (url === '/api/credentials' && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 201,
-            body: {
-              id: 99,
-              bank: 'ing',
-              accounts: [],
-              last_successful_sync_timestamp: null,
-              requires_two_factor_authentication: false,
-              sync_enabled: true,
-            },
-          }),
-        )
-      }
-      if (url === '/api/credentials/99/sync' && init?.method === 'POST') {
-        return Promise.resolve(jsonResponse({ status: 500, body: { detail: 'Internal' } }))
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-    })
-    const onConnected = vi.fn()
-    const onSyncFailed = vi.fn()
-
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="ing"
-        bank={ING_BANK}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={onConnected}
-        onSyncFailed={onSyncFailed}
-      />,
-    )
-    await user.type(screen.getByLabelText('Username'), 'alice')
-    await user.type(screen.getByLabelText('Password'), 'hunter2')
-    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-    await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
-    expect(onConnected).not.toHaveBeenCalled()
-  })
-
-  it('surfaces a dedicated toast and stays on the form when the backend returns 409', async () => {
-    const { toast } = await import('sonner')
-    const toastError = vi.spyOn(toast, 'error').mockImplementation(() => 'toast-id' as never)
-    const user = userEvent.setup()
-    const fetchMock = globalThis.fetch as Mock
-    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-      const poll = pollBranch(url, init)
-      if (poll) return poll
-      if (url === '/api/credentials' && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 409,
-            body: { detail: 'User 1 already has an ing credential with the same login data' },
-          }),
-        )
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-    })
-    const onConnected = vi.fn()
-    const onSyncFailed = vi.fn()
-
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="ing"
-        bank={ING_BANK}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={onConnected}
-        onSyncFailed={onSyncFailed}
-      />,
-    )
-    await user.type(screen.getByLabelText('Username'), 'alice')
-    await user.type(screen.getByLabelText('Password'), 'hunter2')
-    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-    await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1))
-    expect(toastError.mock.calls[0][0]).toMatch(/already exists/i)
-    expect(onConnected).not.toHaveBeenCalled()
-    expect(onSyncFailed).not.toHaveBeenCalled()
-    // No sync was started — the form is the only POST we made.
-    const postCalls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
-    expect(postCalls).toHaveLength(1)
-  })
-
-  it('blocks submission with an inline required-field error when a field is empty', async () => {
-    const user = userEvent.setup()
-    const fetchMock = globalThis.fetch as Mock
-    fetchMock.mockResolvedValue(jsonResponse({ status: 500, body: {} }))
-    const onConnected = vi.fn()
-
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="ing"
-        bank={ING_BANK}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={onConnected}
-        onSyncFailed={vi.fn()}
-      />,
-    )
-    await user.type(screen.getByLabelText('Username'), 'alice')
-    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-    expect(await screen.findByText('This field is required')).toBeInTheDocument()
-    expect(onConnected).not.toHaveBeenCalled()
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('blocks submission with a field error when the Trade Republic phone has no country code', async () => {
-    const user = userEvent.setup()
-    const fetchMock = globalThis.fetch as Mock
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="trade_republic"
-        bank={TR_BANK}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={vi.fn()}
-        onSyncFailed={vi.fn()}
-      />,
-    )
-    await user.type(screen.getByLabelText('Phone number'), '491512345')
-    await user.type(screen.getByLabelText('PIN'), '1234')
-    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-    // The field-level error (distinct from the bank note that also mentions "country code").
-    expect(await screen.findByText(/must start with a country code/i)).toBeInTheDocument()
-    // Client-side validation (from the backend rules) blocks the request entirely.
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('strips whitespace from the Trade Republic phone before submitting', async () => {
-    const user = userEvent.setup()
-    const fetchMock = globalThis.fetch as Mock
-    let sentCredentials: Record<string, string> | undefined
-    fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
-      const poll = pollBranch(url, init)
-      if (poll) return poll
-      if (url === '/api/credentials' && init?.method === 'POST') {
-        sentCredentials = (
-          JSON.parse(init.body as string) as { credentials: Record<string, string> }
-        ).credentials
-        return Promise.resolve(
-          jsonResponse({
-            status: 201,
-            body: {
-              id: 7,
-              bank: 'trade_republic',
-              accounts: [],
-              last_successful_sync_timestamp: null,
-              requires_two_factor_authentication: false,
-              sync_enabled: true,
-            },
-          }),
-        )
-      }
-      if (url === '/api/credentials/7/sync' && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 202,
-            body: {
-              job_id: 'job-1',
-              credential_id: 7,
-              status: 'running',
-              expires_at: null,
-              error: null,
-            },
-          }),
-        )
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-    })
-
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="trade_republic"
-        bank={TR_BANK}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={vi.fn()}
-        onSyncFailed={vi.fn()}
-      />,
-    )
-    await user.type(screen.getByLabelText('Phone number'), '+49 151 23')
-    await user.type(screen.getByLabelText('PIN'), '1234')
-    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-    await waitFor(() => expect(sentCredentials).toBeDefined())
-    // The phone is de-spaced; the PIN (not a stripped field) is sent verbatim.
-    expect(sentCredentials).toEqual({ phone: '+4915123', pin: '1234' })
-  })
-
-  it('renders the bank-specific note from i18n when one exists', () => {
-    renderWithQuery(
-      <NewCredentialFormView
-        bankKey="dfs"
-        bank={DFS_BANK}
-        isLoading={false}
-        onCancel={vi.fn()}
-        onConnected={vi.fn()}
-        onSyncFailed={vi.fn()}
-      />,
-    )
-    expect(
-      screen.getByText(/Retirement provisioning of the Deutsche Flugsicherung GmbH\./),
-    ).toBeInTheDocument()
-  })
-
-  describe('Trade Republic 2FA flow', () => {
-    function mockBackend(fetchMock: Mock, credentialId: number, jobId: string) {
-      fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
-        const poll = pollBranch(url, init)
-        if (poll) return poll
-        if (url === '/api/credentials' && init?.method === 'POST') {
-          return Promise.resolve(
-            jsonResponse({
-              status: 201,
-              body: {
-                id: credentialId,
-                bank: 'trade_republic',
-                accounts: [],
-                last_successful_sync_timestamp: null,
-                requires_two_factor_authentication: false,
-                sync_enabled: true,
-              },
-            }),
-          )
-        }
-        if (url === `/api/credentials/${credentialId}/sync` && init?.method === 'POST') {
-          return Promise.resolve(
-            jsonResponse({
-              status: 202,
-              body: {
-                job_id: jobId,
-                credential_id: credentialId,
-                status: 'running',
-                expires_at: null,
-                error: null,
-              },
-            }),
-          )
-        }
-        if (
-          url === `/api/credentials/${credentialId}/sync/${jobId}/2fa` &&
-          init?.method === 'POST'
-        ) {
-          return Promise.resolve(
-            jsonResponse({
-              status: 202,
-              body: {
-                job_id: jobId,
-                credential_id: credentialId,
-                status: 'running',
-                expires_at: null,
-                error: null,
-              },
-            }),
-          )
-        }
-        return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-      })
-    }
-
-    it('hides the code field until the WS reports awaiting_2fa', async () => {
-      const user = userEvent.setup()
-      const fetchMock = globalThis.fetch as Mock
-      mockBackend(fetchMock, 7, 'job-tr')
-
-      renderWithQuery(
-        <NewCredentialFormView
-          bankKey="trade_republic"
-          bank={TR_BANK}
-          isLoading={false}
-          onCancel={vi.fn()}
-          onConnected={vi.fn()}
-          onSyncFailed={vi.fn()}
-        />,
-      )
-
-      expect(screen.queryByLabelText('Code')).not.toBeInTheDocument()
-
-      await user.type(screen.getByLabelText('Phone number'), '+491234567890')
-      await user.type(screen.getByLabelText('PIN'), '1234')
-      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-      await waitForFirstPoll()
-
-      await pushJob({
-        job_id: 'job-tr',
-        credential_id: 7,
-        status: 'running',
-        expires_at: null,
-        error: null,
-      })
-      expect(screen.queryByLabelText('Code')).not.toBeInTheDocument()
-
-      await pushJob({
-        job_id: 'job-tr',
-        credential_id: 7,
-        status: 'awaiting_2fa',
-        expires_at: DATETIME_FAR_FUTURE,
-        error: null,
-      })
-
-      expect(await screen.findByLabelText('Code')).toBeInTheDocument()
-      expect(screen.queryByLabelText('Phone number')).not.toBeInTheDocument()
-    })
-
-    it('confirms the code and routes to onConnected after the WS pushes completed', async () => {
-      const user = userEvent.setup()
-      const fetchMock = globalThis.fetch as Mock
-      mockBackend(fetchMock, 7, 'job-tr')
-      const onConnected = vi.fn()
-      const onSyncFailed = vi.fn()
-
-      renderWithQuery(
-        <NewCredentialFormView
-          bankKey="trade_republic"
-          bank={TR_BANK}
-          isLoading={false}
-          onCancel={vi.fn()}
-          onConnected={onConnected}
-          onSyncFailed={onSyncFailed}
-        />,
-      )
-
-      await user.type(screen.getByLabelText('Phone number'), '+491234567890')
-      await user.type(screen.getByLabelText('PIN'), '1234')
-      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-      await waitForFirstPoll()
-      await pushJob({
-        job_id: 'job-tr',
-        credential_id: 7,
-        status: 'awaiting_2fa',
-        expires_at: DATETIME_FAR_FUTURE,
-        error: null,
-      })
-
-      const codeInput = await screen.findByLabelText('Code')
-      await user.type(codeInput, '4242')
-      await user.click(screen.getByRole('button', { name: 'Confirm' }))
-
-      await pushJob({
-        job_id: 'job-tr',
-        credential_id: 7,
-        status: 'completed',
-        expires_at: null,
-        error: null,
-      })
-
-      await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
-      expect(onSyncFailed).not.toHaveBeenCalled()
-
-      const confirmCall = fetchMock.mock.calls.find(
-        ([url, init]) => url === '/api/credentials/7/sync/job-tr/2fa' && init?.method === 'POST',
-      )!
-      expect(JSON.parse(confirmCall[1].body)).toEqual({ code: '4242' })
-    })
-
-    it('bounces back to onSyncFailed when submitting the code errors', async () => {
-      const user = userEvent.setup()
-      const fetchMock = globalThis.fetch as Mock
-      ;(fetchMock as Mock).mockImplementation((url: string, init?: { method?: string }) => {
-        const poll = pollBranch(url, init)
-        if (poll) return poll
-        if (url === '/api/credentials' && init?.method === 'POST') {
-          return Promise.resolve(
-            jsonResponse({
-              status: 201,
-              body: {
-                id: 7,
-                bank: 'trade_republic',
-                accounts: [],
-                last_successful_sync_timestamp: null,
-                requires_two_factor_authentication: false,
-                sync_enabled: true,
-              },
-            }),
-          )
-        }
-        if (url === '/api/credentials/7/sync' && init?.method === 'POST') {
-          return Promise.resolve(
-            jsonResponse({
-              status: 202,
-              body: {
-                job_id: 'job-tr',
-                credential_id: 7,
-                status: 'running',
-                expires_at: null,
-                error: null,
-              },
-            }),
-          )
-        }
-        if (url === '/api/credentials/7/sync/job-tr/2fa' && init?.method === 'POST') {
-          return Promise.resolve(jsonResponse({ status: 422, body: { detail: 'expired' } }))
-        }
-        return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-      })
-      const onConnected = vi.fn()
-      const onSyncFailed = vi.fn()
-
-      renderWithQuery(
-        <NewCredentialFormView
-          bankKey="trade_republic"
-          bank={TR_BANK}
-          isLoading={false}
-          onCancel={vi.fn()}
-          onConnected={onConnected}
-          onSyncFailed={onSyncFailed}
-        />,
-      )
-
-      await user.type(screen.getByLabelText('Phone number'), '+491234567890')
-      await user.type(screen.getByLabelText('PIN'), '1234')
-      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-      await waitForFirstPoll()
-      await pushJob({
-        job_id: 'job-tr',
-        credential_id: 7,
-        status: 'awaiting_2fa',
-        expires_at: DATETIME_FAR_FUTURE,
-        error: null,
-      })
-
-      const codeInput = await screen.findByLabelText('Code')
-      await user.type(codeInput, 'wrong')
-      await user.click(screen.getByRole('button', { name: 'Confirm' }))
-
-      await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
-      expect(onConnected).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('Scalable Capital no-code 2FA flow', () => {
-    function mockBackend(
-      fetchMock: Mock,
-      credentialId: number,
-      jobId: string,
-      failConfirm = false,
-    ) {
-      fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
-        const poll = pollBranch(url, init)
-        if (poll) return poll
-        if (url === '/api/credentials' && init?.method === 'POST') {
-          return Promise.resolve(
-            jsonResponse({
-              status: 201,
-              body: {
-                id: credentialId,
-                bank: 'scalable_capital',
-                accounts: [],
-                last_successful_sync_timestamp: null,
-                requires_two_factor_authentication: false,
-                sync_enabled: true,
-              },
-            }),
-          )
-        }
-        if (url === `/api/credentials/${credentialId}/sync` && init?.method === 'POST') {
-          return Promise.resolve(
-            jsonResponse({
-              status: 202,
-              body: {
-                job_id: jobId,
-                credential_id: credentialId,
-                status: 'running',
-                expires_at: null,
-                error: null,
-              },
-            }),
-          )
-        }
-        if (
-          url === `/api/credentials/${credentialId}/sync/${jobId}/2fa` &&
-          init?.method === 'POST'
-        ) {
-          if (failConfirm) return Promise.resolve(jsonResponse({ status: 422, body: {} }))
-          return Promise.resolve(
-            jsonResponse({
-              status: 202,
-              body: {
-                job_id: jobId,
-                credential_id: credentialId,
-                status: 'running',
-                expires_at: null,
-                error: null,
-              },
-            }),
-          )
-        }
-        return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-      })
-    }
-
-    it('shows an authorize link and a no-code confirm button instead of a code field', async () => {
-      const user = userEvent.setup()
-      const fetchMock = globalThis.fetch as Mock
-      mockBackend(fetchMock, 9, 'job-sc')
-
-      renderWithQuery(
-        <NewCredentialFormView
-          bankKey="scalable_capital"
-          bank={SCALABLE_CAPITAL_BANK}
-          isLoading={false}
-          onCancel={vi.fn()}
-          onConnected={vi.fn()}
-          onSyncFailed={vi.fn()}
-        />,
-      )
-
-      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-      await waitForFirstPoll()
-
-      await pushJob({
-        job_id: 'job-sc',
-        credential_id: 9,
-        status: 'awaiting_2fa',
-        expires_at: DATETIME_FAR_FUTURE,
-        error: null,
-        authorization_url: AUTHORIZATION_URL_WITH_CODE,
-      })
-
-      expect(
-        await screen.findByRole('link', { name: /sign in at scalable capital/i }),
-      ).toHaveAttribute('href', AUTHORIZATION_URL_WITH_CODE)
-      expect(screen.getByText(DEVICE_CODE)).toBeVisible()
-      expect(screen.queryByLabelText('Code')).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: "I've completed the login" })).toBeInTheDocument()
-    })
-
-    it('confirms without a code and routes to onConnected after the WS pushes completed', async () => {
-      const user = userEvent.setup()
-      const fetchMock = globalThis.fetch as Mock
-      mockBackend(fetchMock, 9, 'job-sc')
-      const onConnected = vi.fn()
-      const onSyncFailed = vi.fn()
-
-      renderWithQuery(
-        <NewCredentialFormView
-          bankKey="scalable_capital"
-          bank={SCALABLE_CAPITAL_BANK}
-          isLoading={false}
-          onCancel={vi.fn()}
-          onConnected={onConnected}
-          onSyncFailed={onSyncFailed}
-        />,
-      )
-
-      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-      await waitForFirstPoll()
-      await pushJob({
-        job_id: 'job-sc',
-        credential_id: 9,
-        status: 'awaiting_2fa',
-        expires_at: DATETIME_FAR_FUTURE,
-        error: null,
-        authorization_url: AUTHORIZATION_URL_WITH_CODE,
-      })
-
-      await user.click(screen.getByRole('button', { name: "I've completed the login" }))
-
-      await pushJob({
-        job_id: 'job-sc',
-        credential_id: 9,
-        status: 'completed',
-        expires_at: null,
-        error: null,
-      })
-
-      await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
-      expect(onSyncFailed).not.toHaveBeenCalled()
-
-      const confirmCall = fetchMock.mock.calls.find(
-        ([url, init]) => url === '/api/credentials/9/sync/job-sc/2fa' && init?.method === 'POST',
-      )!
-      expect(JSON.parse(confirmCall[1].body)).toEqual({ code: NO_CODE_PLACEHOLDER })
-    })
-
-    it('shows a waiting message instead of the connect form while confirming_2fa is in progress', async () => {
-      const user = userEvent.setup()
-      const fetchMock = globalThis.fetch as Mock
-      mockBackend(fetchMock, 9, 'job-sc')
-
-      renderWithQuery(
-        <NewCredentialFormView
-          bankKey="scalable_capital"
-          bank={SCALABLE_CAPITAL_BANK}
-          isLoading={false}
-          onCancel={vi.fn()}
-          onConnected={vi.fn()}
-          onSyncFailed={vi.fn()}
-        />,
-      )
-
-      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-      await waitForFirstPoll()
-      await pushJob({
-        job_id: 'job-sc',
-        credential_id: 9,
-        status: 'awaiting_2fa',
-        expires_at: DATETIME_FAR_FUTURE,
-        error: null,
-        authorization_url: AUTHORIZATION_URL_WITH_CODE,
-      })
-      await user.click(screen.getByRole('button', { name: "I've completed the login" }))
-
-      // confirming_2fa spans the whole first sync — must show a waiting state, not the form again.
-      await pushJob({
-        job_id: 'job-sc',
-        credential_id: 9,
-        status: 'confirming_2fa',
-        expires_at: null,
-        error: null,
-      })
-
-      expect(await screen.findByText(/Finishing up/)).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Connect and sync' })).not.toBeInTheDocument()
-      expect(
-        screen.queryByRole('button', { name: "I've completed the login" }),
-      ).not.toBeInTheDocument()
-    })
-
-    it('bounces back to onSyncFailed when the no-code confirmation errors', async () => {
-      const user = userEvent.setup()
-      const fetchMock = globalThis.fetch as Mock
-      mockBackend(fetchMock, 9, 'job-sc', true)
-      const onConnected = vi.fn()
-      const onSyncFailed = vi.fn()
-
-      renderWithQuery(
-        <NewCredentialFormView
-          bankKey="scalable_capital"
-          bank={SCALABLE_CAPITAL_BANK}
-          isLoading={false}
-          onCancel={vi.fn()}
-          onConnected={onConnected}
-          onSyncFailed={onSyncFailed}
-        />,
-      )
-
-      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-      await waitForFirstPoll()
-      await pushJob({
-        job_id: 'job-sc',
-        credential_id: 9,
-        status: 'awaiting_2fa',
-        expires_at: DATETIME_FAR_FUTURE,
-        error: null,
-        authorization_url: AUTHORIZATION_URL_WITH_CODE,
-      })
-
-      await user.click(screen.getByRole('button', { name: "I've completed the login" }))
-
-      await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
-      expect(onConnected).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('Sparkasse decoupled approval flow', () => {
-    function mockBackend(fetchMock: Mock, credentialId: number, jobId: string) {
-      fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-        const poll = pollBranch(url, init)
-        if (poll) return poll
-        if (url === '/api/credentials' && init?.method === 'POST') {
-          return Promise.resolve(
-            jsonResponse({
-              status: 201,
-              body: {
-                id: credentialId,
-                bank: 'sparkasse',
-                accounts: [],
-                last_successful_sync_timestamp: null,
-                requires_two_factor_authentication: false,
-                sync_enabled: true,
-              },
-            }),
-          )
-        }
-        if (url === `/api/credentials/${credentialId}/sync` && init?.method === 'POST') {
-          return Promise.resolve(
-            jsonResponse({
-              status: 202,
-              body: {
-                job_id: jobId,
-                credential_id: credentialId,
-                status: 'running',
-                expires_at: null,
-                error: null,
-              },
-            }),
-          )
-        }
-        return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-      })
-    }
-
-    it('shows the approval message when the sync reports awaiting_decoupled_approval', async () => {
-      const user = userEvent.setup()
-      const fetchMock = globalThis.fetch as Mock
-      mockBackend(fetchMock, 13, 'job-spk')
-
-      renderWithQuery(
-        <NewCredentialFormView
-          bankKey="66050101"
-          bank={SPARKASSE_BANK}
-          isLoading={false}
-          onCancel={vi.fn()}
-          onConnected={vi.fn()}
-          onSyncFailed={vi.fn()}
-        />,
-      )
-
-      await user.type(screen.getByLabelText('Username'), 'bankuser')
-      await user.type(screen.getByLabelText('Password'), 'secret-password')
-      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-      await waitForFirstPoll()
-      await pushJob({
-        job_id: 'job-spk',
-        credential_id: 13,
-        status: 'awaiting_decoupled_approval',
-        expires_at: null,
-        error: null,
-      })
-
-      expect(await screen.findByText(/Please approve in your banking app/)).toBeInTheDocument()
-      // The form is replaced by the waiting panel.
-      expect(screen.queryByLabelText('Username')).not.toBeInTheDocument()
-    })
-
-    it('completes the sync after the approval transitions to running and then completed', async () => {
-      const user = userEvent.setup()
-      const fetchMock = globalThis.fetch as Mock
-      mockBackend(fetchMock, 13, 'job-spk')
-      const onConnected = vi.fn()
-      const onSyncFailed = vi.fn()
-
-      renderWithQuery(
-        <NewCredentialFormView
-          bankKey="66050101"
-          bank={SPARKASSE_BANK}
-          isLoading={false}
-          onCancel={vi.fn()}
-          onConnected={onConnected}
-          onSyncFailed={onSyncFailed}
-        />,
-      )
-
-      await user.type(screen.getByLabelText('Username'), 'bankuser')
-      await user.type(screen.getByLabelText('Password'), 'secret-password')
-      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-      await waitForFirstPoll()
-      await pushJob({
-        job_id: 'job-spk',
-        credential_id: 13,
-        status: 'awaiting_decoupled_approval',
-        expires_at: null,
-        error: null,
-      })
-      expect(await screen.findByText(/Please approve in your banking app/)).toBeInTheDocument()
-
-      await pushJob({
-        job_id: 'job-spk',
-        credential_id: 13,
-        status: 'running',
-        expires_at: null,
-        error: null,
-      })
-      await pushJob({
-        job_id: 'job-spk',
-        credential_id: 13,
-        status: 'completed',
-        expires_at: null,
-        error: null,
-      })
-
-      await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
-      expect(onSyncFailed).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('grouped FinTS banks', () => {
-    function captureCreate(fetchMock: Mock, credentialId: number) {
-      let sentBody: { bank: string; credentials: Record<string, string> } | undefined
-      fetchMock.mockImplementation((url: string, init?: { method?: string; body?: string }) => {
-        const poll = pollBranch(url, init)
-        if (poll) return poll
-        if (url === '/api/credentials' && init?.method === 'POST') {
-          sentBody = JSON.parse(init.body as string)
-          return Promise.resolve(
-            jsonResponse({
-              status: 201,
-              body: {
-                id: credentialId,
-                bank: 'fints',
-                accounts: [],
-                last_successful_sync_timestamp: null,
-                requires_two_factor_authentication: false,
-                sync_enabled: true,
-              },
-            }),
-          )
-        }
-        if (url === `/api/credentials/${credentialId}/sync` && init?.method === 'POST') {
-          return Promise.resolve(
-            jsonResponse({
-              status: 202,
-              body: {
-                job_id: 'job-f',
-                credential_id: credentialId,
-                status: 'running',
-                expires_at: null,
-                error: null,
-              },
-            }),
-          )
-        }
-        return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-      })
-      return () => sentBody
-    }
-
-    it('submits a single-blz fints bank with the prefilled blz and no iban field', async () => {
-      const user = userEvent.setup()
-      const fetchMock = globalThis.fetch as Mock
-      const sentBody = captureCreate(fetchMock, 21)
-
-      renderWithQuery(
-        <NewCredentialFormView
-          bankKey="66050101"
-          bank={SPARKASSE_BANK}
-          isLoading={false}
-          onCancel={vi.fn()}
-          onConnected={vi.fn()}
-          onSyncFailed={vi.fn()}
-        />,
-      )
-
-      // A single-BLZ FinTS bank only asks for login + PIN; the BLZ is injected.
-      expect(screen.queryByLabelText('IBAN')).not.toBeInTheDocument()
-      await user.type(screen.getByLabelText('Username'), 'alice')
-      await user.type(screen.getByLabelText('Password'), 'hunter2')
-      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-      await waitFor(() => expect(sentBody()).toBeDefined())
-      expect(sentBody()).toEqual({
-        bank: 'fints',
-        credentials: { username: 'alice', password: 'hunter2', blz: '66050101' },
-      })
-    })
-
-    it('asks for an IBAN on a multi-blz bank and derives the matching blz', async () => {
-      const user = userEvent.setup()
-      const fetchMock = globalThis.fetch as Mock
-      const sentBody = captureCreate(fetchMock, 22)
-
-      renderWithQuery(
-        <NewCredentialFormView
-          bankKey="10070000"
-          bank={DEUTSCHE_BANK}
-          isLoading={false}
-          onCancel={vi.fn()}
-          onConnected={vi.fn()}
-          onSyncFailed={vi.fn()}
-        />,
-      )
-
-      await user.type(screen.getByLabelText('Username'), 'bob')
-      await user.type(screen.getByLabelText('Password'), 'hunter2')
-      // IBAN whose BLZ (chars 5-12) is 12070000 — a branch BLZ of this bank.
-      await user.type(screen.getByLabelText('IBAN'), 'DE89120700000532013000')
-      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-      await waitFor(() => expect(sentBody()).toBeDefined())
-      expect(sentBody()).toEqual({
-        bank: 'fints',
-        credentials: { username: 'bob', password: 'hunter2', blz: '12070000' },
-      })
-      // The IBAN itself is never sent to the backend.
-      expect(sentBody()!.credentials).not.toHaveProperty('iban')
-    })
-
-    it('rejects an IBAN whose blz does not belong to the bank and sends nothing', async () => {
-      const user = userEvent.setup()
-      const fetchMock = globalThis.fetch as Mock
-
-      renderWithQuery(
-        <NewCredentialFormView
-          bankKey="10070000"
-          bank={DEUTSCHE_BANK}
-          isLoading={false}
-          onCancel={vi.fn()}
-          onConnected={vi.fn()}
-          onSyncFailed={vi.fn()}
-        />,
-      )
-
-      await user.type(screen.getByLabelText('Username'), 'bob')
-      await user.type(screen.getByLabelText('Password'), 'hunter2')
-      // BLZ 50010517 is not one of this bank's branch BLZs.
-      await user.type(screen.getByLabelText('IBAN'), 'DE89500105170532013000')
-      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-
-      expect(
-        await screen.findByText(/This IBAN does not belong to the selected bank/i),
-      ).toBeInTheDocument()
-      expect(fetchMock).not.toHaveBeenCalled()
-    })
-  })
-})
-
 const NORDEA_BANK: SupportedBank = {
   provider: 'enable_banking',
   key: 'eb-FI-Nordea',
@@ -1563,28 +155,43 @@ const PAYPAL_BANK: SupportedBank = {
 
 const PRIVATE_KEY_PEM = '-----BEGIN PRIVATE KEY-----\nMIIBVgIBADANBg\n-----END PRIVATE KEY-----\n'
 const KEY_FILE_NAME = 'quaestor.pem'
+const CONFIRM_URL = '/api/credentials/30/sync/job-1/2fa'
 
-type Served = Record<string, { status: number; body?: unknown }>
+type FormProps = Partial<Parameters<typeof NewCredentialFormView>[0]>
+type User = ReturnType<typeof userEvent.setup>
 
-function serve(routes: Served) {
-  ;(globalThis.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
-    const poll = pollBranch(url, init)
-    if (poll) return poll
-    const route = routes[`${init?.method ?? 'GET'} ${url}`]
-    return route
-      ? Promise.resolve(jsonResponse(route))
-      : Promise.reject(new Error(`unexpected fetch: ${init?.method ?? 'GET'} ${url}`))
-  })
+let polledJob: SyncJob | null = null
+
+function pollBranch(url: string, init?: { method?: string }): Promise<Response> | null {
+  if ((init?.method ?? 'GET') === 'GET' && /\/sync\/[^/?]+$/.test(url)) {
+    return Promise.resolve(jsonResponse({ status: polledJob ? 200 : 404, body: polledJob }))
+  }
+  return null
 }
 
-function requestsTo(method: string, url: string) {
-  return (globalThis.fetch as Mock).mock.calls.filter(
-    ([calledUrl, init]) => calledUrl === url && (init?.method ?? 'GET') === method,
+async function waitForFirstPoll(): Promise<void> {
+  await waitFor(() =>
+    expect(
+      (globalThis.fetch as Mock).mock.calls.some(
+        ([u, i]) =>
+          typeof u === 'string' && /\/sync\/[^/?]+$/.test(u) && (i?.method ?? 'GET') === 'GET',
+      ),
+    ).toBe(true),
   )
 }
 
-function bodyOf(method: string, url: string): unknown {
-  return JSON.parse(requestsTo(method, url)[0][1].body)
+async function pushJob(message: Partial<SyncJob> & Pick<SyncJob, 'status'>): Promise<void> {
+  polledJob = {
+    job_id: 'job-1',
+    credential_id: 30,
+    expires_at: null,
+    error: null,
+    error_code: null,
+    ...message,
+  }
+  await act(async () => {
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
 }
 
 function createdCredential(id: number, bank: string) {
@@ -1603,31 +210,30 @@ function createdCredential(id: number, bank: string) {
   }
 }
 
-function startedJob(credentialId: number, jobId: string) {
-  return {
-    status: 202,
-    body: {
-      job_id: jobId,
-      credential_id: credentialId,
-      status: 'running',
-      expires_at: null,
-      error: null,
-    },
-  }
+const STARTED_JOB = {
+  status: 202,
+  body: {
+    job_id: 'job-1',
+    credential_id: 30,
+    status: 'running',
+    expires_at: null,
+    error: null,
+  },
 }
 
 function serveSyncedCreate(extra: Served = {}) {
-  serve({
-    'POST /api/credentials': createdCredential(30, 'enable_banking'),
-    'POST /api/credentials/30/sync': startedJob(30, 'job-eb'),
-    ...extra,
-  })
+  return serve(
+    {
+      'POST /api/credentials': createdCredential(30, 'ing'),
+      'POST /api/credentials/30/sync': STARTED_JOB,
+      'DELETE /api/credentials/30': { status: 204 },
+      ...extra,
+    },
+    pollBranch,
+  )
 }
 
-function renderForm(
-  bank: SupportedBank,
-  props: Partial<Parameters<typeof NewCredentialFormView>[0]> = {},
-) {
+function renderForm(bank: SupportedBank, props: FormProps = {}, client?: QueryClient) {
   return renderWithQuery(
     <NewCredentialFormView
       bankKey={bank.key}
@@ -1638,15 +244,475 @@ function renderForm(
       onSyncFailed={vi.fn()}
       {...props}
     />,
+    client,
   )
 }
 
-async function uploadKey(user: ReturnType<typeof userEvent.setup>) {
+async function submitLogin(user: User) {
+  await user.type(screen.getByLabelText('Username'), 'alice')
+  await user.type(screen.getByLabelText('Password'), 'hunter2')
+  await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+}
+
+async function submitTradeRepublic(user: User, phone = '+491234567890') {
+  await user.type(screen.getByLabelText('Phone number'), phone)
+  await user.type(screen.getByLabelText('PIN'), '1234')
+  await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+}
+
+async function uploadKey(user: User) {
   await user.upload(
     screen.getByLabelText('Private key (.pem)'),
     new File([PRIVATE_KEY_PEM], KEY_FILE_NAME, { type: 'application/x-pem-file' }),
   )
 }
+
+beforeEach(() => {
+  globalThis.fetch = vi.fn() as unknown as typeof fetch
+  polledJob = null
+  document.cookie = ''
+})
+
+describe('NewCredentialFormView', () => {
+  it('renders one input per required_field with the localised label', () => {
+    renderForm(ING_BANK)
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Connect ING')
+    expect(screen.getByLabelText('Username')).toBeInTheDocument()
+    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
+    expect(screen.queryByLabelText('Customer number')).not.toBeInTheDocument()
+  })
+
+  it('renders the loading state while the supported_banks query is in flight', () => {
+    renderForm(ING_BANK, { bank: undefined, isLoading: true })
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+  })
+
+  it('shows an unknown-bank fallback with a back button when the URL points to a non-existent bank', async () => {
+    const user = userEvent.setup()
+    const onCancel = vi.fn()
+    renderForm(ING_BANK, { bankKey: 'not-a-real-bank', bank: undefined, onCancel })
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    expect(onCancel).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks for the country when an Enable Banking institution exists in several countries', () => {
+    renderForm(PAYPAL_BANK)
+    expect(screen.getByLabelText('Country')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Connect and sync' })).toBeDisabled()
+  })
+
+  it('does not ask for the country when the institution exists in a single country', () => {
+    renderForm(NORDEA_BANK)
+    expect(screen.queryByLabelText('Country')).not.toBeInTheDocument()
+  })
+
+  it('creates the credential, starts the sync, and routes to onConnected when the WS reports completed', async () => {
+    const user = userEvent.setup()
+    serveSyncedCreate()
+    const onConnected = vi.fn()
+    const onSyncFailed = vi.fn()
+
+    renderForm(ING_BANK, { onConnected, onSyncFailed })
+    await submitLogin(user)
+
+    await waitForFirstPoll()
+    await pushJob({ status: 'completed' })
+
+    await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
+    expect(onSyncFailed).not.toHaveBeenCalled()
+  })
+
+  it('creates a manual credential without starting a sync', async () => {
+    const user = userEvent.setup()
+    const fetchMock = serve({ 'POST /api/credentials': createdCredential(7, 'manual') })
+    const onConnected = vi.fn()
+    const onSyncFailed = vi.fn()
+
+    renderForm(MANUAL_BANK, { onConnected, onSyncFailed })
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => expect(onConnected).toHaveBeenCalledWith(7))
+    expect(onSyncFailed).not.toHaveBeenCalled()
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/sync'))).toBe(false)
+  })
+
+  it('deletes the credential when the user abandons the setup while the job is pending', async () => {
+    const user = userEvent.setup()
+    serveSyncedCreate()
+
+    const { unmount } = renderForm(ING_BANK)
+    await submitLogin(user)
+
+    await waitForFirstPoll()
+    await pushJob({ status: 'awaiting_2fa' })
+    await screen.findByLabelText('Code')
+
+    unmount()
+    await waitFor(() => expect(requestsTo('DELETE', '/api/credentials/30')).toHaveLength(1))
+  })
+
+  it('bounces back to onSyncFailed when the WS reports failed', async () => {
+    const user = userEvent.setup()
+    serveSyncedCreate()
+    const onConnected = vi.fn()
+    const onSyncFailed = vi.fn()
+
+    renderForm(ING_BANK, { onConnected, onSyncFailed })
+    await submitLogin(user)
+
+    await waitForFirstPoll()
+    await pushJob({ status: 'failed', error: 'bank unreachable' })
+
+    await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
+    expect(onConnected).not.toHaveBeenCalled()
+    // A generic (non-credential) failure is transient — the credential is kept so the user can retry.
+    expect(requestsTo('DELETE', '/api/credentials/30')).toHaveLength(0)
+  })
+
+  it('shows a dedicated message when the WS reports failed with invalid_credentials', async () => {
+    const user = userEvent.setup()
+    const toastError = vi.spyOn(toast, 'error')
+    serveSyncedCreate()
+    const onSyncFailed = vi.fn()
+
+    renderForm(ING_BANK, { onSyncFailed })
+    await submitLogin(user)
+
+    await waitForFirstPoll()
+    await pushJob({
+      status: 'failed',
+      error: 'The bank rejected the login',
+      error_code: 'invalid_credentials',
+    })
+
+    await waitFor(() => expect(requestsTo('DELETE', '/api/credentials/30')).toHaveLength(1))
+    expect(toastError).toHaveBeenCalledTimes(1)
+    expect(toastError.mock.calls[0][0]).toMatch(/check your username and password/i)
+    expect(onSyncFailed).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Connect and sync' })).toBeEnabled()
+  })
+
+  it('bounces back to onSyncFailed when starting the sync itself errors', async () => {
+    const user = userEvent.setup()
+    serveSyncedCreate({
+      'POST /api/credentials/30/sync': { status: 500, body: { detail: 'Internal' } },
+    })
+    const onConnected = vi.fn()
+    const onSyncFailed = vi.fn()
+
+    renderForm(ING_BANK, { onConnected, onSyncFailed })
+    await submitLogin(user)
+
+    await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
+    expect(onConnected).not.toHaveBeenCalled()
+  })
+
+  it('surfaces a dedicated toast and stays on the form when the backend returns 409', async () => {
+    const toastError = vi.spyOn(toast, 'error')
+    const user = userEvent.setup()
+    const fetchMock = serve(
+      {
+        'POST /api/credentials': {
+          status: 409,
+          body: { detail: 'User 1 already has an ing credential with the same login data' },
+        },
+      },
+      pollBranch,
+    )
+    const onConnected = vi.fn()
+    const onSyncFailed = vi.fn()
+
+    renderForm(ING_BANK, { onConnected, onSyncFailed })
+    await submitLogin(user)
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1))
+    expect(toastError.mock.calls[0][0]).toMatch(/already exists/i)
+    expect(onConnected).not.toHaveBeenCalled()
+    expect(onSyncFailed).not.toHaveBeenCalled()
+    // No sync was started — the form is the only POST we made.
+    const postCalls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
+    expect(postCalls).toHaveLength(1)
+  })
+
+  it('blocks submission with an inline required-field error when a field is empty', async () => {
+    const user = userEvent.setup()
+    const onConnected = vi.fn()
+
+    renderForm(ING_BANK, { onConnected })
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+    expect(await screen.findByText('This field is required')).toBeInTheDocument()
+    expect(onConnected).not.toHaveBeenCalled()
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  it('blocks submission with a field error when the Trade Republic phone has no country code', async () => {
+    const user = userEvent.setup()
+    renderForm(TR_BANK)
+    await submitTradeRepublic(user, '491512345')
+
+    // The field-level error (distinct from the bank note that also mentions "country code").
+    expect(await screen.findByText(/must start with a country code/i)).toBeInTheDocument()
+    // Client-side validation (from the backend rules) blocks the request entirely.
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  it('strips whitespace from the Trade Republic phone before submitting', async () => {
+    const user = userEvent.setup()
+    serveSyncedCreate()
+
+    renderForm(TR_BANK)
+    await submitTradeRepublic(user, '+49 151 23')
+
+    await waitFor(() => expect(requestsTo('POST', '/api/credentials')).toHaveLength(1))
+    // The phone is de-spaced; the PIN (not a stripped field) is sent verbatim.
+    expect(bodyOf('POST', '/api/credentials')).toEqual({
+      bank: 'trade_republic',
+      credentials: { phone: '+4915123', pin: '1234' },
+    })
+  })
+
+  it('renders the bank-specific note from i18n when one exists', () => {
+    renderForm(DFS_BANK)
+    expect(
+      screen.getByText(/Retirement provisioning of the Deutsche Flugsicherung GmbH\./),
+    ).toBeInTheDocument()
+  })
+
+  describe('Trade Republic 2FA flow', () => {
+    it('hides the code field until the WS reports awaiting_2fa', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate({ [`POST ${CONFIRM_URL}`]: STARTED_JOB })
+
+      renderForm(TR_BANK)
+
+      expect(screen.queryByLabelText('Code')).not.toBeInTheDocument()
+
+      await submitTradeRepublic(user)
+
+      await waitForFirstPoll()
+
+      await pushJob({ status: 'running' })
+      expect(screen.queryByLabelText('Code')).not.toBeInTheDocument()
+
+      await pushJob({ status: 'awaiting_2fa', expires_at: DATETIME_FAR_FUTURE })
+
+      expect(await screen.findByLabelText('Code')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Phone number')).not.toBeInTheDocument()
+    })
+
+    it('confirms the code and routes to onConnected after the WS pushes completed', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate({ [`POST ${CONFIRM_URL}`]: STARTED_JOB })
+      const onConnected = vi.fn()
+      const onSyncFailed = vi.fn()
+
+      renderForm(TR_BANK, { onConnected, onSyncFailed })
+      await submitTradeRepublic(user)
+
+      await waitForFirstPoll()
+      await pushJob({ status: 'awaiting_2fa', expires_at: DATETIME_FAR_FUTURE })
+
+      const codeInput = await screen.findByLabelText('Code')
+      await user.type(codeInput, '4242')
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+      await pushJob({ status: 'completed' })
+
+      await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
+      expect(onSyncFailed).not.toHaveBeenCalled()
+      expect(bodyOf('POST', CONFIRM_URL)).toEqual({ code: '4242' })
+    })
+
+    it('bounces back to onSyncFailed when submitting the code errors', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate({ [`POST ${CONFIRM_URL}`]: { status: 422, body: { detail: 'expired' } } })
+      const onConnected = vi.fn()
+      const onSyncFailed = vi.fn()
+
+      renderForm(TR_BANK, { onConnected, onSyncFailed })
+      await submitTradeRepublic(user)
+
+      await waitForFirstPoll()
+      await pushJob({ status: 'awaiting_2fa', expires_at: DATETIME_FAR_FUTURE })
+
+      const codeInput = await screen.findByLabelText('Code')
+      await user.type(codeInput, 'wrong')
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+      await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
+      expect(onConnected).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Scalable Capital no-code 2FA flow', () => {
+    async function startLogin(user: User, props: FormProps = {}) {
+      renderForm(SCALABLE_CAPITAL_BANK, props)
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+      await waitForFirstPoll()
+      await pushJob({
+        status: 'awaiting_2fa',
+        expires_at: DATETIME_FAR_FUTURE,
+        authorization_url: AUTHORIZATION_URL_WITH_CODE,
+      })
+    }
+
+    it('shows an authorize link and a no-code confirm button instead of a code field', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate({ [`POST ${CONFIRM_URL}`]: STARTED_JOB })
+
+      await startLogin(user)
+
+      expect(
+        await screen.findByRole('link', { name: /sign in at scalable capital/i }),
+      ).toHaveAttribute('href', AUTHORIZATION_URL_WITH_CODE)
+      expect(screen.getByText(DEVICE_CODE)).toBeVisible()
+      expect(screen.queryByLabelText('Code')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: "I've completed the login" })).toBeInTheDocument()
+    })
+
+    it('confirms without a code and routes to onConnected after the WS pushes completed', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate({ [`POST ${CONFIRM_URL}`]: STARTED_JOB })
+      const onConnected = vi.fn()
+      const onSyncFailed = vi.fn()
+
+      await startLogin(user, { onConnected, onSyncFailed })
+      await user.click(screen.getByRole('button', { name: "I've completed the login" }))
+
+      await pushJob({ status: 'completed' })
+
+      await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
+      expect(onSyncFailed).not.toHaveBeenCalled()
+      expect(bodyOf('POST', CONFIRM_URL)).toEqual({ code: NO_CODE_PLACEHOLDER })
+    })
+
+    it('shows a waiting message instead of the connect form while confirming_2fa is in progress', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate({ [`POST ${CONFIRM_URL}`]: STARTED_JOB })
+
+      await startLogin(user)
+      await user.click(screen.getByRole('button', { name: "I've completed the login" }))
+
+      // confirming_2fa spans the whole first sync — must show a waiting state, not the form again.
+      await pushJob({ status: 'confirming_2fa' })
+
+      expect(await screen.findByText(/Finishing up/)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Connect and sync' })).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: "I've completed the login" }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('bounces back to onSyncFailed when the no-code confirmation errors', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate({ [`POST ${CONFIRM_URL}`]: { status: 422, body: {} } })
+      const onConnected = vi.fn()
+      const onSyncFailed = vi.fn()
+
+      await startLogin(user, { onConnected, onSyncFailed })
+      await user.click(screen.getByRole('button', { name: "I've completed the login" }))
+
+      await waitFor(() => expect(onSyncFailed).toHaveBeenCalledTimes(1))
+      expect(onConnected).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Sparkasse decoupled approval flow', () => {
+    it('shows the approval message when the sync reports awaiting_decoupled_approval', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate()
+
+      renderForm(SPARKASSE_BANK)
+      await submitLogin(user)
+
+      await waitForFirstPoll()
+      await pushJob({ status: 'awaiting_decoupled_approval' })
+
+      expect(await screen.findByText(/Please approve in your banking app/)).toBeInTheDocument()
+      // The form is replaced by the waiting panel.
+      expect(screen.queryByLabelText('Username')).not.toBeInTheDocument()
+    })
+
+    it('completes the sync after the approval transitions to running and then completed', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate()
+      const onConnected = vi.fn()
+      const onSyncFailed = vi.fn()
+
+      renderForm(SPARKASSE_BANK, { onConnected, onSyncFailed })
+      await submitLogin(user)
+
+      await waitForFirstPoll()
+      await pushJob({ status: 'awaiting_decoupled_approval' })
+      expect(await screen.findByText(/Please approve in your banking app/)).toBeInTheDocument()
+
+      await pushJob({ status: 'running' })
+      await pushJob({ status: 'completed' })
+
+      await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
+      expect(onSyncFailed).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('grouped FinTS banks', () => {
+    it('submits a single-blz fints bank with the prefilled blz and no iban field', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate()
+
+      renderForm(SPARKASSE_BANK)
+
+      // A single-BLZ FinTS bank only asks for login + PIN; the BLZ is injected.
+      expect(screen.queryByLabelText('IBAN')).not.toBeInTheDocument()
+      await submitLogin(user)
+
+      await waitFor(() => expect(requestsTo('POST', '/api/credentials')).toHaveLength(1))
+      expect(bodyOf('POST', '/api/credentials')).toEqual({
+        bank: 'fints',
+        credentials: { username: 'alice', password: 'hunter2', blz: '66050101' },
+      })
+    })
+
+    it('asks for an IBAN on a multi-blz bank and derives the matching blz', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate()
+
+      renderForm(DEUTSCHE_BANK)
+
+      await user.type(screen.getByLabelText('Username'), 'bob')
+      await user.type(screen.getByLabelText('Password'), 'hunter2')
+      // IBAN whose BLZ (chars 5-12) is 12070000 — a branch BLZ of this bank.
+      await user.type(screen.getByLabelText('IBAN'), 'DE89120700000532013000')
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+      await waitFor(() => expect(requestsTo('POST', '/api/credentials')).toHaveLength(1))
+      // The IBAN itself is never sent to the backend.
+      expect(bodyOf('POST', '/api/credentials')).toEqual({
+        bank: 'fints',
+        credentials: { username: 'bob', password: 'hunter2', blz: '12070000' },
+      })
+    })
+
+    it('rejects an IBAN whose blz does not belong to the bank and sends nothing', async () => {
+      const user = userEvent.setup()
+
+      renderForm(DEUTSCHE_BANK)
+
+      await user.type(screen.getByLabelText('Username'), 'bob')
+      await user.type(screen.getByLabelText('Password'), 'hunter2')
+      // BLZ 50010517 is not one of this bank's branch BLZs.
+      await user.type(screen.getByLabelText('IBAN'), 'DE89500105170532013000')
+      await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+
+      expect(
+        await screen.findByText(/This IBAN does not belong to the selected bank/i),
+      ).toBeInTheDocument()
+      expect(globalThis.fetch).not.toHaveBeenCalled()
+    })
+  })
+})
 
 describe('NewCredentialFormView — Enable Banking', () => {
   const redirectUrl = () => `${window.location.origin}/banking/callback`
@@ -1735,18 +801,7 @@ describe('NewCredentialFormView — Enable Banking', () => {
         ],
       }),
     )
-    render(
-      <QueryClientProvider client={queryClient}>
-        <NewCredentialFormView
-          bankKey={PAYPAL_BANK.key}
-          bank={PAYPAL_BANK}
-          isLoading={false}
-          onCancel={vi.fn()}
-          onConnected={vi.fn()}
-          onSyncFailed={vi.fn()}
-        />
-      </QueryClientProvider>,
-    )
+    renderForm(PAYPAL_BANK, {}, queryClient)
 
     expect(
       screen.getByText(/Your existing Enable Banking application is reused/),
@@ -1781,13 +836,13 @@ describe('NewCredentialFormView — Enable Banking', () => {
     const user = userEvent.setup()
     const toastError = vi.spyOn(toast, 'error')
     const onSyncFailed = vi.fn()
-    serveSyncedCreate({ 'DELETE /api/credentials/30': { status: 204 } })
+    serveSyncedCreate()
     renderForm(NORDEA_BANK, { onSyncFailed })
 
     await uploadKey(user)
     await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
     await waitForFirstPoll()
-    await pushJob({ job_id: 'job-eb', credential_id: 30, status: 'failed', error_code: errorCode })
+    await pushJob({ status: 'failed', error_code: errorCode })
 
     await waitFor(() => expect(requestsTo('DELETE', '/api/credentials/30')).toHaveLength(1))
     expect(toastError).toHaveBeenCalledWith(message(), { duration: 12000 })
@@ -1803,12 +858,7 @@ describe('NewCredentialFormView — Enable Banking', () => {
     await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
     expect(await screen.findByRole('button', { name: 'Syncing…' })).toBeDisabled()
     await waitForFirstPoll()
-    await pushJob({
-      job_id: 'job-eb',
-      credential_id: 30,
-      status: 'awaiting_2fa',
-      authorization_url: AUTHORIZATION_URL,
-    })
+    await pushJob({ status: 'awaiting_2fa', authorization_url: AUTHORIZATION_URL })
 
     expect(await screen.findByRole('link', { name: 'Sign in at Nordea' })).toHaveAttribute(
       'href',
@@ -1826,35 +876,32 @@ describe('NewCredentialFormView — Enable Banking', () => {
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
 
     expect(await screen.findByRole('button', { name: 'Confirming …' })).toBeDisabled()
-    expect(bodyOf('POST', '/api/credentials/30/sync/job-eb/2fa')).toEqual({ code: TWO_FACTOR_CODE })
+    expect(bodyOf('POST', CONFIRM_URL)).toEqual({ code: TWO_FACTOR_CODE })
   })
 })
 
 describe('NewCredentialFormView — create errors', () => {
-  async function submitIng(user: ReturnType<typeof userEvent.setup>) {
-    await user.type(screen.getByLabelText('Username'), 'alice')
-    await user.type(screen.getByLabelText('Password'), 'hunter2')
-    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
-  }
-
   it('shows the server validation message next to the offending field', async () => {
     const user = userEvent.setup()
     const toastError = vi.spyOn(toast, 'error')
-    serve({
-      'POST /api/credentials': {
-        status: 422,
-        body: {
-          detail: [
-            { loc: ['body', 'credentials', 'username'], msg: 'Unknown login' },
-            { loc: ['body', 0], msg: 'not a field' },
-            'garbage',
-          ],
+    serve(
+      {
+        'POST /api/credentials': {
+          status: 422,
+          body: {
+            detail: [
+              { loc: ['body', 'credentials', 'username'], msg: 'Unknown login' },
+              { loc: ['body', 0], msg: 'not a field' },
+              'garbage',
+            ],
+          },
         },
       },
-    })
+      pollBranch,
+    )
     renderForm(ING_BANK)
 
-    await submitIng(user)
+    await submitLogin(user)
 
     expect(await screen.findByText('Unknown login')).toBeInTheDocument()
     expect(screen.queryByText('not a field')).not.toBeInTheDocument()
@@ -1867,10 +914,10 @@ describe('NewCredentialFormView — create errors', () => {
   ])('falls back to a generic toast for HTTP %i', async (status, body) => {
     const user = userEvent.setup()
     const toastError = vi.spyOn(toast, 'error')
-    serve({ 'POST /api/credentials': { status, body } })
+    serve({ 'POST /api/credentials': { status, body } }, pollBranch)
     renderForm(ING_BANK)
 
-    await submitIng(user)
+    await submitLogin(user)
 
     await waitFor(() =>
       expect(toastError).toHaveBeenCalledWith(
@@ -1884,7 +931,7 @@ describe('NewCredentialFormView — create errors', () => {
     ;(globalThis.fetch as Mock).mockImplementation(() => new Promise(() => {}))
     renderForm(ING_BANK)
 
-    await submitIng(user)
+    await submitLogin(user)
 
     expect(await screen.findByRole('button', { name: 'Connecting…' })).toBeDisabled()
   })
@@ -1894,10 +941,13 @@ describe('/settings/credentials/new/$bank route', () => {
   const Page = Route.options.component!
 
   function serveBanks(extra: Served = {}) {
-    serve({
-      'GET /api/credentials/supported_banks': { status: 200, body: [ING_BANK, MANUAL_BANK] },
-      ...extra,
-    })
+    serve(
+      {
+        'GET /api/credentials/supported_banks': { status: 200, body: [ING_BANK, MANUAL_BANK] },
+        ...extra,
+      },
+      pollBranch,
+    )
   }
 
   it('loads the bank catalog and opens the form for the bank in the URL', async () => {
@@ -1931,17 +981,16 @@ describe('/settings/credentials/new/$bank route', () => {
   it('lands on the overview once a synced bank is connected', async () => {
     const user = userEvent.setup()
     serveBanks({
-      'POST /api/credentials': createdCredential(42, 'ing'),
-      'POST /api/credentials/42/sync': startedJob(42, 'job-ing'),
+      'POST /api/credentials': createdCredential(30, 'ing'),
+      'POST /api/credentials/30/sync': STARTED_JOB,
     })
     routeState.params = { bank: 'ing' }
     renderWithQuery(<Page />)
 
-    await user.type(await screen.findByLabelText('Username'), 'alice')
-    await user.type(screen.getByLabelText('Password'), 'hunter2')
-    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+    await screen.findByLabelText('Username')
+    await submitLogin(user)
     await waitForFirstPoll()
-    await pushJob({ job_id: 'job-ing', credential_id: 42, status: 'completed' })
+    await pushJob({ status: 'completed' })
 
     await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/'))
   })
@@ -1956,9 +1005,8 @@ describe('/settings/credentials/new/$bank route', () => {
     routeState.params = { bank: 'ing' }
     renderWithQuery(<Page />)
 
-    await user.type(await screen.findByLabelText('Username'), 'alice')
-    await user.type(screen.getByLabelText('Password'), 'hunter2')
-    await user.click(screen.getByRole('button', { name: 'Connect and sync' }))
+    await screen.findByLabelText('Username')
+    await submitLogin(user)
 
     await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/settings/credentials'))
   })

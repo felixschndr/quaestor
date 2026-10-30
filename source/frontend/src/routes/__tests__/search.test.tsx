@@ -1,11 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { createEvent, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 import type { TransactionRead } from '@/lib/accountHistory'
-import type { CredentialRead } from '@/lib/auth'
 import {
   ACCOUNT_NAME_BROKER,
   ACCOUNT_NAME_DAY,
@@ -43,80 +41,49 @@ import { TransactionSearchView } from '@/pages/search'
 import { Route } from '@/routes/search'
 import { selectFromPopover } from '@/test/popover-select'
 import { routeState } from './-routerMock'
-import { buildUser, jsonResponse } from './-settingsUserTestHelpers'
+import { buildUser, jsonResponse, renderWithQuery } from '@/test/helpers'
+import { buildAccount, buildCredential } from '@/test/statsFixtures'
 
-const credentials: CredentialRead[] = [
-  {
-    id: 1,
-    bank: 'ing',
-    bank_name: null,
-    bank_icon: null,
-    accounts: [
-      {
-        id: 42,
-        name: ACCOUNT_NAME_GIRO,
-        balance: 0,
-        balance_factor: 100,
-        display_name: null,
-        is_archived: false,
-        include_by_default: true,
-        is_market_valued: false,
-      },
-      {
-        id: 43,
-        name: ACCOUNT_NAME_DAY,
-        balance: 0,
-        balance_factor: 100,
-        display_name: null,
-        is_archived: false,
-        include_by_default: true,
-        is_market_valued: false,
-      },
-    ],
-    last_successful_sync_timestamp: null,
-    requires_two_factor_authentication: false,
-    sync_enabled: true,
-  },
-  {
+const credentials = [
+  buildCredential([
+    buildAccount({ id: 42, name: ACCOUNT_NAME_GIRO }),
+    buildAccount({ id: 43, name: ACCOUNT_NAME_DAY }),
+  ]),
+  buildCredential([buildAccount({ id: 99, name: ACCOUNT_NAME_BROKER, is_archived: true })], {
     id: 2,
     bank: 'trade_republic',
-    bank_name: null,
-    bank_icon: null,
-    accounts: [
-      {
-        id: 99,
-        name: ACCOUNT_NAME_BROKER,
-        balance: 0,
-        balance_factor: 100,
-        display_name: null,
-        is_archived: true,
-        include_by_default: true,
-        is_market_valued: false,
-      },
-    ],
-    last_successful_sync_timestamp: null,
-    requires_two_factor_authentication: false,
-    sync_enabled: true,
-  },
+  }),
 ]
 
-beforeEach(() => {
-  globalThis.fetch = vi.fn().mockResolvedValue(
-    new Response(JSON.stringify([]), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    }),
-  ) as unknown as typeof fetch
-})
-
-function renderWithClient(ui: React.ReactElement) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(ui, {
-    wrapper: ({ children }) => (
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
-    ),
-  })
+function transaction(
+  id: number,
+  amount: number,
+  party: string | null,
+  overrides: Partial<TransactionRead> = {},
+): TransactionRead {
+  return {
+    id,
+    account_id: 42,
+    amount,
+    purpose: null,
+    date: DATE_RECENT,
+    other_party: party,
+    transaction_type: null,
+    category: 'UNKNOWN',
+    note: null,
+    ...overrides,
+  }
 }
+
+function mockFetchOnce(body: unknown) {
+  const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ status: 200, body }))
+  globalThis.fetch = fetchMock as unknown as typeof fetch
+  return fetchMock
+}
+
+beforeEach(() => {
+  mockFetchOnce([])
+})
 
 type ChangePayload = { accountIds: number[]; filters: TransactionFiltersLike }
 type TransactionFiltersLike = Record<string, unknown>
@@ -124,7 +91,7 @@ type TransactionFiltersLike = Record<string, unknown>
 function renderView(opts: { search?: Partial<TransactionSearchParams> } = {}) {
   const onChange = vi.fn()
   const onSortChange = vi.fn()
-  renderWithClient(
+  renderWithQuery(
     <TransactionSearchView
       credentials={credentials}
       search={(opts.search ?? {}) as TransactionSearchParams}
@@ -223,11 +190,6 @@ describe('TransactionSearchView — form', () => {
     expect(screen.getByText('Incoming')).toBeInTheDocument()
     expect(screen.getByText('Outgoing')).toBeInTheDocument()
     expect(screen.queryByText('INCOMING')).toBeNull()
-  })
-
-  it('renders a Popover-based date picker (consistent UI across browsers)', () => {
-    renderView()
-    expect(screen.getAllByRole('button', { name: 'Pick a date' })).toHaveLength(2)
   })
 
   it('back button falls back to the overview when there is no history', () => {
@@ -413,47 +375,19 @@ describe('TransactionSearchView — accounts multi-select', () => {
 })
 
 describe('TransactionSearchView — results', () => {
-  function mockFetchOnce(body: TransactionRead[]) {
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(body), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
-    ) as unknown as typeof fetch
-  }
-
   it('renders an empty-state message when the backend returns no matches', async () => {
     mockFetchOnce([])
     renderView({ search: { text: 'no match', account_ids: [42] } })
     expect(await screen.findByText('No transactions match your filters.')).toBeInTheDocument()
   })
 
-  it('shows no results and does not search when no category is selected', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify([]), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
-    )
-    globalThis.fetch = fetchSpy as unknown as typeof fetch
+  it.each([
+    ['category', { categories: [] }],
+    ['type', { transaction_types: [] }],
+  ])('shows no results and does not search when no %s is selected', async (_label, filter) => {
+    const fetchSpy = mockFetchOnce([])
 
-    renderView({ search: { account_ids: [42], categories: [] } })
-
-    await waitFor(() => expect(fetchSpy).not.toHaveBeenCalled())
-    expect(screen.queryByRole('region', { name: 'Search results' })).toBeNull()
-    expect(screen.getByText('No transactions match your filters.')).toBeInTheDocument()
-  })
-
-  it('shows no results and does not search when no type is selected', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify([]), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
-    )
-    globalThis.fetch = fetchSpy as unknown as typeof fetch
-
-    renderView({ search: { account_ids: [42], transaction_types: [] } })
+    renderView({ search: { account_ids: [42], ...filter } })
 
     await waitFor(() => expect(fetchSpy).not.toHaveBeenCalled())
     expect(screen.queryByRole('region', { name: 'Search results' })).toBeNull()
@@ -462,28 +396,17 @@ describe('TransactionSearchView — results', () => {
 
   it('renders one row per returned transaction with the right link and colour', async () => {
     mockFetchOnce([
-      {
-        id: 1,
-        account_id: 42,
-        amount: -AMOUNT_M,
+      transaction(1, -AMOUNT_M, PARTY_SUPERMARKET, {
         purpose: LABEL_GROCERIES,
-        date: DATE_RECENT,
-        other_party: PARTY_SUPERMARKET,
         transaction_type: 'OUTGOING',
         category: 'SUPERMARKET',
-        note: null,
-      },
-      {
-        id: 2,
-        account_id: 42,
-        amount: AMOUNT_XL,
+      }),
+      transaction(2, AMOUNT_XL, 'ACME', {
         purpose: LABEL_SALARY,
         date: '2026-04-30',
-        other_party: 'ACME',
         transaction_type: 'INCOMING',
         category: 'SALARY',
-        note: null,
-      },
+      }),
     ])
     renderView({ search: { text: 'a', account_ids: [42] } })
 
@@ -499,28 +422,8 @@ describe('TransactionSearchView — results', () => {
 
   it('shows the per-row account name only when more than one account is selected', async () => {
     mockFetchOnce([
-      {
-        id: 1,
-        account_id: 42,
-        amount: -AMOUNT_S,
-        purpose: 'x',
-        date: DATE_RECENT,
-        other_party: PARTY_SUPERMARKET,
-        transaction_type: null,
-        category: 'UNKNOWN',
-        note: null,
-      },
-      {
-        id: 2,
-        account_id: 43,
-        amount: -AMOUNT_M,
-        purpose: 'y',
-        date: DATE_YESTERDAY,
-        other_party: 'Aldi',
-        transaction_type: null,
-        category: 'UNKNOWN',
-        note: null,
-      },
+      transaction(1, -AMOUNT_S, PARTY_SUPERMARKET, { purpose: 'x' }),
+      transaction(2, -AMOUNT_M, 'Aldi', { account_id: 43, purpose: 'y', date: DATE_YESTERDAY }),
     ])
     renderView({ search: { account_ids: [42, 43] } })
 
@@ -530,38 +433,14 @@ describe('TransactionSearchView — results', () => {
   })
 
   it('names a transaction without counterparty "Unknown"', async () => {
-    mockFetchOnce([
-      {
-        id: 3,
-        account_id: 42,
-        amount: -AMOUNT_S,
-        purpose: null,
-        date: DATE_RECENT,
-        other_party: null,
-        transaction_type: null,
-        category: 'UNKNOWN',
-        note: null,
-      },
-    ])
+    mockFetchOnce([transaction(3, -AMOUNT_S, null)])
     renderView({ search: { account_ids: [42] } })
 
     expect(await screen.findByText('Unknown')).toBeInTheDocument()
   })
 
   it('links each result row to its own account, not to the anchor', async () => {
-    mockFetchOnce([
-      {
-        id: 7,
-        account_id: 99,
-        amount: AMOUNT_S,
-        purpose: 'x',
-        date: DATE_RECENT,
-        other_party: 'Other',
-        transaction_type: null,
-        category: 'UNKNOWN',
-        note: null,
-      },
-    ])
+    mockFetchOnce([transaction(7, AMOUNT_S, 'Other', { account_id: 99, purpose: 'x' })])
     renderView({ search: { account_ids: [42, 99] } })
 
     const link = await screen.findByText('Other')
@@ -570,15 +449,6 @@ describe('TransactionSearchView — results', () => {
 })
 
 describe('TransactionSearchView — link mode', () => {
-  function mockFetchOnce(body: TransactionRead[]) {
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(body), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
-    ) as unknown as typeof fetch
-  }
-
   it('shows the link-mode hint when link params are present', () => {
     renderView({ search: { link_account_id: 42, link_transaction_id: 7 } })
     expect(screen.getByText('Pick the transaction to link with.')).toBeInTheDocument()
@@ -591,28 +461,8 @@ describe('TransactionSearchView — link mode', () => {
 
   it('excludes the link-source transaction itself from the results', async () => {
     mockFetchOnce([
-      {
-        id: 7,
-        account_id: 42,
-        amount: -AMOUNT_S,
-        purpose: 'source',
-        date: DATE_RECENT,
-        other_party: 'Source Party',
-        transaction_type: null,
-        category: 'UNKNOWN',
-        note: null,
-      },
-      {
-        id: 8,
-        account_id: 42,
-        amount: AMOUNT_S,
-        purpose: 'candidate',
-        date: DATE_RECENT,
-        other_party: 'Candidate Party',
-        transaction_type: null,
-        category: 'UNKNOWN',
-        note: null,
-      },
+      transaction(7, -AMOUNT_S, 'Source Party', { purpose: 'source' }),
+      transaction(8, AMOUNT_S, 'Candidate Party', { purpose: 'candidate' }),
     ])
     renderView({
       search: { account_ids: [42], link_account_id: 42, link_transaction_id: 7 },
@@ -624,30 +474,8 @@ describe('TransactionSearchView — link mode', () => {
 
   it('excludes pending transactions from the results (they cannot be linked)', async () => {
     mockFetchOnce([
-      {
-        id: 8,
-        account_id: 42,
-        amount: AMOUNT_S,
-        purpose: 'booked',
-        date: DATE_RECENT,
-        other_party: 'Booked Party',
-        transaction_type: null,
-        category: 'UNKNOWN',
-        note: null,
-        pending: false,
-      },
-      {
-        id: 9,
-        account_id: 42,
-        amount: AMOUNT_S,
-        purpose: 'pending',
-        date: DATE_RECENT,
-        other_party: 'Pending Party',
-        transaction_type: null,
-        category: 'UNKNOWN',
-        note: null,
-        pending: true,
-      },
+      transaction(8, AMOUNT_S, 'Booked Party', { purpose: 'booked', pending: false }),
+      transaction(9, AMOUNT_S, 'Pending Party', { purpose: 'pending', pending: true }),
     ])
     renderView({
       search: { account_ids: [42], link_account_id: 42, link_transaction_id: 7 },
@@ -658,29 +486,14 @@ describe('TransactionSearchView — link mode', () => {
   })
 
   it('excludes transactions already in the source group (linking them again would conflict)', async () => {
-    const inGroup = {
-      id: 8,
-      account_id: 42,
-      amount: AMOUNT_S,
-      purpose: null,
-      date: DATE_RECENT,
-      other_party: 'In-Group Party',
-      transaction_type: null,
-      category: 'UNKNOWN',
-      note: null,
-    }
-    const free = { ...inGroup, id: 9, other_party: 'Free Party' }
+    const inGroup = transaction(8, AMOUNT_S, 'In-Group Party')
+    const free = transaction(9, AMOUNT_S, 'Free Party')
     globalThis.fetch = vi.fn().mockImplementation((input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
       const body = url.includes('/transactions/search')
         ? [inGroup, free]
         : { id: 7, account_id: 42, related_transactions: [inGroup] }
-      return Promise.resolve(
-        new Response(JSON.stringify(body), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
-      )
+      return Promise.resolve(jsonResponse({ status: 200, body }))
     }) as unknown as typeof fetch
 
     renderView({
@@ -692,19 +505,7 @@ describe('TransactionSearchView — link mode', () => {
   })
 
   it('propagates the link params on each result row link', async () => {
-    mockFetchOnce([
-      {
-        id: 8,
-        account_id: 43,
-        amount: AMOUNT_S,
-        purpose: null,
-        date: DATE_RECENT,
-        other_party: 'Candidate Party',
-        transaction_type: null,
-        category: 'UNKNOWN',
-        note: null,
-      },
-    ])
+    mockFetchOnce([transaction(8, AMOUNT_S, 'Candidate Party', { account_id: 43 })])
     renderView({
       search: { account_ids: [42, 43], link_account_id: 42, link_transaction_id: 7 },
     })
@@ -729,13 +530,7 @@ describe('TransactionSearchView — link mode', () => {
 
 describe('TransactionSearchView — request building', () => {
   it('hits /api/transactions/search with account_ids + filter query string', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify([]), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
-    )
-    globalThis.fetch = fetchSpy as unknown as typeof fetch
+    const fetchSpy = mockFetchOnce([])
 
     renderView({
       search: {
@@ -765,21 +560,8 @@ describe('TransactionSearchView — request building', () => {
 describe('search route', () => {
   const SearchPage = Route.options.component!
 
-  const transaction = (id: number, amount: number, party: string) => ({
-    id,
-    account_id: 42,
-    amount,
-    purpose: null,
-    date: DATE_RECENT,
-    other_party: party,
-    transaction_type: null,
-    category: 'UNKNOWN',
-    note: null,
-  })
-
   beforeEach(() => {
     routeState.search = {}
-    searchRoute.navigate.mockClear()
     globalThis.fetch = vi.fn((url: string) =>
       Promise.resolve(
         url === '/api/auth/me'
@@ -804,7 +586,7 @@ describe('search route', () => {
   })
 
   it('shows the search once the user is known', async () => {
-    const { container } = renderWithClient(<SearchPage />)
+    const { container } = renderWithQuery(<SearchPage />)
     expect(container).toBeEmptyDOMElement()
 
     expect(await screen.findByLabelText('Search text')).toBeInTheDocument()
@@ -813,7 +595,7 @@ describe('search route', () => {
   it('mirrors the filters into the URL, leaving the default accounts out', async () => {
     const user = userEvent.setup()
     routeState.search = { link_account_id: 42, link_transaction_id: 7, sort: 'amount_asc' }
-    renderWithClient(<SearchPage />)
+    renderWithQuery(<SearchPage />)
 
     await user.type(await screen.findByLabelText('Search text'), 'rewe')
 
@@ -832,14 +614,14 @@ describe('search route', () => {
 
   it('keeps a narrowed account selection in the URL', async () => {
     routeState.search = { account_ids: [42] }
-    renderWithClient(<SearchPage />)
+    renderWithQuery(<SearchPage />)
 
     await waitFor(() => expect(lastNavigation()?.search.account_ids).toEqual([42]))
   })
 
   it('stores a chosen sort in the URL and drops it again for the default', async () => {
     const user = userEvent.setup()
-    const { rerender } = renderWithClient(<SearchPage />)
+    const { rerender } = renderWithQuery(<SearchPage />)
     await screen.findByText('ACME')
 
     await selectFromPopover(user, 'Sort', 'Amount: low to high')

@@ -1,5 +1,5 @@
 import { screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@tanstack/react-router', async () =>
   (await import('@/routes/__tests__/-routerMock')).routerMocks({
@@ -14,42 +14,25 @@ vi.mock('@tanstack/react-router', async () =>
 import '@/i18n'
 import type { ContractRead } from '@/lib/contract'
 import type { CategoryKey } from '@/lib/transaction'
-import { jsonResponse, renderWithQuery } from '@/routes/__tests__/-settingsUserTestHelpers'
-import {
-  AMOUNT_L,
-  AMOUNT_M,
-  AMOUNT_S,
-  AMOUNT_XL,
-  CONTRACT_NAME,
-  CONTRACT_NAME_GYM,
-  money,
-} from '@/test/constants'
+import { jsonResponse, renderWithQuery } from '@/test/helpers'
+import { buildContract } from '@/test/statsFixtures'
+import { AMOUNT_L, AMOUNT_M, AMOUNT_S, AMOUNT_XL, CONTRACT_NAME_GYM, money } from '@/test/constants'
 import { ContractsSummaryCard } from '../contracts-summary-card'
 
 function contract(
   overrides: Partial<ContractRead> & { perDay: number | null; monthly?: number; yearly?: number },
 ): ContractRead {
   const { perDay, monthly = 0, yearly = 0, ...rest } = overrides
-  return {
-    id: 1,
-    account_id: 42,
-    name: CONTRACT_NAME,
-    note: null,
+  return buildContract({
     category: 'HEALTH_INSURANCE',
-    source: 'DETECTED',
     median_amount: null,
-    frequency: 'MONTHLY',
-    expected_next_date: null,
-    end_date: null,
-    is_archived: false,
-    is_overdue: false,
     amount_per_day: perDay,
     amount_per_frequency:
       perDay === null
         ? null
         : { WEEKLY: 0, BIWEEKLY: 0, MONTHLY: monthly, QUARTERLY: 0, YEARLY: yearly },
     ...rest,
-  }
+  })
 }
 
 const contracts: ContractRead[] = [
@@ -86,10 +69,6 @@ function linkSearch() {
   expect(link).toHaveAttribute('href', '/contracts')
   return JSON.parse(link.dataset.search!)
 }
-
-afterEach(() => {
-  vi.restoreAllMocks()
-})
 
 describe('ContractsSummaryCard', () => {
   it('sums expenses, income and their balance per day, month and year', async () => {

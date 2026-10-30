@@ -17,7 +17,6 @@ import { BackLink } from '@/components/back-link'
 
 beforeEach(() => {
   routerState.canGoBack = true
-  routerState.back.mockClear()
 })
 
 describe('BackLink', () => {

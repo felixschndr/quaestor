@@ -1,6 +1,4 @@
-import { createElement, type ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { renderHook, waitFor } from '@testing-library/react'
+import { waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 
 import {
@@ -29,12 +27,8 @@ import {
   type MonthlyCashflow,
 } from '@/lib/statistics'
 import { DATE_RECENT, DATE_TODAY, DATE_YEAR_START, DATE_YESTERDAY, TODAY } from '@/test/constants'
-import {
-  CATEGORIES_BY_GROUP,
-  CATEGORY_GROUPS,
-  expandCategorySelection,
-  TRANSACTION_CATEGORIES,
-} from '@/lib/transaction'
+import { jsonResponse, renderHookWithClient } from '@/test/helpers'
+import { CATEGORIES_BY_GROUP, CATEGORY_GROUPS, TRANSACTION_CATEGORIES } from '@/lib/transaction'
 
 describe('buildStatsQueryString', () => {
   it('emits one account_ids entry per id', () => {
@@ -87,56 +81,46 @@ describe('baselineDateRange', () => {
 })
 
 describe('baselineRangeDescriptor', () => {
-  it('reports whole months when the range is an exact month span', () => {
-    expect(baselineRangeDescriptor('2026-05-15', '2026-06-15', 6)).toEqual({
-      unit: 'months',
-      len: 1,
-      periods: 6,
-      totalDays: 0,
-    })
-  })
-
-  it('detects a month even when the start clamped to a month-end (2026-06-30 → 2026-07-31)', () => {
-    expect(baselineRangeDescriptor('2026-06-30', '2026-07-31', 6)).toEqual({
-      unit: 'months',
-      len: 1,
-      periods: 6,
-      totalDays: 0,
-    })
-  })
-
-  it('reports whole weeks for a 14-day range', () => {
-    expect(baselineRangeDescriptor('2026-01-01', '2026-01-15', 3)).toEqual({
-      unit: 'weeks',
-      len: 2,
-      periods: 3,
-      totalDays: 0,
-    })
-  })
-
-  it('falls back to days with a computed total when the span is neither', () => {
-    expect(baselineRangeDescriptor('2026-01-01', '2026-01-18', 3)).toEqual({
-      unit: 'days',
-      len: 17,
-      periods: 3,
-      totalDays: 51,
-    })
+  it.each([
+    [
+      'reports whole months when the range is an exact month span',
+      '2026-05-15',
+      '2026-06-15',
+      6,
+      { unit: 'months', len: 1, periods: 6, totalDays: 0 },
+    ],
+    [
+      'detects a month even when the start clamped to a month-end (2026-06-30 → 2026-07-31)',
+      '2026-06-30',
+      '2026-07-31',
+      6,
+      { unit: 'months', len: 1, periods: 6, totalDays: 0 },
+    ],
+    [
+      'reports whole weeks for a 14-day range',
+      '2026-01-01',
+      '2026-01-15',
+      3,
+      { unit: 'weeks', len: 2, periods: 3, totalDays: 0 },
+    ],
+    [
+      'falls back to days with a computed total when the span is neither',
+      '2026-01-01',
+      '2026-01-18',
+      3,
+      { unit: 'days', len: 17, periods: 3, totalDays: 51 },
+    ],
+  ])('%s', (_, from, to, periods, expected) => {
+    expect(baselineRangeDescriptor(from, to, periods)).toEqual(expected)
   })
 })
 
 describe('defaultStatsDateRange', () => {
-  it('spans the month up to the given day', () => {
-    expect(defaultStatsDateRange(new Date(2026, 5, 15))).toEqual({
-      date_from: '2026-05-15',
-      date_to: '2026-06-15',
-    })
-  })
-
-  it('handles year boundaries', () => {
-    expect(defaultStatsDateRange(new Date(2026, 0, 10))).toEqual({
-      date_from: '2025-12-10',
-      date_to: '2026-01-10',
-    })
+  it.each([
+    ['spans the month up to the given day', new Date(2026, 5, 15), '2026-05-15', '2026-06-15'],
+    ['handles year boundaries', new Date(2026, 0, 10), '2025-12-10', '2026-01-10'],
+  ])('%s', (_, today, date_from, date_to) => {
+    expect(defaultStatsDateRange(today)).toEqual({ date_from, date_to })
   })
 })
 
@@ -296,82 +280,62 @@ describe('averageMonthlyExpenses', () => {
     expenses,
   })
 
-  it('normalises the range total by its actual length in months', () => {
-    const result = averageMonthlyExpenses(
+  it.each([
+    [
+      'normalises the range total by its actual length in months',
       [month('2026-01', 1000), month('2026-02', 2000), month('2026-03', 3000)],
       '2026-01-01',
       '2026-03-31',
-    )
-    expect(result).toBeCloseTo(2029.2, 1)
-  })
-
-  it('counts a month-straddling one-month range as one month, not two buckets', () => {
-    const result = averageMonthlyExpenses(
+      2029.2,
+    ],
+    [
+      'counts a month-straddling one-month range as one month, not two buckets',
       [month('2026-06', 3000), month('2026-07', 2000)],
       '2026-06-29',
       '2026-07-29',
-    )
-    expect(result).toBeCloseTo(4909.3, 1)
+      4909.3,
+    ],
+  ])('%s', (_, cashflow, from, to, expected) => {
+    expect(averageMonthlyExpenses(cashflow, from, to)).toBeCloseTo(expected, 1)
   })
 
-  it('falls back to bucket count without a range', () => {
-    expect(averageMonthlyExpenses([month('2026-01', 1000), month('2026-02', 3000)])).toBe(2000)
-  })
-
-  it('falls back to bucket count for a range that ends before it starts', () => {
-    const cashflow = [month('2026-01', 1000), month('2026-02', 3000)]
-    expect(averageMonthlyExpenses(cashflow, '2026-02-28', '2026-01-01')).toBe(2000)
-  })
-
-  it('returns 0 for no months', () => {
-    expect(averageMonthlyExpenses([])).toBe(0)
+  it.each<[string, MonthlyCashflow[], number, string?, string?]>([
+    [
+      'falls back to bucket count without a range',
+      [month('2026-01', 1000), month('2026-02', 3000)],
+      2000,
+    ],
+    [
+      'falls back to bucket count for a range that ends before it starts',
+      [month('2026-01', 1000), month('2026-02', 3000)],
+      2000,
+      '2026-02-28',
+      '2026-01-01',
+    ],
+    ['returns 0 for no months', [], 0],
+  ])('%s', (_, cashflow, expected, from, to) => {
+    expect(averageMonthlyExpenses(cashflow, from, to)).toBe(expected)
   })
 })
 
 describe('runwayMonths', () => {
-  it('divides balance by average monthly expenses', () => {
-    expect(runwayMonths(10000, 2000)).toBe(5)
-  })
-
-  it('returns null when nothing is being spent (indefinite runway)', () => {
-    expect(runwayMonths(10000, 0)).toBeNull()
-  })
-
-  it('clamps a negative (overdrawn) balance to 0', () => {
-    expect(runwayMonths(-500, 2000)).toBe(0)
+  it.each([
+    ['divides balance by average monthly expenses', 10000, 2000, 5],
+    ['returns null when nothing is being spent (indefinite runway)', 10000, 0, null],
+    ['clamps a negative (overdrawn) balance to 0', -500, 2000, 0],
+  ])('%s', (_, balance, expenses, expected) => {
+    expect(runwayMonths(balance, expenses)).toBe(expected)
   })
 })
 
 describe('runwayYearsMonths', () => {
-  it('splits whole months into years and months', () => {
-    expect(runwayYearsMonths(18)).toEqual({ years: 1, months: 6 })
-  })
-
-  it('rounds to the nearest whole month before splitting', () => {
-    expect(runwayYearsMonths(12.6)).toEqual({ years: 1, months: 1 })
-    expect(runwayYearsMonths(23.6)).toEqual({ years: 2, months: 0 })
-  })
-
-  it('is exact on whole-year boundaries', () => {
-    expect(runwayYearsMonths(24)).toEqual({ years: 2, months: 0 })
-  })
-})
-
-describe('expandCategorySelection', () => {
-  const custom = [{ key: 'CUSTOM_0A1B2C3D' as const, group: 'PETS' as const }]
-
-  it('expands a group to its fixed and custom categories and keeps custom keys', () => {
-    expect(expandCategorySelection(['PETS', 'SALARY', 'CUSTOM_DEADBEEF'], custom)).toEqual([
-      'PET_SUPPLIES',
-      'VET',
-      'CUSTOM_0A1B2C3D',
-      'SALARY',
-      'CUSTOM_DEADBEEF',
-    ])
-  })
-
-  it('drops retired keys', () => {
-    expect(expandCategorySelection(['TRAVEL', 'FUEL'])).toEqual(['FUEL'])
+  it.each([
+    ['splits whole months into years and months', 18, 1, 6],
+    ['rounds down to the nearest whole month before splitting', 12.6, 1, 1],
+    ['rounds up to the nearest whole month before splitting', 23.6, 2, 0],
+    ['is exact on whole-year boundaries', 24, 2, 0],
+  ])('%s', (_, months, expectedYears, expectedMonths) => {
+    expect(runwayYearsMonths(months)).toEqual({ years: expectedYears, months: expectedMonths })
   })
 })
 
@@ -431,20 +395,8 @@ describe('statistics queries', () => {
   beforeEach(() => {
     fetchSpy = vi
       .spyOn(globalThis, 'fetch')
-      .mockImplementation(
-        async () =>
-          new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),
-      )
+      .mockImplementation(async () => jsonResponse({ status: 200, body: {} }))
   })
-
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
-  function wrapper({ children }: { children: ReactNode }) {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    return createElement(QueryClientProvider, { client }, children)
-  }
 
   async function requestedUrl(): Promise<URL> {
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1))
@@ -452,7 +404,7 @@ describe('statistics queries', () => {
   }
 
   it('asks for the range breakdown of every selected account', async () => {
-    renderHook(() => useNetWorthRange(DATE_RECENT, DATE_TODAY, [43, 42]), { wrapper })
+    renderHookWithClient(() => useNetWorthRange(DATE_RECENT, DATE_TODAY, [43, 42]))
 
     const url = await requestedUrl()
     expect(url.pathname).toBe('/api/statistics/net-worth/range')
@@ -462,16 +414,14 @@ describe('statistics queries', () => {
   })
 
   it('does not ask for a range breakdown without accounts', () => {
-    const { result } = renderHook(() => useNetWorthRange(DATE_RECENT, DATE_TODAY, []), {
-      wrapper,
-    })
+    const { result } = renderHookWithClient(() => useNetWorthRange(DATE_RECENT, DATE_TODAY, []))
 
     expect(result.current.fetchStatus).toBe('idle')
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
   it('asks for the raw net worth when the balance factor must not be applied', async () => {
-    renderHook(() => useNetWorthStats([42], {}, true, false), { wrapper })
+    renderHookWithClient(() => useNetWorthStats([42], {}, true, false))
 
     const url = await requestedUrl()
     expect(url.pathname).toBe('/api/statistics/net-worth')
@@ -479,12 +429,10 @@ describe('statistics queries', () => {
   })
 
   it('sends direction, baseline windows and the type filter for the category trend', async () => {
-    renderHook(
-      () =>
-        useCategoryTrendStats([42], { date_from: DATE_RECENT }, 'INCOMING', ['SALARY'], 3, {
-          transaction_types: ['FEES'],
-        }),
-      { wrapper },
+    renderHookWithClient(() =>
+      useCategoryTrendStats([42], { date_from: DATE_RECENT }, 'INCOMING', ['SALARY'], 3, {
+        transaction_types: ['FEES'],
+      }),
     )
 
     const url = await requestedUrl()

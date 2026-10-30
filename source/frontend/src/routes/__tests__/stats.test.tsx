@@ -1,11 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 import { selectFromPopover } from '@/test/popover-select'
-import type { CredentialRead } from '@/lib/auth'
 
 const { apiResponses, chartProps, navigate } = vi.hoisted(() => ({
   apiResponses: {} as Record<string, unknown>,
@@ -77,31 +75,9 @@ import {
 } from '@/test/constants'
 import { buildAccount, buildCredential } from '@/test/statsFixtures'
 import { routeState } from './-routerMock'
-import { buildUser } from './-settingsUserTestHelpers'
+import { buildUser, renderWithQuery } from '@/test/helpers'
 
-const credentials: CredentialRead[] = [
-  {
-    id: 1,
-    bank: 'ing',
-    bank_name: null,
-    bank_icon: null,
-    accounts: [
-      {
-        id: 42,
-        name: ACCOUNT_NAME_GIRO,
-        balance: 0,
-        balance_factor: 100,
-        display_name: null,
-        is_archived: false,
-        include_by_default: true,
-        is_market_valued: false,
-      },
-    ],
-    last_successful_sync_timestamp: null,
-    requires_two_factor_authentication: false,
-    sync_enabled: true,
-  },
-]
+const credentials = [buildCredential([buildAccount({ id: 42, name: ACCOUNT_NAME_GIRO })])]
 
 const MONTH_START = '2026-04-22'
 const TWO_WEEKS_START = '2026-05-08'
@@ -130,7 +106,6 @@ function renderView(initialSearch: Partial<StatsSearchParams> = {}) {
   const onOpenDay = vi.fn()
   const onOpenRange = vi.fn()
   const onOpenBalance = vi.fn()
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   function Harness() {
     const [search, setSearch] = useState<StatsSearchParams>(initialSearch as StatsSearchParams)
@@ -150,11 +125,7 @@ function renderView(initialSearch: Partial<StatsSearchParams> = {}) {
     )
   }
 
-  render(
-    <QueryClientProvider client={client}>
-      <Harness />
-    </QueryClientProvider>,
-  )
+  renderWithQuery(<Harness />)
   return { onChange, onOpenSearch, onOpenDay, onOpenRange, onOpenBalance }
 }
 
@@ -164,8 +135,6 @@ const requestedPaths = () => vi.mocked(api).mock.calls.map(([path]) => path)
 beforeEach(() => {
   for (const key of Object.keys(apiResponses)) delete apiResponses[key]
   chartProps.clear()
-  navigate.mockClear()
-  vi.mocked(api).mockClear()
   sessionStorage.clear()
   routeState.search = {}
 })
@@ -523,12 +492,7 @@ describe('stats route', () => {
 
   function renderRoute() {
     const Page = Route.options.component!
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    return render(
-      <QueryClientProvider client={client}>
-        <Page />
-      </QueryClientProvider>,
-    )
+    return renderWithQuery(<Page />)
   }
 
   beforeEach(() => {

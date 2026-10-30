@@ -1,12 +1,18 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Mock } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import i18n from 'i18next'
 
 import '@/i18n'
-import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import {
+  buildUser,
+  jsonResponse,
+  renderWithQuery,
+  requestsTo,
+  serve,
+  type Served,
+} from '@/test/helpers'
 import { DATETIME_CREATED_NEWER, DATETIME_RECENT, DATETIME_UPDATED } from '@/test/constants'
 
 const historyPush = vi.hoisted(() => vi.fn())
@@ -41,39 +47,19 @@ beforeEach(async () => {
   await i18n.changeLanguage('en')
 })
 
-afterEach(() => {
-  vi.restoreAllMocks()
-  vi.clearAllMocks()
-})
-
 const GENERIC_ERROR = 'Something went wrong. Please try again.'
+const FAILURE = { status: 500, body: { detail: 'boom' } }
+const SESSIONS_URL = '/api/users/1/sessions'
+const CURRENT = buildSession({ id: 11, is_current: true, user_agent: 'Chrome/130' })
+const OTHER = buildSession({ id: 10, is_current: false, user_agent: 'Firefox/120' })
 
-function serveFailingWrites(sessions: SessionRead[]) {
-  ;(globalThis.fetch as Mock).mockImplementation((url: string, init?: { method?: string }) =>
-    Promise.resolve(
-      url === '/api/users/1/sessions' && (init?.method ?? 'GET') === 'GET'
-        ? jsonResponse({ status: 200, body: sessions })
-        : jsonResponse({ status: 500, body: { detail: 'boom' } }),
-    ),
-  )
+function serveSessions(sessions: SessionRead[], extra: Served = {}) {
+  serve({ [`GET ${SESSIONS_URL}`]: { status: 200, body: sessions }, ...extra })
 }
 
 describe('SettingsSessionsView', () => {
   it('renders one row per session and marks the current one with a badge', async () => {
-    ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
-      if (url === '/api/users/1/sessions') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 200,
-            body: [
-              buildSession({ id: 10, is_current: false, user_agent: 'Firefox/120' }),
-              buildSession({ id: 11, is_current: true, user_agent: 'Chrome/130' }),
-            ],
-          }),
-        )
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url}`))
-    })
+    serveSessions([OTHER, CURRENT])
 
     renderWithQuery(<SettingsSessionsView user={buildUser()} />)
 
@@ -95,39 +81,20 @@ describe('SettingsSessionsView', () => {
 
   it('logs out via POST /api/auth/logout when the current row button is clicked', async () => {
     const user = userEvent.setup()
-    const fetchMock = globalThis.fetch as Mock
-    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-      if (url === '/api/users/1/sessions') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 200,
-            body: [buildSession({ id: 11, is_current: true, user_agent: 'Chrome/130' })],
-          }),
-        )
-      }
-      if (url === '/api/auth/logout' && init?.method === 'POST') {
-        return Promise.resolve(new Response(null, { status: 204 }))
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-    })
+    serveSessions([CURRENT], { 'POST /api/auth/logout': { status: 204 } })
 
     renderWithQuery(<SettingsSessionsView user={buildUser()} />)
     await screen.findByText('Chrome/130')
 
     await user.click(screen.getByRole('button', { name: 'Log out' }))
 
-    await waitFor(() => {
-      const post = fetchMock.mock.calls.find(
-        ([url, payload]) => url === '/api/auth/logout' && payload?.method === 'POST',
-      )
-      expect(post).toBeTruthy()
-    })
+    await waitFor(() => expect(requestsTo('POST', '/api/auth/logout')).toHaveLength(1))
     await waitFor(() => expect(historyPush).toHaveBeenCalledWith('/login'))
   })
 
   it('stays on the page and reports the error when logging out fails', async () => {
     const user = userEvent.setup()
-    serveFailingWrites([buildSession({ id: 11, is_current: true, user_agent: 'Chrome/130' })])
+    serveSessions([CURRENT], { 'POST /api/auth/logout': FAILURE })
     renderWithQuery(<SettingsSessionsView user={buildUser()} />)
 
     await user.click(await screen.findByRole('button', { name: 'Log out' }))
@@ -138,7 +105,7 @@ describe('SettingsSessionsView', () => {
 
   it('keeps a session listed and reports the error when ending it fails', async () => {
     const user = userEvent.setup()
-    serveFailingWrites([buildSession({ id: 10, is_current: false, user_agent: 'Firefox/120' })])
+    serveSessions([OTHER], { [`DELETE ${SESSIONS_URL}/10`]: FAILURE })
     renderWithQuery(<SettingsSessionsView user={buildUser()} />)
 
     await user.click(await screen.findByRole('button', { name: 'End session' }))
@@ -150,10 +117,7 @@ describe('SettingsSessionsView', () => {
 
   it('reports the error when signing out everywhere else fails', async () => {
     const user = userEvent.setup()
-    serveFailingWrites([
-      buildSession({ id: 11, is_current: true, user_agent: 'Chrome/130' }),
-      buildSession({ id: 10, is_current: false, user_agent: 'Firefox/120' }),
-    ])
+    serveSessions([CURRENT, OTHER], { [`DELETE ${SESSIONS_URL}`]: FAILURE })
     renderWithQuery(<SettingsSessionsView user={buildUser()} />)
 
     await user.click(await screen.findByRole('button', { name: /Sign out elsewhere/i }))
@@ -165,13 +129,7 @@ describe('SettingsSessionsView', () => {
 
   it('confirms an ended session with a toast', async () => {
     const user = userEvent.setup()
-    ;(globalThis.fetch as Mock).mockImplementation((_url: string, init?: { method?: string }) =>
-      Promise.resolve(
-        init?.method === 'DELETE'
-          ? jsonResponse({ status: 204 })
-          : jsonResponse({ status: 200, body: [buildSession({ id: 10 })] }),
-      ),
-    )
+    serveSessions([buildSession({ id: 10 })], { [`DELETE ${SESSIONS_URL}/10`]: { status: 204 } })
     renderWithQuery(<SettingsSessionsView user={buildUser()} />)
 
     await user.click(await screen.findByRole('button', { name: 'End session' }))
@@ -181,18 +139,17 @@ describe('SettingsSessionsView', () => {
 
   it('only disables the row whose session is being ended', async () => {
     const user = userEvent.setup()
-    ;(globalThis.fetch as Mock).mockImplementation((_url: string, init?: { method?: string }) =>
-      init?.method === 'DELETE'
-        ? new Promise(() => {})
-        : Promise.resolve(
-            jsonResponse({
-              status: 200,
-              body: [
-                buildSession({ id: 10, user_agent: 'Firefox/120' }),
-                buildSession({ id: 12, user_agent: 'Edge/120' }),
-              ],
-            }),
-          ),
+    serve(
+      {
+        [`GET ${SESSIONS_URL}`]: {
+          status: 200,
+          body: [
+            buildSession({ id: 10, user_agent: 'Firefox/120' }),
+            buildSession({ id: 12, user_agent: 'Edge/120' }),
+          ],
+        },
+      },
+      (_url, init) => (init?.method === 'DELETE' ? new Promise(() => {}) : null),
     )
     renderWithQuery(<SettingsSessionsView user={buildUser()} />)
 
@@ -207,16 +164,11 @@ describe('SettingsSessionsView', () => {
   })
 
   it('orders other sessions by last use and fills in unknown device and IP', async () => {
-    ;(globalThis.fetch as Mock).mockResolvedValue(
-      jsonResponse({
-        status: 200,
-        body: [
-          buildSession({ id: 1, user_agent: 'Old/1', last_used_at: DATETIME_RECENT }),
-          buildSession({ id: 2, user_agent: null, ip: null, last_used_at: DATETIME_UPDATED }),
-          buildSession({ id: 3, user_agent: 'Mid/1', last_used_at: DATETIME_CREATED_NEWER }),
-        ],
-      }),
-    )
+    serveSessions([
+      buildSession({ id: 1, user_agent: 'Old/1', last_used_at: DATETIME_RECENT }),
+      buildSession({ id: 2, user_agent: null, ip: null, last_used_at: DATETIME_UPDATED }),
+      buildSession({ id: 3, user_agent: 'Mid/1', last_used_at: DATETIME_CREATED_NEWER }),
+    ])
 
     renderWithQuery(<SettingsSessionsView user={buildUser()} />)
 
@@ -231,28 +183,13 @@ describe('SettingsSessionsView', () => {
 
   it('revokes a non-current session via DELETE and refetches the list', async () => {
     const user = userEvent.setup()
-    const fetchMock = globalThis.fetch as Mock
-    let listCallNumber = 0
-    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-      if (
-        url === '/api/users/1/sessions' &&
-        (!init || init.method === undefined || init.method === 'GET')
-      ) {
-        listCallNumber += 1
-        // First call returns two sessions, second (after revoke) returns just the current one.
-        const sessions =
-          listCallNumber === 1
-            ? [
-                buildSession({ id: 11, is_current: true, user_agent: 'Chrome/130' }),
-                buildSession({ id: 10, is_current: false, user_agent: 'Firefox/120' }),
-              ]
-            : [buildSession({ id: 11, is_current: true, user_agent: 'Chrome/130' })]
-        return Promise.resolve(jsonResponse({ status: 200, body: sessions }))
-      }
-      if (url === '/api/users/1/sessions/10' && init?.method === 'DELETE') {
-        return Promise.resolve(new Response(null, { status: 204 }))
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
+    let sessions = [CURRENT, OTHER]
+    serve({
+      [`GET ${SESSIONS_URL}`]: () => jsonResponse({ status: 200, body: sessions }),
+      [`DELETE ${SESSIONS_URL}/10`]: () => {
+        sessions = [CURRENT]
+        return jsonResponse({ status: 204 })
+      },
     })
 
     renderWithQuery(<SettingsSessionsView user={buildUser()} />)
@@ -262,12 +199,7 @@ describe('SettingsSessionsView', () => {
     const items = screen.getAllByRole('listitem')
     await user.click(within(items[1]).getByRole('button', { name: 'End session' }))
 
-    await waitFor(() => {
-      const del = fetchMock.mock.calls.find(
-        ([url, payload]) => url === '/api/users/1/sessions/10' && payload?.method === 'DELETE',
-      )
-      expect(del).toBeTruthy()
-    })
+    await waitFor(() => expect(requestsTo('DELETE', `${SESSIONS_URL}/10`)).toHaveLength(1))
     // The list is refetched and now only the current session remains.
     await waitFor(() => {
       expect(screen.queryByText('Firefox/120')).not.toBeInTheDocument()
@@ -276,61 +208,22 @@ describe('SettingsSessionsView', () => {
 
   it('signs out everywhere else via DELETE /sessions after a confirm step', async () => {
     const user = userEvent.setup()
-    const fetchMock = globalThis.fetch as Mock
-    fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-      if (
-        url === '/api/users/1/sessions' &&
-        (!init || init.method === undefined || init.method === 'GET')
-      ) {
-        return Promise.resolve(
-          jsonResponse({
-            status: 200,
-            body: [
-              buildSession({ id: 11, is_current: true, user_agent: 'Chrome/130' }),
-              buildSession({ id: 10, is_current: false, user_agent: 'Firefox/120' }),
-            ],
-          }),
-        )
-      }
-      if (url === '/api/users/1/sessions' && init?.method === 'DELETE') {
-        return Promise.resolve(new Response(null, { status: 204 }))
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url} ${init?.method}`))
-    })
+    serveSessions([CURRENT, OTHER], { [`DELETE ${SESSIONS_URL}`]: { status: 204 } })
 
     renderWithQuery(<SettingsSessionsView user={buildUser()} />)
     await screen.findByText('Firefox/120')
 
     // First click: switch to confirm mode. No DELETE yet.
     await user.click(screen.getByRole('button', { name: /Sign out elsewhere/i }))
-    expect(
-      fetchMock.mock.calls.find(
-        ([url, init]) => url === '/api/users/1/sessions' && init?.method === 'DELETE',
-      ),
-    ).toBeUndefined()
+    expect(requestsTo('DELETE', SESSIONS_URL)).toHaveLength(0)
 
     // Second click: confirm → DELETE fires.
     await user.click(screen.getByRole('button', { name: /Yes, sign out everywhere else/i }))
-    await waitFor(() => {
-      const del = fetchMock.mock.calls.find(
-        ([url, init]) => url === '/api/users/1/sessions' && init?.method === 'DELETE',
-      )
-      expect(del).toBeTruthy()
-    })
+    await waitFor(() => expect(requestsTo('DELETE', SESSIONS_URL)).toHaveLength(1))
   })
 
   it('hides the sign-out-elsewhere button when only the current session is left', async () => {
-    ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
-      if (url === '/api/users/1/sessions') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 200,
-            body: [buildSession({ id: 11, is_current: true, user_agent: 'Chrome/130' })],
-          }),
-        )
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url}`))
-    })
+    serveSessions([CURRENT])
 
     renderWithQuery(<SettingsSessionsView user={buildUser()} />)
     await screen.findByText('Chrome/130')
@@ -339,9 +232,7 @@ describe('SettingsSessionsView', () => {
   })
 
   it('shows a translated error toast when the list fails to load', async () => {
-    ;(globalThis.fetch as Mock).mockResolvedValue(
-      jsonResponse({ status: 500, body: { detail: 'Internal' } }),
-    )
+    serve({ [`GET ${SESSIONS_URL}`]: { status: 500, body: { detail: 'Internal' } } })
 
     renderWithQuery(<SettingsSessionsView user={buildUser()} />)
 
@@ -351,7 +242,7 @@ describe('SettingsSessionsView', () => {
 
 describe('SettingsSessionsView loading', () => {
   it('shows skeleton rows while still announcing the loading state', () => {
-    ;(globalThis.fetch as Mock).mockImplementation(() => new Promise(() => {}))
+    serve({}, () => new Promise(() => {}))
     renderWithQuery(<SettingsSessionsView user={buildUser()} />)
     expect(screen.getByText('Loading…')).toHaveClass('sr-only')
     expect(document.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
@@ -362,15 +253,9 @@ describe('SettingsSessionsPage', () => {
   const Page = Route.options.component!
 
   it('lists the sessions of the signed-in user', async () => {
-    ;(globalThis.fetch as Mock).mockImplementation((url: string) =>
-      Promise.resolve(
-        url === '/api/auth/me'
-          ? jsonResponse({ status: 200, body: buildUser() })
-          : url === '/api/users/1/sessions'
-            ? jsonResponse({ status: 200, body: [buildSession({ user_agent: 'Chrome/130' })] })
-            : jsonResponse({ status: 404 }),
-      ),
-    )
+    serveSessions([buildSession({ user_agent: 'Chrome/130' })], {
+      'GET /api/auth/me': { status: 200, body: buildUser() },
+    })
 
     renderWithQuery(<Page />)
 
@@ -378,7 +263,7 @@ describe('SettingsSessionsPage', () => {
   })
 
   it('renders nothing while the signed-in user is unknown', async () => {
-    ;(globalThis.fetch as Mock).mockResolvedValue(jsonResponse({ status: 401 }))
+    serve({ 'GET /api/auth/me': { status: 401 } })
 
     const { container } = renderWithQuery(<Page />)
 

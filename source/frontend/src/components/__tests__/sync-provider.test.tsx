@@ -4,10 +4,11 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
-import type { Current2FA, CredentialRead, UseAppSyncResult, UserRead } from '@/lib/auth'
+import type { CredentialRead, UseAppSyncResult, UserRead } from '@/lib/auth'
 import type { SyncJob } from '@/lib/credentials'
-import { makeJob } from '@/test/syncTestHelpers'
-import { buildUser } from '@/routes/__tests__/-settingsUserTestHelpers'
+import { makeJob, twoFactor } from '@/test/syncTestHelpers'
+import { buildUser } from '@/test/helpers'
+import { buildCredential } from '@/test/statsFixtures'
 
 const mocks = vi.hoisted(() => ({
   user: undefined as UserRead | undefined,
@@ -45,19 +46,8 @@ const credentialState = vi.fn<UseAppSyncResult['credential']>(() => ({
 const submit2fa = vi.fn()
 const skip2fa = vi.fn()
 
-function credential(id: number, overrides: Partial<CredentialRead> = {}): CredentialRead {
-  return {
-    id,
-    bank: 'trade_republic',
-    bank_name: null,
-    bank_icon: null,
-    accounts: [],
-    last_successful_sync_timestamp: null,
-    requires_two_factor_authentication: false,
-    sync_enabled: true,
-    ...overrides,
-  }
-}
+const credential = (id: number, overrides: Partial<CredentialRead> = {}) =>
+  buildCredential([], { id, bank: 'trade_republic', ...overrides })
 
 function setSync(overrides: Partial<UseAppSyncResult> = {}) {
   mocks.sync = {
@@ -107,15 +97,6 @@ function ui(): ReactNode {
   )
 }
 
-const twoFactor: Current2FA = {
-  credentialId: 1,
-  jobId: 'job-1',
-  bank: 'trade_republic',
-  bankName: null,
-  bankIcon: null,
-  kind: 'awaiting_2fa',
-}
-
 function setVisibility(state: 'visible' | 'hidden') {
   Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state })
   document.dispatchEvent(new Event('visibilitychange'))
@@ -128,7 +109,6 @@ beforeEach(() => {
 
 afterEach(() => {
   Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
-  vi.clearAllMocks()
 })
 
 describe('useSync', () => {
@@ -353,7 +333,7 @@ describe('useCredentialSync', () => {
 describe('SyncProvider two-factor dialog', () => {
   it('passes the entered code on to the running sync', async () => {
     submit2fa.mockResolvedValue(undefined)
-    setSync({ status: 'awaiting_2fa', current2fa: twoFactor })
+    setSync({ status: 'awaiting_2fa', current2fa: twoFactor() })
     render(ui())
 
     await userEvent.type(screen.getByLabelText('Code'), '123456')
@@ -367,7 +347,7 @@ describe('SyncProvider two-factor dialog', () => {
     submit2fa.mockRejectedValue(new Error('rejected'))
     setSync({
       status: 'awaiting_2fa',
-      current2fa: { ...twoFactor, bank: 'fints', bankName: 'DKB' },
+      current2fa: twoFactor({ bank: 'fints', bankName: 'DKB' }),
     })
     render(ui())
 
@@ -378,7 +358,7 @@ describe('SyncProvider two-factor dialog', () => {
   })
 
   it('skips the bank and says so when the dialog is closed', async () => {
-    setSync({ status: 'awaiting_2fa', current2fa: twoFactor })
+    setSync({ status: 'awaiting_2fa', current2fa: twoFactor() })
     render(ui())
 
     await userEvent.click(screen.getByRole('button', { name: 'Close' }))
@@ -388,7 +368,7 @@ describe('SyncProvider two-factor dialog', () => {
   })
 
   it('skips silently when the bank is not known', async () => {
-    setSync({ status: 'awaiting_2fa', current2fa: { ...twoFactor, bank: '' } })
+    setSync({ status: 'awaiting_2fa', current2fa: twoFactor({ bank: '' }) })
     render(ui())
 
     await userEvent.click(screen.getByRole('button', { name: 'Close' }))

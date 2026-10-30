@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 
@@ -21,7 +21,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: toastError } }))
 import { SettingsIndexView } from '@/pages/settings.index'
 import type { AccountShareInvitation, CredentialRead } from '@/lib/auth'
 import { Route } from '@/routes/settings.index'
-import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { buildUser, jsonResponse, renderWithQuery } from '@/test/helpers'
 import { ACCOUNT_NAME_GIRO, VERSION_CURRENT, VERSION_LATEST } from '@/test/constants'
 
 const INVITATION: AccountShareInvitation = {
@@ -32,12 +32,6 @@ const INVITATION: AccountShareInvitation = {
   owner_name: 'Bob',
   permission: 'read',
 }
-
-beforeEach(() => {
-  navigate.mockClear()
-  historyPush.mockClear()
-  toastError.mockClear()
-})
 
 describe('SettingsIndexView', () => {
   it('renders the heading and links to each settings sub-page', () => {

@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   applyTheme,
@@ -9,17 +9,21 @@ import {
   writeStoredTheme,
 } from '../theme'
 
-function mockMatchMedia(matches: boolean) {
-  window.matchMedia = vi.fn().mockImplementation(() => ({
-    matches,
-    media: '(prefers-color-scheme: dark)',
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-    onchange: null,
-  })) as unknown as typeof window.matchMedia
+function mockOsTheme(prefersDark: boolean) {
+  const listeners = new Set<() => void>()
+  const media = {
+    matches: prefersDark,
+    addEventListener: vi.fn((_: string, listener: () => void) => listeners.add(listener)),
+    removeEventListener: vi.fn((_: string, listener: () => void) => listeners.delete(listener)),
+  }
+  window.matchMedia = vi.fn(() => media) as unknown as typeof window.matchMedia
+  return {
+    flip(next: boolean) {
+      media.matches = next
+      act(() => listeners.forEach((listener) => listener()))
+    },
+    listeners,
+  }
 }
 
 beforeEach(() => {
@@ -27,25 +31,17 @@ beforeEach(() => {
   window.localStorage.clear()
 })
 
-afterEach(() => {
-  vi.unstubAllGlobals()
-  vi.restoreAllMocks()
-})
-
 describe('resolveTheme', () => {
-  it('returns the explicit value for LIGHT and DARK', () => {
-    expect(resolveTheme('LIGHT')).toBe('LIGHT')
-    expect(resolveTheme('DARK')).toBe('DARK')
+  it.each(['LIGHT', 'DARK'] as const)('returns the explicit value for %s', (theme) => {
+    expect(resolveTheme(theme)).toBe(theme)
   })
 
-  it('returns DARK for SYSTEM when the OS prefers dark', () => {
-    mockMatchMedia(true)
-    expect(resolveTheme('SYSTEM')).toBe('DARK')
-  })
-
-  it('returns LIGHT for SYSTEM when the OS prefers light', () => {
-    mockMatchMedia(false)
-    expect(resolveTheme('SYSTEM')).toBe('LIGHT')
+  it.each([
+    [true, 'DARK'],
+    [false, 'LIGHT'],
+  ])('resolves SYSTEM via the OS preference (prefers dark: %s → %s)', (prefersDark, expected) => {
+    mockOsTheme(prefersDark)
+    expect(resolveTheme('SYSTEM')).toBe(expected)
   })
 })
 
@@ -57,20 +53,17 @@ describe('resolveTheme without matchMedia', () => {
 })
 
 describe('applyTheme', () => {
-  it('sets the dark class for an explicit DARK preference', () => {
-    applyTheme('DARK')
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
-    expect(document.documentElement.classList.contains('light')).toBe(false)
-  })
-
-  it('sets the light class for an explicit LIGHT preference', () => {
-    applyTheme('LIGHT')
-    expect(document.documentElement.classList.contains('light')).toBe(true)
-    expect(document.documentElement.classList.contains('dark')).toBe(false)
+  it.each([
+    ['DARK', 'dark', 'light'],
+    ['LIGHT', 'light', 'dark'],
+  ] as const)('sets only the matching class for an explicit %s preference', (theme, set, unset) => {
+    applyTheme(theme)
+    expect(document.documentElement.classList.contains(set)).toBe(true)
+    expect(document.documentElement.classList.contains(unset)).toBe(false)
   })
 
   it('resolves SYSTEM via prefers-color-scheme', () => {
-    mockMatchMedia(false)
+    mockOsTheme(false)
     applyTheme('SYSTEM')
     expect(document.documentElement.classList.contains('light')).toBe(true)
   })
@@ -93,23 +86,6 @@ describe('readStoredTheme / writeStoredTheme', () => {
 })
 
 describe('useResolvedTheme', () => {
-  function mockOsTheme(prefersDark: boolean) {
-    const listeners = new Set<() => void>()
-    const media = {
-      matches: prefersDark,
-      addEventListener: vi.fn((_: string, listener: () => void) => listeners.add(listener)),
-      removeEventListener: vi.fn((_: string, listener: () => void) => listeners.delete(listener)),
-    }
-    window.matchMedia = vi.fn(() => media) as unknown as typeof window.matchMedia
-    return {
-      flip(next: boolean) {
-        media.matches = next
-        act(() => listeners.forEach((listener) => listener()))
-      },
-      listeners,
-    }
-  }
-
   it('applies an explicit preference and remembers it for the next start', () => {
     mockOsTheme(false)
     const { result } = renderHook(() => useResolvedTheme('DARK'))

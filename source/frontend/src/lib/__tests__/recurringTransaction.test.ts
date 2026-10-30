@@ -1,7 +1,6 @@
-import { createElement, type ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, renderHook, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient } from '@tanstack/react-query'
+import { act, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 
 import { accountQueryKeys } from '@/lib/accountHistory'
 import { authQueryKeys } from '@/lib/auth'
@@ -15,6 +14,7 @@ import {
   type RecurringTransactionUpdatePayload,
 } from '@/lib/recurringTransaction'
 import { AMOUNT_M, DATE_NEXT_RUN } from '@/test/constants'
+import { jsonResponse, renderHookWithClient } from '@/test/helpers'
 
 const ACCOUNT_ID = 7
 
@@ -39,20 +39,8 @@ const payload: RecurringTransactionUpdatePayload = {
   day_of_month: 15,
 }
 
-function renderWithClient<T>(hook: () => T, client: QueryClient) {
-  const wrapper = ({ children }: { children: ReactNode }) =>
-    createElement(QueryClientProvider, { client }, children)
-  return renderHook(hook, { wrapper })
-}
-
 function stubFetch(body: unknown = rule) {
-  const fetchMock = vi.fn(
-    async () =>
-      new Response(JSON.stringify(body), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
-  )
+  const fetchMock = vi.fn(async () => jsonResponse({ status: 200, body }))
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
 }
@@ -66,18 +54,11 @@ function clientWith(...keys: (readonly unknown[])[]) {
 const invalidated = (client: QueryClient, key: readonly unknown[]) =>
   client.getQueryState(key)?.isInvalidated
 
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
-
 describe('useRecurringTransactions', () => {
   it("loads the account's recurring rules", async () => {
     const fetchMock = stubFetch([rule])
 
-    const { result } = renderWithClient(
-      () => useRecurringTransactions(ACCOUNT_ID),
-      new QueryClient(),
-    )
+    const { result } = renderHookWithClient(() => useRecurringTransactions(ACCOUNT_ID))
 
     await waitFor(() => expect(result.current.data).toEqual([rule]))
     expect(fetchMock).toHaveBeenCalledWith(
@@ -95,7 +76,7 @@ describe('recurring transaction mutations', () => {
       accountQueryKeys.history(ACCOUNT_ID),
       authQueryKeys.me,
     )
-    const { result } = renderWithClient(() => useCreateRecurringTransaction(ACCOUNT_ID), client)
+    const { result } = renderHookWithClient(() => useCreateRecurringTransaction(ACCOUNT_ID), client)
 
     await act(async () => {
       await result.current.mutateAsync({ ...payload, book_immediately: true })
@@ -113,7 +94,7 @@ describe('recurring transaction mutations', () => {
   it('updating a rule patches it and refreshes only the rule list', async () => {
     const fetchMock = stubFetch()
     const client = clientWith(recurringQueryKeys.list(ACCOUNT_ID), authQueryKeys.me)
-    const { result } = renderWithClient(() => useUpdateRecurringTransaction(ACCOUNT_ID), client)
+    const { result } = renderHookWithClient(() => useUpdateRecurringTransaction(ACCOUNT_ID), client)
 
     await act(async () => {
       await result.current.mutateAsync({ recurringTransactionId: rule.id, payload })
@@ -130,7 +111,7 @@ describe('recurring transaction mutations', () => {
   it('deleting a rule removes it and refreshes the rule list', async () => {
     const fetchMock = stubFetch(null)
     const client = clientWith(recurringQueryKeys.list(ACCOUNT_ID))
-    const { result } = renderWithClient(() => useDeleteRecurringTransaction(ACCOUNT_ID), client)
+    const { result } = renderHookWithClient(() => useDeleteRecurringTransaction(ACCOUNT_ID), client)
 
     await act(async () => {
       await result.current.mutateAsync(rule.id)

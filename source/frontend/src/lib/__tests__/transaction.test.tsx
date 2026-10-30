@@ -1,7 +1,6 @@
-import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
-import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { waitFor } from '@testing-library/react'
+import { onlineManager, QueryClient } from '@tanstack/react-query'
 
 import { accountQueryKeys, type TransactionRead } from '@/lib/accountHistory'
 import {
@@ -13,6 +12,7 @@ import {
 } from '@/lib/transaction'
 import { transactionSearchQueryKeys } from '@/lib/transactionSearch'
 import { DATE_OLDER } from '@/test/constants'
+import { renderHookWithClient } from '@/test/helpers'
 
 function renderOffline(seed: (queryClient: QueryClient) => void, transactionId: number) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -21,10 +21,7 @@ function renderOffline(seed: (queryClient: QueryClient) => void, transactionId: 
   globalThis.fetch = vi
     .fn()
     .mockRejectedValue(new TypeError('Failed to fetch')) as unknown as typeof fetch
-  const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  )
-  return renderHook(() => useTransactionById(transactionId), { wrapper })
+  return renderHookWithClient(() => useTransactionById(transactionId), queryClient)
 }
 
 describe('useTransactionById offline', () => {

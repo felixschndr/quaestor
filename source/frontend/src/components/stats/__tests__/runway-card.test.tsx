@@ -1,12 +1,12 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 import { formatMonths } from '@/lib/format'
 import type { MonthlyCashflow } from '@/lib/statistics'
 import type { CategoryKey } from '@/lib/transaction'
-import { jsonResponse, renderWithQuery } from '@/routes/__tests__/-settingsUserTestHelpers'
+import { jsonResponse, renderWithQuery } from '@/test/helpers'
 import {
   ACCOUNT_NAME_GIRO,
   ACCOUNT_NAME_SAVINGS,
@@ -50,10 +50,6 @@ function renderCard(categories: CategoryKey[] = ['FUEL', 'SAVINGS']) {
 }
 
 const metric = (label: string) => screen.getAllByText(label)[0].nextElementSibling
-
-afterEach(() => {
-  vi.restoreAllMocks()
-})
 
 describe('RunwayCard', () => {
   it.each([

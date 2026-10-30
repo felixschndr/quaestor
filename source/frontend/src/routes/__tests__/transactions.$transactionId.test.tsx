@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { onlineManager } from '@tanstack/react-query'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 import { selectFromPopover } from '@/test/popover-select'
@@ -33,22 +33,19 @@ vi.mock('@/lib/contract', async (importOriginal) => ({
   useSetTransactionContract: () => ({ mutateAsync: contractMocks.setContract, isPending: false }),
 }))
 
-import {
-  TransactionDetailView,
-  otherPartyLabelKey,
-  transferPartnerLabel,
-} from '@/pages/transactions.$transactionId'
+import { TransactionDetailView, transferPartnerLabel } from '@/pages/transactions.$transactionId'
 import {
   ContractSection,
   Route,
   orderRelatedTransactions,
   type RelatedTransactionView,
 } from '@/routes/transactions.$transactionId'
-import type { AccountRead, CredentialRead } from '@/lib/auth'
+import type { CredentialRead } from '@/lib/auth'
 import type { AttachmentRead } from '@/lib/attachment'
 import { formatDate, formatMoney } from '@/lib/format'
 import { routeState } from './-routerMock'
-import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { bodyOf, buildUser, jsonResponse, renderWithQuery, requestsTo } from '@/test/helpers'
+import { buildAccount, buildCredential } from '@/test/statsFixtures'
 import {
   ACCOUNT_NAME_GIRO,
   ACCOUNT_NAME_SAVINGS,
@@ -71,15 +68,6 @@ import {
 
 beforeEach(() => {
   contractMocks.contracts = [NETFLIX_CONTRACT]
-  contractMocks.setContract.mockClear()
-  navigate.mockClear()
-  toast.success.mockClear()
-  toast.error.mockClear()
-  toast.promise.mockClear()
-})
-
-afterEach(() => {
-  vi.restoreAllMocks()
 })
 
 function buildTransaction(overrides: Partial<TransactionDetailRead> = {}): TransactionDetailRead {
@@ -150,10 +138,12 @@ describe('TransactionDetailView', () => {
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/account/42')
   })
 
-  it('shows a negative amount in the destructive color', () => {
-    renderView({ amount: -AMOUNT_M })
-    const amount = screen.getByText(money(-AMOUNT_M))
-    expect(amount.className).toMatch(/text-destructive/)
+  it.each([
+    ['negative', -AMOUNT_M, /text-destructive/],
+    ['positive', AMOUNT_XL, /text-success/],
+  ])('shows a %s amount in its colour', (_label, amount, colour) => {
+    renderView({ amount })
+    expect(screen.getByText(money(amount)).className).toMatch(colour)
   })
 
   it('badges a refunded transaction', () => {
@@ -166,12 +156,6 @@ describe('TransactionDetailView', () => {
     expect(screen.queryByText('Refunded')).toBeNull()
   })
 
-  it('shows a positive amount in the success color', () => {
-    renderView({ amount: AMOUNT_XL })
-    const amount = screen.getByText(money(AMOUNT_XL))
-    expect(amount.className).toMatch(/text-success/)
-  })
-
   it('renders all fields in the table in the documented order', () => {
     // amount: -AMOUNT_M (outgoing) → "Recipient" label
     renderView()
@@ -179,16 +163,13 @@ describe('TransactionDetailView', () => {
     expect(dts).toEqual(['Recipient', 'PurposePurpose', 'Category', 'Account', 'Note'])
   })
 
-  it('labels the other-party row "Sender" for incoming amounts', () => {
-    renderView({ amount: AMOUNT_L })
+  it.each([
+    ['"Sender" for incoming amounts', AMOUNT_L, 'Sender'],
+    ['the neutral combined label for an amount of exactly zero', 0, 'Other party'],
+  ])('labels the other-party row %s', (_label, amount, label) => {
+    renderView({ amount })
     const dts = screen.getAllByRole('term').map((node) => node.textContent)
-    expect(dts[0]).toBe('Sender')
-  })
-
-  it('falls back to the neutral combined label when the amount is exactly zero', () => {
-    renderView({ amount: 0 })
-    const dts = screen.getAllByRole('term').map((node) => node.textContent)
-    expect(dts[0]).toBe('Other party')
+    expect(dts[0]).toBe(label)
   })
 
   it('renders the date in long form in the header following the active language', () => {
@@ -469,20 +450,6 @@ describe('transferPartnerLabel', () => {
 
   it('returns null when neither is available', () => {
     expect(transferPartnerLabel(null, undefined)).toBeNull()
-  })
-})
-
-describe('otherPartyLabelKey', () => {
-  it('returns the recipient key for outgoing amounts', () => {
-    expect(otherPartyLabelKey(-1)).toBe('transaction.recipient')
-  })
-
-  it('returns the sender key for incoming amounts', () => {
-    expect(otherPartyLabelKey(1)).toBe('transaction.sender')
-  })
-
-  it('returns the neutral key for zero amounts', () => {
-    expect(otherPartyLabelKey(0)).toBe('transaction.otherParty')
   })
 })
 
@@ -817,41 +784,28 @@ describe('ContractSection — states', () => {
 describe('TransactionDetailPage', () => {
   const Page = Route.options.component!
 
-  function buildAccount(overrides: Partial<AccountRead> = {}): AccountRead {
-    return {
-      id: 42,
-      name: TEST_IBAN,
-      display_name: ACCOUNT_NAME_GIRO,
-      balance: AMOUNT_XL,
-      balance_factor: 100,
-      is_archived: false,
-      include_by_default: true,
-      is_market_valued: false,
-      ...overrides,
-    }
-  }
+  const giro = buildAccount({
+    id: 42,
+    name: TEST_IBAN,
+    display_name: ACCOUNT_NAME_GIRO,
+    balance: AMOUNT_XL,
+  })
+  const savings = buildAccount({ id: 55, name: ACCOUNT_NAME_SAVINGS })
 
-  const savings = buildAccount({ id: 55, name: ACCOUNT_NAME_SAVINGS, display_name: null })
-
-  function buildCredential(overrides: Partial<CredentialRead> = {}): CredentialRead {
-    return {
+  function fintsCredential(overrides: Partial<CredentialRead> = {}) {
+    return buildCredential([giro, savings], {
       id: 100,
       bank: 'fints',
       bank_name: 'ING',
-      bank_icon: null,
-      accounts: [buildAccount(), savings],
-      last_successful_sync_timestamp: null,
-      requires_two_factor_authentication: false,
-      sync_enabled: true,
       ...overrides,
-    }
+    })
   }
 
   const SETTINGS = { allowed_attachment_extensions: ['pdf'], max_attachment_size_mb: 1 }
   const ATTACHMENTS_URL = '/api/account/42/transactions/7/attachments'
 
   function serve(routes: Record<string, unknown>) {
-    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const route = routes[`${init?.method ?? 'GET'} ${String(input)}`]
       if (route === undefined) return new Promise<Response>(() => {})
       return Promise.resolve(
@@ -859,20 +813,12 @@ describe('TransactionDetailPage', () => {
           ? (route as () => Response)()
           : jsonResponse({ status: 200, body: route }),
       )
-    })
-    globalThis.fetch = fetchMock as unknown as typeof fetch
-    return fetchMock
-  }
-
-  function callsTo(fetchMock: ReturnType<typeof serve>, method: string, url: string) {
-    return fetchMock.mock.calls.filter(
-      ([input, init]) => (init?.method ?? 'GET') === method && String(input) === url,
-    )
+    }) as unknown as typeof fetch
   }
 
   function renderPage({
     transaction = buildTransaction(),
-    credential = buildCredential(),
+    credential = fintsCredential(),
     attachments = [] as AttachmentRead[],
     settings = SETTINGS as object,
     search = {} as Record<string, unknown>,
@@ -880,15 +826,14 @@ describe('TransactionDetailPage', () => {
   } = {}) {
     routeState.params = { transactionId: String(transaction.id) }
     routeState.search = search
-    const fetchMock = serve({
+    serve({
       [`GET /api/transactions/${transaction.id}`]: transaction,
       'GET /api/auth/me': buildUser({ credentials: [credential] }),
       'GET /api/settings': settings,
       [`GET ${ATTACHMENTS_URL}`]: attachments,
       ...routes,
     })
-    const view = renderWithQuery(<Page />)
-    return { ...view, fetchMock }
+    return renderWithQuery(<Page />)
   }
 
   const readShare = { shared_from: SHARE_OWNER_NAME, share_permission: 'read' as const }
@@ -921,13 +866,13 @@ describe('TransactionDetailPage', () => {
 
   it('names an account without a personalised name by its formatted IBAN', async () => {
     renderPage({
-      credential: buildCredential({ accounts: [buildAccount({ display_name: '  ' })] }),
+      credential: fintsCredential({ accounts: [{ ...giro, display_name: '  ' }] }),
     })
     expect(await screen.findAllByRole('link', { name: TEST_IBAN_FORMATTED })).not.toHaveLength(0)
   })
 
   it('still shows a transaction whose account the user cannot see anymore', async () => {
-    renderPage({ credential: buildCredential({ accounts: [savings] }) })
+    renderPage({ credential: fintsCredential({ accounts: [savings] }) })
     expect(await screen.findByRole('link', { name: 'Back' })).toHaveAttribute('href', '/account/42')
   })
 
@@ -942,7 +887,7 @@ describe('TransactionDetailPage', () => {
 
   it('saves a changed category on the transaction', async () => {
     const user = userEvent.setup()
-    const { fetchMock } = renderPage({
+    renderPage({
       routes: {
         'PATCH /api/account/42/transactions/7': buildTransaction({ category: 'RESTAURANTS' }),
       },
@@ -952,15 +897,14 @@ describe('TransactionDetailPage', () => {
     await selectFromPopover(user, 'Category', 'Restaurants')
 
     await waitFor(() =>
-      expect(callsTo(fetchMock, 'PATCH', '/api/account/42/transactions/7')).toHaveLength(1),
+      expect(requestsTo('PATCH', '/api/account/42/transactions/7')).toHaveLength(1),
     )
-    const [[, init]] = callsTo(fetchMock, 'PATCH', '/api/account/42/transactions/7')
-    expect(JSON.parse(String(init?.body))).toEqual({ category: 'RESTAURANTS' })
+    expect(bodyOf('PATCH', '/api/account/42/transactions/7')).toEqual({ category: 'RESTAURANTS' })
   })
 
   it('saves an edited note on the transaction', async () => {
     const user = userEvent.setup()
-    const { fetchMock } = renderPage({
+    renderPage({
       routes: { 'PATCH /api/account/42/transactions/7': buildTransaction({ note: 'x' }) },
     })
 
@@ -968,10 +912,9 @@ describe('TransactionDetailPage', () => {
     await user.type(screen.getByRole('textbox'), 'x')
 
     await waitFor(() =>
-      expect(callsTo(fetchMock, 'PATCH', '/api/account/42/transactions/7')).toHaveLength(1),
+      expect(requestsTo('PATCH', '/api/account/42/transactions/7')).toHaveLength(1),
     )
-    const [[, init]] = callsTo(fetchMock, 'PATCH', '/api/account/42/transactions/7')
-    expect(JSON.parse(String(init?.body))).toEqual({ note: 'x' })
+    expect(bodyOf('PATCH', '/api/account/42/transactions/7')).toEqual({ note: 'x' })
   })
 
   it('lists related transactions, opening only those on accessible accounts', async () => {
@@ -998,7 +941,7 @@ describe('TransactionDetailPage', () => {
 
   it('unlinks the picked member of a group through its own account', async () => {
     const user = userEvent.setup()
-    const { fetchMock } = renderPage({
+    renderPage({
       transaction: buildTransaction({
         related_transactions: [
           { ...buildTransaction(), id: 99, account_id: 55, amount: AMOUNT_M },
@@ -1016,9 +959,7 @@ describe('TransactionDetailPage', () => {
     await user.click(within(menu).getByRole('button', { name: new RegExp(ACCOUNT_NAME_SAVINGS) }))
 
     await waitFor(() =>
-      expect(
-        callsTo(fetchMock, 'DELETE', '/api/account/55/transactions/99/related-link'),
-      ).toHaveLength(1),
+      expect(requestsTo('DELETE', '/api/account/55/transactions/99/related-link')).toHaveLength(1),
     )
   })
 
@@ -1056,7 +997,7 @@ describe('TransactionDetailPage', () => {
 
   it('shows a transaction shared read-only without any editing', async () => {
     renderPage({
-      credential: buildCredential(readShare),
+      credential: fintsCredential(readShare),
       attachments: [
         {
           id: 1,
@@ -1089,7 +1030,7 @@ describe('TransactionDetailPage', () => {
       async (sourceAccountId, partner) => {
         const user = userEvent.setup()
         const sourceUrl = `/api/account/${sourceAccountId}/transactions/99`
-        const { fetchMock } = renderPage({
+        renderPage({
           search: { link_account_id: sourceAccountId, link_transaction_id: 99 },
           routes: {
             [`GET ${sourceUrl}`]: { ...source, account_id: sourceAccountId },
@@ -1112,8 +1053,7 @@ describe('TransactionDetailPage', () => {
             params: { transactionId: '99' },
           }),
         )
-        const [[, init]] = callsTo(fetchMock, 'PUT', `${sourceUrl}/related-link`)
-        expect(JSON.parse(String(init?.body))).toEqual({
+        expect(bodyOf('PUT', `${sourceUrl}/related-link`)).toEqual({
           counterpart_account_id: 42,
           counterpart_transaction_id: 7,
         })
@@ -1183,15 +1123,15 @@ describe('TransactionDetailPage', () => {
 
     it('deletes an attachment and reloads the list', async () => {
       const user = userEvent.setup()
-      const { fetchMock } = renderPage({
+      renderPage({
         attachments: [attachment(1, 'invoice.pdf', 512)],
         routes: { [`DELETE ${ATTACHMENTS_URL}/1`]: () => new Response(null, { status: 204 }) },
       })
 
       await user.click(await screen.findByRole('button', { name: 'Delete attachment' }))
 
-      await waitFor(() => expect(callsTo(fetchMock, 'GET', ATTACHMENTS_URL)).toHaveLength(2))
-      expect(callsTo(fetchMock, 'DELETE', `${ATTACHMENTS_URL}/1`)).toHaveLength(1)
+      await waitFor(() => expect(requestsTo('GET', ATTACHMENTS_URL)).toHaveLength(2))
+      expect(requestsTo('DELETE', `${ATTACHMENTS_URL}/1`)).toHaveLength(1)
     })
 
     it('opens the file picker from "Add file"', async () => {
@@ -1207,7 +1147,7 @@ describe('TransactionDetailPage', () => {
 
     it('uploads the picked files and reloads the list', async () => {
       const user = userEvent.setup()
-      const { fetchMock } = renderPage({
+      renderPage({
         attachments: [attachment(1, 'invoice.pdf', 512)],
         routes: { [`POST ${ATTACHMENTS_URL}`]: [] },
       })
@@ -1216,8 +1156,8 @@ describe('TransactionDetailPage', () => {
 
       await user.upload(fileInput(), file('receipt.pdf'))
 
-      await waitFor(() => expect(callsTo(fetchMock, 'GET', ATTACHMENTS_URL)).toHaveLength(2))
-      const [[, init]] = callsTo(fetchMock, 'POST', ATTACHMENTS_URL)
+      await waitFor(() => expect(requestsTo('GET', ATTACHMENTS_URL)).toHaveLength(2))
+      const [[, init]] = requestsTo('POST', ATTACHMENTS_URL)
       expect((init?.body as FormData).getAll('files').map((part) => (part as File).name)).toEqual([
         'receipt.pdf',
       ])
@@ -1232,22 +1172,22 @@ describe('TransactionDetailPage', () => {
       ],
     ])('rejects %s before uploading', async (_label, picked, message) => {
       const user = userEvent.setup({ applyAccept: false })
-      const { fetchMock } = renderPage()
+      renderPage()
       await screen.findByText('No attachments')
 
       await user.upload(fileInput(), picked)
 
       expect(toast.error).toHaveBeenCalledWith(message)
-      expect(callsTo(fetchMock, 'POST', ATTACHMENTS_URL)).toHaveLength(0)
+      expect(requestsTo('POST', ATTACHMENTS_URL)).toHaveLength(0)
     })
 
     it('ignores a picker closed without a file', async () => {
-      const { fetchMock } = renderPage()
+      renderPage()
       await screen.findByText('No attachments')
 
       fireEvent.change(fileInput(), { target: { files: [] } })
 
-      expect(callsTo(fetchMock, 'POST', ATTACHMENTS_URL)).toHaveLength(0)
+      expect(requestsTo('POST', ATTACHMENTS_URL)).toHaveLength(0)
     })
 
     it.each([

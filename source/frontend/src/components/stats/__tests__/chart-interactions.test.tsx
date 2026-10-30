@@ -1,4 +1,4 @@
-import { cloneElement, type ReactElement, type ReactNode } from 'react'
+import { cloneElement, type ComponentProps, type ReactElement, type ReactNode } from 'react'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -263,18 +263,20 @@ describe('CategoryChart', () => {
   const pieKeys = () => propOf<{ category: string }[]>('Pie:value', 'data').map((d) => d.category)
   const clickSlice = (index: number) =>
     act(() => propOf<BarClick>('Pie:value', 'onClick')({}, index))
-
-  it('opens a group from its pie slice and drills into a category inside it', async () => {
-    const onDrill = vi.fn()
+  const renderCategory = (overrides: Partial<ComponentProps<typeof CategoryChart>> = {}) =>
     render(
       <CategoryChart
         slices={mobility}
         chartType="pie"
         hidden={new Set()}
         onToggleHidden={vi.fn()}
-        onDrill={onDrill}
+        {...overrides}
       />,
     )
+
+  it('opens a group from its pie slice and drills into a category inside it', async () => {
+    const onDrill = vi.fn()
+    renderCategory({ onDrill })
     expect(pieKeys()).toEqual(['MOBILITY', 'HOUSING'])
 
     clickSlice(0)
@@ -306,15 +308,7 @@ describe('CategoryChart', () => {
       category,
       total: (categories.length - index) * AMOUNT_S,
     }))
-    render(
-      <CategoryChart
-        slices={slices}
-        chartType="pie"
-        hidden={new Set()}
-        onToggleHidden={vi.fn()}
-        onDrill={onDrill}
-      />,
-    )
+    renderCategory({ slices, onDrill })
     expect(pieKeys().at(-1)).toBe('OTHER')
 
     clickSlice(pieKeys().length - 1)
@@ -326,14 +320,7 @@ describe('CategoryChart', () => {
   })
 
   it('keeps a group it cannot drill into further inert', () => {
-    render(
-      <CategoryChart
-        slices={mobility}
-        chartType="pie"
-        hidden={new Set()}
-        onToggleHidden={vi.fn()}
-      />,
-    )
+    renderCategory()
 
     clickSlice(0)
 
@@ -342,14 +329,7 @@ describe('CategoryChart', () => {
   })
 
   it('leaves hidden slices out of the pie and out of the share', () => {
-    render(
-      <CategoryChart
-        slices={mobility}
-        chartType="pie"
-        hidden={new Set(['HOUSING'])}
-        onToggleHidden={vi.fn()}
-      />,
-    )
+    renderCategory({ hidden: new Set(['HOUSING']) })
     expect(pieKeys()).toEqual(['MOBILITY'])
 
     renderWith('Tooltip', 'content', {
@@ -360,14 +340,7 @@ describe('CategoryChart', () => {
   })
 
   it('shows a zero share when every slice is hidden', () => {
-    render(
-      <CategoryChart
-        slices={mobility}
-        chartType="pie"
-        hidden={new Set(['MOBILITY', 'HOUSING'])}
-        onToggleHidden={vi.fn()}
-      />,
-    )
+    renderCategory({ hidden: new Set(['MOBILITY', 'HOUSING']) })
     renderWith('Tooltip', 'content', {
       active: true,
       payload: [{ payload: { label: 'Mobility', value: AMOUNT_L } }],
@@ -377,14 +350,7 @@ describe('CategoryChart', () => {
   })
 
   it('shows no tooltip for an empty slice or without hover', () => {
-    render(
-      <CategoryChart
-        slices={mobility}
-        chartType="pie"
-        hidden={new Set()}
-        onToggleHidden={vi.fn()}
-      />,
-    )
+    renderCategory()
     const empty = renderWith('Tooltip', 'content', {
       active: true,
       payload: [{ payload: { label: 'Mobility', value: 0 } }],
@@ -396,14 +362,7 @@ describe('CategoryChart', () => {
   })
 
   it('prints the share inside slices big enough to hold it', () => {
-    render(
-      <CategoryChart
-        slices={mobility}
-        chartType="pie"
-        hidden={new Set()}
-        onToggleHidden={vi.fn()}
-      />,
-    )
+    renderCategory()
     const label = propOf<(props: object) => ReactElement | null>('Pie:value', 'label')
 
     expect(label({ percent: 0.05 })).toBeNull()
@@ -418,15 +377,11 @@ describe('CategoryChart', () => {
   it('drills from the bar arrows: a group opens, a category is searched', async () => {
     const user = userEvent.setup()
     const onDrill = vi.fn()
-    render(
-      <CategoryChart
-        slices={[...mobility, { category: 'CUSTOM_DEADBEEF', total: AMOUNT_S }]}
-        chartType="bar"
-        hidden={new Set()}
-        onToggleHidden={vi.fn()}
-        onDrill={onDrill}
-      />,
-    )
+    renderCategory({
+      slices: [...mobility, { category: 'CUSTOM_DEADBEEF', total: AMOUNT_S }],
+      chartType: 'bar',
+      onDrill,
+    })
     expect(propOf<{ key: string }[]>('BarChart', 'data').map((row) => row.key)).toEqual([
       'MOBILITY',
       'HOUSING',
@@ -443,14 +398,7 @@ describe('CategoryChart', () => {
   })
 
   it('drops the bar arrows inside a group when categories cannot be searched', async () => {
-    render(
-      <CategoryChart
-        slices={mobility}
-        chartType="bar"
-        hidden={new Set()}
-        onToggleHidden={vi.fn()}
-      />,
-    )
+    renderCategory({ chartType: 'bar' })
     const arrow = renderWith('YAxis:drill', 'tick', { payload: { value: 'MOBILITY' } })
     chartProps.clear()
 

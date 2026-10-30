@@ -1,6 +1,5 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
@@ -12,6 +11,7 @@ vi.mock('sonner', () => ({ toast }))
 
 import { api } from '@/lib/api'
 import { ManualTransactionForm } from '@/components/manual-transaction-form'
+import { renderWithQuery } from '@/test/helpers'
 import { selectFromPopover } from '@/test/popover-select'
 import type { TransactionRead } from '@/lib/accountHistory'
 import type { RecurringTransactionRead } from '@/lib/recurringTransaction'
@@ -27,24 +27,14 @@ import {
 
 const mockedApi = vi.mocked(api)
 
-function withClient(ui: React.ReactNode) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  })
-  return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
-}
-
 function renderForm() {
   const onDone = vi.fn()
-  render(withClient(<ManualTransactionForm accountId={7} mode="create" onDone={onDone} />))
+  renderWithQuery(<ManualTransactionForm accountId={7} mode="create" onDone={onDone} />)
   return { onDone }
 }
 
 beforeEach(() => {
-  mockedApi.mockClear()
   mockedApi.mockResolvedValue({})
-  toast.success.mockClear()
-  toast.error.mockClear()
 })
 
 const booked: TransactionRead = {
@@ -76,7 +66,7 @@ const rule: RecurringTransactionRead = {
 
 function renderEdit(props: Partial<React.ComponentProps<typeof ManualTransactionForm>>) {
   const onDone = vi.fn()
-  render(withClient(<ManualTransactionForm accountId={7} mode="edit" onDone={onDone} {...props} />))
+  renderWithQuery(<ManualTransactionForm accountId={7} mode="edit" onDone={onDone} {...props} />)
   return { onDone }
 }
 
@@ -192,30 +182,7 @@ describe('ManualTransactionForm — recurring', () => {
 
   it('edits an existing recurring rule via PATCH, pre-filled and without a date field', async () => {
     const user = userEvent.setup()
-    const rule: RecurringTransactionRead = {
-      id: 3,
-      account_id: 7,
-      amount: -50,
-      purpose: null,
-      other_party: 'Landlord',
-      transaction_type: null,
-      category: null,
-      note: null,
-      frequency: 'MONTHLY',
-      day_of_month: 1,
-      day_of_week: null,
-      next_run_date: '2026-07-01',
-    }
-    render(
-      withClient(
-        <ManualTransactionForm
-          accountId={7}
-          mode="edit"
-          recurringTransaction={rule}
-          onDone={vi.fn()}
-        />,
-      ),
-    )
+    renderEdit({ recurringTransaction: rule })
 
     expect(screen.getByLabelText('Amount')).toHaveValue('50,00')
     expect(screen.getByRole('button', { name: 'Make positive' })).toBeInTheDocument()
@@ -233,7 +200,7 @@ describe('ManualTransactionForm — recurring', () => {
     expect(path).toBe('/account/7/recurring-transactions/3')
     expect(options).toMatchObject({
       method: 'PATCH',
-      body: { amount: -50, frequency: 'MONTHLY', day_of_month: 5, day_of_week: null },
+      body: { amount: -AMOUNT_M, frequency: 'MONTHLY', day_of_month: 5, day_of_week: null },
     })
   })
 
@@ -247,19 +214,6 @@ describe('ManualTransactionForm — recurring', () => {
 
     expect(await screen.findByRole('list', { name: 'Category' })).toBeInTheDocument()
     expect(mockedApi).not.toHaveBeenCalled()
-  })
-
-  it('still posts a one-off transaction to the transactions endpoint when not recurring', async () => {
-    const user = userEvent.setup()
-    renderForm()
-
-    await user.type(screen.getByLabelText('Amount'), '-12.5')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-
-    expect(mockedApi).toHaveBeenCalledTimes(1)
-    const [path, options] = mockedApi.mock.calls[0]
-    expect(path).toBe('/account/7/transactions')
-    expect(options).toMatchObject({ method: 'POST' })
   })
 })
 

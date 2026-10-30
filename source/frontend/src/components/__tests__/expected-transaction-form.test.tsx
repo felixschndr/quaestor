@@ -1,6 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
@@ -14,6 +13,7 @@ import { api } from '@/lib/api'
 import { ExpectedTransactionForm } from '@/components/expected-transaction-form'
 import type { ExpectedTransactionRead } from '@/lib/expectedTransaction'
 import { formatAmountForInput } from '@/lib/format'
+import { renderWithQuery } from '@/test/helpers'
 import { selectFromPopover } from '@/test/popover-select'
 import { AMOUNT_M, AMOUNT_XL, LABEL_SALARY, PARTY_SUPERMARKET } from '@/test/constants'
 
@@ -22,13 +22,8 @@ const ACCOUNT_ID = 7
 
 function renderForm(expected?: ExpectedTransactionRead) {
   const onDone = vi.fn()
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <ExpectedTransactionForm accountId={ACCOUNT_ID} expected={expected} onDone={onDone} />
-    </QueryClientProvider>,
+  renderWithQuery(
+    <ExpectedTransactionForm accountId={ACCOUNT_ID} expected={expected} onDone={onDone} />,
   )
   return { onDone }
 }
@@ -43,7 +38,6 @@ const existing: ExpectedTransactionRead = {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
   mockedApi.mockResolvedValue({})
 })
 

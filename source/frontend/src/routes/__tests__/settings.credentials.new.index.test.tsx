@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 
@@ -13,9 +13,9 @@ vi.mock('@tanstack/react-router', async () =>
 import { BankPickerView } from '@/pages/settings.credentials.new.index'
 import { Route } from '@/routes/settings.credentials.new.index'
 import type { SupportedBank } from '@/lib/credentials'
-import type { CredentialRead } from '@/lib/auth'
 import { routeState } from './-routerMock'
-import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { buildUser, renderWithQuery, serve } from '@/test/helpers'
+import { buildAccount, buildCredential } from '@/test/statsFixtures'
 import { TEST_IBAN_BRANCH_BLZ } from '@/test/constants'
 
 function StatefulPicker({
@@ -81,9 +81,7 @@ const CATALOG = BANKS.filter((bank) => bank.provider !== 'manual')
 
 describe('BankPickerView', () => {
   it('shows the full bank list before any query is entered', () => {
-    render(
-      <StatefulPicker isLoading={false} isError={false} banks={BANKS} existingAccountCounts={{}} />,
-    )
+    render(<StatefulPicker banks={BANKS} />)
     // The list is always visible (scrollable) — every bank is rendered, no search needed.
     expect(screen.getAllByRole('listitem')).toHaveLength(BANKS.length)
     expect(screen.getByText('Deutsche Bank')).toBeInTheDocument()
@@ -102,9 +100,7 @@ describe('BankPickerView', () => {
         blzs: ['66050101'],
       },
     ]
-    render(
-      <StatefulPicker isLoading={false} isError={false} banks={banks} existingAccountCounts={{}} />,
-    )
+    render(<StatefulPicker banks={banks} />)
     const row = screen.getByRole('listitem')
     expect(row).toHaveTextContent('66050101 · PZHSDE66XXX')
   })
@@ -123,41 +119,20 @@ describe('BankPickerView', () => {
         countries: ['FI'],
       },
     ]
-    render(
-      <StatefulPicker
-        isLoading={false}
-        isError={false}
-        banks={[...banks, ...CATALOG]}
-        existingAccountCounts={{}}
-      />,
-    )
+    render(<StatefulPicker banks={[...banks, ...CATALOG]} />)
     expect(screen.getByRole('link', { name: /Nordea/ })).toHaveTextContent('Enable Banking')
     expect(screen.getByRole('link', { name: /Deutsche Bank/ })).toHaveTextContent('FinTS')
   })
 
   it('hints at extra branch BLZs with a +N suffix', () => {
-    render(
-      <StatefulPicker
-        isLoading={false}
-        isError={false}
-        banks={CATALOG}
-        existingAccountCounts={{}}
-      />,
-    )
+    render(<StatefulPicker banks={CATALOG} />)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'deutsche' } })
     // Deutsche Bank groups two branch BLZs → "10070000 +1".
     expect(screen.getByRole('listitem')).toHaveTextContent('10070000 +1')
   })
 
   it('filters banks by name (case-insensitive)', () => {
-    render(
-      <StatefulPicker
-        isLoading={false}
-        isError={false}
-        banks={CATALOG}
-        existingAccountCounts={{}}
-      />,
-    )
+    render(<StatefulPicker banks={CATALOG} />)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'deutsche' } })
     const items = screen.getAllByRole('listitem')
     expect(items).toHaveLength(1)
@@ -165,14 +140,7 @@ describe('BankPickerView', () => {
   })
 
   it('ignores spacing, hyphens and diacritics when matching names', () => {
-    render(
-      <StatefulPicker
-        isLoading={false}
-        isError={false}
-        banks={CATALOG}
-        existingAccountCounts={{}}
-      />,
-    )
+    render(<StatefulPicker banks={CATALOG} />)
     fireEvent.change(screen.getByRole('searchbox'), {
       target: { value: 'stadt-sparkasse munchen' },
     })
@@ -182,14 +150,7 @@ describe('BankPickerView', () => {
   })
 
   it('filters banks by BLZ prefix', () => {
-    render(
-      <StatefulPicker
-        isLoading={false}
-        isError={false}
-        banks={CATALOG}
-        existingAccountCounts={{}}
-      />,
-    )
+    render(<StatefulPicker banks={CATALOG} />)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: '70150' } })
     const items = screen.getAllByRole('listitem')
     expect(items).toHaveLength(1)
@@ -197,9 +158,7 @@ describe('BankPickerView', () => {
   })
 
   it('shows the verified badge only on tested banks', () => {
-    render(
-      <StatefulPicker isLoading={false} isError={false} banks={BANKS} existingAccountCounts={{}} />,
-    )
+    render(<StatefulPicker banks={BANKS} />)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'bank' } })
     // "Deutsche Bank" is not tested → no badge
     expect(screen.queryByText('Verified')).not.toBeInTheDocument()
@@ -211,9 +170,7 @@ describe('BankPickerView', () => {
   })
 
   it('routes by key: Deutsche Bank link uses key 10070000', () => {
-    render(
-      <StatefulPicker isLoading={false} isError={false} banks={BANKS} existingAccountCounts={{}} />,
-    )
+    render(<StatefulPicker banks={BANKS} />)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'deutsche' } })
     expect(screen.getByRole('link', { name: /Deutsche Bank/ })).toHaveAttribute(
       'href',
@@ -222,23 +179,14 @@ describe('BankPickerView', () => {
   })
 
   it('shows no results message when no banks match', () => {
-    render(
-      <StatefulPicker
-        isLoading={false}
-        isError={false}
-        banks={CATALOG}
-        existingAccountCounts={{}}
-      />,
-    )
+    render(<StatefulPicker banks={CATALOG} />)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'xyznotabank' } })
     expect(screen.getByText('No bank found.')).toBeInTheDocument()
     expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
   })
 
   it('pins the manual account entry at the top, even while searching', () => {
-    render(
-      <StatefulPicker isLoading={false} isError={false} banks={BANKS} existingAccountCounts={{}} />,
-    )
+    render(<StatefulPicker banks={BANKS} />)
     // First row is the pinned manual entry…
     expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('Manual account')
     // …and it stays available even when the query matches no real bank.
@@ -247,23 +195,17 @@ describe('BankPickerView', () => {
   })
 
   it('renders the loading state while the banks query is in flight', () => {
-    render(
-      <StatefulPicker isLoading={true} isError={false} banks={[]} existingAccountCounts={{}} />,
-    )
+    render(<StatefulPicker isLoading banks={[]} />)
     expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
   it('renders an error message when the query failed', () => {
-    render(
-      <StatefulPicker isLoading={false} isError={true} banks={[]} existingAccountCounts={{}} />,
-    )
+    render(<StatefulPicker isError banks={[]} />)
     expect(screen.getByText('Something went wrong. Please try again.')).toBeInTheDocument()
   })
 
   it('includes a back link to the credentials list', () => {
-    render(
-      <StatefulPicker isLoading={false} isError={false} banks={[]} existingAccountCounts={{}} />,
-    )
+    render(<StatefulPicker banks={[]} />)
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute(
       'href',
       '/settings/credentials',
@@ -271,14 +213,7 @@ describe('BankPickerView', () => {
   })
 
   it('shows the account count for special providers and omits it for FinTS banks', () => {
-    render(
-      <StatefulPicker
-        isLoading={false}
-        isError={false}
-        existingAccountCounts={{ manual: 2 }}
-        banks={BANKS}
-      />,
-    )
+    render(<StatefulPicker existingAccountCounts={{ manual: 2 }} banks={BANKS} />)
     // Search for the manual bank (special provider: provider === key)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'manual' } })
     expect(screen.getByRole('link', { name: /Manual account/ })).toHaveTextContent(
@@ -291,14 +226,7 @@ describe('BankPickerView', () => {
   })
 
   it('shows the account count for a FinTS bank matched by its catalog name', () => {
-    render(
-      <StatefulPicker
-        isLoading={false}
-        isError={false}
-        existingAccountCounts={{ 'Deutsche Bank': 3 }}
-        banks={BANKS}
-      />,
-    )
+    render(<StatefulPicker existingAccountCounts={{ 'Deutsche Bank': 3 }} banks={BANKS} />)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'deutsche' } })
     expect(screen.getByRole('link', { name: /Deutsche Bank/ })).toHaveTextContent(
       '3 accounts already added',
@@ -352,61 +280,30 @@ describe('BankPickerView — search and badges', () => {
 describe('/settings/credentials/new/ route', () => {
   const Page = Route.options.component!
 
-  function credential(overrides: Partial<CredentialRead>): CredentialRead {
-    return {
-      id: 1,
-      bank: 'fints',
-      bank_name: null,
-      bank_icon: null,
-      accounts: [],
-      last_successful_sync_timestamp: null,
-      requires_two_factor_authentication: false,
-      sync_enabled: true,
-      ...overrides,
-    }
-  }
-
-  const account = (id: number) => ({
-    id,
-    name: `Account ${id}`,
-    display_name: null,
-    balance: 0,
-    balance_factor: 100,
-    is_archived: false,
-    include_by_default: true,
-    is_market_valued: false,
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
   })
 
-  function serve() {
-    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
-      if (input === '/api/credentials/supported_banks') {
-        return Promise.resolve(jsonResponse({ status: 200, body: BANKS }))
-      }
-      if (input === '/api/auth/me') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 200,
-            body: buildUser({
-              credentials: [
-                credential({ id: 1, bank_name: 'Deutsche Bank', accounts: [account(1)] }),
-                credential({ id: 2, bank_name: 'Deutsche Bank', accounts: [account(2)] }),
-                credential({ id: 3, bank: 'manual', accounts: [account(3)] }),
-              ],
-            }),
-          }),
-        )
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${String(input)}`))
+  const account = (id: number) => buildAccount({ id, name: `Account ${id}` })
+
+  function serveBanks() {
+    serve({
+      'GET /api/credentials/supported_banks': { status: 200, body: BANKS },
+      'GET /api/auth/me': {
+        status: 200,
+        body: buildUser({
+          credentials: [
+            buildCredential([account(1)], { id: 1, bank: 'fints', bank_name: 'Deutsche Bank' }),
+            buildCredential([account(2)], { id: 2, bank: 'fints', bank_name: 'Deutsche Bank' }),
+            buildCredential([account(3)], { id: 3, bank: 'manual' }),
+          ],
+        }),
+      },
     })
   }
 
-  afterEach(() => {
-    navigate.mockClear()
-    vi.restoreAllMocks()
-  })
-
   it('counts the accounts already added per bank', async () => {
-    serve()
+    serveBanks()
     routeState.search = {}
     renderWithQuery(<Page />)
 
@@ -419,7 +316,7 @@ describe('/settings/credentials/new/ route', () => {
   })
 
   it('filters by the q search param and writes edits back to the URL', async () => {
-    serve()
+    serveBanks()
     routeState.search = { q: 'deutsche' }
     renderWithQuery(<Page />)
 

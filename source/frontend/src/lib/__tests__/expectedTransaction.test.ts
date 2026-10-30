@@ -1,7 +1,6 @@
-import { createElement, type ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, renderHook, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient } from '@tanstack/react-query'
+import { act, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   expectedQueryKeys,
@@ -10,6 +9,7 @@ import {
   type ExpectedTransactionRead,
 } from '@/lib/expectedTransaction'
 import { AMOUNT_M, PARTY_SUPERMARKET } from '@/test/constants'
+import { jsonResponse, renderHookWithClient } from '@/test/helpers'
 
 const ACCOUNT_ID = 7
 
@@ -22,31 +22,12 @@ const expected: ExpectedTransactionRead = {
   match_tolerance_percent: 0,
 }
 
-function renderWithClient<T>(hook: () => T, client: QueryClient) {
-  const wrapper = ({ children }: { children: ReactNode }) =>
-    createElement(QueryClientProvider, { client }, children)
-  return renderHook(hook, { wrapper })
-}
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
-
 describe('useExpectedTransactions', () => {
   it("loads the account's expected transactions", async () => {
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(JSON.stringify([expected]), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
-    )
+    const fetchMock = vi.fn(async () => jsonResponse({ status: 200, body: [expected] }))
     vi.stubGlobal('fetch', fetchMock)
 
-    const { result } = renderWithClient(
-      () => useExpectedTransactions(ACCOUNT_ID),
-      new QueryClient(),
-    )
+    const { result } = renderHookWithClient(() => useExpectedTransactions(ACCOUNT_ID))
 
     await waitFor(() => expect(result.current.data).toEqual([expected]))
     expect(fetchMock).toHaveBeenCalledWith(
@@ -62,7 +43,7 @@ describe('useDeleteExpectedTransaction', () => {
     vi.stubGlobal('fetch', fetchMock)
     const client = new QueryClient()
     client.setQueryData(expectedQueryKeys.list(ACCOUNT_ID), [expected])
-    const { result } = renderWithClient(() => useDeleteExpectedTransaction(ACCOUNT_ID), client)
+    const { result } = renderHookWithClient(() => useDeleteExpectedTransaction(ACCOUNT_ID), client)
 
     await act(async () => {
       await result.current.mutateAsync(expected.id)

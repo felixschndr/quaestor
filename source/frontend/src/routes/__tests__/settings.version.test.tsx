@@ -7,7 +7,7 @@ vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).ro
 
 import { SettingsVersionView } from '@/pages/settings.version'
 import { Route } from '@/routes/settings.version'
-import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { jsonResponse, renderWithQuery } from '@/test/helpers'
 import { RELEASE_URL, VERSION_CURRENT, VERSION_LATEST } from '@/test/constants'
 
 describe('SettingsVersionView', () => {

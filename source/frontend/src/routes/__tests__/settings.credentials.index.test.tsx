@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 
@@ -8,26 +8,17 @@ vi.mock('@tanstack/react-router', async () => (await import('./-routerMock')).ro
 import { SettingsCredentialsIndexView } from '@/pages/settings.credentials.index'
 import { Route } from '@/routes/settings.credentials.index'
 import type { CredentialRead } from '@/lib/auth'
-import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { buildUser, jsonResponse, renderWithQuery } from '@/test/helpers'
 import { DATETIME_RECENT } from '@/test/constants'
+import { buildCredential } from '@/test/statsFixtures'
 
-function buildCredential(overrides: Partial<CredentialRead>): CredentialRead {
-  return {
-    id: 10,
-    bank: 'fints',
-    bank_name: null,
-    bank_icon: null,
-    accounts: [],
-    last_successful_sync_timestamp: null,
-    requires_two_factor_authentication: false,
-    sync_enabled: true,
-    ...overrides,
-  }
+function renderList(...credentials: CredentialRead[]) {
+  render(<SettingsCredentialsIndexView user={buildUser({ credentials })} />)
 }
 
 describe('SettingsCredentialsIndexView', () => {
-  it('renders the empty state when the user has no credentials', () => {
-    render(<SettingsCredentialsIndexView user={buildUser({ credentials: [] })} />)
+  it('renders the empty state with a back link and no groups editor link', () => {
+    renderList()
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Bank connections')
     expect(screen.getByText('No banks connected yet.')).toBeInTheDocument()
@@ -36,19 +27,15 @@ describe('SettingsCredentialsIndexView', () => {
       'href',
       '/settings/credentials/new',
     )
+    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/settings')
+    expect(screen.queryByRole('link', { name: /Arrange & group accounts/ })).not.toBeInTheDocument()
   })
 
   it('lists each credential with its bank title sorted alphabetically by localised label', () => {
-    render(
-      <SettingsCredentialsIndexView
-        user={buildUser({
-          credentials: [
-            buildCredential({ id: 1, bank: 'trade_republic' }),
-            buildCredential({ id: 2, bank: 'fints' }),
-            buildCredential({ id: 3, bank: 'dfs' }),
-          ],
-        })}
-      />,
+    renderList(
+      buildCredential([], { id: 1, bank: 'trade_republic' }),
+      buildCredential([], { id: 2, bank: 'fints' }),
+      buildCredential([], { id: 3, bank: 'dfs' }),
     )
 
     const rows = screen.getAllByRole('listitem')
@@ -60,20 +47,14 @@ describe('SettingsCredentialsIndexView', () => {
   })
 
   it('links each credential to its detail page and shows the last-sync timestamp', () => {
-    render(
-      <SettingsCredentialsIndexView
-        user={buildUser({
-          credentials: [
-            buildCredential({
-              id: 42,
-              bank: 'fints',
-              bank_name: 'ING',
-              bank_icon: '/static/banks/ing-diba.png',
-              last_successful_sync_timestamp: DATETIME_RECENT,
-            }),
-          ],
-        })}
-      />,
+    renderList(
+      buildCredential([], {
+        id: 42,
+        bank: 'fints',
+        bank_name: 'ING',
+        bank_icon: '/static/banks/ing-diba.png',
+        last_successful_sync_timestamp: DATETIME_RECENT,
+      }),
     )
 
     // A generic FinTS credential shows its resolved bank name + logo, not "FinTS bank".
@@ -85,79 +66,38 @@ describe('SettingsCredentialsIndexView', () => {
   })
 
   it('shows a "never synced" hint when there is no last_successful_sync_timestamp', () => {
-    render(
-      <SettingsCredentialsIndexView
-        user={buildUser({
-          credentials: [
-            buildCredential({ id: 7, bank: 'fints', last_successful_sync_timestamp: null }),
-          ],
-        })}
-      />,
-    )
+    renderList(buildCredential([], { bank: 'fints', last_successful_sync_timestamp: null }))
     expect(screen.getByText('Never synced')).toBeInTheDocument()
   })
 
   it('says nothing about syncing on a manual credential — it never syncs', () => {
-    render(
-      <SettingsCredentialsIndexView
-        user={buildUser({
-          credentials: [
-            buildCredential({ id: 7, bank: 'manual', last_successful_sync_timestamp: null }),
-          ],
-        })}
-      />,
-    )
+    renderList(buildCredential([], { bank: 'manual', last_successful_sync_timestamp: null }))
     expect(screen.queryByText('Never synced')).not.toBeInTheDocument()
     expect(screen.queryByText(/Last updated/)).not.toBeInTheDocument()
   })
 
   it('replaces the last-synced caption with a failure hint when the last sync failed', () => {
-    render(
-      <SettingsCredentialsIndexView
-        user={buildUser({
-          credentials: [
-            buildCredential({
-              id: 7,
-              bank: 'fints',
-              last_successful_sync_timestamp: DATETIME_RECENT,
-              last_sync_error: 'the bank rejected the login',
-              last_sync_error_code: 'invalid_credentials',
-            }),
-          ],
-        })}
-      />,
+    renderList(
+      buildCredential([], {
+        bank: 'fints',
+        last_successful_sync_timestamp: DATETIME_RECENT,
+        last_sync_error: 'the bank rejected the login',
+        last_sync_error_code: 'invalid_credentials',
+      }),
     )
 
     expect(screen.getByText('Sync failed')).toBeInTheDocument()
     expect(screen.queryByText(/Last updated:/)).not.toBeInTheDocument()
   })
 
-  it('includes a back link to /settings', () => {
-    render(<SettingsCredentialsIndexView user={buildUser({ credentials: [] })} />)
-    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/settings')
-  })
-
   it('shows a link to the groups editor when at least one credential exists', () => {
-    render(
-      <SettingsCredentialsIndexView
-        user={buildUser({ credentials: [buildCredential({ id: 1, bank: 'ing' })] })}
-      />,
-    )
+    renderList(buildCredential([], { id: 1, bank: 'ing' }))
     const link = screen.getByRole('link', { name: /Arrange & group accounts/ })
     expect(link).toHaveAttribute('href', '/settings/credentials/groups')
-  })
-
-  it('does not show the groups editor link when there are no credentials yet', () => {
-    render(<SettingsCredentialsIndexView user={buildUser({ credentials: [] })} />)
-    expect(screen.queryByRole('link', { name: /Arrange & group accounts/ })).not.toBeInTheDocument()
   })
 })
 
 describe('/settings/credentials/ route', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
   it('renders nothing until the signed-in user is loaded, then lists their banks', async () => {
     let respond: (response: Response) => void = () => {}
     vi.spyOn(globalThis, 'fetch').mockImplementation(
@@ -170,7 +110,7 @@ describe('/settings/credentials/ route', () => {
     respond(
       jsonResponse({
         status: 200,
-        body: buildUser({ credentials: [buildCredential({ id: 1, bank: 'trade_republic' })] }),
+        body: buildUser({ credentials: [buildCredential([], { bank: 'trade_republic' })] }),
       }),
     )
 

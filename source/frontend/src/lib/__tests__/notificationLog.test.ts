@@ -17,7 +17,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  vi.restoreAllMocks()
   visit('/')
 })
 

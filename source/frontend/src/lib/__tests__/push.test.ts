@@ -33,8 +33,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  vi.unstubAllGlobals()
-  vi.restoreAllMocks()
   Object.defineProperty(navigator, 'serviceWorker', { value: undefined, configurable: true })
 })
 

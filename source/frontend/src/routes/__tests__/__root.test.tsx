@@ -54,7 +54,7 @@ import { consumeClickedNotification } from '@/lib/notificationLog'
 import { useOfflineWarmUp } from '@/lib/offlineWarmup'
 import { autoSubscribe } from '@/lib/push'
 import { LoadingScreen, PageNotFoundScreen, RootErrorScreen, Route } from '@/routes/__root'
-import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { buildUser, jsonResponse, renderWithQuery } from '@/test/helpers'
 
 type RootOptions = {
   beforeLoad: (args: {
@@ -104,8 +104,6 @@ beforeEach(() => {
 
 afterEach(() => {
   setDisplayCurrency('EUR')
-  vi.unstubAllGlobals()
-  vi.clearAllMocks()
 })
 
 describe('root beforeLoad', () => {

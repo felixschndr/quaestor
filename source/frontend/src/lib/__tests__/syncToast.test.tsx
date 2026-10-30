@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 
@@ -19,11 +19,6 @@ function shownToast() {
   const [body, options] = error.mock.calls.at(-1) as [ReactNode, { action?: { label: string } }]
   return { body, options }
 }
-
-beforeEach(() => {
-  error.mockClear()
-  dismiss.mockClear()
-})
 
 describe('toastSyncFailure', () => {
   it('names the bank and explains the error code', () => {

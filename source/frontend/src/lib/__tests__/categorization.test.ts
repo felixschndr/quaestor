@@ -1,7 +1,6 @@
-import { createElement, type ReactNode } from 'react'
-import { act, renderHook, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, waitFor } from '@testing-library/react'
+import { QueryClient } from '@tanstack/react-query'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 
@@ -25,6 +24,7 @@ import {
 } from '@/lib/categorization'
 import type { CategoryKey } from '@/lib/transaction'
 import { LABEL_GROCERIES, PARTY_SUPERMARKET } from '@/test/constants'
+import { jsonResponse, renderHookWithClient } from '@/test/helpers'
 
 const CUSTOM_KEY: CategoryKey = 'CUSTOM_7'
 const DEPENDENT_KEYS = [
@@ -37,17 +37,10 @@ const DEPENDENT_KEYS = [
 
 let queryClient: QueryClient
 
-function wrapper({ children }: { children: ReactNode }) {
-  return createElement(QueryClientProvider, { client: queryClient }, children)
-}
-
 function respondWith(body: unknown) {
-  globalThis.fetch = vi.fn().mockResolvedValue(
-    new Response(JSON.stringify(body), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    }),
-  ) as unknown as typeof fetch
+  globalThis.fetch = vi
+    .fn()
+    .mockResolvedValue(jsonResponse({ status: 200, body })) as unknown as typeof fetch
 }
 
 function lastRequest() {
@@ -63,10 +56,6 @@ beforeEach(() => {
   for (const queryKey of [...DEPENDENT_KEYS, categorizationQueryKeys.all]) {
     queryClient.setQueryData(queryKey, [])
   }
-})
-
-afterEach(() => {
-  vi.clearAllMocks()
 })
 
 describe('category rule mutations', () => {
@@ -103,11 +92,9 @@ describe('category rule mutations', () => {
     ],
   ])('%s and stores the new rule set', async (_, useHook, variables, request, body) => {
     respondWith(rules(0))
-    const { result } = renderHook(
+    const { result } = renderHookWithClient(
       useHook as () => { mutateAsync: (v: unknown) => Promise<unknown> },
-      {
-        wrapper,
-      },
+      queryClient,
     )
 
     await act(() => result.current.mutateAsync(variables))
@@ -119,7 +106,7 @@ describe('category rule mutations', () => {
 
   it('reloads everything showing categories once transactions were recategorized', async () => {
     respondWith(rules(3))
-    const { result } = renderHook(() => useCreateCategoryRule(), { wrapper })
+    const { result } = renderHookWithClient(() => useCreateCategoryRule(), queryClient)
 
     await act(() =>
       result.current.mutateAsync({ pattern: PARTY_SUPERMARKET, category: 'SUPERMARKET' }),
@@ -161,11 +148,9 @@ describe('custom category mutations', () => {
     ],
   ])('%s and reloads the rules that may use it', async (_, useHook, variables, request, body) => {
     respondWith(customCategories(0))
-    const { result } = renderHook(
+    const { result } = renderHookWithClient(
       useHook as () => { mutateAsync: (v: unknown) => Promise<unknown> },
-      {
-        wrapper,
-      },
+      queryClient,
     )
 
     await act(() => result.current.mutateAsync(variables))
@@ -180,7 +165,7 @@ describe('custom category mutations', () => {
 
   it('reloads the transactions once deleting a category recategorized them', async () => {
     respondWith(customCategories(2))
-    const { result } = renderHook(() => useDeleteCustomCategory(), { wrapper })
+    const { result } = renderHookWithClient(() => useDeleteCustomCategory(), queryClient)
 
     await act(() => result.current.mutateAsync(CUSTOM_KEY))
 
@@ -192,7 +177,7 @@ describe('categorization queries', () => {
   it('loads the rules and built-in matchers', async () => {
     queryClient.removeQueries({ queryKey: categorizationQueryKeys.all, exact: true })
     respondWith({ rules: [], default_matchers: [], recategorized: 0 })
-    const { result } = renderHook(() => useCategorization(), { wrapper })
+    const { result } = renderHookWithClient(() => useCategorization(), queryClient)
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(lastRequest().url).toBe('/api/categorization')
@@ -200,7 +185,7 @@ describe('categorization queries', () => {
 
   it('loads the custom categories', async () => {
     respondWith({ custom_categories: [], recategorized: 0 })
-    const { result } = renderHook(() => useCustomCategories(), { wrapper })
+    const { result } = renderHookWithClient(() => useCustomCategories(), queryClient)
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(lastRequest().url).toBe('/api/categorization/custom-categories')
@@ -208,7 +193,10 @@ describe('categorization queries', () => {
 
   it('stays idle while disabled', () => {
     respondWith({ custom_categories: [], recategorized: 0 })
-    const { result } = renderHook(() => useCustomCategories({ enabled: false }), { wrapper })
+    const { result } = renderHookWithClient(
+      () => useCustomCategories({ enabled: false }),
+      queryClient,
+    )
 
     expect(result.current.fetchStatus).toBe('idle')
     expect(globalThis.fetch).not.toHaveBeenCalled()
@@ -223,7 +211,7 @@ describe('useReportCategorizationChange', () => {
     [1, `${SAVED} · 1 transaction recategorized`],
     [4, `${SAVED} · 4 transactions recategorized`],
   ])('reports %s recategorized transactions', async (recategorized, message) => {
-    const { result } = renderHook(() => useReportCategorizationChange(), { wrapper })
+    const { result } = renderHookWithClient(() => useReportCategorizationChange(), queryClient)
 
     await expect(result.current(Promise.resolve({ recategorized }), SAVED)).resolves.toBe(true)
 
@@ -231,7 +219,7 @@ describe('useReportCategorizationChange', () => {
   })
 
   it('reports why the change failed', async () => {
-    const { result } = renderHook(() => useReportCategorizationChange(), { wrapper })
+    const { result } = renderHookWithClient(() => useReportCategorizationChange(), queryClient)
     const failure = new ApiError(422, { detail: 'Pattern is too short' }, 'PUT → 422')
 
     await expect(result.current(Promise.reject(failure), SAVED)).resolves.toBe(false)

@@ -46,45 +46,39 @@ describe('todayIso', () => {
     vi.useRealTimers()
   })
 
-  it('formats the current local date as YYYY-MM-DD', () => {
+  it.each([
+    ['formats the current local date as YYYY-MM-DD', new Date(2026, 4, 20, 12, 0, 0), '2026-05-20'],
+    ['zero-pads single-digit months and days', new Date(2026, 0, 9, 12, 0, 0), '2026-01-09'],
+  ])('%s', (_, now, expected) => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date(2026, 4, 20, 12, 0, 0))
-    expect(todayIso()).toBe('2026-05-20')
-  })
-
-  it('zero-pads single-digit months and days', () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date(2026, 0, 9, 12, 0, 0))
-    expect(todayIso()).toBe('2026-01-09')
+    vi.setSystemTime(now)
+    expect(todayIso()).toBe(expected)
   })
 })
 
 describe('formatMoney', () => {
-  it('formats positive amounts in de-DE', () => {
-    expect(formatMoney(1234.56)).toBe('1.234,56 €')
+  afterEach(() => {
+    setDisplayCurrency('EUR') // module state is global; reset so later tests see the default.
   })
 
-  it('formats negative amounts with minus sign', () => {
-    expect(formatMoney(-42)).toBe('-42,00 €')
-  })
-  it('formats the display currency in its own locale (symbol placement, grouping)', () => {
-    setDisplayCurrency('USD')
-    try {
-      expect(formatMoney(1234.56)).toBe('$1,234.56')
-    } finally {
-      setDisplayCurrency('EUR') // module state is global; reset so later tests see the default.
-    }
-  })
-})
-
-describe('formatMoney in a currency without its own locale', () => {
-  it('falls back to the German number format', () => {
-    setDisplayCurrency('SEK')
-    try {
-      expect(formatMoney(1234.5)).toBe('1.234,50\u00a0SEK')
-    } finally {
-      setDisplayCurrency('EUR')
-    }
+  it.each([
+    ['formats positive amounts in de-DE', 'EUR', 1234.56, '1.234,56 €'],
+    ['formats negative amounts with minus sign', 'EUR', -42, '-42,00 €'],
+    [
+      'formats the display currency in its own locale (symbol placement, grouping)',
+      'USD',
+      1234.56,
+      '$1,234.56',
+    ],
+    [
+      'falls back to the German number format in a currency without its own locale',
+      'SEK',
+      1234.5,
+      '1.234,50\u00a0SEK',
+    ],
+  ])('%s', (_, currency, amount, expected) => {
+    setDisplayCurrency(currency)
+    expect(formatMoney(amount)).toBe(expected)
   })
 })
 
@@ -160,10 +154,6 @@ describe('formatDate', () => {
     expect(formatDate('2026-05-05T12:00:00Z')).toMatch(/May 05, 2026/)
   })
 
-  it('prefixes the date with the weekday', () => {
-    expect(formatDate('2026-05-20T12:00:00Z')).toMatch(/^Wednesday, /)
-  })
-
   it('writes out a short weekday and long month without the year', () => {
     expect(formatDateShortWeekdayWithoutYear('2026-05-20T12:00:00Z')).toBe('Wed, May 20')
   })
@@ -186,24 +176,29 @@ describe('formatDateTime', () => {
     await i18n.changeLanguage('en')
   })
 
-  it('renders a naive backend timestamp as UTC by default', () => {
-    setDisplayTimeZone('UTC')
-    expect(formatDateTime('2026-05-20T12:00:00')).toMatch(/20\. Mai 2026 um 12:00/)
-  })
-
-  it('converts a naive (UTC) timestamp into the configured display zone', () => {
-    setDisplayTimeZone('Europe/Berlin')
-    expect(formatDateTime('2026-05-20T12:00:00')).toMatch(/20\. Mai 2026 um 14:00/)
-  })
-
-  it('treats a timestamp that already carries a Z as UTC', () => {
-    setDisplayTimeZone('Europe/Berlin')
-    expect(formatDateTime('2026-05-20T12:00:00Z')).toMatch(/20\. Mai 2026 um 14:00/)
-  })
-
-  it('takes a Date as the instant it is', () => {
-    setDisplayTimeZone('Europe/Berlin')
-    expect(formatDateTime(new Date(Date.UTC(2026, 4, 20, 12)))).toMatch(/20\. Mai 2026 um 14:00/)
+  it.each([
+    ['renders a naive backend timestamp as UTC by default', 'UTC', '2026-05-20T12:00:00', '12:00'],
+    [
+      'converts a naive (UTC) timestamp into the configured display zone',
+      'Europe/Berlin',
+      '2026-05-20T12:00:00',
+      '14:00',
+    ],
+    [
+      'treats a timestamp that already carries a Z as UTC',
+      'Europe/Berlin',
+      '2026-05-20T12:00:00Z',
+      '14:00',
+    ],
+    [
+      'takes a Date as the instant it is',
+      'Europe/Berlin',
+      new Date(Date.UTC(2026, 4, 20, 12)),
+      '14:00',
+    ],
+  ])('%s', (_, zone, value, time) => {
+    setDisplayTimeZone(zone)
+    expect(formatDateTime(value)).toMatch(`20. Mai 2026 um ${time}`)
   })
 })
 

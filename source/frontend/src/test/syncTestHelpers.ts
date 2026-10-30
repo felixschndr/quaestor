@@ -3,6 +3,7 @@ import { act } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 import { vi } from 'vitest'
 
+import type { Current2FA } from '@/lib/auth'
 import type { SyncJob } from '@/lib/credentials'
 
 export function makeJob(overrides: Partial<SyncJob> & Pick<SyncJob, 'credential_id'>): SyncJob {
@@ -76,4 +77,16 @@ export function installSyncFetchMock(initialJobs: SyncJob[]): SyncFetchMock {
 export function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
   return createElement(QueryClientProvider, { client }, children)
+}
+
+export function twoFactor(overrides: Partial<Current2FA> = {}): Current2FA {
+  return {
+    credentialId: 1,
+    jobId: 'job-1',
+    bank: 'trade_republic',
+    bankName: null,
+    bankIcon: null,
+    kind: 'awaiting_2fa',
+    ...overrides,
+  }
 }

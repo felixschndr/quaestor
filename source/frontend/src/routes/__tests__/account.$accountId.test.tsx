@@ -1,10 +1,9 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
-import type { AccountRead, CredentialRead } from '@/lib/auth'
+import type { CredentialRead } from '@/lib/auth'
 import type { useCredentialSync } from '@/components/sync-provider'
 import type { AccountHistoryPage, TransactionRead } from '@/lib/accountHistory'
 
@@ -42,7 +41,8 @@ import { STORAGE_KEY } from '@/lib/collapsedGroups'
 import { formatDateWithoutYear } from '@/lib/format'
 import type { ExpectedTransactionRead } from '@/lib/expectedTransaction'
 import { routeState } from './-routerMock'
-import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { buildUser, jsonResponse, renderWithQuery } from '@/test/helpers'
+import { buildAccount, buildCredential } from '@/test/statsFixtures'
 import {
   ACCOUNT_NAME_CHECKING,
   AMOUNT_L,
@@ -88,16 +88,7 @@ beforeEach(() => {
   mockUseExpectedTransactions.mockReturnValue({ data: undefined })
   globalThis.fetch = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
   scrollTo(0)
-  toast.mockClear()
-  toast.success.mockClear()
-  toast.error.mockClear()
-  routerPush.mockClear()
   window.localStorage.clear()
-})
-
-afterEach(() => {
-  vi.restoreAllMocks()
-  vi.unstubAllGlobals()
 })
 
 function serve(routes: Record<string, unknown>) {
@@ -148,16 +139,7 @@ function stubIntersectionObserver() {
     })
 }
 
-const account: AccountRead = {
-  id: 42,
-  name: ACCOUNT_NAME_CHECKING,
-  display_name: null,
-  balance: TEST_BALANCE,
-  balance_factor: 100,
-  is_archived: false,
-  include_by_default: true,
-  is_market_valued: false,
-}
+const account = buildAccount({ id: 42, name: ACCOUNT_NAME_CHECKING, balance: TEST_BALANCE })
 
 function buildTransaction(overrides: Partial<TransactionRead> = {}): TransactionRead {
   return {
@@ -174,11 +156,6 @@ function buildTransaction(overrides: Partial<TransactionRead> = {}): Transaction
   }
 }
 
-function withClient(ui: React.ReactNode) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
-}
-
 function buildPage(overrides: Partial<AccountHistoryPage> = {}): AccountHistoryPage {
   return {
     transactions: [],
@@ -190,50 +167,36 @@ function buildPage(overrides: Partial<AccountHistoryPage> = {}): AccountHistoryP
   }
 }
 
-function renderView(pages: AccountHistoryPage[], opts: { hasNextPage?: boolean } = {}) {
+function renderView(
+  pages: AccountHistoryPage[] = [],
+  props: Partial<React.ComponentProps<typeof AccountDetailView>> = {},
+) {
   const onLoadMore = vi.fn()
-  const view = render(
-    withClient(
-      <AccountDetailView
-        account={account}
-        pages={pages}
-        isFetchingNextPage={false}
-        hasNextPage={opts.hasNextPage ?? false}
-        onLoadMore={onLoadMore}
-        today={TODAY}
-      />,
-    ),
+  const view = renderWithQuery(
+    <AccountDetailView
+      account={account}
+      pages={pages}
+      isFetchingNextPage={false}
+      hasNextPage={false}
+      onLoadMore={onLoadMore}
+      today={TODAY}
+      {...props}
+    />,
   )
   return { ...view, onLoadMore }
 }
 
 describe('AccountDetailView', () => {
   it('renders the account name and current balance', () => {
-    renderView([])
+    renderView()
     expect(screen.getAllByText(ACCOUNT_NAME_CHECKING)).toHaveLength(1)
     expect(screen.getByText(money(TEST_BALANCE))).toBeInTheDocument()
   })
 
   it('renders a negative balance in the destructive color', () => {
-    render(
-      withClient(
-        <AccountDetailView
-          account={{ ...account, balance: -200 }}
-          pages={[]}
-          isFetchingNextPage={false}
-          hasNextPage={false}
-          onLoadMore={vi.fn()}
-          today={TODAY}
-        />,
-      ),
-    )
+    renderView([], { account: { ...account, balance: -200 } })
     const amount = screen.getByText(money(-200))
     expect(amount.className).toMatch(/text-destructive/)
-  })
-
-  it('renders the balance exactly once', () => {
-    renderView([])
-    expect(screen.getAllByText(money(TEST_BALANCE))).toHaveLength(1)
   })
 
   it('offers the privacy toggle, hiding the balances but not the transactions', async () => {
@@ -256,13 +219,13 @@ describe('AccountDetailView', () => {
   })
 
   it('renders the back link to "/"', () => {
-    renderView([])
+    renderView()
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/')
   })
 
   it('shows the prominent add button and no list heading when there are no expected transactions', () => {
     mockUseExpectedTransactions.mockReturnValue({ data: [] })
-    renderView([])
+    renderView()
     expect(screen.getByRole('button', { name: 'Expected transaction' })).toBeInTheDocument()
     expect(screen.queryByText('Expected transactions')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument()
@@ -278,64 +241,32 @@ describe('AccountDetailView', () => {
       match_tolerance_percent: 0,
     }
     mockUseExpectedTransactions.mockReturnValue({ data: [expectation] })
-    renderView([])
+    renderView()
     expect(screen.getByText('Expected transactions')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Expected transaction' })).not.toBeInTheDocument()
   })
 
   it('shows the personalised name above the IBAN when one is set', () => {
-    render(
-      withClient(
-        <AccountDetailView
-          account={{ ...account, name: TEST_IBAN, display_name: ACCOUNT_NAME_CHECKING }}
-          pages={[]}
-          isFetchingNextPage={false}
-          hasNextPage={false}
-          onLoadMore={vi.fn()}
-          today={TODAY}
-        />,
-      ),
-    )
+    renderView([], {
+      account: { ...account, name: TEST_IBAN, display_name: ACCOUNT_NAME_CHECKING },
+    })
     expect(screen.getByText(ACCOUNT_NAME_CHECKING)).toBeInTheDocument()
     expect(screen.getByText(TEST_IBAN_FORMATTED)).toBeInTheDocument()
   })
 
   it('shows the last-updated time beside the IBAN when a timestamp is given', () => {
-    render(
-      withClient(
-        <AccountDetailView
-          account={account}
-          lastUpdated={DATETIME_UPDATED}
-          pages={[]}
-          isFetchingNextPage={false}
-          hasNextPage={false}
-          onLoadMore={vi.fn()}
-          today={TODAY}
-        />,
-      ),
-    )
+    renderView([], { lastUpdated: DATETIME_UPDATED })
     expect(screen.getByText(/^Last updated /)).toBeInTheDocument()
   })
 
   it('omits the last-updated time when no timestamp is given', () => {
-    renderView([])
+    renderView()
     expect(screen.queryByText(/^Last updated /)).not.toBeInTheDocument()
   })
 
   it('falls back to the IBAN as the header title when no personalised name is set', () => {
-    render(
-      withClient(
-        <AccountDetailView
-          account={{ ...account, name: TEST_IBAN, display_name: null }}
-          pages={[]}
-          isFetchingNextPage={false}
-          hasNextPage={false}
-          onLoadMore={vi.fn()}
-          today={TODAY}
-        />,
-      ),
-    )
+    renderView([], { account: { ...account, name: TEST_IBAN, display_name: null } })
     expect(screen.getAllByText(TEST_IBAN_FORMATTED)).toHaveLength(2)
   })
 
@@ -346,70 +277,31 @@ describe('AccountDetailView', () => {
       value: { writeText },
       configurable: true,
     })
-    render(
-      withClient(
-        <AccountDetailView
-          account={{ ...account, name: TEST_IBAN, display_name: null }}
-          pages={[]}
-          isFetchingNextPage={false}
-          hasNextPage={false}
-          onLoadMore={vi.fn()}
-          today={TODAY}
-        />,
-      ),
-    )
+    renderView([], { account: { ...account, name: TEST_IBAN, display_name: null } })
     await user.click(screen.getByRole('button', { name: 'Copy IBAN' }))
     expect(writeText).toHaveBeenCalledWith(TEST_IBAN_FORMATTED)
   })
 
-  it('shows no copy button when the account name is not an IBAN', () => {
-    renderView([])
-    expect(screen.queryByRole('button', { name: 'Copy IBAN' })).not.toBeInTheDocument()
-  })
-
   it('shows a non-IBAN account name below its personalised name, without a copy button', () => {
-    render(
-      withClient(
-        <AccountDetailView
-          account={{ ...account, display_name: LABEL_RENT }}
-          pages={[]}
-          isFetchingNextPage={false}
-          hasNextPage={false}
-          onLoadMore={vi.fn()}
-          today={TODAY}
-        />,
-      ),
-    )
+    renderView([], { account: { ...account, display_name: LABEL_RENT } })
     expect(screen.getByText(LABEL_RENT)).toBeInTheDocument()
     expect(screen.getByRole('group', { name: ACCOUNT_NAME_CHECKING })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Copy IBAN' })).not.toBeInTheDocument()
   })
 
   it('renders the magnifier as a link to search, pre-scoped to this account', () => {
-    renderView([])
+    renderView()
     const search = screen.getByRole('link', { name: 'Search transactions' })
     expect(search).toHaveAttribute('href', '/search?account_ids=42')
   })
 
   it('shows the empty-state message when there are no transactions', () => {
-    renderView([])
+    renderView()
     expect(screen.getByText('No transactions yet.')).toBeInTheDocument()
   })
 
   it('shows a loading line instead of the empty state while the first page loads', () => {
-    render(
-      withClient(
-        <AccountDetailView
-          account={account}
-          pages={[]}
-          isLoading
-          isFetchingNextPage={false}
-          hasNextPage={false}
-          onLoadMore={vi.fn()}
-          today={TODAY}
-        />,
-      ),
-    )
+    renderView([], { isLoading: true })
     expect(screen.queryByText('No transactions yet.')).not.toBeInTheDocument()
     expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
@@ -545,20 +437,7 @@ function renderManual(
   pages: AccountHistoryPage[],
   props: Partial<React.ComponentProps<typeof AccountDetailView>> = {},
 ) {
-  return render(
-    withClient(
-      <AccountDetailView
-        account={account}
-        bank="manual"
-        pages={pages}
-        isFetchingNextPage={false}
-        hasNextPage={false}
-        onLoadMore={vi.fn()}
-        today={TODAY}
-        {...props}
-      />,
-    ),
-  )
+  return renderView(pages, { bank: 'manual', ...props })
 }
 
 const balanceGroup = () => screen.getByRole('group', { name: 'Balance' })
@@ -572,18 +451,7 @@ describe('AccountDetailView — balance sparkline', () => {
 
   async function renderChart(series: { date: string; value: number }[]) {
     serve({ 'GET /api/statistics/net-worth': { series, summary: null } })
-    const view = render(
-      withClient(
-        <AccountDetailView
-          account={account}
-          pages={[]}
-          isFetchingNextPage={false}
-          hasNextPage={false}
-          onLoadMore={vi.fn()}
-          today={TODAY}
-        />,
-      ),
-    )
+    const view = renderView()
     const link = (await screen.findByText(formatDateWithoutYear(series[0].date))).closest('a')!
     return { ...view, link, chart: link.firstElementChild as HTMLElement }
   }
@@ -699,7 +567,7 @@ describe('AccountDetailView — docked balance header', () => {
 
   it('docks the balance into the sticky header and re-measures when the layout shifts', () => {
     vi.spyOn(CSS, 'supports').mockReturnValue(true)
-    const { unmount } = renderView([])
+    const { unmount } = renderView()
     const main = screen.getByRole('main')
     const headerHeight = () => main.style.getPropertyValue('--account-header-height')
     expect(headerHeight()).toBe('64px')
@@ -728,7 +596,7 @@ describe('AccountDetailView — docked balance header', () => {
 
   it('leaves the balance in the flow where scroll-driven animations are unsupported', () => {
     vi.spyOn(CSS, 'supports').mockReturnValue(false)
-    renderView([])
+    renderView()
     expect(balanceGroup()).not.toHaveClass('account-balance-dock')
   })
 })
@@ -893,7 +761,7 @@ describe('AccountDetailView — expected transactions', () => {
   it('opens the form from the add button and closes it on cancel', async () => {
     const user = userEvent.setup()
     mockUseExpectedTransactions.mockReturnValue({ data: [] })
-    renderView([])
+    renderView()
 
     await user.click(screen.getByRole('button', { name: 'Expected transaction' }))
     expect(screen.getByLabelText('Tolerance')).toBeInTheDocument()
@@ -905,7 +773,7 @@ describe('AccountDetailView — expected transactions', () => {
   it('toggles the form from the "Add" button in the list heading', async () => {
     const user = userEvent.setup()
     mockUseExpectedTransactions.mockReturnValue({ data: [buildExpectation()] })
-    renderView([])
+    renderView()
 
     await user.click(screen.getByRole('button', { name: 'Add' }))
     expect(screen.getByLabelText('Tolerance')).toBeInTheDocument()
@@ -920,7 +788,7 @@ describe('AccountDetailView — expected transactions', () => {
         buildExpectation({ id: 2, other_party: '  ', amount: AMOUNT_L }),
       ],
     })
-    renderView([])
+    renderView()
 
     expect(screen.getByText('Any recipient')).toBeInTheDocument()
     expect(screen.getByText('Any sender')).toBeInTheDocument()
@@ -932,7 +800,7 @@ describe('AccountDetailView — expected transactions', () => {
   it('collapses the list and remembers that across visits', async () => {
     const user = userEvent.setup()
     mockUseExpectedTransactions.mockReturnValue({ data: [buildExpectation()] })
-    renderView([])
+    renderView()
 
     await user.click(screen.getByRole('button', { name: 'Expected transactions' }))
     expect(screen.queryByText(PARTY_SUPERMARKET)).toBeNull()
@@ -945,7 +813,7 @@ describe('AccountDetailView — expected transactions', () => {
   it('edits an expectation in place', async () => {
     const user = userEvent.setup()
     mockUseExpectedTransactions.mockReturnValue({ data: [buildExpectation()] })
-    renderView([])
+    renderView()
 
     await user.click(screen.getByRole('button', { name: 'Edit' }))
     expect(screen.getByRole('textbox', { name: 'Sender / recipient' })).toHaveValue(
@@ -973,7 +841,7 @@ describe('AccountDetailView — expected transactions', () => {
     const user = userEvent.setup()
     mockUseExpectedTransactions.mockReturnValue({ data: [buildExpectation({ id: 3 })] })
     const fetchMock = serve({ 'DELETE /api/account/42/expected-transactions/3': response })
-    renderView([])
+    renderView()
 
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Really delete?' }))
@@ -984,20 +852,7 @@ describe('AccountDetailView — expected transactions', () => {
 
   it('hides expectations from someone who may only read the account', () => {
     mockUseExpectedTransactions.mockReturnValue({ data: [buildExpectation()] })
-    render(
-      withClient(
-        <AccountDetailView
-          account={account}
-          pages={[]}
-          isFetchingNextPage={false}
-          hasNextPage={false}
-          onLoadMore={vi.fn()}
-          today={TODAY}
-          isOwner={false}
-          canWrite={false}
-        />,
-      ),
-    )
+    renderView([], { isOwner: false, canWrite: false })
     expect(screen.queryByText('Expected transactions')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Expected transaction' })).toBeNull()
   })
@@ -1025,23 +880,15 @@ describe('AccountDetailView — transaction list', () => {
   })
 
   it('marks the day-end value of a market-valued account', () => {
-    render(
-      withClient(
-        <AccountDetailView
-          account={{ ...account, is_market_valued: true }}
-          pages={[
-            buildPage({
-              total_days: 1,
-              transactions: [buildTransaction({ other_party: PARTY_SUPERMARKET })],
-              balance_at_date: { [DATE_TODAY]: AMOUNT_XL },
-            }),
-          ]}
-          isFetchingNextPage={false}
-          hasNextPage={false}
-          onLoadMore={vi.fn()}
-          today={TODAY}
-        />,
-      ),
+    renderView(
+      [
+        buildPage({
+          total_days: 1,
+          transactions: [buildTransaction({ other_party: PARTY_SUPERMARKET })],
+          balance_at_date: { [DATE_TODAY]: AMOUNT_XL },
+        }),
+      ],
+      { account: { ...account, is_market_valued: true } },
     )
     const header = screen.getByRole('heading', { level: 2, name: 'Today' }).parentElement!
     expect(within(header).getByText('Market value')).toBeInTheDocument()
@@ -1059,18 +906,7 @@ describe('AccountDetailView — transaction list', () => {
   })
 
   it('says more transactions are loading while the next page is fetched', () => {
-    render(
-      withClient(
-        <AccountDetailView
-          account={account}
-          pages={[]}
-          isFetchingNextPage
-          hasNextPage
-          onLoadMore={vi.fn()}
-          today={TODAY}
-        />,
-      ),
-    )
+    renderView([], { isFetchingNextPage: true, hasNextPage: true })
     expect(screen.getByText('Loading more transactions…')).toBeInTheDocument()
   })
 })
@@ -1078,18 +914,8 @@ describe('AccountDetailView — transaction list', () => {
 describe('AccountDetailPage', () => {
   const Page = Route.options.component!
 
-  function buildCredential(overrides: Partial<CredentialRead> = {}): CredentialRead {
-    return {
-      id: 100,
-      bank: 'fints',
-      bank_name: 'ING',
-      bank_icon: null,
-      accounts: [account],
-      last_successful_sync_timestamp: null,
-      requires_two_factor_authentication: false,
-      sync_enabled: true,
-      ...overrides,
-    }
+  function fintsCredential(overrides: Partial<CredentialRead> = {}) {
+    return buildCredential([account], { id: 100, bank: 'fints', bank_name: 'ING', ...overrides })
   }
 
   type CredentialSync = ReturnType<typeof useCredentialSync>
@@ -1100,7 +926,7 @@ describe('AccountDetailPage', () => {
 
   function renderPage({
     accountId = '42',
-    credential = buildCredential(),
+    credential = fintsCredential(),
     sync = buildSync(),
   }: { accountId?: string; credential?: CredentialRead; sync?: CredentialSync } = {}) {
     routeState.params = { accountId }
@@ -1183,13 +1009,13 @@ describe('AccountDetailPage', () => {
       },
     ],
   ])('offers no sync for %s', (_label, overrides) => {
-    renderPage({ credential: buildCredential(overrides) })
+    renderPage({ credential: fintsCredential(overrides) })
     expect(screen.queryByRole('button', { name: 'Sync account' })).toBeNull()
   })
 
   it('lets a writable share without 2FA sync', () => {
     renderPage({
-      credential: buildCredential({ shared_from: SHARE_OWNER_NAME, share_permission: 'write' }),
+      credential: fintsCredential({ shared_from: SHARE_OWNER_NAME, share_permission: 'write' }),
     })
     expect(screen.getByRole('button', { name: 'Sync account' })).toBeEnabled()
   })
@@ -1205,7 +1031,7 @@ describe('AccountDetailPage', () => {
   ])('with sync enabled=%s colours a days-old update %s', (syncEnabled, colour) => {
     vi.spyOn(Date, 'now').mockReturnValue(new Date(DATETIME_UPDATED).getTime())
     renderPage({
-      credential: buildCredential({
+      credential: fintsCredential({
         last_successful_sync_timestamp: DATETIME_RECENT,
         sync_enabled: syncEnabled,
       }),

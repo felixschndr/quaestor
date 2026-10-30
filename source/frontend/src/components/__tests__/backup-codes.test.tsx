@@ -12,7 +12,6 @@ const { createObjectURL, revokeObjectURL } = URL
 
 afterEach(() => {
   Object.assign(URL, { createObjectURL, revokeObjectURL })
-  vi.restoreAllMocks()
 })
 
 describe('BackupCodes', () => {

@@ -21,73 +21,25 @@ import {
   DATE_YESTERDAY,
   SHARE_OWNER_NAME,
 } from '@/test/constants'
+import { buildUser } from '@/test/helpers'
+import { buildAccount, buildCredential } from '@/test/statsFixtures'
 
 function makeUser(): UserRead {
-  return {
-    id: 1,
-    user_name: 'alice',
-    display_name: 'Alice',
-    language: 'en',
-    currency: 'EUR',
-    theme: 'SYSTEM',
-    two_factor_enabled: false,
-    show_upcoming_contracts: true,
-    balance: 0,
+  return buildUser({
     credentials: [
-      {
-        id: 100,
-        bank: 'ing',
-        bank_name: null,
-        bank_icon: null,
-        accounts: [
-          {
-            id: 1,
-            name: 'Giro',
-            display_name: null,
-            balance: AMOUNT_L,
-            balance_factor: 100,
-            is_archived: false,
-            include_by_default: true,
-            is_market_valued: false,
-          },
-          {
-            id: 2,
-            name: ACCOUNT_NAME_DAY,
-            display_name: null,
-            balance: AMOUNT_XL,
-            balance_factor: 100,
-            is_archived: false,
-            include_by_default: true,
-            is_market_valued: false,
-          },
+      buildCredential(
+        [
+          buildAccount({ id: 1, name: 'Giro', balance: AMOUNT_L }),
+          buildAccount({ id: 2, name: ACCOUNT_NAME_DAY, balance: AMOUNT_XL }),
         ],
-        last_successful_sync_timestamp: DATETIME_UPDATED,
-        requires_two_factor_authentication: false,
-        sync_enabled: true,
-      },
-      {
+        { id: 100, last_successful_sync_timestamp: DATETIME_UPDATED },
+      ),
+      buildCredential([buildAccount({ id: 3, name: ACCOUNT_NAME_BROKER, balance: AMOUNT_M })], {
         id: 101,
         bank: 'trade_republic',
-        bank_name: null,
-        bank_icon: null,
-        accounts: [
-          {
-            id: 3,
-            name: ACCOUNT_NAME_BROKER,
-            display_name: null,
-            balance: AMOUNT_M,
-            balance_factor: 100,
-            is_archived: false,
-            include_by_default: true,
-            is_market_valued: false,
-          },
-        ],
-        last_successful_sync_timestamp: null,
-        requires_two_factor_authentication: false,
-        sync_enabled: true,
-      },
+      }),
     ],
-  }
+  })
 }
 
 describe('findAccountInUser', () => {

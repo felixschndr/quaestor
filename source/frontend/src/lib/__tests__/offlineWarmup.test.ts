@@ -1,10 +1,9 @@
-import { createElement } from 'react'
-import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { onlineManager, QueryClient } from '@tanstack/react-query'
 
 import { authQueryKeys } from '@/lib/auth'
 import { useOfflineWarmUp, warmUp } from '@/lib/offlineWarmup'
+import { jsonResponse, renderHookWithClient } from '@/test/helpers'
 
 describe('warmUp', () => {
   it('loads every account and every contract up front once the offline cache is on', async () => {
@@ -16,10 +15,7 @@ describe('warmUp', () => {
     })
     globalThis.fetch = vi.fn((url: string) =>
       Promise.resolve(
-        new Response(JSON.stringify(url === '/api/contracts' ? [{ id: 9 }] : []), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
+        jsonResponse({ status: 200, body: url === '/api/contracts' ? [{ id: 9 }] : [] }),
       ),
     ) as unknown as typeof fetch
 
@@ -59,11 +55,8 @@ describe('warm-up conditions', () => {
     globalThis.fetch = vi.fn((url: string) =>
       Promise.resolve(
         url === '/api/contracts'
-          ? new Response(JSON.stringify(contracts.body ?? null), {
-              status: contracts.status,
-              headers: { 'content-type': 'application/json' },
-            })
-          : new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } }),
+          ? jsonResponse({ status: contracts.status, body: contracts.body ?? null })
+          : jsonResponse({ status: 200, body: [] }),
       ),
     ) as unknown as typeof fetch
   }
@@ -131,16 +124,16 @@ describe('warm-up conditions', () => {
   })
 
   it('warms up three seconds after sign-in and again when the app comes back online', async () => {
-    const queryClient = signedInClient()
-    const { rerender } = renderHook(({ userId }) => useOfflineWarmUp(userId), {
-      initialProps: { userId: undefined as number | undefined },
-      wrapper: ({ children }) =>
-        createElement(QueryClientProvider, { client: queryClient }, children),
-    })
+    const props: { userId?: number } = {}
+    const { rerender } = renderHookWithClient(
+      () => useOfflineWarmUp(props.userId),
+      signedInClient(),
+    )
     await vi.advanceTimersByTimeAsync(3_000)
     expect(globalThis.fetch).not.toHaveBeenCalled()
 
-    rerender({ userId: 1 })
+    props.userId = 1
+    rerender()
     await vi.advanceTimersByTimeAsync(2_999)
     expect(globalThis.fetch).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(1)
@@ -154,11 +147,7 @@ describe('warm-up conditions', () => {
   })
 
   it('does not warm up after the user left', async () => {
-    const queryClient = signedInClient()
-    const { unmount } = renderHook(() => useOfflineWarmUp(1), {
-      wrapper: ({ children }) =>
-        createElement(QueryClientProvider, { client: queryClient }, children),
-    })
+    const { unmount } = renderHookWithClient(() => useOfflineWarmUp(1), signedInClient())
 
     unmount()
     await vi.advanceTimersByTimeAsync(3_000)

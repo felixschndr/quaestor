@@ -24,28 +24,14 @@ import { NetSavingsChart } from '../net-savings-chart'
 
 describe('charts render with real recharts', () => {
   it('CategoryChart bar', () => {
-    expect(() =>
-      render(
-        <CategoryChart
-          slices={[{ category: 'FUEL', total: AMOUNT_S }]}
-          chartType="bar"
-          hidden={new Set()}
-          onToggleHidden={vi.fn()}
-        />,
-      ),
-    ).not.toThrow()
-  })
-  it('CategoryChart pie', () => {
-    expect(() =>
-      render(
-        <CategoryChart
-          slices={[{ category: 'FUEL', total: AMOUNT_S }]}
-          chartType="pie"
-          hidden={new Set()}
-          onToggleHidden={vi.fn()}
-        />,
-      ),
-    ).not.toThrow()
+    render(
+      <CategoryChart
+        slices={[{ category: 'FUEL', total: AMOUNT_S }]}
+        chartType="bar"
+        hidden={new Set()}
+        onToggleHidden={vi.fn()}
+      />,
+    )
   })
   it('CategoryChart pie legend reports toggles to the owner of the hidden state', async () => {
     const onToggleHidden = vi.fn()
@@ -77,24 +63,18 @@ describe('charts render with real recharts', () => {
     )
   })
   it('CashflowChart', () => {
-    expect(() =>
-      render(<CashflowChart data={[{ month: '2026-01', income: AMOUNT_L, expenses: AMOUNT_M }]} />),
-    ).not.toThrow()
+    render(<CashflowChart data={[{ month: '2026-01', income: AMOUNT_L, expenses: AMOUNT_M }]} />)
   })
   it('NetSavingsChart', () => {
-    expect(() =>
-      render(<NetSavingsChart data={[{ month: '2026-01', net: AMOUNT_M, savings_rate: 50 }]} />),
-    ).not.toThrow()
+    render(<NetSavingsChart data={[{ month: '2026-01', net: AMOUNT_M, savings_rate: 50 }]} />)
   })
   it('OtherPartyChart', () => {
-    expect(() =>
-      render(
-        <OtherPartyChart
-          data={[{ other_party: PARTY_SUPERMARKET, total: AMOUNT_S }]}
-          hidden={new Set()}
-          onToggleHidden={vi.fn()}
-        />,
-      ),
-    ).not.toThrow()
+    render(
+      <OtherPartyChart
+        data={[{ other_party: PARTY_SUPERMARKET, total: AMOUNT_S }]}
+        hidden={new Set()}
+        onToggleHidden={vi.fn()}
+      />,
+    )
   })
 })

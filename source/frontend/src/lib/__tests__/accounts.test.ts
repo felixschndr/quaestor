@@ -1,7 +1,6 @@
-import { createElement, type ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient } from '@tanstack/react-query'
+import { act } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   accountDisplayName,
@@ -13,42 +12,20 @@ import {
   useCreateManualAccount,
   useDeleteAccount,
 } from '@/lib/accounts'
-import { authQueryKeys, type AccountRead, type CredentialRead } from '@/lib/auth'
+import { authQueryKeys, type AccountRead } from '@/lib/auth'
 import {
   ACCOUNT_NAME_CHECKING,
   ACCOUNT_NAME_SAVINGS,
-  AMOUNT_XL,
   LABEL_SALARY,
   LABEL_SAVINGS,
   TEST_IBAN,
   TEST_IBAN_FORMATTED,
 } from '@/test/constants'
+import { renderHookWithClient } from '@/test/helpers'
+import { buildAccount, buildCredential } from '@/test/statsFixtures'
 
-function buildAccount(overrides: Partial<AccountRead> = {}): AccountRead {
-  return {
-    id: 1,
-    name: TEST_IBAN,
-    display_name: null,
-    balance: AMOUNT_XL,
-    balance_factor: 100,
-    is_archived: false,
-    include_by_default: true,
-    is_market_valued: false,
-    ...overrides,
-  }
-}
-
-function buildCredential(id: number, accounts: AccountRead[]): CredentialRead {
-  return {
-    id,
-    bank: 'manual',
-    bank_name: null,
-    bank_icon: null,
-    accounts,
-    last_successful_sync_timestamp: null,
-    requires_two_factor_authentication: false,
-    sync_enabled: true,
-  }
+function account(overrides: Partial<AccountRead> & Pick<AccountRead, 'id'>): AccountRead {
+  return buildAccount({ name: TEST_IBAN, ...overrides })
 }
 
 describe('displayNameOrUserName', () => {
@@ -63,24 +40,13 @@ describe('displayNameOrUserName', () => {
 })
 
 describe('accountDisplayName', () => {
-  it('returns the display_name when present', () => {
-    expect(accountDisplayName({ name: TEST_IBAN, display_name: ACCOUNT_NAME_CHECKING })).toBe(
-      ACCOUNT_NAME_CHECKING,
-    )
-  })
-
-  it('falls back to the formatted IBAN when display_name is null', () => {
-    expect(accountDisplayName({ name: TEST_IBAN, display_name: null })).toBe(TEST_IBAN_FORMATTED)
-  })
-
-  it('treats a whitespace-only display_name as unset', () => {
-    expect(accountDisplayName({ name: TEST_IBAN, display_name: '   ' })).toBe(TEST_IBAN_FORMATTED)
-  })
-
-  it('trims the display_name before returning it', () => {
-    expect(accountDisplayName({ name: TEST_IBAN, display_name: `  ${LABEL_SAVINGS}  ` })).toBe(
-      LABEL_SAVINGS,
-    )
+  it.each([
+    ['returns the display_name when present', ACCOUNT_NAME_CHECKING, ACCOUNT_NAME_CHECKING],
+    ['falls back to the formatted IBAN when display_name is null', null, TEST_IBAN_FORMATTED],
+    ['treats a whitespace-only display_name as unset', '   ', TEST_IBAN_FORMATTED],
+    ['trims the display_name before returning it', `  ${LABEL_SAVINGS}  `, LABEL_SAVINGS],
+  ])('%s', (_, displayName, expected) => {
+    expect(accountDisplayName({ name: TEST_IBAN, display_name: displayName })).toBe(expected)
   })
 })
 
@@ -101,11 +67,8 @@ describe('defaultAccountIds', () => {
   it('collects the accounts included by default across all connections', () => {
     expect(
       defaultAccountIds([
-        buildCredential(1, [
-          buildAccount({ id: 1 }),
-          buildAccount({ id: 2, include_by_default: false }),
-        ]),
-        buildCredential(2, [buildAccount({ id: 3 })]),
+        buildCredential([account({ id: 1 }), account({ id: 2, include_by_default: false })]),
+        buildCredential([account({ id: 3 })], { id: 2 }),
       ]),
     ).toEqual([1, 3])
   })
@@ -125,8 +88,8 @@ describe('sameAccountSelection', () => {
 describe('accountNamesById', () => {
   it('maps every account to its display name', () => {
     const names = accountNamesById([
-      buildCredential(1, [buildAccount({ id: 1, display_name: ACCOUNT_NAME_CHECKING })]),
-      buildCredential(2, [buildAccount({ id: 2, name: ACCOUNT_NAME_SAVINGS })]),
+      buildCredential([account({ id: 1, display_name: ACCOUNT_NAME_CHECKING })]),
+      buildCredential([account({ id: 2, name: ACCOUNT_NAME_SAVINGS })], { id: 2 }),
     ])
     expect([...names]).toEqual([
       [1, ACCOUNT_NAME_CHECKING],
@@ -136,16 +99,10 @@ describe('accountNamesById', () => {
 })
 
 describe('account mutations', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
   function renderWithClient<T>(hook: () => T) {
     const client = new QueryClient()
     client.setQueryData(authQueryKeys.me, { id: 1 })
-    const wrapper = ({ children }: { children: ReactNode }) =>
-      createElement(QueryClientProvider, { client }, children)
-    return { client, ...renderHook(hook, { wrapper }) }
+    return renderHookWithClient(hook, client)
   }
 
   it('creates a manual account via POST and reloads the user', async () => {

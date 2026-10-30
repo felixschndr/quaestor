@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
 
 import '@/i18n'
@@ -17,16 +17,11 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: toastError } }))
 
 import { SettingsDeleteAccountView } from '@/pages/settings.user.delete'
 import { Route } from '@/routes/settings.user.delete'
-import { buildUser, jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { buildUser, jsonResponse, renderWithQuery } from '@/test/helpers'
 
 beforeEach(async () => {
   globalThis.fetch = vi.fn() as unknown as typeof fetch
   await i18n.changeLanguage('en')
-})
-
-afterEach(() => {
-  vi.restoreAllMocks()
-  vi.clearAllMocks()
 })
 
 function deleteRequests() {

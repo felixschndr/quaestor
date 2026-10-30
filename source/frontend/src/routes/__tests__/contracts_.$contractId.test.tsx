@@ -21,7 +21,7 @@ import {
   TODAY,
   money,
 } from '@/test/constants'
-import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import { jsonResponse, renderWithQuery } from '@/test/helpers'
 
 const navigate = vi.hoisted(() => vi.fn())
 vi.mock('@tanstack/react-router', async () =>
@@ -119,7 +119,6 @@ async function renderPage(contract: ContractDetailRead | null, failing: string[]
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(TODAY)
   globalThis.fetch = fetchMock as unknown as typeof fetch

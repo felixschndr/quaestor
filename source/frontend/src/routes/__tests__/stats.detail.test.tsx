@@ -172,8 +172,6 @@ describe('NetWorthDetailPage', () => {
   beforeEach(() => {
     routerState.search = { account_ids: [42, 43], end: DATE_RECENT }
     routerState.canGoBack = true
-    routerState.navigate.mockClear()
-    routerState.back.mockClear()
     hookState.loggedIn = true
     hookState.range = loaded(rangeResponse())
   })
@@ -382,7 +380,6 @@ describe('NetWorthDetailPage range', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(TODAY)
-    routerState.navigate.mockClear()
     hookState.loggedIn = true
     hookState.range = loaded(rangeResponse())
   })

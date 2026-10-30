@@ -1,7 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Mock } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import i18n from 'i18next'
 
@@ -17,7 +16,14 @@ import { SettingsCategorizationView } from '@/pages/settings.user.categorization
 import { CategoryCatalogProvider } from '@/lib/categoryCatalog'
 import type { CategorizationRead, CategoryRuleRead, CustomCategoryRead } from '@/lib/categorization'
 import { Route } from '@/routes/settings.user.categorization'
-import { jsonResponse, renderWithQuery } from './-settingsUserTestHelpers'
+import {
+  bodyOf,
+  jsonResponse,
+  renderWithQuery,
+  requestsTo,
+  serve,
+  type Served,
+} from '@/test/helpers'
 import { DATETIME_RECENT } from '@/test/constants'
 
 function buildCategorization(overrides: Partial<CategorizationRead> = {}): CategorizationRead {
@@ -32,21 +38,10 @@ function buildCategorization(overrides: Partial<CategorizationRead> = {}): Categ
   }
 }
 
-function requestsTo(url: string, method: string) {
-  return (globalThis.fetch as Mock).mock.calls.filter(
-    ([calledUrl, init]) => calledUrl === url && init?.method === method,
-  )
-}
-
 beforeEach(async () => {
   globalThis.fetch = vi.fn() as unknown as typeof fetch
   document.cookie = ''
   await i18n.changeLanguage('en')
-})
-
-afterEach(() => {
-  vi.restoreAllMocks()
-  vi.clearAllMocks()
 })
 
 const OWN_RULE: CategoryRuleRead = {
@@ -61,24 +56,23 @@ const PET_SHOP: CustomCategoryRead = {
   name: 'Zooladen',
   owned: true,
 }
+const CATEGORIZATION_URL = '/api/categorization'
+const RULES_URL = '/api/categorization/rules'
+const CUSTOM_URL = '/api/categorization/custom-categories'
+const PET_SHOP_URL = `${CUSTOM_URL}/${PET_SHOP.key}`
 
-function serve(writes: Record<string, () => Response> = {}) {
-  ;(globalThis.fetch as Mock).mockImplementation((url: string, init?: { method?: string }) => {
-    const method = init?.method ?? 'GET'
-    if (method === 'GET' && url === '/api/categorization/custom-categories') {
-      return Promise.resolve(
-        jsonResponse({ status: 200, body: { custom_categories: [PET_SHOP], recategorized: 0 } }),
-      )
-    }
-    if (method === 'GET' && url === '/api/categorization') {
-      return Promise.resolve(
-        jsonResponse({ status: 200, body: buildCategorization({ rules: [OWN_RULE] }) }),
-      )
-    }
-    const write = writes[`${method} ${url}`]
-    return Promise.resolve(
-      write ? write() : jsonResponse({ status: 500, body: { detail: 'boom' } }),
-    )
+function customCategories(list: CustomCategoryRead[], { status = 200, recategorized = 0 } = {}) {
+  return { status, body: { custom_categories: list, recategorized } }
+}
+
+function serveCategorization(
+  categorization = buildCategorization({ rules: [OWN_RULE] }),
+  extra: Served = {},
+) {
+  serve({
+    [`GET ${CATEGORIZATION_URL}`]: { status: 200, body: categorization },
+    [`GET ${CUSTOM_URL}`]: customCategories([PET_SHOP]),
+    ...extra,
   })
 }
 
@@ -96,22 +90,17 @@ async function petShopRow() {
 
 describe('SettingsCategorizationView', () => {
   it('lists the rules and shows switched off default matchers as unchecked', async () => {
-    ;(globalThis.fetch as Mock).mockImplementation(() =>
-      Promise.resolve(
-        jsonResponse({
-          status: 200,
-          body: buildCategorization({
-            rules: [
-              {
-                id: 1,
-                pattern: 'kleinanzeigen',
-                category: 'PRIVATE_SALES',
-                created_at: DATETIME_RECENT,
-              },
-            ],
-          }),
-        }),
-      ),
+    serveCategorization(
+      buildCategorization({
+        rules: [
+          {
+            id: 1,
+            pattern: 'kleinanzeigen',
+            category: 'PRIVATE_SALES',
+            created_at: DATETIME_RECENT,
+          },
+        ],
+      }),
     )
 
     renderWithQuery(<SettingsCategorizationView />)
@@ -124,26 +113,16 @@ describe('SettingsCategorizationView', () => {
 
   it('creates a rule and reports how many transactions it recategorized', async () => {
     const user = userEvent.setup()
-    ;(globalThis.fetch as Mock).mockImplementation((url: string, init?: { method?: string }) => {
-      if (url === '/api/categorization/rules' && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 201,
-            body: buildCategorization({
-              rules: [
-                {
-                  id: 3,
-                  pattern: 'computer',
-                  category: 'PRIVATE_SALES',
-                  created_at: DATETIME_RECENT,
-                },
-              ],
-              recategorized: 2,
-            }),
-          }),
-        )
-      }
-      return Promise.resolve(jsonResponse({ status: 200, body: buildCategorization() }))
+    serveCategorization(buildCategorization(), {
+      [`POST ${RULES_URL}`]: {
+        status: 201,
+        body: buildCategorization({
+          rules: [
+            { id: 3, pattern: 'computer', category: 'PRIVATE_SALES', created_at: DATETIME_RECENT },
+          ],
+          recategorized: 2,
+        }),
+      },
     })
 
     renderWithQuery(<SettingsCategorizationView />)
@@ -157,24 +136,12 @@ describe('SettingsCategorizationView', () => {
     await user.click(screen.getByRole('button', { name: 'Add rule' }))
 
     expect(await screen.findByText('computer')).toBeInTheDocument()
-    const [[, init]] = requestsTo('/api/categorization/rules', 'POST')
-    expect(JSON.parse(init.body)).toEqual({ pattern: 'Computer', category: 'PRIVATE_SALES' })
+    expect(bodyOf('POST', RULES_URL)).toEqual({ pattern: 'Computer', category: 'PRIVATE_SALES' })
     expect(toastSuccess).toHaveBeenCalledWith('Rule saved · 2 transactions recategorized')
   })
 
   it('lists an own rule above the default rules of its category, marked as one of yours', async () => {
-    ;(globalThis.fetch as Mock).mockImplementation(() =>
-      Promise.resolve(
-        jsonResponse({
-          status: 200,
-          body: buildCategorization({
-            rules: [
-              { id: 1, pattern: 'kaufland', category: 'SUPERMARKET', created_at: DATETIME_RECENT },
-            ],
-          }),
-        }),
-      ),
-    )
+    serveCategorization()
 
     renderWithQuery(<SettingsCategorizationView />)
 
@@ -192,19 +159,14 @@ describe('SettingsCategorizationView', () => {
 
   it('groups the default matchers by category, collapsed until opened', async () => {
     const user = userEvent.setup()
-    ;(globalThis.fetch as Mock).mockImplementation(() =>
-      Promise.resolve(
-        jsonResponse({
-          status: 200,
-          body: buildCategorization({
-            default_matchers: [
-              { pattern: 'rewe', category: 'SUPERMARKET', disabled: false },
-              { pattern: 'spotify', category: 'STREAMING', disabled: true },
-              { pattern: 'aldi', category: 'SUPERMARKET', disabled: false },
-            ],
-          }),
-        }),
-      ),
+    serveCategorization(
+      buildCategorization({
+        default_matchers: [
+          { pattern: 'rewe', category: 'SUPERMARKET', disabled: false },
+          { pattern: 'spotify', category: 'STREAMING', disabled: true },
+          { pattern: 'aldi', category: 'SUPERMARKET', disabled: false },
+        ],
+      }),
     )
 
     renderWithQuery(<SettingsCategorizationView />)
@@ -233,9 +195,7 @@ describe('SettingsCategorizationView', () => {
 
   it('opens the groups that match a search', async () => {
     const user = userEvent.setup()
-    ;(globalThis.fetch as Mock).mockImplementation(() =>
-      Promise.resolve(jsonResponse({ status: 200, body: buildCategorization() })),
-    )
+    serveCategorization(buildCategorization())
 
     renderWithQuery(<SettingsCategorizationView />)
     await screen.findByText('Supermarket')
@@ -247,30 +207,15 @@ describe('SettingsCategorizationView', () => {
   })
 
   it('lists custom categories alphabetically and labels their parts', async () => {
-    ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
-      if (url === '/api/categorization/custom-categories') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 200,
-            body: {
-              custom_categories: [
-                { key: 'CUSTOM_00000001', group: 'PETS', name: 'Zooladen', owned: true },
-                { key: 'CUSTOM_00000002', group: 'FOOD_AND_DRINK', name: 'Bio-Laden', owned: true },
-                { key: 'CUSTOM_00000003', group: 'PETS', name: 'Fremde', owned: false },
-              ],
-              recategorized: 0,
-            },
-          }),
-        )
-      }
-      return Promise.resolve(jsonResponse({ status: 200, body: buildCategorization() }))
+    serveCategorization(buildCategorization(), {
+      [`GET ${CUSTOM_URL}`]: customCategories([
+        PET_SHOP,
+        { key: 'CUSTOM_00000002', group: 'FOOD_AND_DRINK', name: 'Bio-Laden', owned: true },
+        { key: 'CUSTOM_00000003', group: 'PETS', name: 'Fremde', owned: false },
+      ]),
     })
 
-    renderWithQuery(
-      <CategoryCatalogProvider enabled>
-        <SettingsCategorizationView />
-      </CategoryCatalogProvider>,
-    )
+    renderWithCatalog()
 
     const row = (await screen.findByText('Bio-Laden')).closest('li') as HTMLElement
     expect(
@@ -287,78 +232,27 @@ describe('SettingsCategorizationView', () => {
     expect(names).toEqual(['Bio-Laden', 'Food & drink', 'Zooladen', 'Pets'])
   })
 
-  it('warns that a deletion leaves the transactions uncategorized', async () => {
-    const user = userEvent.setup()
-    ;(globalThis.fetch as Mock).mockImplementation((url: string) => {
-      if (url === '/api/categorization/custom-categories') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 200,
-            body: {
-              custom_categories: [
-                { key: 'CUSTOM_00000001', group: 'PETS', name: 'Zooladen', owned: true },
-              ],
-              recategorized: 0,
-            },
-          }),
-        )
-      }
-      return Promise.resolve(jsonResponse({ status: 200, body: buildCategorization() }))
-    })
-
-    renderWithQuery(
-      <CategoryCatalogProvider enabled>
-        <SettingsCategorizationView />
-      </CategoryCatalogProvider>,
-    )
-    const row = (await screen.findByText('Zooladen')).closest('li') as HTMLElement
-
-    await user.click(within(row).getByRole('button', { name: 'Delete' }))
-
-    expect(
-      screen.getByRole('button', { name: 'Delete? Transactions fall back to “Unknown”' }),
-    ).toBeInTheDocument()
-  })
-
   it('adds a custom category and offers it for rules', async () => {
     const user = userEvent.setup()
-    let customCategories: unknown[] = []
-    ;(globalThis.fetch as Mock).mockImplementation((url: string, init?: { method?: string }) => {
-      if (url === '/api/categorization/custom-categories') {
-        if (init?.method === 'POST') {
-          customCategories = [
-            { key: 'CUSTOM_0A1B2C3D', group: 'FOOD_AND_DRINK', name: 'Bio-Laden', owned: true },
-          ]
-          return Promise.resolve(
-            jsonResponse({
-              status: 201,
-              body: { custom_categories: customCategories, recategorized: 0 },
-            }),
-          )
-        }
-        return Promise.resolve(
-          jsonResponse({
-            status: 200,
-            body: { custom_categories: customCategories, recategorized: 0 },
-          }),
-        )
-      }
-      return Promise.resolve(jsonResponse({ status: 200, body: buildCategorization() }))
+    let custom: CustomCategoryRead[] = []
+    serveCategorization(buildCategorization(), {
+      [`GET ${CUSTOM_URL}`]: () => jsonResponse(customCategories(custom)),
+      [`POST ${CUSTOM_URL}`]: () => {
+        custom = [
+          { key: 'CUSTOM_0A1B2C3D', group: 'FOOD_AND_DRINK', name: 'Bio-Laden', owned: true },
+        ]
+        return jsonResponse(customCategories(custom, { status: 201 }))
+      },
     })
 
-    renderWithQuery(
-      <CategoryCatalogProvider enabled>
-        <SettingsCategorizationView />
-      </CategoryCatalogProvider>,
-    )
+    renderWithCatalog()
     await screen.findByText('No categories of your own yet.')
 
     await user.type(screen.getByLabelText('Category name'), 'Bio-Laden')
     await user.click(screen.getByRole('button', { name: 'Add category' }))
 
     expect(await screen.findByText('Bio-Laden')).toBeInTheDocument()
-    const [[, init]] = requestsTo('/api/categorization/custom-categories', 'POST')
-    expect(JSON.parse(init.body)).toEqual({ group: 'FOOD_AND_DRINK', name: 'Bio-Laden' })
+    expect(bodyOf('POST', CUSTOM_URL)).toEqual({ group: 'FOOD_AND_DRINK', name: 'Bio-Laden' })
 
     await user.click(screen.getAllByLabelText('Category')[0])
     const options = await screen.findByRole('list', { name: 'Category' })
@@ -370,23 +264,21 @@ describe('SettingsCategorizationView', () => {
 
   it('switches a default matcher off', async () => {
     const user = userEvent.setup()
-    ;(globalThis.fetch as Mock).mockImplementation(() =>
-      Promise.resolve(jsonResponse({ status: 200, body: buildCategorization() })),
-    )
+    const url = '/api/categorization/default-matchers'
+    serveCategorization(buildCategorization(), {
+      [`PUT ${url}`]: { status: 200, body: buildCategorization() },
+    })
 
     renderWithQuery(<SettingsCategorizationView />)
     await user.click(await screen.findByRole('switch', { name: 'rewe' }))
 
-    await waitFor(() =>
-      expect(requestsTo('/api/categorization/default-matchers', 'PUT')).toHaveLength(1),
-    )
-    const [[, init]] = requestsTo('/api/categorization/default-matchers', 'PUT')
-    expect(JSON.parse(init.body)).toEqual({ pattern: 'rewe', disabled: true })
+    await waitFor(() => expect(requestsTo('PUT', url)).toHaveLength(1))
+    expect(bodyOf('PUT', url)).toEqual({ pattern: 'rewe', disabled: true })
   })
 
   it('collapses an open group again', async () => {
     const user = userEvent.setup()
-    serve()
+    serveCategorization()
     renderWithQuery(<SettingsCategorizationView />)
 
     const supermarket = (await screen.findByText('Supermarket')).closest('details') as HTMLElement
@@ -398,7 +290,7 @@ describe('SettingsCategorizationView', () => {
 
   it('says so when no rule matches the search', async () => {
     const user = userEvent.setup()
-    serve()
+    serveCategorization()
     renderWithQuery(<SettingsCategorizationView />)
     await screen.findByText('Supermarket')
 
@@ -410,12 +302,11 @@ describe('SettingsCategorizationView', () => {
 
   it('edits an own rule in place', async () => {
     const user = userEvent.setup()
-    serve({
-      'PUT /api/categorization/rules/1': () =>
-        jsonResponse({
-          status: 200,
-          body: buildCategorization({ rules: [{ ...OWN_RULE, pattern: 'kaufland markt' }] }),
-        }),
+    serveCategorization(undefined, {
+      [`PUT ${RULES_URL}/1`]: {
+        status: 200,
+        body: buildCategorization({ rules: [{ ...OWN_RULE, pattern: 'kaufland markt' }] }),
+      },
     })
     renderWithQuery(<SettingsCategorizationView />)
     const supermarket = (await screen.findByText('Supermarket')).closest('details') as HTMLElement
@@ -426,38 +317,35 @@ describe('SettingsCategorizationView', () => {
     await user.click(within(supermarket).getByRole('button', { name: 'Save' }))
 
     expect(await within(supermarket).findByText('kaufland markt')).toBeInTheDocument()
-    const [[, init]] = requestsTo('/api/categorization/rules/1', 'PUT')
-    expect(JSON.parse(init.body)).toEqual({ pattern: 'kaufland markt', category: 'SUPERMARKET' })
+    expect(bodyOf('PUT', `${RULES_URL}/1`)).toEqual({
+      pattern: 'kaufland markt',
+      category: 'SUPERMARKET',
+    })
     expect(toastSuccess).toHaveBeenCalledWith('Rule saved')
     expect(within(supermarket).queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
   })
 
   it('deletes an own rule after a confirm step', async () => {
     const user = userEvent.setup()
-    serve({
-      'DELETE /api/categorization/rules/1': () =>
-        jsonResponse({ status: 200, body: buildCategorization() }),
+    serveCategorization(undefined, {
+      [`DELETE ${RULES_URL}/1`]: { status: 200, body: buildCategorization() },
     })
     renderWithQuery(<SettingsCategorizationView />)
     const supermarket = (await screen.findByText('Supermarket')).closest('details') as HTMLElement
 
     await user.click(within(supermarket).getByRole('button', { name: 'Delete' }))
-    expect(requestsTo('/api/categorization/rules/1', 'DELETE')).toHaveLength(0)
+    expect(requestsTo('DELETE', `${RULES_URL}/1`)).toHaveLength(0)
     await user.click(within(supermarket).getByRole('button', { name: 'Really delete?' }))
 
     await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Rule deleted'))
-    expect(requestsTo('/api/categorization/rules/1', 'DELETE')).toHaveLength(1)
+    expect(requestsTo('DELETE', `${RULES_URL}/1`)).toHaveLength(1)
     expect(screen.queryByText('kaufland')).not.toBeInTheDocument()
   })
 
   it('renames a custom category in place', async () => {
     const user = userEvent.setup()
-    serve({
-      [`PUT /api/categorization/custom-categories/${PET_SHOP.key}`]: () =>
-        jsonResponse({
-          status: 200,
-          body: { custom_categories: [{ ...PET_SHOP, name: 'Tierbedarf' }], recategorized: 0 },
-        }),
+    serveCategorization(undefined, {
+      [`PUT ${PET_SHOP_URL}`]: customCategories([{ ...PET_SHOP, name: 'Tierbedarf' }]),
     })
     renderWithCatalog()
 
@@ -468,15 +356,14 @@ describe('SettingsCategorizationView', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('Tierbedarf')).toBeInTheDocument()
-    const [[, init]] = requestsTo(`/api/categorization/custom-categories/${PET_SHOP.key}`, 'PUT')
-    expect(JSON.parse(init.body)).toEqual({ group: 'PETS', name: 'Tierbedarf' })
+    expect(bodyOf('PUT', PET_SHOP_URL)).toEqual({ group: 'PETS', name: 'Tierbedarf' })
     expect(toastSuccess).toHaveBeenCalledWith('Category saved')
     expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
   })
 
   it('leaves a custom category untouched when its edit is cancelled', async () => {
     const user = userEvent.setup()
-    serve()
+    serveCategorization()
     renderWithCatalog()
 
     await user.click(within(await petShopRow()).getByRole('button', { name: 'Edit' }))
@@ -485,16 +372,13 @@ describe('SettingsCategorizationView', () => {
 
     expect(screen.getByText(PET_SHOP.name)).toBeInTheDocument()
     expect(screen.queryByDisplayValue(`${PET_SHOP.name} XL`)).not.toBeInTheDocument()
-    expect(requestsTo(`/api/categorization/custom-categories/${PET_SHOP.key}`, 'PUT')).toHaveLength(
-      0,
-    )
+    expect(requestsTo('PUT', PET_SHOP_URL)).toHaveLength(0)
   })
 
-  it('deletes a custom category after the warning is confirmed', async () => {
+  it('warns that a deletion leaves the transactions uncategorized, then deletes', async () => {
     const user = userEvent.setup()
-    serve({
-      [`DELETE /api/categorization/custom-categories/${PET_SHOP.key}`]: () =>
-        jsonResponse({ status: 200, body: { custom_categories: [], recategorized: 3 } }),
+    serveCategorization(undefined, {
+      [`DELETE ${PET_SHOP_URL}`]: customCategories([], { recategorized: 3 }),
     })
     renderWithCatalog()
 
@@ -511,7 +395,9 @@ describe('SettingsCategorizationView', () => {
 
   it('keeps the typed name and reports the error when adding a category fails', async () => {
     const user = userEvent.setup()
-    serve()
+    serveCategorization(undefined, {
+      [`POST ${CUSTOM_URL}`]: { status: 500, body: { detail: 'boom' } },
+    })
     renderWithCatalog()
     await petShopRow()
 
