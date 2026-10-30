@@ -66,8 +66,10 @@ ELIGIBLE_TRANSACTION_TYPES = frozenset(
 BLACKLISTED_CATEGORIES = [
     CategoryGroup.FOOD_AND_DRINK,
     TransactionCategory.DRUGSTORE,
+    TransactionCategory.PERSONAL_CARE,
     TransactionCategory.CLOTHING,
     TransactionCategory.GIFTS,
+    TransactionCategory.INTEREST,
     TransactionCategory.REIMBURSEMENT,
     TransactionCategory.PRIVATE_SALES,
 ]
@@ -126,6 +128,9 @@ def detect_contracts_for_account(db_session: Session, account: Account) -> list[
     detected = 0
     new_contracts = []
     for (fingerprint, display_name), transactions in groups.items():
+        if fingerprint in account.dismissed_contract_fingerprints:
+            logger.debug(f"Group '{display_name}' ({fingerprint}) was dismissed by the user; skipping")
+            continue
         members = _members_within_amount_band(transactions)
         dropped = len(transactions) - len(members)
         if dropped:

@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import date
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
+from sqlalchemy import JSON, Boolean, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import (
     Mapped,
     attribute_keyed_dict,
@@ -49,6 +49,8 @@ class Account(Base):
     # The bank doesn't report every balance movement as a transaction (e.g. PayPal's automatic bank funding); balance
     # history comes from bank-reported anchors only.
     transaction_history_incomplete: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    # Fingerprints of detected contracts the user deleted, so detection never recreates them.
+    dismissed_contract_fingerprints: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
 
     # User-defined grouping for the overview. NULL = "ungrouped" (rendered in a default bucket). `position` orders
     # accounts within their group OR within the ungrouped bucket.

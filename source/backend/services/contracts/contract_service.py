@@ -96,6 +96,12 @@ def update_contract(db_session: Session, user: User, contract_id: int, fields: d
 
 def delete_contract(db_session: Session, user: User, contract_id: int) -> None:
     contract = get_contract_for_user(db_session=db_session, user=user, contract_id=contract_id)
+    if contract.source == ContractSource.DETECTED and contract.fingerprint is not None:
+        # Reassign rather than append so SQLAlchemy notices the JSON change.
+        contract.account.dismissed_contract_fingerprints = [
+            *contract.account.dismissed_contract_fingerprints,
+            contract.fingerprint,
+        ]
     db_session.delete(contract)
     db_session.commit()
     logger.info(f"Deleted contract {contract_id}")

@@ -14,7 +14,7 @@ from source.backend.models.contracts.contract_frequency import ContractFrequency
 from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.transaction_category import CategorizationRules, TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
-from source.backend.services.contracts import contract_detection_service
+from source.backend.services.contracts import contract_detection_service, contract_service
 from source.backend.services.contracts.contract_detection_service import (
     run_startup_detection as real_run_startup_detection,
 )
@@ -658,3 +658,21 @@ def test_auto_archiving_keeps_an_end_date_the_user_set(session_factory: sessionm
         session.refresh(contract)
         assert contract.is_archived
         assert contract.end_date == OLDER_DATE
+
+
+def test_deleted_detected_contract_is_not_recreated_by_the_next_detection(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        _seed(
+            session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=MONTHLY_DAY_OFFSETS
+        )
+        session.commit()
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+        contract = session.query(Contract).one()
+
+        contract_service.delete_contract(db_session=session, user=account.credential.user, contract_id=contract.id)
+        detected = contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        assert detected == []
+        assert session.query(Contract).count() == 0
+        assert account.dismissed_contract_fingerprints == [NETFLIX_FINGERPRINT]
