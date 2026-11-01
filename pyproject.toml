@@ -9,8 +9,8 @@ package-mode = false
 [tool.poetry.dependencies]
 python = "^3.14"
 sqlalchemy = "^2.1.6"
-fastapi = "^0.161.1"
-pydantic = "^2.14.1"
+fastapi = "^0.162.0"
+pydantic = "^2.14.2"
 alembic = "^1.20.1"
 uvicorn = ">=0.54.0,<0.55"
 sqlcipher3 = ">=0.6.4,<0.7.0"
@@ -31,10 +31,10 @@ pyjwt = {version = "^2.15", extras = ["crypto"]}
 python-multipart = "^0.0.32"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^9.1.1"
+pytest = "^9.2.0"
 httpx = "^0.28.1"
 pytest-cov = "^7.1.0"
-pytest-env = "^1.8.1"
+pytest-env = "^1.8.3"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
