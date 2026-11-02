@@ -8,6 +8,8 @@ from email.utils import parseaddr
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from sqlalchemy.orm import class_mapper
+
 from source.backend.logging_utils import get_logger
 
 if TYPE_CHECKING:
@@ -45,7 +47,10 @@ def hash_token(raw_token: str) -> str:
 
 
 def apply_fields(entity: object, fields: dict) -> None:
+    columns = class_mapper(type(entity)).columns
     for key, value in fields.items():
+        if value is None and key in columns and not columns[key].nullable:
+            continue
         setattr(entity, key, value)
 
 

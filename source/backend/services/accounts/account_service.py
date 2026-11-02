@@ -184,7 +184,7 @@ def update_transaction(db_session: Session, account: Account, transaction: Trans
     manual_only = Transaction.FIELDS_THAT_ARE_ONLY_EDITABLE_ON_MANUAL_ACCOUNTS & set(fields)
     if manual_only:
         _require_manual_account(account)
-    if "date" in fields:
+    if fields.get("date") is not None:
         _reject_future_date(fields["date"])
 
     previous_amount = transaction.amount
@@ -220,12 +220,6 @@ def update_transaction(db_session: Session, account: Account, transaction: Trans
 
 
 def update_account(db_session: Session, account: Account, fields: dict) -> Account:
-    # `balance_factor` is non-nullable; an explicit `null` in the PATCH body
-    # is treated as "no change" so the request doesn't 500 at commit time.
-    # `display_name` (nullable) keeps its explicit-null semantics (= clear).
-    if fields.get("balance_factor") is None:
-        fields.pop("balance_factor", None)
-
     balance_in_payload = "balance" in fields
     if balance_in_payload:
         _require_manual_account(account)
@@ -382,10 +376,7 @@ def update_expected_transaction(
         db_session=db_session, account=account, expected_transaction_id=expected_transaction_id
     )
     state_before_update = snapshot_columns(transaction)
-    transaction.amount = fields["amount"]
-    transaction.other_party = fields.get("other_party")
-    transaction.note = fields.get("note")
-    transaction.match_tolerance_percent = fields.get("match_tolerance_percent", 0)  # noqa: FKA100
+    apply_fields(entity=transaction, fields=fields)
     db_session.commit()
     logger.update(state_before_update=state_before_update, entity_after_update=transaction)
     return transaction

@@ -333,7 +333,7 @@ def update_recurring_transaction(
         db_session=db_session,
         account=account,
         recurring_transaction_id=recurring_transaction_id,
-        fields=payload.model_dump(),
+        fields=payload.model_dump(exclude_unset=True),
     )
 
 

@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from source.backend.exceptions import RecurringTransactionNotFoundError
-from source.backend.helpers import utc_now
+from source.backend.helpers import apply_fields, utc_now
 from source.backend.logging_utils import get_logger
 from source.backend.models.accounts.account import Account
 from source.backend.models.base import snapshot_columns
@@ -133,13 +133,7 @@ def update_recurring_transaction(
     )
     categorization_service.require_assignable_category(category=fields.get("category"), owner=account.credential.user)
     state_before_update = snapshot_columns(rule)
-    rule.amount = fields["amount"]
-    rule.purpose = fields.get("purpose")
-    rule.other_party = fields.get("other_party")
-    rule.transaction_type = fields.get("transaction_type")
-    rule.category = fields.get("category")
-    rule.note = fields.get("note")
-    rule.frequency = fields["frequency"]
+    apply_fields(entity=rule, fields=fields)
     rule.day_of_month = fields.get("day_of_month")
     rule.day_of_week = fields.get("day_of_week")
     if schedule_changed:

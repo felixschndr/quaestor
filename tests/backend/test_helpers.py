@@ -32,8 +32,10 @@ from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
     DEFAULT_AMOUNT,
     EURO,
+    NETFLIX,
     NON_DEFAULT_CURRENCY,
     RECENT_DATE,
+    SECOND_AMOUNT,
     UNSUPPORTED_CURRENCY,
     assert_log_contains,
     create_fetched_transaction,
@@ -208,27 +210,22 @@ def test_hash_token_is_deterministic_sha256_hex():
 
 
 def test_apply_fields_sets_each_key_as_an_attribute():
-    class Entity:
-        def __init__(self):
-            self.name = "old"
-            self.amount = 1
+    transaction = Transaction(amount=DEFAULT_AMOUNT, date=RECENT_DATE)
 
-    entity = Entity()
-    apply_fields(entity=entity, fields={"name": "new", "amount": 42})
+    apply_fields(entity=transaction, fields={"amount": SECOND_AMOUNT, "other_party": NETFLIX})
 
-    assert entity.name == "new"
-    assert entity.amount == 42
+    assert transaction.amount == SECOND_AMOUNT
+    assert transaction.other_party == NETFLIX
 
 
-def test_apply_fields_with_empty_dict_leaves_entity_unchanged():
-    class Entity:
-        def __init__(self):
-            self.name = "unchanged"
+def test_apply_fields_ignores_null_on_required_columns_but_clears_nullable_ones():
+    transaction = Transaction(amount=DEFAULT_AMOUNT, date=RECENT_DATE, other_party=NETFLIX)
 
-    entity = Entity()
-    apply_fields(entity=entity, fields={})
+    apply_fields(entity=transaction, fields={"amount": None, "date": None, "other_party": None})
 
-    assert entity.name == "unchanged"
+    assert transaction.amount == DEFAULT_AMOUNT
+    assert transaction.date == RECENT_DATE
+    assert transaction.other_party is None
 
 
 def test_run_daily_runs_the_job_then_sleeps_until_the_next_midnight(monkeypatch: pytest.MonkeyPatch):

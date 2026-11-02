@@ -173,6 +173,29 @@ def test_rename_preserves_existing_note(http_client: TestClient, session_factory
     assert renamed.json()["note"] == "keep me"
 
 
+@pytest.mark.parametrize(argnames="payload", argvalues=[{"archived": True}, {"name": None, "archived": True}])
+def test_update_without_name_keeps_the_name(http_client: TestClient, session_factory: sessionmaker, payload: dict):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    contract = _create_contract(http_client, account_id=account_id)
+
+    updated = http_client.patch(f"/api/contracts/{contract['id']}", json=payload)
+
+    assert updated.status_code == 200
+    assert updated.json()["name"] == contract["name"]
+    assert updated.json()["is_archived"] is True
+
+
+def test_null_archived_keeps_the_archive_state(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    contract = _create_contract(http_client, account_id=account_id)
+    http_client.patch(f"/api/contracts/{contract['id']}", json={"archived": True})
+
+    updated = http_client.patch(f"/api/contracts/{contract['id']}", json={"archived": None})
+
+    assert updated.status_code == 200
+    assert updated.json()["is_archived"] is True
+
+
 def test_changing_contract_category_reassigns_member_transactions(
     http_client: TestClient, session_factory: sessionmaker
 ):

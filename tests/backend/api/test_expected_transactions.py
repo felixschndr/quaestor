@@ -108,6 +108,25 @@ def test_update_expected_transaction_changes_fields(http_client: TestClient, ses
     assert body["match_tolerance_percent"] == 5
 
 
+def test_update_expected_transaction_keeps_omitted_fields(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    created_id = http_client.post(
+        f"/api/account/{account_id}/expected-transactions",
+        json={"amount": 10.0, "other_party": ACME, "note": "salary", "match_tolerance_percent": 5},
+    ).json()["id"]
+
+    response = http_client.patch(
+        f"/api/account/{account_id}/expected-transactions/{created_id}", json={"amount": DEFAULT_AMOUNT}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["amount"] == DEFAULT_AMOUNT
+    assert body["other_party"] == ACME
+    assert body["note"] == "salary"
+    assert body["match_tolerance_percent"] == 5
+
+
 def test_update_expected_transaction_rejects_invalid_tolerance(http_client: TestClient, session_factory: sessionmaker):
     account_id = setup_account(http_client=http_client, session_factory=session_factory)
     created_id = http_client.post(

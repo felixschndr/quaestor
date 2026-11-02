@@ -68,7 +68,8 @@ def get_contract_for_user(db_session: Session, user: User, contract_id: int) -> 
 
 def update_contract(db_session: Session, user: User, contract_id: int, fields: dict) -> Contract:
     contract = get_contract_for_user(db_session=db_session, user=user, contract_id=contract_id)
-    contract.name = fields["name"]
+    if fields.get("name") is not None:
+        contract.name = fields["name"]
     if "category" in fields:
         categorization_service.require_assignable_category(category=fields["category"], owner=user)
         category_changed = contract.category != fields["category"]
@@ -83,8 +84,8 @@ def update_contract(db_session: Session, user: User, contract_id: int, fields: d
     if "end_date" in fields:
         contract.end_date = fields["end_date"]
         contract.ending_notified_at = None  # re-arm the "ending soon" notification for the new date
-    if "archived" in fields:
-        contract.is_archived = bool(fields["archived"])
+    if fields.get("archived") is not None:
+        contract.is_archived = fields["archived"]
         if contract.is_archived and contract.end_date is None:
             member_dates = [transaction.date for transaction in contract.members()]
             if member_dates:

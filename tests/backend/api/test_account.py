@@ -18,8 +18,10 @@ from tests.backend.conftest import (
     DEFAULT_AMOUNT,
     DEFAULT_BALANCE,
     INTRUDER_USER_NAME,
+    NETFLIX,
     RECENT_DATE,
     REWE,
+    SECOND_AMOUNT,
     SECOND_USER_NAME,
     UNKNOWN_ID,
     USER_NAME,
@@ -671,6 +673,23 @@ def test_update_transaction_rejects_future_date(http_client: TestClient):
     assert response.status_code == 422
 
 
+def test_update_transaction_ignores_null_amount_and_date(http_client: TestClient):
+    register(http_client)
+    account_id = setup_manual_account(http_client)
+    transaction_id = http_client.post(
+        f"/api/account/{account_id}/transactions",
+        json={"amount": -DEFAULT_AMOUNT, "date": RECENT_DATE.isoformat()},
+    ).json()["id"]
+
+    response = http_client.patch(
+        f"/api/account/{account_id}/transactions/{transaction_id}", json={"amount": None, "date": None}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["amount"] == -DEFAULT_AMOUNT
+    assert response.json()["date"] == RECENT_DATE.isoformat()
+
+
 def test_update_transaction_still_accepts_note_on_non_manual_account(
     http_client: TestClient, session_factory: sessionmaker
 ):
@@ -1061,6 +1080,34 @@ def test_update_recurring_transaction_changes_schedule(http_client: TestClient):
     assert body["frequency"] == "WEEKLY"
     assert body["day_of_week"] == 3
     assert body["day_of_month"] is None
+
+
+def test_update_recurring_transaction_keeps_omitted_fields(http_client: TestClient):
+    register(http_client)
+    account_id = setup_manual_account(http_client)
+    rule_id = http_client.post(
+        f"/api/account/{account_id}/recurring-transactions",
+        json={
+            "amount": -DEFAULT_AMOUNT,
+            "other_party": NETFLIX,
+            "note": "Family plan",
+            "category": "ENTERTAINMENT",
+            "frequency": "MONTHLY",
+            "day_of_month": 1,
+        },
+    ).json()["id"]
+
+    response = http_client.patch(
+        f"/api/account/{account_id}/recurring-transactions/{rule_id}",
+        json={"amount": -SECOND_AMOUNT, "frequency": "MONTHLY", "day_of_month": 1},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["amount"] == -SECOND_AMOUNT
+    assert body["other_party"] == NETFLIX
+    assert body["note"] == "Family plan"
+    assert body["category"] == "ENTERTAINMENT"
 
 
 def test_update_recurring_transaction_unknown_returns_404(http_client: TestClient):
