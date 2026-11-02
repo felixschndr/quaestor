@@ -322,6 +322,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
         "gastro",
         "gaststaette",
         "grill",
+        "kabab",
         "kabap",
         "kaffeeroester",
         "kfc",
