@@ -39,8 +39,10 @@ jobs:
       - name: Install Poetry
         run: pipx install poetry
 
-      - name: Install backend deps for pyright
-        run: poetry install --no-interaction --no-root
+      - name: Install backend deps
+        run: |
+          poetry install --no-interaction --no-root
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
         env:
           POETRY_VIRTUALENVS_IN_PROJECT: "true"
 
