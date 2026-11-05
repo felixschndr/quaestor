@@ -238,7 +238,7 @@ function CustomCategoryForm({
     leading: <CategoryAvatar category={value} className="size-5" iconClassName="size-3" />,
   }))
 
-  const submit = async (event: React.FormEvent) => {
+  const submit = async (event: React.SubmitEvent) => {
     event.preventDefault()
     const payload = { group, name: name.trim() }
     const saved = await report(

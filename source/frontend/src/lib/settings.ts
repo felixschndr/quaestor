@@ -22,10 +22,10 @@ function fetchSettings(): Promise<AppSettings> {
 
 export async function ensureAppSettings(queryClient: QueryClient): Promise<void> {
   try {
-    const settings = await queryClient.ensureQueryData({
+    const settings = await queryClient.query({
       queryKey: settingsQueryKey,
       queryFn: fetchSettings,
-      staleTime: Infinity,
+      staleTime: 'static',
     })
     setDisplayTimeZone(settings.display_timezone)
     setDisplayCurrency(settings.default_currency)

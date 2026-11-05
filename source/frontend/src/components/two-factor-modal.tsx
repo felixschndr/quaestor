@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type SubmitEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 
@@ -40,7 +40,7 @@ export function TwoFactorModal({ current2fa, onSubmit, onSkip }: TwoFactorModalP
   }
   const open = current2fa !== null
 
-  const handleSubmit = async (event: FormEvent) => {
+  const handleSubmit = async (event: SubmitEvent) => {
     event.preventDefault()
     if (!current2fa) return
     setSubmitting(true)

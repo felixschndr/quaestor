@@ -40,7 +40,7 @@ export function CategoryRuleForm({
   const pending = create.isPending || update.isPending
   const idPrefix = rule ? `rule-${rule.id}` : 'rule-new'
 
-  const submit = async (event: React.FormEvent) => {
+  const submit = async (event: React.SubmitEvent) => {
     event.preventDefault()
     const payload = { pattern: pattern.trim(), category }
     const saved = await report(

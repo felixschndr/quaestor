@@ -134,7 +134,7 @@ export async function redirectIfAuthenticated(args: {
   next: string | undefined
 }): Promise<void> {
   try {
-    await args.queryClient.ensureQueryData(meQueryOptions)
+    await args.queryClient.query({ ...meQueryOptions, staleTime: 'static' })
   } catch {
     // Not authenticated (401) or backend unreachable --> show the login form.
     return

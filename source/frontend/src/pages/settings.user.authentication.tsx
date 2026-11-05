@@ -215,7 +215,7 @@ function DisableTwoFactorForm({ user, onDone }: { user: UserRead; onDone: () => 
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const onSubmit = async (event: React.FormEvent) => {
+  const onSubmit = async (event: React.SubmitEvent) => {
     event.preventDefault()
     setError(null)
     try {

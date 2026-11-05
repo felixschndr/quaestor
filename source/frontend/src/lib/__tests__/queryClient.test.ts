@@ -29,10 +29,10 @@ describe('queryClient', () => {
     const fail = (status: number) => () => Promise.reject(new ApiError(status, null, 'x'))
 
     await queryClient
-      .fetchQuery({ queryKey: ['rate-limited'], queryFn: fail(429), retry: false })
+      .query({ queryKey: ['rate-limited'], queryFn: fail(429), retry: false })
       .catch(() => {})
     await queryClient
-      .fetchQuery({ queryKey: ['server-error'], queryFn: fail(500), retry: false })
+      .query({ queryKey: ['server-error'], queryFn: fail(500), retry: false })
       .catch(() => {})
 
     expect(toastError).toHaveBeenCalledTimes(1)

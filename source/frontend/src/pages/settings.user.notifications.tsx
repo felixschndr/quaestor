@@ -551,7 +551,7 @@ function RuleDialog({
 
   const pending = create.isPending || update.isPending
 
-  const onSubmit = async (event: React.FormEvent) => {
+  const onSubmit = async (event: React.SubmitEvent) => {
     event.preventDefault()
 
     if (model.account_ids.length === 0) {

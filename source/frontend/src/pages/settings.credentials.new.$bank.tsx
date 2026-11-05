@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type SubmitEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { useForm, type Resolver } from 'react-hook-form'
@@ -264,7 +264,7 @@ function CredentialForm({
     }
   })
 
-  const onConfirm2fa = async (event: FormEvent) => {
+  const onConfirm2fa = async (event: SubmitEvent) => {
     event.preventDefault()
     if (!activeJob) return
     try {
