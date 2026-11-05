@@ -6,7 +6,7 @@ import { api } from './api'
 import { authQueryKeys, type CredentialRead } from './auth'
 import { formatRelativeDateTime } from './format'
 
-export const SYNC_POLL_INTERVAL_MS = 400
+export const SYNC_POLL_INTERVAL_MS = 500
 
 export interface CredentialFieldRule {
   name: string

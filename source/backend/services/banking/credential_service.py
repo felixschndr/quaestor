@@ -477,6 +477,7 @@ def confirm_two_factor(
         logger.info(f"Confirming 2FA for {credential}")
         handler = credential.handler
         handler.notify_two_factor_state = notify_two_factor_state
+        handler.session_state = credential.session_state
         credential.session_state = handler.complete_two_factor_challenge(
             challenge_token=challenge_token, credential_id=credential_id, code=code
         )

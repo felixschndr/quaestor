@@ -39,6 +39,8 @@ _PRICE_HISTORY_TOPIC = "aggregateHistoryLight"
 _PRICE_HISTORY_RANGE = "max"
 _DAILY_RESOLUTION_MS = 86_400_000
 _DEFAULT_EXCHANGE = "LSX"
+_SUBSCRIPTION_TIMEOUT_SECONDS = 20
+_UNPRICED_ISINS_KEY = "unpriced_isins"
 # Share history must reach back to the first trade, independent of the incremental transaction window.
 _FULL_HISTORY_START = date(year=2000, month=1, day=1)
 # Only buys and sells change the holding; other events carry no share movement.
@@ -125,8 +127,9 @@ class _AccountState(TypedDict):
 
 
 class _TradeRepublicSession(BankSession):
-    def __init__(self, trade_republic_client: TradeRepublicApi):
+    def __init__(self, trade_republic_client: TradeRepublicApi, unpriced_isins: set[str] | None = None):
         self._trade_republic_client = trade_republic_client
+        self.unpriced_isins = unpriced_isins if unpriced_isins is not None else set()
 
         self._accounts: dict[str, _AccountState] = {}
         self._cash_account_name: str | None = None
@@ -318,8 +321,15 @@ class _TradeRepublicSession(BankSession):
                 if not moves:
                     logger.debug(f"Trade Republic: no share moves for {name} ({isin}); skipping value history")
                     continue
-                exchange = await self._instrument_exchange(isin)
-                prices = await self._price_history(isin=isin, exchange=exchange)
+                if isin in self.unpriced_isins:
+                    logger.debug(f"Trade Republic: {name} ({isin}) is known to have no prices; skipping value history")
+                    continue
+                try:
+                    exchange = await self._instrument_exchange(isin)
+                    prices = await self._price_history(isin=isin, exchange=exchange)
+                except TimeoutError:
+                    self.unpriced_isins.add(isin)
+                    continue
                 observations = self._build_daily_market_value_history(name=name, isin=isin, moves=moves, prices=prices)
                 if self._accounts[name]["closed"]:
                     last_move = moves[-1][0]
@@ -399,10 +409,14 @@ class _TradeRepublicSession(BankSession):
     async def _subscribe_once(self, payload: dict, expected_type: str) -> dict:
         subscription_id = await self._trade_republic_client.subscribe(payload)
         try:
-            while True:
-                _id, subscription, response = await self._trade_republic_client.recv()
-                if subscription.get("type") == expected_type:
-                    return response
+            async with asyncio.timeout(_SUBSCRIPTION_TIMEOUT_SECONDS):
+                while True:
+                    _id, subscription, response = await self._trade_republic_client.recv()
+                    if subscription.get("type") == expected_type:
+                        return response
+        except TimeoutError:
+            logger.warning(f"Trade Republic did not answer the subscription {payload}")
+            raise
         finally:
             await self._trade_republic_client.unsubscribe(subscription_id)
 
@@ -447,7 +461,7 @@ class TradeRepublicHandler(BankHandler):
 
     def complete_two_factor_challenge(self, challenge_token: str, credential_id: int, code: str) -> dict:
         cookies = trade_republic_login.complete(challenge_token=challenge_token, credential_id=credential_id, code=code)
-        return {"cookies": cookies}
+        return {**(self.session_state or {}), "cookies": cookies}
 
     @contextmanager
     def session(self) -> Iterator[_TradeRepublicSession]:
@@ -471,8 +485,15 @@ class TradeRepublicHandler(BankHandler):
                 )
 
             logger.debug("Trade Republic websession resumed")
-            yield _TradeRepublicSession(trade_republic_client)
+            session = _TradeRepublicSession(
+                trade_republic_client=trade_republic_client,
+                unpriced_isins=set((self.session_state or {}).get(_UNPRICED_ISINS_KEY) or []),
+            )
+            yield session
 
-            self.session_state = {"cookies": cookies_path.read_text()}
+            self.session_state = {
+                "cookies": cookies_path.read_text(),
+                _UNPRICED_ISINS_KEY: sorted(session.unpriced_isins),
+            }
         finally:
             cookies_path.unlink(missing_ok=True)

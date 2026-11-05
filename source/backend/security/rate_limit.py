@@ -22,7 +22,7 @@ STRICT_CAPACITY = 5  # burst budget
 STRICT_REFILL_PER_SECOND = 5 / 60.0  # 5 per minute sustained
 
 GLOBAL_CAPACITY = 120
-GLOBAL_REFILL_PER_SECOND = 120 / 60.0
+GLOBAL_REFILL_PER_SECOND = 5
 
 
 class InMemoryTokenBucketLimiter:

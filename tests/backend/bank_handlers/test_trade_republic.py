@@ -43,6 +43,7 @@ from tests.backend.conftest import (
     SECOND_ISIN,
     SHARE_COUNT,
     SHARE_PRICE,
+    SHORT_TIMEOUT_SECONDS,
     SOLD_ISIN,
     STORED_COOKIES,
     TWO_FACTOR_CODE,
@@ -306,11 +307,14 @@ def test_complete_two_factor_challenge_returns_session_state(monkeypatch: pytest
 
     monkeypatch.setattr(target=trade_republic_login, name="complete", value=fake_complete)
 
-    session_state = _handler().complete_two_factor_challenge(
+    handler = _handler()
+    handler.session_state = {"cookies": STORED_COOKIES, "unpriced_isins": [SOLD_ISIN]}
+
+    session_state = handler.complete_two_factor_challenge(
         challenge_token=CHALLENGE_TOKEN, credential_id=CREDENTIAL_ID, code=TWO_FACTOR_CODE
     )
 
-    assert session_state == {"cookies": REFRESHED_COOKIES}
+    assert session_state == {"cookies": REFRESHED_COOKIES, "unpriced_isins": [SOLD_ISIN]}
     assert calls == [{"challenge_token": CHALLENGE_TOKEN, "credential_id": CREDENTIAL_ID, "code": TWO_FACTOR_CODE}]
 
 
@@ -331,12 +335,14 @@ def test_resumed_session_writes_the_refreshed_cookies_back(monkeypatch: pytest.M
     monkeypatch.setattr(target=_ResumingApi, name="cookie_files", value=[])
     monkeypatch.setattr(target=trade_republic_login, name="TradeRepublicApi", value=_ResumingApi)
     handler = _handler()
-    handler.session_state = {"cookies": STORED_COOKIES}
+    handler.session_state = {"cookies": STORED_COOKIES, "unpriced_isins": [SOLD_ISIN]}
 
     with handler.session() as session:
         assert isinstance(session, _TradeRepublicSession)
+        assert session.unpriced_isins == {SOLD_ISIN}
+        session.unpriced_isins.add(ISIN)
 
-    assert handler.session_state == {"cookies": REFRESHED_COOKIES}
+    assert handler.session_state == {"cookies": REFRESHED_COOKIES, "unpriced_isins": sorted([ISIN, SOLD_ISIN])}
     assert not any(cookies_file.exists() for cookies_file in _ResumingApi.cookie_files)
 
 
@@ -456,6 +462,65 @@ def test_market_value_history_of_a_sold_out_position_is_zero_from_its_last_move_
         BalanceObservation(date=RECENT_DATE, amount=0.0),
         BalanceObservation(date=LATEST_DATE, amount=0.0),
     ]
+
+
+class _SilentForIsinClient(_FakeWebsocketClient):
+    """Trade Republic never answers the price history of `silent_isin`."""
+
+    def __init__(self, responses: dict[str, object], silent_isin: str) -> None:
+        super().__init__(responses=responses)
+        self._silent_isin = silent_isin
+
+    async def subscribe(self, payload: dict) -> int:  # noqa: ASYNC124
+        if payload["type"] == trade_republic._PRICE_HISTORY_TOPIC and payload["id"].startswith(self._silent_isin):
+            self.subscriptions.append(payload)
+            return len(self.subscriptions)
+        return await super().subscribe(payload)
+
+    async def recv(self) -> tuple[int, dict, object]:
+        while not self._inbox:
+            await asyncio.sleep(SHORT_TIMEOUT_SECONDS)
+        return self._inbox.pop(0)
+
+
+def test_market_value_history_skips_an_instrument_trade_republic_never_answers(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    monkeypatch.setattr(target=trade_republic, name="_SUBSCRIPTION_TIMEOUT_SECONDS", value=SHORT_TIMEOUT_SECONDS)
+    client = _SilentForIsinClient(
+        responses={
+            "instrument": {"exchangeIds": [EXCHANGE]},
+            trade_republic._PRICE_HISTORY_TOPIC: {
+                "aggregates": [{"time": _utc_epoch_ms(OLDER_DATE), "close": str(SHARE_PRICE)}]
+            },
+        },
+        silent_isin=SOLD_ISIN,
+    )
+    session = _TradeRepublicSession(trade_republic_client=client)
+    session._account(POSITION_NAME).update(isin=SOLD_ISIN, closed=True)
+    session._account(ETF_NAME)["isin"] = ISIN
+    session._share_moves = {SOLD_ISIN: [(OLDER_DATE, SHARE_COUNT)], ISIN: [(OLDER_DATE, SHARE_COUNT)]}
+
+    with caplog.at_level(logging.WARNING):
+        assert session.get_market_value_history(FetchedAccount(name=POSITION_NAME)) == []
+
+    assert session.get_market_value_history(FetchedAccount(name=ETF_NAME)) == [
+        BalanceObservation(date=OLDER_DATE, amount=SHARE_COUNT * SHARE_PRICE)
+    ]
+    assert client.unsubscribed == list(range(1, len(client.subscriptions) + 1))
+    assert_log_contains(
+        caplog=caplog,
+        message=f"Trade Republic did not answer the subscription {{'type': '{trade_republic._PRICE_HISTORY_TOPIC}'",
+    )
+
+    assert session.unpriced_isins == {SOLD_ISIN}
+    next_sync = _TradeRepublicSession(trade_republic_client=client, unpriced_isins=session.unpriced_isins)
+    next_sync._account(POSITION_NAME).update(isin=SOLD_ISIN, closed=True)
+    next_sync._share_moves = {SOLD_ISIN: [(OLDER_DATE, SHARE_COUNT)]}
+    subscriptions_before = len(client.subscriptions)
+
+    assert next_sync.get_market_value_history(FetchedAccount(name=POSITION_NAME)) == []
+    assert len(client.subscriptions) == subscriptions_before
 
 
 def test_market_value_history_without_positions_skips_the_websocket():

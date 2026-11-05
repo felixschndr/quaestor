@@ -128,6 +128,7 @@ REFRESHED_COOKIES = "refreshed-cookie"
 EXCHANGE = "XETR"
 SHARE_COUNT = 10.0
 SHARE_PRICE = 120.0
+SHORT_TIMEOUT_SECONDS = 0.01
 
 
 def date_to_epoch_ms(day: _date) -> int:

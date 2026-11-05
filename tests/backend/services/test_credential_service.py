@@ -32,6 +32,7 @@ from tests.backend.conftest import (
     PIN,
     REFRESHED_COOKIES,
     SECOND_USER_NAME,
+    SOLD_ISIN,
     STORED_COOKIES,
     TWO_FACTOR_CODE,
     UNKNOWN_ID,
@@ -644,6 +645,12 @@ def test_confirm_two_factor_completes_login_and_syncs_credential(
     credential_id = persist_credential(
         session_factory, user_id=create_user(session_factory).id, bank=BankProvider.TRADE_REPUBLIC
     )
+    with session_factory() as session:
+        session.get(entity=Credential, ident=credential_id).session_state = {
+            "cookies": STORED_COOKIES,
+            "unpriced_isins": [SOLD_ISIN],
+        }
+        session.commit()
 
     complete_login = MagicMock(return_value=REFRESHED_COOKIES)
     monkeypatch.setattr(target=trade_republic_login, name="complete", value=complete_login)
@@ -671,7 +678,10 @@ def test_confirm_two_factor_completes_login_and_syncs_credential(
         challenge_token=CHALLENGE_TOKEN, credential_id=credential_id, code=TWO_FACTOR_CODE
     )
     with session_factory() as session:
-        assert session.get(entity=Credential, ident=credential_id).session_state == {"cookies": REFRESHED_COOKIES}
+        assert session.get(entity=Credential, ident=credential_id).session_state == {
+            "cookies": REFRESHED_COOKIES,
+            "unpriced_isins": [SOLD_ISIN],
+        }
     assert_log_contains(caplog, message="Confirming 2FA for")
 
 
