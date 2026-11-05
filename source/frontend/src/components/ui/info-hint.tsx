@@ -18,7 +18,13 @@ export function InfoHint({ children }: { children: ReactNode }) {
       >
         <Info className="size-3.5" aria-hidden="true" />
       </PopoverTrigger>
-      <PopoverContent side="top" align="end" className="max-w-xs p-3 text-xs">
+      <PopoverContent
+        side="top"
+        align="end"
+        className="max-w-xs p-3 text-xs"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
+      >
         {children}
       </PopoverContent>
     </Popover>

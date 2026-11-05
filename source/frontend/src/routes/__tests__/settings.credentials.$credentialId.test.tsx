@@ -4,7 +4,7 @@ import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
 
-import '@/i18n'
+import i18n from '@/i18n'
 
 const routerReplace = vi.hoisted(() => vi.fn())
 vi.mock('@tanstack/react-router', async () =>
@@ -238,6 +238,24 @@ describe('CredentialDetailView', () => {
   it('pre-fills the personalised name input from the server value', () => {
     renderView({ accounts: [account({ display_name: ACCOUNT_NAME_CHECKING })] })
     expect(screen.getByLabelText('Personalised name')).toHaveValue(ACCOUNT_NAME_CHECKING)
+  })
+
+  it('keeps the account setting explanations behind info icons until one is opened', async () => {
+    const user = userEvent.setup()
+    renderView(ONE_ACCOUNT)
+    const hints = [
+      'displayNameHint',
+      'balanceFactorHint',
+      'archiveHint',
+      'includeByDefaultHint',
+    ].map((key) => i18n.t(`credentials.detail.${key}`))
+    for (const hint of hints) expect(screen.queryByText(hint)).not.toBeInTheDocument()
+
+    const infoButtons = screen.getAllByRole('button', { name: 'Info' })
+    expect(infoButtons).toHaveLength(hints.length)
+    await user.hover(infoButtons[2])
+
+    expect(await screen.findByText(hints[2])).toBeInTheDocument()
   })
 
   it('shows the personalised name as the card title with the IBAN as subtitle', () => {

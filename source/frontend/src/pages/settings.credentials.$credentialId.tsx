@@ -18,6 +18,7 @@ import {
   type AccountUpdatePayload,
 } from '@/lib/accounts'
 import { BankLogo } from '@/components/BankLogo'
+import { InfoHint } from '@/components/ui/info-hint'
 import { ArchivedBadge } from '@/components/contract-status-badge'
 import { SyncButton } from '@/components/sync-button'
 import {
@@ -519,12 +520,15 @@ function AccountRow({
       <div className="border-border/60 border-t" />
       <div className="flex flex-col gap-4 p-4">
         <div className="flex flex-col gap-1.5">
-          <Label
-            htmlFor={nameInputId}
-            className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
-          >
-            {t('credentials.detail.displayName')}
-          </Label>
+          <div className="flex items-center gap-1.5">
+            <Label
+              htmlFor={nameInputId}
+              className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
+            >
+              {t('credentials.detail.displayName')}
+            </Label>
+            <InfoHint>{t('credentials.detail.displayNameHint')}</InfoHint>
+          </div>
           <Input
             id={nameInputId}
             type="text"
@@ -533,16 +537,18 @@ function AccountRow({
             placeholder={t('credentials.detail.displayNamePlaceholder')}
             maxLength={150}
           />
-          <p className="text-muted-foreground text-xs">{t('credentials.detail.displayNameHint')}</p>
         </div>
 
         <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1.5">
-          <Label
-            htmlFor={factorInputId}
-            className="text-muted-foreground row-start-1 text-[0.65rem] font-medium uppercase tracking-wide"
-          >
-            {t('credentials.detail.balanceFactor')}
-          </Label>
+          <div className="row-start-1 flex items-center gap-1.5">
+            <Label
+              htmlFor={factorInputId}
+              className="text-muted-foreground text-[0.65rem] font-medium uppercase tracking-wide"
+            >
+              {t('credentials.detail.balanceFactor')}
+            </Label>
+            <InfoHint>{t('credentials.detail.balanceFactorHint')}</InfoHint>
+          </div>
           <span className="text-muted-foreground row-start-1 text-[0.65rem] font-medium uppercase tracking-wide">
             {t('credentials.detail.countsAsLabel')}
           </span>
@@ -567,17 +573,13 @@ function AccountRow({
           </span>
         </div>
 
-        {!isValidFactor ? (
+        {!isValidFactor && (
           <p role="alert" className="text-destructive text-xs">
             {t('credentials.detail.balanceFactorRange')}
           </p>
-        ) : (
-          <p className="text-muted-foreground text-xs">
-            {t('credentials.detail.balanceFactorHint')}
-          </p>
         )}
 
-        <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-1.5">
           <label
             htmlFor={archivedInputId}
             className="flex cursor-pointer items-center gap-2 text-sm"
@@ -589,10 +591,10 @@ function AccountRow({
             />
             <span>{t('credentials.detail.archive')}</span>
           </label>
-          <p className="text-muted-foreground text-xs">{t('credentials.detail.archiveHint')}</p>
+          <InfoHint>{t('credentials.detail.archiveHint')}</InfoHint>
         </div>
 
-        <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-1.5">
           <label
             htmlFor={defaultInputId}
             className="flex cursor-pointer items-center gap-2 text-sm"
@@ -604,9 +606,7 @@ function AccountRow({
             />
             <span>{t('credentials.detail.includeByDefault')}</span>
           </label>
-          <p className="text-muted-foreground text-xs">
-            {t('credentials.detail.includeByDefaultHint')}
-          </p>
+          <InfoHint>{t('credentials.detail.includeByDefaultHint')}</InfoHint>
         </div>
       </div>
       <div className="border-border/60 border-t" />
