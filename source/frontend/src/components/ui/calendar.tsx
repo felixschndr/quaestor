@@ -22,11 +22,18 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         // their real click targets — they look right but do nothing.
         months: 'relative flex flex-col gap-4',
         month: 'flex flex-col gap-3',
-        month_caption: 'flex justify-center pt-1 items-center',
-        caption_label: 'text-primary text-sm font-medium',
-        // `top-0`: buttons (size-7 = 28 px) line up with the caption text
-        // baseline despite the caption having an internal pt-1.
-        nav: 'absolute inset-x-1 top-0 z-10 flex items-center justify-between',
+        // Same height as the prev/next buttons (size-7) so the caption sits level with them.
+        month_caption: 'flex h-7 justify-center items-center',
+        // In dropdown mode the label carries a chevron; hidden so the caption reads as plain text.
+        caption_label: 'text-primary text-sm leading-none font-medium [&>svg]:hidden',
+        // captionLayout="dropdown": the native <select> sits invisibly on top of the caption label, so
+        // the caption looks like text but opens the platform's month/year picker on click.
+        dropdowns: 'flex items-center gap-2',
+        dropdown_root: 'relative flex h-7 items-center rounded-md px-1 hover:bg-muted',
+        dropdown: 'absolute inset-0 cursor-pointer opacity-0',
+        // The nav spans the full width above the caption: let clicks through to the month/year
+        // dropdowns in between, only the prev/next buttons themselves take them.
+        nav: 'pointer-events-none absolute inset-x-1 top-0 z-10 flex items-center justify-between [&>button]:pointer-events-auto',
         button_previous: cn(
           buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
           'text-primary hover:text-primary size-7 p-0',
@@ -38,7 +45,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         month_grid: 'w-full border-collapse',
         weekdays: 'flex',
         weekday:
-          'text-muted-foreground rounded-md w-8 font-normal text-[0.75rem] uppercase tracking-wide',
+          'text-muted-foreground select-none rounded-md w-8 font-normal text-[0.75rem] uppercase tracking-wide',
         week: 'flex w-full mt-1',
         day: 'h-8 w-8 text-center text-sm p-0 relative focus-within:relative focus-within:z-20',
         day_button: cn(

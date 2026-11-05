@@ -13,7 +13,7 @@ import {
   popoverTriggerClassName,
 } from '@/components/ui/popover'
 import { useDateFnsLocale } from '@/components/stats/chartTheme'
-import { format, isValid, parseISO } from 'date-fns'
+import { addYears, format, isValid, parseISO, startOfYear } from 'date-fns'
 
 export interface DatePickerProps {
   id?: string
@@ -71,6 +71,11 @@ function DatePicker({ id, value, onChange, placeholder, className, max }: DatePi
           autoFocus
           locale={locale}
           weekStartsOn={1}
+          // Clicking month or year in the caption jumps there directly. Without endMonth the
+          // year list ends with the current year.
+          captionLayout="dropdown"
+          startMonth={startOfYear(addYears(new Date(), -DROPDOWN_YEARS_BACK))}
+          endMonth={maxDate}
           selected={selected}
           defaultMonth={selected}
           disabled={maxDate ? { after: maxDate } : undefined}
@@ -83,6 +88,8 @@ function DatePicker({ id, value, onChange, placeholder, className, max }: DatePi
     </Popover>
   )
 }
+
+export const DROPDOWN_YEARS_BACK = 30
 
 function parseIsoDate(iso: string): Date | undefined {
   const parsed = parseISO(iso)
