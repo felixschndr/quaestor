@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from '@tanstack/react-router'
 import {
   Bar,
   BarChart,
@@ -26,7 +27,7 @@ import { AxisValueTick } from './chart-parts'
 
 export interface CashflowChartProps {
   data: MonthlyCashflow[]
-  onSelectMonth?: (month: string, direction: 'INCOMING' | 'OUTGOING') => void
+  monthHref?: (month: string, direction: 'INCOMING' | 'OUTGOING') => string
 }
 
 function CashflowTooltip({
@@ -66,16 +67,17 @@ function CashflowTooltip({
   )
 }
 
-export function CashflowChart({ data, onSelectMonth }: CashflowChartProps) {
+export function CashflowChart({ data, monthHref }: CashflowChartProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const scrubLockRef = useHorizontalScrubLock<HTMLDivElement>()
   const monthLabel = useMonthLabel()
 
   const drill = (index: number, direction: 'INCOMING' | 'OUTGOING') => {
     const month = data[index]?.month
-    if (month) onSelectMonth?.(month, direction)
+    if (month && monthHref) void navigate({ href: monthHref(month, direction) })
   }
-  const clickable = Boolean(onSelectMonth)
+  const clickable = Boolean(monthHref)
 
   return (
     <div ref={scrubLockRef} className="h-72 w-full touch-pan-y">

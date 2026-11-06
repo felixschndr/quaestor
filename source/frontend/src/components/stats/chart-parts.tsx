@@ -1,5 +1,6 @@
 import { Rectangle, type RectangleProps } from 'recharts'
 
+import { HrefLink } from '@/components/href-link'
 import { formatMoney } from '@/lib/format'
 
 // Roughly the width one character of the label needs, used to decide whether the
@@ -131,7 +132,8 @@ export interface ArrowTickProps {
   x?: number
   y?: number
   payload?: { value?: string | number }
-  onSelect: (key: string) => void
+  hrefOf?: (key: string) => string | undefined
+  onSelect?: (key: string) => void
 }
 
 function DrillChevronPath({ transform }: { transform?: string }) {
@@ -159,19 +161,32 @@ export function DrillArrowIcon({ className }: { className?: string }) {
 const CHEVRON_WIDTH = 5
 const CHEVRON_TIP_INSET = 2
 
-export function ArrowTick({ x = 0, y = 0, payload, onSelect }: ArrowTickProps) {
+export function ArrowTick({ x = 0, y = 0, payload, hrefOf, onSelect }: ArrowTickProps) {
   const key = String(payload?.value ?? '')
   const chevronX = DRILL_ARROW_WIDTH - CHEVRON_WIDTH - CHEVRON_TIP_INSET
+  const href = hrefOf?.(key)
+  const arrow = (
+    <>
+      <rect x={-10} y={-11} width={DRILL_ARROW_WIDTH + 10} height={22} fill="transparent" />
+      <DrillChevronPath transform={`translate(${chevronX}, 0)`} />
+    </>
+  )
+  if (href) {
+    return (
+      <HrefLink href={href} className="stats-drill-arrow">
+        <g transform={`translate(${x}, ${y})`}>{arrow}</g>
+      </HrefLink>
+    )
+  }
   return (
     <g
       className="stats-drill-arrow"
       transform={`translate(${x}, ${y})`}
       role="button"
       style={{ cursor: 'pointer' }}
-      onClick={() => onSelect(key)}
+      onClick={() => onSelect?.(key)}
     >
-      <rect x={-10} y={-11} width={DRILL_ARROW_WIDTH + 10} height={22} fill="transparent" />
-      <DrillChevronPath transform={`translate(${chevronX}, 0)`} />
+      {arrow}
     </g>
   )
 }

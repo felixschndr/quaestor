@@ -31,6 +31,15 @@ export function buildCredential(
   }
 }
 
+export const fakeHref =
+  (name: string) =>
+  (...args: unknown[]) =>
+    `/${name}#${JSON.stringify(args)}`
+
+export function hrefArgs(href: string | null | undefined): unknown[] {
+  return JSON.parse(String(href).slice(String(href).indexOf('#') + 1))
+}
+
 export function buildContract(overrides: Partial<ContractRead> = {}): ContractRead {
   return {
     id: 1,

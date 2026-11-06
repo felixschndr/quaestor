@@ -28,6 +28,7 @@ export function HorizontalDrillBarChart({
   axisWidth,
   tooltip,
   onToggleHidden,
+  drillHref,
   onDrill,
 }: {
   rows: DrillBarRow[]
@@ -38,15 +39,21 @@ export function HorizontalDrillBarChart({
   axisWidth: number
   tooltip: ReactElement
   onToggleHidden: (key: string) => void
+  drillHref?: (key: string) => string | undefined
   onDrill?: (key: string) => void
 }) {
   const chartRows = rows.map((row) => (hidden.has(row.key) ? { ...row, value: null } : row))
   const height = Math.max(rows.length * 30 + 16, 160)
+  const drillable = Boolean(drillHref || onDrill)
 
   return (
     <div className="w-full" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartRows} layout="vertical" margin={{ left: 0, right: onDrill ? 0 : 16 }}>
+        <BarChart
+          data={chartRows}
+          layout="vertical"
+          margin={{ left: 0, right: drillable ? 0 : 16 }}
+        >
           <XAxis
             type="number"
             domain={[0, 'dataMax']}
@@ -67,7 +74,7 @@ export function HorizontalDrillBarChart({
               />
             }
           />
-          {onDrill ? (
+          {drillable ? (
             <YAxis
               yAxisId="drill"
               orientation="right"
@@ -79,7 +86,7 @@ export function HorizontalDrillBarChart({
               tickLine={false}
               tickSize={0}
               tickMargin={0}
-              tick={<ArrowTick onSelect={onDrill} />}
+              tick={<ArrowTick hrefOf={drillHref} onSelect={onDrill} />}
             />
           ) : null}
           <Tooltip cursor={{ fill: 'var(--color-muted)' }} content={tooltip} />

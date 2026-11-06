@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
 import {
   CartesianGrid,
@@ -15,6 +16,7 @@ import {
   YAxis,
 } from 'recharts'
 
+import { HrefLink } from '@/components/href-link'
 import { cn } from '@/lib/utils'
 import { formatDate, formatMoney } from '@/lib/format'
 import { readPinnedDate, writePinnedDate } from '@/lib/netWorthPin'
@@ -26,8 +28,8 @@ import { useDateFnsLocale } from '@/components/stats/chartTheme'
 export interface NetWorthChartProps {
   data: DailyNetWorth[]
   summary: NetWorthSummary | null
-  onOpenDay?: (date: string) => void
-  onOpenRange?: (start: string, end: string) => void
+  dayHref?: (date: string) => string
+  rangeHref?: (start: string, end: string) => string
 }
 
 interface ChartMouseState {
@@ -38,8 +40,9 @@ interface ChartMouseState {
 const Y_AXIS_WIDTH = 60
 const RIGHT_MARGIN = 8
 
-export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWorthChartProps) {
+export function NetWorthChart({ data, summary, dayHref, rangeHref }: NetWorthChartProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const locale = useDateFnsLocale()
 
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
@@ -80,7 +83,7 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
     typeof state?.activeLabel === 'string' ? state.activeLabel : null
 
   const handleDown = (state: ChartMouseState) => {
-    if (!onOpenRange) return
+    if (!rangeHref) return
     const label = labelOf(state)
     if (label != null) {
       setDragStart(label)
@@ -129,9 +132,9 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
   useEffect(() => {
     if (dragStart == null) return
     const finish = () => {
-      if (onOpenRange && dragEnd != null && dragStart !== dragEnd) {
+      if (rangeHref && dragEnd != null && dragStart !== dragEnd) {
         const [start, end] = dragStart <= dragEnd ? [dragStart, dragEnd] : [dragEnd, dragStart]
-        onOpenRange(start, end)
+        void navigate({ href: rangeHref(start, end) })
       }
       setDragStart(null)
       setDragEnd(null)
@@ -162,7 +165,7 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', finish)
     }
-  }, [dragStart, dragEnd, onOpenRange, data])
+  }, [dragStart, dragEnd, rangeHref, navigate, data])
 
   useEffect(() => {
     if (!hasSelection) return
@@ -180,6 +183,10 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
   if (data.length === 0) {
     return null
   }
+
+  const breakdownHref = pinnedPoint
+    ? dayHref?.(pinnedPoint.date)
+    : rangeHref?.(data[0].date, data[data.length - 1].date)
 
   return (
     <div
@@ -217,14 +224,9 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
             </>
           ) : null}
         </span>
-        {!dragRange && (pinnedPoint ? onOpenDay : onOpenRange) ? (
-          <button
-            type="button"
-            onClick={() =>
-              pinnedPoint
-                ? onOpenDay?.(pinnedPoint.date)
-                : onOpenRange?.(data[0].date, data[data.length - 1].date)
-            }
+        {!dragRange && breakdownHref ? (
+          <HrefLink
+            href={breakdownHref}
             className="text-primary hover:text-primary/80 inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md text-xs font-medium transition-colors"
           >
             <span className="sm:hidden">{t('stats.netWorth.viewDayShort')}</span>
@@ -232,7 +234,7 @@ export function NetWorthChart({ data, summary, onOpenDay, onOpenRange }: NetWort
               {t(pinnedPoint ? 'stats.netWorth.viewDay' : 'stats.netWorth.viewRange')}
             </span>
             <ChevronRight className="size-3.5" />
-          </button>
+          </HrefLink>
         ) : null}
       </div>
       <div ref={setScrubRef} className="h-72 w-full" style={{ touchAction: 'none' }}>

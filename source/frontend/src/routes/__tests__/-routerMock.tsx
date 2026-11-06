@@ -1,5 +1,32 @@
 import type React from 'react'
 
+interface LocationMock {
+  to: string
+  params?: Record<string, string>
+  search?: Record<string, unknown>
+}
+
+export function mockHref({ to, params, search }: LocationMock): string {
+  let href = to
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      href = href.replace(`$${key}`, value)
+    }
+  }
+  if (search) {
+    const query = new URLSearchParams()
+    for (const [key, value] of Object.entries(search)) {
+      if (value === undefined) continue
+      for (const item of Array.isArray(value) ? value : [value]) {
+        query.append(key, String(item))
+      }
+    }
+    const queryString = query.toString()
+    if (queryString) href = `${href}?${queryString}`
+  }
+  return href
+}
+
 export function LinkMock({
   to,
   params,
@@ -14,24 +41,8 @@ export function LinkMock({
   replace?: boolean
   children: React.ReactNode
 } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'children'>) {
-  let href = to
-  if (params) {
-    for (const [key, value] of Object.entries(params)) {
-      href = href.replace(`$${key}`, value)
-    }
-  }
-  if (search) {
-    const query = new URLSearchParams()
-    for (const [key, value] of Object.entries(search)) {
-      for (const item of Array.isArray(value) ? value : [value]) {
-        query.append(key, String(item))
-      }
-    }
-    const queryString = query.toString()
-    if (queryString) href = `${href}?${queryString}`
-  }
   return (
-    <a href={href} data-replace={replace || undefined} {...rest}>
+    <a href={mockHref({ to, params, search })} data-replace={replace || undefined} {...rest}>
       {children}
     </a>
   )
@@ -51,7 +62,10 @@ export function routerMocks(overrides: Record<string, unknown> = {}) {
       useSearch: () => routeState.search,
     }),
     useCanGoBack: () => false,
-    useRouter: () => ({ history: { back: () => {}, push: () => {} } }),
+    useRouter: () => ({
+      history: { back: () => {}, push: () => {} },
+      buildLocation: (location: LocationMock) => ({ href: mockHref(location) }),
+    }),
     ...overrides,
   }
 }

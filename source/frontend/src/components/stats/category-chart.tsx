@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from '@tanstack/react-router'
 import { ChevronLeft } from 'lucide-react'
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 
@@ -40,7 +41,7 @@ export interface CategoryChartProps {
   chartType: ChartType
   hidden: ReadonlySet<string>
   onToggleHidden: (key: CategoryKey | CategoryGroup | 'OTHER') => void
-  onDrill?: (categories: CategoryKey[]) => void
+  drillHref?: (categories: CategoryKey[]) => string
 }
 
 function CategoryTooltip({
@@ -155,9 +156,10 @@ export function CategoryChart({
   chartType,
   hidden,
   onToggleHidden,
-  onDrill,
+  drillHref,
 }: CategoryChartProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const catalog = useCategoryCatalog()
   const [openGroup, setOpenGroup] = useState<CategoryGroup | null>(null)
   const toggle = (key: string) => onToggleHidden(key as ChartKey)
@@ -182,14 +184,19 @@ export function CategoryChart({
       .sort((a, b) => b.value - a.value)
   }, [slices, activeGroup, catalog])
 
-  const drill = (keys: string[]) => {
-    if (keys.length === 1 && isCategoryGroup(keys[0])) {
-      setOpenGroup(keys[0])
-      return
-    }
-    onDrill?.(expandCategorySelection(keys, catalog.custom))
+  const hrefOf = (keys: string[]) =>
+    keys.length === 1 && isCategoryGroup(keys[0])
+      ? undefined
+      : drillHref?.(expandCategorySelection(keys, catalog.custom))
+  const openGroupOf = (key: string) => {
+    if (isCategoryGroup(key)) setOpenGroup(key)
   }
-  const canDrill = !activeGroup || Boolean(onDrill)
+  const drill = (keys: string[]) => {
+    const href = hrefOf(keys)
+    if (href) void navigate({ href })
+    else openGroupOf(keys[0])
+  }
+  const canDrill = !activeGroup || Boolean(drillHref)
 
   const header = activeGroup ? (
     <div className="flex items-center gap-2 pb-2 text-sm">
@@ -273,7 +280,8 @@ export function CategoryChart({
         axisWidth={130}
         tooltip={<CategoryTooltip total={total} />}
         onToggleHidden={toggle}
-        onDrill={canDrill ? (key) => drill([key]) : undefined}
+        drillHref={canDrill ? (key) => hrefOf([key]) : undefined}
+        onDrill={canDrill ? openGroupOf : undefined}
       />
     </div>
   )

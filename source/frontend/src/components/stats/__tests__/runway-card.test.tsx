@@ -1,6 +1,9 @@
 import { screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/routes/__tests__/-routerMock')).routerMocks({ useNavigate: () => vi.fn() }),
+)
 
 import '@/i18n'
 import { formatMonths } from '@/lib/format'
@@ -15,7 +18,7 @@ import {
   DATE_YEAR_START,
   money,
 } from '@/test/constants'
-import { buildAccount, buildCredential } from '@/test/statsFixtures'
+import { buildAccount, buildCredential, fakeHref } from '@/test/statsFixtures'
 import { RunwayCard } from '../runway-card'
 
 const credentials = [
@@ -31,9 +34,9 @@ function serveCashflow(response: { status: number; body?: MonthlyCashflow[] }) {
 
 const month = (expenses: number): MonthlyCashflow => ({ month: '2026-04', income: 0, expenses })
 
+const BALANCE_HREF = fakeHref('balance')()
+
 function renderCard(categories: CategoryKey[] = ['FUEL', 'SAVINGS']) {
-  const onViewTransactions = vi.fn()
-  const onViewBalance = vi.fn()
   renderWithQuery(
     <RunwayCard
       credentials={credentials}
@@ -42,11 +45,10 @@ function renderCard(categories: CategoryKey[] = ['FUEL', 'SAVINGS']) {
       categories={categories}
       typeFilters={{ transaction_types: ['FEES'] }}
       enabled
-      onViewTransactions={onViewTransactions}
-      onViewBalance={onViewBalance}
+      transactionsHref={fakeHref('search')}
+      balanceHref={BALANCE_HREF}
     />,
   )
-  return { onViewTransactions, onViewBalance }
 }
 
 const metric = (label: string) => screen.getAllByText(label)[0].nextElementSibling
@@ -82,17 +84,19 @@ describe('RunwayCard', () => {
     expect(url.searchParams.getAll('transaction_types')).toEqual(['FEES'])
   })
 
-  it('drills into the balances and into the counted expenses', async () => {
-    const user = userEvent.setup()
+  it('links to the balances and to the counted expenses', async () => {
     serveCashflow({ status: 200, body: [month(AMOUNT_L)] })
-    const { onViewBalance, onViewTransactions } = renderCard()
+    renderCard()
     await screen.findAllByText('1 year 3 months')
 
-    await user.click(screen.getAllByRole('button', { name: 'Current balances' })[0])
-    await user.click(screen.getAllByRole('button', { name: 'Expenses in this period' })[0])
-
-    expect(onViewBalance).toHaveBeenCalledTimes(1)
-    expect(onViewTransactions).toHaveBeenCalledWith(['FUEL'])
+    expect(screen.getAllByRole('link', { name: 'Current balances' })[0]).toHaveAttribute(
+      'href',
+      BALANCE_HREF,
+    )
+    expect(screen.getAllByRole('link', { name: 'Expenses in this period' })[0]).toHaveAttribute(
+      'href',
+      fakeHref('search')(['FUEL']),
+    )
   })
 
   it('needs no request when only savings categories are selected', () => {
@@ -102,7 +106,7 @@ describe('RunwayCard', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(screen.getAllByText('∞')).not.toHaveLength(0)
     expect(metric('Average expenses per month')).toHaveTextContent(money(0))
-    expect(screen.queryByRole('button', { name: 'Expenses in this period' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Expenses in this period' })).toBeNull()
   })
 
   it('says so when the expenses cannot be loaded', async () => {

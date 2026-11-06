@@ -22,6 +22,7 @@ export const ACCOUNT_NAME_OLD_ETF = 'Old ETF'
 export const GROUP_NAME_SAVINGS = 'Spar'
 
 export const PARTY_SUPERMARKET = 'Rewe'
+export const SEARCH_HREF_SUPERMARKET = `/search?text=${PARTY_SUPERMARKET}`
 
 export const LABEL_SALARY = 'Salary'
 export const LABEL_SAVINGS = 'Savings'

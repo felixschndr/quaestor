@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { z } from 'zod'
 
 import { useAuthMe, type CredentialRead } from '@/lib/auth'
@@ -56,6 +56,7 @@ export const Route = createFileRoute('/stats')({
 function StatsPage() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const router = useRouter()
   const { data: user } = useAuthMe()
   const catalog = useCategoryCatalog()
 
@@ -92,8 +93,8 @@ function StatsPage() {
           resetScroll: false,
         })
       }
-      onOpenSearch={(drill) => {
-        navigate({
+      searchHref={(drill) =>
+        router.buildLocation({
           to: '/search',
           search: {
             account_ids: drill.accountIds,
@@ -106,22 +107,22 @@ function StatsPage() {
             amount_to: drill.direction === 'OUTGOING' ? 0 : undefined,
             sort: drill.sort,
           },
-        })
-      }}
-      onOpenDay={(date, accountIds) =>
-        navigate({
+        }).href
+      }
+      dayHref={(date, accountIds) =>
+        router.buildLocation({
           to: '/stats/detail',
           search: { end: date, account_ids: accountIds },
-        })
+        }).href
       }
-      onOpenRange={(start, end, accountIds) =>
-        navigate({
+      rangeHref={(start, end, accountIds) =>
+        router.buildLocation({
           to: '/stats/detail',
           search: { start, end, account_ids: accountIds },
-        })
+        }).href
       }
-      onOpenBalance={(accountIds) =>
-        navigate({ to: '/stats/balance', search: { account_ids: accountIds } })
+      balanceHref={(accountIds) =>
+        router.buildLocation({ to: '/stats/balance', search: { account_ids: accountIds } }).href
       }
     />
   )
@@ -155,8 +156,8 @@ export interface StatsViewProps {
   credentials: CredentialRead[]
   search: StatsSearchParams
   onChange: (next: StatsViewState) => void
-  onOpenSearch: (drill: StatsDrilldown) => void
-  onOpenDay: (date: string, accountIds: number[]) => void
-  onOpenRange: (start: string, end: string, accountIds: number[]) => void
-  onOpenBalance: (accountIds: number[]) => void
+  searchHref: (drill: StatsDrilldown) => string
+  dayHref: (date: string, accountIds: number[]) => string
+  rangeHref: (start: string, end: string, accountIds: number[]) => string
+  balanceHref: (accountIds: number[]) => string
 }

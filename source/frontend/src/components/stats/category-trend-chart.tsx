@@ -1,6 +1,9 @@
+import type { MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from '@tanstack/react-router'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 
+import { HrefLink } from '@/components/href-link'
 import { cn } from '@/lib/utils'
 import { formatMoney, formatPercent } from '@/lib/format'
 import type { CategoryTrendSlice, StatsDirection } from '@/lib/statistics'
@@ -13,17 +16,20 @@ const WHOLE_PERCENT_THRESHOLD = 0.1
 export interface CategoryTrendChartProps {
   slices: CategoryTrendSlice[]
   direction: StatsDirection
-  onDrill?: (category: string) => void
-  onDrillBaseline?: (category: string) => void
+  drillHref?: (category: string) => string
+  baselineHref?: (category: string) => string
 }
+
+const stopRowClick = (event: MouseEvent) => event.stopPropagation()
 
 export function CategoryTrendChart({
   slices,
   direction,
-  onDrill,
-  onDrillBaseline,
+  drillHref,
+  baselineHref,
 }: CategoryTrendChartProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const catalog = useCategoryCatalog()
   const cell = 'border-border/60 border-b py-2'
 
@@ -52,16 +58,23 @@ export function CategoryTrendChart({
             const unfavorable = direction === 'OUTGOING' ? delta > 0 : delta < 0
             const tone = unfavorable ? 'text-destructive' : 'text-success'
             const Arrow = delta > 0 ? ArrowUp : ArrowDown
-            const hover = onDrill ? 'group-hover:bg-muted/40' : ''
+            const href = drillHref?.(slice.category)
+            const hover = href ? 'group-hover:bg-muted/40' : ''
 
             return (
               <tr
                 key={slice.category}
-                onClick={onDrill ? () => onDrill(slice.category) : undefined}
-                className={cn(onDrill && 'group cursor-pointer')}
+                onClick={href ? () => void navigate({ href }) : undefined}
+                className={cn(href && 'group cursor-pointer')}
               >
                 <td className={cn(cell, hover, 'text-foreground rounded-l-md pr-2 pl-2')}>
-                  {catalog.label(slice.category)}
+                  {href ? (
+                    <HrefLink href={href} onClick={stopRowClick}>
+                      {catalog.label(slice.category)}
+                    </HrefLink>
+                  ) : (
+                    catalog.label(slice.category)
+                  )}
                 </td>
                 <td
                   className={cn(
@@ -70,17 +83,14 @@ export function CategoryTrendChart({
                     'text-muted-foreground pr-4 pl-2 text-right tabular-nums whitespace-nowrap',
                   )}
                 >
-                  {onDrillBaseline ? (
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        onDrillBaseline(slice.category)
-                      }}
+                  {baselineHref ? (
+                    <HrefLink
+                      href={baselineHref(slice.category)}
+                      onClick={stopRowClick}
                       className="cursor-pointer hover:underline"
                     >
                       {formatMoney(slice.baseline)}
-                    </button>
+                    </HrefLink>
                   ) : (
                     formatMoney(slice.baseline)
                   )}

@@ -3,7 +3,14 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const chartProps = vi.hoisted(() => new Map<string, Record<string, unknown>>())
+const { chartProps, navigate } = vi.hoisted(() => ({
+  chartProps: new Map<string, Record<string, unknown>>(),
+  navigate: vi.fn(),
+}))
+
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/routes/__tests__/-routerMock')).routerMocks({ useNavigate: () => navigate }),
+)
 
 vi.mock('recharts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('recharts')>()
@@ -46,6 +53,7 @@ import {
   TODAY,
   money,
 } from '@/test/constants'
+import { fakeHref } from '@/test/statsFixtures'
 import { CashflowChart } from '../cashflow-chart'
 import { CategoryChart } from '../category-chart'
 import { NetSavingsChart } from '../net-savings-chart'
@@ -64,8 +72,11 @@ const percent = (ratio: number) => formatPercent(ratio).replace(/\u00a0/g, ' ')
 const renderWith = (component: string, prop: string, props: object) =>
   render(<svg>{cloneElement(propOf<ReactElement>(component, prop), props)}</svg>)
 
+const SEARCH = fakeHref('search')
+
 beforeEach(() => {
   chartProps.clear()
+  navigate.mockClear()
 })
 
 describe('CashflowChart', () => {
@@ -75,16 +86,16 @@ describe('CashflowChart', () => {
   ]
 
   it('opens the month of a clicked bar in that bar’s direction', () => {
-    const onSelectMonth = vi.fn()
-    render(<CashflowChart data={data} onSelectMonth={onSelectMonth} />)
+    const month = fakeHref('month')
+    render(<CashflowChart data={data} monthHref={month} />)
 
     act(() => propOf<BarClick>('Bar:expenses', 'onClick')({}, 1))
     act(() => propOf<BarClick>('Bar:income', 'onClick')({}, 0))
     act(() => propOf<BarClick>('Bar:income', 'onClick')({}, data.length))
 
-    expect(onSelectMonth.mock.calls).toEqual([
-      ['2026-05', 'OUTGOING'],
-      ['2026-04', 'INCOMING'],
+    expect(navigate.mock.calls).toEqual([
+      [{ href: month('2026-05', 'OUTGOING') }],
+      [{ href: month('2026-04', 'INCOMING') }],
     ])
   })
 
@@ -211,16 +222,18 @@ describe('OtherPartyChart', () => {
     expect(screen.getByText('Elsewhere')).toBeInTheDocument()
   })
 
-  it('drills into a party from its arrow', async () => {
-    const onDrill = vi.fn()
+  it('links a party from its arrow', () => {
     render(
-      <OtherPartyChart data={data} hidden={new Set()} onToggleHidden={vi.fn()} onDrill={onDrill} />,
+      <OtherPartyChart
+        data={data}
+        hidden={new Set()}
+        onToggleHidden={vi.fn()}
+        drillHref={SEARCH}
+      />,
     )
-    renderWith('YAxis:drill', 'tick', { payload: { value: PARTY_SUPERMARKET } })
+    const arrow = renderWith('YAxis:drill', 'tick', { payload: { value: PARTY_SUPERMARKET } })
 
-    await userEvent.click(screen.getByRole('button'))
-
-    expect(onDrill).toHaveBeenCalledWith(PARTY_SUPERMARKET)
+    expect(arrow.container.querySelector('a')).toHaveAttribute('href', SEARCH(PARTY_SUPERMARKET))
   })
 
   it('has no arrow column without a drill handler', () => {
@@ -275,8 +288,7 @@ describe('CategoryChart', () => {
     )
 
   it('opens a group from its pie slice and drills into a category inside it', async () => {
-    const onDrill = vi.fn()
-    renderCategory({ onDrill })
+    renderCategory({ drillHref: SEARCH })
     expect(pieKeys()).toEqual(['MOBILITY', 'HOUSING'])
 
     clickSlice(0)
@@ -284,14 +296,13 @@ describe('CategoryChart', () => {
     expect(pieKeys()).toEqual(['FUEL', 'PUBLIC_TRANSPORT'])
 
     clickSlice(1)
-    expect(onDrill).toHaveBeenCalledWith(['PUBLIC_TRANSPORT'])
+    expect(navigate).toHaveBeenCalledWith({ href: SEARCH(['PUBLIC_TRANSPORT']) })
 
     await userEvent.click(screen.getByRole('button', { name: 'All categories' }))
     expect(pieKeys()).toEqual(['MOBILITY', 'HOUSING'])
   })
 
   it('drills into every category behind the Other slice', () => {
-    const onDrill = vi.fn()
     const categories = [
       'SALARY',
       'SUPERMARKET',
@@ -308,14 +319,14 @@ describe('CategoryChart', () => {
       category,
       total: (categories.length - index) * AMOUNT_S,
     }))
-    renderCategory({ slices, onDrill })
+    renderCategory({ slices, drillHref: SEARCH })
     expect(pieKeys().at(-1)).toBe('OTHER')
 
     clickSlice(pieKeys().length - 1)
     clickSlice(pieKeys().length)
 
-    expect(onDrill.mock.calls).toEqual([
-      [['CHILDCARE', 'POCKET_MONEY', 'OTHER_CHILDREN', 'PET_SUPPLIES', 'VET']],
+    expect(navigate.mock.calls).toEqual([
+      [{ href: SEARCH(['CHILDCARE', 'POCKET_MONEY', 'OTHER_CHILDREN', 'PET_SUPPLIES', 'VET']) }],
     ])
   })
 
@@ -374,13 +385,12 @@ describe('CategoryChart', () => {
     expect(screen.getByText(percent(0.5))).toHaveAttribute('x', '160')
   })
 
-  it('drills from the bar arrows: a group opens, a category is searched', async () => {
+  it('drills from the bar arrows: a group opens, a category is linked', async () => {
     const user = userEvent.setup()
-    const onDrill = vi.fn()
     renderCategory({
       slices: [...mobility, { category: 'CUSTOM_DEADBEEF', total: AMOUNT_S }],
       chartType: 'bar',
-      onDrill,
+      drillHref: SEARCH,
     })
     expect(propOf<{ key: string }[]>('BarChart', 'data').map((row) => row.key)).toEqual([
       'MOBILITY',
@@ -393,8 +403,7 @@ describe('CategoryChart', () => {
     expect(screen.getByText('Mobility')).toBeInTheDocument()
 
     const categoryArrow = renderWith('YAxis:drill', 'tick', { payload: { value: 'FUEL' } })
-    await user.click(within(categoryArrow.container).getByRole('button'))
-    expect(onDrill).toHaveBeenCalledWith(['FUEL'])
+    expect(categoryArrow.container.querySelector('a')).toHaveAttribute('href', SEARCH(['FUEL']))
   })
 
   it('drops the bar arrows inside a group when categories cannot be searched', async () => {

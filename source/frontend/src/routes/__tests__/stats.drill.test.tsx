@@ -48,10 +48,10 @@ vi.mock('@tanstack/react-router', () => ({
 
 import '@/i18n'
 import { StatsView } from '@/pages/stats'
-import { type StatsSearchParams } from '@/routes/stats'
+import { type StatsDrilldown, type StatsSearchParams } from '@/routes/stats'
 import { ACCOUNT_NAME_GIRO, AMOUNT_M, AMOUNT_S, PARTY_SUPERMARKET } from '@/test/constants'
 import { renderWithQuery } from '@/test/helpers'
-import { buildAccount, buildCredential } from '@/test/statsFixtures'
+import { buildAccount, buildCredential, fakeHref, hrefArgs } from '@/test/statsFixtures'
 
 const credentials = [
   buildCredential([
@@ -60,85 +60,75 @@ const credentials = [
   ]),
 ]
 
+const CHART_ARROWS = 'svg .stats-drill-arrow'
+
 async function renderAndGetArrows(search: Partial<StatsSearchParams>) {
-  const onOpenSearch = vi.fn()
   const onChange = vi.fn()
   const { container } = renderWithQuery(
     <StatsView
       credentials={credentials}
       search={search as StatsSearchParams}
       onChange={onChange}
-      onOpenSearch={onOpenSearch}
-      onOpenDay={vi.fn()}
-      onOpenRange={vi.fn()}
-      onOpenBalance={vi.fn()}
+      searchHref={fakeHref('search')}
+      dayHref={fakeHref('day')}
+      rangeHref={fakeHref('range')}
+      balanceHref={fakeHref('balance')}
     />,
   )
-  await waitFor(() =>
-    expect(container.querySelectorAll('.stats-drill-arrow[role="button"]').length).toBe(2),
-  )
-  return {
-    onOpenSearch,
-    onChange,
-    arrows: container.querySelectorAll('.stats-drill-arrow[role="button"]'),
-  }
+  await waitFor(() => expect(container.querySelectorAll(CHART_ARROWS).length).toBe(2))
+  return { onChange, arrows: container.querySelectorAll(CHART_ARROWS) }
 }
 
+const drillOf = (arrow: Element) => hrefArgs(arrow.getAttribute('href'))[0] as StatsDrilldown
+
 async function drillIntoFuel(arrows: NodeListOf<Element>) {
-  fireEvent.click(arrows[0])
+  fireEvent.click(arrows[0]) // the Mobility group opens in place
   expect(await screen.findByText('Mobility')).toBeInTheDocument()
-  fireEvent.click(document.querySelectorAll('.stats-drill-arrow[role="button"]')[0])
+  return drillOf(document.querySelectorAll(CHART_ARROWS)[0])
 }
 
 describe('StatsView drill-in carries the active filters', () => {
   it('passes the clicked category plus the active type filter', async () => {
-    const { onOpenSearch, arrows } = await renderAndGetArrows({
+    const { arrows } = await renderAndGetArrows({
       transaction_types: ['FEES'],
     })
 
-    await drillIntoFuel(arrows)
+    const drill = await drillIntoFuel(arrows)
 
-    const drill = onOpenSearch.mock.calls.at(-1)?.[0]
     expect(drill.categories).toEqual(['FUEL'])
     expect(drill.transactionTypes).toEqual(['FEES'])
   })
 
   it('passes the party plus the active type filter', async () => {
-    const { onOpenSearch, arrows } = await renderAndGetArrows({
+    const { arrows } = await renderAndGetArrows({
       transaction_types: ['FEES'],
     })
 
-    fireEvent.click(arrows[1]) // top recipients
+    const drill = drillOf(arrows[1]) // top recipients
 
-    const drill = onOpenSearch.mock.calls.at(-1)?.[0]
     expect(drill.text).toBe(PARTY_SUPERMARKET)
     expect(drill.transactionTypes).toEqual(['FEES'])
   })
 
   it('carries the selected category subset into the party drill', async () => {
-    const { onOpenSearch, arrows } = await renderAndGetArrows({ categories: ['FUEL'] })
+    const { arrows } = await renderAndGetArrows({ categories: ['FUEL'] })
 
-    fireEvent.click(arrows[1]) // top recipients
+    const drill = drillOf(arrows[1]) // top recipients
 
-    const drill = onOpenSearch.mock.calls.at(-1)?.[0]
     expect(drill.text).toBe(PARTY_SUPERMARKET)
     expect(drill.categories).toEqual(['FUEL'])
   })
 
   it('omits the category in the party drill when all categories are selected', async () => {
-    const { onOpenSearch, arrows } = await renderAndGetArrows({})
+    const { arrows } = await renderAndGetArrows({})
 
-    fireEvent.click(arrows[1])
-
-    expect(onOpenSearch.mock.calls.at(-1)?.[0].categories).toEqual([])
+    expect(drillOf(arrows[1]).categories).toEqual([])
   })
 
   it('drops market-valued depot accounts from the drill so its list sums to the stat', async () => {
-    const { onOpenSearch, arrows } = await renderAndGetArrows({ account_ids: [42, 99] })
+    const { arrows } = await renderAndGetArrows({ account_ids: [42, 99] })
 
-    await drillIntoFuel(arrows)
-
-    expect(onOpenSearch.mock.calls.at(-1)?.[0].accountIds).toEqual([42])
+    expect((await drillIntoFuel(arrows)).accountIds).toEqual([42])
   })
 })
 

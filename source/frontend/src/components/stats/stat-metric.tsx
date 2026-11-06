@@ -1,32 +1,32 @@
+import { HrefLink } from '@/components/href-link'
 import { DrillArrowIcon } from '@/components/stats/chart-parts'
 
 export interface StatMetricData {
   label: string
   value: string
-  onDrill?: () => void
+  drillHref?: string
   drillLabel?: string
 }
 
-function DrillButton({ onDrill, label }: { onDrill: () => void; label?: string }) {
+function DrillLink({ href, label }: { href: string; label?: string }) {
   return (
-    <button
-      type="button"
-      onClick={onDrill}
+    <HrefLink
+      href={href}
       aria-label={label}
       className="stats-drill-arrow -m-1 inline-flex items-center rounded-md p-1"
     >
       <DrillArrowIcon />
-    </button>
+    </HrefLink>
   )
 }
 
-export function StatMetric({ label, value, onDrill, drillLabel }: StatMetricData) {
+export function StatMetric({ label, value, drillHref, drillLabel }: StatMetricData) {
   return (
     <div className="bg-muted/50 flex flex-col items-center gap-0.5 rounded-md p-3 text-center">
       <span className="text-muted-foreground text-xs">{label}</span>
       <span className="inline-flex items-center gap-1 truncate text-base font-semibold tabular-nums">
         {value}
-        {onDrill && <DrillButton onDrill={onDrill} label={drillLabel} />}
+        {drillHref && <DrillLink href={drillHref} label={drillLabel} />}
       </span>
     </div>
   )
@@ -41,7 +41,7 @@ export function StatMetricGroup({ metrics }: { metrics: StatMetricData[] }) {
             <dt className="text-muted-foreground">{metric.label}</dt>
             <dd className="inline-flex items-center gap-1 font-semibold tabular-nums">
               {metric.value}
-              {metric.onDrill && <DrillButton onDrill={metric.onDrill} label={metric.drillLabel} />}
+              {metric.drillHref && <DrillLink href={metric.drillHref} label={metric.drillLabel} />}
             </dd>
           </div>
         ))}

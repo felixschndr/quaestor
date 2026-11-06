@@ -2,10 +2,17 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
+
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/routes/__tests__/-routerMock')).routerMocks({ useNavigate: () => navigate }),
+)
+
 import '@/i18n'
 import { formatPercent } from '@/lib/format'
 import type { CategoryTrendSlice } from '@/lib/statistics'
 import { AMOUNT_L, AMOUNT_M, money } from '@/test/constants'
+import { fakeHref } from '@/test/statsFixtures'
 import { CategoryTrendChart } from '../category-trend-chart'
 
 const percent = (ratio: number, whole: boolean) =>
@@ -60,31 +67,37 @@ describe('CategoryTrendChart', () => {
     expect(screen.queryByText('Salary')).toBeNull()
   })
 
-  it('drills into the current range by row and into the baseline by its average', async () => {
+  it('links the current range by name and the baseline by its average', async () => {
     const user = userEvent.setup()
-    const onDrill = vi.fn()
-    const onDrillBaseline = vi.fn()
+    const currentHref = fakeHref('current')('FUEL')
+    const baselineHref = fakeHref('baseline')('FUEL')
     render(
       <CategoryTrendChart
         slices={slices}
         direction="OUTGOING"
-        onDrill={onDrill}
-        onDrillBaseline={onDrillBaseline}
+        drillHref={fakeHref('current')}
+        baselineHref={fakeHref('baseline')}
       />,
     )
+    const [name, average] = within(row('Fuel')).getAllByRole('link')
+    expect(name).toHaveAttribute('href', currentHref)
+    expect(average).toHaveAttribute('href', baselineHref)
 
-    await user.click(screen.getByText('Fuel'))
-    expect(onDrill).toHaveBeenCalledWith('FUEL')
+    await user.click(name)
+    await user.click(average)
+    await user.click(row('Fuel').lastElementChild!) // anywhere else on the row
 
-    await user.click(within(row('Fuel')).getByRole('button'))
-    expect(onDrillBaseline).toHaveBeenCalledWith('FUEL')
-    expect(onDrill).toHaveBeenCalledTimes(1)
+    expect(navigate.mock.calls).toEqual([
+      [{ href: currentHref }],
+      [{ href: baselineHref }],
+      [{ href: currentHref }],
+    ])
   })
 
-  it('renders the averages as plain text when nothing can be drilled', () => {
+  it('renders names and averages as plain text when nothing can be drilled', () => {
     render(<CategoryTrendChart slices={slices} direction="OUTGOING" />)
 
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.queryByRole('link')).toBeNull()
     expect(row('Fuel')).not.toHaveClass('cursor-pointer')
   })
 })

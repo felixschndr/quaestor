@@ -10,10 +10,15 @@ import { AMOUNT_L, AMOUNT_M, AMOUNT_S, DATE_RANGE_END, money } from '@/test/cons
 type ChartState = { activeLabel?: unknown; activeTooltipIndex?: unknown }
 type ChartHandler = (state: ChartState) => void
 
-const { PICKED_DAY, chart } = vi.hoisted(() => ({
+const { PICKED_DAY, chart, navigate } = vi.hoisted(() => ({
   PICKED_DAY: '2026-01-02',
   chart: {} as Record<'lineChart' | 'xAxis' | 'yAxis' | 'tooltip', Record<string, unknown>>,
+  navigate: vi.fn(),
 }))
+
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/routes/__tests__/-routerMock')).routerMocks({ useNavigate: () => navigate }),
+)
 
 vi.mock('recharts', () => {
   const Passthrough = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>
@@ -57,9 +62,12 @@ vi.mock('recharts', () => {
   }
 })
 
+import { fakeHref } from '@/test/statsFixtures'
 import { NetWorthChart } from '../net-worth-chart'
 
 const MIDDLE_DAY = '2026-01-05'
+const DAY = fakeHref('day')
+const RANGE = fakeHref('range')
 
 const data = [
   { date: PICKED_DAY, value: AMOUNT_S },
@@ -83,59 +91,48 @@ const marks = (name: string) =>
 
 beforeEach(() => {
   sessionStorage.clear()
+  navigate.mockClear()
 })
 
 describe('NetWorthChart view day', () => {
-  const viewDayButton = () => screen.getByRole('button', { name: /aufschlüsseln|Details/i })
+  const viewDayLink = () => screen.getByRole('link', { name: /aufschlüsseln|Details/i })
 
-  it('opens the clicked day and keeps it after the cursor leaves the chart', async () => {
+  it('links the clicked day and keeps it after the cursor leaves the chart', async () => {
     const user = userEvent.setup()
-    const onOpenDay = vi.fn()
-    render(<NetWorthChart data={data} summary={null} onOpenDay={onOpenDay} />)
+    render(<NetWorthChart data={data} summary={null} dayHref={DAY} />)
 
     await user.click(screen.getByTestId('pick-early')) // pin 2026-01-02
     await user.click(screen.getByTestId('leave')) // cursor leaves; pinned day must survive
-    await user.click(viewDayButton())
 
-    expect(onOpenDay).toHaveBeenCalledWith(PICKED_DAY)
+    expect(viewDayLink()).toHaveAttribute('href', DAY(PICKED_DAY))
   })
 
-  it('breaks down the whole shown range when nothing was picked', async () => {
-    const user = userEvent.setup()
-    const onOpenDay = vi.fn()
-    const onOpenRange = vi.fn()
-    render(
-      <NetWorthChart data={data} summary={null} onOpenDay={onOpenDay} onOpenRange={onOpenRange} />,
-    )
+  it('breaks down the whole shown range when nothing was picked', () => {
+    render(<NetWorthChart data={data} summary={null} dayHref={DAY} rangeHref={RANGE} />)
 
-    await user.click(viewDayButton())
-
-    expect(onOpenRange).toHaveBeenCalledWith(PICKED_DAY, DATE_RANGE_END)
-    expect(onOpenDay).not.toHaveBeenCalled()
+    expect(viewDayLink()).toHaveAttribute('href', RANGE(PICKED_DAY, DATE_RANGE_END))
   })
 
   it('restores the pinned day after remounting (e.g. navigating back)', async () => {
     const user = userEvent.setup()
-    const onOpenDay = vi.fn()
-    const { unmount } = render(<NetWorthChart data={data} summary={null} onOpenDay={onOpenDay} />)
+    const { unmount } = render(<NetWorthChart data={data} summary={null} dayHref={DAY} />)
 
     await user.click(screen.getByTestId('pick-early')) // pin 2026-01-02
     unmount()
 
-    render(<NetWorthChart data={data} summary={null} onOpenDay={onOpenDay} />)
-    await user.click(viewDayButton())
+    render(<NetWorthChart data={data} summary={null} dayHref={DAY} />)
 
-    expect(onOpenDay).toHaveBeenCalledWith(PICKED_DAY)
+    expect(viewDayLink()).toHaveAttribute('href', DAY(PICKED_DAY))
   })
 
-  it('offers no breakdown without a handler for it', () => {
-    render(<NetWorthChart data={data} summary={null} onOpenDay={vi.fn()} />)
-    expect(screen.queryByRole('button', { name: /Details/ })).toBeNull()
+  it('offers no breakdown without an href for it', () => {
+    render(<NetWorthChart data={data} summary={null} dayHref={DAY} />)
+    expect(screen.queryByRole('link', { name: /Details/ })).toBeNull()
   })
 
   it('forgets the pinned day when the user taps outside the chart', async () => {
     const user = userEvent.setup()
-    render(<NetWorthChart data={data} summary={null} onOpenDay={vi.fn()} />)
+    render(<NetWorthChart data={data} summary={null} dayHref={DAY} />)
     await user.click(screen.getByTestId('pick-early'))
     expect(sessionStorage.getItem(STORAGE_KEY)).toBe(PICKED_DAY)
 
@@ -174,7 +171,7 @@ describe('NetWorthChart hover', () => {
   })
 
   it('marks a pinned day apart from the hovered one', () => {
-    render(<NetWorthChart data={data} summary={null} onOpenDay={vi.fn()} />)
+    render(<NetWorthChart data={data} summary={null} dayHref={DAY} />)
     fire('onClick', { activeTooltipIndex: 0 })
     expect(marks('dot')).toEqual([`${PICKED_DAY}@7`])
 
@@ -200,21 +197,11 @@ describe('NetWorthChart hover', () => {
 
 describe('NetWorthChart range drag', () => {
   function renderDraggable(series = data) {
-    const onOpenRange = vi.fn()
-    const onOpenDay = vi.fn()
-    render(
-      <NetWorthChart
-        data={series}
-        summary={null}
-        onOpenRange={onOpenRange}
-        onOpenDay={onOpenDay}
-      />,
-    )
-    return { onOpenRange }
+    render(<NetWorthChart data={series} summary={null} rangeHref={RANGE} dayHref={DAY} />)
   }
 
   it('shows the change across the dragged range and opens it on release', () => {
-    const { onOpenRange } = renderDraggable()
+    renderDraggable()
 
     fire('onMouseDown', { activeLabel: DATE_RANGE_END })
     fire('onMouseMove', { activeLabel: DATE_RANGE_END, activeTooltipIndex: 2 })
@@ -226,10 +213,10 @@ describe('NetWorthChart range drag', () => {
     ).toBeInTheDocument()
     expect(screen.getByText(`+${money(AMOUNT_L - AMOUNT_S)}`)).toHaveClass('text-success')
     expect(marks('area')).toEqual([`${DATE_RANGE_END}..${PICKED_DAY}`])
-    expect(screen.queryByRole('button', { name: /Details/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Details/ })).toBeNull()
 
     fireEvent.mouseUp(document)
-    expect(onOpenRange).toHaveBeenCalledWith(PICKED_DAY, DATE_RANGE_END)
+    expect(navigate).toHaveBeenCalledWith({ href: RANGE(PICKED_DAY, DATE_RANGE_END) })
 
     fire('onClick', { activeTooltipIndex: 0 })
     expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull()
@@ -258,23 +245,23 @@ describe('NetWorthChart range drag', () => {
   })
 
   it('snaps the range to the first or last day when dragged past the plot', () => {
-    const { onOpenRange } = renderDraggable()
+    renderDraggable()
 
     fire('onMouseDown', { activeLabel: MIDDLE_DAY })
     fireEvent.mouseMove(document, { clientX: 400 })
     expect(marks('area')).toEqual([])
     fireEvent.mouseMove(document, { clientX: 10 })
     fireEvent.mouseUp(document)
-    expect(onOpenRange).toHaveBeenLastCalledWith(PICKED_DAY, MIDDLE_DAY)
+    expect(navigate).toHaveBeenLastCalledWith({ href: RANGE(PICKED_DAY, MIDDLE_DAY) })
 
     fire('onMouseDown', { activeLabel: MIDDLE_DAY })
     fireEvent.mouseMove(document, { clientX: 799 })
     fireEvent.mouseUp(document)
-    expect(onOpenRange).toHaveBeenLastCalledWith(MIDDLE_DAY, DATE_RANGE_END)
+    expect(navigate).toHaveBeenLastCalledWith({ href: RANGE(MIDDLE_DAY, DATE_RANGE_END) })
   })
 
   it('cancels the drag on Escape without pinning a day', () => {
-    const { onOpenRange } = renderDraggable()
+    renderDraggable()
 
     fire('onMouseDown', { activeLabel: PICKED_DAY })
     fire('onMouseMove', { activeLabel: MIDDLE_DAY })
@@ -286,18 +273,18 @@ describe('NetWorthChart range drag', () => {
     fireEvent.mouseUp(document)
     fire('onClick', { activeTooltipIndex: 1 })
 
-    expect(onOpenRange).not.toHaveBeenCalled()
+    expect(navigate).not.toHaveBeenCalled()
     expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull()
   })
 
   it('treats a press and release on one day as a click that pins it', () => {
-    const { onOpenRange } = renderDraggable()
+    renderDraggable()
 
     fire('onMouseDown', { activeLabel: MIDDLE_DAY })
     fireEvent.mouseUp(document)
     fire('onClick', { activeTooltipIndex: 1 })
 
-    expect(onOpenRange).not.toHaveBeenCalled()
+    expect(navigate).not.toHaveBeenCalled()
     expect(sessionStorage.getItem(STORAGE_KEY)).toBe(MIDDLE_DAY)
   })
 

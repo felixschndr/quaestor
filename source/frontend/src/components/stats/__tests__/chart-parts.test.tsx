@@ -3,8 +3,13 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/routes/__tests__/-routerMock')).routerMocks({ useNavigate: () => vi.fn() }),
+)
+
 import '@/i18n'
 import { AMOUNT_M, AMOUNT_XL, PARTY_SUPERMARKET, money } from '@/test/constants'
+import { fakeHref } from '@/test/statsFixtures'
 import { ArrowTick, AxisValueTick, BarValueLabel, ToggleTick, ValueBarShape } from '../chart-parts'
 
 const renderSvg = (ui: ReactNode) => render(<svg>{ui}</svg>)
@@ -125,9 +130,28 @@ describe('AxisValueTick', () => {
 })
 
 describe('ArrowTick', () => {
-  it('drills into the row it sits next to', async () => {
+  it('links the row it sits next to', () => {
+    const { container } = renderSvg(
+      <ArrowTick x={5} y={7} payload={{ value: PARTY_SUPERMARKET }} hrefOf={fakeHref('search')} />,
+    )
+
+    const link = container.querySelector('a')!
+    expect(link).toHaveAttribute('href', fakeHref('search')(PARTY_SUPERMARKET))
+    expect(link.namespaceURI).toBe('http://www.w3.org/2000/svg')
+    expect(link.firstElementChild).toHaveAttribute('transform', 'translate(5, 7)')
+  })
+
+  it('falls back to onSelect for a row without an href', async () => {
     const onSelect = vi.fn()
-    renderSvg(<ArrowTick x={5} y={7} payload={{ value: PARTY_SUPERMARKET }} onSelect={onSelect} />)
+    renderSvg(
+      <ArrowTick
+        x={5}
+        y={7}
+        payload={{ value: PARTY_SUPERMARKET }}
+        hrefOf={() => undefined}
+        onSelect={onSelect}
+      />,
+    )
 
     const arrow = screen.getByRole('button')
     expect(arrow).toHaveAttribute('transform', 'translate(5, 7)')

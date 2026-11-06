@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeftRight, BarChart3, LineChart, PieChart, PiggyBank, Users } from 'lucide-react'
 
 import { BackLink } from '@/components/back-link'
+import { HrefLink } from '@/components/href-link'
 import { AccountMultiSelect } from '@/components/ui/account-multi-select'
 import { AdvancedFilters } from '@/components/ui/advanced-filters'
 import { FilterHeading } from '@/components/ui/filter-heading'
@@ -60,10 +61,10 @@ export function StatsView({
   credentials,
   search,
   onChange,
-  onOpenSearch,
-  onOpenDay,
-  onOpenRange,
-  onOpenBalance,
+  searchHref,
+  dayHref,
+  rangeHref,
+  balanceHref,
 }: StatsViewProps) {
   const { t } = useTranslation()
   const catalog = useCategoryCatalog()
@@ -180,14 +181,14 @@ export function StatsView({
   const drillSort = (drillDirection: StatsDirection): TransactionSortKey =>
     drillDirection === 'INCOMING' ? 'amount_desc' : 'amount_asc'
 
-  const openSearch = (extra: {
+  const drillHref = (extra: {
     categories?: CategoryKey[]
     text?: string
     dateFrom?: string
     dateTo?: string
     direction?: StatsDirection
   }) =>
-    onOpenSearch({
+    searchHref({
       accountIds: cashAccountIds,
       dateFrom: filters.date_from,
       dateTo: filters.date_to,
@@ -198,18 +199,18 @@ export function StatsView({
       ...extra,
     })
 
-  const openMonthSearch = (month: string, monthDirection: StatsDirection) => {
+  const monthHref = (month: string, monthDirection: StatsDirection) => {
     const { from, to } = monthDateRange(month)
-    openSearch({ dateFrom: from, dateTo: to, direction: monthDirection })
+    return drillHref({ dateFrom: from, dateTo: to, direction: monthDirection })
   }
 
-  const openBaselineSearch = (category: CategoryKey) => {
+  const baselineHref = (category: CategoryKey) => {
     const range = baselineDateRange(
       filters.date_from ?? defaults.date_from,
       filters.date_to ?? defaults.date_to,
       trendPeriods,
     )
-    onOpenSearch({
+    return searchHref({
       accountIds: cashAccountIds,
       dateFrom: range.from,
       dateTo: range.to,
@@ -220,11 +221,14 @@ export function StatsView({
     })
   }
 
-  const openNetWorthSearch = () =>
-    onOpenSearch({ accountIds, dateFrom: filters.date_from, dateTo: filters.date_to })
+  const netWorthSearchHref = searchHref({
+    accountIds,
+    dateFrom: filters.date_from,
+    dateTo: filters.date_to,
+  })
 
-  const openRunwaySearch = (runwayCategories: CategoryKey[]) =>
-    onOpenSearch({
+  const runwaySearchHref = (runwayCategories: CategoryKey[]) =>
+    searchHref({
       accountIds,
       dateFrom: filters.date_from,
       dateTo: filters.date_to,
@@ -349,8 +353,8 @@ export function StatsView({
             categories={selectedCategories}
             typeFilters={typeFilters}
             enabled={hasSelection}
-            onViewTransactions={openRunwaySearch}
-            onViewBalance={() => onOpenBalance(accountIds)}
+            transactionsHref={runwaySearchHref}
+            balanceHref={balanceHref(accountIds)}
           />
 
           <ChartCard
@@ -361,23 +365,22 @@ export function StatsView({
             isError={netWorth.isError}
             isEmpty={(netWorth.data?.series.length ?? 0) === 0}
             action={
-              <button
-                type="button"
-                onClick={openNetWorthSearch}
+              <HrefLink
+                href={netWorthSearchHref}
                 aria-label={t('stats.netWorth.viewTransactions')}
                 className="stats-drill-arrow -m-1 inline-flex items-center gap-1 rounded-md p-1 text-xs font-medium"
               >
                 <span className="sm:hidden">{t('common.transactions')}</span>
                 <span className="hidden sm:inline">{t('stats.netWorth.viewTransactions')}</span>
                 <DrillArrowIcon />
-              </button>
+              </HrefLink>
             }
           >
             <NetWorthChart
               data={netWorth.data?.series ?? []}
               summary={netWorth.data?.summary ?? null}
-              onOpenDay={(date) => onOpenDay(date, accountIds)}
-              onOpenRange={(start, end) => onOpenRange(start, end, accountIds)}
+              dayHref={(date) => dayHref(date, accountIds)}
+              rangeHref={(start, end) => rangeHref(start, end, accountIds)}
             />
           </ChartCard>
 
@@ -427,8 +430,8 @@ export function StatsView({
                 <CategoryTrendChart
                   slices={categoryTrend.data ?? []}
                   direction={direction}
-                  onDrill={(category) => openSearch({ categories: [category as CategoryKey] })}
-                  onDrillBaseline={(category) => openBaselineSearch(category as CategoryKey)}
+                  drillHref={(category) => drillHref({ categories: [category as CategoryKey] })}
+                  baselineHref={(category) => baselineHref(category as CategoryKey)}
                 />
               </div>
             ) : (
@@ -437,7 +440,7 @@ export function StatsView({
                 chartType={chartType}
                 hidden={new Set(hiddenCategories)}
                 onToggleHidden={toggleHiddenCategory}
-                onDrill={(categories) => openSearch({ categories })}
+                drillHref={(categories) => drillHref({ categories })}
               />
             )}
           </ChartCard>
@@ -450,7 +453,7 @@ export function StatsView({
             isError={cashflow.isError}
             isEmpty={(cashflow.data?.length ?? 0) === 0}
           >
-            <CashflowChart data={cashflow.data ?? []} onSelectMonth={openMonthSearch} />
+            <CashflowChart data={cashflow.data ?? []} monthHref={monthHref} />
           </ChartCard>
 
           <ChartCard
@@ -520,7 +523,7 @@ export function StatsView({
               data={otherParties.data ?? []}
               hidden={new Set(hiddenParties)}
               onToggleHidden={toggleHiddenParty}
-              onDrill={(party) => openSearch({ text: party })}
+              drillHref={(party) => drillHref({ text: party })}
             />
           </ChartCard>
         </>

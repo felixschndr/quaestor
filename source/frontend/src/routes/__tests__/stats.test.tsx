@@ -60,7 +60,12 @@ import { api } from '@/lib/api'
 import { STORAGE_KEY } from '@/lib/netWorthPin'
 import { TRANSACTION_CATEGORIES, TRANSACTION_TYPES } from '@/lib/transaction'
 import { StatsView } from '@/pages/stats'
-import { Route, type StatsSearchParams, type StatsViewState } from '@/routes/stats'
+import {
+  Route,
+  type StatsDrilldown,
+  type StatsSearchParams,
+  type StatsViewState,
+} from '@/routes/stats'
 import {
   ACCOUNT_NAME_GIRO,
   ACCOUNT_NAME_SAVINGS,
@@ -73,8 +78,8 @@ import {
   PARTY_SUPERMARKET,
   TODAY,
 } from '@/test/constants'
-import { buildAccount, buildCredential } from '@/test/statsFixtures'
-import { routeState } from './-routerMock'
+import { buildAccount, buildCredential, fakeHref, hrefArgs } from '@/test/statsFixtures'
+import { mockHref, routeState } from './-routerMock'
 import { buildUser, renderWithQuery } from '@/test/helpers'
 
 const credentials = [buildCredential([buildAccount({ id: 42, name: ACCOUNT_NAME_GIRO })])]
@@ -102,10 +107,6 @@ function toSearch(next: StatsViewState): StatsSearchParams {
 
 function renderView(initialSearch: Partial<StatsSearchParams> = {}) {
   const onChange = vi.fn()
-  const onOpenSearch = vi.fn()
-  const onOpenDay = vi.fn()
-  const onOpenRange = vi.fn()
-  const onOpenBalance = vi.fn()
 
   function Harness() {
     const [search, setSearch] = useState<StatsSearchParams>(initialSearch as StatsSearchParams)
@@ -117,19 +118,23 @@ function renderView(initialSearch: Partial<StatsSearchParams> = {}) {
           onChange(next)
           setSearch(toSearch(next))
         }}
-        onOpenSearch={onOpenSearch}
-        onOpenDay={onOpenDay}
-        onOpenRange={onOpenRange}
-        onOpenBalance={onOpenBalance}
+        searchHref={fakeHref('search')}
+        dayHref={fakeHref('day')}
+        rangeHref={fakeHref('range')}
+        balanceHref={fakeHref('balance')}
       />
     )
   }
 
   renderWithQuery(<Harness />)
-  return { onChange, onOpenSearch, onOpenDay, onOpenRange, onOpenBalance }
+  return { onChange }
 }
 
 const lastCall = (mock: ReturnType<typeof vi.fn>) => mock.mock.calls.at(-1)?.[0]
+const drillOf = (href: string | null) => hrefArgs(href)[0] as StatsDrilldown
+const linkDrill = (link: HTMLElement) => drillOf(link.getAttribute('href'))
+const navigatedDrills = () =>
+  navigate.mock.calls.map(([options]) => drillOf((options as { href: string }).href))
 const requestedPaths = () => vi.mocked(api).mock.calls.map(([path]) => path)
 
 beforeEach(() => {
@@ -137,6 +142,7 @@ beforeEach(() => {
   chartProps.clear()
   sessionStorage.clear()
   routeState.search = {}
+  navigate.mockClear()
 })
 
 describe('StatsView', () => {
@@ -199,17 +205,14 @@ describe('StatsView', () => {
     expect(onChange.mock.calls.at(-1)?.[0].chartType).toBe('pie')
   })
 
-  it('opens the search for every net-worth transaction (no direction/category) via the arrow', async () => {
-    const user = userEvent.setup()
-    const { onOpenSearch } = renderView()
+  it('links the search for every net-worth transaction (no direction/category) via the arrow', () => {
+    renderView()
 
-    await user.click(screen.getByRole('button', { name: 'Transactions in this period' }))
+    const drill = linkDrill(screen.getByRole('link', { name: 'Transactions in this period' }))
 
-    expect(onOpenSearch).toHaveBeenCalledTimes(1)
-    const drill = onOpenSearch.mock.calls[0][0]
     expect(drill.accountIds).toEqual([42])
     expect(drill.direction).toBeUndefined()
-    expect(drill.category).toBeUndefined()
+    expect(drill.categories).toBeUndefined()
   })
 
   it('defaults direction to OUTGOING (expense focus)', async () => {
@@ -352,13 +355,9 @@ describe('StatsView with a fixed today', () => {
       )
     })
 
-    it('drills into the current range and into the baseline range', async () => {
-      const user = userEvent.setup()
-      const { onOpenSearch } = renderView({ chart_type: 'trend' })
+    it('links the current range and the baseline range', async () => {
+      renderView({ chart_type: 'trend' })
       const row = (await screen.findByText('Fuel')).closest('tr')!
-
-      await user.click(row)
-      await user.click(within(row).getByRole('button'))
 
       const common = {
         accountIds: [42],
@@ -367,9 +366,9 @@ describe('StatsView with a fixed today', () => {
         categories: ['FUEL'],
         sort: 'amount_asc',
       }
-      expect(onOpenSearch.mock.calls).toEqual([
-        [{ ...common, dateFrom: MONTH_START, dateTo: DATE_TODAY }],
-        [{ ...common, dateFrom: '2025-10-18', dateTo: '2026-04-21' }],
+      expect(within(row).getAllByRole('link').map(linkDrill)).toEqual([
+        { ...common, dateFrom: MONTH_START, dateTo: DATE_TODAY },
+        { ...common, dateFrom: '2025-10-18', dateTo: '2026-04-21' },
       ])
     })
   })
@@ -403,7 +402,7 @@ describe('StatsView with a fixed today', () => {
     })
 
     it('opens the clicked cashflow month in the bar’s direction', async () => {
-      const { onOpenSearch } = renderView()
+      renderView()
       await waitFor(() => expect(chartProps.has('Bar:expenses')).toBe(true))
       const click = (bar: string) =>
         act(() => (chartProps.get(bar)!.onClick as (data: unknown, index: number) => void)({}, 0))
@@ -411,7 +410,7 @@ describe('StatsView with a fixed today', () => {
       click('Bar:expenses')
       click('Bar:income')
 
-      expect(onOpenSearch.mock.calls.map(([drill]) => drill)).toEqual([
+      expect(navigatedDrills()).toEqual([
         expect.objectContaining({
           dateFrom: '2026-05-01',
           dateTo: '2026-05-31',
@@ -427,15 +426,11 @@ describe('StatsView with a fixed today', () => {
       ])
     })
 
-    it('opens the runway expenses without savings and the balances', async () => {
-      const user = userEvent.setup()
-      const { onOpenSearch, onOpenBalance } = renderView({ transaction_types: ['FEES'] })
-      const expenses = await screen.findAllByRole('button', { name: 'Expenses in this period' })
+    it('links the runway expenses without savings and the balances', async () => {
+      renderView({ transaction_types: ['FEES'] })
+      const expenses = await screen.findAllByRole('link', { name: 'Expenses in this period' })
 
-      await user.click(expenses[0])
-      await user.click(screen.getAllByRole('button', { name: 'Current balances' })[0])
-
-      expect(lastCall(onOpenSearch)).toEqual({
+      expect(linkDrill(expenses[0])).toEqual({
         accountIds: [42],
         dateFrom: MONTH_START,
         dateTo: DATE_TODAY,
@@ -444,11 +439,13 @@ describe('StatsView with a fixed today', () => {
         categories: TRANSACTION_CATEGORIES.filter((key) => !RUNWAY_EXCLUDED.includes(key)),
         sort: 'amount_asc',
       })
-      expect(onOpenBalance).toHaveBeenCalledWith([42])
+      expect(screen.getAllByRole('link', { name: 'Current balances' })[0]).toHaveAttribute(
+        'href',
+        fakeHref('balance')([42]),
+      )
     })
 
-    it('opens the net-worth breakdown of the shown range or the pinned day', async () => {
-      const user = userEvent.setup()
+    it('links the net-worth breakdown of the shown range', async () => {
       apiResponses['/statistics/net-worth'] = {
         series: [
           { date: DATE_RECENT, value: AMOUNT_L },
@@ -456,13 +453,14 @@ describe('StatsView with a fixed today', () => {
         ],
         summary: null,
       }
-      const { onOpenRange } = renderView()
-      await user.click(await screen.findByRole('button', { name: /Break down this range/ }))
-      expect(onOpenRange).toHaveBeenCalledWith(DATE_RECENT, DATE_TODAY, [42])
+      renderView()
+      expect(await screen.findByRole('link', { name: /Break down this range/ })).toHaveAttribute(
+        'href',
+        fakeHref('range')(DATE_RECENT, DATE_TODAY, [42]),
+      )
     })
 
-    it('opens the breakdown of a day pinned earlier', async () => {
-      const user = userEvent.setup()
+    it('links the breakdown of a day pinned earlier', async () => {
       apiResponses['/statistics/net-worth'] = {
         series: [
           { date: DATE_RECENT, value: AMOUNT_L },
@@ -471,11 +469,12 @@ describe('StatsView with a fixed today', () => {
         summary: null,
       }
       sessionStorage.setItem(STORAGE_KEY, DATE_RECENT)
-      const { onOpenDay } = renderView()
+      renderView()
 
-      await user.click(await screen.findByRole('button', { name: /Break down this day/ }))
-
-      expect(onOpenDay).toHaveBeenCalledWith(DATE_RECENT, [42])
+      expect(await screen.findByRole('link', { name: /Break down this day/ })).toHaveAttribute(
+        'href',
+        fakeHref('day')(DATE_RECENT, [42]),
+      )
     })
   })
 })
@@ -494,6 +493,9 @@ describe('stats route', () => {
     const Page = Route.options.component!
     return renderWithQuery(<Page />)
   }
+
+  const lastHref = () => (navigate.mock.calls.at(-1)?.[0] as { href: string }).href
+  const lastQuery = () => Object.fromEntries(new URL(lastHref(), 'http://localhost').searchParams)
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] })
@@ -566,21 +568,13 @@ describe('stats route', () => {
     const user = userEvent.setup()
     renderRoute()
 
-    await user.click(await screen.findByRole('button', { name: 'Transactions in this period' }))
+    await user.click(await screen.findByRole('link', { name: 'Transactions in this period' }))
 
     expect(navigate).toHaveBeenLastCalledWith({
-      to: '/search',
-      search: {
-        account_ids: [42],
-        date_from: MONTH_START,
-        date_to: DATE_TODAY,
-        categories: undefined,
-        text: undefined,
-        transaction_types: undefined,
-        amount_from: undefined,
-        amount_to: undefined,
-        sort: undefined,
-      },
+      href: mockHref({
+        to: '/search',
+        search: { account_ids: [42], date_from: MONTH_START, date_to: DATE_TODAY },
+      }),
     })
   })
 
@@ -594,15 +588,11 @@ describe('stats route', () => {
 
     await user.click(await screen.findByText('Salary'))
 
-    expect(navigate.mock.calls.at(-1)?.[0]).toEqual({
-      to: '/search',
-      search: expect.objectContaining({
-        categories: ['SALARY'],
-        amount_from: 0,
-        amount_to: undefined,
-        sort: 'amount_desc',
-      }),
-    })
+    expect(lastHref()).toMatch(/^\/search\?/)
+    expect(lastQuery()).toEqual(
+      expect.objectContaining({ categories: 'SALARY', amount_from: '0', sort: 'amount_desc' }),
+    )
+    expect(lastQuery()).not.toHaveProperty('amount_to')
   })
 
   it('limits an expense drill to negative amounts and keeps the type filter', async () => {
@@ -613,16 +603,12 @@ describe('stats route', () => {
     ]
     renderRoute()
 
-    await user.click((await screen.findAllByRole('button', { name: 'Expenses in this period' }))[0])
+    await user.click((await screen.findAllByRole('link', { name: 'Expenses in this period' }))[0])
 
-    expect(navigate.mock.calls.at(-1)?.[0].search).toEqual(
-      expect.objectContaining({
-        transaction_types: ['FEES'],
-        amount_from: undefined,
-        amount_to: 0,
-        sort: 'amount_asc',
-      }),
+    expect(lastQuery()).toEqual(
+      expect.objectContaining({ transaction_types: 'FEES', amount_to: '0', sort: 'amount_asc' }),
     )
+    expect(lastQuery()).not.toHaveProperty('amount_from')
   })
 
   it('opens the net-worth breakdown of a range, of a day and the balances', async () => {
@@ -639,26 +625,24 @@ describe('stats route', () => {
     ]
     renderRoute()
 
-    await user.click(await screen.findByRole('button', { name: /Break down this range/ }))
-    expect(navigate).toHaveBeenLastCalledWith({
-      to: '/stats/detail',
-      search: { start: DATE_RECENT, end: DATE_TODAY, account_ids: [42] },
-    })
+    await user.click(await screen.findByRole('link', { name: /Break down this range/ }))
+    expect(lastHref()).toBe(
+      mockHref({
+        to: '/stats/detail',
+        search: { start: DATE_RECENT, end: DATE_TODAY, account_ids: [42] },
+      }),
+    )
 
     act(() =>
       (chartProps.get('LineChart')!.onClick as (state: object) => void)({ activeTooltipIndex: 0 }),
     )
-    await user.click(screen.getByRole('button', { name: /Break down this day/ }))
-    expect(navigate).toHaveBeenLastCalledWith({
-      to: '/stats/detail',
-      search: { end: DATE_RECENT, account_ids: [42] },
-    })
+    await user.click(screen.getByRole('link', { name: /Break down this day/ }))
+    expect(lastHref()).toBe(
+      mockHref({ to: '/stats/detail', search: { end: DATE_RECENT, account_ids: [42] } }),
+    )
 
-    await user.click((await screen.findAllByRole('button', { name: 'Current balances' }))[0])
-    expect(navigate).toHaveBeenLastCalledWith({
-      to: '/stats/balance',
-      search: { account_ids: [42] },
-    })
+    await user.click((await screen.findAllByRole('link', { name: 'Current balances' }))[0])
+    expect(lastHref()).toBe(mockHref({ to: '/stats/balance', search: { account_ids: [42] } }))
   })
 
   it('parses the URL and drops hidden categories it does not know', () => {

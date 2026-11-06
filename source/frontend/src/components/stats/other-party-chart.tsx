@@ -7,7 +7,7 @@ export interface OtherPartyChartProps {
   data: OtherPartySlice[]
   hidden: ReadonlySet<string>
   onToggleHidden: (otherParty: string) => void
-  onDrill?: (otherParty: string) => void
+  drillHref?: (otherParty: string) => string
 }
 
 // Other party names (esp. IBANs) can be long. Give the axis a generous width
@@ -34,7 +34,7 @@ function OtherPartyTooltip({
   )
 }
 
-export function OtherPartyChart({ data, hidden, onToggleHidden, onDrill }: OtherPartyChartProps) {
+export function OtherPartyChart({ data, hidden, onToggleHidden, drillHref }: OtherPartyChartProps) {
   const rows: DrillBarRow[] = data.map((slice) => ({
     key: slice.other_party,
     label: formatIban(slice.other_party),
@@ -52,7 +52,7 @@ export function OtherPartyChart({ data, hidden, onToggleHidden, onDrill }: Other
       axisWidth={AXIS_LABEL_WIDTH}
       tooltip={<OtherPartyTooltip />}
       onToggleHidden={onToggleHidden}
-      onDrill={onDrill}
+      drillHref={drillHref}
     />
   )
 }
