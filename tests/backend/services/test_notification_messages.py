@@ -1,6 +1,7 @@
 import pytest
 
 from source.backend.services.notifications import notification_messages
+from tests.backend.conftest import LATEST_DATE
 
 
 def test_translate_returns_language_specific_text():
@@ -28,3 +29,11 @@ def test_translate_falls_back_to_default_language_for_unknown_language():
 @pytest.mark.parametrize(argnames="language", argvalues=["en", "de"])
 def test_minimal_body_only_contains_the_account(language: str, key: str):
     assert notification_messages.translate(language, key=key, account="Giro") == "Giro"
+
+
+@pytest.mark.parametrize(
+    argnames="language, expected",
+    argvalues=[("en", "Monday, June 01, 2026"), ("de", "Montag, 01. Juni 2026"), ("fr", "Monday, June 01, 2026")],
+)
+def test_format_date_matches_the_frontend_date_format(language: str, expected: str):
+    assert notification_messages.format_date(language, value=LATEST_DATE) == expected

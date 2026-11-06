@@ -281,7 +281,7 @@ def _build_ending_notification(rule: NotificationRule, contract: Contract, langu
             key="contract_ending.body",
             account=account.display_label,
             name=contract.name,
-            date=contract.end_date.isoformat() if contract.end_date else "",
+            date=notification_messages.format_date(language, value=contract.end_date) if contract.end_date else "",
         )
     else:
         body = notification_messages.translate(
@@ -452,7 +452,11 @@ def _build_overdue_notification(rule: NotificationRule, contract: Contract, lang
             key="contract_overdue.body",
             account=account.display_label,
             name=contract.name,
-            date=contract.expected_next_date.isoformat() if contract.expected_next_date else "",
+            date=(
+                notification_messages.format_date(language, value=contract.expected_next_date)
+                if contract.expected_next_date
+                else ""
+            ),
         )
     else:
         body = notification_messages.translate(
@@ -798,7 +802,7 @@ def _contract_charged_after_end_notifications(
                 account=account.display_label,
                 name=contract.name,
                 amount=format_amount(transaction.amount, currency=currency),
-                date=contract.end_date.isoformat(),
+                date=notification_messages.format_date(language, value=contract.end_date),
             )
         else:
             body = notification_messages.translate(

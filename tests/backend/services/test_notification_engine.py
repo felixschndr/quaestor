@@ -23,7 +23,7 @@ from source.backend.models.notifications.notification_rule import (
 from source.backend.models.transactions.transaction_category import CategoryGroup, TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.banking import credential_service
-from source.backend.services.notifications import notification_engine
+from source.backend.services.notifications import notification_engine, notification_messages
 from source.backend.services.notifications.notification_service import Notification
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
@@ -1139,7 +1139,9 @@ _OVERDUE_DATE = _TODAY - timedelta(days=OVERDUE_GRACE.days + 1)
 _ENDING_DATE = _TODAY + timedelta(days=ENDING_LEAD.days - 1)
 
 
-@_with_and_without_content(body=f"“{ACCOUNT_IBAN}”: Gym overdue since {_OVERDUE_DATE.isoformat()}")
+@_with_and_without_content(
+    body=f"“{ACCOUNT_IBAN}”: Gym overdue since {notification_messages.format_date('en', value=_OVERDUE_DATE)}"
+)
 def test_overdue_contract_notifies_once_and_dedups(
     session_factory: sessionmaker,
     sent_notifications: list[tuple[str, Notification]],
@@ -1226,7 +1228,9 @@ def test_overdue_flag_resets_once_payment_arrives(session_factory: sessionmaker)
 # --- contract ending trigger -----------------------------------------------
 
 
-@_with_and_without_content(body=f"“{ACCOUNT_IBAN}”: Gym ends on {_ENDING_DATE.isoformat()}")
+@_with_and_without_content(
+    body=f"“{ACCOUNT_IBAN}”: Gym ends on {notification_messages.format_date('en', value=_ENDING_DATE)}"
+)
 def test_ending_contract_notifies_once_within_lead_time(
     session_factory: sessionmaker,
     sent_notifications: list[tuple[str, Notification]],
@@ -1316,7 +1320,12 @@ def test_ending_contract_on_an_account_outside_the_rule_is_quiet(
 _ENDED_DATE = RECENT_DATE - timedelta(days=10)
 
 
-@_with_and_without_content(body=f"“{ACCOUNT_IBAN}”: Gym charged -50,00 € after ending on {_ENDED_DATE.isoformat()}")
+@_with_and_without_content(
+    body=(
+        f"“{ACCOUNT_IBAN}”: Gym charged -50,00 € after ending on "
+        f"{notification_messages.format_date('en', value=_ENDED_DATE)}"
+    )
+)
 def test_charge_after_contract_end_notifies(
     session_factory: sessionmaker, caplog: pytest.LogCaptureFixture, include_content: bool, body: str
 ):

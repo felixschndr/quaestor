@@ -1,3 +1,9 @@
+import datetime
+import re
+
+import babel
+import babel.dates
+
 from source.backend.services.core import i18n_service
 
 _TRANSLATION_CATALOG: dict[str, dict[str, str]] = {
@@ -132,3 +138,10 @@ def translate(language: str, key: str, **params: object) -> str:
     catalog = _TRANSLATION_CATALOG.get(language) or _TRANSLATION_CATALOG[i18n_service.DEFAULT_LANGUAGE]
     template = catalog.get(key) or _TRANSLATION_CATALOG[i18n_service.DEFAULT_LANGUAGE][key]
     return template.format(**params)
+
+
+def format_date(language: str, value: datetime.date) -> str:
+    if not i18n_service.is_supported(language):
+        language = i18n_service.DEFAULT_LANGUAGE
+    pattern = babel.Locale.parse(language).date_formats["full"].pattern
+    return babel.dates.format_date(value, format=re.sub(pattern=r"\bd\b", repl="dd", string=pattern), locale=language)
