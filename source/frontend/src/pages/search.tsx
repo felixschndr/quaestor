@@ -387,7 +387,7 @@ function ResultRow({
             }
           : undefined
       }
-      className="px-2 py-3"
+      className="px-2 py-1.5"
       style={style}
       subline={
         <span className="text-muted-foreground flex items-center gap-1 text-xs">

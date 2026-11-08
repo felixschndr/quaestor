@@ -645,7 +645,7 @@ function TransactionGroupList({
   isMarketValued?: boolean
 }) {
   return (
-    <ul className="flex flex-col gap-6">
+    <ul className="flex flex-col gap-3">
       {groups.map((group) => {
         const isFuture = isFutureDateString(group.date, today)
         return (
@@ -654,7 +654,7 @@ function TransactionGroupList({
             className="-mx-3 flex flex-col gap-2 px-3"
             style={{
               contentVisibility: 'auto',
-              containIntrinsicSize: `auto ${32 + group.transactions.length * 56}px`,
+              containIntrinsicSize: `auto ${32 + group.transactions.length * 44}px`,
             }}
           >
             <DateHeader
@@ -779,7 +779,7 @@ function TransactionRow({
           </>
         }
         subline={subline}
-        className="py-3 pl-2"
+        className="py-1.5 pl-2"
         dimmed={isFuture || pending}
         mutedAmount={isFuture || pending}
       />
@@ -801,7 +801,7 @@ function TransactionRow({
       party={otherParty}
       subline={subline}
       link={false}
-      className="py-3 pl-2"
+      className="py-1.5 pl-2"
       dimmed={isFuture}
       mutedAmount={isFuture}
       trailing={

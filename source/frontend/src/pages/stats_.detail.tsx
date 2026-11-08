@@ -188,7 +188,7 @@ export function NetWorthDetailPage() {
         />
 
         {range.data ? (
-          <div className="border-border mx-2 flex items-center justify-between border-t pt-3 text-sm font-semibold tabular-nums">
+          <div className="border-border mx-2 -mt-5 flex items-center justify-between border-t pt-3 text-sm font-semibold tabular-nums">
             <span>{t('common.total')}</span>
             <span className="flex items-baseline gap-3">
               <span>{formatMoney(totalAtEnd)}</span>
@@ -263,7 +263,7 @@ function TransactionLine({ transaction }: { transaction: TransactionRead }) {
     <TransactionListItem
       transaction={transaction}
       party={otherParty}
-      className="ml-[1.625rem] px-2 py-2"
+      className="ml-[1.625rem] px-2 py-1.5"
       subline={
         transaction.purpose ? (
           <span className="text-muted-foreground truncate text-xs">{transaction.purpose}</span>
