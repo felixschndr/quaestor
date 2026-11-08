@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 from datetime import date
@@ -10,6 +11,12 @@ from source.backend.bank_handlers.dfs_handler import DFSHandler, _DFSSession
 from source.backend.exceptions import InvalidCredentialsError, UnknownInternalError
 from source.backend.models.transactions.transaction_type import TransactionType
 from tests.backend.conftest import (
+    DFS_FUND_A,
+    DFS_FUND_A_BALANCE,
+    DFS_FUND_A_COST_BASIS,
+    DFS_FUND_B,
+    DFS_FUND_B_BALANCE,
+    DFS_FUND_B_COST_BASIS,
     ETF_NAME,
     ISIN,
     LAST_FETCHING_TIMESTAMP,
@@ -39,8 +46,8 @@ DASHBOARD_REDIRECT_URL = f"{_DFSSession.BASE_URL}/acaphc/Dashboard.action"
 KURSE_LIST = {
     "daten": {
         "rows": [
-            {"id": "1:STANDARD_BAV", "isin": "DE000STOCKA0", "name": "Stock A"},
-            {"id": "2:STANDARD_BAV", "isin": "DE000STOCKB0", "name": "Stock B"},
+            {"id": "1:STANDARD_BAV", "isin": "DE000STOCKA0", "name": DFS_FUND_A},
+            {"id": "2:STANDARD_BAV", "isin": "DE000STOCKB0", "name": DFS_FUND_B},
         ]
     }
 }
@@ -113,28 +120,42 @@ def dfs_session() -> _DFSSession:
     return _DFSSession(username=USER_NAME, password=VALID_PASSWORD)
 
 
-def test_get_accounts_returns_fund_names_from_dashboard_snapshot(monkeypatch: pytest.MonkeyPatch):
+def test_get_accounts_returns_fund_names_and_cost_basis_from_dashboard_snapshot(monkeypatch: pytest.MonkeyPatch):
     patch_session(monkeypatch=monkeypatch, fake=FakeSession())
 
     accounts = dfs_session().get_accounts()
 
-    assert accounts == [FetchedAccount(name="Stock A"), FetchedAccount(name="Stock B")]
+    assert accounts == [
+        FetchedAccount(name=DFS_FUND_A, cost_basis=DFS_FUND_A_COST_BASIS),
+        FetchedAccount(name=DFS_FUND_B, cost_basis=DFS_FUND_B_COST_BASIS),
+    ]
+
+
+def test_get_accounts_leaves_the_cost_basis_open_without_a_reported_gain(monkeypatch: pytest.MonkeyPatch):
+    snapshot = copy.deepcopy(DASHBOARD_SNAPSHOT)
+    for fund in snapshot["snapshotWidget"]["kontoModellList"][0]["aktuellesDecorator"]["kapitalItem"]["delegate"][
+        "kontoDaten"
+    ]:
+        del fund["gewinn"]
+    patch_session(monkeypatch=monkeypatch, fake=FakeSession(snapshot_data=snapshot))
+
+    assert [account.cost_basis for account in dfs_session().get_accounts()] == [None, None]
 
 
 def test_get_balance_returns_guthaben_for_account(monkeypatch: pytest.MonkeyPatch):
     patch_session(monkeypatch=monkeypatch, fake=FakeSession())
     session = dfs_session()
 
-    assert session.get_balance(FetchedAccount(name="Stock A")) == 110.0
-    assert session.get_balance(FetchedAccount(name="Stock B")) == 220.0
+    assert session.get_balance(FetchedAccount(name=DFS_FUND_A)) == DFS_FUND_A_BALANCE
+    assert session.get_balance(FetchedAccount(name=DFS_FUND_B)) == DFS_FUND_B_BALANCE
 
 
 def test_get_transactions_groups_rows_by_fund_and_maps_einzahlung(monkeypatch: pytest.MonkeyPatch):
     patch_session(monkeypatch=monkeypatch, fake=FakeSession())
     session = dfs_session()
 
-    stock_a = session.get_transactions(FetchedAccount(name="Stock A"), start_date=date(year=2020, month=1, day=1))
-    stock_b = session.get_transactions(FetchedAccount(name="Stock B"), start_date=date(year=2020, month=1, day=1))
+    stock_a = session.get_transactions(FetchedAccount(name=DFS_FUND_A), start_date=date(year=2020, month=1, day=1))
+    stock_b = session.get_transactions(FetchedAccount(name=DFS_FUND_B), start_date=date(year=2020, month=1, day=1))
 
     assert [(t.amount, t.purpose, t.date, t.transaction_type) for t in stock_a] == [
         (10.0, "AG-Beitrag laufend", RECENT_DATE, TransactionType.DEPOSIT),
@@ -151,7 +172,7 @@ def test_transactions_ignore_the_start_date(monkeypatch: pytest.MonkeyPatch):
     session = dfs_session()
 
     # A fund switch settles later under its original date, so older rows must still arrive
-    transactions = session.get_transactions(FetchedAccount(name="Stock A"), start_date=LATEST_DATE)
+    transactions = session.get_transactions(FetchedAccount(name=DFS_FUND_A), start_date=LATEST_DATE)
 
     assert sorted(t.date for t in transactions) == [OLDER_DATE, RECENT_DATE]
 
@@ -163,8 +184,8 @@ def test_remote_data_is_only_fetched_once(monkeypatch: pytest.MonkeyPatch):
 
     session.get_accounts()
     session.get_accounts()
-    session.get_balance(FetchedAccount(name="Stock A"))
-    session.get_transactions(FetchedAccount(name="Stock A"), start_date=date(year=2020, month=1, day=1))
+    session.get_balance(FetchedAccount(name=DFS_FUND_A))
+    session.get_transactions(FetchedAccount(name=DFS_FUND_A), start_date=date(year=2020, month=1, day=1))
 
     assert len([c for c in fake_session.calls if "login.action" in c[1]]) == 1
     assert len([c for c in fake_session.calls if "getDashboardSnapshot" in c[1]]) == 1
@@ -207,7 +228,7 @@ def test_get_market_value_history_values_units_times_index_price(monkeypatch: py
     patch_session(monkeypatch=monkeypatch, fake=FakeSession())
     session = dfs_session()
 
-    history = session.get_market_value_history(FetchedAccount(name="Stock A"))
+    history = session.get_market_value_history(FetchedAccount(name=DFS_FUND_A))
 
     # Stock A holds 3 units from OLDER_DATE and 1 more from RECENT_DATE; price index 35 -> 15 -> 100.
     assert [(observation.date, observation.amount) for observation in history] == [
@@ -220,7 +241,7 @@ def test_get_market_value_history_values_units_times_index_price(monkeypatch: py
 def test_get_market_value_history_is_empty_without_price_series(monkeypatch: pytest.MonkeyPatch):
     patch_session(monkeypatch=monkeypatch, fake=FakeSession(kurse_list_data={"daten": {"rows": []}}))
 
-    assert dfs_session().get_market_value_history(FetchedAccount(name="Stock A")) == []
+    assert dfs_session().get_market_value_history(FetchedAccount(name=DFS_FUND_A)) == []
 
 
 def test_price_series_of_a_fund_not_held_is_not_fetched(monkeypatch: pytest.MonkeyPatch):
@@ -259,8 +280,8 @@ def test_transactions_naming_unknown_fund_are_skipped(monkeypatch: pytest.Monkey
     patch_session(monkeypatch=monkeypatch, fake=FakeSession(transactions_data=transactions))
     session = dfs_session()
 
-    assert session.get_accounts() == [FetchedAccount(name="Stock A"), FetchedAccount(name="Stock B")]
-    assert session.get_transactions(FetchedAccount(name="Stock A"), start_date=OLDER_DATE)
+    assert [account.name for account in session.get_accounts()] == [DFS_FUND_A, DFS_FUND_B]
+    assert session.get_transactions(FetchedAccount(name=DFS_FUND_A), start_date=OLDER_DATE)
     assert "Ghost Fund" not in {account.name for account in session.get_accounts()}
 
 
@@ -268,7 +289,7 @@ def test_transactions_without_anteile_are_pending_and_move_no_units(monkeypatch:
     transactions = json.loads(json.dumps(TRANSACTIONS))
     transactions["daten"]["grid"]["dataSource"].append(
         {
-            "anlage": "Stock A",
+            "anlage": DFS_FUND_A,
             "belegdatum": str(LATEST_DATE_MS),
             "betrag": "5",
             "vorgang": "Einzahlung",
@@ -278,11 +299,11 @@ def test_transactions_without_anteile_are_pending_and_move_no_units(monkeypatch:
     patch_session(monkeypatch=monkeypatch, fake=FakeSession(transactions_data=transactions))
     session = dfs_session()
 
-    transactions = session.get_transactions(FetchedAccount(name="Stock A"), start_date=OLDER_DATE)
+    transactions = session.get_transactions(FetchedAccount(name=DFS_FUND_A), start_date=OLDER_DATE)
     assert [(t.amount, t.date, t.pending) for t in transactions if t.date == LATEST_DATE] == [(5.0, LATEST_DATE, True)]
     assert not any(t.pending for t in transactions if t.date != LATEST_DATE)
     # No unit move added, so the value history is unchanged (still 3 -> 4 units).
-    history = session.get_market_value_history(FetchedAccount(name="Stock A"))
+    history = session.get_market_value_history(FetchedAccount(name=DFS_FUND_A))
     assert [observation.amount for observation in history] == [105.0, 60.0, 400.0]
 
 
@@ -290,7 +311,7 @@ def test_a_fund_switch_out_is_a_swap_that_takes_money_and_units_out(monkeypatch:
     transactions = json.loads(json.dumps(TRANSACTIONS))
     transactions["daten"]["grid"]["dataSource"].append(
         {
-            "anlage": "Stock A",
+            "anlage": DFS_FUND_A,
             "belegdatum": str(LATEST_DATE_MS),
             "anteile": "2",
             "betrag": "200",
@@ -304,12 +325,12 @@ def test_a_fund_switch_out_is_a_swap_that_takes_money_and_units_out(monkeypatch:
     patch_session(monkeypatch=monkeypatch, fake=FakeSession(transactions_data=transactions))
     session = dfs_session()
 
-    transactions = session.get_transactions(FetchedAccount(name="Stock A"), start_date=OLDER_DATE)
+    transactions = session.get_transactions(FetchedAccount(name=DFS_FUND_A), start_date=OLDER_DATE)
     assert [(t.amount, t.transaction_type) for t in transactions if t.date == LATEST_DATE] == [
         (-200.0, TransactionType.SWAP)
     ]
     # 4 units before the switch, 2 after, priced at 100 on LATEST_DATE
-    history = session.get_market_value_history(FetchedAccount(name="Stock A"))
+    history = session.get_market_value_history(FetchedAccount(name=DFS_FUND_A))
     assert history[-1].amount == 200.0
 
 
@@ -318,9 +339,9 @@ def test_get_market_value_history_logs_debug_summary(monkeypatch: pytest.MonkeyP
     session = dfs_session()
 
     with caplog.at_level(logging.DEBUG):
-        session.get_market_value_history(FetchedAccount(name="Stock A"))
+        session.get_market_value_history(FetchedAccount(name=DFS_FUND_A))
 
-    assert_log_contains(caplog, message="valued Stock A")
+    assert_log_contains(caplog, message=f"valued {DFS_FUND_A}")
 
 
 def test_value_series_fills_transaction_days_with_carried_forward_price():

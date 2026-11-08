@@ -51,7 +51,7 @@ class _DFSSession(BankSession):
 
     def get_accounts(self) -> list[FetchedAccount]:
         self._fetch()
-        return [FetchedAccount(name=name) for name in self._accounts]
+        return [FetchedAccount(name=name, cost_basis=state["cost_basis"]) for name, state in self._accounts.items()]
 
     def get_balance(self, account: FetchedAccount) -> float:
         self._fetch()
@@ -88,8 +88,10 @@ class _DFSSession(BankSession):
                 modell_key = modell["modellTech"]
                 for fund in modell["aktuellesDecorator"]["kapitalItem"]["delegate"]["kontoDaten"]:
                     fund_name = fund["nameKapitalanlage"]
+                    gain = fund.get("gewinn")
                     self._accounts[fund_name] = {
                         "balance": float(fund["guthaben"]),
+                        "cost_basis": None if gain is None else round(float(fund["guthaben"]) - float(gain), ndigits=2),
                         "transactions": [],
                         "units_moves": [],
                         "kurs_series": [],
