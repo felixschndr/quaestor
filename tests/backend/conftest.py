@@ -85,6 +85,8 @@ LAST_FETCHING_TIMESTAMP = datetime(year=2026, month=1, day=1)
 OLDER_DATE = _date(year=2026, month=3, day=30)
 RECENT_DATE = _date(year=2026, month=4, day=29)
 LATEST_DATE = _date(year=2026, month=6, day=1)
+MONTH_END_DATE = _date(year=2026, month=1, day=31)
+SHORT_MONTH_END_DATE = _date(year=2026, month=2, day=28)  # 2026 is no leap year
 AMOUNT = 4000
 TWO_FACTOR_SECRET = "T2UXK5D6ZPTJ3WF2YXHYGGXKIT2G5LUH"  # nosec B105  # gitleaks:allow
 UNKNOWN_TRANSACTION_OTHER_PARTY = "Some random other party"
