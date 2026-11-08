@@ -42,6 +42,9 @@ _CASH_ACCOUNT_NAME = "Scalable Capital Verrechnungskonto"
 _OVERNIGHT_ACCOUNT_NAME = "Scalable Capital Tagesgeld"
 _OVERNIGHT_EXTERNAL_ID = "scalable-overnight"
 
+# `quote_performances` timeframe whose absolute return is per unit against the previous close
+_INTRADAY_TIMEFRAME = "INTRADAY"
+
 # `summary_type` values (broker_projections.rs' `__typename`) that carry a security `isin` and are
 # priced by number of shares, rather than being plain cash movements.
 _SIDE_BASED_SUMMARY_TYPES = frozenset({"BrokerSecurityTransactionSummary", "BrokerEltifTransactionSummary"})
@@ -191,6 +194,8 @@ class _AccountState(TypedDict):
     transactions: list[FetchedTransaction]
     isin: str | None
     external_id: str
+    cost_basis: float | None
+    previous_close_value: float | None
 
 
 class _ScalableCapitalSession(BankSession):
@@ -203,12 +208,22 @@ class _ScalableCapitalSession(BankSession):
         self._raw_broker_transactions: list[dict] | None = None
         self._value_history: dict[str, list[BalanceObservation]] | None = None
 
-    def _add_account(self, name: str, external_id: str, balance: float, isin: str | None = None) -> None:
+    def _add_account(
+        self,
+        name: str,
+        external_id: str,
+        balance: float,
+        isin: str | None = None,
+        cost_basis: float | None = None,
+        previous_close_value: float | None = None,
+    ) -> None:
         self._accounts[name] = {
             "balance": round(number=balance, ndigits=2),
             "transactions": [],
             "isin": isin,
             "external_id": external_id,
+            "cost_basis": cost_basis,
+            "previous_close_value": previous_close_value,
         }
 
     def _account_name_for_isin(self, isin: str) -> str | None:
@@ -218,7 +233,15 @@ class _ScalableCapitalSession(BankSession):
         if not self._fetched:
             asyncio.run(self._fetch())
             self._fetched = True
-        return [FetchedAccount(name=name, external_id=state["external_id"]) for name, state in self._accounts.items()]
+        return [
+            FetchedAccount(
+                name=name,
+                external_id=state["external_id"],
+                cost_basis=state["cost_basis"],
+                previous_close_value=state["previous_close_value"],
+            )
+            for name, state in self._accounts.items()
+        ]
 
     def get_balance(self, account: FetchedAccount) -> float:
         return self._accounts[account.name]["balance"]
@@ -253,11 +276,15 @@ class _ScalableCapitalSession(BankSession):
 
         holdings = await _run_command(config_dir=self._config_dir, args=("broker", "holdings"))
         for item in holdings.get("items") or []:
+            quantity = _get_or_zero(raw=item, key="quantity")
+            fifo_price = item.get("fifo_price")
             self._add_account(
                 name=item["name"],
                 external_id=item["isin"],
                 balance=_get_or_zero(raw=item, key="valuation"),
                 isin=item["isin"],
+                cost_basis=None if fifo_price is None else round(number=float(fifo_price) * quantity, ndigits=2),
+                previous_close_value=await self._previous_close_value(isin=item["isin"], quantity=quantity),
             )
 
         try:
@@ -274,6 +301,26 @@ class _ScalableCapitalSession(BankSession):
             )
 
         logger.debug(f"Fetched {len(self._accounts)} account(s)")
+
+    async def _previous_close_value(self, isin: str, quantity: float) -> float | None:
+        try:
+            quote = await _run_command(config_dir=self._config_dir, args=("broker", "quote", "--isin", isin))
+        except RuntimeError:
+            logger.debug(f"No quote for {isin}; skipping its day trend")
+            return None
+        intraday = next(
+            (
+                performance
+                for performance in quote.get("quote_performances") or []
+                if performance.get("timeframe") == _INTRADAY_TIMEFRAME
+            ),
+            None,
+        )
+        mid_price = quote.get("quote_mid_price")
+        if intraday is None or mid_price is None or intraday.get("simple_absolute_return") is None:
+            return None
+        previous_close = float(mid_price) - float(intraday["simple_absolute_return"])
+        return round(number=previous_close * quantity, ndigits=2)
 
     async def _fetch_transactions(self, start_date: date) -> None:
         from_time = f"{start_date.isoformat()}T00:00:00Z"
