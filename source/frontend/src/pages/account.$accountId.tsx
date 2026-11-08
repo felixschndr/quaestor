@@ -30,6 +30,7 @@ import {
 } from '@/lib/expectedTransaction'
 import {
   formatDate,
+  formatDateCompact,
   formatDateWithoutYear,
   formatDecimal,
   formatMoney,
@@ -62,6 +63,12 @@ import { BackLink } from '@/components/back-link'
 import { RowActions } from '@/components/row-actions'
 
 const SPARKLINE_FLAT_RATIO = 0.05
+
+interface ScrubPoint {
+  value: number
+  start: number
+  startDate: string
+}
 
 function SparklineAxis({ dates, activeSlot }: { dates: string[]; activeSlot?: number }) {
   const active = activeSlot != null
@@ -97,7 +104,7 @@ function AccountSparkline({
   onActiveDayChange,
 }: {
   accountId: number
-  onActiveDayChange: (value: number | null) => void
+  onActiveDayChange: (point: ScrubPoint | null) => void
 }) {
   const { t } = useTranslation()
   const accountIds = useMemo(() => [accountId], [accountId])
@@ -140,7 +147,11 @@ function AccountSparkline({
   // Drive both the local dot and the parent balance/date override from one place.
   const applyIndex = (index: number | null) => {
     setActiveIndex(index)
-    onActiveDayChange(index != null && index < series.length ? series[index].value : null)
+    onActiveDayChange(
+      index != null && index < series.length
+        ? { value: series[index].value, start: series[0].value, startDate: series[0].date }
+        : null,
+    )
   }
   const clear = () => {
     applyIndex(null)
@@ -261,7 +272,7 @@ export function AccountDetailView({
   const canBookManually = isManual && isOwner
   const [addingTxn, setAddingTxn] = useState(false)
   const [addingExpected, setAddingExpected] = useState(false)
-  const [sparklineValue, setSparklineValue] = useState<number | null>(null)
+  const [scrubPoint, setScrubPoint] = useState<ScrubPoint | null>(null)
 
   const stickyHeaderRef = useRef<HTMLDivElement>(null)
   const nameRowRef = useRef<HTMLDivElement>(null)
@@ -408,11 +419,11 @@ export function AccountDetailView({
             <BalanceDisplay
               account={account}
               isManual={canBookManually}
-              overrideValue={sparklineValue}
+              overrideValue={scrubPoint?.value ?? null}
             />
           </div>
-          <AccountSparkline accountId={account.id} onActiveDayChange={setSparklineValue} />
-          <PositionPerformance account={account} hidden={sparklineValue !== null} />
+          <AccountSparkline accountId={account.id} onActiveDayChange={setScrubPoint} />
+          <PositionPerformance account={account} scrubPoint={scrubPoint} />
           {canBookManually ? (
             <div className="flex flex-wrap gap-2">
               <Button
@@ -596,38 +607,72 @@ function BalanceDisplay({
   )
 }
 
-function PositionPerformance({ account, hidden }: { account: AccountRead; hidden: boolean }) {
+function PositionPerformance({
+  account,
+  scrubPoint,
+}: {
+  account: AccountRead
+  scrubPoint: ScrubPoint | null
+}) {
   const { t } = useTranslation()
-  const parts = [
-    { reference: account.cost_basis, label: t('account.sincePurchase'), className: '' },
-    {
-      reference: account.previous_close_value,
-      label: t('account.dayTrend'),
-      className: 'sm:ml-auto',
-    },
-  ].flatMap(({ reference, label, className }) => {
-    if (reference == null) return []
-    const delta = account.balance - reference
-    const tone =
-      delta > 0 ? 'text-success' : delta < 0 ? 'text-destructive' : 'text-muted-foreground'
-    const Icon = delta < 0 ? TrendingDown : TrendingUp
-    return [
-      <span
-        key={label}
-        className={cn('private-amount flex items-center gap-1 tabular-nums', tone, className)}
-      >
-        <Icon className="size-4 shrink-0" aria-hidden="true" />
-        <span className="sr-only">{delta < 0 ? '−' : '+'}</span>
-        {formatMoney(Math.abs(delta))}
-        {reference === 0 ? '' : ` (${formatPercent(Math.abs(delta / reference))})`} {label}
-      </span>,
-    ]
-  })
-  if (parts.length === 0) return null
+  if (account.cost_basis == null && account.previous_close_value == null) return null
+  // Both layers share one grid cell, so swapping them while scrubbing never changes the height.
   return (
-    <p className={cn('flex flex-wrap gap-x-3 text-sm font-medium', hidden && 'invisible')}>
-      {parts}
-    </p>
+    <div className="grid text-sm font-medium *:[grid-area:1/1]">
+      <p className={cn('flex flex-wrap gap-x-3', scrubPoint && 'invisible')}>
+        <Performance
+          value={account.balance}
+          reference={account.cost_basis}
+          label={t('account.sincePurchase')}
+        />
+        <Performance
+          value={account.balance}
+          reference={account.previous_close_value}
+          label={t('account.dayTrend')}
+          className="sm:ml-auto"
+        />
+      </p>
+      {scrubPoint ? (
+        <p className="flex flex-wrap gap-x-3">
+          <Performance
+            value={scrubPoint.value}
+            reference={scrubPoint.start}
+            label={t('account.sinceDate', { date: formatDateCompact(scrubPoint.startDate) })}
+          />
+          <Performance
+            value={account.balance}
+            reference={scrubPoint.value}
+            label={t('account.untilToday')}
+            className="sm:ml-auto"
+          />
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function Performance({
+  value,
+  reference,
+  label,
+  className,
+}: {
+  value: number
+  reference: number | null
+  label: string
+  className?: string
+}) {
+  if (reference == null) return null
+  const delta = value - reference
+  const tone = delta > 0 ? 'text-success' : delta < 0 ? 'text-destructive' : 'text-muted-foreground'
+  const Icon = delta < 0 ? TrendingDown : TrendingUp
+  return (
+    <span className={cn('private-amount flex items-center gap-1 tabular-nums', tone, className)}>
+      <Icon className="size-4 shrink-0" aria-hidden="true" />
+      <span className="sr-only">{delta < 0 ? '−' : '+'}</span>
+      {formatMoney(Math.abs(delta))}
+      {reference === 0 ? '' : ` (${formatPercent(Math.abs(delta / reference))})`} {label}
+    </span>
   )
 }
 

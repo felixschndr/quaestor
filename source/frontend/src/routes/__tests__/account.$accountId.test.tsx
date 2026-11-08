@@ -38,7 +38,7 @@ import { AccountDetailView } from '@/pages/account.$accountId'
 import { Route } from '@/routes/account.$accountId'
 import { OFFLINE_BANNER_RESIZE_EVENT } from '@/components/offline-banner'
 import { STORAGE_KEY } from '@/lib/collapsedGroups'
-import { formatDateWithoutYear, formatPercent } from '@/lib/format'
+import { formatDateCompact, formatDateWithoutYear, formatPercent } from '@/lib/format'
 import type { ExpectedTransactionRead } from '@/lib/expectedTransaction'
 import { routeState } from './-routerMock'
 import { buildUser, jsonResponse, renderWithQuery } from '@/test/helpers'
@@ -620,11 +620,13 @@ describe('AccountDetailView — position performance', () => {
     expect(performance()).not.toBeInTheDocument()
   })
 
-  it('turns invisible while scrubbing the sparkline, as it describes the current value', async () => {
+  it('compares the scrubbed day to the first charted day and to today instead', async () => {
+    const scrubbedValue = AMOUNT_XL + AMOUNT_L
     serve({
       'GET /api/statistics/net-worth': {
         series: [
           { date: DATE_OLDER, value: AMOUNT_XL },
+          { date: DATE_MID_MONTH, value: scrubbedValue },
           { date: DATE_TODAY, value: TEST_BALANCE },
         ],
         summary: null,
@@ -633,11 +635,28 @@ describe('AccountDetailView — position performance', () => {
     renderView([], { account: position })
     const chart = (await screen.findByText(formatDateWithoutYear(DATE_OLDER))).closest('a')!
       .firstElementChild as HTMLElement
+    const sinceStart = () => screen.queryByText(/since (?!purchase)/)
+    const untilToday = () => screen.queryByText(/until today$/)
 
-    fireEvent.pointerDown(chart, { clientX: 0 })
+    fireEvent.pointerDown(chart, { clientX: 400 })
     expect(performance()).toHaveClass('invisible')
+    expect(sinceStart()).toHaveTextContent(
+      text(
+        `+${money(AMOUNT_L)} (${formatPercent(AMOUNT_L / AMOUNT_XL)}) since ${formatDateCompact(DATE_OLDER)}`,
+      ),
+    )
+    expect(sinceStart()).toHaveClass('text-success')
+    expect(untilToday()).toHaveTextContent(
+      text(
+        `−${money(scrubbedValue - TEST_BALANCE)} (${formatPercent((scrubbedValue - TEST_BALANCE) / scrubbedValue)}) until today`,
+      ),
+    )
+    expect(untilToday()).toHaveClass('text-destructive', 'sm:ml-auto')
+
     fireEvent.pointerUp(chart)
     expect(performance()).not.toHaveClass('invisible')
+    expect(sinceStart()).not.toBeInTheDocument()
+    expect(untilToday()).not.toBeInTheDocument()
   })
 })
 

@@ -271,6 +271,8 @@
     "notFound": "Das Konto, das du suchst, dies nicht es ist.",
     "sincePurchase": "seit dem Kauf",
     "dayTrend": "heute",
+    "sinceDate": "seit dem {{date}}",
+    "untilToday": "bis heute",
     "loadingMore": "Weitere Transaktionen werden geladen …"
   },
   "search": {
