@@ -7,13 +7,23 @@ import '@/i18n'
 import { selectFromPopover } from '@/test/popover-select'
 import type { TransactionDetailRead, TransactionRead } from '@/lib/accountHistory'
 
-const { navigate, toast } = vi.hoisted(() => ({
+const { navigate, toast, historyGo, historyState } = vi.hoisted(() => ({
   navigate: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn(), promise: vi.fn() },
+  historyGo: vi.fn(),
+  historyState: { __TSR_index: 0 },
 }))
-vi.mock('@tanstack/react-router', async () =>
-  (await import('./-routerMock')).routerMocks({ useNavigate: () => navigate }),
-)
+vi.mock('@tanstack/react-router', async () => {
+  const mocks = (await import('./-routerMock')).routerMocks({ useNavigate: () => navigate })
+  const router = mocks.useRouter()
+  return {
+    ...mocks,
+    useRouter: () => ({
+      ...router,
+      history: { ...router.history, go: historyGo, location: { state: historyState } },
+    }),
+  }
+})
 vi.mock('sonner', () => ({ toast }))
 
 const NETFLIX_CONTRACT = {
@@ -68,6 +78,7 @@ import {
 
 beforeEach(() => {
   contractMocks.contracts = [NETFLIX_CONTRACT]
+  historyState.__TSR_index = 0
 })
 
 function buildTransaction(overrides: Partial<TransactionDetailRead> = {}): TransactionDetailRead {
@@ -1026,7 +1037,7 @@ describe('TransactionDetailPage', () => {
       [55, ACCOUNT_NAME_SAVINGS],
       [77, 'Other account'],
     ])(
-      'links a transaction from account %s with this one and opens the source',
+      'links a transaction from account %s with this one and opens the source when entered directly',
       async (sourceAccountId, partner) => {
         const user = userEvent.setup()
         const sourceUrl = `/api/account/${sourceAccountId}/transactions/99`
@@ -1051,8 +1062,10 @@ describe('TransactionDetailPage', () => {
           expect(navigate).toHaveBeenCalledWith({
             to: '/transactions/$transactionId',
             params: { transactionId: '99' },
+            replace: true,
           }),
         )
+        expect(historyGo).not.toHaveBeenCalled()
         expect(bodyOf('PUT', `${sourceUrl}/related-link`)).toEqual({
           counterpart_account_id: 42,
           counterpart_transaction_id: 7,
@@ -1063,6 +1076,23 @@ describe('TransactionDetailPage', () => {
         )
       },
     )
+
+    it('steps back over search and target to the source after linking', async () => {
+      const user = userEvent.setup()
+      historyState.__TSR_index = 3
+      renderPage({
+        search: { link_account_id: 55, link_transaction_id: 99 },
+        routes: {
+          'GET /api/account/55/transactions/99': source,
+          'PUT /api/account/55/transactions/99/related-link': source,
+        },
+      })
+
+      await user.click(await screen.findByRole('button', { name: 'Link transaction' }))
+
+      await waitFor(() => expect(historyGo).toHaveBeenCalledWith(-2))
+      expect(navigate).not.toHaveBeenCalled()
+    })
 
     it('does not offer linking a pending source', async () => {
       renderPage({

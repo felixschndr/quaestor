@@ -1,5 +1,5 @@
 import { type ReactNode, useRef, useState } from 'react'
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeftRight, Download, Paperclip, Plus, SquarePen, Trash2, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
@@ -208,6 +208,7 @@ function LinkConfirmSection({
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const router = useRouter()
   const { data: user } = useAuthMe()
   const sourceQuery = useTransaction(source.accountId, source.transactionId)
   const link = useLinkRelated(source.accountId, source.transactionId)
@@ -231,12 +232,17 @@ function LinkConfirmSection({
           counterpartAccountId: targetAccountId,
           counterpartTransactionId: target.id,
         })
-        .then(() =>
-          navigate({
+        .then(() => {
+          if (router.history.location.state.__TSR_index >= 2) {
+            router.history.go(-2)
+            return
+          }
+          return navigate({
             to: '/transactions/$transactionId',
             params: { transactionId: String(source.transactionId) },
-          }),
-        ),
+            replace: true,
+          })
+        }),
       {
         loading: t('common.saving'),
         success: t('transaction.linkSuccess'),
