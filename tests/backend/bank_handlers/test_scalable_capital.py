@@ -56,6 +56,7 @@ SECOND_QUANTITY = 20.0
 SOLD_QUANTITY = 4.0
 PRICES = {OLDER_DATE: 100.0, RECENT_DATE: 110.0, LATEST_DATE: 120.0}
 SECOND_PRICES = {OLDER_DATE: 25.0, RECENT_DATE: 30.0}
+PREVIOUS_CLOSE_PRICES = {ISIN: 115.0, SECOND_ISIN: 28.0}
 
 
 def _event_datetime(day: date) -> str:
@@ -327,9 +328,48 @@ def _chart_payload(args: tuple[str, ...]) -> dict:
     }
 
 
+def _quote_payload(args: tuple[str, ...]) -> dict:
+    isin = args[args.index("--isin") + 1]
+    mid_price = {ISIN: PRICES[LATEST_DATE], SECOND_ISIN: SECOND_PRICES[RECENT_DATE]}[isin]
+    previous_close = PREVIOUS_CLOSE_PRICES[isin]
+    return {
+        "ok": True,
+        "command": "broker.quote",
+        "data": {
+            "account_id": ACCOUNT_UID,
+            "portfolio_id": PORTFOLIO_ID,
+            "resolution": {"account": "selected_context", "portfolio": "selected_context"},
+            "result": {
+                "account_id": ACCOUNT_UID,
+                "portfolio_id": PORTFOLIO_ID,
+                "isin": isin,
+                "security_type": "STOCK",
+                "quote_mid_price": mid_price,
+                "quote_currency": EURO,
+                "quote_is_outdated": False,
+                "quote_performance_date": LATEST_DATE.isoformat(),
+                # INTRADAY's absolute return is per unit; SINCE_BUY's is for the whole position.
+                "quote_performances": [
+                    {
+                        "timeframe": "SINCE_BUY",
+                        "performance": 0.5,
+                        "simple_absolute_return": SHARE_COUNT * mid_price,
+                    },
+                    {
+                        "timeframe": "INTRADAY",
+                        "performance": mid_price / previous_close - 1,
+                        "simple_absolute_return": mid_price - previous_close,
+                    },
+                ],
+            },
+        },
+    }
+
+
 BASE_PAYLOADS = {
     "broker cash-breakdown": [CASH_BREAKDOWN_PAYLOAD],
     "broker holdings": [HOLDINGS_PAYLOAD],
+    "broker quote": [_quote_payload],
     "overnight": [OVERNIGHT_SUMMARY_PAYLOAD],
 }
 FULL_PAYLOADS = BASE_PAYLOADS | {
@@ -454,6 +494,57 @@ def test_get_accounts_lists_cash_positions_and_overnight(
         POSITION_NAME: SECOND_ISIN,
         "Scalable Capital Tagesgeld": "scalable-overnight",
     }
+
+
+def test_get_accounts_passes_on_cost_basis_and_previous_close_of_positions(monkeypatch: pytest.MonkeyPatch):
+    session = _fetched_session(monkeypatch)
+
+    accounts = {account.name: account for account in session.get_accounts()}
+
+    assert accounts[ETF_NAME].cost_basis == pytest.approx(SHARE_COUNT * PRICES[RECENT_DATE])
+    assert accounts[ETF_NAME].previous_close_value == pytest.approx(SHARE_COUNT * PREVIOUS_CLOSE_PRICES[ISIN])
+    assert accounts[POSITION_NAME].cost_basis == pytest.approx(SECOND_QUANTITY * SECOND_PRICES[OLDER_DATE])
+    assert accounts[POSITION_NAME].previous_close_value == pytest.approx(
+        SECOND_QUANTITY * PREVIOUS_CLOSE_PRICES[SECOND_ISIN]
+    )
+    for cash_account in (CASH_ACCOUNT, OVERNIGHT_ACCOUNT):
+        assert accounts[cash_account.name].cost_basis is None
+        assert accounts[cash_account.name].previous_close_value is None
+
+
+def test_position_without_fifo_price_has_no_cost_basis(monkeypatch: pytest.MonkeyPatch):
+    holdings = deepcopy(HOLDINGS_PAYLOAD)
+    del holdings["data"]["result"]["items"][0]["fifo_price"]
+
+    session = _fetched_session(monkeypatch, payloads=FULL_PAYLOADS | {"broker holdings": [holdings]})
+
+    position = next(account for account in session.get_accounts() if account.name == ETF_NAME)
+    assert position.cost_basis is None
+    assert position.previous_close_value == pytest.approx(SHARE_COUNT * PREVIOUS_CLOSE_PRICES[ISIN])
+
+
+def test_unavailable_quote_leaves_the_day_trend_empty(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    with caplog.at_level(logging.DEBUG):
+        session = _fetched_session(monkeypatch, payloads=FULL_PAYLOADS | {"broker quote": [{"ok": False}]})
+
+    position = next(account for account in session.get_accounts() if account.name == ETF_NAME)
+    assert position.previous_close_value is None
+    assert position.cost_basis == pytest.approx(SHARE_COUNT * PRICES[RECENT_DATE])
+    assert_log_contains(caplog, message=f"No quote for {ISIN}; skipping its day trend")
+
+
+def test_quote_without_intraday_performance_leaves_the_day_trend_empty(monkeypatch: pytest.MonkeyPatch):
+    def quote_without_intraday(args: tuple[str, ...]) -> dict:
+        payload = _quote_payload(args)
+        result = payload["data"]["result"]
+        result["quote_performances"] = [p for p in result["quote_performances"] if p["timeframe"] != "INTRADAY"]
+        return payload
+
+    session = _fetched_session(monkeypatch, payloads=FULL_PAYLOADS | {"broker quote": [quote_without_intraday]})
+
+    assert all(account.previous_close_value is None for account in session.get_accounts())
 
 
 def test_cash_balance_comes_from_the_cash_breakdown_command(monkeypatch: pytest.MonkeyPatch):
