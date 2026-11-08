@@ -945,6 +945,7 @@
     "createToAssign": "No contracts on this account — create one first",
     "noneOnAccount": "No contracts on this account",
     "frequency": {
+      "DAILY": "Daily",
       "WEEKLY": "$t(common.weekly)",
       "BIWEEKLY": "Biweekly",
       "MONTHLY": "Monthly",

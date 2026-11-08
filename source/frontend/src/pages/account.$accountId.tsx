@@ -808,7 +808,9 @@ function RecurringTransactionRow({
       ? t('credentials.manualTransactions.dayOfMonthSummary', {
           day: String(rule.day_of_month).padStart(2, '0'),
         })
-      : t(`common.weekdays.${rule.day_of_week}`)
+      : rule.frequency === 'WEEKLY'
+        ? t(`common.weekdays.${rule.day_of_week}`)
+        : frequencyLabel
 
   const onDelete = async () => {
     try {

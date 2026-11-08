@@ -231,6 +231,33 @@ def test_book_due_catches_up_multiple_missed_monthly_occurrences(
         assert rule.next_run_date == _d("2026-06-15")
 
 
+def test_daily_rule_books_today_and_catches_up_every_missed_day(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    account_id = persist_manual_account_with_new_user(session_factory, balance=1000.0)
+    _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-06"))
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        rule = recurring_transaction_service.create_recurring_transaction(
+            db_session=session,
+            account=account,
+            fields={"amount": -10.0, "frequency": RecurrenceFrequency.DAILY},
+            book_immediately=True,
+        )
+        assert rule.next_run_date == _d("2026-06-07")
+
+    _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-06-09"))
+    with session_factory() as session:
+        recurring_transaction_service.book_due_recurring_transactions(session)
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        assert account.balance == 960.0
+        booked_dates = sorted(transaction.date for transaction in account.transactions)
+        assert booked_dates == [_d("2026-06-06"), _d("2026-06-07"), _d("2026-06-08"), _d("2026-06-09")]
+        assert session.scalars(select(RecurringTransaction)).one().next_run_date == _d("2026-06-10")
+
+
 def test_book_due_clamps_day_of_month_to_february(session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch):
     account_id = persist_manual_account_with_new_user(session_factory, balance=500.0)
     _freeze_today(monkeypatch=monkeypatch, today_value=_d("2026-01-31"))

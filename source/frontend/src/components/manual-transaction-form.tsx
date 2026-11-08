@@ -291,7 +291,7 @@ export function ManualTransactionForm({
       </FormField>
       {recurring ? (
         <>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={frequency === 'DAILY' ? '' : 'grid grid-cols-2 gap-3'}>
             <FormField
               id={`${fieldIdPrefix}-frequency`}
               label={t('credentials.manualTransactions.fieldFrequency')}
@@ -324,7 +324,7 @@ export function ManualTransactionForm({
                   }))}
                 />
               </FormField>
-            ) : (
+            ) : frequency === 'WEEKLY' ? (
               <FormField id={`${fieldIdPrefix}-day-of-week`} label={t('common.weekday')}>
                 <SingleSelectPopover
                   id={`${fieldIdPrefix}-day-of-week`}
@@ -337,9 +337,8 @@ export function ManualTransactionForm({
                   }))}
                 />
               </FormField>
-            )}
+            ) : null}
           </div>
-          {/* "Book today" is a one-off action only relevant when creating a rule. */}
           {mode === 'create' ? (
             <div className="flex items-center justify-between gap-2">
               <Label

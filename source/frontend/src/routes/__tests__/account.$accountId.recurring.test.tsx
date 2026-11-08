@@ -141,6 +141,15 @@ describe('RecurringTransactionsList', () => {
     ).toBeInTheDocument()
   })
 
+  it('describes a daily rule by its frequency', () => {
+    mockedList.mockReturnValue({
+      data: [buildRule({ frequency: 'DAILY', day_of_month: null, other_party: PARTY_SUPERMARKET })],
+    } as unknown as ReturnType<typeof useRecurringTransactions>)
+    renderManualAccount()
+
+    expect(screen.getByText('Daily')).toBeInTheDocument()
+  })
+
   it('deletes a rule after confirmation', async () => {
     const user = userEvent.setup()
     mockedList.mockReturnValue({ data: [buildRule({ id: 99 })] } as unknown as ReturnType<

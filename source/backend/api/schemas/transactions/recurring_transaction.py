@@ -25,11 +25,15 @@ class _RecurringTransactionFields(BaseModel):
                 raise ValueError(f"day_of_month is required for a {RecurrenceFrequency.MONTHLY.value} recurrence")
             if self.day_of_week is not None:
                 raise ValueError(f"day_of_week must be omitted for a {RecurrenceFrequency.MONTHLY.value} recurrence")
-        else:
+        elif self.frequency == RecurrenceFrequency.WEEKLY:
             if self.day_of_week is None:
                 raise ValueError(f"day_of_week is required for a {RecurrenceFrequency.WEEKLY.value} recurrence")
             if self.day_of_month is not None:
                 raise ValueError(f"day_of_month must be omitted for a {RecurrenceFrequency.WEEKLY.value} recurrence")
+        elif self.day_of_month is not None or self.day_of_week is not None:
+            raise ValueError(
+                f"day_of_month and day_of_week must be omitted for a {RecurrenceFrequency.DAILY.value} recurrence"
+            )
         return self
 
 

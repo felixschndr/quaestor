@@ -138,6 +138,29 @@ describe('ManualTransactionForm — recurring', () => {
     })
   })
 
+  it('offers daily, weekly and monthly in that order and posts a daily payload without a day', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.click(screen.getByRole('switch', { name: 'Recurring' }))
+    await user.type(screen.getByLabelText('Amount'), '1000')
+    await user.click(screen.getByLabelText('Frequency'))
+    const list = await screen.findByRole('list', { name: 'Frequency' })
+    expect(
+      within(list)
+        .getAllByRole('button')
+        .map((option) => option.textContent),
+    ).toEqual(['Daily', 'Weekly', 'Monthly'])
+    await user.click(within(list).getByRole('button', { name: 'Daily' }))
+    expect(screen.queryByLabelText('Day of month')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Weekday')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(mockedApi.mock.calls[0][1]).toMatchObject({
+      body: { frequency: 'DAILY', day_of_month: null, day_of_week: null },
+    })
+  })
+
   it('marks the amount invalid only after a failed save attempt, not on first render', async () => {
     const user = userEvent.setup()
     renderForm()

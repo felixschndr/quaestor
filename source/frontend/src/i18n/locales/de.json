@@ -945,6 +945,7 @@
     "createToAssign": "Auf diesem Konto gibt es keine Verträge – lege zuerst einen an",
     "noneOnAccount": "Auf diesem Konto gibt es keine Verträge",
     "frequency": {
+      "DAILY": "Täglich",
       "WEEKLY": "$t(common.weekly)",
       "BIWEEKLY": "Zweiwöchentlich",
       "MONTHLY": "Monatlich",

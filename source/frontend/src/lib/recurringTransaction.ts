@@ -6,7 +6,7 @@ import { authQueryKeys } from './auth'
 import { useInvalidatingMutation } from './mutation'
 import type { CategoryKey, TransactionType } from './transaction'
 
-export const RECURRENCE_FREQUENCIES = ['MONTHLY', 'WEEKLY'] as const
+export const RECURRENCE_FREQUENCIES = ['DAILY', 'WEEKLY', 'MONTHLY'] as const
 
 export type RecurrenceFrequency = (typeof RECURRENCE_FREQUENCIES)[number]
 

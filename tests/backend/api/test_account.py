@@ -1026,6 +1026,8 @@ def test_create_recurring_transaction_requires_account_of_user(http_client: Test
             "day_of_week": RECENT_DATE.weekday(),
             "day_of_month": RECENT_DATE.day,
         },
+        {"frequency": RecurrenceFrequency.DAILY.value, "day_of_week": RECENT_DATE.weekday()},
+        {"frequency": RecurrenceFrequency.DAILY.value, "day_of_month": RECENT_DATE.day},
     ],
 )
 def test_create_recurring_transaction_rejects_a_day_that_does_not_fit_the_frequency(
