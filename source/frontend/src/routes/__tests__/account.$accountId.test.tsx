@@ -38,7 +38,12 @@ import { AccountDetailView } from '@/pages/account.$accountId'
 import { Route } from '@/routes/account.$accountId'
 import { OFFLINE_BANNER_RESIZE_EVENT } from '@/components/offline-banner'
 import { STORAGE_KEY } from '@/lib/collapsedGroups'
-import { formatDateCompact, formatDateWithoutYear, formatPercent } from '@/lib/format'
+import {
+  formatDateCompact,
+  formatDateShortWeekdayWithoutYear,
+  formatDateWithoutYear,
+  formatPercent,
+} from '@/lib/format'
 import type { ExpectedTransactionRead } from '@/lib/expectedTransaction'
 import { routeState } from './-routerMock'
 import { buildUser, jsonResponse, renderWithQuery } from '@/test/helpers'
@@ -462,6 +467,17 @@ describe('AccountDetailView — balance sparkline', () => {
     expect(link).toHaveAccessibleName('Statistics')
     expect(within(link).getByText(formatDateWithoutYear(DATE_MID_MONTH))).toBeInTheDocument()
     expect(within(link).getByText(formatDateWithoutYear(DATE_TODAY))).toBeInTheDocument()
+  })
+
+  it('abbreviates the weekdays of the axis dates when the chart is too narrow for them', async () => {
+    const { link } = await renderChart(rising)
+    expect(within(link).getByText(formatDateWithoutYear(DATE_TODAY))).toHaveClass(
+      'hidden',
+      '@min-[24rem]:inline',
+    )
+    expect(within(link).getByText(formatDateShortWeekdayWithoutYear(DATE_TODAY))).toHaveClass(
+      '@min-[24rem]:hidden',
+    )
   })
 
   it.each([

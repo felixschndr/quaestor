@@ -31,6 +31,7 @@ import {
 import {
   formatDate,
   formatDateCompact,
+  formatDateShortWeekdayWithoutYear,
   formatDateWithoutYear,
   formatDecimal,
   formatMoney,
@@ -73,28 +74,34 @@ interface ScrubPoint {
 function SparklineAxis({ dates, activeSlot }: { dates: string[]; activeSlot?: number }) {
   const active = activeSlot != null
   return (
-    <div className="private-chart text-muted-foreground mt-1 flex items-center gap-2 text-[11px]">
-      {dates.map((date, index) => (
-        <Fragment key={index}>
-          {index > 0 ? (
-            <span
-              className={cn(
-                'bg-foreground/20 h-px flex-1 transition-opacity',
-                active && 'opacity-40',
-              )}
-              aria-hidden="true"
-            />
-          ) : null}
-          <span
-            className={cn(
-              'whitespace-nowrap transition-opacity',
-              index === activeSlot ? 'text-foreground font-medium' : active && 'opacity-40', // dim the flanking start/end dates while scrubbing
-            )}
-          >
-            {formatDateWithoutYear(date)}
-          </span>
-        </Fragment>
-      ))}
+    <div className="@container mt-1">
+      <div className="private-chart text-muted-foreground flex items-center gap-2 text-[11px]">
+        {dates.map((date, index) => {
+          const labelClassName = cn(
+            'whitespace-nowrap transition-opacity',
+            index === activeSlot ? 'text-foreground font-medium' : active && 'opacity-40', // dim the flanking start/end dates while scrubbing
+          )
+          return (
+            <Fragment key={index}>
+              {index > 0 ? (
+                <span
+                  className={cn(
+                    'bg-foreground/20 h-px flex-1 transition-opacity',
+                    active && 'opacity-40',
+                  )}
+                  aria-hidden="true"
+                />
+              ) : null}
+              <span className={cn(labelClassName, 'hidden @min-[24rem]:inline')}>
+                {formatDateWithoutYear(date)}
+              </span>
+              <span className={cn(labelClassName, '@min-[24rem]:hidden')}>
+                {formatDateShortWeekdayWithoutYear(date)}
+              </span>
+            </Fragment>
+          )
+        })}
+      </div>
     </div>
   )
 }
