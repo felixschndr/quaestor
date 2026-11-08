@@ -40,9 +40,9 @@ RUN python -m compileall -q /app/.venv/lib || true
 FROM python:3.14-slim-trixie AS scalable-cli-builder
 
 ARG TARGETARCH
-ARG SC_VERSION=v1.0.0
-ARG SC_SHA256_AMD64=f572bf49b853be35c56bc59b7ab2f4576be2ed524a1a3a0b0658ed69a54a6180
-ARG SC_SHA256_ARM64=414761301b7f8c68df919484769d7086aa1477afbf2fd62e009ca792a796a0b8
+ARG SC_VERSION=v1.2.0
+ARG SC_SHA256_AMD64=5a7b77c2bd5e66530ddc3fdab044b575adecf2ff13ec83898a82800a11e12f98
+ARG SC_SHA256_ARM64=c4aaabf12632455f5249202f15a80e27efd6bae29c24a02dd703ea072a9537a8
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
 

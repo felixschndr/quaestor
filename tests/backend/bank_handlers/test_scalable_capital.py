@@ -43,7 +43,7 @@ from tests.backend.conftest import (
     assert_log_contains,
 )
 
-# All payloads below mirror the shapes the pinned `sc 1.0.0` binary really emits (captured by
+# All payloads below mirror the shapes the pinned `sc 1.2.0` binary really emits (captured by
 # running the released binary directly against a live account). The envelope is
 # `{ok, command, data}`; for every broker/overnight command except `broker chart`, `data` nests the
 # projection under an extra `result` key alongside resolution metadata (`_run_command` unwraps this).
@@ -673,11 +673,12 @@ def test_run_command_passes_through_data_without_a_result_key(monkeypatch: pytes
     assert result == chart_payload["data"]
 
 
-def test_run_command_retries_after_a_rate_limited_response(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+@pytest.mark.parametrize(argnames="error_code", argvalues=["rate_limited", "refresh_retryable"])
+def test_run_command_retries_after_a_retryable_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture, error_code: str
 ):
-    rate_limited = {"ok": False, "error": {"code": "rate_limited", "message": "backend rate limit exceeded"}}
-    responses = [rate_limited, rate_limited, HOLDINGS_PAYLOAD]
+    retryable = {"ok": False, "error": {"code": error_code, "message": "temporary failure"}}
+    responses = [retryable, retryable, HOLDINGS_PAYLOAD]
     _patch_cli_output(monkeypatch=monkeypatch, payloads=responses)
     sleeps: list[float] = []
 
@@ -694,16 +695,19 @@ def test_run_command_retries_after_a_rate_limited_response(
     assert_log_contains(
         caplog,
         messages=[
-            f"Rate-limited `{HOLDINGS_COMMAND}`; retrying in 2s",
-            f"Rate-limited `{HOLDINGS_COMMAND}`; retrying in 4s",
+            f"`{HOLDINGS_COMMAND}` failed with {error_code}; retrying in 2s",
+            f"`{HOLDINGS_COMMAND}` failed with {error_code}; retrying in 4s",
         ],
     )
 
 
-def test_run_command_gives_up_after_exhausting_rate_limit_retries(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+@pytest.mark.parametrize(argnames="error_code", argvalues=["rate_limited", "refresh_retryable"])
+def test_run_command_gives_up_after_exhausting_retries(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, error_code: str
+):
     _patch_cli_output(
         monkeypatch=monkeypatch,
-        payloads=[{"ok": False, "error": {"code": "rate_limited", "message": "backend rate limit exceeded"}}],
+        payloads=[{"ok": False, "error": {"code": error_code, "message": "temporary failure"}}],
     )
 
     async def fake_sleep(delay: float) -> None:
@@ -711,7 +715,7 @@ def test_run_command_gives_up_after_exhausting_rate_limit_retries(monkeypatch: p
 
     monkeypatch.setattr(target=asyncio, name="sleep", value=fake_sleep)
 
-    with pytest.raises(RuntimeError, match="rate_limited"):
+    with pytest.raises(RuntimeError, match=error_code):
         asyncio.run(scalable_capital._run_command(config_dir=tmp_path, args=("broker", "holdings")))
 
 
