@@ -28,10 +28,11 @@ logger = get_logger(__name__)
 
 # `sc` error codes that only a fresh device-code login can fix
 _REAUTHENTICATION_ERROR_CODES = frozenset({"no_session", "refresh_relogin_required", "auth_grant_not_enabled"})
-_RATE_LIMITED_ERROR_CODE = "rate_limited"
+# `sc` error codes that a later attempt of the same command can resolve
+_RETRYABLE_ERROR_CODES = frozenset({"rate_limited", "refresh_retryable"})
 
-# Retry delays for Scalable's backend rate limit (a full sync fires many `sc` calls back to back).
-_RATE_LIMIT_BACKOFF_SECONDS = (2, 4, 8, 16)
+# Retry delays for retryable errors (a full sync fires many `sc` calls back to back).
+_RETRY_BACKOFF_SECONDS = (2, 4, 8, 16)
 
 _TRANSACTION_PAGE_SIZE = "100"
 _SETTLED_STATUS = "SETTLED"
@@ -124,10 +125,10 @@ async def _run_command(config_dir: Path, args: tuple[str, ...]) -> dict:
             raise ReauthenticationRequiredError(
                 f"`{command_text}` was rejected ({error_code}); re-authentication required."
             )
-        if error_code == _RATE_LIMITED_ERROR_CODE and retries < len(_RATE_LIMIT_BACKOFF_SECONDS):
-            delay = _RATE_LIMIT_BACKOFF_SECONDS[retries]
+        if error_code in _RETRYABLE_ERROR_CODES and retries < len(_RETRY_BACKOFF_SECONDS):
+            delay = _RETRY_BACKOFF_SECONDS[retries]
             retries += 1
-            logger.warning(f"Rate-limited `{command_text}`; retrying in {delay}s")
+            logger.warning(f"`{command_text}` failed with {error_code}; retrying in {delay}s")
             await asyncio.sleep(delay)
             continue
 
