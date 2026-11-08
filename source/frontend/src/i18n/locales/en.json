@@ -269,6 +269,8 @@
     "marketValue": "Market value",
     "empty": "No transactions yet.",
     "notFound": "The account you seek, this is not.",
+    "sincePurchase": "since purchase",
+    "dayTrend": "today",
     "loadingMore": "Loading more transactions…"
   },
   "search": {

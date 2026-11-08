@@ -26,6 +26,8 @@ export interface AccountRead {
   is_archived: boolean
   include_by_default: boolean
   is_market_valued: boolean
+  cost_basis: number | null
+  previous_close_value: number | null
 }
 
 export interface CredentialRead {

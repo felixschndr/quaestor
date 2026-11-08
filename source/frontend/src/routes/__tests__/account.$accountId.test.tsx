@@ -38,7 +38,7 @@ import { AccountDetailView } from '@/pages/account.$accountId'
 import { Route } from '@/routes/account.$accountId'
 import { OFFLINE_BANNER_RESIZE_EVENT } from '@/components/offline-banner'
 import { STORAGE_KEY } from '@/lib/collapsedGroups'
-import { formatDateWithoutYear } from '@/lib/format'
+import { formatDateWithoutYear, formatPercent } from '@/lib/format'
 import type { ExpectedTransactionRead } from '@/lib/expectedTransaction'
 import { routeState } from './-routerMock'
 import { buildUser, jsonResponse, renderWithQuery } from '@/test/helpers'
@@ -559,6 +559,85 @@ describe('AccountDetailView — balance sparkline', () => {
     expect(afterUnmount.defaultPrevented).toBe(false)
     document.removeEventListener('touchstart', escaped)
     document.removeEventListener('touchmove', escaped)
+  })
+})
+
+describe('AccountDetailView — position performance', () => {
+  const position = {
+    ...account,
+    is_market_valued: true,
+    cost_basis: AMOUNT_XL,
+    previous_close_value: TEST_BALANCE - AMOUNT_S,
+  }
+  const performance = () => screen.queryByText(/since purchase/)?.parentElement ?? null
+  const text = (value: string) => value.replace(/\u00a0/g, ' ')
+
+  it('shows the gain since purchase and the day trend (right-aligned from sm up) with a trend icon per direction', () => {
+    renderView([], { account: position })
+    const loss = screen.getByText(/since purchase/)
+    const gain = screen.getByText(/today$/)
+    expect(loss).toHaveTextContent(
+      text(
+        `−${money(AMOUNT_XL - TEST_BALANCE)} (${formatPercent((AMOUNT_XL - TEST_BALANCE) / AMOUNT_XL)}) since purchase`,
+      ),
+    )
+    expect(loss).toHaveClass('text-destructive')
+    expect(loss.querySelector('.lucide-trending-down')).toBeInTheDocument()
+    expect(gain).toHaveTextContent(
+      text(`+${money(AMOUNT_S)} (${formatPercent(AMOUNT_S / (TEST_BALANCE - AMOUNT_S))}) today`),
+    )
+    expect(gain).toHaveClass('text-success', 'sm:ml-auto')
+    expect(gain.querySelector('.lucide-trending-up')).toBeInTheDocument()
+  })
+
+  it('sits below the sparkline', async () => {
+    serve({
+      'GET /api/statistics/net-worth': {
+        series: [
+          { date: DATE_OLDER, value: AMOUNT_XL },
+          { date: DATE_TODAY, value: TEST_BALANCE },
+        ],
+        summary: null,
+      },
+    })
+    renderView([], { account: position })
+    const chart = (await screen.findByText(formatDateWithoutYear(DATE_OLDER))).closest('a')!
+    expect(chart.compareDocumentPosition(performance()!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
+  it('leaves out the percentage of a free position and shows only what the bank reports', () => {
+    renderView([], {
+      account: { ...position, balance: 0, cost_basis: 0, previous_close_value: null },
+    })
+    const unchanged = screen.getByText(/since purchase/)
+    expect(unchanged).toHaveTextContent(text(`+${money(0)} since purchase`))
+    expect(unchanged).toHaveClass('text-muted-foreground')
+    expect(screen.queryByText(/today$/)).not.toBeInTheDocument()
+  })
+
+  it('shows nothing for an account without these values', () => {
+    renderView()
+    expect(performance()).not.toBeInTheDocument()
+  })
+
+  it('turns invisible while scrubbing the sparkline, as it describes the current value', async () => {
+    serve({
+      'GET /api/statistics/net-worth': {
+        series: [
+          { date: DATE_OLDER, value: AMOUNT_XL },
+          { date: DATE_TODAY, value: TEST_BALANCE },
+        ],
+        summary: null,
+      },
+    })
+    renderView([], { account: position })
+    const chart = (await screen.findByText(formatDateWithoutYear(DATE_OLDER))).closest('a')!
+      .firstElementChild as HTMLElement
+
+    fireEvent.pointerDown(chart, { clientX: 0 })
+    expect(performance()).toHaveClass('invisible')
+    fireEvent.pointerUp(chart)
+    expect(performance()).not.toHaveClass('invisible')
   })
 })
 

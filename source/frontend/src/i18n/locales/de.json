@@ -269,6 +269,8 @@
     "marketValue": "Marktwert",
     "empty": "Noch keine Transaktionen.",
     "notFound": "Das Konto, das du suchst, dies nicht es ist.",
+    "sincePurchase": "seit dem Kauf",
+    "dayTrend": "heute",
     "loadingMore": "Weitere Transaktionen werden geladen …"
   },
   "search": {

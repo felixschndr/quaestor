@@ -1,7 +1,16 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronRight, Pencil, Plus, Search, X } from 'lucide-react'
+import {
+  Check,
+  ChevronRight,
+  Pencil,
+  Plus,
+  Search,
+  TrendingDown,
+  TrendingUp,
+  X,
+} from 'lucide-react'
 import { Collapsible } from 'radix-ui'
 import { toast } from 'sonner'
 
@@ -24,6 +33,7 @@ import {
   formatDateWithoutYear,
   formatDecimal,
   formatMoney,
+  formatPercent,
   formatIban,
   formatRelativeDateTime,
   isIban,
@@ -402,6 +412,7 @@ export function AccountDetailView({
             />
           </div>
           <AccountSparkline accountId={account.id} onActiveDayChange={setSparklineValue} />
+          <PositionPerformance account={account} hidden={sparklineValue !== null} />
           {canBookManually ? (
             <div className="flex flex-wrap gap-2">
               <Button
@@ -582,6 +593,41 @@ function BalanceDisplay({
         </Button>
       ) : null}
     </div>
+  )
+}
+
+function PositionPerformance({ account, hidden }: { account: AccountRead; hidden: boolean }) {
+  const { t } = useTranslation()
+  const parts = [
+    { reference: account.cost_basis, label: t('account.sincePurchase'), className: '' },
+    {
+      reference: account.previous_close_value,
+      label: t('account.dayTrend'),
+      className: 'sm:ml-auto',
+    },
+  ].flatMap(({ reference, label, className }) => {
+    if (reference == null) return []
+    const delta = account.balance - reference
+    const tone =
+      delta > 0 ? 'text-success' : delta < 0 ? 'text-destructive' : 'text-muted-foreground'
+    const Icon = delta < 0 ? TrendingDown : TrendingUp
+    return [
+      <span
+        key={label}
+        className={cn('private-amount flex items-center gap-1 tabular-nums', tone, className)}
+      >
+        <Icon className="size-4 shrink-0" aria-hidden="true" />
+        <span className="sr-only">{delta < 0 ? '−' : '+'}</span>
+        {formatMoney(Math.abs(delta))}
+        {reference === 0 ? '' : ` (${formatPercent(Math.abs(delta / reference))})`} {label}
+      </span>,
+    ]
+  })
+  if (parts.length === 0) return null
+  return (
+    <p className={cn('flex flex-wrap gap-x-3 text-sm font-medium', hidden && 'invisible')}>
+      {parts}
+    </p>
   )
 }
 

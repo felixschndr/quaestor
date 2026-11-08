@@ -51,6 +51,10 @@ class Account(Base):
     transaction_history_incomplete: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     # Fingerprints of detected contracts the user deleted, so detection never recreates them.
     dismissed_contract_fingerprints: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    # Market-valued positions: purchase cost of the held units and their value at the previous close, so the
+    # client can show the gain since purchase and the day trend. NULL when the bank doesn't report them.
+    cost_basis: Mapped[float | None] = mapped_column(Float, nullable=True)
+    previous_close_value: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # User-defined grouping for the overview. NULL = "ungrouped" (rendered in a default bucket). `position` orders
     # accounts within their group OR within the ungrouped bucket.
@@ -114,6 +118,8 @@ class Account(Base):
             snapshot.balance = 0.0
             snapshot.source = BalanceSnapshotSource.MARKET_VALUED
         self.balance = 0.0
+        self.cost_basis = None
+        self.previous_close_value = None
         self.is_archived = True
         logger.info(f"{self} is no longer held --> set it to 0 and archived it")
 

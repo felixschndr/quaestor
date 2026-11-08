@@ -10,6 +10,8 @@ export function buildAccount(overrides: Partial<AccountRead> & Pick<AccountRead,
     is_archived: false,
     include_by_default: true,
     is_market_valued: false,
+    cost_basis: null,
+    previous_close_value: null,
     ...overrides,
   } satisfies AccountRead
 }

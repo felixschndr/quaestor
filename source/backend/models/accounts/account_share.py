@@ -58,6 +58,8 @@ class SharedAccountView:
     is_archived: bool
     include_by_default: bool
     is_market_valued: bool
+    cost_basis: float | None
+    previous_close_value: float | None
 
 
 @dataclass(frozen=True)
@@ -95,4 +97,6 @@ def shared_account_view(share: AccountShare) -> SharedAccountView:
         is_archived=share.is_archived,
         include_by_default=share.include_by_default,
         is_market_valued=account.is_market_valued,
+        cost_basis=account.cost_basis,
+        previous_close_value=account.previous_close_value,
     )

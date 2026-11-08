@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager, contextmanager
 from datetime import date, datetime, timezone
 from http.cookiejar import LoadError, MozillaCookieJar
 from pathlib import Path
-from typing import AsyncIterator, Iterator, TypedDict
+from typing import AsyncIterator, Iterator, NamedTuple, TypedDict
 
 from pytr.api import TradeRepublicApi
 from pytr.event import Event
@@ -124,6 +124,14 @@ class _AccountState(TypedDict):
     transactions: list[FetchedTransaction]
     isin: str | None  # None for the cash account, the instrument ISIN for a position
     closed: bool
+    cost_basis: float | None
+    previous_close_value: float | None
+
+
+class _PositionValues(NamedTuple):
+    net_value: float
+    cost_basis: float | None  # averageBuyIn x held units
+    previous_close_value: float | None  # previous trading day's close x held units
 
 
 class _TradeRepublicSession(BankSession):
@@ -141,7 +149,14 @@ class _TradeRepublicSession(BankSession):
 
     def _account(self, name: str) -> _AccountState:
         if name not in self._accounts:
-            self._accounts[name] = {"balance": 0.0, "transactions": [], "isin": None, "closed": False}
+            self._accounts[name] = {
+                "balance": 0.0,
+                "transactions": [],
+                "isin": None,
+                "closed": False,
+                "cost_basis": None,
+                "previous_close_value": None,
+            }
         return self._accounts[name]
 
     def _account_name_for_isin(self, isin: str) -> str | None:
@@ -150,7 +165,13 @@ class _TradeRepublicSession(BankSession):
     def get_accounts(self) -> list[FetchedAccount]:
         asyncio.run(self._fetch())
         return [
-            FetchedAccount(name=account_name, external_id=state["isin"] or account_name, is_closed=state["closed"])
+            FetchedAccount(
+                name=account_name,
+                external_id=state["isin"] or account_name,
+                is_closed=state["closed"],
+                cost_basis=state["cost_basis"],
+                previous_close_value=state["previous_close_value"],
+            )
             for account_name, state in self._accounts.items()
         ]
 
@@ -206,9 +227,9 @@ class _TradeRepublicSession(BankSession):
         async with self._connection():
             cash_accounts = await self._subscribe_once(payload={"type": "cash"}, expected_type="cash")
             positions = await self._fetch_positions()
-            valued_positions: list[tuple[dict, float]] = []
+            valued_positions: list[tuple[dict, _PositionValues]] = []
             for position in positions:
-                valued_positions.append((position, await self._position_net_value(position)))
+                valued_positions.append((position, await self._position_values(position)))
             events = await self._load_full_events()
 
         cash = cash_accounts[0]
@@ -216,9 +237,11 @@ class _TradeRepublicSession(BankSession):
         self._cash_account_name = cash_account_name
         self._account(cash_account_name)["balance"] = float(cash["amount"])
 
-        for position, net_value in valued_positions:
+        for position, values in valued_positions:
             account = self._account(position["name"])
-            account["balance"] = net_value
+            account["balance"] = values.net_value
+            account["cost_basis"] = values.cost_basis
+            account["previous_close_value"] = values.previous_close_value
             account["isin"] = position["isin"]
 
         self._share_moves = self._share_moves_by_isin(events)
@@ -251,17 +274,26 @@ class _TradeRepublicSession(BankSession):
             for position in (category.get("positions") or [])
         ]
 
-    async def _position_net_value(self, position: dict) -> float:
+    async def _position_values(self, position: dict) -> _PositionValues:
         isin = position["isin"]
         exchange = await self._instrument_exchange(isin)
         ticker = await self._subscribe_once(
             payload={"type": "ticker", "id": f"{isin}.{exchange}"}, expected_type="ticker"
         )
-        price = float(ticker["last"]["price"])
         # Bonds are quoted per 100 of face value while their netSize is the nominal amount.
-        if position.get("bondInfo") is not None:
-            price /= 100
-        return round(number=price * float(position["netSize"]), ndigits=2)
+        quote_unit = 100 if position.get("bondInfo") is not None else 1
+        size = float(position["netSize"])
+
+        def value(price: str | float) -> float:
+            return round(number=float(price) / quote_unit * size, ndigits=2)
+
+        buy_in = position.get("averageBuyIn")
+        previous_close = (ticker.get("pre") or {}).get("price")
+        return _PositionValues(
+            net_value=value(ticker["last"]["price"]),
+            cost_basis=None if buy_in is None else value(buy_in),
+            previous_close_value=None if previous_close is None else value(previous_close),
+        )
 
     async def _fetch_transactions(self, start_date: date) -> None:
         # Mirrors `pytr export_transactions`: pull the timeline, then convert each

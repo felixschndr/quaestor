@@ -155,6 +155,8 @@ class Credential(Base):
             elif account.is_market_valued and account.balance == 0 and fetched.balance != 0:
                 account.is_archived = False
             account.balance = fetched.balance
+            account.cost_basis = fetched_account.cost_basis
+            account.previous_close_value = fetched_account.previous_close_value
 
             created_transactions += self._sync_transactions_of_account(
                 account=account, fetched_transactions=fetched.transactions, rules=rules

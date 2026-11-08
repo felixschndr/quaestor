@@ -24,6 +24,7 @@ from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.banking import trade_republic_login
 from tests.backend.conftest import (
     ACCOUNT_IBAN,
+    AVERAGE_BUY_IN,
     CHALLENGE_TOKEN,
     CREDENTIAL_ID,
     DEFAULT_AMOUNT,
@@ -38,6 +39,7 @@ from tests.backend.conftest import (
     PHONE_NUMBER,
     PIN,
     POSITION_NAME,
+    PREVIOUS_CLOSE_PRICE,
     RECENT_DATE,
     REFRESHED_COOKIES,
     SECOND_ISIN,
@@ -614,7 +616,13 @@ def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.M
                     {
                         "categoryType": "stocksAndETFs",
                         "positions": [
-                            {"isin": ISIN, "name": ETF_NAME, "netSize": str(SHARE_COUNT), "bondInfo": None},
+                            {
+                                "isin": ISIN,
+                                "name": ETF_NAME,
+                                "netSize": str(SHARE_COUNT),
+                                "averageBuyIn": str(AVERAGE_BUY_IN),
+                                "bondInfo": None,
+                            },
                         ],
                     },
                     {
@@ -626,8 +634,9 @@ def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.M
                 ]
             }
         if expected_type == "ticker":
-            price = {f"{ISIN}.{EXCHANGE}": str(SHARE_PRICE), f"{SECOND_ISIN}.{EXCHANGE}": "98.5"}[payload["id"]]
-            return {"last": {"price": price}}
+            if payload["id"] == f"{ISIN}.{EXCHANGE}":
+                return {"last": {"price": str(SHARE_PRICE)}, "pre": {"price": str(PREVIOUS_CLOSE_PRICE)}}
+            return {"last": {"price": "98.5"}}
         raise AssertionError(f"unexpected topic {expected_type}")
 
     async def fake_instrument_exchange(isin: str) -> str:  # noqa: ASYNC124
@@ -652,9 +661,20 @@ def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.M
     assert session._account(ETF_NAME)["balance"] == SHARE_COUNT * SHARE_PRICE
     assert session._account(ETF_NAME)["isin"] == ISIN
     assert session._account(ETF_NAME)["closed"] is False
+    assert session._account(ETF_NAME)["cost_basis"] == SHARE_COUNT * AVERAGE_BUY_IN
+    assert session._account(ETF_NAME)["previous_close_value"] == SHARE_COUNT * PREVIOUS_CLOSE_PRICE
     assert session._account("Some Bond 2030")["balance"] == 985.0  # price is per 100 of face value -> 98.5 / 100 * 1000
     assert session._account("Some Bond 2030")["isin"] == SECOND_ISIN
-    assert session._account(POSITION_NAME) == {"balance": 0.0, "transactions": [], "isin": SOLD_ISIN, "closed": True}
+    assert session._account("Some Bond 2030")["cost_basis"] is None  # neither averageBuyIn nor a previous close sent
+    assert session._account("Some Bond 2030")["previous_close_value"] is None
+    assert session._account(POSITION_NAME) == {
+        "balance": 0.0,
+        "transactions": [],
+        "isin": SOLD_ISIN,
+        "closed": True,
+        "cost_basis": None,
+        "previous_close_value": None,
+    }
     assert session._share_moves[SOLD_ISIN] == [(OLDER_DATE, SHARE_COUNT), (RECENT_DATE, -SHARE_COUNT)]
 
 
@@ -666,11 +686,13 @@ def test_sold_out_position_named_like_a_held_one_gets_its_isin_appended(monkeypa
             return [{"accountNumber": ACCOUNT_IBAN, "amount": 0}]
         return {"categories": [{"positions": [{"isin": ISIN, "name": ETF_NAME, "netSize": "0"}]}]}
 
-    async def fake_position_net_value(position: dict) -> float:  # noqa: ASYNC124
-        return SHARE_COUNT * SHARE_PRICE
+    async def fake_position_values(position: dict) -> trade_republic._PositionValues:  # noqa: ASYNC124
+        return trade_republic._PositionValues(
+            net_value=SHARE_COUNT * SHARE_PRICE, cost_basis=None, previous_close_value=None
+        )
 
     monkeypatch.setattr(target=session, name="_subscribe_once", value=fake_subscribe_once)
-    monkeypatch.setattr(target=session, name="_position_net_value", value=fake_position_net_value)
+    monkeypatch.setattr(target=session, name="_position_values", value=fake_position_values)
     _patch_pytr(
         monkeypatch=monkeypatch,
         rows=[{"date": OLDER_DATE.isoformat(), "type": "Buy", "isin": SOLD_ISIN, "shares": str(SHARE_COUNT)}],
@@ -695,6 +717,22 @@ def test_get_accounts_marks_sold_out_positions_as_closed(monkeypatch: pytest.Mon
 
     closed = {account.external_id: account.is_closed for account in session.get_accounts()}
     assert closed == {ACCOUNT_IBAN: False, ISIN: False, SOLD_ISIN: True}
+
+
+def test_get_accounts_passes_on_cost_basis_and_previous_close(monkeypatch: pytest.MonkeyPatch):
+    session = _session()
+    session._account(POSITION_NAME).update(
+        cost_basis=SHARE_COUNT * AVERAGE_BUY_IN, previous_close_value=SHARE_COUNT * PREVIOUS_CLOSE_PRICE
+    )
+
+    async def _noop() -> None:
+        pass
+
+    monkeypatch.setattr(target=session, name="_fetch", value=_noop)
+
+    position = next(account for account in session.get_accounts() if account.name == POSITION_NAME)
+    assert position.cost_basis == SHARE_COUNT * AVERAGE_BUY_IN
+    assert position.previous_close_value == SHARE_COUNT * PREVIOUS_CLOSE_PRICE
 
 
 def test_instrument_titles_maps_each_isin_to_its_newest_title(monkeypatch: pytest.MonkeyPatch):

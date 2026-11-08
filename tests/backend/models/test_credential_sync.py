@@ -24,6 +24,8 @@ from tests.backend.conftest import (
     LAST_FETCHING_TIMESTAMP,
     NETFLIX,
     OLDER_DATE,
+    POSITION_COST_BASIS,
+    POSITION_PREVIOUS_CLOSE_VALUE,
     RECENT_DATE,
     SECOND_ACCOUNT_IBAN,
     SECOND_AMOUNT,
@@ -889,7 +891,12 @@ def test_incomplete_history_accounts_keep_anchors_but_skip_the_transaction_walk(
 
 
 def _position_and_cash_handler(include_position: bool) -> MagicMock:
-    position = FetchedAccount(name="ACME Corp", external_id=ACME)
+    position = FetchedAccount(
+        name="ACME Corp",
+        external_id=ACME,
+        cost_basis=POSITION_COST_BASIS,
+        previous_close_value=POSITION_PREVIOUS_CLOSE_VALUE,
+    )
     cash = FetchedAccount(name=ACCOUNT_IBAN, external_id=ACCOUNT_IBAN)
     return build_handler(
         FakeBankSession(
@@ -906,6 +913,19 @@ def _accounts_by_external_id(session: Session, credential_id: int) -> dict[str |
     return {account.external_id: account for account in session.get(entity=Credential, ident=credential_id).accounts}
 
 
+def test_sync_stores_cost_basis_and_previous_close_of_a_position(session_factory: sessionmaker):
+    credential_id = persist_credential_with_new_user(session_factory)
+
+    _sync(session_factory, credential_id=credential_id, handler=_position_and_cash_handler(include_position=True))
+
+    with session_factory() as session:
+        accounts = _accounts_by_external_id(session, credential_id=credential_id)
+        assert accounts[ACME].cost_basis == POSITION_COST_BASIS
+        assert accounts[ACME].previous_close_value == POSITION_PREVIOUS_CLOSE_VALUE
+        assert accounts[ACCOUNT_IBAN].cost_basis is None
+        assert accounts[ACCOUNT_IBAN].previous_close_value is None
+
+
 def test_sync_sets_a_sold_position_to_zero(session_factory: sessionmaker, caplog: pytest.LogCaptureFixture):
     credential_id = persist_credential_with_new_user(session_factory)
     _sync(session_factory, credential_id=credential_id, handler=_position_and_cash_handler(include_position=True))
@@ -916,6 +936,8 @@ def test_sync_sets_a_sold_position_to_zero(session_factory: sessionmaker, caplog
         accounts = _accounts_by_external_id(session, credential_id=credential_id)
         position = accounts[ACME]
         assert position.balance == 0.0
+        assert position.cost_basis is None
+        assert position.previous_close_value is None
         assert position.is_archived is True
         assert position.balance_at_date[RECENT_DATE].balance == 4200.0
         assert position.balance_at_date[date.today()].balance == 0.0
