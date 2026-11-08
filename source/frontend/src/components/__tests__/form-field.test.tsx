@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
 import { FormField } from '@/components/form-field'
@@ -13,21 +14,26 @@ describe('FormField', () => {
     expect(screen.getByLabelText('Amount')).toBe(document.getElementById('amount'))
   })
 
-  it('renders the hint as a description below the control', () => {
+  it('shows the hint behind an info icon next to the label', async () => {
+    const user = userEvent.setup()
     render(
       <FormField id="tol" label="Tolerance" hint="How far a match may deviate">
         <input id="tol" />
       </FormField>,
     )
-    expect(screen.getByText('How far a match may deviate')).toBeInTheDocument()
+    expect(screen.queryByText('How far a match may deviate')).not.toBeInTheDocument()
+
+    await user.hover(screen.getByRole('button', { name: 'Info' }))
+
+    expect(await screen.findByText('How far a match may deviate')).toBeInTheDocument()
   })
 
-  it('omits the hint paragraph when no hint is given', () => {
-    const { container } = render(
+  it('omits the info icon when no hint is given', () => {
+    render(
       <FormField id="note" label="Note">
         <input id="note" />
       </FormField>,
     )
-    expect(container.querySelector('p')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Info' })).not.toBeInTheDocument()
   })
 })

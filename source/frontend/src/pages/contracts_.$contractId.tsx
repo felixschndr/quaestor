@@ -26,6 +26,7 @@ import { RowActions } from '@/components/row-actions'
 import { SingleSelectPopover } from '@/components/ui/single-select-popover'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Button } from '@/components/ui/button'
+import { InfoHint } from '@/components/ui/info-hint'
 import { useCategoryOptions } from '@/lib/categoryIcons'
 import { useFrequencyOptions } from '@/lib/contractFrequencyIcons'
 import { cn } from '@/lib/utils'
@@ -190,9 +191,11 @@ export function ContractDetailView({
         </section>
 
         <section className="flex flex-col gap-2">
-          <h2 className="text-foreground text-sm font-semibold">{t('contracts.endDate')}</h2>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-foreground text-sm font-semibold">{t('contracts.endDate')}</h2>
+            <InfoHint>{t('contracts.endDateHint')}</InfoHint>
+          </div>
           <ContractEndDateEditor endDate={contract.end_date} onChange={onChangeEndDate} />
-          <p className="text-muted-foreground text-xs">{t('contracts.endDateHint')}</p>
         </section>
 
         <section className="flex flex-col gap-2">

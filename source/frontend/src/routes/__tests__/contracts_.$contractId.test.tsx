@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import '@/i18n'
+import i18n from '@/i18n'
 import type { ContractDetailRead, ContractMemberRead } from '@/lib/contract'
 import { formatDate, formatDateWithoutYear } from '@/lib/format'
 import { selectFromPopover } from '@/test/popover-select'
@@ -459,6 +459,18 @@ describe('ContractDetailPage — editable fields', () => {
     await waitFor(() =>
       expect(sentBodies('PATCH')).toEqual([{ name: CONTRACT_NAME, end_date: DATE_MID_MONTH }]),
     )
+  })
+
+  it('keeps the end date explanation behind an info icon next to the heading', async () => {
+    const user = userEvent.setup()
+    await renderPage(buildContract())
+    const hint = i18n.t('contracts.endDateHint')
+    expect(screen.queryByText(hint)).not.toBeInTheDocument()
+
+    const heading = screen.getByRole('heading', { name: i18n.t('contracts.endDate') })
+    await user.hover(within(heading.parentElement!).getByRole('button', { name: 'Info' }))
+
+    expect(await screen.findByText(hint)).toBeInTheDocument()
   })
 
   it('removes an existing end date', async () => {
