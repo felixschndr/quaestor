@@ -781,7 +781,7 @@ function RecurringTransactionsList({ accountId }: { accountId: number }) {
       <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
         {t('credentials.manualTransactions.recurringTitle')}
       </h2>
-      <ul className="border-border divide-border bg-card flex flex-col divide-y rounded-lg border">
+      <ul className="border-border divide-border bg-card flex flex-col divide-y rounded-lg border has-[>li:only-child>form]:border-0 has-[>li:only-child>form]:bg-transparent">
         {rules.map((rule) => (
           <RecurringTransactionRow key={rule.id} accountId={accountId} rule={rule} />
         ))}
@@ -823,7 +823,7 @@ function RecurringTransactionRow({
 
   if (editing) {
     return (
-      <li className="p-2">
+      <li className="p-2 only:p-0">
         <ManualTransactionForm
           accountId={accountId}
           mode="edit"
@@ -917,7 +917,7 @@ function ExpectedTransactionsList({ accountId, onAdd }: { accountId: number; onA
         </Button>
       </div>
       <Collapsible.Content className="collapsible-content overflow-hidden">
-        <ul className="border-border divide-border bg-card flex flex-col divide-y rounded-lg border">
+        <ul className="border-border divide-border bg-card flex flex-col divide-y rounded-lg border has-[>li:only-child>form]:border-0 has-[>li:only-child>form]:bg-transparent">
           {expected.map((expectation) => (
             <ExpectedTransactionRow
               key={expectation.id}
@@ -954,7 +954,7 @@ function ExpectedTransactionRow({
 
   if (editing) {
     return (
-      <li className="p-2">
+      <li className="p-2 only:p-0">
         <ExpectedTransactionForm
           accountId={accountId}
           expected={expectation}
