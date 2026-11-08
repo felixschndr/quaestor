@@ -41,6 +41,7 @@ from tests.backend.conftest import (
     POSITION_NAME,
     PREVIOUS_CLOSE_PRICE,
     RECENT_DATE,
+    RECENT_DATE_MS,
     REFRESHED_COOKIES,
     SECOND_ISIN,
     SHARE_COUNT,
@@ -676,6 +677,26 @@ def test_fetch_values_positions_via_ticker_and_routes_cash(monkeypatch: pytest.M
         "previous_close_value": None,
     }
     assert session._share_moves[SOLD_ISIN] == [(OLDER_DATE, SHARE_COUNT), (RECENT_DATE, -SHARE_COUNT)]
+
+
+def test_position_values_report_no_day_trend_when_the_last_trade_is_not_from_today(monkeypatch: pytest.MonkeyPatch):
+    session = _TradeRepublicSession(trade_republic_client=_FakeClient())
+
+    async def fake_subscribe_once(payload: dict, expected_type: str):  # noqa: ASYNC124
+        return {
+            "last": {"price": str(SHARE_PRICE), "time": RECENT_DATE_MS},
+            "pre": {"price": str(PREVIOUS_CLOSE_PRICE)},
+        }
+
+    async def fake_instrument_exchange(isin: str) -> str:  # noqa: ASYNC124
+        return EXCHANGE
+
+    monkeypatch.setattr(target=session, name="_subscribe_once", value=fake_subscribe_once)
+    monkeypatch.setattr(target=session, name="_instrument_exchange", value=fake_instrument_exchange)
+
+    values = asyncio.run(session._position_values({"isin": ISIN, "netSize": str(SHARE_COUNT)}))
+
+    assert values.previous_close_value == values.net_value == SHARE_COUNT * SHARE_PRICE
 
 
 def test_sold_out_position_named_like_a_held_one_gets_its_isin_appended(monkeypatch: pytest.MonkeyPatch):

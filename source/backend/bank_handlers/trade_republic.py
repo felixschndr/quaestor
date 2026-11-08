@@ -288,9 +288,12 @@ class _TradeRepublicSession(BankSession):
             return round(number=float(price) / quote_unit * size, ndigits=2)
 
         buy_in = position.get("averageBuyIn")
-        previous_close = (ticker.get("pre") or {}).get("price")
+        last = ticker["last"]
+        last_time = last.get("time")
+        traded_today = last_time is None or datetime.fromtimestamp(last_time / 1000).date() == date.today()
+        previous_close = (ticker.get("pre") or {}).get("price") if traded_today else last["price"]
         return _PositionValues(
-            net_value=value(ticker["last"]["price"]),
+            net_value=value(last["price"]),
             cost_basis=None if buy_in is None else value(buy_in),
             previous_close_value=None if previous_close is None else value(previous_close),
         )
