@@ -923,18 +923,19 @@ sphinx = ["sphinx (>=3.4.0)", "sphinx-jinja2-compat (>=0.1.1)", "sphinx-toolbox 
 
 [[package]]
 name = "fastapi"
-version = "0.162.0"
+version = "0.162.5"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "fastapi-0.162.0-py3-none-any.whl", hash = "sha256:3785963de305dd09912426cb81f2d230fce98ab3521cdfe97265c8d14983128c"},
-    {file = "fastapi-0.162.0.tar.gz", hash = "sha256:6a22c1e2e6e32e0633ee7e170f00009a29b8228b16feb219ee42f32fd8d88a8f"},
+    {file = "fastapi-0.162.5-py3-none-any.whl", hash = "sha256:5303c67415fde762889ca337db79d27b755b8bd09cef314fa7a4340bb30bfd2b"},
+    {file = "fastapi-0.162.5.tar.gz", hash = "sha256:1ca37f64f61c99cebd38636e67525fb721c5e8c1169f07f2a35d73b0a63265d4"},
 ]
 
 [package.dependencies]
 annotated-doc = ">=0.0.2"
+anyio = ">=4.1.0"
 opentelemetry-api = ">=1.44.0"
 pydantic = ">=2.9.0"
 starlette = ">=0.46.0"
@@ -3193,4 +3194,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.14"
-content-hash = "4c8b8395491933d3d5af282feb61b3327a613985022fe6f3abf02f7ae3f412e1"
+content-hash = "cbd7d8dc4615ede4ed2d31eaea3dd9b591ecd0b6fe83b48dae897d9ee04003ad"
