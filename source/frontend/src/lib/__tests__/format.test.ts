@@ -208,7 +208,7 @@ describe('formatDateTime', () => {
 })
 
 describe('formatRelativeDateTime', () => {
-  const t = (key: string, options?: Record<string, unknown>) => i18n.t(key, options)
+  const t = i18n.t
   const now = new Date('2026-05-20T12:00:00Z')
 
   beforeAll(async () => {

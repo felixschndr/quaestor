@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import { useEffect, useMemo, useRef, useState, type SubmitEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
@@ -616,7 +617,7 @@ function stripCredentialWhitespace(
 function handleCreateError(
   err: unknown,
   setError: (field: string, error: { type: string; message: string }) => void,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TFunction,
   bankTitle: string,
 ) {
   if (err instanceof ApiError && err.status === 409) {
