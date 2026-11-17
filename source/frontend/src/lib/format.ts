@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import i18n from '@/i18n'
 
 const DISPLAY_LOCALE = 'de-DE'
@@ -270,7 +271,7 @@ export function formatRelativeDate(
 
 export function formatRelativeDateTime(
   d: Date | string,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: TFunction,
   now: Date = new Date(),
   inSentence = false,
 ): string {

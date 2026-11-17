@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Collapsible } from 'radix-ui'
@@ -18,7 +19,7 @@ const UPCOMING_LIMIT = 3
 
 function dueLabel(
   contract: ContractRead,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: TFunction,
   { relative = false, today }: { relative?: boolean; today?: Date } = {},
 ): string {
   const [year, month, day] = contract.expected_next_date!.split('-').map(Number)
