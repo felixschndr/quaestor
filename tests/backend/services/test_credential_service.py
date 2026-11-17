@@ -443,24 +443,36 @@ def test_sync_credential_object_records_every_message_of_a_chained_failure(
     )
 
 
-def test_sync_all_due_credentials_notifies_only_on_the_first_of_repeated_failures(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
-):
-    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
-
+def _fail_periodic_syncs(monkeypatch: pytest.MonkeyPatch, error: Exception, error_code: JobErrorCode) -> MagicMock:
     def fake_sync(credential: Credential, **_: object):
         # Mirrors what the real sync_credential_object records before the error propagates.
-        credential.last_sync_error = "the bank rejected the login"
-        credential.last_sync_error_code = JobErrorCode.INVALID_CREDENTIALS
-        raise InvalidCredentialsError("the bank rejected the login")
+        credential.last_sync_error = str(error)
+        credential.last_sync_error_code = error_code
+        raise error
 
     monkeypatch.setattr(
         target=credential_service, name="sync_credential_object", value=MagicMock(side_effect=fake_sync)
     )
     dispatch = MagicMock()
     monkeypatch.setattr(target=notification_engine, name="dispatch", value=dispatch)
+    return dispatch
+
+
+def test_sync_all_due_credentials_notifies_only_once_the_failure_threshold_is_reached(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
+    dispatch = _fail_periodic_syncs(
+        monkeypatch,
+        error=InvalidCredentialsError("the bank rejected the login"),
+        error_code=JobErrorCode.INVALID_CREDENTIALS,
+    )
 
     with session_factory() as session:
+        for _ in range(credential_service.CONSECUTIVE_SYNC_FAILURES_BEFORE_NOTIFICATION - 1):
+            credential_service.sync_all_due_credentials(db_session=session)
+        assert dispatch.call_count == 0
+
         credential_service.sync_all_due_credentials(db_session=session)
         credential_service.sync_all_due_credentials(db_session=session)
 
@@ -468,6 +480,36 @@ def test_sync_all_due_credentials_notifies_only_on_the_first_of_repeated_failure
     notification = dispatch.call_args.kwargs["notifications"][0]
     assert notification.tag == f"credential-sync-failed-{credential_id}"
     assert notification.url == f"/settings/credentials/{credential_id}"
+
+
+def test_sync_all_due_credentials_notifies_a_required_reauthentication_at_once(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
+    dispatch = _fail_periodic_syncs(
+        monkeypatch,
+        error=ReauthenticationRequiredError("the session expired"),
+        error_code=JobErrorCode.REAUTHENTICATION_REQUIRED,
+    )
+
+    with session_factory() as session:
+        credential_service.sync_all_due_credentials(db_session=session)
+
+    assert dispatch.call_count == 1
+
+
+def test_sync_credential_object_resets_the_consecutive_failures_on_success(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
+    monkeypatch.setattr(target=Credential, name="sync", value=MagicMock())
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.consecutive_sync_failures = credential_service.CONSECUTIVE_SYNC_FAILURES_BEFORE_NOTIFICATION
+        credential_service.sync_credential_object(credential=credential)
+
+    assert credential.consecutive_sync_failures == 0
 
 
 def test_sync_credential_object_for_handler_with_2fa_returns_completed_on_resumed_session(

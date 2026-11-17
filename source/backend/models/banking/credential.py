@@ -69,6 +69,7 @@ class Credential(Base):
     last_sync_error_code: Mapped[JobErrorCode | None] = mapped_column(
         SQLEnum(JobErrorCode), nullable=True, default=None
     )
+    consecutive_sync_failures: Mapped[int] = mapped_column(default=0, server_default="0")
 
     user: Mapped["User"] = relationship(back_populates="credentials")
     accounts: Mapped[List["Account"]] = relationship(back_populates="credential", cascade="all, delete-orphan")

@@ -37,6 +37,7 @@ logger = get_logger(__name__)
 
 TWO_FACTOR_REEVALUATION_MIN_GAP = timedelta(hours=24)
 APP_OPEN_SYNC_MIN_GAP = timedelta(minutes=10)
+CONSECUTIVE_SYNC_FAILURES_BEFORE_NOTIFICATION = 3
 
 _sync_locks: dict[int, threading.Lock] = {}
 _sync_locks_guard = threading.Lock()
@@ -313,6 +314,7 @@ def sync_credential_object(
 
     credential.last_sync_error = None
     credential.last_sync_error_code = None
+    credential.consecutive_sync_failures = 0
     return result
 
 
@@ -416,7 +418,6 @@ def sync_all_due_credentials(db_session: Session) -> None:
             skipped += 1
             continue
 
-        already_failing = credential.last_sync_error_code is not None
         try:
             db_session.refresh(credential)
             snapshot = notification_engine.capture_sync_snapshot(credential)
@@ -435,7 +436,11 @@ def sync_all_due_credentials(db_session: Session) -> None:
                 logger.warning(f"Periodic sync failed for {credential}: {e}")
             else:
                 logger.exception(f"Periodic sync failed for {credential}")
-            if not already_failing:
+            credential.consecutive_sync_failures += 1
+            if (
+                credential.consecutive_sync_failures == CONSECUTIVE_SYNC_FAILURES_BEFORE_NOTIFICATION
+                or credential.last_sync_error_code == JobErrorCode.REAUTHENTICATION_REQUIRED
+            ):
                 failure_notifications.append(
                     (credential.user, notification_engine.credential_sync_failed_notification(credential))
                 )
