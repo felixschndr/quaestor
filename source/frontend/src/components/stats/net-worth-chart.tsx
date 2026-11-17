@@ -18,7 +18,7 @@ import {
 
 import { HrefLink } from '@/components/href-link'
 import { cn } from '@/lib/utils'
-import { formatDate, formatMoney } from '@/lib/format'
+import { formatDate, formatDateShort, formatMoney } from '@/lib/format'
 import { readPinnedDate, writePinnedDate } from '@/lib/netWorthPin'
 import type { DailyNetWorth, NetWorthSummary } from '@/lib/statistics'
 import { AXIS_TICK, euroAxisFormat } from './chartTheme'
@@ -39,6 +39,15 @@ interface ChartMouseState {
 
 const Y_AXIS_WIDTH = 60
 const RIGHT_MARGIN = 8
+
+function responsiveDate(render: (format: typeof formatDate) => string) {
+  return (
+    <>
+      <span className="sm:hidden">{render(formatDateShort)}</span>
+      <span className="hidden sm:inline">{render(formatDate)}</span>
+    </>
+  )
+}
 
 export function NetWorthChart({ data, summary, dayHref, rangeHref }: NetWorthChartProps) {
   const { t } = useTranslation()
@@ -202,9 +211,9 @@ export function NetWorthChart({ data, summary, dayHref, rangeHref }: NetWorthCha
         <span className="min-w-0 truncate">
           {dragRange ? (
             <>
-              <span>
-                {formatDate(dragRange.start)} – {formatDate(dragRange.end)}:{' '}
-              </span>
+              {responsiveDate(
+                (format) => `${format(dragRange.start)} – ${format(dragRange.end)}: `,
+              )}
               {dragRange.diff != null ? (
                 <span
                   className={cn(
@@ -219,7 +228,7 @@ export function NetWorthChart({ data, summary, dayHref, rangeHref }: NetWorthCha
             </>
           ) : active ? (
             <>
-              <span>{formatDate(active.date)}: </span>
+              {responsiveDate((format) => `${format(active.date)}: `)}
               <span className="font-semibold">{formatMoney(active.value)}</span>
             </>
           ) : null}

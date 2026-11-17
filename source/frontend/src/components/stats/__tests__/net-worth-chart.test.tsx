@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
-import { formatDate } from '@/lib/format'
+import { formatDate, formatDateShort } from '@/lib/format'
 import { STORAGE_KEY } from '@/lib/netWorthPin'
 import { AMOUNT_L, AMOUNT_M, AMOUNT_S, DATE_RANGE_END, money } from '@/test/constants'
 
@@ -80,10 +80,13 @@ const fire = (
   state: ChartState,
 ) => act(() => (chart.lineChart[handler] as ChartHandler)(state))
 
-const expectHeader = (date: string, value: number) =>
+const expectHeader = (date: string, value: number) => {
+  expect(screen.getByText(`${formatDateShort(date)}:`)).toHaveClass('sm:hidden')
+  expect(screen.getByText(`${formatDate(date)}:`)).toHaveClass('hidden', 'sm:inline')
   expect(screen.getByText(`${formatDate(date)}:`).parentElement).toHaveTextContent(
     `${formatDate(date)}: ${money(value)}`,
   )
+}
 const marks = (name: string) =>
   screen
     .queryAllByTestId(name)
@@ -209,8 +212,11 @@ describe('NetWorthChart range drag', () => {
     fire('onMouseMove', { activeLabel: PICKED_DAY, activeTooltipIndex: 0 })
 
     expect(
+      screen.getByText(`${formatDateShort(PICKED_DAY)} – ${formatDateShort(DATE_RANGE_END)}:`),
+    ).toHaveClass('sm:hidden')
+    expect(
       screen.getByText(`${formatDate(PICKED_DAY)} – ${formatDate(DATE_RANGE_END)}:`),
-    ).toBeInTheDocument()
+    ).toHaveClass('hidden', 'sm:inline')
     expect(screen.getByText(`+${money(AMOUNT_L - AMOUNT_S)}`)).toHaveClass('text-success')
     expect(marks('area')).toEqual([`${DATE_RANGE_END}..${PICKED_DAY}`])
     expect(screen.queryByRole('link', { name: /Details/ })).toBeNull()

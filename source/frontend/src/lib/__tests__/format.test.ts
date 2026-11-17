@@ -5,6 +5,7 @@ import {
   formatMoney,
   formatDate,
   formatDateCompact,
+  formatDateShort,
   formatDateShortWeekday,
   formatDateShortWeekdayWithoutYear,
   formatDateWithoutYear,
@@ -156,6 +157,10 @@ describe('formatDate', () => {
 
   it('writes out a short weekday and long month without the year', () => {
     expect(formatDateShortWeekdayWithoutYear('2026-05-20T12:00:00Z')).toBe('Wed, May 20')
+  })
+
+  it('abbreviates both weekday and month', () => {
+    expect(formatDateShort(new Date(2026, 10, 17))).toBe('Tue, Nov 17, 2026')
   })
 
   it.each([

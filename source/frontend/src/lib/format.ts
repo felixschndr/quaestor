@@ -151,27 +151,32 @@ function formatWith(d: Date | string, overrides?: Intl.DateTimeFormatOptions): s
   )
 }
 
-// e.g. "Wednesday, May 20, 2026"
+// e.g. "Tuesday, November 17, 2026"
 export function formatDate(d: Date | string): string {
   return formatWith(d)
 }
 
-// e.g. "Wed, May 20, 2026"
+// e.g. "Tue, November 17, 2026"
 export function formatDateShortWeekday(d: Date | string): string {
   return formatWith(d, { weekday: 'short' })
 }
 
-// e.g. "Wednesday, May 20"
+// e.g. "Tue, Nov 17, 2026"
+export function formatDateShort(d: Date | string): string {
+  return formatWith(d, { weekday: 'short', month: 'short' })
+}
+
+// e.g. "Tuesday, November 17"
 export function formatDateWithoutYear(d: Date | string): string {
   return formatWith(d, { year: undefined })
 }
 
-// e.g. "Wed, May 20"
+// e.g. "Tue, November 17"
 export function formatDateShortWeekdayWithoutYear(d: Date | string): string {
   return formatWith(d, { weekday: 'short', year: undefined })
 }
 
-// e.g. "May 20"
+// e.g. "Nov 17"
 export function formatDateCompact(d: Date | string): string {
   return formatWith(d, { weekday: undefined, month: 'short', year: undefined })
 }
