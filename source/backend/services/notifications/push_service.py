@@ -8,6 +8,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from py_vapid import Vapid02
 from pywebpush import WebPushException, webpush
+from requests import RequestException
 
 from source.backend.helpers import get_project_author_emails
 from source.backend.logging_utils import get_logger
@@ -78,7 +79,7 @@ def send(subscription_info: dict, payload: dict) -> PushResult:
             vapid_claims={"sub": DEFAULT_VAPID_SUBJECT},
         )
         return PushResult(outcome=PushOutcome.DELIVERED)
-    except WebPushException as e:
+    except (WebPushException, RequestException) as e:
         response = e.response
         if response is not None:
             detail = f"{response.status_code} {response.text}".strip()

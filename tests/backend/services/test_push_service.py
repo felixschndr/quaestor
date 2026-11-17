@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from pywebpush import WebPushException
+from requests import ConnectionError as RequestsConnectionError
 
 from source.backend.services.notifications import push_service
 from tests.backend.conftest import (
@@ -51,7 +52,7 @@ def test_send_reports_delivered_on_success(monkeypatch: pytest.MonkeyPatch):
     assert result == push_service.PushResult(outcome=push_service.PushOutcome.DELIVERED)
 
 
-def _patch_webpush_failure(monkeypatch: pytest.MonkeyPatch, exception: WebPushException) -> None:
+def _patch_webpush_failure(monkeypatch: pytest.MonkeyPatch, exception: Exception) -> None:
     def raise_exception(**kwargs: object) -> None:
         raise exception
 
@@ -97,10 +98,11 @@ def test_send_reports_stale_vapid_subscription_as_expired(monkeypatch: pytest.Mo
             "500 server error",
         ),
         (WebPushException("connection refused"), "WebPushException: connection refused"),
+        (RequestsConnectionError("Failed to resolve 'web.push.apple.com'"), "Failed to resolve 'web.push.apple.com'"),
     ],
 )
 def test_send_reports_other_failures_as_failed(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, exception: WebPushException, expected_detail: str
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, exception: Exception, expected_detail: str
 ):
     _patch_webpush_failure(monkeypatch, exception=exception)
 
