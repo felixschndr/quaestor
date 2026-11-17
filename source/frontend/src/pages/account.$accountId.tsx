@@ -31,6 +31,7 @@ import {
 import {
   formatDate,
   formatDateCompact,
+  formatDateShortWeekday,
   formatDateShortWeekdayWithoutYear,
   formatDateWithoutYear,
   formatDecimal,
@@ -481,7 +482,6 @@ export function AccountDetailView({
                 groups={groups}
                 today={today}
                 isManual={canBookManually}
-                isMarketValued={account.is_market_valued}
               />
             ) : isLoading ? (
               <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
@@ -688,13 +688,11 @@ function TransactionGroupList({
   groups,
   today,
   isManual = false,
-  isMarketValued = false,
 }: {
   accountId: number
   groups: ReturnType<typeof groupTransactionsByDate>
   today?: Date
   isManual?: boolean
-  isMarketValued?: boolean
 }) {
   return (
     <ul className="flex flex-col gap-3">
@@ -709,12 +707,7 @@ function TransactionGroupList({
               containIntrinsicSize: `auto ${32 + group.transactions.length * 44}px`,
             }}
           >
-            <DateHeader
-              date={group.date}
-              endOfDayBalance={group.endOfDayBalance}
-              today={today}
-              isMarketValued={isMarketValued}
-            />
+            <DateHeader date={group.date} endOfDayBalance={group.endOfDayBalance} today={today} />
             <ul className="flex flex-col">
               {group.transactions.map((transaction) => (
                 <TransactionRow
@@ -744,23 +737,28 @@ function DateHeader({
   date,
   endOfDayBalance,
   today,
-  isMarketValued = false,
 }: {
   date: string
   endOfDayBalance: number | null
   today?: Date
-  isMarketValued?: boolean
 }) {
   const { t } = useTranslation()
   const [y, m, d] = date.split('-').map(Number)
   const local = new Date(y, m - 1, d)
   const relKey = relativeDateKey(local, today)
   const label =
-    relKey === 'future'
-      ? t('account.future', { date: formatDate(local) })
-      : relKey
-        ? t(`account.${relKey}`)
-        : formatDate(local)
+    relKey === 'future' ? (
+      <>
+        <span className="hidden sm:inline">{t('account.future', { date: formatDate(local) })}</span>
+        <span className="sm:hidden">
+          {t('account.future', { date: formatDateShortWeekday(local) })}
+        </span>
+      </>
+    ) : relKey ? (
+      t(`account.${relKey}`)
+    ) : (
+      formatDate(local)
+    )
   return (
     <header
       className="bg-background sticky z-[1] grid grid-cols-[1fr_auto] items-baseline gap-2 py-1"
@@ -771,7 +769,6 @@ function DateHeader({
       <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">{label}</h2>
       {endOfDayBalance !== null ? (
         <span className="private-amount text-muted-foreground text-xs tabular-nums">
-          {isMarketValued ? <span className="mr-1">{t('account.marketValue')}</span> : null}
           {formatMoney(endOfDayBalance)}
         </span>
       ) : null}

@@ -39,7 +39,9 @@ import { Route } from '@/routes/account.$accountId'
 import { OFFLINE_BANNER_RESIZE_EVENT } from '@/components/offline-banner'
 import { STORAGE_KEY } from '@/lib/collapsedGroups'
 import {
+  formatDate,
   formatDateCompact,
+  formatDateShortWeekday,
   formatDateShortWeekdayWithoutYear,
   formatDateWithoutYear,
   formatPercent,
@@ -983,17 +985,25 @@ describe('AccountDetailView — transaction list', () => {
     expect(screen.getByText('Pending')).toBeInTheDocument()
   })
 
-  it('labels a future booking day as scheduled', () => {
+  it('labels a future booking day as scheduled, with a short weekday only on mobile', () => {
     renderView([
       buildPage({
         total_days: 1,
         transactions: [buildTransaction({ date: DATE_NEXT_RUN, other_party: PARTY_SUPERMARKET })],
       }),
     ])
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(/^Scheduled for /)
+    const heading = screen.getByRole('heading', { level: 2 })
+    const date = new Date(`${DATE_NEXT_RUN}T00:00`)
+    expect(within(heading).getByText(`Scheduled for ${formatDate(date)}`)).toHaveClass(
+      'hidden',
+      'sm:inline',
+    )
+    expect(within(heading).getByText(`Scheduled for ${formatDateShortWeekday(date)}`)).toHaveClass(
+      'sm:hidden',
+    )
   })
 
-  it('marks the day-end value of a market-valued account', () => {
+  it('shows the day-end value of a market-valued account without a label', () => {
     renderView(
       [
         buildPage({
@@ -1005,7 +1015,7 @@ describe('AccountDetailView — transaction list', () => {
       { account: { ...account, is_market_valued: true } },
     )
     const header = screen.getByRole('heading', { level: 2, name: 'Today' }).parentElement!
-    expect(within(header).getByText('Market value')).toBeInTheDocument()
+    expect(within(header).queryByText('Market value')).not.toBeInTheDocument()
     expect(within(header).getByText(money(AMOUNT_XL))).toBeInTheDocument()
   })
 

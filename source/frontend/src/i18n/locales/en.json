@@ -266,7 +266,6 @@
     "tomorrow": "Scheduled for tomorrow",
     "dayAfterTomorrow": "Scheduled for the day after tomorrow",
     "future": "Scheduled for {{date}}",
-    "marketValue": "Market value",
     "empty": "No transactions yet.",
     "notFound": "The account you seek, this is not.",
     "sincePurchase": "since purchase",

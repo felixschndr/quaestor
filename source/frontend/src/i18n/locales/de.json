@@ -266,7 +266,6 @@
     "tomorrow": "Geplant für morgen",
     "dayAfterTomorrow": "Geplant für übermorgen",
     "future": "Geplant für {{date}}",
-    "marketValue": "Marktwert",
     "empty": "Noch keine Transaktionen.",
     "notFound": "Das Konto, das du suchst, dies nicht es ist.",
     "sincePurchase": "seit dem Kauf",
