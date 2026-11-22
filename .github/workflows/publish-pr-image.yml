@@ -57,14 +57,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push images and merge them under pr-<number>
+      - name: Push images by digest and merge them under pr-<number>
         working-directory: ${{ runner.temp }}/images
         env:
           TAG: ${{ env.IMAGE_NAME }}:pr-${{ steps.pr.outputs.number }}
         run: |
           sources=()
           for pair in linux-amd64 linux-arm64; do
-            skopeo copy --all "oci-archive:image-${pair}/image.tar" "docker://${TAG}-${pair}"
-            sources+=("${TAG}-${pair}")
+            digest=$(tar -xOf "image-${pair}/image.tar" index.json | jq -r '.manifests[0].digest')
+            skopeo copy --all --preserve-digests "oci-archive:image-${pair}/image.tar" "docker://${IMAGE_NAME}@${digest}"
+            sources+=("${IMAGE_NAME}@${digest}")
           done
           docker buildx imagetools create -t "${TAG}" "${sources[@]}"
