@@ -53,6 +53,10 @@ const ATTRIBUTIONS: Attribution[] = [
     href: 'https://www.flaticon.com/de/kostenloses-icon/paypal_174861',
   },
   {
+    textKey: 'attributions.text.postbankLogo',
+    href: 'https://brandfetch.com/postbank.de',
+  },
+  {
     textKey: 'attributions.text.revolutLogo',
     href: 'https://icons8.de/icons/set/revolut-logo',
   },

@@ -19,6 +19,7 @@ BANK_FAMILIES: dict[str, tuple[str, ...]] = {
     "comdirect": ("comdirect",),
     "commerzbank": ("commerzbank",),
     "hypovereinsbank": ("hypovereinsbank", "unicredit bank"),
+    "postbank": ("postbank",),
 }
 
 
