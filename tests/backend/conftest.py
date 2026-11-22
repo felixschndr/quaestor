@@ -63,6 +63,11 @@ PIN = "1234"
 TWO_FACTOR_CODE = "4321"
 HTTP_SESSION_TOKEN = "eyJ_test_token_payload"  # nosec B105
 CHALLENGE_TOKEN = "challenge-token"  # nosec B105
+FINTS_DIALOG_ID = "dialog-1"
+ACCEPTED_TAN_CODE = "0020"
+REJECTED_TAN_CODE = "9941"
+PIN_BLOCKING_REJECTED_TAN_CODE = "9942"  # python-fints treats this one like a wrong PIN
+REJECTED_TAN_TEXT = "TAN ungültig"
 TRADE_REPUBLIC_ERROR_BODY = '{"errors":[{"errorCode":"VALIDATION_FAILED"}]}'
 SCALABLE_AUTHORIZATION_URL = "https://secure.scalable.capital/activate"
 SESSION_ARCHIVE = "ZmFrZQ=="

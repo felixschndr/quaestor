@@ -526,6 +526,25 @@ describe('NewCredentialFormView', () => {
       expect(bodyOf('POST', CONFIRM_URL)).toEqual({ code: '4242' })
     })
 
+    it('asks for a second code with an empty field', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate({ [`POST ${CONFIRM_URL}`]: STARTED_JOB })
+
+      renderForm(TR_BANK)
+      await submitTradeRepublic(user)
+
+      await waitForFirstPoll()
+      await pushJob({ status: 'awaiting_2fa', expires_at: DATETIME_FAR_FUTURE })
+      await user.type(await screen.findByLabelText('Code'), '4242')
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+      await waitFor(() => expect(bodyOf('POST', CONFIRM_URL)).toEqual({ code: '4242' }))
+
+      await pushJob({ status: 'running' })
+      await pushJob({ status: 'awaiting_2fa', expires_at: DATETIME_FAR_FUTURE })
+
+      expect(await screen.findByLabelText('Code')).toHaveValue('')
+    })
+
     it('bounces back to onSyncFailed when submitting the code errors', async () => {
       const user = userEvent.setup()
       serveSyncedCreate({ [`POST ${CONFIRM_URL}`]: { status: 422, body: { detail: 'expired' } } })

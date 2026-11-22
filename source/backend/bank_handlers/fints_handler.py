@@ -1,4 +1,6 @@
 import time
+from concurrent.futures import Future
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date, timedelta
@@ -9,8 +11,8 @@ import fints_url
 import requests
 from fints.camt_parser import camt053_to_dict
 from fints.client import FinTS3PinTanClient, NeedTANResponse
-from fints.exceptions import FinTSClientPINError
-from fints.formals import Balance1, Balance2
+from fints.exceptions import FinTSClientError, FinTSClientPINError
+from fints.formals import Balance1, Balance2, Response
 from fints.models import SEPAAccount
 from fints.models import Transaction as FinTSTransaction
 
@@ -22,6 +24,7 @@ from source.backend.bank_handlers.base import (
     CancelCheck,
     FetchedAccount,
     FetchedTransaction,
+    TwoFactorCodeRequest,
     TwoFactorStateCallback,
 )
 from source.backend.exceptions import (
@@ -29,7 +32,9 @@ from source.backend.exceptions import (
     InvalidCredentialsError,
     ReauthenticationRequiredError,
     SyncCancelledError,
+    TanNotAcceptedError,
     UnsupportedBankError,
+    UnsupportedTanMethodError,
     exception_chain,
 )
 from source.backend.helpers import get_key_of_transaction
@@ -73,10 +78,12 @@ class _FinTSSession(BankSession):
         client: FinTS3PinTanClient,
         notify_two_factor_state: TwoFactorStateCallback | None = None,
         is_cancelled: CancelCheck | None = None,
+        request_two_factor_code: TwoFactorCodeRequest | None = None,
     ):
         self._client = client
         self._notify_two_factor_state = notify_two_factor_state
         self._is_cancelled = is_cancelled
+        self._request_two_factor_code = request_two_factor_code
         self._account_mapping: dict[str, SEPAAccount] = {}
         self._balance_observations: dict[str, list[BalanceObservation]] = {}
         self.system_id: str | None = None
@@ -168,11 +175,12 @@ class _FinTSSession(BankSession):
         return self._client.get_transactions_xml(sepa_account, start_date=start_date, end_date=end_date)
 
     def _resolve(self, response: T) -> T:
-        return _resolve_decoupled(
+        return _resolve_tan(
             client=self._client,
             response=response,
             notify_two_factor_state=self._notify_two_factor_state,
             is_cancelled=self._is_cancelled,
+            request_two_factor_code=self._request_two_factor_code,
         )
 
 
@@ -271,16 +279,18 @@ class FinTSHandler(BankHandler):
             _try_configure_pushtan_mechanism(client)
         with client:
             with _as_invalid_credentials_on_login_failure():
-                client.init_tan_response = _resolve_decoupled(
+                client.init_tan_response = _resolve_tan(
                     client=client,
                     response=client.init_tan_response,
                     notify_two_factor_state=self.notify_two_factor_state,
                     is_cancelled=self.is_cancelled,
+                    request_two_factor_code=self.request_two_factor_code,
                 )
             bank_session = _FinTSSession(
                 client=client,
                 notify_two_factor_state=self.notify_two_factor_state,
                 is_cancelled=self.is_cancelled,
+                request_two_factor_code=self.request_two_factor_code,
             )
             yield bank_session
             # Persist the system_id after a successful session (it's None if the session failed).
@@ -359,19 +369,106 @@ def _try_configure_pushtan_mechanism(client: FinTS3PinTanClient) -> None:
         client.set_tan_medium(media[0])
 
 
-def _resolve_decoupled(
+def _resolve_tan(
+    client: FinTS3PinTanClient,
+    response: T,
+    notify_two_factor_state: TwoFactorStateCallback | None = None,
+    is_cancelled: CancelCheck | None = None,
+    request_two_factor_code: TwoFactorCodeRequest | None = None,
+) -> T:
+    if not isinstance(response, NeedTANResponse):
+        return response
+    if response.decoupled:
+        return _await_decoupled_approval(
+            client=client, response=response, notify_two_factor_state=notify_two_factor_state, is_cancelled=is_cancelled
+        )
+    response = _send_entered_tan(
+        client=client,
+        response=response,
+        notify_two_factor_state=notify_two_factor_state,
+        is_cancelled=is_cancelled,
+        request_two_factor_code=request_two_factor_code,
+    )
+    return _resolve_tan(
+        client=client,
+        response=response,
+        notify_two_factor_state=notify_two_factor_state,
+        is_cancelled=is_cancelled,
+        request_two_factor_code=request_two_factor_code,
+    )
+
+
+def _send_entered_tan(
+    client: FinTS3PinTanClient,
+    response: NeedTANResponse,
+    notify_two_factor_state: TwoFactorStateCallback | None,
+    is_cancelled: CancelCheck | None,
+    request_two_factor_code: TwoFactorCodeRequest | None,
+) -> object:
+    mechanism = client.get_current_tan_mechanism()
+    is_unsupported_challenge = response.challenge_matrix is not None or response.challenge_hhduc is not None
+    if is_unsupported_challenge:
+        error_message = f"TAN mechanism {mechanism} is not supported"
+        logger.warning(error_message)
+        raise UnsupportedTanMethodError(error_message)
+    if request_two_factor_code is None:
+        error_message = f"Bank requested a TAN (mechanism {mechanism}), but nobody can enter it in an unattended sync"
+        logger.warning(error_message)
+        raise ReauthenticationRequiredError(error_message)
+
+    logger.info(f"Waiting for the TAN of mechanism {mechanism} (up to {APPROVAL_TIMEOUT})")
+    logger.debug(f"TAN challenge: {response.challenge!r}")
+    tan = _wait_for_entered_tan(code=request_two_factor_code(), is_cancelled=is_cancelled)
+    bank_errors: list[str] = []
+
+    def collect_bank_error(_segment: object, bank_response: Response) -> None:
+        if bank_response.code.startswith("9"):
+            bank_errors.append(f"{bank_response.code} {bank_response.text}")
+
+    client.add_response_callback(collect_bank_error)
+    try:
+        response = client.send_tan(challenge=response, tan=tan)
+    except FinTSClientError as e:
+        client._standing_dialog.open = False  # pyright: ignore[reportOptionalMemberAccess]
+        if not bank_errors:
+            bank_errors.append(str(e))
+    finally:
+        client.remove_response_callback(collect_bank_error)
+        if notify_two_factor_state is not None:
+            notify_two_factor_state(False)
+    if bank_errors:
+        error_message = f"The bank did not accept the TAN: {'; '.join(bank_errors)}"
+        logger.warning(error_message)
+        raise TanNotAcceptedError(error_message)
+    logger.info("TAN accepted")
+    return response
+
+
+def _wait_for_entered_tan(code: Future[str], is_cancelled: CancelCheck | None) -> str:
+    deadline = time.monotonic() + APPROVAL_TIMEOUT.total_seconds()
+    try:
+        while True:
+            if is_cancelled is not None and is_cancelled():
+                logger.info("TAN entry cancelled by user; aborting sync")
+                raise SyncCancelledError("Sync cancelled while waiting for the TAN")
+            if time.monotonic() > deadline:
+                error_message = f"No TAN was entered within {APPROVAL_TIMEOUT}"
+                logger.warning(error_message)
+                raise TanNotAcceptedError(error_message)
+            try:
+                return code.result(timeout=APPROVAL_POLL_INTERVAL.total_seconds())
+            except FutureTimeoutError:
+                continue
+    finally:
+        code.cancel()
+
+
+def _await_decoupled_approval(
     client: FinTS3PinTanClient,
     response: T,
     notify_two_factor_state: TwoFactorStateCallback | None = None,
     is_cancelled: CancelCheck | None = None,
 ) -> T:
-    if not isinstance(response, NeedTANResponse):
-        return response
-    if not response.decoupled:
-        error_message = "Bank requested a non-decoupled TAN; only pushTAN app approval is supported"
-        logger.warning(error_message)
-        raise ReauthenticationRequiredError(error_message)
-
     if notify_two_factor_state is not None:
         notify_two_factor_state(True)
     try:
