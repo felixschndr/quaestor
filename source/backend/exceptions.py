@@ -106,6 +106,10 @@ class TanNotAcceptedError(Exception):
     pass
 
 
+class BankRefusedRequestError(Exception):
+    pass
+
+
 class SyncCancelledError(Exception):
     pass
 
