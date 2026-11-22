@@ -472,6 +472,11 @@ function CredentialForm({
               ? t('credentials.submitManual')
               : t('credentials.submit')}
       </Button>
+      {isSyncing ? (
+        <p className="text-muted-foreground text-center text-xs">
+          {t('credentials.firstSyncHint')}
+        </p>
+      ) : null}
     </form>
   )
 }

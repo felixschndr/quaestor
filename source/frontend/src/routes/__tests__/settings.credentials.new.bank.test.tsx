@@ -526,6 +526,20 @@ describe('NewCredentialFormView', () => {
       expect(bodyOf('POST', CONFIRM_URL)).toEqual({ code: '4242' })
     })
 
+    it('tells the user that the first sync can take a while', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate({ [`POST ${CONFIRM_URL}`]: STARTED_JOB })
+
+      renderForm(TR_BANK)
+      expect(screen.queryByText(/first sync loads/)).not.toBeInTheDocument()
+
+      await submitTradeRepublic(user)
+      await waitForFirstPoll()
+      await pushJob({ status: 'running' })
+
+      expect(await screen.findByText(/first sync loads/)).toBeInTheDocument()
+    })
+
     it('asks for a second code with an empty field', async () => {
       const user = userEvent.setup()
       serveSyncedCreate({ [`POST ${CONFIRM_URL}`]: STARTED_JOB })

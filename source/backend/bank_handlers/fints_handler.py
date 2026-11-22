@@ -55,6 +55,8 @@ APPROVAL_TIMEOUT = timedelta(minutes=3)
 APPROVAL_POLL_INTERVAL = timedelta(seconds=2)
 PENDING_LOOKBACK = timedelta(days=14)
 FETCH_CHUNK_LENGTH = timedelta(days=30)
+MAX_TRANSACTION_HISTORY = timedelta(days=4 * 365)
+PARTIALLY_EXECUTED_RESPONSE_CODE = "3997"
 
 # Deutsche Bank advertises MT940 (HIKAZS) but only answers transaction requests via CAMT (#158)
 DEUTSCHE_BANK_FINTS_URL = "https://fints.deutsche-bank.de"
@@ -104,7 +106,7 @@ class _FinTSSession(BankSession):
         # separately and treat the difference as the pending set. The bank gives no stable transaction id, so this is
         # the only reliable way to label pending transactions.
         pending_start = date.today() - PENDING_LOOKBACK
-        booked_start = min(start_date, pending_start)
+        booked_start = max(min(start_date, pending_start), date.today() - MAX_TRANSACTION_HISTORY)
         # Each fetch is over a different window, so each yields its own opening-balance anchor (the
         # booked one reaches further back, the pending one anchors ~2 weeks ago). Collect both.
         self._balance_observations[sepa_account.iban] = []
@@ -134,16 +136,27 @@ class _FinTSSession(BankSession):
     def _fetch_transactions(
         self, sepa_account: SEPAAccount, start_date: date, include_pending: bool
     ) -> list[FetchedTransaction]:
+        chunks_newest_first = []
+        for chunk_start, chunk_end in reversed(_date_ranges(start_date)):
+            with _collect_bank_responses(self._client) as bank_responses:
+                chunk_transactions = _parse_camt_if_needed(
+                    self._resolve(
+                        self._fetch_raw_transactions(
+                            sepa_account, start_date=chunk_start, end_date=chunk_end, include_pending=include_pending
+                        )
+                    ),
+                    include_pending=include_pending,
+                )
+            chunks_newest_first.append(chunk_transactions)
+            refusals = [_describe(response) for response in bank_responses if _refuses_older_transactions(response)]
+            if refusals:
+                logger.info(
+                    f"Bank refused the transactions from {chunk_start} to {chunk_end} ({'; '.join(refusals)}); "
+                    f"not fetching further back"
+                )
+                break
         raw_transactions = []
-        for chunk_start, chunk_end in _date_ranges(start_date):
-            chunk_transactions = _parse_camt_if_needed(
-                self._resolve(
-                    self._fetch_raw_transactions(
-                        sepa_account, start_date=chunk_start, end_date=chunk_end, include_pending=include_pending
-                    )
-                ),
-                include_pending=include_pending,
-            )
+        for chunk_transactions in reversed(chunks_newest_first):
             self._balance_observations.setdefault(sepa_account.iban, []).extend(  # noqa: FKA100
                 _extract_balance_observations(chunk_transactions)
             )
@@ -419,29 +432,51 @@ def _send_entered_tan(
     logger.info(f"Waiting for the TAN of mechanism {mechanism} (up to {APPROVAL_TIMEOUT})")
     logger.debug(f"TAN challenge: {response.challenge!r}")
     tan = _wait_for_entered_tan(code=request_two_factor_code(), is_cancelled=is_cancelled)
-    bank_errors: list[str] = []
-
-    def collect_bank_error(_segment: object, bank_response: Response) -> None:
-        if bank_response.code.startswith("9"):
-            bank_errors.append(f"{bank_response.code} {bank_response.text}")
-
-    client.add_response_callback(collect_bank_error)
-    try:
-        response = client.send_tan(challenge=response, tan=tan)
-    except FinTSClientError as e:
-        client._standing_dialog.open = False  # pyright: ignore[reportOptionalMemberAccess]
-        if not bank_errors:
-            bank_errors.append(str(e))
-    finally:
-        client.remove_response_callback(collect_bank_error)
-        if notify_two_factor_state is not None:
-            notify_two_factor_state(False)
+    client_error: FinTSClientError | None = None
+    with _collect_bank_responses(client) as bank_responses:
+        try:
+            response = client.send_tan(challenge=response, tan=tan)
+        except FinTSClientError as e:
+            client._standing_dialog.open = False  # pyright: ignore[reportOptionalMemberAccess]
+            client_error = e
+        finally:
+            if notify_two_factor_state is not None:
+                notify_two_factor_state(False)
+    bank_errors = [_describe(bank_response) for bank_response in bank_responses if _is_error(bank_response)]
+    if client_error is not None and not bank_errors:
+        bank_errors.append(str(client_error))
     if bank_errors:
         error_message = f"The bank did not accept the TAN: {'; '.join(bank_errors)}"
         logger.warning(error_message)
         raise TanNotAcceptedError(error_message)
     logger.info("TAN accepted")
     return response
+
+
+@contextmanager
+def _collect_bank_responses(client: FinTS3PinTanClient) -> Iterator[list[Response]]:
+    bank_responses: list[Response] = []
+
+    def collect(_segment: object, bank_response: Response) -> None:
+        bank_responses.append(bank_response)
+
+    client.add_response_callback(collect)
+    try:
+        yield bank_responses
+    finally:
+        client.remove_response_callback(collect)
+
+
+def _is_error(bank_response: Response) -> bool:
+    return bank_response.code.startswith("9")
+
+
+def _refuses_older_transactions(bank_response: Response) -> bool:
+    return _is_error(bank_response) or bank_response.code == PARTIALLY_EXECUTED_RESPONSE_CODE
+
+
+def _describe(bank_response: Response) -> str:
+    return f"{bank_response.code} {bank_response.text}"
 
 
 def _wait_for_entered_tan(code: Future[str], is_cancelled: CancelCheck | None) -> str:

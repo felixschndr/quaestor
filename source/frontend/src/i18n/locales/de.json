@@ -440,6 +440,7 @@
     "submitManual": "Erstellen",
     "submitting": "Wird verbunden …",
     "syncing": "Wird synchronisiert …",
+    "firstSyncHint": "Beim ersten Sync laden wir die bisherigen Umsätze deiner Konten. Das kann je nach Bank einige Minuten dauern.",
     "alreadyExists": "Eine {{bank}}-Verbindung mit diesen Zugangsdaten existiert bereits.",
     "connectFailed": "Verbindung zu {{bank}} fehlgeschlagen. Bitte Zugangsdaten prüfen.",
     "syncFailed": "{{bank}} verbunden, aber die erste Synchronisierung ist fehlgeschlagen. Du kannst es später erneut versuchen.",
