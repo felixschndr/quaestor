@@ -6,7 +6,7 @@ from concurrent.futures import Future
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Iterator
+from typing import Callable, Iterator
 from unittest.mock import MagicMock
 
 import pytest
@@ -28,6 +28,7 @@ from source.backend.bank_handlers.fints_handler import (
     _try_configure_pushtan_mechanism,
 )
 from source.backend.exceptions import (
+    BankRefusedRequestError,
     BankTimedOutError,
     InvalidCredentialsError,
     JobErrorCode,
@@ -634,13 +635,44 @@ def _transaction_on(day: date) -> MagicMock:
     return transaction
 
 
-def test_session_fetches_at_most_four_years_of_history_on_the_first_sync():
+def _client_offering(parameter_segments: tuple[str, ...]) -> MagicMock:
+    # A client of a bank whose parameters contain only the given segments, e.g. HIKAZS (MT940) or HICAZS (CAMT)
     client = MagicMock()
-    client.get_transactions.return_value = []
+    client.bpd.find_segment_first.side_effect = lambda segment_type: (
+        MagicMock() if segment_type in parameter_segments else None
+    )
+    client.response_callbacks = []
+    client.add_response_callback.side_effect = client.response_callbacks.append
+    client.remove_response_callback.side_effect = client.response_callbacks.remove
+    return client
+
+
+def _answer(client: MagicMock, response_code: str) -> None:
+    # What python-fints hands its response callbacks for every response code of the bank
+    for callback in list(client.response_callbacks):
+        callback(None, Response(code=response_code, text=REFUSED_PERIOD_TEXT))  # noqa: FKA100
+
+
+def _refusing(client: MagicMock) -> Callable[..., list]:
+    # python-fints only logs the bank's errors and hands back no transactions
+    def refuse(*args: object, **kwargs: object) -> list:
+        _answer(client, response_code=FINTS_ERROR_CODE)
+        return []
+
+    return refuse
+
+
+def _session_for(client: MagicMock) -> module._FinTSSession:
     session = module._FinTSSession(client=client)
     session._account_mapping = {ACCOUNT_IBAN: MagicMock(iban=ACCOUNT_IBAN)}
+    return session
 
-    session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=FIRST_SYNC_DATE)
+
+def test_session_fetches_at_most_four_years_of_history_on_the_first_sync():
+    client = _client_offering(parameter_segments=("HIKAZS",))
+    client.get_transactions.return_value = []
+
+    _session_for(client).get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=FIRST_SYNC_DATE)
 
     requested_starts = [call.kwargs["start_date"] for call in client.get_transactions.call_args_list]
     assert min(requested_starts) == date.today() - module.MAX_TRANSACTION_HISTORY
@@ -657,30 +689,75 @@ def test_session_stops_going_back_at_the_first_period_the_bank_refuses(
     refusal_code: str, caplog: pytest.LogCaptureFixture
 ):
     refused_chunk_number = 3
-    callbacks: list = []
     booked_chunk_starts: list[date] = []
-    client = MagicMock()
-    client.add_response_callback.side_effect = callbacks.append
-    client.remove_response_callback.side_effect = callbacks.remove
+    client = _client_offering(parameter_segments=("HIKAZS",))
 
     def fetch_chunk(account: object, start_date: date, end_date: date, include_pending: bool) -> list[MagicMock]:
         if not include_pending:
             booked_chunk_starts.append(start_date)
             if len(booked_chunk_starts) == refused_chunk_number:
-                for callback in list(callbacks):
-                    callback(None, Response(code=refusal_code, text=REFUSED_PERIOD_TEXT))  # noqa: FKA100
+                _answer(client, response_code=refusal_code)
         return [_transaction_on(start_date)]
 
     client.get_transactions.side_effect = fetch_chunk
-    session = module._FinTSSession(client=client)
-    session._account_mapping = {ACCOUNT_IBAN: MagicMock(iban=ACCOUNT_IBAN)}
 
-    transactions = session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=OLDER_DATE)
+    transactions = _session_for(client).get_transactions(
+        account=FetchedAccount(name=ACCOUNT_IBAN), start_date=OLDER_DATE
+    )
 
     assert len(booked_chunk_starts) == refused_chunk_number
     assert booked_chunk_starts == sorted(booked_chunk_starts, reverse=True)
     assert [transaction.date for transaction in transactions if not transaction.pending] == sorted(booked_chunk_starts)
     assert_log_contains(caplog, message=f"({refusal_code} {REFUSED_PERIOD_TEXT}); not fetching further back")
+
+
+def test_session_fails_when_the_bank_refuses_even_the_current_period(caplog: pytest.LogCaptureFixture):
+    # Reporting this as "no transactions" would let the sync succeed and the next one start after the gap
+    client = _client_offering(parameter_segments=("HIKAZS",))
+    client.get_transactions.side_effect = _refusing(client)
+
+    with pytest.raises(BankRefusedRequestError, match=f"{FINTS_ERROR_CODE} {REFUSED_PERIOD_TEXT}"):
+        _session_for(client).get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE)
+
+    assert client.get_transactions.call_count == 1
+    assert_log_contains(caplog, message="The bank refused the transactions from")
+
+
+@pytest.mark.usefixtures("single_fetch_chunk")
+def test_session_retries_with_camt_when_the_bank_refuses_mt940(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    monkeypatch.setattr(
+        target=module,
+        name="camt053_to_dict",
+        value=lambda stream: [{"amount": MagicMock(amount=DEFAULT_AMOUNT), "purpose": "x", "date": RECENT_DATE}],
+    )
+    client = _client_offering(parameter_segments=("HIKAZS", "HICAZS"))
+    client.get_transactions.side_effect = _refusing(client)
+    client.get_transactions_xml.return_value = ([b"<booked/>"], [None])
+
+    transactions = _session_for(client).get_transactions(
+        account=FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE
+    )
+
+    assert len(transactions) == 1
+    # Once CAMT worked, the rest of the session (here: the pending fetch) skips MT940
+    assert client.get_transactions.call_count == 1
+    assert client.get_transactions_xml.call_count == 2
+    assert_log_contains(caplog, messages=["retrying with CAMT", "using CAMT for the rest of this session"])
+
+
+@pytest.mark.usefixtures("single_fetch_chunk")
+def test_session_keeps_mt940_when_camt_is_refused_as_well():
+    client = _client_offering(parameter_segments=("HIKAZS", "HICAZS"))
+    client.get_transactions.side_effect = _refusing(client)
+    client.get_transactions_xml.side_effect = _refusing(client)
+    session = _session_for(client)
+
+    with pytest.raises(BankRefusedRequestError):
+        session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE)
+
+    assert session._mt940_refused is False
 
 
 def test_date_ranges_splits_history_into_gapless_chunks_up_to_today():

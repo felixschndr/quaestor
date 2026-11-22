@@ -28,6 +28,7 @@ from source.backend.bank_handlers.base import (
     TwoFactorStateCallback,
 )
 from source.backend.exceptions import (
+    BankRefusedRequestError,
     BankTimedOutError,
     InvalidCredentialsError,
     ReauthenticationRequiredError,
@@ -88,6 +89,7 @@ class _FinTSSession(BankSession):
         self._request_two_factor_code = request_two_factor_code
         self._account_mapping: dict[str, SEPAAccount] = {}
         self._balance_observations: dict[str, list[BalanceObservation]] = {}
+        self._mt940_refused = False
         self.system_id: str | None = None
 
     def get_accounts(self) -> list[FetchedAccount]:
@@ -137,24 +139,27 @@ class _FinTSSession(BankSession):
         self, sepa_account: SEPAAccount, start_date: date, include_pending: bool
     ) -> list[FetchedTransaction]:
         chunks_newest_first = []
-        for chunk_start, chunk_end in reversed(_date_ranges(start_date)):
-            with _collect_bank_responses(self._client) as bank_responses:
-                chunk_transactions = _parse_camt_if_needed(
-                    self._resolve(
-                        self._fetch_raw_transactions(
-                            sepa_account, start_date=chunk_start, end_date=chunk_end, include_pending=include_pending
-                        )
-                    ),
-                    include_pending=include_pending,
-                )
+        for chunk_number, (chunk_start, chunk_end) in enumerate(reversed(_date_ranges(start_date))):
+            chunk_transactions, bank_responses = self._fetch_chunk(
+                sepa_account, start_date=chunk_start, end_date=chunk_end, include_pending=include_pending
+            )
             chunks_newest_first.append(chunk_transactions)
             refusals = [_describe(response) for response in bank_responses if _refuses_older_transactions(response)]
-            if refusals:
-                logger.info(
-                    f"Bank refused the transactions from {chunk_start} to {chunk_end} ({'; '.join(refusals)}); "
-                    f"not fetching further back"
+            if not refusals:
+                continue
+            if chunk_number == 0 and any(_is_error(response) for response in bank_responses):
+                # Refusing even the current period isn't the end of the bank's history but a failed request. Reporting
+                # it as "no transactions" would let the sync succeed and the next one start after this gap.
+                error_message = (
+                    f"The bank refused the transactions from {chunk_start} to {chunk_end}: {'; '.join(refusals)}"
                 )
-                break
+                logger.error(error_message)
+                raise BankRefusedRequestError(error_message)
+            logger.info(
+                f"Bank refused the transactions from {chunk_start} to {chunk_end} ({'; '.join(refusals)}); "
+                f"not fetching further back"
+            )
+            break
         raw_transactions = []
         for chunk_transactions in reversed(chunks_newest_first):
             self._balance_observations.setdefault(sepa_account.iban, []).extend(  # noqa: FKA100
@@ -176,16 +181,64 @@ class _FinTSSession(BankSession):
             )
         return transactions
 
-    def _fetch_raw_transactions(
+    def _fetch_chunk(
         self, sepa_account: SEPAAccount, start_date: date, end_date: date, include_pending: bool
-    ) -> list | tuple | NeedTANResponse:
+    ) -> tuple[list, list[Response]]:
+        uses_camt = self._uses_camt()
+        transactions, bank_responses = self._fetch_chunk_in_format(
+            sepa_account, start_date=start_date, end_date=end_date, include_pending=include_pending, camt=uses_camt
+        )
+        errors = [_describe(response) for response in bank_responses if _is_error(response)]
+        supports_camt = self._client.bpd.find_segment_first("HICAZS") is not None
+        if not errors or uses_camt or not supports_camt:
+            return transactions, bank_responses
+
+        # Some banks advertise MT940 but fail on it while answering the same request in CAMT (#158, #216)
+        logger.warning(
+            f"Bank refused the MT940 transactions from {start_date} to {end_date} ({'; '.join(errors)}); "
+            f"retrying with CAMT"
+        )
+        transactions, bank_responses = self._fetch_chunk_in_format(
+            sepa_account, start_date=start_date, end_date=end_date, include_pending=include_pending, camt=True
+        )
+        if not any(_is_error(response) for response in bank_responses):
+            logger.info("Bank accepted the CAMT request; using CAMT for the rest of this session")
+            self._mt940_refused = True
+        return transactions, bank_responses
+
+    def _fetch_chunk_in_format(
+        self, sepa_account: SEPAAccount, start_date: date, end_date: date, include_pending: bool, camt: bool
+    ) -> tuple[list, list[Response]]:
+        logger.debug(
+            f"Fetching transactions from {start_date} to {end_date} via {'CAMT' if camt else 'MT940'} "
+            f"(include_pending={include_pending})"
+        )
+        with _collect_bank_responses(self._client) as bank_responses:
+            raw_transactions = self._resolve(
+                self._fetch_raw_transactions(
+                    sepa_account, start_date=start_date, end_date=end_date, include_pending=include_pending, camt=camt
+                )
+            )
+        transactions = _parse_camt_if_needed(raw_transactions, include_pending=include_pending)
+        logger.debug(
+            f"Bank answered with {len(transactions)} transaction(s) and the responses: "
+            f"{'; '.join(_describe(response) for response in bank_responses) or 'none'}"
+        )
+        return transactions, bank_responses
+
+    def _uses_camt(self) -> bool:
         supports_mt940 = self._client.bpd.find_segment_first("HIKAZS") is not None
         is_deutsche_bank = self._client.connection.url.rstrip("/") == DEUTSCHE_BANK_FINTS_URL
-        if supports_mt940 and not is_deutsche_bank:
-            return self._client.get_transactions(
-                sepa_account, start_date=start_date, end_date=end_date, include_pending=include_pending
-            )
-        return self._client.get_transactions_xml(sepa_account, start_date=start_date, end_date=end_date)
+        return self._mt940_refused or not supports_mt940 or is_deutsche_bank
+
+    def _fetch_raw_transactions(
+        self, sepa_account: SEPAAccount, start_date: date, end_date: date, include_pending: bool, camt: bool
+    ) -> list | tuple | NeedTANResponse:
+        if camt:
+            return self._client.get_transactions_xml(sepa_account, start_date=start_date, end_date=end_date)
+        return self._client.get_transactions(
+            sepa_account, start_date=start_date, end_date=end_date, include_pending=include_pending
+        )
 
     def _resolve(self, response: T) -> T:
         return _resolve_tan(
