@@ -1,12 +1,19 @@
 import asyncio
+import threading
 import time
 from collections.abc import Callable, Iterator
+from concurrent.futures import Future
 from datetime import timedelta
 from typing import Union
 
 import pytest
 
-from source.backend.exceptions import BankRateLimitedError, InvalidCredentialsError, SyncCancelledError
+from source.backend.exceptions import (
+    BankRateLimitedError,
+    InvalidCredentialsError,
+    SyncCancelledError,
+    TanNotAcceptedError,
+)
 from source.backend.helpers import utc_now
 from source.backend.services.banking import sync_jobs
 from source.backend.services.banking.credential_service import SyncResult, SyncStatus
@@ -47,6 +54,7 @@ def patch_sync(monkeypatch: pytest.MonkeyPatch) -> PatchSync:
             notify_two_factor_state: object = None,
             is_cancelled: object = None,
             start_interactive_challenge: bool = True,
+            request_two_factor_code: object = None,
         ) -> SyncResult:
             if isinstance(outcome, Exception):
                 raise outcome
@@ -163,8 +171,121 @@ def test_submit_two_factor_advances_the_job(patch_sync: PatchSync, patch_confirm
     asyncio.run(scenario())
 
 
-def test_submit_two_factor_returns_none_when_job_not_awaiting():
-    job = SyncJob(job_id="abc", credential_id=CREDENTIAL_ID, status=JobStatus.RUNNING)
+def test_a_sync_waiting_in_its_open_bank_session_continues_with_the_submitted_code(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    sync_may_finish = threading.Event()
+
+    def runner_waiting_for_code(
+        credential_id: int,
+        notify_two_factor_state: "Callable[[bool], None] | None" = None,
+        is_cancelled: object = None,
+        start_interactive_challenge: bool = True,
+        request_two_factor_code: "Callable[[], Future[str]] | None" = None,
+    ) -> SyncResult:
+        assert request_two_factor_code is not None and notify_two_factor_state is not None
+        assert request_two_factor_code().result(timeout=5) == TWO_FACTOR_CODE
+        notify_two_factor_state(False)
+        sync_may_finish.wait(timeout=5)
+        return SyncResult(status=SyncStatus.COMPLETED)
+
+    monkeypatch.setattr(target=sync_jobs, name="_sync_in_thread", value=runner_waiting_for_code)
+
+    async def scenario() -> SyncJob:
+        job = await sync_jobs.start_sync(credential_id=CREDENTIAL_ID)
+        await _wait_until(lambda: job.pending_code is not None)
+        assert job.status == JobStatus.AWAITING_TWO_FACTOR
+        assert await sync_jobs.start_sync(credential_id=CREDENTIAL_ID) is job
+
+        assert await sync_jobs.submit_two_factor(job_id=job.job_id, code=TWO_FACTOR_CODE) is job
+        assert job.status == JobStatus.CONFIRMING_TWO_FACTOR
+        assert job.pending_code is None
+        await _wait_until(lambda: job.status == JobStatus.RUNNING)
+        assert job.status == JobStatus.RUNNING
+        sync_may_finish.set()
+        await _wait_until(lambda: job.finished_at is not None)
+        return job
+
+    job = asyncio.run(scenario())
+
+    assert job.status == JobStatus.COMPLETED
+    assert_log_contains(caplog, messages=[f"<SyncJob(job_id={job.job_id}, ", ")> awaiting 2FA code"])
+
+
+def test_a_code_entered_after_the_sync_stopped_waiting_is_refused(monkeypatch: pytest.MonkeyPatch):
+    sync_may_finish = threading.Event()
+
+    def runner_giving_up_on_the_code(
+        credential_id: int,
+        notify_two_factor_state: object = None,
+        is_cancelled: object = None,
+        start_interactive_challenge: bool = True,
+        request_two_factor_code: "Callable[[], Future[str]] | None" = None,
+    ) -> SyncResult:
+        assert request_two_factor_code is not None
+        request_two_factor_code().cancel()
+        sync_may_finish.wait(timeout=5)
+        raise TanNotAcceptedError("No TAN was entered within 0:03:00")
+
+    monkeypatch.setattr(target=sync_jobs, name="_sync_in_thread", value=runner_giving_up_on_the_code)
+
+    async def scenario() -> tuple[SyncJob, SyncJob]:
+        job = await sync_jobs.start_sync(credential_id=CREDENTIAL_ID)
+        await _wait_until(lambda: job.pending_code is not None and job.pending_code.cancelled())
+
+        assert await sync_jobs.submit_two_factor(job_id=job.job_id, code=TWO_FACTOR_CODE) is None
+        new_job = await sync_jobs.start_sync(credential_id=CREDENTIAL_ID)
+        sync_may_finish.set()
+        await _wait_until(lambda: not sync_jobs._background_tasks)
+        return job, new_job
+
+    job, new_job = asyncio.run(scenario())
+
+    assert new_job is not job
+    assert job.error_code == JobErrorCode.CANCELLED
+
+
+@pytest.mark.parametrize(argnames="start_interactive_challenge", argvalues=[True, False])
+def test_only_an_interactive_sync_can_ask_for_a_code(
+    monkeypatch: pytest.MonkeyPatch, start_interactive_challenge: bool
+):
+    received_code_requests: list[object] = []
+
+    def recording_runner(
+        credential_id: int,
+        notify_two_factor_state: object = None,
+        is_cancelled: object = None,
+        start_interactive_challenge: bool = True,
+        request_two_factor_code: object = None,
+    ) -> SyncResult:
+        received_code_requests.append(request_two_factor_code)
+        return SyncResult(status=SyncStatus.COMPLETED)
+
+    monkeypatch.setattr(target=sync_jobs, name="_sync_in_thread", value=recording_runner)
+
+    async def scenario() -> None:
+        job = await sync_jobs.start_sync(
+            credential_id=CREDENTIAL_ID, start_interactive_challenge=start_interactive_challenge
+        )
+        await _wait_until(lambda: job.finished_at is not None)
+
+    asyncio.run(scenario())
+
+    assert (received_code_requests[0] is not None) is start_interactive_challenge
+
+
+def test_a_late_code_request_does_not_revive_a_finished_job():
+    job = SyncJob(job_id="finished", credential_id=CREDENTIAL_ID, status=JobStatus.FAILED, finished_at=utc_now())
+
+    asyncio.run(sync_jobs._await_code(job=job, code=Future()))
+
+    assert job.status == JobStatus.FAILED
+    assert job.pending_code is None
+
+
+@pytest.mark.parametrize(argnames="status", argvalues=[JobStatus.RUNNING, JobStatus.AWAITING_TWO_FACTOR])
+def test_submit_two_factor_returns_none_when_job_not_awaiting(status: JobStatus):
+    job = SyncJob(job_id="abc", credential_id=CREDENTIAL_ID, status=status)
     sync_jobs._jobs[job.job_id] = job
 
     async def scenario():
@@ -282,6 +403,7 @@ def test_cancel_aborts_a_blocking_sync_and_keeps_cancelled_status(monkeypatch: p
         notify_two_factor_state: Callable[[bool], None] | None = None,
         is_cancelled: Callable[[], bool] | None = None,
         start_interactive_challenge: bool = True,
+        request_two_factor_code: object = None,
     ) -> SyncResult:
         if notify_two_factor_state is not None:
             notify_two_factor_state(True)  # -> awaiting_decoupled_approval
@@ -315,6 +437,7 @@ def test_a_sync_finishing_after_the_user_cancelled_keeps_the_cancelled_status(
         notify_two_factor_state: Callable[[bool], None] | None = None,
         is_cancelled: Callable[[], bool] | None = None,
         start_interactive_challenge: bool = True,
+        request_two_factor_code: object = None,
     ) -> SyncResult:
         while not (is_cancelled and is_cancelled()):
             time.sleep(0.01)

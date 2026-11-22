@@ -274,6 +274,7 @@ function CredentialForm({
         jobId: activeJob.jobId,
         code,
       })
+      setCode('')
     } catch {
       toast.error(t('credentials.twoFactor.failed'))
       onSyncFailed()

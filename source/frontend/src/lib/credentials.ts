@@ -98,6 +98,8 @@ export type SyncJobErrorCode =
   | 'cancelled'
   | 'invalid_credentials'
   | 'unsupported_bank'
+  | 'unsupported_tan_method'
+  | 'tan_not_accepted'
   | 'rate_limited'
   | 'timeout'
   | 'redirect_url_not_allowed'

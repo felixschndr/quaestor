@@ -1,5 +1,6 @@
 import re
 import threading
+from concurrent.futures import Future
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
@@ -8,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
-from source.backend.bank_handlers.base import CancelCheck, TwoFactorStateCallback
+from source.backend.bank_handlers.base import CancelCheck, TwoFactorCodeRequest, TwoFactorStateCallback
 from source.backend.exceptions import (
     KNOWN_SYNC_ERROR_TYPES,
     CredentialAlreadyExistsError,
@@ -38,6 +39,8 @@ logger = get_logger(__name__)
 TWO_FACTOR_REEVALUATION_MIN_GAP = timedelta(hours=24)
 APP_OPEN_SYNC_MIN_GAP = timedelta(minutes=10)
 CONSECUTIVE_SYNC_FAILURES_BEFORE_NOTIFICATION = 3
+# Only the user can resolve these: notify them right away and stop retrying unattended
+ERROR_CODES_NEEDING_THE_USER = frozenset({JobErrorCode.REAUTHENTICATION_REQUIRED, JobErrorCode.UNSUPPORTED_TAN_METHOD})
 
 _sync_locks: dict[int, threading.Lock] = {}
 _sync_locks_guard = threading.Lock()
@@ -226,6 +229,7 @@ def sync_credential(
     notify_two_factor_state: TwoFactorStateCallback | None = None,
     is_cancelled: CancelCheck | None = None,
     start_interactive_challenge: bool = True,
+    request_two_factor_code: TwoFactorCodeRequest | None = None,
 ) -> SyncResult:
     logger.debug(f"Sync requested for credential {credential_id}")
     with _sync_lock(credential_id):
@@ -235,6 +239,7 @@ def sync_credential(
             result = sync_credential_object(
                 credential=credential,
                 notify_two_factor_state=notify_two_factor_state,
+                request_two_factor_code=request_two_factor_code,
                 is_cancelled=is_cancelled,
                 reevaluate_two_factor_requirement=True,
                 start_interactive_challenge=start_interactive_challenge,
@@ -294,6 +299,7 @@ def sync_credential_object(
     is_cancelled: CancelCheck | None = None,
     reevaluate_two_factor_requirement: bool = False,
     start_interactive_challenge: bool = True,
+    request_two_factor_code: TwoFactorCodeRequest | None = None,
 ) -> SyncResult:
     credential.last_sync_attempt_timestamp = utc_now()
     db_session = object_session(credential)
@@ -303,6 +309,7 @@ def sync_credential_object(
         result = _sync_credential_object(
             credential=credential,
             notify_two_factor_state=notify_two_factor_state,
+            request_two_factor_code=request_two_factor_code,
             is_cancelled=is_cancelled,
             reevaluate_two_factor_requirement=reevaluate_two_factor_requirement,
             start_interactive_challenge=start_interactive_challenge,
@@ -324,6 +331,7 @@ def _sync_credential_object(
     is_cancelled: CancelCheck | None = None,
     reevaluate_two_factor_requirement: bool = False,
     start_interactive_challenge: bool = True,
+    request_two_factor_code: TwoFactorCodeRequest | None = None,
 ) -> SyncResult:
     logger.info(f"Syncing {credential}")
     handler = credential.handler
@@ -339,6 +347,14 @@ def _sync_credential_object(
             notify_two_factor_state(awaiting)
 
     handler.notify_two_factor_state = track_two_factor_state
+    if request_two_factor_code is not None:
+
+        def track_two_factor_code_request() -> Future[str]:
+            nonlocal two_factor_used
+            two_factor_used = True
+            return request_two_factor_code()
+
+        handler.request_two_factor_code = track_two_factor_code_request
     handler.is_cancelled = is_cancelled
     handler.session_state = credential.session_state
 
@@ -392,7 +408,7 @@ def should_sync_on_app_open(credential: Credential, now: datetime | None = None)
 def _is_due_for_periodic_sync(credential: Credential) -> bool:
     if not credential.sync_enabled or not credential.is_syncable:
         return False
-    if credential.last_sync_error_code == JobErrorCode.REAUTHENTICATION_REQUIRED:
+    if credential.last_sync_error_code in ERROR_CODES_NEEDING_THE_USER:
         return False
     handler_class = BANKS_BY_NAME[credential.bank.value].handler
     return not credential.requires_two_factor_authentication or handler_class.resumes_session_unattended(
@@ -439,7 +455,7 @@ def sync_all_due_credentials(db_session: Session) -> None:
             credential.consecutive_sync_failures += 1
             if (
                 credential.consecutive_sync_failures == CONSECUTIVE_SYNC_FAILURES_BEFORE_NOTIFICATION
-                or credential.last_sync_error_code == JobErrorCode.REAUTHENTICATION_REQUIRED
+                or credential.last_sync_error_code in ERROR_CODES_NEEDING_THE_USER
             ):
                 failure_notifications.append(
                     (credential.user, notification_engine.credential_sync_failed_notification(credential))

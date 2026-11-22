@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable
+from concurrent.futures import Future
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -9,6 +10,7 @@ from source.backend.models.transactions.transaction_type import TransactionType
 
 TwoFactorStateCallback = Callable[[bool], None]
 CancelCheck = Callable[[], bool]
+TwoFactorCodeRequest = Callable[[], Future[str]]
 
 
 @dataclass(frozen=True)
@@ -127,6 +129,7 @@ class BankHandler(ABC):
         self.bank_info = bank_info
         self.credentials = credentials
         self.notify_two_factor_state: TwoFactorStateCallback | None = None
+        self.request_two_factor_code: TwoFactorCodeRequest | None = None
         self.is_cancelled: CancelCheck | None = None
 
     @classmethod
