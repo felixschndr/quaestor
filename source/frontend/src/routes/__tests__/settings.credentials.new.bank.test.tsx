@@ -352,6 +352,25 @@ describe('NewCredentialFormView', () => {
     await waitFor(() => expect(requestsTo('DELETE', '/api/credentials/30')).toHaveLength(1))
   })
 
+  it('keeps the credential when the user leaves while the first sync is running', async () => {
+    const user = userEvent.setup()
+    serveSyncedCreate()
+
+    const { unmount } = renderForm(ING_BANK)
+    await submitLogin(user)
+
+    await waitForFirstPoll()
+    await pushJob({ status: 'awaiting_2fa' })
+    await screen.findByLabelText('Code')
+    await pushJob({ status: 'running' })
+    await waitFor(() => expect(screen.queryByLabelText('Code')).not.toBeInTheDocument())
+
+    unmount()
+    // Deleting it would throw away everything the sync fetched in the meantime (#216)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(requestsTo('DELETE', '/api/credentials/30')).toHaveLength(0)
+  })
+
   it('bounces back to onSyncFailed when the WS reports failed', async () => {
     const user = userEvent.setup()
     serveSyncedCreate()

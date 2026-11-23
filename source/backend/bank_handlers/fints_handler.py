@@ -140,6 +140,10 @@ class _FinTSSession(BankSession):
     ) -> list[FetchedTransaction]:
         chunks_newest_first = []
         for chunk_number, (chunk_start, chunk_end) in enumerate(reversed(_date_ranges(start_date))):
+            if self._is_cancelled is not None and self._is_cancelled():
+                error_message = "Sync cancelled while fetching transactions; aborting"
+                logger.info(error_message)
+                raise SyncCancelledError(error_message)
             chunk_transactions, bank_responses = self._fetch_chunk(
                 sepa_account, start_date=chunk_start, end_date=chunk_end, include_pending=include_pending
             )
