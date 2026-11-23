@@ -5,8 +5,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session, object_session
+from sqlalchemy.orm.exc import ObjectDeletedError, StaleDataError
 
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
 from source.backend.bank_handlers.base import CancelCheck, TwoFactorCodeRequest, TwoFactorStateCallback
@@ -259,12 +260,16 @@ def sync_credential(
 def _persist_session_state_of_failed_sync(
     db_session: Session, credential: Credential, kept_fields: tuple[str, ...] = ("session_state",)
 ) -> None:
+    credential_id = inspect(credential).identity[0]  # pyright: ignore[reportOptionalSubscript]
     try:
         kept_values = {name: getattr(credential, name) for name in kept_fields}
         db_session.rollback()
         for name, value in kept_values.items():
             setattr(credential, name, value)
         db_session.commit()
+    except (StaleDataError, ObjectDeletedError):
+        db_session.rollback()
+        logger.info(f"Credential {credential_id} was deleted during its sync; nothing to persist")
     except Exception:
         db_session.rollback()
         logger.exception(f"Could not persist the session state of the failed sync of {credential}")

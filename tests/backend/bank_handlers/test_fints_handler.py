@@ -711,6 +711,19 @@ def test_session_stops_going_back_at_the_first_period_the_bank_refuses(
     assert_log_contains(caplog, message=f"({refusal_code} {REFUSED_PERIOD_TEXT}); not fetching further back")
 
 
+def test_session_stops_fetching_transactions_once_the_sync_is_cancelled(caplog: pytest.LogCaptureFixture):
+    client = _client_offering(parameter_segments=("HIKAZS",))
+    client.get_transactions.return_value = []
+    session = module._FinTSSession(client=client, is_cancelled=lambda: client.get_transactions.call_count > 0)
+    session._account_mapping = {ACCOUNT_IBAN: MagicMock(iban=ACCOUNT_IBAN)}
+
+    with pytest.raises(SyncCancelledError):
+        session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=OLDER_DATE)
+
+    assert client.get_transactions.call_count == 1
+    assert_log_contains(caplog, message="Sync cancelled while fetching transactions; aborting")
+
+
 def test_session_fails_when_the_bank_refuses_even_the_current_period(caplog: pytest.LogCaptureFixture):
     # Reporting this as "no transactions" would let the sync succeed and the next one start after the gap
     client = _client_offering(parameter_segments=("HIKAZS",))

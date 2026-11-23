@@ -154,9 +154,18 @@ function CredentialForm({
   const { job } = useSyncJob(activeJob?.credentialId ?? null, activeJob?.jobId ?? null)
   const handledJobId = useRef<string | null>(null)
   const pendingCleanup = useRef<number | null>(null)
+  // Leaving while the bank waits for the user abandons the setup. A sync that simply runs (the first one can take
+  // minutes) finishes in the background instead, deleting its credential would throw away everything it fetched.
+  const isAwaitingUser = useRef(false)
+  useEffect(() => {
+    isAwaitingUser.current =
+      job?.status === 'awaiting_2fa' || job?.status === 'awaiting_decoupled_approval'
+  }, [job])
   useEffect(
     () => () => {
-      if (pendingCleanup.current !== null) deleteCredential(pendingCleanup.current)
+      if (pendingCleanup.current !== null && isAwaitingUser.current) {
+        deleteCredential(pendingCleanup.current)
+      }
     },
     [deleteCredential],
   )

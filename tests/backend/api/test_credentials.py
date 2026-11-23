@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
+from source.backend.exceptions import JobErrorCode
 from source.backend.services.banking import credential_service, sync_jobs
 from source.backend.services.banking.credential_service import SyncResult, SyncStatus
 from tests.backend.conftest import (
@@ -175,6 +176,18 @@ def test_delete_credential_removes_it(http_client: TestClient):
 
     assert delete_response.status_code == 204
     assert http_client.get(f"/api/credentials/{credential_id}").status_code == 404
+
+
+def test_delete_credential_cancels_its_running_sync(http_client: TestClient):
+    register(http_client)
+    credential_id = create_credential(http_client).json()["id"]
+    running = sync_jobs.SyncJob(job_id=CHALLENGE_TOKEN, credential_id=credential_id)
+    sync_jobs._jobs[running.job_id] = running
+
+    assert http_client.delete(f"/api/credentials/{credential_id}").status_code == 204
+
+    assert running.status == sync_jobs.JobStatus.FAILED
+    assert running.error_code == JobErrorCode.CANCELLED
 
 
 def test_get_unknown_credential_returns_not_found(http_client: TestClient):

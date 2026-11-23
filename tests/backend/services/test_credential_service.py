@@ -18,6 +18,7 @@ from source.backend.exceptions import (
     JobErrorCode,
     MissingCredentialFieldError,
     ReauthenticationRequiredError,
+    SyncCancelledError,
     UnsupportedTanMethodError,
 )
 from source.backend.helpers import utc_now
@@ -587,6 +588,27 @@ def test_sync_passes_the_code_request_on_and_marks_credential_when_handler_asks_
         assert credential.requires_two_factor_authentication is True
 
     assert received_codes == [TWO_FACTOR_CODE]
+
+
+def test_sync_of_a_credential_deleted_meanwhile_ends_without_a_stack_trace(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
+
+    def deleted_meanwhile(self: Credential, handler: BankHandler) -> None:
+        with session_factory() as other_session:
+            other_session.delete(other_session.get(entity=Credential, ident=credential_id))
+            other_session.commit()
+        raise SyncCancelledError("Sync cancelled while fetching transactions")
+
+    monkeypatch.setattr(target=Credential, name="sync", value=deleted_meanwhile)
+
+    with session_factory() as session:
+        with pytest.raises(SyncCancelledError):
+            credential_service.sync_credential(db_session=session, credential_id=credential_id)
+
+    assert_log_contains(caplog, message=f"Credential {credential_id} was deleted during its sync; nothing to persist")
+    assert_log_contains(caplog, message="Could not persist the session state", negate=True)
 
 
 def test_sync_leaves_two_factor_flag_unset_without_two_factor(
