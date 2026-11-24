@@ -88,20 +88,20 @@ repos:
       - id: check-i18n
         name: check i18n keys
         language: system
-        entry: python3 scripts/checks/check_i18n.py
+        entry: .venv/bin/python scripts/checks/check_i18n.py
         files: '^(source/frontend/src/(.*\.(ts|tsx)|i18n/locales/.*\.json)|source/backend/.*\.py)$'
         pass_filenames: false
 
       - id: check-transaction-category-mapping
         name: check transaction category mapping
         language: system
-        entry: python3 scripts/checks/check_transaction_category_mapping.py
+        entry: .venv/bin/python scripts/checks/check_transaction_category_mapping.py
         files: '^source/backend/models/transactions/transaction_category.py$'
         pass_filenames: false
 
       - id: generate-frontend-categories
         name: generate frontend category list
         language: system
-        entry: python3 scripts/checks/generate_frontend_categories.py
+        entry: .venv/bin/python scripts/checks/generate_frontend_categories.py
         files: '^(source/backend/models/transactions/transaction_category.py|source/frontend/src/lib/transactionCategories\.gen\.ts)$'
         pass_filenames: false

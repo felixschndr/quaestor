@@ -196,6 +196,10 @@ export function useCategoryOptions({
       value: category,
       label: catalog.label(category),
       group,
+      aliases: t(`categorization.aliases.${category}`, {
+        returnObjects: true,
+        defaultValue: [],
+      }) as string[],
       leading: <CategoryAvatar category={category} className="size-5" iconClassName="size-3" />,
     })
     return [

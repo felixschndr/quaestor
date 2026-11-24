@@ -1041,6 +1041,9 @@
     }
   },
   "categorization": {
+    "aliases": {
+      "BANK_FEES": ["kontoführungsgebühren"]
+    },
     "title": "Kategorisierung",
     "description": "Eigene Regeln für die automatische Zuordnung",
     "intro": "Enthält der Verwendungszweck oder die Gegenpartei einer Buchung den Suchbegriff einer Regel, bekommt sie deren Kategorie. Eigene Regeln gehen den Standard-Regeln vor, neuere Regeln älteren. Manuell gesetzte Kategorien bleiben unangetastet.",

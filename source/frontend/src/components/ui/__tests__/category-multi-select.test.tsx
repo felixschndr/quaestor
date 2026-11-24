@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import '@/i18n'
+import i18n from '@/i18n'
 import { CategoryMultiSelect } from '@/components/ui/category-multi-select'
 import { CATEGORIES_BY_GROUP, TRANSACTION_CATEGORIES } from '@/lib/transaction'
 
@@ -53,6 +53,26 @@ describe('CategoryMultiSelect', () => {
     await user.type(screen.getByRole('searchbox'), 'Mobility')
 
     expect(screen.getAllByRole('checkbox')).toHaveLength(CATEGORIES_BY_GROUP.MOBILITY.length + 1)
+  })
+
+  describe('in German', () => {
+    beforeAll(async () => {
+      await i18n.changeLanguage('de')
+    })
+    afterAll(async () => {
+      await i18n.changeLanguage('en')
+    })
+
+    it('finds a category by an alias', async () => {
+      const user = userEvent.setup()
+      render(<CategoryMultiSelect selectedIds={[]} onChange={vi.fn()} />)
+
+      await user.click(screen.getByLabelText('Kategorien'))
+      await user.type(screen.getByRole('searchbox'), 'kontoführung')
+
+      expect(screen.getByRole('checkbox', { name: 'Bankgebühren' })).toBeInTheDocument()
+      expect(screen.getAllByRole('checkbox')).toHaveLength(2)
+    })
   })
 
   it('offers every category', async () => {

@@ -19,6 +19,7 @@ export interface SingleSelectOption<T extends string> {
   label: string
   leading?: React.ReactNode
   group?: string
+  aliases?: string[]
 }
 
 export interface SingleSelectPopoverProps<T extends string> {

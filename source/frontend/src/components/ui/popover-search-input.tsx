@@ -38,6 +38,11 @@ export function matchesQuery(label: string, query: string): boolean {
   return label.toLowerCase().includes(query.toLowerCase())
 }
 
-export function optionMatchesQuery(option: { label: string; group?: string }, query: string) {
-  return matchesQuery(option.label, query) || matchesQuery(option.group ?? '', query)
+export function optionMatchesQuery(
+  option: { label: string; group?: string; aliases?: string[] },
+  query: string,
+) {
+  return [option.label, option.group ?? '', ...(option.aliases ?? [])].some((text) =>
+    matchesQuery(text, query),
+  )
 }

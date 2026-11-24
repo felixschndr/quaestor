@@ -27,6 +27,8 @@ KEY_LIKE_RE = re.compile(r"^[a-z0-9_]+(?:\.[a-z0-9_]+)+$")
 NESTED_REFERENCE_RE = re.compile(r"\$t\(([^),]+)")
 COMMON_ALIAS_RE = re.compile(r"^\$t\(common\.[^)]+\)$")
 BACKEND_CATALOG_FILENAME = "notification_messages.py"
+CATEGORY_LABEL_PREFIX = "common.transactionLabel."
+CATEGORY_ALIAS_PREFIX = "categorization.aliases."
 
 
 def template_to_regex(raw: str) -> re.Pattern:
@@ -53,8 +55,8 @@ def extract_keys(src_dir: Path) -> tuple[set[str], list[re.Pattern], set[str]]:
     return literals, patterns, any_strings
 
 
-def flatten(d: dict, prefix: str = "") -> dict[str, str]:
-    out: dict[str, str] = {}
+def flatten(d: dict, prefix: str = "") -> dict[str, str | list[str]]:
+    out: dict[str, str | list[str]] = {}
     for k, v in d.items():
         key = f"{prefix}.{k}" if prefix else k
         if isinstance(v, dict):
@@ -128,7 +130,12 @@ def report_keys_missing_in_some_language(
     return union
 
 
-def report_duplicate_values(errors: list[str], messages_by_language: dict[str, dict[str, str]]) -> None:
+def text_messages(messages: dict[str, str | list[str]]) -> dict[str, str]:
+    return {key: value for key, value in messages.items() if isinstance(value, str)}
+
+
+def report_duplicate_values(errors: list[str], messages_by_language: dict[str, dict[str, str | list[str]]]) -> None:
+    messages_by_language = {language: text_messages(messages) for language, messages in messages_by_language.items()}
     languages = sorted(messages_by_language)
     shared_keys = set.intersection(*(set(messages_by_language[language]) for language in languages))
     keys_by_values: dict[tuple[str, ...], list[str]] = {}
@@ -145,12 +152,57 @@ def report_duplicate_values(errors: list[str], messages_by_language: dict[str, d
             )
 
 
-def report_references_outside_common(errors: list[str], messages_by_language: dict[str, dict[str, str]]) -> None:
+def report_references_outside_common(
+    errors: list[str], messages_by_language: dict[str, dict[str, str | list[str]]]
+) -> None:
     for language, messages in sorted(messages_by_language.items()):
-        for key, value in sorted(messages.items()):
+        for key, value in sorted(text_messages(messages).items()):
             for target in NESTED_REFERENCE_RE.findall(value):
                 if not target.startswith("common."):
                     errors.append(f"[frontend:{language}] {key} references {target} --> move shared text to common.*")
+
+
+def resolve_common_alias(messages: dict[str, str | list[str]], value: str) -> str:
+    # "$t(common.income)" -> the text of common.income
+    if COMMON_ALIAS_RE.match(value):
+        return str(messages[value.removeprefix("$t(").removesuffix(")")])
+    return value
+
+
+def normalize_alias(alias: str) -> str:
+    return " ".join(alias.split()).lower()
+
+
+def report_invalid_category_aliases(
+    errors: list[str], messages_by_language: dict[str, dict[str, str | list[str]]]
+) -> None:
+    for language, messages in sorted(messages_by_language.items()):
+        labels = {
+            key.removeprefix(CATEGORY_LABEL_PREFIX): resolve_common_alias(messages, value=value)
+            for key, value in messages.items()
+            if key.startswith(CATEGORY_LABEL_PREFIX) and isinstance(value, str)
+        }
+        owner_by_term = {normalize_alias(label): category for category, label in labels.items()}
+        for key, aliases in sorted(messages.items()):
+            if not key.startswith(CATEGORY_ALIAS_PREFIX):
+                continue
+            category = key.removeprefix(CATEGORY_ALIAS_PREFIX)
+            label = f"[frontend:{language}] {key}"
+            if category not in labels:
+                errors.append(f"{label}: {category} is not a category")
+            if not isinstance(aliases, list) or not all(isinstance(alias, str) for alias in aliases):
+                errors.append(f"{label}: aliases must be a list of strings")
+                continue
+            for alias in aliases:
+                if not alias or alias != normalize_alias(alias):
+                    errors.append(f"{label}: alias {alias!r} is not normalized --> use {normalize_alias(alias)!r}")
+                if normalize_alias(alias) == normalize_alias(labels.get(category, "")):
+                    errors.append(f"{label}: alias {alias!r} is the category's own label --> remove it")
+                owner = owner_by_term.setdefault(normalize_alias(alias), category)
+                if owner != category:
+                    errors.append(f"{label}: alias {alias!r} collides with the category {owner}")
+            if aliases != sorted(set(aliases)):
+                errors.append(f"{label}: aliases must be sorted and unique --> use {sorted(set(aliases))}")
 
 
 def check_frontend_messages(errors: list[str]) -> None:
@@ -161,7 +213,15 @@ def check_frontend_messages(errors: list[str]) -> None:
     keys_by_language = {language: set(messages) for language, messages in messages_by_language.items()}
 
     report_languages_must_match_supported(errors, languages=set(keys_by_language), label="frontend")
-    report_keys_missing_in_some_language(errors, keys_by_language, label="frontend")
+    report_keys_missing_in_some_language(
+        errors,
+        keys_by_language={
+            language: {key for key in keys if not key.startswith(CATEGORY_ALIAS_PREFIX)}
+            for language, keys in keys_by_language.items()
+        },
+        label="frontend",
+    )
+    report_invalid_category_aliases(errors, messages_by_language=messages_by_language)
     report_duplicate_values(errors, messages_by_language=messages_by_language)
     report_references_outside_common(errors, messages_by_language=messages_by_language)
 

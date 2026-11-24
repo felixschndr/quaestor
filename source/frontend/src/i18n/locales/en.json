@@ -1041,6 +1041,7 @@
     }
   },
   "categorization": {
+    "aliases": {},
     "title": "Categorization",
     "description": "Your own rules for automatic categorization",
     "intro": "When the purpose or counterparty of a transaction contains a rule's search term, it gets that rule's category. Your rules come before the default rules, newer rules before older ones. Categories you set by hand are left alone.",
