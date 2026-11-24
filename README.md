@@ -129,6 +129,7 @@ The tool is strictly read-only: it only ever *reads* your data and can **never**
 
 - **Transactions grouped by date**, covering past, today, and future entries (some bank apps, such as ING, don't show future transactions)
 - **Search** for transactions across all accounts
+- **Bulk editing**: Select several search results and change their attributes at once
 - **Automatic and manual categorization** of transactions
 - **Transfer detection**: Movements between your own accounts are recognized and kept out of your income/spending figures
 - **Contracts**: Recurring payments (subscriptions, rent, insurance) are detected automatically, including their interval, next expected payment, and a warning when one is overdue

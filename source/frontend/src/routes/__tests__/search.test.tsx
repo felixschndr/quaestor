@@ -4,20 +4,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n'
 import type { TransactionRead } from '@/lib/accountHistory'
+import { toast } from 'sonner'
+
+import type { CredentialRead } from '@/lib/auth'
 import {
   ACCOUNT_NAME_BROKER,
   ACCOUNT_NAME_DAY,
   ACCOUNT_NAME_GIRO,
+  ACCOUNT_NAME_WALLET,
   AMOUNT_L,
   AMOUNT_M,
   AMOUNT_S,
   AMOUNT_XL,
+  CONTRACT_NAME_GROCERIES,
   DATE_MID_MONTH,
   DATE_RECENT,
   DATE_YEAR_START,
   DATE_YESTERDAY,
   LABEL_GROCERIES,
+  LABEL_RENT,
   LABEL_SALARY,
+  NOTE_TEXT,
+  PARTY_HOUSEHOLD,
   PARTY_SUPERMARKET,
   money,
 } from '@/test/constants'
@@ -39,9 +47,9 @@ vi.mock('@/lib/accountGroups', () => ({
 import { type TransactionSearchParams } from '@/lib/transactionSearchParams'
 import { TransactionSearchView } from '@/pages/search'
 import { Route } from '@/routes/search'
-import { selectFromPopover } from '@/test/popover-select'
+import { openPopoverOptions, selectFromPopover } from '@/test/popover-select'
 import { routeState } from './-routerMock'
-import { buildUser, jsonResponse, renderWithQuery } from '@/test/helpers'
+import { bodyOf, buildUser, jsonResponse, renderWithQuery, requestsTo, serve } from '@/test/helpers'
 import { buildAccount, buildCredential } from '@/test/statsFixtures'
 
 const credentials = [
@@ -88,12 +96,14 @@ beforeEach(() => {
 type ChangePayload = { accountIds: number[]; filters: TransactionFiltersLike }
 type TransactionFiltersLike = Record<string, unknown>
 
-function renderView(opts: { search?: Partial<TransactionSearchParams> } = {}) {
+function renderView(
+  opts: { search?: Partial<TransactionSearchParams>; credentials?: CredentialRead[] } = {},
+) {
   const onChange = vi.fn()
   const onSortChange = vi.fn()
   renderWithQuery(
     <TransactionSearchView
-      credentials={credentials}
+      credentials={opts.credentials ?? credentials}
       search={(opts.search ?? {}) as TransactionSearchParams}
       onChange={onChange}
       onSortChange={onSortChange}
@@ -446,6 +456,29 @@ describe('TransactionSearchView — results', () => {
     const link = await screen.findByText('Other')
     expect(link.closest('a')).toHaveAttribute('href', '/transactions/7')
   })
+
+  it.each([
+    ['a phone', false, ['Magnitude desc.', 'Magnitude asc.']],
+    ['a wide screen', true, ['Magnitude: high to low', 'Magnitude: low to high']],
+  ])('labels the magnitude sorts to fit %s', async (_screen, wide, magnitudeLabels) => {
+    const user = userEvent.setup()
+    vi.stubGlobal('matchMedia', () => ({
+      matches: wide,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
+    mockFetchOnce([transaction(1, -AMOUNT_M, PARTY_SUPERMARKET)])
+    renderView({ search: { account_ids: [42] } })
+    await screen.findByText(PARTY_SUPERMARKET)
+
+    expect(await openPopoverOptions(user, 'Sort')).toEqual([
+      'Newest first',
+      'Oldest first',
+      'Amount: high to low',
+      'Amount: low to high',
+      ...magnitudeLabels,
+    ])
+  })
 })
 
 describe('TransactionSearchView — link mode', () => {
@@ -554,6 +587,280 @@ describe('TransactionSearchView — request building', () => {
     expect(url).toContain('transaction_types=OUTGOING')
     expect(url).toContain('linked=linked')
     expect(url).not.toContain('submitted=')
+  })
+})
+
+describe('TransactionSearchView — bulk edit', () => {
+  const BULK_URL = '/api/transactions/bulk'
+  const manualCredential = buildCredential([buildAccount({ id: 50, name: ACCOUNT_NAME_WALLET })], {
+    id: 3,
+    bank: 'manual',
+  })
+  const readOnlyShare = buildCredential([buildAccount({ id: 60, name: ACCOUNT_NAME_DAY })], {
+    id: 4,
+    shared_from: PARTY_HOUSEHOLD,
+    share_permission: 'read',
+  })
+
+  function serveBulkEdit(
+    results: TransactionRead[],
+    {
+      contracts = [],
+      bulk = { status: 204 },
+    }: { contracts?: unknown[]; bulk?: { status: number } } = {},
+  ) {
+    serve(
+      { 'GET /api/contracts': { status: 200, body: contracts }, [`PATCH ${BULK_URL}`]: bulk },
+      (url) =>
+        url.startsWith('/api/transactions/search')
+          ? Promise.resolve(jsonResponse({ status: 200, body: results }))
+          : null,
+    )
+  }
+
+  // The search form has fields with the same labels, so the trigger is looked up inside the dialog
+  async function selectInDialog(
+    user: ReturnType<typeof userEvent.setup>,
+    dialog: HTMLElement,
+    label: string,
+    option: string,
+  ) {
+    await user.click(within(dialog).getByLabelText(label))
+    const list = await screen.findByRole('list', { name: label })
+    await user.click(within(list).getByRole('button', { name: option }))
+  }
+
+  // A change reads "old → new" with the old value in red and the new one in green
+  function changeLines(dialog: HTMLElement, from: string, to: string) {
+    return within(dialog).queryAllByText(
+      (_, element) =>
+        element?.textContent === `${from} → ${to}` &&
+        element.firstElementChild?.className === 'text-destructive' &&
+        element.lastElementChild?.className === 'text-success',
+    )
+  }
+
+  // The ids follow the sort order of the results, which doesn't matter here
+  function sentPatch() {
+    const body = bodyOf('PATCH', BULK_URL) as { transaction_ids: number[] }
+    return { ...body, transaction_ids: [...body.transaction_ids].sort() }
+  }
+
+  async function selectAndEdit(user: ReturnType<typeof userEvent.setup>, parties: string[]) {
+    await user.click(await screen.findByRole('button', { name: 'Select' }))
+    for (const party of parties) {
+      await user.click(screen.getByRole('checkbox', { name: new RegExp(party) }))
+    }
+    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    return screen.findByRole('dialog')
+  }
+
+  it('changes the category of the selected transactions after confirming', async () => {
+    const user = userEvent.setup()
+    serveBulkEdit([
+      transaction(1, -AMOUNT_M, PARTY_SUPERMARKET, { purpose: LABEL_GROCERIES }),
+      transaction(2, -AMOUNT_S, PARTY_HOUSEHOLD, { category: 'BANK_FEES' }),
+    ])
+    renderView({ search: { account_ids: [42] } })
+
+    const dialog = await selectAndEdit(user, [PARTY_SUPERMARKET, PARTY_HOUSEHOLD])
+    expect(within(dialog).getByText('Edit 2 transactions')).toBeInTheDocument()
+    await selectInDialog(user, dialog, 'Category', 'Bank fees')
+    await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+
+    // Each transaction with what changes on it
+    expect(within(dialog).getByText(PARTY_SUPERMARKET)).toBeInTheDocument()
+    expect(within(dialog).getByText(new RegExp(LABEL_GROCERIES))).toBeInTheDocument()
+    expect(changeLines(dialog, 'Unknown', 'Bank fees')).toHaveLength(1)
+    expect(within(dialog).getByText(PARTY_HOUSEHOLD)).toBeInTheDocument()
+    // Already set that way: shown, but in grey
+    expect(within(dialog).getByText('Category: Bank fees → Bank fees (no change)')).toHaveClass(
+      'text-muted-foreground',
+    )
+    // Only the one that changes is counted and sent
+    await user.click(within(dialog).getByRole('button', { name: 'Change 1 transaction' }))
+
+    await waitFor(() =>
+      expect(sentPatch()).toEqual({ transaction_ids: [1], category: 'BANK_FEES' }),
+    )
+    // Done: the selection mode ends
+    expect(await screen.findByRole('button', { name: 'Select' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('goes back from the confirmation and cancels without changing anything', async () => {
+    const user = userEvent.setup()
+    serveBulkEdit([transaction(1, -AMOUNT_M, PARTY_SUPERMARKET, { note: NOTE_TEXT })])
+    renderView({ search: { account_ids: [42] } })
+
+    const dialog = await selectAndEdit(user, [PARTY_SUPERMARKET])
+    expect(within(dialog).getByRole('button', { name: 'Continue' })).toBeDisabled()
+    await selectInDialog(user, dialog, 'Note', 'Remove the notes')
+    await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+    expect(changeLines(dialog, `“${NOTE_TEXT}”`, '—')).toHaveLength(1)
+    await user.click(within(dialog).getByRole('button', { name: 'Back' }))
+    // The choices survive going back
+    expect(within(dialog).getByLabelText('Note')).toHaveTextContent('Remove the notes')
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+    // The dialog closes, the selection stays
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByText('1 transaction selected')).toBeInTheDocument()
+    expect(requestsTo('PATCH', BULK_URL)).toHaveLength(0)
+  })
+
+  it('sets the note, type and contract of transactions on one own manual account', async () => {
+    const user = userEvent.setup()
+    serveBulkEdit(
+      [
+        transaction(1, -AMOUNT_M, PARTY_SUPERMARKET, { account_id: 50 }),
+        transaction(2, -AMOUNT_S, PARTY_HOUSEHOLD, { account_id: 50 }),
+      ],
+      { contracts: [{ id: 7, account_id: 50, name: CONTRACT_NAME_GROCERIES }] },
+    )
+    renderView({ search: { account_ids: [50] }, credentials: [manualCredential] })
+
+    const dialog = await selectAndEdit(user, [PARTY_SUPERMARKET, PARTY_HOUSEHOLD])
+    await selectInDialog(user, dialog, 'Note', 'Set a new note')
+    // An empty new note changes nothing
+    expect(within(dialog).getByRole('button', { name: 'Continue' })).toBeDisabled()
+    await user.type(within(dialog).getByRole('textbox', { name: 'Set a new note' }), NOTE_TEXT)
+    await selectInDialog(user, dialog, 'Type', 'Transfer out')
+    await selectInDialog(user, dialog, 'Contract', CONTRACT_NAME_GROCERIES)
+    await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+    expect(changeLines(dialog, '—', `“${NOTE_TEXT}”`)).toHaveLength(2)
+    expect(changeLines(dialog, '—', 'Transfer out')).toHaveLength(2)
+    expect(changeLines(dialog, '—', CONTRACT_NAME_GROCERIES)).toHaveLength(2)
+    await user.click(within(dialog).getByRole('button', { name: 'Change 2 transactions' }))
+
+    await waitFor(() =>
+      expect(sentPatch()).toEqual({
+        transaction_ids: [1, 2],
+        note: NOTE_TEXT,
+        transaction_type: 'TRANSFER_OUT',
+        contract_id: 7,
+      }),
+    )
+  })
+
+  it('only offers the type for manual accounts and a contract for a single account', async () => {
+    const user = userEvent.setup()
+    serveBulkEdit([
+      transaction(1, -AMOUNT_M, PARTY_SUPERMARKET, { account_id: 42 }),
+      transaction(2, -AMOUNT_S, PARTY_HOUSEHOLD, { account_id: 43 }),
+    ])
+    renderView({ search: { account_ids: [42, 43] } })
+
+    const dialog = await selectAndEdit(user, [PARTY_SUPERMARKET, PARTY_HOUSEHOLD])
+
+    expect(within(dialog).getByText(/type can only be changed/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/contract can only be assigned/)).toBeInTheDocument()
+    expect(within(dialog).queryByLabelText('Type')).toBeNull()
+    expect(within(dialog).queryByLabelText('Contract')).toBeNull()
+  })
+
+  it('removes the selected transactions from their contract', async () => {
+    const user = userEvent.setup()
+    serveBulkEdit([transaction(1, -AMOUNT_M, PARTY_SUPERMARKET, { contract_id: 7 })], {
+      contracts: [{ id: 7, account_id: 42, name: CONTRACT_NAME_GROCERIES }],
+    })
+    renderView({ search: { account_ids: [42] } })
+
+    const dialog = await selectAndEdit(user, [PARTY_SUPERMARKET])
+    await selectInDialog(user, dialog, 'Contract', 'No contract')
+    await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+    expect(changeLines(dialog, CONTRACT_NAME_GROCERIES, '—')).toHaveLength(1)
+    await user.click(within(dialog).getByRole('button', { name: 'Change 1 transaction' }))
+
+    await waitFor(() => expect(sentPatch()).toEqual({ transaction_ids: [1], contract_id: null }))
+  })
+
+  it('cannot apply when no transaction would change', async () => {
+    const user = userEvent.setup()
+    serveBulkEdit(
+      [transaction(1, -AMOUNT_M, PARTY_SUPERMARKET), transaction(2, -AMOUNT_S, PARTY_HOUSEHOLD)],
+      { contracts: [{ id: 7, account_id: 42, name: CONTRACT_NAME_GROCERIES }] },
+    )
+    renderView({ search: { account_ids: [42] } })
+
+    const dialog = await selectAndEdit(user, [PARTY_SUPERMARKET, PARTY_HOUSEHOLD])
+    await selectInDialog(user, dialog, 'Contract', 'No contract')
+    await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+
+    expect(within(dialog).getAllByText('Contract: — → — (no change)')).toHaveLength(2)
+    expect(within(dialog).getByRole('button', { name: 'Change 0 transactions' })).toBeDisabled()
+  })
+
+  it('selects all editable transactions, leaving out pending and read-only ones', async () => {
+    const user = userEvent.setup()
+    serveBulkEdit([
+      transaction(1, -AMOUNT_M, PARTY_SUPERMARKET),
+      transaction(2, -AMOUNT_S, PARTY_HOUSEHOLD, { pending: true }),
+      transaction(3, -AMOUNT_L, LABEL_RENT, { account_id: 60 }),
+    ])
+    renderView({ search: { account_ids: [42, 60] }, credentials: [...credentials, readOnlyShare] })
+
+    // A pending transaction is marked, which also tells why it can't be picked
+    expect(await screen.findByText('Pending')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Select' }))
+    expect(screen.getByRole('checkbox', { name: new RegExp(PARTY_HOUSEHOLD) })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: new RegExp(LABEL_RENT) })).toBeDisabled()
+    await user.click(screen.getByRole('checkbox', { name: 'Select the 1 editable transaction' }))
+
+    expect(screen.getByText('1 transaction selected')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: new RegExp(PARTY_SUPERMARKET) })).toBeChecked()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select the 1 editable transaction' }))
+    expect(screen.getByText('0 transactions selected')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeDisabled()
+  })
+
+  it('shows the purpose and unselects a transaction again, until the selection mode ends', async () => {
+    const user = userEvent.setup()
+    serveBulkEdit([transaction(1, -AMOUNT_M, PARTY_SUPERMARKET, { purpose: LABEL_GROCERIES })])
+    renderView({ search: { account_ids: [42] } })
+
+    expect(await screen.findByText(PARTY_SUPERMARKET)).toBeInTheDocument()
+    expect(screen.queryByText(LABEL_GROCERIES)).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Select' }))
+    // The purpose tells apart payments to the same party
+    expect(screen.getByText(LABEL_GROCERIES)).toBeInTheDocument()
+    const row = screen.getByRole('checkbox', { name: new RegExp(PARTY_SUPERMARKET) })
+    await user.click(row)
+    expect(screen.getByText('1 transaction selected')).toBeInTheDocument()
+    await user.click(row)
+    expect(screen.getByText('0 transactions selected')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('checkbox', { name: new RegExp(PARTY_SUPERMARKET) })).toBeNull()
+    expect(screen.queryByText(LABEL_GROCERIES)).toBeNull()
+    expect(screen.getByText(PARTY_SUPERMARKET).closest('a')).not.toBeNull()
+  })
+
+  it('keeps the dialog open and reports when the change fails', async () => {
+    const user = userEvent.setup()
+    const toastError = vi.spyOn(toast, 'error')
+    serveBulkEdit([transaction(1, -AMOUNT_M, PARTY_SUPERMARKET)], { bulk: { status: 403 } })
+    renderView({ search: { account_ids: [42] } })
+
+    const dialog = await selectAndEdit(user, [PARTY_SUPERMARKET])
+    await selectInDialog(user, dialog, 'Category', 'Assign automatically')
+    await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Change 1 transaction' }))
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith('The transactions could not be changed.'),
+    )
+    expect(sentPatch()).toEqual({ transaction_ids: [1], category: null })
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('offers no selection while picking a transaction to link', async () => {
+    serveBulkEdit([transaction(1, -AMOUNT_M, PARTY_SUPERMARKET)])
+    renderView({ search: { account_ids: [42], link_account_id: 42, link_transaction_id: 99 } })
+
+    expect(await screen.findByText(PARTY_SUPERMARKET)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Select' })).toBeNull()
   })
 })
 
