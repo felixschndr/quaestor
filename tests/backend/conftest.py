@@ -93,6 +93,7 @@ FIRST_SYNC_DATE = _date(year=1970, month=1, day=2)  # what a credential's first 
 OLDER_DATE = _date(year=2026, month=3, day=30)
 RECENT_DATE = _date(year=2026, month=4, day=29)
 LATEST_DATE = _date(year=2026, month=6, day=1)
+FAR_FUTURE_DATE = _date(year=2099, month=1, day=1)
 MONTH_END_DATE = _date(year=2026, month=1, day=31)
 SHORT_MONTH_END_DATE = _date(year=2026, month=2, day=28)  # 2026 is no leap year
 AMOUNT = 4000

@@ -988,7 +988,7 @@
     "lastPayment": "Last payment",
     "archivedOn": "Archived on",
     "endDate": "Contract end",
-    "endDateHint": "Optional, mark when the contract runs out (e.g. after a price increase, so you're reminded in time to cancel or switch).",
+    "endDateHint": "Optional, mark when the contract runs out (e.g. after a price increase, so you're reminded in time to cancel or switch). After the end date the contract is archived automatically. If another payment arrives afterwards, it becomes active again and you get notified.",
     "endDatePlaceholder": "No end date",
     "clearEndDate": "Remove end date",
     "rename": "Rename contract",

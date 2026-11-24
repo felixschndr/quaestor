@@ -646,6 +646,41 @@ def test_auto_archiving_keeps_an_end_date_the_user_set(session_factory: sessionm
         assert contract.end_date == OLDER_DATE
 
 
+def test_contract_past_its_end_date_is_archived_by_detection(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        end_date = OLDER_DATE + timedelta(days=MONTHLY_DAY_OFFSETS[-1])
+        contract = make_contract(session, account_id=account.id, name=NETFLIX, end_date=end_date)
+        contract.fingerprint = NETFLIX_FINGERPRINT
+        _seed(
+            session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=MONTHLY_DAY_OFFSETS
+        )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        session.refresh(contract)
+        assert contract.is_archived
+        assert contract.end_date == end_date
+
+
+def test_charge_after_the_end_date_reactivates_the_contract_for_good(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        contract = make_contract(session, account_id=account.id, name=NETFLIX, end_date=OLDER_DATE)
+        contract.fingerprint = NETFLIX_FINGERPRINT
+        contract.is_archived = True
+        _seed(
+            session, account_id=account.id, other_party=NETFLIX, amount=-DEFAULT_AMOUNT, day_offsets=MONTHLY_DAY_OFFSETS
+        )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        session.refresh(contract)
+        assert not contract.is_archived
+
+
 def test_deleted_detected_contract_is_not_recreated_by_the_next_detection(session_factory: sessionmaker):
     with session_factory() as session:
         account = make_account_with_new_user(session)

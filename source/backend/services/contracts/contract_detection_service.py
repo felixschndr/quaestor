@@ -173,6 +173,7 @@ def detect_contracts_for_account(db_session: Session, account: Account) -> list[
     db_session.flush()
     for contract in account.contracts:
         recompute_contract_stats(contract)
+        archive_if_ended(contract)
         _archive_if_long_overdue(contract)
     _delete_empty_detected_contracts(db_session=db_session, account=account)
     db_session.flush()
@@ -343,6 +344,16 @@ def recompute_contract_stats(contract: Contract) -> None:
     apply_contract_category_to_members(contract)
 
     logger.debug(f"Recomputed stats for {contract}")
+
+
+def archive_if_ended(contract: Contract) -> None:
+    end_date = contract.end_date
+    if contract.is_archived or end_date is None or not contract.has_ended_on(utc_now().date()):
+        return
+    if any(transaction.date > end_date for transaction in contract.members()):
+        return
+    contract.is_archived = True
+    logger.info(f"Auto-archived {contract}; it ended on {contract.end_date}")
 
 
 def _archive_if_long_overdue(contract: Contract) -> None:

@@ -9,6 +9,7 @@ from source.backend.models.contracts.contract import Contract
 from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.transaction_category import TransactionCategory
 from tests.backend.conftest import (
+    FAR_FUTURE_DATE,
     LATEST_DATE,
     MONTHLY_DAY_OFFSETS,
     OLDER_DATE,
@@ -310,3 +311,74 @@ def test_setting_an_end_date_re_arms_the_ending_notification(http_client: TestCl
     assert updated.json()["end_date"] == LATEST_DATE.isoformat()
     with session_factory() as session:
         assert session.get(entity=Contract, ident=contract["id"]).ending_notified_at is None
+
+
+def test_setting_a_past_end_date_archives_the_contract(
+    http_client: TestClient, session_factory: sessionmaker, caplog: pytest.LogCaptureFixture
+):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    contract = _create_contract(http_client, account_id=account_id)
+    transaction_id = persist_transaction(session_factory, account_id=account_id, date=OLDER_DATE)
+    http_client.post(f"/api/contracts/{contract['id']}/transactions", json={"transaction_id": transaction_id})
+
+    updated = http_client.patch(
+        f"/api/contracts/{contract['id']}", json={"name": contract["name"], "end_date": RECENT_DATE.isoformat()}
+    )
+
+    assert updated.json()["is_archived"] is True
+    assert_log_contains(
+        caplog, messages=[f"Auto-archived <Contract(id={contract['id']}", f"; it ended on {RECENT_DATE}"]
+    )
+
+
+def test_setting_a_future_end_date_keeps_the_contract_active(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    contract = _create_contract(http_client, account_id=account_id)
+
+    updated = http_client.patch(
+        f"/api/contracts/{contract['id']}", json={"name": contract["name"], "end_date": FAR_FUTURE_DATE.isoformat()}
+    )
+
+    assert updated.json()["is_archived"] is False
+
+
+def test_charge_after_the_end_date_keeps_the_contract_active(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    contract = _create_contract(http_client, account_id=account_id)
+    transaction_id = persist_transaction(session_factory, account_id=account_id, date=RECENT_DATE)
+    http_client.post(f"/api/contracts/{contract['id']}/transactions", json={"transaction_id": transaction_id})
+
+    updated = http_client.patch(
+        f"/api/contracts/{contract['id']}", json={"name": contract["name"], "end_date": OLDER_DATE.isoformat()}
+    )
+
+    assert updated.json()["is_archived"] is False
+
+
+def test_reactivating_an_ended_contract_clears_its_end_date(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    contract = _create_contract(http_client, account_id=account_id)
+    http_client.patch(
+        f"/api/contracts/{contract['id']}", json={"name": contract["name"], "end_date": OLDER_DATE.isoformat()}
+    )
+
+    reactivated = http_client.patch(
+        f"/api/contracts/{contract['id']}", json={"name": contract["name"], "archived": False}
+    )
+
+    assert reactivated.json()["is_archived"] is False
+    assert reactivated.json()["end_date"] is None
+
+
+def test_reactivating_keeps_a_future_end_date(http_client: TestClient, session_factory: sessionmaker):
+    account_id = setup_account(http_client=http_client, session_factory=session_factory)
+    contract = _create_contract(http_client, account_id=account_id)
+    http_client.patch(
+        f"/api/contracts/{contract['id']}", json={"name": contract["name"], "end_date": FAR_FUTURE_DATE.isoformat()}
+    )
+
+    reactivated = http_client.patch(
+        f"/api/contracts/{contract['id']}", json={"name": contract["name"], "archived": False}
+    )
+
+    assert reactivated.json()["end_date"] == FAR_FUTURE_DATE.isoformat()

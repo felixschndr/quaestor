@@ -86,6 +86,9 @@ class Contract(Base):
             return False
         return today > self.expected_next_date + (OVERDUE_GRACE if grace is None else grace)
 
+    def has_ended_on(self, today: datetime.date) -> bool:
+        return self.end_date is not None and self.end_date < today
+
     def is_ending_within(self, today: datetime.date, lead: datetime.timedelta) -> bool:
         if self.end_date is None:
             return False
