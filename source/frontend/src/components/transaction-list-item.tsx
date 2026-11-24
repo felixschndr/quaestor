@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 
+import { Checkbox } from '@/components/ui/checkbox'
 import type { TransactionRead } from '@/lib/accountHistory'
 import { CategoryAvatar } from '@/lib/categoryIcons'
 import { formatMoney } from '@/lib/format'
@@ -16,6 +17,7 @@ export function TransactionListItem({
   trailing,
   dimmed = false,
   mutedAmount = false,
+  selection,
   className,
   style,
 }: {
@@ -28,13 +30,15 @@ export function TransactionListItem({
   trailing?: ReactNode
   dimmed?: boolean
   mutedAmount?: boolean
+  selection?: { checked: boolean; disabled?: boolean; onCheckedChange: (checked: boolean) => void }
   className?: string
   style?: CSSProperties
 }) {
   const rowClassName = cn(
     'flex items-center gap-3 rounded-md transition-colors',
-    link && 'hover:bg-muted/60',
-    dimmed && 'opacity-60',
+    (link || selection) && 'hover:bg-muted/60',
+    selection && 'cursor-pointer',
+    (dimmed || selection?.disabled) && 'opacity-60',
     className,
   )
   const content = (
@@ -64,7 +68,16 @@ export function TransactionListItem({
   )
   return (
     <li style={style}>
-      {link ? (
+      {selection ? (
+        <label className={rowClassName}>
+          <Checkbox
+            checked={selection.checked}
+            disabled={selection.disabled}
+            onCheckedChange={(checked) => selection.onCheckedChange(checked === true)}
+          />
+          {content}
+        </label>
+      ) : link ? (
         <Link
           to="/transactions/$transactionId"
           params={{ transactionId: String(transaction.id) }}

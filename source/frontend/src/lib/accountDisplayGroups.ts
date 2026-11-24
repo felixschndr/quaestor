@@ -8,11 +8,25 @@ export interface AccountWithBank extends AccountRead {
   bankName: string | null
   bankIcon: string | null
   shared: boolean
+  writable: boolean
   stale: boolean
 }
 
 function credentialStale(credential: CredentialRead): boolean {
   return credential.sync_enabled && isStale(credential.last_successful_sync_timestamp)
+}
+
+function withBank(account: AccountRead, credential: CredentialRead): AccountWithBank {
+  const shared = isSharedCredential(credential)
+  return {
+    ...account,
+    bank: credential.bank,
+    bankName: credential.bank_name,
+    bankIcon: credential.bank_icon,
+    shared,
+    writable: !shared || credential.share_permission === 'write',
+    stale: credentialStale(credential),
+  }
 }
 
 export interface DisplayGroup {
@@ -25,14 +39,7 @@ export function buildAccountLookup(credentials: CredentialRead[]): Map<number, A
   const map = new Map<number, AccountWithBank>()
   for (const credential of credentials) {
     for (const account of credential.accounts) {
-      map.set(account.id, {
-        ...account,
-        bank: credential.bank,
-        bankName: credential.bank_name,
-        bankIcon: credential.bank_icon,
-        shared: isSharedCredential(credential),
-        stale: credentialStale(credential),
-      })
+      map.set(account.id, withBank(account, credential))
     }
   }
   return map
@@ -54,14 +61,7 @@ export function buildDisplayGroups(
         accounts: credential.accounts
           .filter(isVisible)
           .sort((a, b) => a.name.localeCompare(b.name))
-          .map((account) => ({
-            ...account,
-            bank: credential.bank,
-            bankName: credential.bank_name,
-            bankIcon: credential.bank_icon,
-            shared: isSharedCredential(credential),
-            stale: credentialStale(credential),
-          })),
+          .map((account) => withBank(account, credential)),
       }))
       .filter((group) => group.accounts.length > 0)
   }

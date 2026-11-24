@@ -52,6 +52,7 @@ import { EXPECTED_TRANSACTIONS_KEY, useCollapsedGroups } from '@/lib/collapsedGr
 import { cn } from '@/lib/utils'
 import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
+import { PendingBadge } from '@/components/ui/pending-badge'
 import { RefundBadge } from '@/components/ui/refund-badge'
 import { ManualTransactionForm } from '@/components/manual-transaction-form'
 import { TransactionListItem } from '@/components/transaction-list-item'
@@ -819,11 +820,7 @@ function TransactionRow({
         party={otherParty}
         badges={
           <>
-            {pending ? (
-              <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium">
-                {t('transaction.pendingBadge')}
-              </span>
-            ) : null}
+            <PendingBadge pending={pending} />
             <RefundBadge status={transaction.refund_status} />
           </>
         }

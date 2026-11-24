@@ -22,6 +22,10 @@ export const ACCOUNT_NAME_OLD_ETF = 'Old ETF'
 export const GROUP_NAME_SAVINGS = 'Spar'
 
 export const PARTY_SUPERMARKET = 'Rewe'
+export const PARTY_HOUSEHOLD = 'Household account'
+export const CONTRACT_NAME_GROCERIES = 'Grocery budget'
+export const ACCOUNT_NAME_WALLET = 'Wallet'
+export const NOTE_TEXT = 'Split from the household transfer'
 export const SEARCH_HREF_SUPERMARKET = `/search?text=${PARTY_SUPERMARKET}`
 
 export const LABEL_SALARY = 'Salary'
