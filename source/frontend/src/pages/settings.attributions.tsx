@@ -17,6 +17,10 @@ const ATTRIBUTIONS: Attribution[] = [
     href: 'https://www.flaticon.com/free-icons/writing',
   },
   {
+    textKey: 'attributions.text.comdirectLogo',
+    href: 'https://brandfetch.com/comdirect.de',
+  },
+  {
     textKey: 'attributions.text.commerzbankLogo',
     href: 'https://companieslogo.com/de/commerzbank/logo/',
   },
