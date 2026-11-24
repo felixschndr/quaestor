@@ -27,7 +27,7 @@ from source.backend.api.schemas.transactions.transaction import (
     TransactionUpdate,
 )
 from source.backend.db import get_session
-from source.backend.exceptions import ConflictError, PermissionDeniedError
+from source.backend.exceptions import ConflictError
 from source.backend.models.accounts.account import Account
 from source.backend.models.auth.user import User
 from source.backend.models.transactions.recurring_transaction import RecurringTransaction
@@ -56,9 +56,6 @@ def detail_read(db_session: Session, transaction: Transaction, user: User) -> Tr
     TransactionRead.flip_depot_signs(reads=[read, *members], market_valued_account_ids=market_valued)
     related_refunds.annotate_transactions(db_session=db_session, transactions=[transaction], reads=[read, *members])
     return read
-
-
-SHARED_WRITABLE_TRANSACTION_FIELDS = frozenset({"category", "note"})
 
 
 def readable_account(
@@ -205,12 +202,7 @@ def update_transaction(
         db_session=db_session, account=account, transaction_id=transaction_id
     )
     fields = payload.model_dump(exclude_unset=True)
-    if not account_service.owns(account=account, user=current_user):
-        forbidden = set(fields) - SHARED_WRITABLE_TRANSACTION_FIELDS
-        if forbidden:
-            raise PermissionDeniedError(
-                f"A shared account only allows editing {sorted(SHARED_WRITABLE_TRANSACTION_FIELDS)}"
-            )
+    account_service.require_editable_fields(account=account, user=current_user, fields=set(fields))
     updated = account_service.update_transaction(
         db_session=db_session,
         account=account,
