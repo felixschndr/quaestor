@@ -45,6 +45,16 @@ describe('CategoryMultiSelect', () => {
     expect(onChange).toHaveBeenLastCalledWith(['SALARY'])
   })
 
+  it('finds every category of a group by the group name', async () => {
+    const user = userEvent.setup()
+    render(<CategoryMultiSelect selectedIds={[]} onChange={vi.fn()} />)
+
+    await user.click(screen.getByLabelText('Categories'))
+    await user.type(screen.getByRole('searchbox'), 'Mobility')
+
+    expect(screen.getAllByRole('checkbox')).toHaveLength(CATEGORIES_BY_GROUP.MOBILITY.length + 1)
+  })
+
   it('offers every category', async () => {
     const user = userEvent.setup()
     render(<CategoryMultiSelect selectedIds={[]} onChange={vi.fn()} />)

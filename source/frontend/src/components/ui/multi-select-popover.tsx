@@ -6,7 +6,7 @@ import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePopoverScroll } from '@/lib/use-popover-scroll'
 import { Checkbox } from '@/components/ui/checkbox'
-import { matchesQuery, PopoverSearchInput } from '@/components/ui/popover-search-input'
+import { optionMatchesQuery, PopoverSearchInput } from '@/components/ui/popover-search-input'
 import { handleSelectListArrowKeys } from '@/components/ui/select-list-keyboard'
 import { SelectAllHeader } from '@/components/ui/select-all-header'
 import { GroupHeading, type SingleSelectOption } from '@/components/ui/single-select-popover'
@@ -49,7 +49,7 @@ export function MultiSelectPopover<T extends string>({
   const selectedSet = new Set(selected)
   const selectedCount = selected.length
   const visibleOptions = query
-    ? options.filter((option) => matchesQuery(option.label, query))
+    ? options.filter((option) => optionMatchesQuery(option, query))
     : options
 
   const toggle = (values: T[], checked: boolean) => {

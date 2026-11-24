@@ -5,7 +5,7 @@ import { Check, ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { usePopoverScroll } from '@/lib/use-popover-scroll'
-import { matchesQuery, PopoverSearchInput } from '@/components/ui/popover-search-input'
+import { optionMatchesQuery, PopoverSearchInput } from '@/components/ui/popover-search-input'
 import { handleSelectListArrowKeys } from '@/components/ui/select-list-keyboard'
 import {
   Popover,
@@ -61,7 +61,7 @@ export function SingleSelectPopover<T extends string>({
   )
   const selected = options.find((option) => option.value === value) ?? null
   const visibleOptions = query
-    ? options.filter((option) => matchesQuery(option.label, query))
+    ? options.filter((option) => optionMatchesQuery(option, query))
     : options
 
   return (
