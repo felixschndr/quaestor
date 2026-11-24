@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Callable
+from concurrent.futures import Future
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
@@ -17,6 +18,8 @@ from source.backend.exceptions import (
     JobErrorCode,
     MissingCredentialFieldError,
     ReauthenticationRequiredError,
+    SyncCancelledError,
+    UnsupportedTanMethodError,
 )
 from source.backend.helpers import utc_now
 from source.backend.models.banking.credential import Credential
@@ -186,8 +189,11 @@ def test_sync_all_due_credentials_keeps_an_unattended_2fa_session_alive(
     assert sync.call_args.kwargs["start_interactive_challenge"] is False
 
 
+@pytest.mark.parametrize(
+    argnames="error_code", argvalues=[JobErrorCode.REAUTHENTICATION_REQUIRED, JobErrorCode.UNSUPPORTED_TAN_METHOD]
+)
 def test_sync_all_due_credentials_skips_a_credential_awaiting_reauthentication(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, error_code: JobErrorCode
 ):
     credential_id = persist_credential(
         session_factory,
@@ -197,7 +203,7 @@ def test_sync_all_due_credentials_skips_a_credential_awaiting_reauthentication(
     )
     with session_factory() as session:
         credential = session.get(entity=Credential, ident=credential_id)
-        credential.last_sync_error_code = JobErrorCode.REAUTHENTICATION_REQUIRED
+        credential.last_sync_error_code = error_code
         session.commit()
     sync = MagicMock()
     monkeypatch.setattr(target=credential_service, name="sync_credential_object", value=sync)
@@ -482,15 +488,18 @@ def test_sync_all_due_credentials_notifies_only_once_the_failure_threshold_is_re
     assert notification.url == f"/settings/credentials/{credential_id}"
 
 
-def test_sync_all_due_credentials_notifies_a_required_reauthentication_at_once(
-    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    argnames=("error", "error_code"),
+    argvalues=[
+        (ReauthenticationRequiredError("the session expired"), JobErrorCode.REAUTHENTICATION_REQUIRED),
+        (UnsupportedTanMethodError("TAN mechanism 902 is not supported"), JobErrorCode.UNSUPPORTED_TAN_METHOD),
+    ],
+)
+def test_sync_all_due_credentials_notifies_a_failure_only_the_user_can_resolve_at_once(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, error: Exception, error_code: JobErrorCode
 ):
     persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
-    dispatch = _fail_periodic_syncs(
-        monkeypatch,
-        error=ReauthenticationRequiredError("the session expired"),
-        error_code=JobErrorCode.REAUTHENTICATION_REQUIRED,
-    )
+    dispatch = _fail_periodic_syncs(monkeypatch, error=error, error_code=error_code)
 
     with session_factory() as session:
         credential_service.sync_all_due_credentials(db_session=session)
@@ -556,6 +565,50 @@ def test_sync_marks_credential_when_handler_requests_two_factor(
 
     assert result.status == credential_service.SyncStatus.COMPLETED
     assert_log_contains(caplog, message="2FA requirement re-evaluated: False -> True")
+
+
+def test_sync_passes_the_code_request_on_and_marks_credential_when_handler_asks_for_a_code(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch
+):
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
+    entered_code: Future[str] = Future()
+    entered_code.set_result(TWO_FACTOR_CODE)
+    received_codes: list[str] = []
+
+    def fake_sync(self: Credential, handler: BankHandler) -> None:
+        received_codes.append(handler.request_two_factor_code().result())
+
+    monkeypatch.setattr(target=Credential, name="sync", value=fake_sync)
+
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential_service.sync_credential(
+            db_session=session, credential_id=credential_id, request_two_factor_code=lambda: entered_code
+        )
+        assert credential.requires_two_factor_authentication is True
+
+    assert received_codes == [TWO_FACTOR_CODE]
+
+
+def test_sync_of_a_credential_deleted_meanwhile_ends_without_a_stack_trace(
+    session_factory: sessionmaker, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    credential_id = persist_credential_with_new_user(session_factory, last_successful_sync_timestamp=None)
+
+    def deleted_meanwhile(self: Credential, handler: BankHandler) -> None:
+        with session_factory() as other_session:
+            other_session.delete(other_session.get(entity=Credential, ident=credential_id))
+            other_session.commit()
+        raise SyncCancelledError("Sync cancelled while fetching transactions")
+
+    monkeypatch.setattr(target=Credential, name="sync", value=deleted_meanwhile)
+
+    with session_factory() as session:
+        with pytest.raises(SyncCancelledError):
+            credential_service.sync_credential(db_session=session, credential_id=credential_id)
+
+    assert_log_contains(caplog, message=f"Credential {credential_id} was deleted during its sync; nothing to persist")
+    assert_log_contains(caplog, message="Could not persist the session state", negate=True)
 
 
 def test_sync_leaves_two_factor_flag_unset_without_two_factor(

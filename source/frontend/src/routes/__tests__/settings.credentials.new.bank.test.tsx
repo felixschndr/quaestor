@@ -352,6 +352,25 @@ describe('NewCredentialFormView', () => {
     await waitFor(() => expect(requestsTo('DELETE', '/api/credentials/30')).toHaveLength(1))
   })
 
+  it('keeps the credential when the user leaves while the first sync is running', async () => {
+    const user = userEvent.setup()
+    serveSyncedCreate()
+
+    const { unmount } = renderForm(ING_BANK)
+    await submitLogin(user)
+
+    await waitForFirstPoll()
+    await pushJob({ status: 'awaiting_2fa' })
+    await screen.findByLabelText('Code')
+    await pushJob({ status: 'running' })
+    await waitFor(() => expect(screen.queryByLabelText('Code')).not.toBeInTheDocument())
+
+    unmount()
+    // Deleting it would throw away everything the sync fetched in the meantime (#216)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(requestsTo('DELETE', '/api/credentials/30')).toHaveLength(0)
+  })
+
   it('bounces back to onSyncFailed when the WS reports failed', async () => {
     const user = userEvent.setup()
     serveSyncedCreate()
@@ -524,6 +543,39 @@ describe('NewCredentialFormView', () => {
       await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
       expect(onSyncFailed).not.toHaveBeenCalled()
       expect(bodyOf('POST', CONFIRM_URL)).toEqual({ code: '4242' })
+    })
+
+    it('tells the user that the first sync can take a while', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate({ [`POST ${CONFIRM_URL}`]: STARTED_JOB })
+
+      renderForm(TR_BANK)
+      expect(screen.queryByText(/first sync loads/)).not.toBeInTheDocument()
+
+      await submitTradeRepublic(user)
+      await waitForFirstPoll()
+      await pushJob({ status: 'running' })
+
+      expect(await screen.findByText(/first sync loads/)).toBeInTheDocument()
+    })
+
+    it('asks for a second code with an empty field', async () => {
+      const user = userEvent.setup()
+      serveSyncedCreate({ [`POST ${CONFIRM_URL}`]: STARTED_JOB })
+
+      renderForm(TR_BANK)
+      await submitTradeRepublic(user)
+
+      await waitForFirstPoll()
+      await pushJob({ status: 'awaiting_2fa', expires_at: DATETIME_FAR_FUTURE })
+      await user.type(await screen.findByLabelText('Code'), '4242')
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+      await waitFor(() => expect(bodyOf('POST', CONFIRM_URL)).toEqual({ code: '4242' }))
+
+      await pushJob({ status: 'running' })
+      await pushJob({ status: 'awaiting_2fa', expires_at: DATETIME_FAR_FUTURE })
+
+      expect(await screen.findByLabelText('Code')).toHaveValue('')
     })
 
     it('bounces back to onSyncFailed when submitting the code errors', async () => {

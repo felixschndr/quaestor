@@ -440,6 +440,7 @@
     "submitManual": "Create",
     "submitting": "Connecting…",
     "syncing": "Syncing…",
+    "firstSyncHint": "The first sync loads the past transactions of your accounts. Depending on the bank, this can take up to a few minutes.",
     "alreadyExists": "A {{bank}} connection with these credentials already exists.",
     "connectFailed": "Could not connect to {{bank}}. Please check the credentials.",
     "syncFailed": "Connected to {{bank}}, but the first sync failed. You can retry the sync later.",
@@ -469,6 +470,8 @@
       "reason": {
         "invalid_credentials": "The bank rejected the login. Please check your credentials and reconnect the bank.",
         "unsupported_bank": "This bank is currently not supported.",
+        "unsupported_tan_method": "Your bank's TAN method is currently not supported.",
+        "tan_not_accepted": "The TAN was not accepted or not entered in time. Please sync again.",
         "rate_limited": "The bank blocked too many login attempts. Please try again later.",
         "timeout": "The bank did not respond. Please try again later.",
         "redirect_url_not_allowed": "The configured redirect URL is not allowed by the bank.",

@@ -63,6 +63,13 @@ PIN = "1234"
 TWO_FACTOR_CODE = "4321"
 HTTP_SESSION_TOKEN = "eyJ_test_token_payload"  # nosec B105
 CHALLENGE_TOKEN = "challenge-token"  # nosec B105
+FINTS_DIALOG_ID = "dialog-1"
+ACCEPTED_TAN_CODE = "0020"
+REJECTED_TAN_CODE = "9941"
+PIN_BLOCKING_REJECTED_TAN_CODE = "9942"  # python-fints treats this one like a wrong PIN
+REJECTED_TAN_TEXT = "TAN ungültig"
+FINTS_ERROR_CODE = "9050"
+REFUSED_PERIOD_TEXT = "Nur die Umsatzanzeige der letzten 90 Tage ist möglich"
 TRADE_REPUBLIC_ERROR_BODY = '{"errors":[{"errorCode":"VALIDATION_FAILED"}]}'
 SCALABLE_AUTHORIZATION_URL = "https://secure.scalable.capital/activate"
 SESSION_ARCHIVE = "ZmFrZQ=="
@@ -82,6 +89,7 @@ SOLD_ISIN = "DE000ENER6Y0"
 POSITION_NAME = "Siemens Energy"
 ETF_NAME = "Core MSCI World USD (Acc)"
 LAST_FETCHING_TIMESTAMP = datetime(year=2026, month=1, day=1)
+FIRST_SYNC_DATE = _date(year=1970, month=1, day=2)  # what a credential's first sync asks for
 OLDER_DATE = _date(year=2026, month=3, day=30)
 RECENT_DATE = _date(year=2026, month=4, day=29)
 LATEST_DATE = _date(year=2026, month=6, day=1)

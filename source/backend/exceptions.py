@@ -98,6 +98,18 @@ class UnsupportedBankError(Exception):
     pass
 
 
+class UnsupportedTanMethodError(Exception):
+    pass
+
+
+class TanNotAcceptedError(Exception):
+    pass
+
+
+class BankRefusedRequestError(Exception):
+    pass
+
+
 class SyncCancelledError(Exception):
     pass
 
@@ -142,6 +154,8 @@ class JobErrorCode(str, Enum):
     CANCELLED = "cancelled"
     INVALID_CREDENTIALS = "invalid_credentials"
     UNSUPPORTED_BANK = "unsupported_bank"
+    UNSUPPORTED_TAN_METHOD = "unsupported_tan_method"
+    TAN_NOT_ACCEPTED = "tan_not_accepted"
     RATE_LIMITED = "rate_limited"
     TIMEOUT = "timeout"
     REDIRECT_URL_NOT_ALLOWED = "redirect_url_not_allowed"
@@ -153,6 +167,8 @@ class JobErrorCode(str, Enum):
 _ERROR_CODES_BY_EXCEPTION: dict[type[Exception], JobErrorCode] = {
     InvalidCredentialsError: JobErrorCode.INVALID_CREDENTIALS,
     UnsupportedBankError: JobErrorCode.UNSUPPORTED_BANK,
+    UnsupportedTanMethodError: JobErrorCode.UNSUPPORTED_TAN_METHOD,
+    TanNotAcceptedError: JobErrorCode.TAN_NOT_ACCEPTED,
     BankRateLimitedError: JobErrorCode.RATE_LIMITED,
     BankTimedOutError: JobErrorCode.TIMEOUT,
     PSD2RedirectUrlNotAllowedError: JobErrorCode.REDIRECT_URL_NOT_ALLOWED,

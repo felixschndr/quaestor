@@ -100,10 +100,12 @@ def update_credential(
 
 
 @router.delete("/{credential_id}", status_code=204)
-def delete_credential(
+async def delete_credential(
     credential: Credential = Depends(owned_credential),
     db_session: Session = Depends(get_session),
 ) -> None:
+    for job in sync_jobs.get_jobs_for_credentials({credential.id}):
+        await sync_jobs.cancel(job_id=job.job_id)
     credential_service.delete_credential(db_session=db_session, credential=credential)
 
 

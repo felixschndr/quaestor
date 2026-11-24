@@ -1,33 +1,46 @@
+import itertools
+import logging
 import socket
 import threading
+from concurrent.futures import Future
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Iterator
+from typing import Callable, Iterator
 from unittest.mock import MagicMock
 
 import pytest
 import requests
+from fints.client import FinTS3PinTanClient, NeedTANResponse
 from fints.exceptions import FinTSClientPINError
+from fints.formals import Response
+from fints.message import FinTSInstituteMessage, FinTSMessage
+from fints.segments.auth import HITAN6, HKTAN6
+from fints.segments.dialog import HIRMG2, HIRMS2
+from fints.segments.message import HNHBK3, HNHBS1
 
 from source.backend.bank_handlers import BANKS_BY_NAME, BankProvider
 from source.backend.bank_handlers import fints_handler as module
 from source.backend.bank_handlers.base import BalanceObservation, BankInfo, FetchedAccount
 from source.backend.bank_handlers.fints_handler import (
     FinTSHandler,
-    _resolve_decoupled,
+    _resolve_tan,
     _try_configure_pushtan_mechanism,
 )
 from source.backend.exceptions import (
+    BankRefusedRequestError,
     BankTimedOutError,
     InvalidCredentialsError,
     JobErrorCode,
     ReauthenticationRequiredError,
     SyncCancelledError,
+    TanNotAcceptedError,
     UnsupportedBankError,
+    UnsupportedTanMethodError,
     error_code_for,
 )
 from tests.backend.conftest import (
+    ACCEPTED_TAN_CODE,
     ACCOUNT_IBAN,
     BANK_PASSWORD,
     BANK_USERNAME,
@@ -35,11 +48,19 @@ from tests.backend.conftest import (
     CREDENTIAL_ID,
     DEFAULT_AMOUNT,
     DEFAULT_BALANCE,
+    FINTS_DIALOG_ID,
+    FINTS_ERROR_CODE,
+    FIRST_SYNC_DATE,
     LAST_FETCHING_TIMESTAMP,
     OLDER_DATE,
     PIN,
+    PIN_BLOCKING_REJECTED_TAN_CODE,
     RECENT_DATE,
+    REFUSED_PERIOD_TEXT,
+    REJECTED_TAN_CODE,
+    REJECTED_TAN_TEXT,
     SECOND_ACCOUNT_IBAN,
+    SHORT_TIMEOUT_SECONDS,
     TWO_FACTOR_CODE,
     assert_log_contains,
 )
@@ -186,17 +207,17 @@ def test_configure_pushtan_raises_when_medium_required_but_none_returned(caplog:
     assert_log_contains(caplog, message="requires a TAN medium for pushTAN")
 
 
-def test_resolve_decoupled_returns_input_when_no_tan_required():
+def test_resolve_tan_returns_input_when_no_tan_required():
     client = MagicMock()
     payload = object()
 
-    result = _resolve_decoupled(client=client, response=payload)
+    result = _resolve_tan(client=client, response=payload)
 
     assert result is payload
     client.send_tan.assert_not_called()
 
 
-def test_resolve_decoupled_polls_until_resolved(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
+def test_resolve_tan_polls_until_resolved(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
     sleeps: list[float] = []
     monkeypatch.setattr(target=module, name="sleep", value=lambda seconds: sleeps.append(seconds))
 
@@ -208,7 +229,7 @@ def test_resolve_decoupled_polls_until_resolved(monkeypatch: pytest.MonkeyPatch,
     # First two polls still pending, third returns the final payload.
     client.send_tan.side_effect = [pending, pending, final_response]
 
-    result = _resolve_decoupled(client=client, response=pending)
+    result = _resolve_tan(client=client, response=pending)
 
     assert result is final_response
     assert client.send_tan.call_count == 3
@@ -216,7 +237,7 @@ def test_resolve_decoupled_polls_until_resolved(monkeypatch: pytest.MonkeyPatch,
     assert_log_contains(caplog, messages=["Waiting for pushTAN app approval", "pushTAN approval received"])
 
 
-def test_resolve_decoupled_invokes_notifier_on_enter_and_exit(monkeypatch: pytest.MonkeyPatch):
+def test_resolve_tan_invokes_notifier_on_enter_and_exit(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
     calls: list[bool] = []
 
@@ -226,12 +247,12 @@ def test_resolve_decoupled_invokes_notifier_on_enter_and_exit(monkeypatch: pytes
     client = MagicMock()
     client.send_tan.return_value = "done"
 
-    _resolve_decoupled(client=client, response=pending, notify_two_factor_state=calls.append)
+    _resolve_tan(client=client, response=pending, notify_two_factor_state=calls.append)
 
     assert calls == [True, False]
 
 
-def test_resolve_decoupled_aborts_when_cancelled(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
+def test_resolve_tan_aborts_when_cancelled(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
     monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
 
     pending = MagicMock(spec=module.NeedTANResponse)
@@ -248,16 +269,14 @@ def test_resolve_decoupled_aborts_when_cancelled(monkeypatch: pytest.MonkeyPatch
         return was
 
     with pytest.raises(SyncCancelledError):
-        _resolve_decoupled(
-            client=client, response=pending, notify_two_factor_state=calls.append, is_cancelled=is_cancelled
-        )
+        _resolve_tan(client=client, response=pending, notify_two_factor_state=calls.append, is_cancelled=is_cancelled)
 
     assert client.send_tan.call_count == 1
     assert calls == [True, False]
     assert_log_contains(caplog, message="pushTAN wait cancelled by user; aborting sync")
 
 
-def test_resolve_decoupled_notifies_false_even_when_polling_raises(
+def test_resolve_tan_notifies_false_even_when_polling_raises(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
@@ -271,27 +290,227 @@ def test_resolve_decoupled_notifies_false_even_when_polling_raises(
     calls: list[bool] = []
 
     with pytest.raises(ReauthenticationRequiredError, match="did not arrive within"):
-        _resolve_decoupled(client=client, response=pending, notify_two_factor_state=calls.append)
+        _resolve_tan(client=client, response=pending, notify_two_factor_state=calls.append)
 
     assert calls == [True, False]
     assert_log_contains(caplog, message="pushTAN approval did not arrive within")
 
 
-def test_resolve_decoupled_raises_when_non_decoupled(caplog: pytest.LogCaptureFixture):
+def _entered_tan_challenge(challenge_matrix: tuple | None = None, challenge_hhduc: str | None = None) -> MagicMock:
     pending = MagicMock(spec=module.NeedTANResponse)
     pending.decoupled = False
+    pending.challenge = CHALLENGE_TOKEN
+    pending.challenge_matrix = challenge_matrix
+    pending.challenge_hhduc = challenge_hhduc
+    return pending
+
+
+def _requested_code(code: str | None = None) -> Future[str]:
+    future: Future[str] = Future()
+    if code is not None:
+        future.set_result(code)
+    return future
+
+
+def test_resolve_tan_sends_the_entered_tan(caplog: pytest.LogCaptureFixture):
+    caplog.set_level(logging.DEBUG)
+    pending = _entered_tan_challenge()
+    final_response = ["actual", "transactions"]
+    client = MagicMock()
+    client.send_tan.return_value = final_response
+    calls: list[bool] = []
+
+    result = _resolve_tan(
+        client=client,
+        response=pending,
+        notify_two_factor_state=calls.append,
+        request_two_factor_code=lambda: _requested_code(TWO_FACTOR_CODE),
+    )
+
+    assert result is final_response
+    client.send_tan.assert_called_once_with(challenge=pending, tan=TWO_FACTOR_CODE)
+    assert calls == [False]
+    assert_log_contains(caplog, messages=["Waiting for the TAN of mechanism", CHALLENGE_TOKEN, "TAN accepted"])
+
+
+@pytest.mark.parametrize(
+    argnames="challenge",
+    argvalues=[
+        _entered_tan_challenge(challenge_matrix=("image/png", b"png")),
+        _entered_tan_challenge(challenge_hhduc="0123"),
+    ],
+)
+def test_resolve_tan_rejects_unsupported_tan_mechanisms(challenge: MagicMock, caplog: pytest.LogCaptureFixture):
+    client = MagicMock()
+    client.get_current_tan_mechanism.return_value = "902"
+    request_two_factor_code = MagicMock()
+
+    with pytest.raises(UnsupportedTanMethodError, match="TAN mechanism 902 is not supported") as error:
+        _resolve_tan(client=client, response=challenge, request_two_factor_code=request_two_factor_code)
+
+    assert error_code_for(error.value) is JobErrorCode.UNSUPPORTED_TAN_METHOD
+    request_two_factor_code.assert_not_called()
+    assert_log_contains(caplog, message="TAN mechanism 902 is not supported")
+
+
+def test_resolve_tan_requires_reauthentication_when_nobody_can_enter_the_tan(caplog: pytest.LogCaptureFixture):
     client = MagicMock()
 
-    with pytest.raises(ReauthenticationRequiredError, match="non-decoupled"):
-        _resolve_decoupled(client=client, response=pending)
+    with pytest.raises(ReauthenticationRequiredError, match="unattended sync"):
+        _resolve_tan(client=client, response=_entered_tan_challenge())
 
-    assert_log_contains(caplog, message="Bank requested a non-decoupled TAN")
+    client.send_tan.assert_not_called()
+    assert_log_contains(caplog, message="nobody can enter it in an unattended sync")
+
+
+def _bank_reply(response_code: str) -> FinTSInstituteMessage:
+    return FinTSInstituteMessage(
+        segments=[
+            HNHBK3(message_size=0, hbci_version=300, dialog_id=FINTS_DIALOG_ID, message_number=2),
+            HIRMG2(responses=[Response(code=response_code, text=REJECTED_TAN_TEXT)]),
+            HIRMS2(responses=[Response(code=response_code, text=REJECTED_TAN_TEXT)]),
+            HNHBS1(message_number=2),
+        ]
+    )
+
+
+def _client_with_open_dialog(response_code: str) -> tuple[FinTS3PinTanClient, list[list[str]]]:
+    # A real python-fints client inside `with client:` whose bank answers every message with the given response code.
+    # Returns the segment types of every message sent, so a test can see whether the dialog was ended.
+    client = FinTS3PinTanClient(
+        bank_identifier=_FAKE_BANK_INFO.bank_identifier,
+        user_id=BANK_USERNAME,
+        pin=PIN,
+        server=_FAKE_BANK_INFO.fints_url,
+        product_id=FinTSHandler.FINTS_PRODUCT_ID,
+    )
+    client.set_tan_mechanism("901")
+    dialog = client._new_dialog()
+    dialog.open = True
+    dialog.need_init = False
+    dialog.dialog_id = FINTS_DIALOG_ID
+    dialog._context_count = 1
+    client._standing_dialog = dialog
+    # Building a real HKTAN needs the bank parameters of a real login
+    client._get_tan_segment = lambda *args, **kwargs: HKTAN6(  # type: ignore[method-assign]
+        tan_process="2", task_reference=CHALLENGE_TOKEN, further_tan_follows=False
+    )
+    sent_messages: list[list[str]] = []
+
+    def answer(message: FinTSMessage) -> FinTSInstituteMessage:
+        # The TAN and the dialog end are wrapped in the encrypted envelope, so search recursively
+        sent_messages.append([segment.header.type for segment in message.find_segments(("HKTAN", "HKEND"))])
+        return _bank_reply(response_code)
+
+    client.connection.send = answer  # type: ignore[method-assign]
+    return client, sent_messages
+
+
+def _login_tan_challenge() -> NeedTANResponse:
+    return NeedTANResponse(
+        command_seg=None,
+        tan_request=HITAN6(tan_process="4", task_reference=CHALLENGE_TOKEN, challenge=CHALLENGE_TOKEN),
+        resume_method="_continue_dialog_initialization",
+    )
+
+
+@pytest.mark.parametrize(
+    argnames=("response_code", "expected_sent_messages"),
+    argvalues=[
+        # python-fints returns this one silently, the dialog is still open and gets ended
+        (REJECTED_TAN_CODE, [["HKTAN"], ["HKEND"]]),
+        # python-fints blocks the PIN and raises; ending the dialog with that PIN would raise "Refusing to use PIN
+        # after block" and hide the rejection
+        (PIN_BLOCKING_REJECTED_TAN_CODE, [["HKTAN"]]),
+    ],
+)
+def test_resolve_tan_reports_a_tan_the_bank_rejected_and_can_still_leave_the_session(
+    response_code: str, expected_sent_messages: list[list[str]], caplog: pytest.LogCaptureFixture
+):
+    client, sent_messages = _client_with_open_dialog(response_code)
+    calls: list[bool] = []
+
+    with pytest.raises(TanNotAcceptedError, match=f"did not accept the TAN: {response_code} {REJECTED_TAN_TEXT}"):
+        _resolve_tan(
+            client=client,
+            response=_login_tan_challenge(),
+            notify_two_factor_state=calls.append,
+            request_two_factor_code=lambda: _requested_code(TWO_FACTOR_CODE),
+        )
+    client.__exit__(exc_type=None, exc_value=None, traceback=None)
+
+    assert sent_messages == expected_sent_messages
+    assert client.response_callbacks == []
+    assert calls == [False]
+    assert_log_contains(caplog, message=f"The bank did not accept the TAN: {response_code}")
+
+
+def test_resolve_tan_continues_the_session_once_the_bank_accepts_the_tan(caplog: pytest.LogCaptureFixture):
+    client, sent_messages = _client_with_open_dialog(ACCEPTED_TAN_CODE)
+
+    _resolve_tan(
+        client=client,
+        response=_login_tan_challenge(),
+        request_two_factor_code=lambda: _requested_code(TWO_FACTOR_CODE),
+    )
+
+    assert sent_messages == [["HKTAN"]]
+    assert_log_contains(caplog, message="TAN accepted")
+
+
+def test_resolve_tan_falls_back_to_the_error_when_the_bank_reported_no_reason():
+    client = MagicMock()
+    client.send_tan.side_effect = FinTSClientPINError("Error during dialog initialization, PIN wrong?")
+
+    with pytest.raises(TanNotAcceptedError, match="did not accept the TAN: Error during dialog init"):
+        _resolve_tan(
+            client=client,
+            response=_entered_tan_challenge(),
+            request_two_factor_code=lambda: _requested_code(TWO_FACTOR_CODE),
+        )
+
+    assert client._standing_dialog.open is False
+
+
+def test_resolve_tan_aborts_tan_entry_when_cancelled(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
+    monkeypatch.setattr(target=module, name="APPROVAL_POLL_INTERVAL", value=timedelta(seconds=SHORT_TIMEOUT_SECONDS))
+    client = MagicMock()
+    cancelled = iter([False, True])
+    requested_code: Future[str] = _requested_code()
+
+    with pytest.raises(SyncCancelledError):
+        _resolve_tan(
+            client=client,
+            response=_entered_tan_challenge(),
+            is_cancelled=lambda: next(cancelled),
+            request_two_factor_code=lambda: requested_code,
+        )
+
+    client.send_tan.assert_not_called()
+    assert requested_code.cancelled()
+    assert_log_contains(caplog, message="TAN entry cancelled by user; aborting sync")
+
+
+def test_resolve_tan_gives_up_when_no_tan_is_entered_in_time(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    after_the_deadline = itertools.repeat(module.APPROVAL_TIMEOUT.total_seconds() + 1)
+    past_the_deadline = itertools.chain([0.0], after_the_deadline)  # noqa: FKA100
+    monkeypatch.setattr(target=module.time, name="monotonic", value=lambda: next(past_the_deadline))
+    client = MagicMock()
+    requested_code: Future[str] = _requested_code()
+
+    with pytest.raises(TanNotAcceptedError, match="No TAN was entered within") as error:
+        _resolve_tan(client=client, response=_entered_tan_challenge(), request_two_factor_code=lambda: requested_code)
+
+    assert error_code_for(error.value) is JobErrorCode.TAN_NOT_ACCEPTED
+    client.send_tan.assert_not_called()
+    assert requested_code.cancelled()
+    assert_log_contains(caplog, message="No TAN was entered within")
 
 
 @pytest.mark.usefixtures("single_fetch_chunk")
 def test_session_resolves_tan_responses_from_get_transactions(monkeypatch: pytest.MonkeyPatch):
-    # Sparkasse triggers a second TAN prompt on get_transactions (PSD2 for old reads).
-    # Verify the session unwraps NeedTANResponse and polls until the bank returns data.
     monkeypatch.setattr(target=module, name="sleep", value=lambda _: None)
 
     pending = MagicMock(spec=module.NeedTANResponse)
@@ -308,14 +527,35 @@ def test_session_resolves_tan_responses_from_get_transactions(monkeypatch: pytes
     session = module._FinTSSession(client=client)
     session._account_mapping = {ACCOUNT_IBAN: MagicMock()}
 
-    # We don't care about the parsed values here, just that the call doesn't raise
-    # 'NeedTANResponse object is not iterable'.
-
     transactions = session.get_transactions(account=module.FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE)
 
     assert len(transactions) == 1
     assert client.get_transactions.call_count == 2
     assert client.send_tan.call_count == 4
+
+
+@pytest.mark.usefixtures("single_fetch_chunk")
+def test_session_asks_the_user_for_the_tans_of_login_and_transactions(monkeypatch: pytest.MonkeyPatch):
+    login_challenge = _entered_tan_challenge()
+    fetch_challenge = _entered_tan_challenge()
+    fake_transaction = MagicMock()
+    fake_transaction.data = {"amount": MagicMock(amount=DEFAULT_AMOUNT), "purpose": "x", "date": MagicMock()}
+    client = MagicMock()
+    client.get_tan_mechanisms.return_value = {}
+    client.init_tan_response = login_challenge
+    client.get_transactions.return_value = fetch_challenge
+    client.send_tan.side_effect = ["logged in", [fake_transaction], [fake_transaction]]
+    monkeypatch.setattr(target=module, name="FinTS3PinTanClient", value=lambda **kwargs: client)
+    handler = _fints_handler()
+    handler.request_two_factor_code = MagicMock(side_effect=lambda: _requested_code(TWO_FACTOR_CODE))
+
+    with handler.session() as bank:
+        bank._account_mapping = {ACCOUNT_IBAN: MagicMock()}
+        bank.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE)
+
+    assert handler.request_two_factor_code.call_count == 3
+    assert client.send_tan.call_args_list[0].kwargs == {"challenge": login_challenge, "tan": TWO_FACTOR_CODE}
+    assert client.send_tan.call_args_list[1].kwargs == {"challenge": fetch_challenge, "tan": TWO_FACTOR_CODE}
 
 
 def test_parse_camt_if_needed_passes_non_tuple_through_unchanged():
@@ -387,6 +627,150 @@ def test_session_uses_camt_xml_for_deutsche_bank_despite_mt940(monkeypatch: pyte
     assert client.get_transactions_xml.call_count == 2
     assert client.get_transactions.call_count == 0
     assert len(transactions) == 1
+
+
+def _transaction_on(day: date) -> MagicMock:
+    transaction = MagicMock()
+    transaction.data = {"amount": MagicMock(amount=DEFAULT_AMOUNT), "purpose": str(day), "date": day}
+    return transaction
+
+
+def _client_offering(parameter_segments: tuple[str, ...]) -> MagicMock:
+    # A client of a bank whose parameters contain only the given segments, e.g. HIKAZS (MT940) or HICAZS (CAMT)
+    client = MagicMock()
+    client.bpd.find_segment_first.side_effect = lambda segment_type: (
+        MagicMock() if segment_type in parameter_segments else None
+    )
+    client.response_callbacks = []
+    client.add_response_callback.side_effect = client.response_callbacks.append
+    client.remove_response_callback.side_effect = client.response_callbacks.remove
+    return client
+
+
+def _answer(client: MagicMock, response_code: str) -> None:
+    # What python-fints hands its response callbacks for every response code of the bank
+    for callback in list(client.response_callbacks):
+        callback(None, Response(code=response_code, text=REFUSED_PERIOD_TEXT))  # noqa: FKA100
+
+
+def _refusing(client: MagicMock) -> Callable[..., list]:
+    # python-fints only logs the bank's errors and hands back no transactions
+    def refuse(*args: object, **kwargs: object) -> list:
+        _answer(client, response_code=FINTS_ERROR_CODE)
+        return []
+
+    return refuse
+
+
+def _session_for(client: MagicMock) -> module._FinTSSession:
+    session = module._FinTSSession(client=client)
+    session._account_mapping = {ACCOUNT_IBAN: MagicMock(iban=ACCOUNT_IBAN)}
+    return session
+
+
+def test_session_fetches_at_most_four_years_of_history_on_the_first_sync():
+    client = _client_offering(parameter_segments=("HIKAZS",))
+    client.get_transactions.return_value = []
+
+    _session_for(client).get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=FIRST_SYNC_DATE)
+
+    requested_starts = [call.kwargs["start_date"] for call in client.get_transactions.call_args_list]
+    assert min(requested_starts) == date.today() - module.MAX_TRANSACTION_HISTORY
+
+
+@pytest.mark.parametrize(
+    argnames="refusal_code",
+    argvalues=[
+        FINTS_ERROR_CODE,
+        module.PARTIALLY_EXECUTED_RESPONSE_CODE,
+    ],
+)
+def test_session_stops_going_back_at_the_first_period_the_bank_refuses(
+    refusal_code: str, caplog: pytest.LogCaptureFixture
+):
+    refused_chunk_number = 3
+    booked_chunk_starts: list[date] = []
+    client = _client_offering(parameter_segments=("HIKAZS",))
+
+    def fetch_chunk(account: object, start_date: date, end_date: date, include_pending: bool) -> list[MagicMock]:
+        if not include_pending:
+            booked_chunk_starts.append(start_date)
+            if len(booked_chunk_starts) == refused_chunk_number:
+                _answer(client, response_code=refusal_code)
+        return [_transaction_on(start_date)]
+
+    client.get_transactions.side_effect = fetch_chunk
+
+    transactions = _session_for(client).get_transactions(
+        account=FetchedAccount(name=ACCOUNT_IBAN), start_date=OLDER_DATE
+    )
+
+    assert len(booked_chunk_starts) == refused_chunk_number
+    assert booked_chunk_starts == sorted(booked_chunk_starts, reverse=True)
+    assert [transaction.date for transaction in transactions if not transaction.pending] == sorted(booked_chunk_starts)
+    assert_log_contains(caplog, message=f"({refusal_code} {REFUSED_PERIOD_TEXT}); not fetching further back")
+
+
+def test_session_stops_fetching_transactions_once_the_sync_is_cancelled(caplog: pytest.LogCaptureFixture):
+    client = _client_offering(parameter_segments=("HIKAZS",))
+    client.get_transactions.return_value = []
+    session = module._FinTSSession(client=client, is_cancelled=lambda: client.get_transactions.call_count > 0)
+    session._account_mapping = {ACCOUNT_IBAN: MagicMock(iban=ACCOUNT_IBAN)}
+
+    with pytest.raises(SyncCancelledError):
+        session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=OLDER_DATE)
+
+    assert client.get_transactions.call_count == 1
+    assert_log_contains(caplog, message="Sync cancelled while fetching transactions; aborting")
+
+
+def test_session_fails_when_the_bank_refuses_even_the_current_period(caplog: pytest.LogCaptureFixture):
+    # Reporting this as "no transactions" would let the sync succeed and the next one start after the gap
+    client = _client_offering(parameter_segments=("HIKAZS",))
+    client.get_transactions.side_effect = _refusing(client)
+
+    with pytest.raises(BankRefusedRequestError, match=f"{FINTS_ERROR_CODE} {REFUSED_PERIOD_TEXT}"):
+        _session_for(client).get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE)
+
+    assert client.get_transactions.call_count == 1
+    assert_log_contains(caplog, message="The bank refused the transactions from")
+
+
+@pytest.mark.usefixtures("single_fetch_chunk")
+def test_session_retries_with_camt_when_the_bank_refuses_mt940(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    monkeypatch.setattr(
+        target=module,
+        name="camt053_to_dict",
+        value=lambda stream: [{"amount": MagicMock(amount=DEFAULT_AMOUNT), "purpose": "x", "date": RECENT_DATE}],
+    )
+    client = _client_offering(parameter_segments=("HIKAZS", "HICAZS"))
+    client.get_transactions.side_effect = _refusing(client)
+    client.get_transactions_xml.return_value = ([b"<booked/>"], [None])
+
+    transactions = _session_for(client).get_transactions(
+        account=FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE
+    )
+
+    assert len(transactions) == 1
+    # Once CAMT worked, the rest of the session (here: the pending fetch) skips MT940
+    assert client.get_transactions.call_count == 1
+    assert client.get_transactions_xml.call_count == 2
+    assert_log_contains(caplog, messages=["retrying with CAMT", "using CAMT for the rest of this session"])
+
+
+@pytest.mark.usefixtures("single_fetch_chunk")
+def test_session_keeps_mt940_when_camt_is_refused_as_well():
+    client = _client_offering(parameter_segments=("HIKAZS", "HICAZS"))
+    client.get_transactions.side_effect = _refusing(client)
+    client.get_transactions_xml.side_effect = _refusing(client)
+    session = _session_for(client)
+
+    with pytest.raises(BankRefusedRequestError):
+        session.get_transactions(account=FetchedAccount(name=ACCOUNT_IBAN), start_date=RECENT_DATE)
+
+    assert session._mt940_refused is False
 
 
 def test_date_ranges_splits_history_into_gapless_chunks_up_to_today():

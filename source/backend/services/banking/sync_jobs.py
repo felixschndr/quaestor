@@ -34,12 +34,13 @@ TERMINAL_JOB_STATUSSES = frozenset({JobStatus.COMPLETED, JobStatus.FAILED})
 
 @dataclass
 class SyncJob:
-    __repr_exclude__: ClassVar[frozenset[str]] = frozenset({"challenge_token"})
+    __repr_exclude__: ClassVar[frozenset[str]] = frozenset({"challenge_token", "pending_code"})
 
     job_id: str
     credential_id: int
     status: JobStatus = JobStatus.RUNNING
     challenge_token: str | None = None
+    pending_code: "concurrent.futures.Future[str] | None" = None
     expires_at: datetime | None = None
     authorization_url: str | None = None
     device_code: str | None = None
@@ -85,7 +86,8 @@ async def _job_to_continue(credential_id: int) -> "SyncJob | None":
     for job in list(_jobs.values()):
         if job.credential_id != credential_id or job.status in TERMINAL_JOB_STATUSSES:
             continue
-        if job.status is JobStatus.AWAITING_TWO_FACTOR:
+        is_waiting_for_code = job.pending_code is not None and not job.pending_code.cancelled()
+        if job.status is JobStatus.AWAITING_TWO_FACTOR and not is_waiting_for_code:
             logger.info(f"{job} is superseded by a new sync for the credential {credential_id}")
             await cancel(job_id=job.job_id)
             continue
@@ -111,8 +113,14 @@ async def start_sync(credential_id: int, start_interactive_challenge: bool = Tru
 async def _run_sync(job: SyncJob, start_interactive_challenge: bool = True) -> None:
     notify_two_factor_state = _make_two_factor_state_notifier(job)
     is_cancelled = lambda: job.finished_at is not None  # noqa: E731
+    request_two_factor_code = _make_two_factor_code_request(job) if start_interactive_challenge else None
     coroutine = asyncio.to_thread(  # noqa FKA100
-        _sync_in_thread, job.credential_id, notify_two_factor_state, is_cancelled, start_interactive_challenge
+        _sync_in_thread,
+        job.credential_id,
+        notify_two_factor_state,
+        is_cancelled,
+        start_interactive_challenge,
+        request_two_factor_code,
     )
     await _apply_result_handling_errors(job=job, coroutine=coroutine, log_label="failed")
 
@@ -151,6 +159,25 @@ def _make_two_factor_state_notifier(job: SyncJob) -> "Callable[[bool], None]":
     return notify
 
 
+def _make_two_factor_code_request(job: SyncJob) -> "Callable[[], concurrent.futures.Future[str]]":
+    loop = asyncio.get_running_loop()
+
+    def request_code() -> "concurrent.futures.Future[str]":
+        code: concurrent.futures.Future[str] = concurrent.futures.Future()
+        asyncio.run_coroutine_threadsafe(coro=_await_code(job=job, code=code), loop=loop)
+        return code
+
+    return request_code
+
+
+async def _await_code(job: SyncJob, code: "concurrent.futures.Future[str]") -> None:
+    if job.status in TERMINAL_JOB_STATUSSES:
+        return
+    job.status = JobStatus.AWAITING_TWO_FACTOR
+    job.pending_code = code
+    logger.info(f"{job} awaiting 2FA code")
+
+
 async def _update_decoupled_state(job: SyncJob, awaiting: bool) -> None:
     # Don't override a terminal status (could race with completion).
     if job.status in TERMINAL_JOB_STATUSSES:
@@ -163,6 +190,7 @@ def _sync_in_thread(
     notify_two_factor_state: "Callable[[bool], None] | None" = None,
     is_cancelled: "Callable[[], bool] | None" = None,
     start_interactive_challenge: bool = True,
+    request_two_factor_code: "Callable[[], concurrent.futures.Future[str]] | None" = None,
 ) -> SyncResult:
     with SessionLocal() as db_session:
         return credential_service.sync_credential(
@@ -171,6 +199,7 @@ def _sync_in_thread(
             notify_two_factor_state=notify_two_factor_state,
             is_cancelled=is_cancelled,
             start_interactive_challenge=start_interactive_challenge,
+            request_two_factor_code=request_two_factor_code,
         )
 
 
@@ -200,7 +229,17 @@ def _mark_terminal(
 
 async def submit_two_factor(job_id: str, code: str) -> SyncJob | None:
     job = _jobs.get(job_id)
-    if job is None or job.status != JobStatus.AWAITING_TWO_FACTOR or job.challenge_token is None:
+    if job is None or job.status != JobStatus.AWAITING_TWO_FACTOR:
+        return None
+    if job.pending_code is not None:
+        try:
+            job.pending_code.set_result(code)
+        except concurrent.futures.InvalidStateError:
+            return None
+        job.status = JobStatus.CONFIRMING_TWO_FACTOR
+        job.pending_code = None
+        return job
+    if job.challenge_token is None:
         return None
     challenge_token = job.challenge_token
     job.status = JobStatus.CONFIRMING_TWO_FACTOR
