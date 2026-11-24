@@ -2,7 +2,7 @@ import datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.transaction_type import TransactionType
@@ -59,6 +59,23 @@ class TransactionUpdate(BaseModel):
     purpose: str | None = None
     other_party: str | None = None
     transaction_type: TransactionType | None = None
+
+
+class TransactionBulkUpdate(BaseModel):
+    transaction_ids: list[int] = Field(min_length=1)
+    note: str | None = None
+    category: str | None = None
+    transaction_type: TransactionType | None = None
+    contract_id: int | None = None
+
+    @model_validator(mode="after")
+    def _changes_something(self) -> "TransactionBulkUpdate":
+        if not self.model_fields_set - {"transaction_ids"}:
+            raise ValueError("Set at least one field to change")
+        return self
+
+    def changed_fields(self) -> dict:
+        return self.model_dump(exclude_unset=True, exclude={"transaction_ids"})
 
 
 class TransactionCreate(BaseModel):

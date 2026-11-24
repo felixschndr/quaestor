@@ -32,6 +32,7 @@ from source.backend.services.transactions import categorization_service
 logger = get_logger(__name__)
 
 CATEGORIZATION_FIELDS = frozenset({"purpose", "other_party", "transaction_type"})
+SHARED_WRITABLE_TRANSACTION_FIELDS = frozenset({"category", "note"})
 
 
 def market_valued_account_ids_select() -> Select[int]:
@@ -177,10 +178,32 @@ def get_transaction_for_user(db_session: Session, transaction_id: int, user: Use
 
 
 def update_transaction(db_session: Session, account: Account, transaction: Transaction, fields: dict) -> Transaction:
+    state_before_update = apply_transaction_update(
+        db_session=db_session, account=account, transaction=transaction, fields=fields
+    )
+    db_session.commit()
+    logger.update(state_before_update=state_before_update, entity_after_update=transaction)
+    return transaction
+
+
+def require_editable_fields(account: Account, user: User, fields: set[str]) -> None:
+    if owns(account=account, user=user):
+        return
+    if fields - SHARED_WRITABLE_TRANSACTION_FIELDS:
+        raise PermissionDeniedError(
+            f"A shared account only allows editing {sorted(SHARED_WRITABLE_TRANSACTION_FIELDS)}"
+        )
+
+
+def require_editable_transaction(transaction: Transaction) -> None:
     if transaction.pending:
         # Pending entries are provisional previews
         # They're wiped and re-fetched on every sync, so any edit would be lost.
         raise ValidationError(f"{transaction} is pending and cannot be edited")
+
+
+def apply_transaction_update(db_session: Session, account: Account, transaction: Transaction, fields: dict) -> dict:
+    require_editable_transaction(transaction)
     manual_only = Transaction.FIELDS_THAT_ARE_ONLY_EDITABLE_ON_MANUAL_ACCOUNTS & set(fields)
     if manual_only:
         _require_manual_account(account)
@@ -213,10 +236,7 @@ def update_transaction(db_session: Session, account: Account, transaction: Trans
     if amount_changed or date_changed:
         db_session.flush()
         account.recompute_balances_at_date()
-
-    db_session.commit()
-    logger.update(state_before_update=state_before_update, entity_after_update=transaction)
-    return transaction
+    return state_before_update
 
 
 def update_account(db_session: Session, account: Account, fields: dict) -> Account:

@@ -109,6 +109,7 @@ SECOND_AMOUNT = 20.0
 THIRD_AMOUNT = 10.0
 LARGE_AMOUNT = 3500.0
 DEFAULT_BALANCE = 100.0
+TRANSACTION_NOTE = "Split from the household transfer"
 NETFLIX = "Netflix"
 ACME = "ACME"
 REWE = "Rewe"

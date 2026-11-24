@@ -8,6 +8,7 @@ from source.backend.models.auth.user import User
 from source.backend.models.contracts.contract import Contract
 from source.backend.models.contracts.contract_assignment import ContractAssignment
 from source.backend.models.contracts.contract_source import ContractSource
+from source.backend.models.transactions.transaction import Transaction
 from source.backend.services.accounts import account_service
 from source.backend.services.contracts.contract_aggregators import compute_fingerprint
 from source.backend.services.contracts.contract_detection_service import (
@@ -117,6 +118,13 @@ def assign_transaction_to_contract(db_session: Session, user: User, contract_id:
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=contract.account, transaction_id=transaction_id
     )
+    attach_transaction(db_session=db_session, contract=contract, transaction=transaction)
+    db_session.commit()
+    logger.info(f"Assigned {transaction} to {contract}")
+    return contract
+
+
+def attach_transaction(db_session: Session, contract: Contract, transaction: Transaction) -> None:
     previous_contract = transaction.contract if transaction.contract_id not in (None, contract.id) else None
     transaction.contract_id = contract.id
     transaction.contract_assignment = ContractAssignment.MANUAL
@@ -129,9 +137,6 @@ def assign_transaction_to_contract(db_session: Session, user: User, contract_id:
     apply_contract_category(contract=contract, transaction=transaction)
     if previous_contract is not None:
         recompute_contract_stats(previous_contract)
-    db_session.commit()
-    logger.info(f"Assigned {transaction} to {contract}")
-    return contract
 
 
 def remove_transaction(db_session: Session, user: User, contract_id: int, transaction_id: int) -> Contract:
@@ -139,11 +144,15 @@ def remove_transaction(db_session: Session, user: User, contract_id: int, transa
     transaction = account_service.get_transaction_for_account(
         db_session=db_session, account=contract.account, transaction_id=transaction_id
     )
+    detach_transaction(db_session=db_session, contract=contract, transaction=transaction)
+    db_session.commit()
+    logger.info(f"Removed {transaction} from {contract}")
+    return contract
+
+
+def detach_transaction(db_session: Session, contract: Contract, transaction: Transaction) -> None:
     transaction.contract_assignment = ContractAssignment.EXCLUDED
     transaction.contract_id = None
     release_contract_category(transaction=transaction, rules=contract.account.credential.user.categorization_rules)
     db_session.flush()
     recompute_contract_stats(contract)
-    db_session.commit()
-    logger.info(f"Removed {transaction} from {contract}")
-    return contract
