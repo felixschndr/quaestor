@@ -124,7 +124,7 @@ function TransactionDetailPage() {
         unlink.mutateAsync({ accountId: transaction.account_id, transactionId: transaction.id })
       }
       ruleSection={
-        isOwner && query.data.category_source === 'MANUAL' && query.data.other_party?.trim() ? (
+        isOwner && query.data.category_source === 'MANUAL' ? (
           <CreateRuleFromTransaction transaction={query.data} />
         ) : undefined
       }

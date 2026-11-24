@@ -985,6 +985,14 @@ describe('TransactionDetailPage', () => {
     expect(screen.queryByText(/get the category “Supermarket”/)).toBeNull()
   })
 
+  it('offers a rule with an empty search term when the transaction has no other party', async () => {
+    const user = userEvent.setup()
+    renderPage({ transaction: buildTransaction({ category_source: 'MANUAL', other_party: null }) })
+
+    await user.click(await screen.findByRole('button', { name: 'Create rule' }))
+    expect(screen.getByLabelText('Search term')).toHaveValue('')
+  })
+
   it('offers linking another transaction, disabled while offline', async () => {
     renderPage()
     expect(await screen.findByRole('link', { name: 'Add transaction' })).toHaveAttribute(
