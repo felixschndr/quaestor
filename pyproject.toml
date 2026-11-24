@@ -8,9 +8,9 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.14"
-sqlalchemy = "^2.1.8"
-fastapi = "^0.162.5"
-pydantic = "^2.14.3"
+sqlalchemy = "^2.1.9"
+fastapi = "^0.165.0"
+pydantic = "^2.14.4"
 alembic = "^1.20.1"
 uvicorn = ">=0.54.0,<0.55"
 sqlcipher3 = ">=0.6.5,<0.7.0"
@@ -24,18 +24,18 @@ fints-url = "^0.7"
 mt-940 = "4.30.0"
 pytr = {version = "^0.4.10", extras = ["playwright"]}
 argon2-cffi = "^25.1.0"
-pyotp = "^2.10.0"
+pyotp = "^2.12.1"
 segno = "^1.6.6"
 pywebpush = "^2.5.0"
 pyjwt = {version = "^2.15", extras = ["crypto"]}
-python-multipart = "^0.0.33"
+python-multipart = "^0.0.34"
 babel = "^2.18.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.2.0"
 httpx = "^0.28.1"
 pytest-cov = "^7.1.0"
-pytest-env = "^1.8.5"
+pytest-env = "^1.8.7"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

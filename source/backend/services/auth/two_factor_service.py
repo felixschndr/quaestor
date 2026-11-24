@@ -4,6 +4,7 @@ from datetime import timedelta
 
 import pyotp
 import segno
+from pyotp.totp import TOTP
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -33,7 +34,7 @@ def generate_secret() -> str:
 
 
 def build_provisioning_uri(secret: str, user_name: str) -> str:
-    return pyotp.TOTP(secret).provisioning_uri(name=user_name, issuer_name=get_project_name())
+    return TOTP(secret).provisioning_uri(name=user_name, issuer_name=get_project_name())
 
 
 def build_qr_data_uri(provisioning_uri: str) -> str:
@@ -41,7 +42,7 @@ def build_qr_data_uri(provisioning_uri: str) -> str:
 
 
 def verify_totp(secret: str, code: str) -> bool:
-    return pyotp.TOTP(secret).verify(otp=code.strip(), valid_window=1)
+    return TOTP(secret).verify(otp=code.strip(), valid_window=1)
 
 
 def _normalize_backup_code(code: str) -> str:
