@@ -66,6 +66,12 @@ class _EnableBankingApi(RestAPIClient):
         data: dict | None = None,
     ) -> Response:
         response = super().request(method=method, path=path, json_body=json_body, params=params, data=data)
+        if response.status_code == 429:
+            # for https://github.com/felixschndr/quaestor/issues/231
+            logger.warning(
+                f"Enable Banking rate limited [{method}] [{path}]: headers={dict(response.headers)} "
+                f"body={response.text}"
+            )
         if response.status_code in (401, 403):
             if "not active" in response.text.lower():
                 raise PSD2ApplicationNotActivatedError(
