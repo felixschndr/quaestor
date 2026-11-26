@@ -108,6 +108,11 @@ def delete_contract(db_session: Session, user: User, contract_id: int) -> None:
             *contract.account.dismissed_contract_fingerprints,
             contract.fingerprint,
         ]
+    rules = contract.account.credential.user.categorization_rules
+    for transaction in contract.members():
+        transaction.contract_id = None
+        transaction.contract_assignment = None
+        release_contract_category(transaction=transaction, rules=rules)
     db_session.delete(contract)
     db_session.commit()
     logger.info(f"Deleted contract {contract_id}")

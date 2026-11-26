@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import re
 from collections import defaultdict
 from statistics import median
 
@@ -51,6 +52,7 @@ MEMBER_AMOUNT_MAX_RATIO = 3.0
 # a sustained price change becomes the new normal instead of being flagged as an outlier forever.
 RECENT_AMOUNT_WINDOW = 6
 AUTO_ARCHIVE_OVERDUE = datetime.timedelta(days=365)
+_NON_LETTERS = re.compile(r"[^a-z]+")
 
 ELIGIBLE_TRANSACTION_TYPES = frozenset(
     {
@@ -232,7 +234,51 @@ def _group_by_fingerprint(
         key = f"{fingerprint.key}:{direction}"
         groups[(key, fingerprint.display_name)].append(transaction)
 
+    split_groups: dict[tuple[str, str], list[Transaction]] = {}
+    for (key, display_name), members in groups.items():
+        split_groups.update(_split_parallel_series(key=key, display_name=display_name, transactions=members))
+    return split_groups
+
+
+def _split_parallel_series(
+    key: str, display_name: str, transactions: list[Transaction]
+) -> dict[tuple[str, str], list[Transaction]]:
+    # One recipient can receive several standing orders, e.g. groceries and insurances to a household account. Split by
+    # purpose only when at least two purposes recur at the same time: a standing order whose purpose was renamed runs
+    # one purpose after the other and stays one contract under the unchanged key.
+    by_purpose: dict[str, list[Transaction]] = defaultdict(list)
+    for transaction in transactions:
+        by_purpose[_normalized_purpose(transaction.purpose)].append(transaction)
+    series = {
+        purpose: members
+        for purpose, members in by_purpose.items()
+        if _classify_cadence([member.date for member in members])[0] is not None
+    }
+    if not _have_overlapping_series(list(series.values())):
+        return {(key, display_name): transactions}
+
+    groups: dict[tuple[str, str], list[Transaction]] = {}
+    for purpose, members in series.items():
+        latest_purpose = (max(members, key=lambda member: member.date).purpose or "").strip()
+        groups[(f"{key}:purpose:{purpose}", " – ".join(filter(None, [display_name, latest_purpose])))] = members
+    rest = [transaction for transaction in transactions if _normalized_purpose(transaction.purpose) not in series]
+    if rest:
+        groups[(key, display_name)] = rest
+    logger.debug(f"Group '{display_name}' ({key}) holds {len(series)} parallel series; split them by purpose")
     return groups
+
+
+def _normalized_purpose(purpose: str | None) -> str:
+    # Drops digits, spaces and punctuation so a purpose carrying a month, an invoice number or a changed spacing still
+    # matches its earlier payments
+    return _NON_LETTERS.sub(repl="", string=normalize_string(purpose or ""))
+
+
+def _have_overlapping_series(series: list[list[Transaction]]) -> bool:
+    spans = sorted(
+        (min(member.date for member in members), max(member.date for member in members)) for members in series
+    )
+    return any(later_start <= earlier_end for (_, earlier_end), (later_start, _) in zip(spans, spans[1:]))
 
 
 def _classify_cadence(dates: list[datetime.date]) -> tuple[ContractFrequency | None, int | None]:

@@ -11,7 +11,9 @@ from source.backend.models.accounts.account import Account
 from source.backend.models.contracts.contract import Contract
 from source.backend.models.contracts.contract_assignment import ContractAssignment
 from source.backend.models.contracts.contract_frequency import ContractFrequency
+from source.backend.models.contracts.contract_source import ContractSource
 from source.backend.models.transactions.category_source import CategorySource
+from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import CategorizationRules, TransactionCategory
 from source.backend.models.transactions.transaction_type import TransactionType
 from source.backend.services.contracts import contract_detection_service, contract_service
@@ -21,14 +23,24 @@ from source.backend.services.contracts.contract_detection_service import (
 from tests.backend.conftest import (
     DEFAULT_AMOUNT,
     ERRATIC_DEBIT_AMOUNTS,
+    GROCERIES,
+    HOUSEHOLD,
+    HOUSEHOLD_FINGERPRINT,
+    INSURANCES,
+    INVEST,
+    LARGE_AMOUNT,
+    LATER_MONTHLY_DAY_OFFSETS,
     LONG_OVERDUE_MONTHLY_DAY_OFFSETS,
+    MID_MONTH_DAY_OFFSETS,
     MONTHLY_DAY_OFFSETS,
     MOSTLY_OFF_CADENCE_DAY_OFFSETS,
     NETFLIX,
     NETFLIX_FINGERPRINT,
     OFF_CADENCE_DAY_OFFSETS,
     OLDER_DATE,
+    ONE_OFF_PURPOSE,
     PAYPAL_COUNTERPARTY,
+    RENAMED_INVEST,
     REWE,
     SAME_DAY_DAY_OFFSETS,
     SECOND_USER_NAME,
@@ -432,6 +444,81 @@ def test_paypal_transactions_are_split_into_one_contract_per_merchant(session_fa
         assert {contract.name for contract in session.query(Contract).all()} == {"Apple Services", "Spotify AB"}
 
 
+def test_parallel_standing_orders_to_one_recipient_are_split_by_purpose(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        for offset in MONTHLY_DAY_OFFSETS:
+            _seed(
+                session,
+                account_id=account.id,
+                other_party=HOUSEHOLD,
+                amount=-LARGE_AMOUNT,
+                day_offsets=[offset],
+                purpose=f"{GROCERIES} {offset}",
+            )
+        _seed(
+            session,
+            account_id=account.id,
+            other_party=HOUSEHOLD,
+            amount=-DEFAULT_AMOUNT,
+            day_offsets=MID_MONTH_DAY_OFFSETS,
+            purpose=INSURANCES,
+        )
+        _seed(
+            session,
+            account_id=account.id,
+            other_party=HOUSEHOLD,
+            amount=-DEFAULT_AMOUNT,
+            day_offsets=[MID_MONTH_DAY_OFFSETS[0]],
+            purpose=ONE_OFF_PURPOSE,
+        )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        contracts = session.query(Contract).all()
+        assert {contract.fingerprint for contract in contracts} == {
+            f"{HOUSEHOLD_FINGERPRINT}:purpose:{GROCERIES.lower()}",
+            f"{HOUSEHOLD_FINGERPRINT}:purpose:{INSURANCES.lower()}",
+        }
+        assert {contract.name for contract in contracts} == {
+            f"{HOUSEHOLD} – {GROCERIES} {MONTHLY_DAY_OFFSETS[-1]}",
+            f"{HOUSEHOLD} – {INSURANCES}",
+        }
+        assert all(len(contract.members()) == len(MONTHLY_DAY_OFFSETS) for contract in contracts)
+        one_off = session.query(Transaction).filter(Transaction.purpose == ONE_OFF_PURPOSE).one()
+        assert one_off.contract_id is None
+
+
+def test_standing_order_with_a_renamed_purpose_stays_one_contract(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        _seed(
+            session,
+            account_id=account.id,
+            other_party=HOUSEHOLD,
+            amount=-DEFAULT_AMOUNT,
+            day_offsets=MONTHLY_DAY_OFFSETS,
+            purpose=INVEST,
+        )
+        _seed(
+            session,
+            account_id=account.id,
+            other_party=HOUSEHOLD,
+            amount=-DEFAULT_AMOUNT,
+            day_offsets=LATER_MONTHLY_DAY_OFFSETS,
+            purpose=RENAMED_INVEST,
+        )
+        session.commit()
+
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        contract = session.query(Contract).one()
+        assert contract.fingerprint == HOUSEHOLD_FINGERPRINT
+        assert contract.name == HOUSEHOLD
+        assert len(contract.members()) == len(MONTHLY_DAY_OFFSETS) + len(LATER_MONTHLY_DAY_OFFSETS)
+
+
 def test_detection_is_idempotent(session_factory: sessionmaker):
     with session_factory() as session:
         account = make_account_with_new_user(session)
@@ -697,3 +784,39 @@ def test_deleted_detected_contract_is_not_recreated_by_the_next_detection(sessio
         assert detected == []
         assert session.query(Contract).count() == 0
         assert account.dismissed_contract_fingerprints == [NETFLIX_FINGERPRINT]
+
+
+def test_deleting_a_manual_contract_hands_its_payments_back_to_the_detection(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        for purpose, amount in ((GROCERIES, -LARGE_AMOUNT), (INSURANCES, -DEFAULT_AMOUNT)):
+            _seed(
+                session,
+                account_id=account.id,
+                other_party=HOUSEHOLD,
+                amount=amount,
+                day_offsets=MONTHLY_DAY_OFFSETS,
+                purpose=purpose,
+            )
+        manual_contract = make_contract(session, account_id=account.id, name=INSURANCES, source=ContractSource.MANUAL)
+        session.commit()
+        user = account.credential.user
+        for transaction in session.query(Transaction).filter(Transaction.purpose == INSURANCES):
+            contract_service.assign_transaction_to_contract(
+                db_session=session, user=user, contract_id=manual_contract.id, transaction_id=transaction.id
+            )
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+        session.commit()
+        assert session.query(Contract).count() == 2
+
+        contract_service.delete_contract(db_session=session, user=user, contract_id=manual_contract.id)
+        account_id = account.id
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        assert {contract.fingerprint for contract in session.query(Contract).all()} == {
+            f"{HOUSEHOLD_FINGERPRINT}:purpose:{GROCERIES.lower()}",
+            f"{HOUSEHOLD_FINGERPRINT}:purpose:{INSURANCES.lower()}",
+        }
