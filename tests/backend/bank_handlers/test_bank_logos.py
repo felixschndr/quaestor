@@ -18,6 +18,7 @@ from source.backend.bank_handlers.bank_logos import logo_exists, logo_slug
         ("Sparda-Bank Berlin", "sparda"),
         ("Commerzbank Köln", "commerzbank"),
         ("UniCredit Bank - HypoVereinsbank", "hypovereinsbank"),
+        ("Postbank Ndl der Deutsche Bank", "postbank"),
         # comdirect must win over commerzbank (it is ordered first).
         ("Commerzbank - GF comdirect", "comdirect"),
         # Everything else derives a URL-safe slug from its own name.

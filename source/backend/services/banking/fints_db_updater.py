@@ -4,9 +4,11 @@ import io
 import os
 import pickle  # nosec: B403
 from pathlib import Path
+from typing import cast
 
 import fints_url
 from fints_url import update_bank_info
+from schwifty import registry
 
 from source.backend.logging_utils import get_logger
 from source.backend.paths import BANK_DB_PATH
@@ -23,6 +25,18 @@ _BANK_INFO_OVERRIDES: dict[str, dict[str, str]] = {
         "fints": "https://fints2.atruvia.de/cgi-bin/hbciservlet",
     },
 }
+# Postbank is missing from the aqbanking dataset; all of its branch BLZs share one FinTS server (#219)
+_BANK_INFO_OVERRIDES.update(
+    {
+        bank["bank_code"]: {
+            "blz": bank["bank_code"],
+            "name": "Postbank",
+            "fints": "https://hbci.postbank.de/banking/hbci.do",
+        }
+        for bank in cast("list[dict]", registry.get("bank"))
+        if (bank.get("bic") or "").startswith("PBNK") and bank["name"].startswith("Postbank")
+    }
+)
 
 _MIN_PLAUSIBLE_ENTRIES = 1000
 

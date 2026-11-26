@@ -76,6 +76,8 @@ SESSION_ARCHIVE = "ZmFrZQ=="
 SECOND_SESSION_ARCHIVE = "cmVmcmVzaA=="
 BANK_USERNAME = "bankuser"
 BANK_PASSWORD = "bankpass"  # nosec B105
+POSTBANK_BLZ = "10010010"
+POSTBANK_FINTS_URL = "https://hbci.postbank.de/banking/hbci.do"
 ACCOUNT_IBAN = "DE12 3456 7890"
 SECOND_ACCOUNT_IBAN = "DE98 7654 3210"
 APPLICATION_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"

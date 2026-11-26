@@ -7,7 +7,7 @@ import fints_url
 import pytest
 
 from source.backend.services.banking import fints_db_updater as updater
-from tests.backend.conftest import assert_log_contains
+from tests.backend.conftest import POSTBANK_BLZ, POSTBANK_FINTS_URL, assert_log_contains
 
 _REAL_RUN_STARTUP_UPDATE = updater.run_startup_update
 
@@ -59,6 +59,17 @@ def test_apply_overrides_injects_banks_missing_from_the_dataset(monkeypatch: pyt
 
     assert fints_url.__bank_info__["12030000"]["fints"] == "https://fints.dkb.de/fints"
     assert fints_url.find(bank_code="12030000") == "https://fints.dkb.de/fints"
+
+
+def test_apply_overrides_injects_all_postbank_branch_blzs(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(target=fints_url, name="__bank_info__", value={})
+
+    db = updater.get_bank_db()
+
+    postbank_blzs = [blz for blz, info in db.items() if info["name"] == "Postbank"]
+    assert POSTBANK_BLZ in postbank_blzs
+    assert len(postbank_blzs) > 1
+    assert {db[blz]["fints"] for blz in postbank_blzs} == {POSTBANK_FINTS_URL}
 
 
 def test_reload_reapplies_overrides_dropped_by_the_raw_dataset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
