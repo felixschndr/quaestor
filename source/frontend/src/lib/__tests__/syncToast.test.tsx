@@ -57,7 +57,7 @@ describe('toastSyncFailure', () => {
 
     render(shownToast().body)
     expect(screen.getByRole('button')).toHaveTextContent('ING received too many requests.')
-    expect(screen.getByRole('button').textContent).not.toContain('blocked too many login attempts')
+    expect(screen.getByRole('button').textContent).not.toContain('limited number of requests')
   })
 
   it('offers a retry action only when a retry was handed in', () => {

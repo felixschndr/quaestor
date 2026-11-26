@@ -9,6 +9,7 @@ from sqlalchemy.orm import object_session, sessionmaker
 
 from source.backend.bank_handlers import BankProvider
 from source.backend.bank_handlers.base import BankHandler
+from source.backend.bank_handlers.enable_banking_handler import EnableBankingHandler
 from source.backend.bank_handlers.trade_republic import TradeRepublicHandler
 from source.backend.exceptions import (
     CredentialAlreadyExistsError,
@@ -212,6 +213,36 @@ def test_sync_all_due_credentials_skips_a_credential_awaiting_reauthentication(
         credential_service.sync_all_due_credentials(db_session=session)
 
     sync.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    argnames=("bank", "attempted_ago", "expected_synced"),
+    argvalues=[
+        (BankProvider.ENABLE_BANKING, EnableBankingHandler.RATE_LIMITED_SYNC_PAUSE - timedelta(minutes=1), False),
+        (BankProvider.ENABLE_BANKING, EnableBankingHandler.RATE_LIMITED_SYNC_PAUSE, True),
+        (BankProvider.FINTS, timedelta(minutes=1), True),
+    ],
+)
+def test_sync_all_due_credentials_pauses_a_rate_limited_credential_only_for_banks_with_a_pause(
+    session_factory: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+    bank: BankProvider,
+    attempted_ago: timedelta,
+    expected_synced: bool,
+):
+    credential_id = persist_credential(session_factory, user_id=create_user(session_factory).id, bank=bank)
+    with session_factory() as session:
+        credential = session.get(entity=Credential, ident=credential_id)
+        credential.last_sync_error_code = JobErrorCode.RATE_LIMITED
+        credential.last_sync_attempt_timestamp = utc_now() - attempted_ago
+        session.commit()
+    sync = MagicMock(return_value=credential_service.SyncResult(status=credential_service.SyncStatus.COMPLETED))
+    monkeypatch.setattr(target=credential_service, name="sync_credential_object", value=sync)
+
+    with session_factory() as session:
+        credential_service.sync_all_due_credentials(db_session=session)
+
+    assert sync.called is expected_synced
 
 
 def test_sync_all_due_credentials_skips_an_unattended_2fa_session_that_can_no_longer_be_resumed(

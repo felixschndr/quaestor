@@ -416,6 +416,13 @@ def _is_due_for_periodic_sync(credential: Credential) -> bool:
     if credential.last_sync_error_code in ERROR_CODES_NEEDING_THE_USER:
         return False
     handler_class = BANKS_BY_NAME[credential.bank.value].handler
+    if (
+        credential.last_sync_error_code == JobErrorCode.RATE_LIMITED
+        and handler_class.RATE_LIMITED_SYNC_PAUSE is not None
+        and credential.last_sync_attempt_timestamp is not None
+        and utc_now() - credential.last_sync_attempt_timestamp < handler_class.RATE_LIMITED_SYNC_PAUSE
+    ):
+        return False
     return not credential.requires_two_factor_authentication or handler_class.resumes_session_unattended(
         credential.session_state
     )
