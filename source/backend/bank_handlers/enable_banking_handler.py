@@ -17,6 +17,7 @@ from source.backend.bank_handlers.base import (
     TwoFactorChallenge,
 )
 from source.backend.exceptions import (
+    BankRateLimitedError,
     InvalidCredentialsError,
     PSD2ApplicationNotActivatedError,
     PSD2RedirectUrlNotAllowedError,
@@ -66,6 +67,8 @@ class _EnableBankingApi(RestAPIClient):
         data: dict | None = None,
     ) -> Response:
         response = super().request(method=method, path=path, json_body=json_body, params=params, data=data)
+        if response.status_code == 429:
+            raise BankRateLimitedError("Enable Banking rate limited the request")
         if response.status_code in (401, 403):
             if "not active" in response.text.lower():
                 raise PSD2ApplicationNotActivatedError(
@@ -190,6 +193,7 @@ def _to_fetched_transaction(
 
 class EnableBankingHandler(BankHandler):
     CREDENTIAL_FIELDS = ("application_id", "private_key", "redirect_url", "aspsp_name", "aspsp_country")
+    RATE_LIMITED_SYNC_PAUSE = timedelta(hours=6)  # Enable Banking FAQ; no Retry-After is sent (#231)
     FIELD_RULES = {
         "application_id": (
             FieldRule(

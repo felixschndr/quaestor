@@ -497,7 +497,7 @@
         "unsupported_bank": "Diese Bank wird derzeit nicht unterstützt.",
         "unsupported_tan_method": "Das TAN-Verfahren deiner Bank wird derzeit nicht unterstützt.",
         "tan_not_accepted": "Die TAN wurde nicht akzeptiert oder nicht rechtzeitig eingegeben. Bitte synchronisiere erneut.",
-        "rate_limited": "Die Bank hat zu viele Anmeldeversuche blockiert. Versuche es später erneut.",
+        "rate_limited": "Die Bank erlaubt nur eine begrenzte Anzahl an Abrufen, und diese ist für den Moment aufgebraucht. Versuche es später erneut.",
         "timeout": "Die Bank hat nicht geantwortet. Versuche es später erneut.",
         "redirect_url_not_allowed": "Die hinterlegte Redirect-URL ist bei der Bank nicht freigegeben.",
         "application_not_activated": "Die Banking-Anwendung ist noch nicht freigeschaltet.",

@@ -3,7 +3,7 @@ from collections.abc import Callable, Iterable
 from concurrent.futures import Future
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from source.backend.bank_handlers.bank_logos import logo_slug
 from source.backend.models.transactions.transaction_type import TransactionType
@@ -119,6 +119,7 @@ class BankHandler(ABC):
     CREDENTIAL_FIELDS: tuple[str, ...]
     FIELD_RULES: dict[str, tuple[FieldRule, ...]] = {}
     WHITESPACE_STRIPPED_FIELDS: frozenset[str] = frozenset()
+    RATE_LIMITED_SYNC_PAUSE: timedelta | None = None
     session_state: dict | None = None
 
     @classmethod

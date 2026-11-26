@@ -20,6 +20,7 @@ from source.backend.bank_handlers.enable_banking_handler import (
     _to_fetched_transaction,
 )
 from source.backend.exceptions import (
+    BankRateLimitedError,
     InvalidCredentialsError,
     PSD2ApplicationNotActivatedError,
     PSD2RedirectUrlNotAllowedError,
@@ -266,6 +267,7 @@ def test_transaction_mapping_skips_undateable_and_info_entries():
         ({"session_id": SESSION_ID}, FakeHttpResponse(json_data={"status": "EXPIRED"}), ReauthenticationRequiredError),
         ({"session_id": SESSION_ID}, FakeHttpResponse(json_data={}, status_code=404), ReauthenticationRequiredError),
         ({"session_id": SESSION_ID}, FakeHttpResponse(json_data={}, status_code=401), InvalidCredentialsError),
+        ({"session_id": SESSION_ID}, FakeHttpResponse(json_data={}, status_code=429), BankRateLimitedError),
     ],
 )
 def test_session_that_is_not_authorized_raises(
