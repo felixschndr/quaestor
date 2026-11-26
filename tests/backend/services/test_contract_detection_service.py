@@ -11,6 +11,7 @@ from source.backend.models.accounts.account import Account
 from source.backend.models.contracts.contract import Contract
 from source.backend.models.contracts.contract_assignment import ContractAssignment
 from source.backend.models.contracts.contract_frequency import ContractFrequency
+from source.backend.models.contracts.contract_source import ContractSource
 from source.backend.models.transactions.category_source import CategorySource
 from source.backend.models.transactions.transaction import Transaction
 from source.backend.models.transactions.transaction_category import CategorizationRules, TransactionCategory
@@ -783,3 +784,39 @@ def test_deleted_detected_contract_is_not_recreated_by_the_next_detection(sessio
         assert detected == []
         assert session.query(Contract).count() == 0
         assert account.dismissed_contract_fingerprints == [NETFLIX_FINGERPRINT]
+
+
+def test_deleting_a_manual_contract_hands_its_payments_back_to_the_detection(session_factory: sessionmaker):
+    with session_factory() as session:
+        account = make_account_with_new_user(session)
+        for purpose, amount in ((GROCERIES, -LARGE_AMOUNT), (INSURANCES, -DEFAULT_AMOUNT)):
+            _seed(
+                session,
+                account_id=account.id,
+                other_party=HOUSEHOLD,
+                amount=amount,
+                day_offsets=MONTHLY_DAY_OFFSETS,
+                purpose=purpose,
+            )
+        manual_contract = make_contract(session, account_id=account.id, name=INSURANCES, source=ContractSource.MANUAL)
+        session.commit()
+        user = account.credential.user
+        for transaction in session.query(Transaction).filter(Transaction.purpose == INSURANCES):
+            contract_service.assign_transaction_to_contract(
+                db_session=session, user=user, contract_id=manual_contract.id, transaction_id=transaction.id
+            )
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+        session.commit()
+        assert session.query(Contract).count() == 2
+
+        contract_service.delete_contract(db_session=session, user=user, contract_id=manual_contract.id)
+        account_id = account.id
+
+    with session_factory() as session:
+        account = session.get(entity=Account, ident=account_id)
+        contract_detection_service.detect_contracts_for_account(db_session=session, account=account)
+
+        assert {contract.fingerprint for contract in session.query(Contract).all()} == {
+            f"{HOUSEHOLD_FINGERPRINT}:purpose:{GROCERIES.lower()}",
+            f"{HOUSEHOLD_FINGERPRINT}:purpose:{INSURANCES.lower()}",
+        }
