@@ -47,7 +47,7 @@ describe('autoSubscribe', () => {
     expect(api).not.toHaveBeenCalled()
   })
 
-  it('asks for permission, subscribes and sends a test push for a new device', async () => {
+  it('asks for permission and subscribes a new device without sending a test push', async () => {
     const { requestPermission, subscribe } = installPushEnv('default', null)
 
     await autoSubscribe()
@@ -55,7 +55,7 @@ describe('autoSubscribe', () => {
     expect(requestPermission).toHaveBeenCalled()
     expect(subscribe).toHaveBeenCalled()
     expect(api).toHaveBeenCalledWith('/push/subscribe', expect.anything())
-    expect(api).toHaveBeenCalledWith('/push/test', { method: 'POST' })
+    expect(api).not.toHaveBeenCalledWith('/push/test', expect.anything())
   })
 
   it('stays quiet when permission was denied', async () => {

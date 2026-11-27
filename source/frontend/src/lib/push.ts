@@ -56,7 +56,6 @@ export async function autoSubscribe(): Promise<void> {
     if (await registration.pushManager.getSubscription()) return
 
     await ensureSubscription()
-    await api('/push/test', { method: 'POST' })
   } catch (err) {
     console.warn('Push auto-subscribe failed', err)
   }
