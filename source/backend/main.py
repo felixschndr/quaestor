@@ -62,8 +62,8 @@ MAX_LOGGED_BODY_BYTES = 4096
 ALLOW_MISSING_FRONTEND_ENV = "ALLOW_MISSING_FRONTEND"
 
 LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(session)s] [%(name)s] %(message)s"
-# websockets logs handshake headers (Trade Republic session cookies) and urllib3 full URLs (push tokens) at DEBUG
-NOISY_LIBRARY_LOGGERS = ("fints", "mt940", "websockets", "urllib3")
+WEBSOCKET_LOGGERS = ("websockets.client", "websockets.server")
+WEBSOCKET_HEADER_LOG_FORMATS = frozenset({"> %s: %s", "< %s: %s"})
 DEFAULT_LOG_LEVEL = logging.INFO
 
 load_dotenv()
@@ -124,6 +124,17 @@ class _RenameUvicornError(logging.Filter):
         return True
 
 
+class _RedactWebsocketHeaders(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.msg in WEBSOCKET_HEADER_LOG_FORMATS and isinstance(record.args, tuple) and len(record.args) == 2:
+            key, value = record.args
+            record.args = (key, redact_headers({str(key): str(value)})[str(key)])
+        return True
+
+
+_redact_websocket_headers = _RedactWebsocketHeaders()
+
+
 def _route_third_party_loggers_to_root() -> None:
     for name in logging.root.manager.loggerDict:
         if name.startswith("uvicorn"):
@@ -152,8 +163,8 @@ def setup_logging() -> None:
     for handler in logging.root.handlers:
         handler.setFormatter(formatter)
         handler.addFilter(_RenameUvicornError())
-    for name in NOISY_LIBRARY_LOGGERS:
-        logging.getLogger(name).setLevel(max(DEFAULT_LOG_LEVEL, logging.root.level))
+    for name in WEBSOCKET_LOGGERS:
+        logging.getLogger(name).addFilter(_redact_websocket_headers)
     logger.debug(f"Logging configured at level {LOG_LEVEL}")
 
 

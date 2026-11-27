@@ -13,6 +13,7 @@ from starlette.types import Scope
 
 from source.backend import helpers, main
 from source.backend.helpers import get_project_name, get_project_version
+from source.backend.logging_utils import REDACTION_PLACEHOLDER
 from source.backend.services.contracts import contract_overdue_scheduler
 from source.backend.services.notifications import digest_scheduler
 from source.backend.services.transactions import recurring_transaction_scheduler
@@ -224,26 +225,9 @@ def test_periodic_scheduler_runs_its_job_and_logs_crashes(
 def restore_logging() -> Iterator[None]:
     root = logging.getLogger()
     saved_handlers, saved_level = list(root.handlers), root.level
-    saved_library_levels = {name: logging.getLogger(name).level for name in main.NOISY_LIBRARY_LOGGERS}
     yield
     root.handlers[:] = saved_handlers
     root.setLevel(saved_level)
-    for name, level in saved_library_levels.items():
-        logging.getLogger(name).setLevel(level)
-
-
-@pytest.mark.parametrize(
-    argnames="configured_level,expected_library_level",
-    argvalues=[("DEBUG", logging.INFO), ("INFO", logging.INFO), ("WARNING", logging.WARNING)],
-)
-@pytest.mark.usefixtures("restore_logging")
-def test_setup_logging_never_makes_noisy_libraries_louder_than_configured(
-    monkeypatch: pytest.MonkeyPatch, configured_level: str, expected_library_level: int
-):
-    monkeypatch.setattr(target=main, name="LOG_LEVEL", value=configured_level)
-    main.setup_logging()
-    for name in main.NOISY_LIBRARY_LOGGERS:
-        assert logging.getLogger(name).level == expected_library_level
 
 
 @pytest.mark.usefixtures("restore_logging")
@@ -265,3 +249,4 @@ def test_debug_logging_does_not_leak_websocket_handshake_cookies(
     asyncio.run(handshake())
 
     assert secret_cookie not in caplog.text
+    assert f"Cookie: {REDACTION_PLACEHOLDER}" in caplog.text
