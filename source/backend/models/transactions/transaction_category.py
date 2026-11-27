@@ -360,7 +360,7 @@ TRANSACTION_CATEGORY_MAPPING: dict[TransactionCategory, list[str]] = {
     TransactionCategory.TAXES: ["finanzamt", "steuer"],
     TransactionCategory.LEGAL: ["aktenzeichen", "anwalt", "gerichtskasse", "inkasso", "kanzlei", "notar"],
     TransactionCategory.EDUCATION: ["education", "hochschule", "universitaet", "university"],
-    TransactionCategory.PARKING: ["bewohnerparkausweis", "parken", "parkgarage"],
+    TransactionCategory.PARKING: ["bewohnerparkausweis", "parken", "parkgarage", "parkhaus", "parkplatz"],
     TransactionCategory.OTHER_INSURANCE: ["versicher"],
     TransactionCategory.DONATION: ["spende"],
     TransactionCategory.FEES: ["deutsche post", "gocardless"],
